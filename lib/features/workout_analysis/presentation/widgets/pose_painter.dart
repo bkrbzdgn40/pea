@@ -13,6 +13,7 @@ class PosePainter extends CustomPainter {
   });
 
   @override
+  // Landmark'ları ve iskeleti çizer.
   void paint(Canvas canvas, Size size) {
     // Form hatalıysa kırmızı, doğruysa yeşil iskelet
     final paintLine = Paint()
@@ -68,6 +69,7 @@ class PosePainter extends CustomPainter {
   }
 
   @override
+  // Veri değişince yeniden çizdirir.
   bool shouldRepaint(covariant PosePainter oldDelegate) {
     return oldDelegate.landmarks != landmarks || oldDelegate.isFormBad != isFormBad;
   }
