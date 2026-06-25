@@ -10,6 +10,7 @@ class LiveAnalysisScreen extends ConsumerWidget {
   const LiveAnalysisScreen({super.key});
 
   @override
+  // Kamera önizlemesini ve analiz katmanını çizer.
   Widget build(BuildContext context, WidgetRef ref) {
     final cameraState = ref.watch(cameraProvider);
     final workoutState = ref.watch(workoutControllerProvider);
@@ -36,18 +37,14 @@ class LiveAnalysisScreen extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               CameraPreview(controller),
-              
-              // İskelet Çizimi (Form hatasına göre renk değiştirir)
               if (workoutState.landmarks != null && workoutState.landmarks!.isNotEmpty)
                 CustomPaint(
                   painter: PosePainter(
-                    workoutState.landmarks!, 
+                    workoutState.landmarks!,
                     imageSize,
                     isFormBad: workoutState.isFormBad,
                   ),
                 ),
-
-              // Üst Panel: Tekrar ve Puan
               Positioned(
                 top: 60,
                 left: 20,
@@ -55,22 +52,20 @@ class LiveAnalysisScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _MetricCard(label: "TEKRAR", value: "${workoutState.repCount}"),
+                    _MetricCard(label: 'TEKRAR', value: workoutState.repCount.toString()),
                     _MetricCard(
-                      label: "FPS",
+                      label: 'FPS',
                       value: workoutState.cameraFps.toStringAsFixed(0),
                       color: Colors.cyanAccent,
                     ),
                     _MetricCard(
-                      label: "SKOR", 
+                      label: 'SKOR',
                       value: workoutState.lastRepScore.toInt().toString(),
                       color: Colors.greenAccent,
                     ),
                   ],
                 ),
               ),
-
-              // Alt Panel: Feedback ve Faz
               Positioned(
                 bottom: 40,
                 left: 20,
@@ -96,7 +91,7 @@ class LiveAnalysisScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      "DURUM: ${workoutState.currentPhase} | ANALİZ FPS: ${workoutState.analysisFps.toStringAsFixed(0)}",
+                      'DURUM: ' + workoutState.currentPhase + ' | ANALİZ FPS: ' + workoutState.analysisFps.toStringAsFixed(0),
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         letterSpacing: 2,
@@ -111,7 +106,7 @@ class LiveAnalysisScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Hata: $error')),
+        error: (error, _) => Center(child: Text('Hata: ' + error.toString())),
       ),
     );
   }
@@ -129,6 +124,7 @@ class _MetricCard extends StatelessWidget {
   });
 
   @override
+  // Tek bir metrik kartını çizer.
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -143,9 +139,9 @@ class _MetricCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: color, 
-              fontSize: 32, 
-              fontWeight: FontWeight.w900, // FontWeight.black yerine w900 kullanıldı
+              color: color,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
