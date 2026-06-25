@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+// Açı verisini yumuşatır.
 class MovingAverageFilter {
   final int windowSize;
   final Queue<double> _values = Queue<double>();
@@ -10,6 +11,7 @@ class MovingAverageFilter {
   MovingAverageFilter({this.windowSize = 5});
 
   /// Yeni bir açı değeri ekler ve filtrelenmiş (pürüzsüz) ortalamayı döndürür.
+  // Yeni değeri ekleyip ortalamayı döndürür.
   double process(double newValue) {
     _values.addLast(newValue);
     _sum += newValue;
@@ -25,6 +27,7 @@ class MovingAverageFilter {
   }
 
   /// Yeni bir antrenman setine geçildiğinde kuyruğu sıfırlamak için kullanılır
+  // Filtre geçmişini temizler.
   void reset() {
     _values.clear();
     _sum = 0.0;
