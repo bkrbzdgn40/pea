@@ -41,11 +41,13 @@ class ExerciseEngine {
 
   ExerciseEngine({required this.config});
 
+  // Formu ve tekrar fazını günceller.
   void update(double currentAngle, double backAngle) {
     _checkForm(backAngle);
     _processState(currentAngle);
   }
 
+  // Açıya göre faz geçişlerini yönetir.
   void _processState(double angle) {
     switch (state) {
       case MovementPhase.neutral:
@@ -96,6 +98,7 @@ class ExerciseEngine {
     }
   }
 
+  // Tekrarı sayar ve skoru hesaplar.
   void _finishRep() {
     repCount++;
     maxROM = _currentRepMinAngle;
@@ -112,6 +115,7 @@ class ExerciseEngine {
     lastRepScore = isFormBad ? (romScore + tempoScore) / 4 : (romScore + tempoScore) / 2;
   }
 
+  // Sırt açısına göre formu kontrol eder.
   void _checkForm(double backAngle) {
     if (backAngle < config.formThreshold) {
       isFormBad = true;
@@ -121,6 +125,7 @@ class ExerciseEngine {
     }
   }
 
+  // Sayaç ve metrikleri sıfırlar.
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;
