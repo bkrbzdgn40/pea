@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'features/workout_analysis/presentation/screens/live_analysis_screen.dart';
 
+// İzni isteyip uygulamayı başlatır.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
+  // Uygulama temasını ve giriş ekranını kurar.
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
