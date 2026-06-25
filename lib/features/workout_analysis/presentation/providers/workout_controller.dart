@@ -36,6 +36,7 @@ class WorkoutState {
     this.analysisFps = 0.0,
   });
 
+  // Mevcut durumu seçili alanlarla kopyalar.
   WorkoutState copyWith({
     List<PoseLandmark>? landmarks,
     int? repCount,
@@ -63,6 +64,7 @@ class WorkoutState {
   }
 }
 
+// Controller state'ini sağlar.
 final workoutControllerProvider =
     AutoDisposeNotifierProvider<WorkoutController, WorkoutState>(() {
   return WorkoutController();
@@ -83,6 +85,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final ExerciseConfig _config;
 
   @override
+  // Analiz motorunu ve filtreleri kurar.
   WorkoutState build() {
     ref.watch(poseDetectorProvider);
     
@@ -101,6 +104,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return WorkoutState();
   }
 
+  // Kamera karesini analiz edip UI state'ini günceller.
   Future<void> processCameraImage(
     CameraImage image,
     int sensorOrientation,
@@ -167,6 +171,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
+  // FPS sayaçlarını saniyelik yeniler.
   void _updateFpsIfNeeded() {
     final now = DateTime.now();
     final elapsedMs = now.difference(_lastFpsCalculationTime).inMilliseconds;
@@ -187,6 +192,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   /// Konfigürasyona göre ana eklem açısını dinamik olarak hesaplar
+  // Ana eklem açısını hesaplar.
   double _calculatePrimaryAngle(Pose pose) {
     final p1 = pose.landmarks[_config.joint1];
     final mid = pose.landmarks[_config.primaryJoint];
@@ -202,6 +208,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return 180.0;
   }
 
+  // Sırt açısını hesaplar.
   double _calculateBackAngle(Pose pose) {
     final shoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final hip = pose.landmarks[PoseLandmarkType.leftHip];
@@ -217,6 +224,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return 90.0;
   }
 
+  // Kamera karesini ML Kit formatına çevirir.
   InputImage? _convertCameraImageToInputImage(
     CameraImage image,
     int sensorOrientation,
