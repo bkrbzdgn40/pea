@@ -1,6 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// Ön kamerayı başlatıp controller döndürür.
 final cameraProvider = FutureProvider.autoDispose<CameraController>((
   ref,
 ) async {
