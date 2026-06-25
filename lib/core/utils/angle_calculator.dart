@@ -5,6 +5,7 @@ class AngleCalculator {
   /// [firstPoint] : Başlangıç noktası (Örn: Kalça)
   /// [midPoint]   : Açı merkezi olan köşe noktası (Örn: Diz)
   /// [lastPoint]  : Bitiş noktası (Örn: Ayak Bileği)
+  // Üç noktadan iç açıyı hesaplar.
   static double calculate(
     math.Point<double> firstPoint,
     math.Point<double> midPoint,
