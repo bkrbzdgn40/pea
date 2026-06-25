@@ -1,5 +1,7 @@
+// (Kullanılmıyor) Tekrar ve analiz veri modellerini tutar.
 
 /// Her bir tekrarın (rep) detaylı analizi
+// (Kullanılmıyor) Tekrar sonucunu taşır.
 class RepResult {
   final int index;
   final double rom; // Range of Motion (Max eğilme derecesi)
@@ -19,6 +21,7 @@ class RepResult {
 }
 
 /// Uygulamanın o anki analiz durumu
+// (Kullanılmıyor) Anlık analiz özetini taşır.
 class AnalysisMetrics {
   final double stabilityScore; // Vücudun ne kadar az titrediği
   final double currentROM;
