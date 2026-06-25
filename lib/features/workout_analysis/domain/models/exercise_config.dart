@@ -30,6 +30,7 @@ class ExerciseConfig {
   });
 
   // İleride JSON'dan yüklemek için
+  // Squat için varsayılan eşikleri kurar.
   factory ExerciseConfig.squat() => ExerciseConfig(
         name: "Squat",
         primaryJoint: PoseLandmarkType.leftKnee,
