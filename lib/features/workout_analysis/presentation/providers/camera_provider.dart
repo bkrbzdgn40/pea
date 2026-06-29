@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -26,7 +27,7 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
     // Cihazdaki gralloc/bellek hatalarını gidermek için çözünürlüğü düşürüyoruz
     ResolutionPreset.low,
     enableAudio: false,
-    imageFormatGroup: ImageFormatGroup.nv21,
+    imageFormatGroup: _cameraImageFormatGroup,
   );
 
   await controller.initialize();
@@ -37,3 +38,14 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
 
   return controller;
 });
+
+ImageFormatGroup get _cameraImageFormatGroup {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.iOS:
+      return ImageFormatGroup.bgra8888;
+    case TargetPlatform.android:
+      return ImageFormatGroup.nv21;
+    default:
+      return ImageFormatGroup.nv21;
+  }
+}

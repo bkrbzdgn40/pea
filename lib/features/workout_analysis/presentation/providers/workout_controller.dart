@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
@@ -10,6 +9,7 @@ import '../../../../core/utils/moving_average.dart';
 import '../../application/workout_state.dart';
 import '../../domain/exercise_engine.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../infrastructure/converters/input_image_converter.dart';
 import 'pose_provider.dart';
 
 // Controller state'ini sağlar.
@@ -31,6 +31,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final ExerciseConfig _config;
+  final InputImageConverter _inputImageConverter = const InputImageConverter();
 
   @override
   // Analiz motorunu ve filtreleri kurar.
@@ -64,10 +65,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _isProcessing = true;
 
     try {
-      final inputImage = _convertCameraImageToInputImage(
-        image,
-        sensorOrientation,
-      );
+      final inputImage = _inputImageConverter.convert(image, sensorOrientation);
       if (inputImage == null) {
         _isProcessing = false;
         return;
@@ -170,39 +168,5 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
     return 90.0;
-  }
-
-  // Kamera karesini ML Kit formatına çevirir.
-  InputImage? _convertCameraImageToInputImage(
-    CameraImage image,
-    int sensorOrientation,
-  ) {
-    try {
-      final rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
-      if (rotation == null) return null;
-
-      final format = InputImageFormatValue.fromRawValue(image.format.raw);
-      final finalFormat = format ?? InputImageFormat.yuv420;
-
-      if (image.planes.isEmpty) return null;
-
-      final WriteBuffer allBytes = WriteBuffer();
-      for (final Plane plane in image.planes) {
-        allBytes.putUint8List(plane.bytes);
-      }
-      final bytes = allBytes.done().buffer.asUint8List();
-
-      return InputImage.fromBytes(
-        bytes: bytes,
-        metadata: InputImageMetadata(
-          size: Size(image.width.toDouble(), image.height.toDouble()),
-          rotation: rotation,
-          format: finalFormat,
-          bytesPerRow: image.planes.first.bytesPerRow,
-        ),
-      );
-    } catch (e) {
-      return null;
-    }
   }
 }
