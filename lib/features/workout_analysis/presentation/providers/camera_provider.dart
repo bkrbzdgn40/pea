@@ -15,9 +15,9 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
   final controller = CameraController(
     frontCamera,
     // Cihazdaki gralloc/bellek hatalarını gidermek için çözünürlüğü düşürüyoruz
-    ResolutionPreset.low, 
+    ResolutionPreset.low,
     enableAudio: false,
-    imageFormatGroup: ImageFormatGroup.nv21, 
+    imageFormatGroup: ImageFormatGroup.nv21,
   );
 
   await controller.initialize();

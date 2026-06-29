@@ -67,8 +67,8 @@ class WorkoutState {
 // Controller state'ini sağlar.
 final workoutControllerProvider =
     AutoDisposeNotifierProvider<WorkoutController, WorkoutState>(() {
-  return WorkoutController();
-});
+      return WorkoutController();
+    });
 
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   bool _isProcessing = false;
@@ -78,7 +78,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   int _analysisFrameCount = 0;
   double _cameraFps = 0.0;
   double _analysisFps = 0.0;
-  
+
   late final ExerciseEngine _engine;
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
@@ -88,10 +88,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   // Analiz motorunu ve filtreleri kurar.
   WorkoutState build() {
     ref.watch(poseDetectorProvider);
-    
+
     _config = ExerciseConfig.squat();
     _engine = ExerciseEngine(config: _config);
-    
+
     _angleFilter = MovingAverageFilter(windowSize: 5);
     _backFilter = MovingAverageFilter(windowSize: 5);
 
@@ -100,7 +100,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFrameCount = 0;
     _cameraFps = 0.0;
     _analysisFps = 0.0;
-    
+
     return WorkoutState();
   }
 
@@ -116,7 +116,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _isProcessing = true;
 
     try {
-      final inputImage = _convertCameraImageToInputImage(image, sensorOrientation);
+      final inputImage = _convertCameraImageToInputImage(
+        image,
+        sensorOrientation,
+      );
       if (inputImage == null) {
         _isProcessing = false;
         return;
@@ -129,7 +132,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
       if (poses.isNotEmpty) {
         final pose = poses.first;
-        
+
         final rawAngle = _calculatePrimaryAngle(pose);
         final rawBack = _calculateBackAngle(pose);
 
@@ -185,10 +188,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFrameCount = 0;
     _lastFpsCalculationTime = now;
 
-    state = state.copyWith(
-      cameraFps: _cameraFps,
-      analysisFps: _analysisFps,
-    );
+    state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
   /// Konfigürasyona göre ana eklem açısını dinamik olarak hesaplar

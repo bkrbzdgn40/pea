@@ -4,13 +4,10 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 class PosePainter extends CustomPainter {
   final List<PoseLandmark> landmarks;
   final Size absoluteImageSize;
-  final bool isFormBad; // Formun hatalı olup olmadığını parametre olarak alıyoruz
+  final bool
+  isFormBad; // Formun hatalı olup olmadığını parametre olarak alıyoruz
 
-  PosePainter(
-    this.landmarks, 
-    this.absoluteImageSize, {
-    this.isFormBad = false,
-  });
+  PosePainter(this.landmarks, this.absoluteImageSize, {this.isFormBad = false});
 
   @override
   // Landmark'ları ve iskeleti çizer.
@@ -59,18 +56,22 @@ class PosePainter extends CustomPainter {
     drawConnection(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
     drawConnection(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
     drawConnection(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
-    
+
     drawConnection(PoseLandmarkType.rightShoulder, PoseLandmarkType.rightHip);
     drawConnection(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee);
     drawConnection(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle);
 
-    drawConnection(PoseLandmarkType.leftShoulder, PoseLandmarkType.rightShoulder);
+    drawConnection(
+      PoseLandmarkType.leftShoulder,
+      PoseLandmarkType.rightShoulder,
+    );
     drawConnection(PoseLandmarkType.leftHip, PoseLandmarkType.rightHip);
   }
 
   @override
   // Veri değişince yeniden çizdirir.
   bool shouldRepaint(covariant PosePainter oldDelegate) {
-    return oldDelegate.landmarks != landmarks || oldDelegate.isFormBad != isFormBad;
+    return oldDelegate.landmarks != landmarks ||
+        oldDelegate.isFormBad != isFormBad;
   }
 }

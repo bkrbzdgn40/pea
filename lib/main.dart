@@ -6,13 +6,11 @@ import 'features/workout_analysis/presentation/screens/live_analysis_screen.dart
 // İzni isteyip uygulamayı başlatır.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Kamera iznini uygulama başlamadan isteyelim
   await Permission.camera.request();
 
-  runApp(
-    const ProviderScope(child: MyApp()),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

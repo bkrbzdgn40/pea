@@ -21,7 +21,9 @@ class LiveAnalysisScreen extends ConsumerWidget {
         data: (controller) {
           if (!controller.value.isStreamingImages) {
             controller.startImageStream((image) {
-              ref.read(workoutControllerProvider.notifier).processCameraImage(
+              ref
+                  .read(workoutControllerProvider.notifier)
+                  .processCameraImage(
                     image,
                     controller.description.sensorOrientation,
                   );
@@ -37,7 +39,8 @@ class LiveAnalysisScreen extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               CameraPreview(controller),
-              if (workoutState.landmarks != null && workoutState.landmarks!.isNotEmpty)
+              if (workoutState.landmarks != null &&
+                  workoutState.landmarks!.isNotEmpty)
                 CustomPaint(
                   painter: PosePainter(
                     workoutState.landmarks!,
@@ -52,7 +55,10 @@ class LiveAnalysisScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _MetricCard(label: 'TEKRAR', value: workoutState.repCount.toString()),
+                    _MetricCard(
+                      label: 'TEKRAR',
+                      value: workoutState.repCount.toString(),
+                    ),
                     _MetricCard(
                       label: 'FPS',
                       value: workoutState.cameraFps.toStringAsFixed(0),
@@ -73,11 +79,20 @@ class LiveAnalysisScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: workoutState.isFormBad ? Colors.red.withOpacity(0.8) : Colors.black54,
+                        color: workoutState.isFormBad
+                            ? Colors.red.withOpacity(0.8)
+                            : Colors.black54,
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: workoutState.isFormBad ? Colors.white : Colors.greenAccent),
+                        border: Border.all(
+                          color: workoutState.isFormBad
+                              ? Colors.white
+                              : Colors.greenAccent,
+                        ),
                       ),
                       child: Text(
                         workoutState.feedbackMessage.toUpperCase(),
@@ -91,7 +106,10 @@ class LiveAnalysisScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'DURUM: ' + workoutState.currentPhase + ' | ANALİZ FPS: ' + workoutState.analysisFps.toStringAsFixed(0),
+                      'DURUM: ' +
+                          workoutState.currentPhase +
+                          ' | ANALİZ FPS: ' +
+                          workoutState.analysisFps.toStringAsFixed(0),
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         letterSpacing: 2,
@@ -135,7 +153,10 @@ class _MetricCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
           Text(
             value,
             style: TextStyle(
