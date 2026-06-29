@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'calibration_screen.dart';
+import 'camera_permission_screen.dart';
 
 class GuideScreen extends StatelessWidget {
   const GuideScreen({super.key});
@@ -24,7 +24,7 @@ class GuideScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -36,31 +36,57 @@ class GuideScreen extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 24),
-              ..._tips.map(
-                (tip) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.circle,
-                        color: Colors.greenAccent,
-                        size: 10,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          tip,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            height: 1.35,
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF151515),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  children: _tips
+                      .asMap()
+                      .entries
+                      .map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  color: Colors.greenAccent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${entry.key + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  entry.value,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      )
+                      .toList(),
                 ),
               ),
               const Spacer(),
@@ -69,7 +95,7 @@ class GuideScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const CalibrationScreen(),
+                      builder: (_) => const CameraPermissionScreen(),
                     ),
                   );
                 },
@@ -78,7 +104,14 @@ class GuideScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,
-                  minimumSize: const Size.fromHeight(54),
+                  minimumSize: const Size.fromHeight(56),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ],

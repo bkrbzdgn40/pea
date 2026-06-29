@@ -23,7 +23,7 @@ class CalibrationScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -35,7 +35,7 @@ class CalibrationScreen extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.',
                 style: TextStyle(
@@ -44,29 +44,43 @@ class CalibrationScreen extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 28),
-              ..._guidanceItems.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        color: Colors.greenAccent,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF151515),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  children: _guidanceItems
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.greenAccent,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      )
+                      .toList(),
                 ),
               ),
               const Spacer(),
@@ -84,10 +98,13 @@ class CalibrationScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,
-                  minimumSize: const Size.fromHeight(54),
+                  minimumSize: const Size.fromHeight(56),
                   textStyle: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),

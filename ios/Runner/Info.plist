@@ -16,6 +16,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>pose_estimation_app</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Bu uygulama hareket formunu analiz etmek ve tekrarları saymak için kamerayı kullanır.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

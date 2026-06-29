@@ -1,10 +1,19 @@
 import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Ön kamerayı başlatıp controller döndürür.
 final cameraProvider = FutureProvider.autoDispose<CameraController>((
   ref,
 ) async {
+  final permissionStatus = await Permission.camera.status;
+  if (!permissionStatus.isGranted) {
+    throw CameraException(
+      'cameraPermission',
+      'Kamera izni olmadan analiz başlatılamaz.',
+    );
+  }
+
   final cameras = await availableCameras();
 
   final frontCamera = cameras.firstWhere(

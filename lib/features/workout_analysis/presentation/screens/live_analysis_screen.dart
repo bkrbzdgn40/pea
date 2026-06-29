@@ -1,40 +1,149 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../providers/camera_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/pose_painter.dart';
+import 'camera_permission_screen.dart';
 import 'workout_summary_screen.dart';
 
-class LiveAnalysisScreen extends ConsumerWidget {
+class LiveAnalysisScreen extends ConsumerStatefulWidget {
   const LiveAnalysisScreen({super.key});
 
   @override
+  ConsumerState<LiveAnalysisScreen> createState() => _LiveAnalysisScreenState();
+}
+
+class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
+    with WidgetsBindingObserver {
+  bool _isNavigatingToPermission = false;
+  bool _isRecoveringCamera = false;
+  Timer? _recoveryTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    _recoveryTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _markCameraRecovering();
+      unawaited(_stopImageStreamIfNeeded());
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_recoverCameraIfAllowed());
+    }
+  }
+
+  Future<void> _stopImageStreamIfNeeded() async {
+    final controller = ref
+        .read(cameraProvider)
+        .maybeWhen(data: (controller) => controller, orElse: () => null);
+    final controllerValue = controller == null
+        ? null
+        : _safeControllerValue(controller);
+
+    if (controller == null ||
+        controllerValue == null ||
+        !controllerValue.isInitialized ||
+        !controllerValue.isStreamingImages) {
+      return;
+    }
+
+    try {
+      await controller.stopImageStream();
+    } catch (_) {
+      // The camera plugin can already be tearing down during lifecycle changes.
+    }
+  }
+
+  Future<void> _recoverCameraIfAllowed() async {
+    if (_isRecoveringCamera && ref.read(cameraProvider).isLoading) return;
+
+    _markCameraRecovering();
+
+    final status = await Permission.camera.status;
+    if (!mounted) return;
+
+    if (!status.isGranted) {
+      await _stopImageStreamIfNeeded();
+      if (!mounted) return;
+
+      ref.invalidate(cameraProvider);
+      _goToPermissionScreen();
+      return;
+    }
+
+    ref.invalidate(cameraProvider);
+  }
+
+  void _markCameraRecovering() {
+    if (!mounted) return;
+
+    if (!_isRecoveringCamera) {
+      setState(() => _isRecoveringCamera = true);
+    }
+
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isRecoveringCamera) {
+        setState(() => _isRecoveringCamera = false);
+      }
+    });
+  }
+
+  void _goToPermissionScreen() {
+    if (_isNavigatingToPermission || !mounted) return;
+
+    _isNavigatingToPermission = true;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const CameraPermissionScreen()),
+    );
+  }
+
+  @override
   // Kamera önizlemesini ve analiz katmanını çizer.
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cameraState = ref.watch(cameraProvider);
     final workoutState = ref.watch(workoutControllerProvider);
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: cameraState.when(
         data: (controller) {
-          if (!controller.value.isStreamingImages) {
-            controller.startImageStream((image) {
-              ref
-                  .read(workoutControllerProvider.notifier)
-                  .processCameraImage(
-                    image,
-                    controller.description.sensorOrientation,
-                  );
-            });
+          final controllerValue = _safeControllerValue(controller);
+          final previewSize = controllerValue?.previewSize;
+
+          if (controllerValue == null ||
+              !controllerValue.isInitialized ||
+              previewSize == null) {
+            return const _CameraRecoveryView();
           }
 
-          final imageSize = Size(
-            controller.value.previewSize!.height,
-            controller.value.previewSize!.width,
-          );
+          if (!controllerValue.isStreamingImages) {
+            _startImageStream(controller);
+          }
+
+          final imageSize = Size(previewSize.height, previewSize.width);
 
           return Stack(
             fit: StackFit.expand,
@@ -50,33 +159,34 @@ class LiveAnalysisScreen extends ConsumerWidget {
                   ),
                 ),
               Positioned(
-                top: 14,
+                top: topInset + 12,
                 right: 14,
-                child: SafeArea(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const WorkoutSummaryScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                    label: const Text('Bitir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.black54,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkoutSummaryScreen(),
                       ),
+                    );
+                  },
+                  icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                  label: const Text('Bitir'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.black54,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
               Positioned(
-                top: 60,
+                top: topInset + 72,
                 left: 20,
                 right: 20,
                 child: Row(
@@ -147,8 +257,143 @@ class LiveAnalysisScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Hata: $error')),
+        loading: () => const _CameraRecoveryView(),
+        error: (error, _) {
+          if (error is CameraException && error.code == 'cameraPermission') {
+            return _CameraPermissionFallback(onPressed: _goToPermissionScreen);
+          }
+
+          if (_isRecoveringCamera && _isTransientCameraLifecycleError(error)) {
+            return const _CameraRecoveryView();
+          }
+
+          return Center(child: Text('Hata: $error'));
+        },
+      ),
+    );
+  }
+
+  bool _isTransientCameraLifecycleError(Object error) {
+    final message = error.toString().toLowerCase();
+
+    return message.contains('dispose') ||
+        message.contains('disposed') ||
+        message.contains('controller') ||
+        message.contains('initialize') ||
+        message.contains('camera is closed') ||
+        message.contains('camera closed');
+  }
+
+  CameraValue? _safeControllerValue(CameraController controller) {
+    try {
+      return controller.value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _startImageStream(CameraController controller) {
+    try {
+      unawaited(
+        controller
+            .startImageStream((image) {
+              ref
+                  .read(workoutControllerProvider.notifier)
+                  .processCameraImage(
+                    image,
+                    controller.description.sensorOrientation,
+                  );
+            })
+            .catchError((_) {
+              _markCameraRecoveringAfterFrame();
+            }),
+      );
+    } catch (_) {
+      _markCameraRecoveringAfterFrame();
+    }
+  }
+
+  void _markCameraRecoveringAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markCameraRecovering();
+    });
+  }
+}
+
+class _CameraRecoveryView extends StatelessWidget {
+  const _CameraRecoveryView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(color: Colors.greenAccent),
+          const SizedBox(height: 16),
+          Text(
+            'Kamera yeniden hazırlanıyor...',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraPermissionFallback extends StatelessWidget {
+  const _CameraPermissionFallback({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.photo_camera_outlined,
+              color: Colors.greenAccent,
+              size: 42,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Kamera izni gerekli',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Analize devam etmek için kamera iznini kontrol et.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 15,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.lock_open_outlined),
+              label: const Text('İzni Kontrol Et'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.greenAccent,
+                foregroundColor: Colors.black,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
