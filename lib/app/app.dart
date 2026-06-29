@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../features/workout_analysis/presentation/screens/live_analysis_screen.dart';
+import '../features/workout_analysis/presentation/screens/home_screen.dart';
 
 class PoseAnalysisApp extends StatelessWidget {
   const PoseAnalysisApp({super.key});
@@ -12,7 +12,7 @@ class PoseAnalysisApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Pose Analysis',
       theme: ThemeData.dark(),
-      home: const LiveAnalysisScreen(),
+      home: const HomeScreen(),
     );
   }
 }

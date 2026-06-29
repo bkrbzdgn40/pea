@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/camera_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/pose_painter.dart';
+import 'workout_summary_screen.dart';
 
 class LiveAnalysisScreen extends ConsumerWidget {
   const LiveAnalysisScreen({super.key});
@@ -49,6 +50,32 @@ class LiveAnalysisScreen extends ConsumerWidget {
                   ),
                 ),
               Positioned(
+                top: 14,
+                right: 14,
+                child: SafeArea(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const WorkoutSummaryScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: const Text('Bitir'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.black54,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
                 top: 60,
                 left: 20,
                 right: 20,
@@ -85,7 +112,7 @@ class LiveAnalysisScreen extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: workoutState.isFormBad
-                            ? Colors.red.withOpacity(0.8)
+                            ? Colors.red.withValues(alpha: 0.8)
                             : Colors.black54,
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
@@ -106,12 +133,9 @@ class LiveAnalysisScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'DURUM: ' +
-                          workoutState.currentPhase +
-                          ' | ANALİZ FPS: ' +
-                          workoutState.analysisFps.toStringAsFixed(0),
+                      'DURUM: ${workoutState.currentPhase} | ANALİZ FPS: ${workoutState.analysisFps.toStringAsFixed(0)}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         letterSpacing: 2,
                         fontWeight: FontWeight.w500,
                       ),
@@ -124,7 +148,7 @@ class LiveAnalysisScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Hata: ' + error.toString())),
+        error: (error, _) => Center(child: Text('Hata: $error')),
       ),
     );
   }
