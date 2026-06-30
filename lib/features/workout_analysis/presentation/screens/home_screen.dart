@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/presentation/widgets/app_drawer.dart';
+
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
@@ -14,6 +16,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,

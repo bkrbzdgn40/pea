@@ -32,19 +32,19 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _userIdSubscription = ref.listenManual<String?>(
-      currentUserIdProvider,
-      (_, __) {
-        final ownerId = _resolveOwnerId();
-        if (ownerId == null ||
-            ownerId == _loadedOwnerId ||
-            ownerId == _loadingOwnerId) {
-          return;
-        }
+    _userIdSubscription = ref.listenManual<String?>(currentUserIdProvider, (
+      _,
+      __,
+    ) {
+      final ownerId = _resolveOwnerId();
+      if (ownerId == null ||
+          ownerId == _loadedOwnerId ||
+          ownerId == _loadingOwnerId) {
+        return;
+      }
 
-        unawaited(_loadInitialSessions(ownerIdOverride: ownerId));
-      },
-    );
+      unawaited(_loadInitialSessions(ownerIdOverride: ownerId));
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadInitialSessions());
     });
