@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/workout_session.dart';
+import '../providers/completed_session_provider.dart';
 import 'home_screen.dart';
 
-class WorkoutSummaryScreen extends StatelessWidget {
+class WorkoutSummaryScreen extends ConsumerWidget {
   const WorkoutSummaryScreen({super.key});
 
-  static const Map<String, String> _summaryValues = {
-    'Toplam tekrar': '12',
-    'Ortalama skor': '84',
-    'En iyi tekrar': '92',
-    'Form hatası': '3',
-    'Süre': '02:45',
-  };
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(completedSessionProvider);
+    final summaryValues = session == null
+        ? const <MapEntry<String, String>>[]
+        : _summaryValues(session);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -35,21 +35,25 @@ class WorkoutSummaryScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: Colors.white12),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Demo sonuçları',
-                      style: TextStyle(
+                      session == null
+                          ? 'Oturum verisi bulunamadı'
+                          : '${_exerciseTitle(session.exerciseType)} özeti',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 27,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      'Bu ekran müşteri demosu için örnek oturum değerleri gösterir.',
-                      style: TextStyle(
+                      session == null
+                          ? 'Canlı analiz tamamlandığında oturum özeti burada görünür.'
+                          : 'Canlı analizden oluşturulan gerçek oturum değerleri.',
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 15,
                         height: 1.35,
@@ -60,45 +64,20 @@ class WorkoutSummaryScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Expanded(
-                child: ListView.separated(
-                  itemCount: _summaryValues.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final entry = _summaryValues.entries.elementAt(index);
+                child: session == null
+                    ? const _MissingSessionView()
+                    : ListView.separated(
+                        itemCount: summaryValues.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final entry = summaryValues[index];
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 15,
+                          return _SummaryValueCard(
+                            label: entry.key,
+                            value: entry.value,
+                          );
+                        },
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF151515),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            entry.key,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontSize: 15,
-                            ),
-                          ),
-                          Text(
-                            entry.value,
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -143,4 +122,94 @@ class WorkoutSummaryScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MissingSessionView extends StatelessWidget {
+  const _MissingSessionView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Oturum verisi bulunamadı.',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.72),
+          fontSize: 16,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _SummaryValueCard extends StatelessWidget {
+  const _SummaryValueCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 15,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
+  return <MapEntry<String, String>>[
+    MapEntry('Egzersiz tipi', _exerciseTitle(session.exerciseType)),
+    MapEntry('Toplam tekrar', session.totalReps.toString()),
+    MapEntry('Ortalama skor', _formatScore(session.averageScore)),
+    MapEntry('En iyi skor', _formatScore(session.bestScore)),
+    MapEntry('Form uyarısı', session.formWarningCount.toString()),
+    MapEntry('Süre', _formatDuration(session.duration)),
+  ];
+}
+
+String _exerciseTitle(String exerciseType) {
+  return switch (exerciseType) {
+    'squat' => 'Squat',
+    _ => exerciseType
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' '),
+  };
+}
+
+String _formatScore(double score) {
+  return score.round().toString();
+}
+
+String _formatDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+  return '$minutes:$seconds';
 }

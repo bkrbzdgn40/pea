@@ -10,6 +10,7 @@ import '../../application/workout_state.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_provider.dart';
+import '../providers/session_repository_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/pose_painter.dart';
 import 'camera_permission_screen.dart';
@@ -198,6 +199,20 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       bestScore: _bestScore,
       formWarningCount: _formWarningCount,
     );
+
+    try {
+      await ref.read(sessionRepositoryProvider).saveSession(session);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() => _isFinishingSession = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Oturum kaydedilemedi. Lütfen tekrar dene.'),
+        ),
+      );
+      return;
+    }
 
     ref.read(completedSessionProvider.notifier).state = session;
     if (!mounted) return;
