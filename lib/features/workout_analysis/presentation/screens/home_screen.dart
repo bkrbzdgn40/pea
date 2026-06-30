@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
+import 'session_history_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -103,6 +104,19 @@ class HomeScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const GuideScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _SecondaryActionButton(
+                label: 'Geçmiş Oturumlar',
+                icon: Icons.history_rounded,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SessionHistoryScreen(),
+                    ),
                   );
                 },
               ),
