@@ -51,17 +51,15 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
-        _emptyMessage =
-            'Geçmiş oturumları görmek için önce bir analiz başlat.';
+        _emptyMessage = 'Geçmiş oturumları görmek için önce bir analiz başlat.';
       });
       return;
     }
 
     try {
-      final sessions = await ref.read(sessionRepositoryProvider).listSessions(
-            ownerId: ownerId,
-            limit: _pageSize,
-          );
+      final sessions = await ref
+          .read(sessionRepositoryProvider)
+          .listSessions(ownerId: ownerId, limit: _pageSize);
       if (!mounted) return;
 
       setState(() {
@@ -95,7 +93,9 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     });
 
     try {
-      final sessions = await ref.read(sessionRepositoryProvider).listSessions(
+      final sessions = await ref
+          .read(sessionRepositoryProvider)
+          .listSessions(
             ownerId: ownerId,
             limit: _pageSize,
             startAfter: _sessions.last,
@@ -399,11 +399,12 @@ class _SessionMetric extends StatelessWidget {
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
-    _ => exerciseType
-        .split('_')
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0].toUpperCase() + part.substring(1))
-        .join(' '),
+    _ =>
+      exerciseType
+          .split('_')
+          .where((part) => part.isNotEmpty)
+          .map((part) => part[0].toUpperCase() + part.substring(1))
+          .join(' '),
   };
 }
 

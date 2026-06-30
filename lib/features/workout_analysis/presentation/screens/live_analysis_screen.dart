@@ -169,7 +169,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     setState(() => _isFinishingSession = true);
 
-    final ownerId = ref.read(currentUserIdProvider);
+    final repositoryUserId = ref.read(authRepositoryProvider).currentUserId;
+    final providerUserId = ref.read(currentUserIdProvider);
+    final ownerId = repositoryUserId ?? providerUserId;
     if (ownerId == null) {
       if (!mounted) return;
 

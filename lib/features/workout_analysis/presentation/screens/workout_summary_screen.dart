@@ -195,11 +195,12 @@ List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
-    _ => exerciseType
-        .split('_')
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0].toUpperCase() + part.substring(1))
-        .join(' '),
+    _ =>
+      exerciseType
+          .split('_')
+          .where((part) => part.isNotEmpty)
+          .map((part) => part[0].toUpperCase() + part.substring(1))
+          .join(' '),
   };
 }
 
