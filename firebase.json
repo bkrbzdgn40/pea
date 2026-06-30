@@ -1,0 +1,27 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "pose-estimation-app-dd06c",
+          "appId": "1:79138049271:android:61d948d665af1eff7c17f2",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "pose-estimation-app-dd06c",
+          "configurations": {
+            "android": "1:79138049271:android:61d948d665af1eff7c17f2",
+            "ios": "1:79138049271:ios:9505d518e1e159b67c17f2",
+            "web": "1:79138049271:web:025a6f4f634a28547c17f2"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

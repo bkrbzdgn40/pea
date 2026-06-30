@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "79138049271",
+    "project_id": "pose-estimation-app-dd06c",
+    "storage_bucket": "pose-estimation-app-dd06c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:79138049271:android:61d948d665af1eff7c17f2",
+        "android_client_info": {
+          "package_name": "com.bekir.pose_estimation_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB40YjLdkRzZiLAHv-LBvja_Ise_7QD7QA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function hasSessionFields() {
+      return request.resource.data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'exerciseType',
+        'startedAt',
+        'endedAt',
+        'durationSec',
+        'totalReps',
+        'averageScore',
+        'bestScore',
+        'formWarningCount',
+        'createdAt',
+        'updatedAt',
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'id',
+        'ownerId',
+        'exerciseType',
+        'startedAt',
+        'endedAt',
+        'durationSec',
+        'totalReps',
+        'averageScore',
+        'bestScore',
+        'formWarningCount',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidSessionShape(userId, sessionId) {
+      return request.resource.data.id is string &&
+        request.resource.data.id == sessionId &&
+        request.resource.data.ownerId is string &&
+        request.resource.data.ownerId == userId &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.exerciseType is string &&
+        request.resource.data.startedAt is timestamp &&
+        request.resource.data.endedAt is timestamp &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        request.resource.data.endedAt >= request.resource.data.startedAt &&
+        request.resource.data.durationSec is int &&
+        request.resource.data.totalReps is int &&
+        request.resource.data.averageScore is number &&
+        request.resource.data.bestScore is number &&
+        request.resource.data.formWarningCount is int;
+    }
+
+    function isValidSessionCreate(userId, sessionId) {
+      return isOwner(userId) &&
+        hasSessionFields() &&
+        hasValidSessionShape(userId, sessionId);
+    }
+
+    function isValidSessionUpdate(userId, sessionId) {
+      return isOwner(userId) &&
+        resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.id == resource.data.id &&
+        hasSessionFields() &&
+        hasValidSessionShape(userId, sessionId);
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read, update, delete: if isOwner(userId);
+
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isValidSessionCreate(userId, sessionId);
+        allow update: if isValidSessionUpdate(userId, sessionId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
