@@ -17,10 +17,7 @@ class FirestoreSessionRepository implements SessionRepository {
     required String ownerId,
     required String sessionId,
   }) {
-    return _remoteSource.getSessionById(
-      ownerId: ownerId,
-      sessionId: sessionId,
-    );
+    return _remoteSource.getSessionById(ownerId: ownerId, sessionId: sessionId);
   }
 
   @override
@@ -43,9 +40,6 @@ class FirestoreSessionRepository implements SessionRepository {
     required String ownerId,
     required String sessionId,
   }) {
-    return _remoteSource.deleteSession(
-      ownerId: ownerId,
-      sessionId: sessionId,
-    );
+    return _remoteSource.deleteSession(ownerId: ownerId, sessionId: sessionId);
   }
 }

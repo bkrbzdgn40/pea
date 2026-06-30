@@ -72,5 +72,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'pose-estimation-app-dd06c.firebasestorage.app',
     iosBundleId: 'com.bekir.poseEstimationApp',
   );
-
 }

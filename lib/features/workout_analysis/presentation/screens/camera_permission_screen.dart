@@ -1,35 +1,43 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../auth/presentation/providers/auth_providers.dart';
 import 'calibration_screen.dart';
 
-class CameraPermissionScreen extends StatefulWidget {
+class CameraPermissionScreen extends ConsumerStatefulWidget {
   const CameraPermissionScreen({super.key});
 
   @override
-  State<CameraPermissionScreen> createState() => _CameraPermissionScreenState();
+  ConsumerState<CameraPermissionScreen> createState() =>
+      _CameraPermissionScreenState();
 }
 
-class _CameraPermissionScreenState extends State<CameraPermissionScreen>
+class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     with WidgetsBindingObserver {
   PermissionStatus? _status;
   bool _isChecking = false;
   bool _hasNavigated = false;
   bool _hasRequestedPermission = false;
+  bool _isPreparingAuth = false;
+  bool _authFailed = false;
+  String? _authErrorMessage;
 
   bool get _isBlocked {
     final status = _status;
     return status?.isPermanentlyDenied == true || status?.isRestricted == true;
   }
 
+  bool get _isBusy => _isChecking || _isPreparingAuth;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkPermission(continueIfGranted: true));
+      unawaited(_prepareAuthThenCheckPermission());
     });
   }
 
@@ -42,12 +50,58 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_checkPermission(continueIfGranted: true));
+      unawaited(_prepareAuthThenCheckPermission());
+    }
+  }
+
+  Future<void> _prepareAuthThenCheckPermission() async {
+    final isAuthReady = await _prepareAuthIfNeeded();
+    if (!isAuthReady || !mounted) return;
+
+    await _checkPermission(continueIfGranted: true);
+  }
+
+  Future<bool> _prepareAuthIfNeeded() async {
+    if (_isPreparingAuth || _hasNavigated) return false;
+
+    final authRepository = ref.read(authRepositoryProvider);
+    if (authRepository.currentUserId != null) {
+      if (_authFailed || _authErrorMessage != null) {
+        setState(() {
+          _authFailed = false;
+          _authErrorMessage = null;
+        });
+      }
+
+      return true;
+    }
+
+    setState(() {
+      _isPreparingAuth = true;
+      _authFailed = false;
+      _authErrorMessage = null;
+    });
+
+    try {
+      await authRepository.signInAnonymously();
+      if (!mounted) return false;
+
+      setState(() => _isPreparingAuth = false);
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+
+      setState(() {
+        _isPreparingAuth = false;
+        _authFailed = true;
+        _authErrorMessage = 'Analiz oturumu hazırlanamadı. Lütfen tekrar dene.';
+      });
+      return false;
     }
   }
 
   Future<void> _checkPermission({bool continueIfGranted = false}) async {
-    if (_isChecking || _hasNavigated) return;
+    if (_isChecking || _isPreparingAuth || _hasNavigated) return;
 
     setState(() => _isChecking = true);
 
@@ -65,7 +119,7 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
   }
 
   Future<void> _requestPermission() async {
-    if (_isChecking || _hasNavigated) return;
+    if (_isBusy || _authFailed || _hasNavigated) return;
 
     setState(() => _isChecking = true);
 
@@ -88,6 +142,14 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
   }
 
   Future<void> _handlePrimaryAction() async {
+    if (_authFailed || ref.read(authRepositoryProvider).currentUserId == null) {
+      final isAuthReady = await _prepareAuthIfNeeded();
+      if (!isAuthReady || !mounted) return;
+
+      await _checkPermission(continueIfGranted: true);
+      return;
+    }
+
     if (_isBlocked) {
       await _openSettings();
       return;
@@ -108,6 +170,15 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
 
   String get _message {
     final status = _status;
+
+    if (_isPreparingAuth) {
+      return 'Analiz oturumu hazırlanıyor. Kamera iznine geçmeden önce güvenli kullanıcı kimliği oluşturuluyor.';
+    }
+
+    if (_authFailed) {
+      return _authErrorMessage ??
+          'Analiz oturumu hazırlanamadı. Lütfen tekrar dene.';
+    }
 
     if (status?.isRestricted == true) {
       return 'Bu cihazda kamera izni kısıtlanmış görünüyor. Devam etmek için cihaz ayarlarını kontrol et.';
@@ -130,6 +201,14 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
 
   String get _primaryLabel {
     final status = _status;
+
+    if (_isPreparingAuth) {
+      return 'Hazırlanıyor';
+    }
+
+    if (_authFailed) {
+      return 'Tekrar Dene';
+    }
 
     if (_isBlocked) {
       return 'Ayarları Aç';
@@ -215,8 +294,8 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
               ),
               const SizedBox(height: 28),
               ElevatedButton.icon(
-                onPressed: _isChecking ? null : _handlePrimaryAction,
-                icon: _isChecking
+                onPressed: _isBusy ? null : _handlePrimaryAction,
+                icon: _isBusy
                     ? const SizedBox(
                         width: 18,
                         height: 18,

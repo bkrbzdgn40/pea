@@ -11,9 +11,10 @@ class FirestoreSessionRemoteSource {
 
   Future<void> saveSession(WorkoutSession session) async {
     try {
-      await _sessionDocument(session.ownerId, session.id).set(
-        _toFirestoreData(session),
-      );
+      await _sessionDocument(
+        session.ownerId,
+        session.id,
+      ).set(_toFirestoreData(session));
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be saved.',
