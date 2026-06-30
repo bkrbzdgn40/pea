@@ -24,17 +24,49 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   bool _hasMore = true;
   String? _errorMessage;
   String? _emptyMessage;
+  ProviderSubscription<String?>? _userIdSubscription;
+  String? _loadedOwnerId;
+  String? _loadingOwnerId;
+  int _loadRequestId = 0;
 
   @override
   void initState() {
     super.initState();
+    _userIdSubscription = ref.listenManual<String?>(
+      currentUserIdProvider,
+      (_, __) {
+        final ownerId = _resolveOwnerId();
+        if (ownerId == null ||
+            ownerId == _loadedOwnerId ||
+            ownerId == _loadingOwnerId) {
+          return;
+        }
+
+        unawaited(_loadInitialSessions(ownerIdOverride: ownerId));
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadInitialSessions());
     });
   }
 
-  Future<void> _loadInitialSessions() async {
+  @override
+  void dispose() {
+    _userIdSubscription?.close();
+    super.dispose();
+  }
+
+  String? _resolveOwnerId() {
+    return ref.read(authRepositoryProvider).currentUserId ??
+        ref.read(currentUserIdProvider);
+  }
+
+  Future<void> _loadInitialSessions({String? ownerIdOverride}) async {
     if (!mounted) return;
+
+    final loadRequestId = ++_loadRequestId;
+    final ownerId = ownerIdOverride ?? _resolveOwnerId();
+    _loadingOwnerId = ownerId;
 
     setState(() {
       _isInitialLoading = true;
@@ -43,10 +75,11 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       _emptyMessage = null;
     });
 
-    final ownerId = ref.read(currentUserIdProvider);
     if (ownerId == null) {
-      if (!mounted) return;
+      if (!mounted || loadRequestId != _loadRequestId) return;
 
+      _loadingOwnerId = null;
+      _loadedOwnerId = null;
       setState(() {
         _sessions.clear();
         _hasMore = false;
@@ -60,18 +93,22 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       final sessions = await ref
           .read(sessionRepositoryProvider)
           .listSessions(ownerId: ownerId, limit: _pageSize);
-      if (!mounted) return;
+      if (!mounted || loadRequestId != _loadRequestId) return;
 
+      _loadingOwnerId = null;
+      _loadedOwnerId = ownerId;
       setState(() {
         _sessions
           ..clear()
           ..addAll(sessions);
         _hasMore = sessions.length == _pageSize;
         _isInitialLoading = false;
+        _emptyMessage = null;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || loadRequestId != _loadRequestId) return;
 
+      _loadingOwnerId = null;
       setState(() {
         _sessions.clear();
         _hasMore = false;
@@ -84,7 +121,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   Future<void> _loadMoreSessions() async {
     if (_isLoadingMore || !_hasMore || _sessions.isEmpty) return;
 
-    final ownerId = ref.read(currentUserIdProvider);
+    final ownerId = _resolveOwnerId();
     if (ownerId == null) return;
 
     setState(() {

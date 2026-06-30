@@ -18,9 +18,11 @@ final authStateChangesProvider = StreamProvider<AuthUser?>((ref) {
 });
 
 final currentAuthUserProvider = Provider<AuthUser?>((ref) {
-  return ref.watch(authStateChangesProvider).valueOrNull;
+  return ref.watch(authStateChangesProvider).valueOrNull ??
+      ref.watch(authRepositoryProvider).currentUser;
 });
 
 final currentUserIdProvider = Provider<String?>((ref) {
-  return ref.watch(currentAuthUserProvider)?.uid;
+  return ref.watch(currentAuthUserProvider)?.uid ??
+      ref.watch(authRepositoryProvider).currentUserId;
 });
