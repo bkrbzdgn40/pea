@@ -19,7 +19,10 @@ final workoutControllerProvider =
     });
 
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
+  static const Duration _analysisFrameInterval = Duration(milliseconds: 100);
+
   bool _isProcessing = false;
+  DateTime? _lastAnalysisStartedAt;
 
   DateTime _lastFpsCalculationTime = DateTime.now();
   int _cameraFrameCount = 0;
@@ -49,6 +52,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFrameCount = 0;
     _cameraFps = 0.0;
     _analysisFps = 0.0;
+    _lastAnalysisStartedAt = null;
 
     return WorkoutState();
   }
@@ -58,10 +62,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     CameraImage image,
     int sensorOrientation,
   ) async {
+    final now = DateTime.now();
     _cameraFrameCount++;
     _updateFpsIfNeeded();
 
     if (_isProcessing) return;
+    if (_lastAnalysisStartedAt != null &&
+        now.difference(_lastAnalysisStartedAt!) < _analysisFrameInterval) {
+      return;
+    }
+
+    _lastAnalysisStartedAt = now;
     _isProcessing = true;
 
     try {

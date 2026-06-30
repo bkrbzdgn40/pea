@@ -35,18 +35,25 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   int _formWarningCount = 0;
   bool _previousFormBad = false;
   bool _isFinishingSession = false;
+  bool _isRecoveringCameraRefreshInFlight = false;
   Timer? _recoveryTimer;
+  ProviderSubscription<WorkoutState>? _workoutStateSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startSessionLifecycle();
+    _workoutStateSubscription = ref.listenManual<WorkoutState>(
+      workoutControllerProvider,
+      _collectSessionMetrics,
+    );
   }
 
   @override
   void dispose() {
     _recoveryTimer?.cancel();
+    _workoutStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -84,6 +91,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isFinishingSession) return;
+
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
@@ -120,23 +129,29 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   Future<void> _recoverCameraIfAllowed() async {
+    if (_isFinishingSession || _isRecoveringCameraRefreshInFlight) return;
     if (_isRecoveringCamera && ref.read(cameraProvider).isLoading) return;
 
+    _isRecoveringCameraRefreshInFlight = true;
     _markCameraRecovering();
 
-    final status = await Permission.camera.status;
-    if (!mounted) return;
+    try {
+      final status = await Permission.camera.status;
+      if (!mounted || _isFinishingSession) return;
 
-    if (!status.isGranted) {
-      await _stopImageStreamIfNeeded();
-      if (!mounted) return;
+      if (!status.isGranted) {
+        await _stopImageStreamIfNeeded();
+        if (!mounted || _isFinishingSession) return;
+
+        ref.invalidate(cameraProvider);
+        _goToPermissionScreen();
+        return;
+      }
 
       ref.invalidate(cameraProvider);
-      _goToPermissionScreen();
-      return;
+    } finally {
+      _isRecoveringCameraRefreshInFlight = false;
     }
-
-    ref.invalidate(cameraProvider);
   }
 
   void _markCameraRecovering() {
@@ -183,6 +198,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       );
       return;
     }
+
+    await _stopImageStreamIfNeeded();
+    if (!mounted) return;
 
     _collectSessionMetrics(null, workoutState);
 
@@ -232,7 +250,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   @override
   // Kamera önizlemesini ve analiz katmanını çizer.
   Widget build(BuildContext context) {
-    ref.listen<WorkoutState>(workoutControllerProvider, _collectSessionMetrics);
+    if (_isFinishingSession) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: _CameraRecoveryView(),
+      );
+    }
 
     final cameraState = ref.watch(cameraProvider);
     final workoutState = ref.watch(workoutControllerProvider);
@@ -259,7 +282,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          if (!controllerValue.isStreamingImages) {
+          if (!_isFinishingSession && !controllerValue.isStreamingImages) {
             _startImageStream(controller);
           }
 
