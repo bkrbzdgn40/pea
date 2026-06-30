@@ -6,6 +6,8 @@ import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
 import 'session_history_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/exercise_distribution_card.dart';
+import '../widgets/score_trend_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -41,6 +43,10 @@ class HomeScreen extends StatelessWidget {
               const _HomeHeroCard(),
               const SizedBox(height: 16),
               const _DashboardStats(),
+              const SizedBox(height: 14),
+              const ScoreTrendCard(),
+              const SizedBox(height: 14),
+              const ExerciseDistributionCard(),
               const SizedBox(height: 14),
               const _AiCoachPreviewCard(),
               const SizedBox(height: 20),
@@ -122,7 +128,7 @@ class _HomeHeroCard extends StatelessWidget {
           ),
           SizedBox(height: 16),
           Text(
-            'Yapay Zeka Antrenör',
+            'Form Analiz Asistanı',
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -159,6 +165,7 @@ class _DashboardStats extends StatelessWidget {
             _DashboardStatCard(label: 'Toplam Analiz', value: '24'),
             _DashboardStatCard(label: 'Ortalama Skor', value: '82'),
             _DashboardStatCard(label: 'Bu Hafta', value: '6'),
+            _DashboardStatCard(label: 'En İyi Skor', value: '94'),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
         );
       },
