@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// Ön kamerayı başlatıp controller döndürür.
+import 'settings_provider.dart';
+
 final cameraProvider = FutureProvider.autoDispose<CameraController>((
   ref,
 ) async {
@@ -15,17 +16,18 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
     );
   }
 
+  final settings = await ref.watch(settingsControllerProvider.future);
   final cameras = await availableCameras();
 
-  final frontCamera = cameras.firstWhere(
-    (camera) => camera.lensDirection == CameraLensDirection.front,
+  final selectedCamera = cameras.firstWhere(
+    (camera) =>
+        camera.lensDirection == _cameraLensDirection(settings.cameraPreference),
     orElse: () => cameras.first,
   );
 
   final controller = CameraController(
-    frontCamera,
-    // Cihazdaki gralloc/bellek hatalarını gidermek için çözünürlüğü düşürüyoruz
-    ResolutionPreset.low,
+    selectedCamera,
+    _resolutionPreset(settings.cameraQuality),
     enableAudio: false,
     imageFormatGroup: _cameraImageFormatGroup,
   );
@@ -38,6 +40,21 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
 
   return controller;
 });
+
+CameraLensDirection _cameraLensDirection(WorkoutCameraPreference preference) {
+  return switch (preference) {
+    WorkoutCameraPreference.front => CameraLensDirection.front,
+    WorkoutCameraPreference.back => CameraLensDirection.back,
+  };
+}
+
+ResolutionPreset _resolutionPreset(WorkoutCameraQuality quality) {
+  return switch (quality) {
+    WorkoutCameraQuality.low => ResolutionPreset.low,
+    WorkoutCameraQuality.medium => ResolutionPreset.medium,
+    WorkoutCameraQuality.high => ResolutionPreset.high,
+  };
+}
 
 ImageFormatGroup get _cameraImageFormatGroup {
   switch (defaultTargetPlatform) {

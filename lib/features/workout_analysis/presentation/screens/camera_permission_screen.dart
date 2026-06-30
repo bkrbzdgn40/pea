@@ -17,6 +17,7 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
   PermissionStatus? _status;
   bool _isChecking = false;
   bool _hasNavigated = false;
+  bool _hasRequestedPermission = false;
 
   bool get _isBlocked {
     final status = _status;
@@ -74,6 +75,7 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
     setState(() {
       _status = status;
       _isChecking = false;
+      _hasRequestedPermission = true;
     });
 
     if (status.isGranted) {
@@ -115,20 +117,30 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
       return 'Kamera izni kalıcı olarak kapalı. Analize devam etmek için telefon ayarlarından kamera iznini açman gerekiyor.';
     }
 
+    if (status?.isDenied == true && _hasRequestedPermission) {
+      return 'Kamera izni verilmedi. Hazır olduğunda tekrar deneyebilirsin; izin verilene kadar burada güvenli şekilde bekleyeceğiz.';
+    }
+
     if (status?.isDenied == true) {
-      return 'Kamera izni verilmedi. Vücut eklemlerini algılamak ve hareket formunu analiz etmek için izne ihtiyacımız var.';
+      return 'Analize başlamadan önce kamera iznine ihtiyacımız var. İzin istemek için aşağıdaki butona dokun.';
     }
 
     return 'Vücut eklemlerini algılamak, hareket formunu analiz etmek ve tekrarları gerçek zamanlı saymak için kamera izni gerekiyor.';
   }
 
   String get _primaryLabel {
+    final status = _status;
+
     if (_isBlocked) {
       return 'Ayarları Aç';
     }
 
     if (_isChecking) {
       return 'Kontrol Ediliyor';
+    }
+
+    if (status?.isDenied == true && _hasRequestedPermission) {
+      return 'Tekrar Dene';
     }
 
     return 'Kamera İzni Ver';
@@ -193,6 +205,10 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
                     ),
                     const _PermissionBenefit(
                       text: 'Doğru tekrarları saymaya yardımcı olur.',
+                    ),
+                    const _PermissionBenefit(
+                      text:
+                          'Görüntüler kesinlikle depolanmaz veya bir yere gönderilmez',
                     ),
                   ],
                 ),

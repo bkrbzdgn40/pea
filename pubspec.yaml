@@ -36,6 +36,7 @@ dependencies:
   # Canlı Kamera Akışı ve İzinler
   camera: ^0.10.5+8
   permission_handler: ^11.3.1
+  shared_preferences: ^2.3.2
 
   # Yapay Zeka / Pose Estimation (İlerleyen adım için hazır tutuyoruz)
   google_mlkit_pose_detection: ^0.14.1

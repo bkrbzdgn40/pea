@@ -1,21 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-class SettingsScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/settings_provider.dart';
+
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settingsState = ref.watch(settingsControllerProvider);
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool _audioFeedback = true;
-  bool _vibration = true;
-  bool _darkTheme = true;
-  double _sensitivity = 0.7;
-  String _cameraPreference = 'Ön kamera';
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -23,75 +19,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Colors.black,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
-          _SettingsSection(
-            title: 'Geri bildirim',
+      body: settingsState.when(
+        data: (settings) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
-              SwitchListTile(
-                value: _audioFeedback,
-                onChanged: (value) => setState(() => _audioFeedback = value),
-                title: const Text('Sesli geri bildirim'),
-                activeThumbColor: Colors.greenAccent,
-              ),
-              SwitchListTile(
-                value: _vibration,
-                onChanged: (value) => setState(() => _vibration = value),
-                title: const Text('Titreşim'),
-                activeThumbColor: Colors.greenAccent,
+              _SettingsSection(
+                title: 'Kamera',
+                children: [
+                  _SettingsDropdownTile<WorkoutCameraPreference>(
+                    title: 'Kamera tercihi',
+                    value: settings.cameraPreference,
+                    values: WorkoutCameraPreference.values,
+                    labelFor: (preference) => preference.label,
+                    onChanged: (preference) {
+                      if (preference == null) return;
+
+                      unawaited(
+                        ref
+                            .read(settingsControllerProvider.notifier)
+                            .setCameraPreference(preference),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, color: Colors.white12),
+                  _SettingsDropdownTile<WorkoutCameraQuality>(
+                    title: 'Görüntü kalitesi',
+                    value: settings.cameraQuality,
+                    values: WorkoutCameraQuality.values,
+                    labelFor: (quality) => quality.label,
+                    onChanged: (quality) {
+                      if (quality == null) return;
+
+                      unawaited(
+                        ref
+                            .read(settingsControllerProvider.notifier)
+                            .setCameraQuality(quality),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          _SettingsSection(
-            title: 'Görünüm',
-            children: [
-              SwitchListTile(
-                value: _darkTheme,
-                onChanged: (value) => setState(() => _darkTheme = value),
-                title: const Text('Koyu tema'),
-                activeThumbColor: Colors.greenAccent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SettingsSection(
-            title: 'Analiz',
-            children: [
-              ListTile(
-                title: const Text('Analiz hassasiyeti'),
-                subtitle: Slider(
-                  value: _sensitivity,
-                  onChanged: (value) => setState(() => _sensitivity = value),
-                  activeColor: Colors.greenAccent,
-                ),
-              ),
-              ListTile(
-                title: const Text('Kamera tercihi'),
-                subtitle: Text(_cameraPreference),
-                trailing: DropdownButton<String>(
-                  value: _cameraPreference,
-                  dropdownColor: const Color(0xFF202020),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'Ön kamera',
-                      child: Text('Ön kamera'),
+          );
+        },
+        loading: () {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.greenAccent),
+          );
+        },
+        error: (error, _) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.settings_outlined,
+                    color: Colors.greenAccent,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Ayarlar yüklenemedi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
-                    DropdownMenuItem(
-                      value: 'Arka kamera',
-                      child: Text('Arka kamera'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _cameraPreference = value);
-                  },
-                ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => ref.invalidate(settingsControllerProvider),
+                    child: const Text('Tekrar dene'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SettingsDropdownTile<T> extends StatelessWidget {
+  const _SettingsDropdownTile({
+    required this.title,
+    required this.value,
+    required this.values,
+    required this.labelFor,
+    required this.onChanged,
+  });
+
+  final String title;
+  final T value;
+  final List<T> values;
+  final String Function(T value) labelFor;
+  final ValueChanged<T?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title),
+      subtitle: Text(
+        labelFor(value),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
+      ),
+      trailing: DropdownButton<T>(
+        value: value,
+        dropdownColor: const Color(0xFF202020),
+        underline: const SizedBox.shrink(),
+        iconEnabledColor: Colors.greenAccent,
+        style: const TextStyle(color: Colors.white),
+        items: values
+            .map(
+              (item) =>
+                  DropdownMenuItem<T>(value: item, child: Text(labelFor(item))),
+            )
+            .toList(),
+        onChanged: onChanged,
       ),
     );
   }

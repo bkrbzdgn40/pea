@@ -129,7 +129,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       body: cameraState.when(
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: false,
         data: (controller) {
+          // Riverpod can keep the previous controller during refresh; hide the
+          // preview while recovery is active so a disposing controller is not used.
+          if (_isRecoveringCamera || cameraState.isLoading) {
+            return const _CameraRecoveryView();
+          }
+
           final controllerValue = _safeControllerValue(controller);
           final previewSize = controllerValue?.previewSize;
 
