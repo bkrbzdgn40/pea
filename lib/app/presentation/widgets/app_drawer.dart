@@ -6,8 +6,12 @@ import '../../../features/workout_analysis/presentation/screens/home_screen.dart
 import '../../../features/workout_analysis/presentation/screens/session_history_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/settings_screen.dart';
 
+enum AppDrawerPage { home, exerciseSelection, sessionHistory, guide, settings }
+
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  const AppDrawer({super.key, this.currentPage});
+
+  final AppDrawerPage? currentPage;
 
   @override
   Widget build(BuildContext context) {
@@ -65,28 +69,38 @@ class AppDrawer extends StatelessWidget {
                       _DrawerItem(
                         icon: Icons.home_rounded,
                         label: 'Ana Sayfa',
-                        onTap: () => _open(context, (_) => HomeScreen()),
+                        isSelected: currentPage == AppDrawerPage.home,
+                        onTap: () => _open(
+                          context,
+                          (_) => HomeScreen(),
+                          isCurrent: currentPage == AppDrawerPage.home,
+                        ),
                       ),
                       _DrawerItem(
                         icon: Icons.directions_run_rounded,
                         label: 'Hareket Seç',
+                        isSelected:
+                            currentPage == AppDrawerPage.exerciseSelection,
                         onTap: () =>
                             _open(context, (_) => ExerciseSelectionScreen()),
                       ),
                       _DrawerItem(
                         icon: Icons.history_rounded,
                         label: 'Geçmiş Oturumlar',
+                        isSelected: currentPage == AppDrawerPage.sessionHistory,
                         onTap: () =>
                             _open(context, (_) => SessionHistoryScreen()),
                       ),
                       _DrawerItem(
                         icon: Icons.menu_book_rounded,
                         label: 'Hareket Rehberi',
+                        isSelected: currentPage == AppDrawerPage.guide,
                         onTap: () => _open(context, (_) => GuideScreen()),
                       ),
                       _DrawerItem(
                         icon: Icons.settings_rounded,
                         label: 'Ayarlar',
+                        isSelected: currentPage == AppDrawerPage.settings,
                         onTap: () => _open(context, (_) => SettingsScreen()),
                       ),
                     ],
@@ -100,9 +114,15 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _open(BuildContext context, WidgetBuilder builder) {
+  void _open(
+    BuildContext context,
+    WidgetBuilder builder, {
+    bool isCurrent = false,
+  }) {
     final navigator = Navigator.of(context);
     navigator.pop();
+    if (isCurrent) return;
+
     navigator.push(MaterialPageRoute(builder: builder));
   }
 }
@@ -112,20 +132,27 @@ class _DrawerItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isSelected = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.greenAccent),
+      selected: isSelected,
+      selectedTileColor: Colors.greenAccent.withValues(alpha: 0.12),
+      leading: Icon(
+        icon,
+        color: isSelected ? Colors.greenAccent : Colors.white70,
+      ),
       title: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: isSelected ? Colors.greenAccent : Colors.white,
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
