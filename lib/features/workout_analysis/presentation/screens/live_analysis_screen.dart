@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../application/workout_state.dart';
+import '../../domain/models/workout_session.dart';
 import '../providers/camera_provider.dart';
+import '../providers/completed_session_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/pose_painter.dart';
 import 'camera_permission_screen.dart';
@@ -22,12 +26,21 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
   bool _isRecoveringCamera = false;
+  DateTime? _sessionStartedAt;
+  int _lastObservedRepCount = 0;
+  double _repScoreSum = 0;
+  int _scoredRepCount = 0;
+  double _bestScore = 0;
+  int _formWarningCount = 0;
+  bool _previousFormBad = false;
+  bool _isFinishingSession = false;
   Timer? _recoveryTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startSessionLifecycle();
   }
 
   @override
@@ -35,6 +48,37 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _recoveryTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _startSessionLifecycle() {
+    _sessionStartedAt = DateTime.now();
+    _lastObservedRepCount = 0;
+    _repScoreSum = 0;
+    _scoredRepCount = 0;
+    _bestScore = 0;
+    _formWarningCount = 0;
+    _previousFormBad = false;
+    _isFinishingSession = false;
+    ref.read(completedSessionProvider.notifier).state = null;
+  }
+
+  void _collectSessionMetrics(WorkoutState? _, WorkoutState next) {
+    final repDelta = next.repCount - _lastObservedRepCount;
+    if (repDelta > 0) {
+      _repScoreSum += next.lastRepScore * repDelta;
+      _scoredRepCount += repDelta;
+
+      if (next.lastRepScore > _bestScore) {
+        _bestScore = next.lastRepScore;
+      }
+    }
+
+    if (!_previousFormBad && next.isFormBad) {
+      _formWarningCount += 1;
+    }
+
+    _lastObservedRepCount = next.repCount;
+    _previousFormBad = next.isFormBad;
   }
 
   @override
@@ -119,9 +163,60 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
+  Future<void> _finishSession(WorkoutState workoutState) async {
+    if (_isFinishingSession || !mounted) return;
+
+    setState(() => _isFinishingSession = true);
+
+    final ownerId = ref.read(currentUserIdProvider);
+    if (ownerId == null) {
+      if (!mounted) return;
+
+      setState(() => _isFinishingSession = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Analiz oturumu hazırlanamadı. Lütfen tekrar dene.'),
+        ),
+      );
+      return;
+    }
+
+    _collectSessionMetrics(null, workoutState);
+
+    final endedAt = DateTime.now();
+    final startedAt = _sessionStartedAt ?? endedAt;
+    final durationSec = endedAt.difference(startedAt).inSeconds;
+    final session = WorkoutSession(
+      id: 'session_${endedAt.microsecondsSinceEpoch}',
+      ownerId: ownerId,
+      exerciseType: 'squat',
+      startedAt: startedAt,
+      endedAt: endedAt,
+      durationSec: durationSec < 0 ? 0 : durationSec,
+      totalReps: workoutState.repCount,
+      averageScore: _scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount,
+      bestScore: _bestScore,
+      formWarningCount: _formWarningCount,
+    );
+
+    ref.read(completedSessionProvider.notifier).state = session;
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
+    );
+
+    if (mounted) {
+      setState(() => _isFinishingSession = false);
+    }
+  }
+
   @override
   // Kamera önizlemesini ve analiz katmanını çizer.
   Widget build(BuildContext context) {
+    ref.listen<WorkoutState>(workoutControllerProvider, _collectSessionMetrics);
+
     final cameraState = ref.watch(cameraProvider);
     final workoutState = ref.watch(workoutControllerProvider);
     final topInset = MediaQuery.paddingOf(context).top;
@@ -170,14 +265,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 top: topInset + 12,
                 right: 14,
                 child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const WorkoutSummaryScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _isFinishingSession
+                      ? null
+                      : () => unawaited(_finishSession(workoutState)),
                   icon: const Icon(Icons.stop_circle_outlined, size: 18),
                   label: const Text('Bitir'),
                   style: TextButton.styleFrom(
