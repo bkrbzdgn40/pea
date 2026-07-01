@@ -11,6 +11,7 @@ import '../../domain/models/workout_session.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_provider.dart';
 import '../providers/session_repository_provider.dart';
+import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/pose_painter.dart';
 import 'camera_permission_screen.dart';
@@ -222,6 +223,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     try {
       await ref.read(sessionRepositoryProvider).saveSession(session);
+      ref.invalidate(userSessionsSnapshotProvider);
     } catch (_) {
       if (!mounted) return;
 
