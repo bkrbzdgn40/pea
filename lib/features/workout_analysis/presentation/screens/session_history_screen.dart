@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/session_repository_provider.dart';
+import 'session_detail_screen.dart';
 
 class SessionHistoryScreen extends ConsumerStatefulWidget {
   const SessionHistoryScreen({super.key});
@@ -206,7 +207,19 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
             itemCount: _sessions.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              return _SessionCard(session: _sessions[index]);
+              final session = _sessions[index];
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SessionDetailScreen(session: session),
+                    ),
+                  );
+                },
+                child: _SessionCard(session: session),
+              );
             },
           ),
         ),
