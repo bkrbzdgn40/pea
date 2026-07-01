@@ -8,6 +8,8 @@ class AuthBootstrapGate extends ConsumerWidget {
   const AuthBootstrapGate({super.key});
 
   @override
+  // Uygulama açılır açılmaz auth bootstrap durumunu dinler ve kullanıcı hazırsa
+  // ana ekrana, değilse yüklenme ya da hata görünümüne yönlendirir.
   Widget build(BuildContext context, WidgetRef ref) {
     final bootstrapState = ref.watch(authBootstrapProvider);
 
@@ -35,6 +37,7 @@ class _AuthBootstrapLoadingView extends StatelessWidget {
   const _AuthBootstrapLoadingView();
 
   @override
+  // Auth bootstrap çalışırken kullanıcıya siyah temalı basit bir yüklenme ekranı gösterir.
   Widget build(BuildContext context) {
     return const Scaffold(
       backgroundColor: Colors.black,
@@ -64,6 +67,7 @@ class _AuthBootstrapErrorView extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
+  // Oturum hazırlığı başarısız olduğunda hata mesajını ve yeniden deneme aksiyonunu gösterir.
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
