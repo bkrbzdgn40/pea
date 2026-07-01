@@ -3,11 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
 import '../../../achievements/presentation/data/demo_achievements.dart';
-import '../../../achievements/presentation/models/achievement.dart';
 import '../../../achievements/presentation/screens/achievements_screen.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../goals/presentation/data/demo_workout_goals.dart';
-import '../../../goals/presentation/models/workout_goal.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
@@ -17,6 +15,7 @@ import 'guide_screen.dart';
 import 'session_history_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/exercise_distribution_card.dart';
+import '../widgets/home_feature_preview_card.dart';
 import '../widgets/score_trend_card.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -58,8 +57,13 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               _DashboardStats(data: dashboardData),
               const SizedBox(height: 14),
-              _GoalPreviewCard(
-                goal: demoWorkoutGoals.first,
+              HomeFeaturePreviewCard(
+                title: 'Haftalık Hedef',
+                subtitle: demoWorkoutGoals.first.title,
+                icon: Icons.flag_rounded,
+                progress: demoWorkoutGoals.first.progress,
+                trailingText:
+                    '${_formatGoalValue(demoWorkoutGoals.first.currentValue)} / ${_formatGoalValue(demoWorkoutGoals.first.targetValue)} ${demoWorkoutGoals.first.unit}',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -68,8 +72,13 @@ class HomeScreen extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 14),
-              _AchievementPreviewCard(
-                achievement: demoAchievements.first,
+              HomeFeaturePreviewCard(
+                title: 'Başarılar',
+                subtitle: demoAchievements.first.title,
+                icon: Icons.emoji_events_rounded,
+                badgeText: demoAchievements.first.isUnlocked ? 'Açık' : null,
+                progress: demoAchievements.first.normalizedProgress,
+                trailingText: demoAchievements.first.requirementText,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -86,7 +95,12 @@ class HomeScreen extends ConsumerWidget {
                 items: dashboardData.exerciseDistribution,
               ),
               const SizedBox(height: 14),
-              _AiCoachPreviewCard(
+              HomeFeaturePreviewCard(
+                title: 'AI Coach',
+                subtitle:
+                    'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
+                icon: Icons.auto_awesome_rounded,
+                badgeText: 'Yakında',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -243,7 +257,10 @@ class _DashboardStats extends StatelessWidget {
               label: 'Bu Hafta',
               value: data.thisWeekCount.toString(),
             ),
-            _DashboardStatCard(label: 'En İyi Skor', value: '94'),
+            _DashboardStatCard(
+              label: 'En İyi Skor',
+              value: data.bestScore.toString(),
+            ),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
         );
       },
@@ -284,317 +301,6 @@ class _DashboardStatCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GoalPreviewCard extends StatelessWidget {
-  const _GoalPreviewCard({required this.goal, required this.onTap});
-
-  final WorkoutGoal goal;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final progressPercent = (goal.progress * 100).round();
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.flag_rounded,
-                    color: Colors.greenAccent,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Haftalık Hedef',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        goal.title,
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.greenAccent,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_formatGoalValue(goal.currentValue)} / ${_formatGoalValue(goal.targetValue)} ${goal.unit}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  '%$progressPercent',
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: goal.progress,
-              minHeight: 7,
-              backgroundColor: Colors.white12,
-              color: Colors.greenAccent,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AchievementPreviewCard extends StatelessWidget {
-  const _AchievementPreviewCard({
-    required this.achievement,
-    required this.onTap,
-  });
-
-  final Achievement achievement;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final progressPercent = (achievement.normalizedProgress * 100).round();
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.emoji_events_rounded,
-                    color: Colors.greenAccent,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Başarılar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        achievement.title,
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.greenAccent,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    achievement.requirementText,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  achievement.isUnlocked ? 'Açık' : '%$progressPercent',
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: achievement.normalizedProgress,
-              minHeight: 7,
-              backgroundColor: Colors.white12,
-              color: Colors.greenAccent,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AiCoachPreviewCard extends StatelessWidget {
-  const _AiCoachPreviewCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.greenAccent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: Colors.greenAccent,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'AI Coach',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      _SoonBadge(),
-                    ],
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SoonBadge extends StatelessWidget {
-  const _SoonBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.greenAccent,
-        borderRadius: BorderRadius.all(Radius.circular(999)),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        child: Text(
-          'Yakında',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
       ),
     );
   }
