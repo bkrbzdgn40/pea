@@ -301,6 +301,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     workoutState.landmarks!,
                     imageSize,
                     isFormBad: workoutState.isFormBad,
+                    isMirrored:
+                        controller.description.lensDirection ==
+                        CameraLensDirection.front,
                   ),
                 ),
               Positioned(

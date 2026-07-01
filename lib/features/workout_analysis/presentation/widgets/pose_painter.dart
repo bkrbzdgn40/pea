@@ -4,15 +4,18 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 class PosePainter extends CustomPainter {
   final List<PoseLandmark> landmarks;
   final Size absoluteImageSize;
-  final bool
-  isFormBad; // Formun hatalı olup olmadığını parametre olarak alıyoruz
+  final bool isFormBad;
+  final bool isMirrored;
 
-  PosePainter(this.landmarks, this.absoluteImageSize, {this.isFormBad = false});
+  PosePainter(
+    this.landmarks,
+    this.absoluteImageSize, {
+    this.isFormBad = false,
+    this.isMirrored = false,
+  });
 
   @override
-  // Landmark'ları ve iskeleti çizer.
   void paint(Canvas canvas, Size size) {
-    // Form hatalıysa kırmızı, doğruysa yeşil iskelet
     final paintLine = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.0
@@ -23,14 +26,14 @@ class PosePainter extends CustomPainter {
       ..color = isFormBad ? Colors.orange : Colors.redAccent;
 
     double translateX(double x) {
-      return size.width - (x * size.width / absoluteImageSize.width);
+      final scaledX = x * size.width / absoluteImageSize.width;
+      return isMirrored ? size.width - scaledX : scaledX;
     }
 
     double translateY(double y) {
       return y * size.height / absoluteImageSize.height;
     }
 
-    // Eklem noktalarını çiz
     for (final landmark in landmarks) {
       canvas.drawCircle(
         Offset(translateX(landmark.x), translateY(landmark.y)),
@@ -52,7 +55,6 @@ class PosePainter extends CustomPainter {
       } catch (_) {}
     }
 
-    // Gövde ve Bacak Bağlantıları
     drawConnection(PoseLandmarkType.leftShoulder, PoseLandmarkType.leftHip);
     drawConnection(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee);
     drawConnection(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle);
@@ -69,9 +71,9 @@ class PosePainter extends CustomPainter {
   }
 
   @override
-  // Veri değişince yeniden çizdirir.
   bool shouldRepaint(covariant PosePainter oldDelegate) {
     return oldDelegate.landmarks != landmarks ||
-        oldDelegate.isFormBad != isFormBad;
+        oldDelegate.isFormBad != isFormBad ||
+        oldDelegate.isMirrored != isMirrored;
   }
 }
