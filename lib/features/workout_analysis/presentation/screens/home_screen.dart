@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
+import '../../../achievements/presentation/data/demo_achievements.dart';
+import '../../../achievements/presentation/models/achievement.dart';
+import '../../../achievements/presentation/screens/achievements_screen.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../goals/presentation/data/demo_workout_goals.dart';
 import '../../../goals/presentation/models/workout_goal.dart';
@@ -61,6 +64,18 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _AchievementPreviewCard(
+                achievement: demoAchievements.first,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AchievementsScreen(),
+                    ),
                   );
                 },
               ),
@@ -368,6 +383,115 @@ class _GoalPreviewCard extends StatelessWidget {
             const SizedBox(height: 8),
             LinearProgressIndicator(
               value: goal.progress,
+              minHeight: 7,
+              backgroundColor: Colors.white12,
+              color: Colors.greenAccent,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementPreviewCard extends StatelessWidget {
+  const _AchievementPreviewCard({
+    required this.achievement,
+    required this.onTap,
+  });
+
+  final Achievement achievement;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final progressPercent = (achievement.normalizedProgress * 100).round();
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: Colors.greenAccent,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Başarılar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        achievement.title,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.greenAccent,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    achievement.requirementText,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  achievement.isUnlocked ? 'Açık' : '%$progressPercent',
+                  style: const TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: achievement.normalizedProgress,
               minHeight: 7,
               backgroundColor: Colors.white12,
               color: Colors.greenAccent,
