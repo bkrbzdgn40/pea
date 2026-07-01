@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../domain/models/workout_session.dart';
 
 class SessionDetailScreen extends StatelessWidget {
@@ -9,52 +10,46 @@ class SessionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Oturum Detayı'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _SessionSummaryCard(session: session),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _MetricTile(
-                    label: 'Süre',
-                    value: _formatDuration(session.duration),
-                  ),
-                  _MetricTile(
-                    label: 'Toplam Tekrar',
-                    value: session.totalReps.toString(),
-                  ),
-                  _MetricTile(
-                    label: 'Ortalama Skor',
-                    value: _formatScore(session.averageScore),
-                  ),
-                  _MetricTile(
-                    label: 'En İyi Skor',
-                    value: _formatScore(session.bestScore),
-                  ),
-                  _MetricTile(
-                    label: 'Form Uyarısı',
-                    value: session.formWarningCount.toString(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _RecommendationCard(session: session),
-            ],
-          ),
+    return AppScaffoldShell(
+      title: 'Oturum Detayı',
+      showDrawer: false,
+      padding: EdgeInsets.zero,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SessionSummaryCard(session: session),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricTile(
+                  label: 'Süre',
+                  value: _formatDuration(session.duration),
+                ),
+                _MetricTile(
+                  label: 'Toplam Tekrar',
+                  value: session.totalReps.toString(),
+                ),
+                _MetricTile(
+                  label: 'Ortalama Skor',
+                  value: _formatScore(session.averageScore),
+                ),
+                _MetricTile(
+                  label: 'En İyi Skor',
+                  value: _formatScore(session.bestScore),
+                ),
+                _MetricTile(
+                  label: 'Form Uyarısı',
+                  value: session.formWarningCount.toString(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _RecommendationCard(session: session),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/session_repository_provider.dart';
@@ -157,19 +158,10 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Geçmiş Oturumlar'),
-        backgroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: _buildBody(),
-        ),
-      ),
+    return AppScaffoldShell(
+      title: 'Geçmiş Oturumlar',
+      currentPage: AppDrawerPage.sessionHistory,
+      body: _buildBody(),
     );
   }
 

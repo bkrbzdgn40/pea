@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../data/demo_workout_goals.dart';
 import '../models/workout_goal.dart';
 
@@ -8,27 +9,21 @@ class GoalsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Hedefler'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          itemCount: demoWorkoutGoals.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return const _GoalsHeaderCard();
-            }
+    return AppScaffoldShell(
+      title: 'Hedefler',
+      showDrawer: false,
+      padding: EdgeInsets.zero,
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        itemCount: demoWorkoutGoals.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return const _GoalsHeaderCard();
+          }
 
-            return _GoalCard(goal: demoWorkoutGoals[index - 1]);
-          },
-        ),
+          return _GoalCard(goal: demoWorkoutGoals[index - 1]);
+        },
       ),
     );
   }

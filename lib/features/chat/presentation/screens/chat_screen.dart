@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
 
@@ -32,59 +33,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatControllerProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('AI Coach'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 14),
+    return AppScaffoldShell(
+      title: 'AI Coach',
+      showDrawer: false,
+      padding: EdgeInsets.zero,
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 4, 20, 14),
+            child: Text(
+              'Form, tempo ve antrenman önerileri için demo sohbet alanı.',
+              style: TextStyle(color: Colors.white60, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: chatState.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.greenAccent),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                    itemCount: chatState.messages.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      return _MessageBubble(message: chatState.messages[index]);
+                    },
+                  ),
+          ),
+          if (chatState.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Text(
-                'Form, tempo ve antrenman önerileri için demo sohbet alanı.',
-                style: TextStyle(color: Colors.white60, fontSize: 13),
+                chatState.errorMessage!,
+                style: const TextStyle(color: Colors.redAccent),
                 textAlign: TextAlign.center,
               ),
             ),
-            Expanded(
-              child: chatState.isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.greenAccent,
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-                      itemCount: chatState.messages.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        return _MessageBubble(
-                          message: chatState.messages[index],
-                        );
-                      },
-                    ),
-            ),
-            if (chatState.errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text(
-                  chatState.errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            _ChatInput(
-              controller: _textController,
-              isSending: chatState.isSending,
-              onSend: _sendMessage,
-            ),
-          ],
-        ),
+          _ChatInput(
+            controller: _textController,
+            isSending: chatState.isSending,
+            onSend: _sendMessage,
+          ),
+        ],
       ),
     );
   }

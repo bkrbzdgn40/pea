@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../data/exercise_guide_contents.dart';
 import '../models/exercise_guide_content.dart';
 
@@ -8,23 +9,17 @@ class GuideScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Hareket Rehberi'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          itemCount: exerciseGuideContents.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            return _ExerciseGuideCard(content: exerciseGuideContents[index]);
-          },
-        ),
+    return AppScaffoldShell(
+      title: 'Hareket Rehberi',
+      currentPage: AppDrawerPage.guide,
+      padding: EdgeInsets.zero,
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        itemCount: exerciseGuideContents.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _ExerciseGuideCard(content: exerciseGuideContents[index]);
+        },
       ),
     );
   }

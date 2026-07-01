@@ -148,27 +148,49 @@ class _HomeHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white12),
       ),
-      child: const Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.fitness_center_rounded,
-            color: Colors.greenAccent,
-            size: 34,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Form Analiz Asistanı',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.greenAccent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.greenAccent.withOpacity(0.25)),
+            ),
+            child: const Icon(
+              Icons.fitness_center_rounded,
+              color: Colors.greenAccent,
+              size: 30,
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Canlı kamera analiziyle formunu takip et, tekrarlarını ölç ve antrenman geçmişini izle.',
-            style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.35),
+
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Form Analiz Asistanı',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Canlı kamera analiziyle formunu takip et, tekrarlarını ölç ve antrenman geçmişini izle.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
