@@ -68,6 +68,10 @@ class ExerciseEngine {
 
   ExerciseEngine({required this.config});
 
+  double get currentRepWorstBackAngle => _currentRepWorstBackAngle;
+
+  bool get currentRepHadFormViolation => _currentRepHadFormViolation;
+
   // Formu ve tekrar fazını günceller.
   void update(double currentAngle, double backAngle) {
     _checkForm(backAngle);

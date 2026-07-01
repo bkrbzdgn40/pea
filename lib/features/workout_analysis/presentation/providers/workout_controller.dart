@@ -109,6 +109,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           currentPhase: _engine.state.name.toUpperCase(),
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
+          calibrationMetrics: _buildCalibrationMetrics(smoothBack),
         );
       } else {
         state = WorkoutState(
@@ -122,6 +123,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           currentPhase: "WAITING",
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
+          calibrationMetrics: _buildCalibrationMetrics(0),
         );
       }
     } catch (e) {
@@ -179,5 +181,23 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
     return 90.0;
+  }
+
+  WorkoutCalibrationMetrics _buildCalibrationMetrics(double currentBackAngle) {
+    final lastBreakdown = _engine.lastRepScoreBreakdown;
+
+    return WorkoutCalibrationMetrics(
+      currentBackAngle: currentBackAngle,
+      formThreshold: _config.formThreshold,
+      currentRepWorstBackAngle: _engine.currentRepWorstBackAngle,
+      currentRepHadFormViolation: _engine.currentRepHadFormViolation,
+      hasLastRepBreakdown: lastBreakdown != null,
+      lastRepRomScore: lastBreakdown?.romScore ?? 0,
+      lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
+      lastRepAscentScoreCandidate:
+          lastBreakdown?.ascentScoreCandidate ?? 0,
+      lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
+      lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
+    );
   }
 }

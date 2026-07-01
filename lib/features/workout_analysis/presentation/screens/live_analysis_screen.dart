@@ -37,6 +37,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _previousFormBad = false;
   bool _isFinishingSession = false;
   bool _isRecoveringCameraRefreshInFlight = false;
+  bool _showCalibrationPanel = false;
   Timer? _recoveryTimer;
   ProviderSubscription<WorkoutState>? _workoutStateSubscription;
 
@@ -343,6 +344,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       label: 'FPS',
                       value: workoutState.cameraFps.toStringAsFixed(0),
                       color: Colors.cyanAccent,
+                      onLongPress: () {
+                        setState(
+                          () => _showCalibrationPanel =
+                              !_showCalibrationPanel,
+                        );
+                      },
                     ),
                     _MetricCard(
                       label: 'SKOR',
@@ -352,6 +359,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   ],
                 ),
               ),
+              if (_showCalibrationPanel)
+                Positioned(
+                  top: topInset + 152,
+                  left: 20,
+                  right: 20,
+                  child: _CalibrationDebugPanel(
+                    workoutState: workoutState,
+                    onClose: () {
+                      setState(() => _showCalibrationPanel = false);
+                    },
+                  ),
+                ),
               Positioned(
                 bottom: 40,
                 left: 20,
@@ -546,17 +565,21 @@ class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final VoidCallback? onLongPress;
 
   const _MetricCard({
     required this.label,
     required this.value,
     this.color = Colors.white,
+    this.onLongPress,
   });
 
   @override
   // Tek bir metrik kartını çizer.
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.black38,
@@ -579,6 +602,139 @@ class _MetricCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
+}
+
+class _CalibrationDebugPanel extends StatelessWidget {
+  const _CalibrationDebugPanel({
+    required this.workoutState,
+    required this.onClose,
+  });
+
+  final WorkoutState workoutState;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = workoutState.calibrationMetrics;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.45)),
+      ),
+      child: DefaultTextStyle(
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Calibration',
+                    style: TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: onClose,
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _DebugMetricRow(
+              label: 'knee/current',
+              value: _formatAngle(workoutState.currentAngle),
+            ),
+            _DebugMetricRow(
+              label: 'back-angle',
+              value: _formatAngle(metrics.currentBackAngle),
+            ),
+            _DebugMetricRow(
+              label: 'threshold',
+              value: _formatAngle(metrics.formThreshold),
+            ),
+            _DebugMetricRow(
+              label: 'isFormBad',
+              value: workoutState.isFormBad ? 'true' : 'false',
+            ),
+            _DebugMetricRow(
+              label: 'rep worst back',
+              value: _formatAngle(metrics.currentRepWorstBackAngle),
+            ),
+            _DebugMetricRow(
+              label: 'rep violation',
+              value: metrics.currentRepHadFormViolation ? 'true' : 'false',
+            ),
+            if (metrics.hasLastRepBreakdown) ...[
+              const Divider(color: Colors.white24, height: 14),
+              Text(
+                'last rep: score ${workoutState.lastRepScore.toStringAsFixed(1)} | '
+                'rom ${metrics.lastRepRomScore.toStringAsFixed(1)} | '
+                'desc ${metrics.lastRepDescentScore.toStringAsFixed(1)} | '
+                'asc ${metrics.lastRepAscentScoreCandidate.toStringAsFixed(1)}',
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'last form: worst ${_formatAngle(metrics.lastRepWorstBackAngle)} | '
+                'violation ${metrics.lastRepHadFormViolation ? 'true' : 'false'}',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DebugMetricRow extends StatelessWidget {
+  const _DebugMetricRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatAngle(double value) {
+  return '${value.toStringAsFixed(1)}°';
 }
