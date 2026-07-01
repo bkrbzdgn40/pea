@@ -145,12 +145,13 @@ class ExerciseEngine {
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
     );
+    final tempoScore = (descentScore + ascentScoreCandidate) / 2;
 
-    // Current final score behavior is preserved: ascent and rep-level form
-    // history are visible in the breakdown, but not applied to final scoring yet.
+    // Form penalty behavior stays binary; rep-level form history remains
+    // visible in the breakdown, but is not applied to final scoring yet.
     final finalScore = isFormBad
-        ? (romScore + descentScore) / 4
-        : (romScore + descentScore) / 2;
+        ? (romScore + tempoScore) / 4
+        : (romScore + tempoScore) / 2;
 
     lastRepScore = finalScore;
     lastRepScoreBreakdown = RepScoreBreakdown(
