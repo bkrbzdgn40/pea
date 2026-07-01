@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_providers.dart';
 
+// Uygulama acilisinda kullanici oturumunu hazirlar.
 final authBootstrapProvider = FutureProvider<AuthBootstrapState>((ref) async {
   final authRepository = ref.read(authRepositoryProvider);
 
@@ -13,7 +14,7 @@ final authBootstrapProvider = FutureProvider<AuthBootstrapState>((ref) async {
     await authRepository.signInAnonymously();
 
     if (authRepository.currentUserId == null) {
-      return const AuthBootstrapState.error('Kullanıcı oturumu hazırlanamadı.');
+      return const AuthBootstrapState.error('Kullanici oturumu hazirlanamadi.');
     }
 
     return const AuthBootstrapState.ready(didCreateAnonymousSession: true);
@@ -29,12 +30,14 @@ class AuthBootstrapState {
     this.errorMessage,
   });
 
+  // Basarili bootstrap durumunu uretir.
   const AuthBootstrapState.ready({required bool didCreateAnonymousSession})
     : this._(
         isReady: true,
         didCreateAnonymousSession: didCreateAnonymousSession,
       );
 
+  // Hata olusursa hata state'ini uretir.
   const AuthBootstrapState.error(String errorMessage)
     : this._(
         isReady: false,
