@@ -147,9 +147,8 @@ class ExerciseEngine {
     );
     final tempoScore = (descentScore + ascentScoreCandidate) / 2;
 
-    // Form penalty behavior stays binary; rep-level form history remains
-    // visible in the breakdown, but is not applied to final scoring yet.
-    final finalScore = isFormBad
+    // Form penalty stays binary, but is now based on the full rep history.
+    final finalScore = _currentRepHadFormViolation
         ? (romScore + tempoScore) / 4
         : (romScore + tempoScore) / 2;
 
