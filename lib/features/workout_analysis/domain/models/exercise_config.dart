@@ -16,6 +16,8 @@ class ExerciseConfig {
   final double idealDescentSeconds; // İdeal iniş süresi
   final double idealAscentSeconds; // İdeal kalkış süresi
   final double formThreshold; // Form hatası açısı
+  final double targetMinAngle;
+  final double tempoPenaltyPerSecond;
 
   ExerciseConfig({
     required this.name,
@@ -28,6 +30,8 @@ class ExerciseConfig {
     this.idealDescentSeconds = 2.0,
     this.idealAscentSeconds = 1.0,
     this.formThreshold = 45.0,
+    this.targetMinAngle = 70.0,
+    this.tempoPenaltyPerSecond = 20.0,
   });
 
   // İleride JSON'dan yüklemek için
@@ -42,5 +46,7 @@ class ExerciseConfig {
     thresholdPeak: 95.0,
     idealDescentSeconds: 1.5,
     idealAscentSeconds: 1.0,
+    targetMinAngle: 70.0,
+    tempoPenaltyPerSecond: 20.0,
   );
 }
