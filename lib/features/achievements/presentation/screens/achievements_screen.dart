@@ -1,30 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
-import '../data/demo_achievements.dart';
 import '../models/achievement.dart';
+import '../providers/achievements_provider.dart';
 
-class AchievementsScreen extends StatelessWidget {
+class AchievementsScreen extends ConsumerWidget {
   const AchievementsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final achievementsState = ref.watch(achievementsProvider);
+
     return AppScaffoldShell(
       title: 'Başarılar',
       showDrawer: false,
       padding: EdgeInsets.zero,
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        itemCount: demoAchievements.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return const _AchievementsHeaderCard();
-          }
-
-          return _AchievementCard(achievement: demoAchievements[index - 1]);
-        },
+      body: achievementsState.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Colors.greenAccent),
+        ),
+        error: (_, _) => const _AchievementsErrorMessage(),
+        data: (state) => _AchievementsList(state: state),
       ),
+    );
+  }
+}
+
+class _AchievementsList extends StatelessWidget {
+  const _AchievementsList({required this.state});
+
+  final AchievementsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      itemCount: state.achievements.length + (state.isFallback ? 2 : 1),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return const _AchievementsHeaderCard();
+        }
+
+        if (state.isFallback && index == 1) {
+          return _AchievementsSourceNotice(message: state.sourceMessage);
+        }
+
+        final achievementIndex = index - (state.isFallback ? 2 : 1);
+        return _AchievementCard(
+          achievement: state.achievements[achievementIndex],
+        );
+      },
     );
   }
 }
@@ -44,7 +71,11 @@ class _AchievementsHeaderCard extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.emoji_events_rounded, color: Colors.greenAccent, size: 34),
+          Icon(
+            Icons.emoji_events_rounded,
+            color: Colors.greenAccent,
+            size: 34,
+          ),
           SizedBox(height: 14),
           Text(
             'İlerlemeni ve açılan rozetleri burada göreceksin',
@@ -56,10 +87,71 @@ class _AchievementsHeaderCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'Bu rozetler demo veridir. Sonraki adımlarda gerçek oturum verilerine bağlanabilir.',
+            'Güvenilir rozetler mevcut oturum verilerine bağlanır. Veri yoksa örnek rozetler gösterilir.',
             style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AchievementsSourceNotice extends StatelessWidget {
+  const _AchievementsSourceNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Colors.white70,
+            size: 17,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievementsErrorMessage extends StatelessWidget {
+  const _AchievementsErrorMessage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: const Text(
+          'Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }

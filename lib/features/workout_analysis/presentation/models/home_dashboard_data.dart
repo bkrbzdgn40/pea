@@ -1,3 +1,10 @@
+enum HomeDashboardSource {
+  real,
+  demoNoUser,
+  demoEmpty,
+  demoError,
+}
+
 class HomeDashboardData {
   const HomeDashboardData({
     required this.totalAnalyses,
@@ -6,6 +13,7 @@ class HomeDashboardData {
     required this.bestScore,
     required this.scoreTrend,
     required this.exerciseDistribution,
+    required this.source,
   });
 
   final int totalAnalyses;
@@ -14,9 +22,12 @@ class HomeDashboardData {
   final int bestScore;
   final List<ScoreTrendPoint> scoreTrend;
   final List<ExerciseDistributionItem> exerciseDistribution;
+  final HomeDashboardSource source;
 
-  factory HomeDashboardData.fallback() {
-    return const HomeDashboardData(
+  factory HomeDashboardData.fallback({
+    HomeDashboardSource source = HomeDashboardSource.demoEmpty,
+  }) {
+    return HomeDashboardData(
       totalAnalyses: 24,
       averageScore: 82,
       thisWeekCount: 6,
@@ -36,7 +47,18 @@ class HomeDashboardData {
         ExerciseDistributionItem(label: 'Lunge', value: 20),
         ExerciseDistributionItem(label: 'Burpee', value: 15),
       ],
+      source: source,
     );
+  }
+
+  String get sourceMessage {
+    return switch (source) {
+      HomeDashboardSource.real => 'Gerçek oturum verisi',
+      HomeDashboardSource.demoNoUser =>
+        'Kullanıcı verisi yok, örnek gösterim',
+      HomeDashboardSource.demoEmpty => 'Henüz oturum yok, örnek gösterim',
+      HomeDashboardSource.demoError => 'Veri alınamadı, örnek gösterim',
+    };
   }
 }
 

@@ -22,9 +22,7 @@ class HomeFeaturePreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedProgress = progress == null
-        ? null
-        : progress!.clamp(0, 1).toDouble();
+    final normalizedProgress = progress?.clamp(0, 1).toDouble();
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),

@@ -8,7 +8,7 @@ import 'session_repository_provider.dart';
 final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
   final ownerId = ref.watch(currentUserIdProvider);
   if (ownerId == null) {
-    return HomeDashboardData.fallback();
+    return HomeDashboardData.fallback(source: HomeDashboardSource.demoNoUser);
   }
 
   try {
@@ -17,12 +17,12 @@ final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
         .listSessions(ownerId: ownerId, limit: 100);
 
     if (sessions.isEmpty) {
-      return HomeDashboardData.fallback();
+      return HomeDashboardData.fallback(source: HomeDashboardSource.demoEmpty);
     }
 
     return _buildDashboardData(sessions);
   } catch (_) {
-    return HomeDashboardData.fallback();
+    return HomeDashboardData.fallback(source: HomeDashboardSource.demoError);
   }
 });
 
@@ -45,6 +45,7 @@ HomeDashboardData _buildDashboardData(List<WorkoutSession> sessions) {
     bestScore: bestScore.round(),
     scoreTrend: _buildScoreTrend(sessions),
     exerciseDistribution: _buildExerciseDistribution(sessions),
+    source: HomeDashboardSource.real,
   );
 }
 

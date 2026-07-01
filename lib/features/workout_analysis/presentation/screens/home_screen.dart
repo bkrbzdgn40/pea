@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
 import '../../../achievements/presentation/data/demo_achievements.dart';
+import '../../../achievements/presentation/providers/achievements_provider.dart';
 import '../../../achievements/presentation/screens/achievements_screen.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../goals/presentation/data/demo_workout_goals.dart';
+import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
@@ -26,6 +28,15 @@ class HomeScreen extends ConsumerWidget {
     final dashboardData =
         ref.watch(homeDashboardProvider).valueOrNull ??
         HomeDashboardData.fallback();
+    final goalsState = ref.watch(goalsProvider).valueOrNull;
+    final goalPreview = goalsState == null || goalsState.goals.isEmpty
+        ? demoWorkoutGoals.first
+        : goalsState.goals.first;
+    final achievementsState = ref.watch(achievementsProvider).valueOrNull;
+    final achievementPreview =
+        achievementsState == null || achievementsState.achievements.isEmpty
+        ? demoAchievements.first
+        : achievementsState.achievements.first;
 
     return Scaffold(
       drawer: const AppDrawer(currentPage: AppDrawerPage.home),
@@ -55,15 +66,17 @@ class HomeScreen extends ConsumerWidget {
             children: [
               const _HomeHeroCard(),
               const SizedBox(height: 16),
+              _DashboardSourceBadge(data: dashboardData),
+              const SizedBox(height: 10),
               _DashboardStats(data: dashboardData),
               const SizedBox(height: 14),
               HomeFeaturePreviewCard(
                 title: 'Haftalık Hedef',
-                subtitle: demoWorkoutGoals.first.title,
+                subtitle: goalPreview.title,
                 icon: Icons.flag_rounded,
-                progress: demoWorkoutGoals.first.progress,
+                progress: goalPreview.progress,
                 trailingText:
-                    '${_formatGoalValue(demoWorkoutGoals.first.currentValue)} / ${_formatGoalValue(demoWorkoutGoals.first.targetValue)} ${demoWorkoutGoals.first.unit}',
+                    '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -74,11 +87,11 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               HomeFeaturePreviewCard(
                 title: 'Başarılar',
-                subtitle: demoAchievements.first.title,
+                subtitle: achievementPreview.title,
                 icon: Icons.emoji_events_rounded,
-                badgeText: demoAchievements.first.isUnlocked ? 'Açık' : null,
-                progress: demoAchievements.first.normalizedProgress,
-                trailingText: demoAchievements.first.requirementText,
+                badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
+                progress: achievementPreview.normalizedProgress,
+                trailingText: achievementPreview.requirementText,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -184,9 +197,11 @@ class _HomeHeroCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.greenAccent.withOpacity(0.12),
+              color: Colors.greenAccent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.greenAccent.withOpacity(0.25)),
+              border: Border.all(
+                color: Colors.greenAccent.withValues(alpha: 0.25),
+              ),
             ),
             child: const Icon(
               Icons.fitness_center_rounded,
@@ -264,6 +279,51 @@ class _DashboardStats extends StatelessWidget {
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
         );
       },
+    );
+  }
+}
+
+class _DashboardSourceBadge extends StatelessWidget {
+  const _DashboardSourceBadge({required this.data});
+
+  final HomeDashboardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final isReal = data.source == HomeDashboardSource.real;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: isReal
+            ? Colors.greenAccent.withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isReal ? Colors.greenAccent : Colors.white12,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isReal ? Icons.verified_rounded : Icons.info_outline_rounded,
+            color: isReal ? Colors.greenAccent : Colors.white70,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              data.sourceMessage,
+              style: TextStyle(
+                color: isReal ? Colors.greenAccent : Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
