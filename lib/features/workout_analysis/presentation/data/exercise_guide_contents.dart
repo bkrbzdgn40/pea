@@ -41,7 +41,8 @@ const exerciseGuideContents = [
   ExerciseGuideContent(
     id: 'lunge',
     title: 'Lunge',
-    subtitle: 'Tek bacak kontrolü, denge ve alt vücut kuvveti için dinamik hareket.',
+    subtitle:
+        'Tek bacak kontrolü, denge ve alt vücut kuvveti için dinamik hareket.',
     difficulty: 'Orta',
     tips: [
       'Öndeki dizini ayak bileğiyle aynı hatta tut.',
@@ -59,7 +60,8 @@ const exerciseGuideContents = [
   ExerciseGuideContent(
     id: 'push_up',
     title: 'Push-up',
-    subtitle: 'Üst vücut kuvveti, core kontrolü ve omuz stabilitesi için temel hareket.',
+    subtitle:
+        'Üst vücut kuvveti, core kontrolü ve omuz stabilitesi için temel hareket.',
     difficulty: 'Orta',
     tips: [
       'Ellerini omuz genişliğinden biraz açık yerleştir.',

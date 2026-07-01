@@ -63,9 +63,7 @@ class _ExerciseGuideCard extends StatelessWidget {
                 ),
               ),
               _GuideBadge(
-                label: content.isAnalysisAvailable
-                    ? 'Analiz Aktif'
-                    : 'Rehber',
+                label: content.isAnalysisAvailable ? 'Analiz Aktif' : 'Rehber',
                 isActive: content.isAnalysisAvailable,
               ),
             ],
@@ -165,11 +163,7 @@ class _GuideSection extends StatelessWidget {
               children: [
                 const Padding(
                   padding: EdgeInsets.only(top: 6),
-                  child: Icon(
-                    Icons.circle,
-                    color: Colors.greenAccent,
-                    size: 6,
-                  ),
+                  child: Icon(Icons.circle, color: Colors.greenAccent, size: 6),
                 ),
                 const SizedBox(width: 9),
                 Expanded(

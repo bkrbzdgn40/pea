@@ -34,10 +34,7 @@ class ExerciseSelectionScreen extends StatelessWidget {
     );
   }
 
-  void _handleExerciseTap(
-    BuildContext context,
-    ExerciseGuideContent content,
-  ) {
+  void _handleExerciseTap(BuildContext context, ExerciseGuideContent content) {
     if (!content.isAnalysisAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -57,10 +54,7 @@ class ExerciseSelectionScreen extends StatelessWidget {
 }
 
 class _ExerciseSelectionCard extends StatelessWidget {
-  const _ExerciseSelectionCard({
-    required this.content,
-    required this.onTap,
-  });
+  const _ExerciseSelectionCard({required this.content, required this.onTap});
 
   final ExerciseGuideContent content;
   final VoidCallback onTap;

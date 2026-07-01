@@ -35,7 +35,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     super.initState();
     _userIdSubscription = ref.listenManual<String?>(currentUserIdProvider, (
       _,
-      __,
+      _,
     ) {
       final ownerId = _resolveOwnerId();
       if (ownerId == null ||

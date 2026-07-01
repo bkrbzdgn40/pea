@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
+import '../../../chat/presentation/screens/chat_screen.dart';
+import '../../../goals/presentation/data/demo_workout_goals.dart';
+import '../../../goals/presentation/models/workout_goal.dart';
+import '../../../goals/presentation/screens/goals_screen.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
 import 'camera_permission_screen.dart';
@@ -51,13 +55,30 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               _DashboardStats(data: dashboardData),
               const SizedBox(height: 14),
+              _GoalPreviewCard(
+                goal: demoWorkoutGoals.first,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
               ScoreTrendCard(points: dashboardData.scoreTrend),
               const SizedBox(height: 14),
               ExerciseDistributionCard(
                 items: dashboardData.exerciseDistribution,
               ),
               const SizedBox(height: 14),
-              const _AiCoachPreviewCard(),
+              _AiCoachPreviewCard(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChatScreen()),
+                  );
+                },
+              ),
               const SizedBox(height: 20),
               _HomeActionButton(
                 icon: Icons.play_arrow_rounded,
@@ -231,66 +252,178 @@ class _DashboardStatCard extends StatelessWidget {
   }
 }
 
-class _AiCoachPreviewCard extends StatelessWidget {
-  const _AiCoachPreviewCard();
+class _GoalPreviewCard extends StatelessWidget {
+  const _GoalPreviewCard({required this.goal, required this.onTap});
+
+  final WorkoutGoal goal;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.greenAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: Colors.greenAccent,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    final progressPercent = (goal.progress * 100).round();
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'AI Coach',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    _SoonBadge(),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.flag_rounded,
+                    color: Colors.greenAccent,
+                    size: 22,
+                  ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Haftalık Hedef',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        goal.title,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.greenAccent,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_formatGoalValue(goal.currentValue)} / ${_formatGoalValue(goal.targetValue)} ${goal.unit}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
                 Text(
-                  'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
-                  style: TextStyle(
-                    color: Colors.white70,
+                  '%$progressPercent',
+                  style: const TextStyle(
+                    color: Colors.greenAccent,
                     fontSize: 13,
-                    height: 1.3,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: goal.progress,
+              minHeight: 7,
+              backgroundColor: Colors.white12,
+              color: Colors.greenAccent,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiCoachPreviewCard extends StatelessWidget {
+  const _AiCoachPreviewCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.greenAccent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.greenAccent,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'AI Coach',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      _SoonBadge(),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -358,4 +491,12 @@ class _HomeActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatGoalValue(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+
+  return value.toStringAsFixed(1);
 }
