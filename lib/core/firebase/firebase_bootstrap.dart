@@ -8,6 +8,8 @@ class FirebaseBootstrap {
 
   static Future<void>? _initialization;
 
+  // Firebase başlatmasını tek seferlik hale getirir ve aynı anda gelen
+  // çağrılarda var olan Future'ı döndürerek tekrar başlatmayı engeller.
   static Future<void> ensureInitialized() {
     final currentInitialization = _initialization;
     if (currentInitialization != null) {
@@ -19,6 +21,8 @@ class FirebaseBootstrap {
     return initialization;
   }
 
+  // Platforma uygun Firebase seçenekleriyle uygulamanın Firebase bağlantısını
+  // kurar. Başlatma başarısız olursa cache'i temizleyip anlamlı hata fırlatır.
   static Future<void> _initialize() async {
     if (Firebase.apps.isNotEmpty) {
       return;
