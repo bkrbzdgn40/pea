@@ -1,42 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../workout_analysis/domain/models/workout_session.dart';
-import '../../../workout_analysis/presentation/providers/session_repository_provider.dart';
+import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import '../data/demo_achievements.dart';
 import '../models/achievement.dart';
 
 final achievementsProvider = FutureProvider<AchievementsState>((ref) async {
-  final ownerId = ref.watch(currentUserIdProvider);
-  if (ownerId == null) {
-    return const AchievementsState(
+  final snapshot = await ref.watch(userSessionsSnapshotProvider.future);
+
+  return switch (snapshot.source) {
+    UserSessionsSnapshotSource.real => AchievementsState(
+      achievements: _buildAchievementsFromSessions(snapshot.sessions),
+      source: AchievementsDataSource.real,
+    ),
+    UserSessionsSnapshotSource.noUser => const AchievementsState(
       achievements: demoAchievements,
       source: AchievementsDataSource.demoNoUser,
-    );
-  }
-
-  try {
-    final sessions = await ref
-        .read(sessionRepositoryProvider)
-        .listSessions(ownerId: ownerId, limit: 100);
-
-    if (sessions.isEmpty) {
-      return const AchievementsState(
-        achievements: demoAchievements,
-        source: AchievementsDataSource.demoEmpty,
-      );
-    }
-
-    return AchievementsState(
-      achievements: _buildAchievementsFromSessions(sessions),
-      source: AchievementsDataSource.real,
-    );
-  } catch (_) {
-    return const AchievementsState(
+    ),
+    UserSessionsSnapshotSource.empty => const AchievementsState(
+      achievements: demoAchievements,
+      source: AchievementsDataSource.demoEmpty,
+    ),
+    UserSessionsSnapshotSource.error => const AchievementsState(
       achievements: demoAchievements,
       source: AchievementsDataSource.demoError,
-    );
-  }
+    ),
+  };
 });
 
 class AchievementsState {

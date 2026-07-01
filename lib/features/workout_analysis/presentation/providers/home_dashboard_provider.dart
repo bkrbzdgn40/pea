@@ -1,29 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import '../models/home_dashboard_data.dart';
-import 'session_repository_provider.dart';
+import 'user_sessions_snapshot_provider.dart';
 
 final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
-  final ownerId = ref.watch(currentUserIdProvider);
-  if (ownerId == null) {
-    return HomeDashboardData.fallback(source: HomeDashboardSource.demoNoUser);
-  }
+  final snapshot = await ref.watch(userSessionsSnapshotProvider.future);
 
-  try {
-    final sessions = await ref
-        .read(sessionRepositoryProvider)
-        .listSessions(ownerId: ownerId, limit: 100);
-
-    if (sessions.isEmpty) {
-      return HomeDashboardData.fallback(source: HomeDashboardSource.demoEmpty);
-    }
-
-    return _buildDashboardData(sessions);
-  } catch (_) {
-    return HomeDashboardData.fallback(source: HomeDashboardSource.demoError);
-  }
+  return switch (snapshot.source) {
+    UserSessionsSnapshotSource.real => _buildDashboardData(snapshot.sessions),
+    UserSessionsSnapshotSource.noUser => HomeDashboardData.fallback(
+      source: HomeDashboardSource.demoNoUser,
+    ),
+    UserSessionsSnapshotSource.empty => HomeDashboardData.fallback(
+      source: HomeDashboardSource.demoEmpty,
+    ),
+    UserSessionsSnapshotSource.error => HomeDashboardData.fallback(
+      source: HomeDashboardSource.demoError,
+    ),
+  };
 });
 
 HomeDashboardData _buildDashboardData(List<WorkoutSession> sessions) {

@@ -1,42 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../workout_analysis/domain/models/workout_session.dart';
-import '../../../workout_analysis/presentation/providers/session_repository_provider.dart';
+import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import '../data/demo_workout_goals.dart';
 import '../models/workout_goal.dart';
 
 final goalsProvider = FutureProvider<GoalsState>((ref) async {
-  final ownerId = ref.watch(currentUserIdProvider);
-  if (ownerId == null) {
-    return const GoalsState(
+  final snapshot = await ref.watch(userSessionsSnapshotProvider.future);
+
+  return switch (snapshot.source) {
+    UserSessionsSnapshotSource.real => GoalsState(
+      goals: _buildGoalsFromSessions(snapshot.sessions),
+      source: GoalsDataSource.real,
+    ),
+    UserSessionsSnapshotSource.noUser => const GoalsState(
       goals: demoWorkoutGoals,
       source: GoalsDataSource.demoNoUser,
-    );
-  }
-
-  try {
-    final sessions = await ref
-        .read(sessionRepositoryProvider)
-        .listSessions(ownerId: ownerId, limit: 100);
-
-    if (sessions.isEmpty) {
-      return const GoalsState(
-        goals: demoWorkoutGoals,
-        source: GoalsDataSource.demoEmpty,
-      );
-    }
-
-    return GoalsState(
-      goals: _buildGoalsFromSessions(sessions),
-      source: GoalsDataSource.real,
-    );
-  } catch (_) {
-    return const GoalsState(
+    ),
+    UserSessionsSnapshotSource.empty => const GoalsState(
+      goals: demoWorkoutGoals,
+      source: GoalsDataSource.demoEmpty,
+    ),
+    UserSessionsSnapshotSource.error => const GoalsState(
       goals: demoWorkoutGoals,
       source: GoalsDataSource.demoError,
-    );
-  }
+    ),
+  };
 });
 
 class GoalsState {
