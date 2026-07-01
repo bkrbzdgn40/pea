@@ -14,6 +14,7 @@ import '../providers/home_dashboard_provider.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
+import 'score_trend_detail_screen.dart';
 import 'session_history_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/exercise_distribution_card.dart';
@@ -102,7 +103,17 @@ class HomeScreen extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 14),
-              ScoreTrendCard(points: dashboardData.scoreTrend),
+              ScoreTrendCard(
+                points: dashboardData.scoreTrend,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ScoreTrendDetailScreen(),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 14),
               ExerciseDistributionCard(
                 items: dashboardData.exerciseDistribution,
