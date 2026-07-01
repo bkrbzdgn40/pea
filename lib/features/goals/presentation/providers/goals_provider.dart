@@ -46,12 +46,7 @@ class GoalsState {
   }
 }
 
-enum GoalsDataSource {
-  real,
-  demoNoUser,
-  demoEmpty,
-  demoError,
-}
+enum GoalsDataSource { real, demoNoUser, demoEmpty, demoError }
 
 List<WorkoutGoal> _buildGoalsFromSessions(List<WorkoutSession> sessions) {
   final weeklyAnalysisCount = _countThisWeek(sessions);

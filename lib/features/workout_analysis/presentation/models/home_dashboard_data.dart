@@ -1,9 +1,4 @@
-enum HomeDashboardSource {
-  real,
-  demoNoUser,
-  demoEmpty,
-  demoError,
-}
+enum HomeDashboardSource { real, demoNoUser, demoEmpty, demoError }
 
 class HomeDashboardData {
   const HomeDashboardData({
@@ -54,8 +49,7 @@ class HomeDashboardData {
   String get sourceMessage {
     return switch (source) {
       HomeDashboardSource.real => 'Gerçek oturum verisi',
-      HomeDashboardSource.demoNoUser =>
-        'Kullanıcı verisi yok, örnek gösterim',
+      HomeDashboardSource.demoNoUser => 'Kullanıcı verisi yok, örnek gösterim',
       HomeDashboardSource.demoEmpty => 'Henüz oturum yok, örnek gösterim',
       HomeDashboardSource.demoError => 'Veri alınamadı, örnek gösterim',
     };

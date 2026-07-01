@@ -71,11 +71,7 @@ class _AchievementsHeaderCard extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.emoji_events_rounded,
-            color: Colors.greenAccent,
-            size: 34,
-          ),
+          Icon(Icons.emoji_events_rounded, color: Colors.greenAccent, size: 34),
           SizedBox(height: 14),
           Text(
             'İlerlemeni ve açılan rozetleri burada göreceksin',

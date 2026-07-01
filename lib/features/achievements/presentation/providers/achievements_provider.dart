@@ -29,10 +29,7 @@ final achievementsProvider = FutureProvider<AchievementsState>((ref) async {
 });
 
 class AchievementsState {
-  const AchievementsState({
-    required this.achievements,
-    required this.source,
-  });
+  const AchievementsState({required this.achievements, required this.source});
 
   final List<Achievement> achievements;
   final AchievementsDataSource source;
@@ -51,12 +48,7 @@ class AchievementsState {
   }
 }
 
-enum AchievementsDataSource {
-  real,
-  demoNoUser,
-  demoEmpty,
-  demoError,
-}
+enum AchievementsDataSource { real, demoNoUser, demoEmpty, demoError }
 
 List<Achievement> _buildAchievementsFromSessions(
   List<WorkoutSession> sessions,

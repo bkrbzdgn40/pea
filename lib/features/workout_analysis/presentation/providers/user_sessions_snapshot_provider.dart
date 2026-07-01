@@ -4,48 +4,46 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import 'session_repository_provider.dart';
 
-final userSessionsSnapshotProvider =
-    FutureProvider<UserSessionsSnapshot>((ref) async {
-      final repositoryUserId = ref.read(authRepositoryProvider).currentUserId;
-      final providerUserId = ref.watch(currentUserIdProvider);
-      final ownerId = repositoryUserId ?? providerUserId;
+final userSessionsSnapshotProvider = FutureProvider<UserSessionsSnapshot>((
+  ref,
+) async {
+  final repositoryUserId = ref.read(authRepositoryProvider).currentUserId;
+  final providerUserId = ref.watch(currentUserIdProvider);
+  final ownerId = repositoryUserId ?? providerUserId;
 
-      if (ownerId == null) {
-        return const UserSessionsSnapshot(
-          sessions: [],
-          source: UserSessionsSnapshotSource.noUser,
-        );
-      }
+  if (ownerId == null) {
+    return const UserSessionsSnapshot(
+      sessions: [],
+      source: UserSessionsSnapshotSource.noUser,
+    );
+  }
 
-      try {
-        final sessions = await ref
-            .read(sessionRepositoryProvider)
-            .listSessions(ownerId: ownerId, limit: 100);
+  try {
+    final sessions = await ref
+        .read(sessionRepositoryProvider)
+        .listSessions(ownerId: ownerId, limit: 100);
 
-        if (sessions.isEmpty) {
-          return const UserSessionsSnapshot(
-            sessions: [],
-            source: UserSessionsSnapshotSource.empty,
-          );
-        }
+    if (sessions.isEmpty) {
+      return const UserSessionsSnapshot(
+        sessions: [],
+        source: UserSessionsSnapshotSource.empty,
+      );
+    }
 
-        return UserSessionsSnapshot(
-          sessions: sessions,
-          source: UserSessionsSnapshotSource.real,
-        );
-      } catch (_) {
-        return const UserSessionsSnapshot(
-          sessions: [],
-          source: UserSessionsSnapshotSource.error,
-        );
-      }
-    });
+    return UserSessionsSnapshot(
+      sessions: sessions,
+      source: UserSessionsSnapshotSource.real,
+    );
+  } catch (_) {
+    return const UserSessionsSnapshot(
+      sessions: [],
+      source: UserSessionsSnapshotSource.error,
+    );
+  }
+});
 
 class UserSessionsSnapshot {
-  const UserSessionsSnapshot({
-    required this.sessions,
-    required this.source,
-  });
+  const UserSessionsSnapshot({required this.sessions, required this.source});
 
   final List<WorkoutSession> sessions;
   final UserSessionsSnapshotSource source;
@@ -63,9 +61,4 @@ class UserSessionsSnapshot {
   }
 }
 
-enum UserSessionsSnapshotSource {
-  real,
-  noUser,
-  empty,
-  error,
-}
+enum UserSessionsSnapshotSource { real, noUser, empty, error }

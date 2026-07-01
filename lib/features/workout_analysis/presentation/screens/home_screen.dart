@@ -299,9 +299,7 @@ class _DashboardSourceBadge extends StatelessWidget {
             ? Colors.greenAccent.withValues(alpha: 0.12)
             : Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isReal ? Colors.greenAccent : Colors.white12,
-        ),
+        border: Border.all(color: isReal ? Colors.greenAccent : Colors.white12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -69,11 +69,7 @@ class _GoalsHeaderCard extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.flag_rounded,
-            color: Colors.greenAccent,
-            size: 32,
-          ),
+          Icon(Icons.flag_rounded, color: Colors.greenAccent, size: 32),
           SizedBox(height: 14),
           Text(
             'Haftalık ilerlemeni burada takip edeceksin',
