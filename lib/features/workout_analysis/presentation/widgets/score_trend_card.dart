@@ -1,21 +1,22 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-class ScoreTrendCard extends StatelessWidget {
-  const ScoreTrendCard({super.key});
+import '../models/home_dashboard_data.dart';
 
-  static const List<_ScorePoint> _points = [
-    _ScorePoint('Pzt', 72),
-    _ScorePoint('Sal', 75),
-    _ScorePoint('Çar', 78),
-    _ScorePoint('Per', 74),
-    _ScorePoint('Cum', 82),
-    _ScorePoint('Cmt', 80),
-    _ScorePoint('Paz', 84),
-  ];
+class ScoreTrendCard extends StatelessWidget {
+  const ScoreTrendCard({super.key, required this.points});
+
+  final List<ScoreTrendPoint> points;
 
   @override
   Widget build(BuildContext context) {
+    final chartPoints = points.isEmpty
+        ? HomeDashboardData.fallback().scoreTrend
+        : points;
+    final maxX = chartPoints.length > 1
+        ? (chartPoints.length - 1).toDouble()
+        : 1.0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -45,7 +46,7 @@ class ScoreTrendCard extends StatelessWidget {
             child: LineChart(
               LineChartData(
                 minX: 0,
-                maxX: (_points.length - 1).toDouble(),
+                maxX: maxX,
                 minY: 60,
                 maxY: 90,
                 lineTouchData: const LineTouchData(enabled: false),
@@ -88,14 +89,14 @@ class ScoreTrendCard extends StatelessWidget {
                       interval: 1,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= _points.length) {
+                        if (index < 0 || index >= chartPoints.length) {
                           return const SizedBox.shrink();
                         }
 
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            _points[index].label,
+                            chartPoints[index].label,
                             style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 11,
@@ -110,8 +111,8 @@ class ScoreTrendCard extends StatelessWidget {
                 lineBarsData: [
                   LineChartBarData(
                     spots: [
-                      for (var i = 0; i < _points.length; i++)
-                        FlSpot(i.toDouble(), _points[i].score.toDouble()),
+                      for (var i = 0; i < chartPoints.length; i++)
+                        FlSpot(i.toDouble(), chartPoints[i].score),
                     ],
                     isCurved: true,
                     color: Colors.greenAccent,
@@ -131,11 +132,4 @@ class ScoreTrendCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ScorePoint {
-  const _ScorePoint(this.label, this.score);
-
-  final String label;
-  final int score;
 }

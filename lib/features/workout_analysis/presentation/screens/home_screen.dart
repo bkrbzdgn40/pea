@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
+import '../models/home_dashboard_data.dart';
+import '../providers/home_dashboard_provider.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
@@ -9,11 +12,15 @@ import 'settings_screen.dart';
 import '../widgets/exercise_distribution_card.dart';
 import '../widgets/score_trend_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboardData =
+        ref.watch(homeDashboardProvider).valueOrNull ??
+        HomeDashboardData.fallback();
+
     return Scaffold(
       drawer: const AppDrawer(currentPage: AppDrawerPage.home),
       backgroundColor: Colors.black,
@@ -42,11 +49,13 @@ class HomeScreen extends StatelessWidget {
             children: [
               const _HomeHeroCard(),
               const SizedBox(height: 16),
-              const _DashboardStats(),
+              _DashboardStats(data: dashboardData),
               const SizedBox(height: 14),
-              const ScoreTrendCard(),
+              ScoreTrendCard(points: dashboardData.scoreTrend),
               const SizedBox(height: 14),
-              const ExerciseDistributionCard(),
+              ExerciseDistributionCard(
+                items: dashboardData.exerciseDistribution,
+              ),
               const SizedBox(height: 14),
               const _AiCoachPreviewCard(),
               const SizedBox(height: 20),
@@ -147,7 +156,9 @@ class _HomeHeroCard extends StatelessWidget {
 }
 
 class _DashboardStats extends StatelessWidget {
-  const _DashboardStats();
+  const _DashboardStats({required this.data});
+
+  final HomeDashboardData data;
 
   @override
   Widget build(BuildContext context) {
@@ -161,10 +172,19 @@ class _DashboardStats extends StatelessWidget {
         return Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: const [
-            _DashboardStatCard(label: 'Toplam Analiz', value: '24'),
-            _DashboardStatCard(label: 'Ortalama Skor', value: '82'),
-            _DashboardStatCard(label: 'Bu Hafta', value: '6'),
+          children: [
+            _DashboardStatCard(
+              label: 'Toplam Analiz',
+              value: data.totalAnalyses.toString(),
+            ),
+            _DashboardStatCard(
+              label: 'Ortalama Skor',
+              value: data.averageScore.toString(),
+            ),
+            _DashboardStatCard(
+              label: 'Bu Hafta',
+              value: data.thisWeekCount.toString(),
+            ),
             _DashboardStatCard(label: 'En İyi Skor', value: '94'),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
         );

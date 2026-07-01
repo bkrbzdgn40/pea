@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../data/exercise_guide_contents.dart';
+import '../models/exercise_guide_content.dart';
 import 'camera_permission_screen.dart';
 
 class ExerciseSelectionScreen extends StatelessWidget {
   const ExerciseSelectionScreen({super.key});
-
-  static const List<String> _exercises = [
-    'Squat',
-    'Şınav',
-    'Lunge',
-    'Plank',
-    'Mekik',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -20,110 +14,132 @@ class ExerciseSelectionScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Hareket Seç'),
         backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        itemCount: _exercises.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return const _ScreenHeader(
-              title: 'Demo hareketini seç',
-              subtitle:
-                  'Şimdilik squat aktif. Diğer hareketler müşteri demosu için pasif bırakıldı.',
+      body: SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          itemCount: exerciseGuideContents.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final content = exerciseGuideContents[index];
+            return _ExerciseSelectionCard(
+              content: content,
+              onTap: () => _handleExerciseTap(context, content),
             );
-          }
-
-          final exercise = _exercises[index - 1];
-          final isAvailable = exercise == 'Squat';
-
-          return Card(
-            color: const Color(0xFF151515),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: const BorderSide(color: Colors.white12),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
-              leading: Icon(
-                Icons.fitness_center_rounded,
-                color: isAvailable ? Colors.greenAccent : Colors.white38,
-              ),
-              title: Text(
-                exercise,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(
-                isAvailable ? 'Demo için hazır' : 'Yakında aktif olacak',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.58)),
-              ),
-              trailing: Icon(
-                isAvailable ? Icons.chevron_right : Icons.lock_outline,
-                color: Colors.white54,
-              ),
-              onTap: () {
-                if (isAvailable) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CameraPermissionScreen(),
-                    ),
-                  );
-                  return;
-                }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Bu hareket yakında aktif olacak'),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+          },
+        ),
       ),
+    );
+  }
+
+  void _handleExerciseTap(
+    BuildContext context,
+    ExerciseGuideContent content,
+  ) {
+    if (!content.isAnalysisAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bu hareket şu an analiz için aktif değil. Rehberden inceleyebilirsin.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CameraPermissionScreen()),
     );
   }
 }
 
-class _ScreenHeader extends StatelessWidget {
-  const _ScreenHeader({required this.title, required this.subtitle});
+class _ExerciseSelectionCard extends StatelessWidget {
+  const _ExerciseSelectionCard({
+    required this.content,
+    required this.onTap,
+  });
 
-  final String title;
-  final String subtitle;
+  final ExerciseGuideContent content;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
+    final isActive = content.isAnalysisAvailable;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive ? Colors.greenAccent : Colors.white12,
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontSize: 15,
-              height: 1.35,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.greenAccent.withValues(alpha: 0.16)
+                    : Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                isActive
+                    ? Icons.play_arrow_rounded
+                    : Icons.lock_outline_rounded,
+                color: isActive ? Colors.greenAccent : Colors.white54,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    content.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    content.subtitle,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isActive ? 'Analiz aktif' : 'Şimdilik rehber içeriği',
+                    style: TextStyle(
+                      color: isActive ? Colors.greenAccent : Colors.white54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isActive ? Colors.greenAccent : Colors.white30,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,18 +1,26 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-class ExerciseDistributionCard extends StatelessWidget {
-  const ExerciseDistributionCard({super.key});
+import '../models/home_dashboard_data.dart';
 
-  static const List<_ExerciseSlice> _slices = [
-    _ExerciseSlice('Squat', 40, Colors.greenAccent),
-    _ExerciseSlice('Plank', 25, Color(0xFF64D2FF)),
-    _ExerciseSlice('Lunge', 20, Color(0xFFFFD166)),
-    _ExerciseSlice('Burpee', 15, Color(0xFFFF6B6B)),
+class ExerciseDistributionCard extends StatelessWidget {
+  const ExerciseDistributionCard({super.key, required this.items});
+
+  final List<ExerciseDistributionItem> items;
+
+  static const List<Color> _colors = [
+    Colors.greenAccent,
+    Color(0xFF64D2FF),
+    Color(0xFFFFD166),
+    Color(0xFFFF6B6B),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final chartItems = items.isEmpty
+        ? HomeDashboardData.fallback().exerciseDistribution
+        : items;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -48,12 +56,12 @@ class ExerciseDistributionCard extends StatelessWidget {
                       sectionsSpace: 2,
                       startDegreeOffset: -90,
                       sections: [
-                        for (final slice in _slices)
+                        for (var i = 0; i < chartItems.length; i++)
                           PieChartSectionData(
-                            value: slice.value.toDouble(),
-                            color: slice.color,
+                            value: chartItems[i].value,
+                            color: _colorForIndex(i),
                             radius: 46,
-                            title: '${slice.value}%',
+                            title: '${chartItems[i].value.round()}%',
                             titleStyle: const TextStyle(
                               color: Colors.black,
                               fontSize: 11,
@@ -70,8 +78,11 @@ class ExerciseDistributionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final slice in _slices) ...[
-                      _LegendItem(slice: slice),
+                    for (var i = 0; i < chartItems.length; i++) ...[
+                      _LegendItem(
+                        item: chartItems[i],
+                        color: _colorForIndex(i),
+                      ),
                       const SizedBox(height: 10),
                     ],
                   ],
@@ -83,12 +94,17 @@ class ExerciseDistributionCard extends StatelessWidget {
       ),
     );
   }
+
+  Color _colorForIndex(int index) {
+    return _colors[index % _colors.length];
+  }
 }
 
 class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.slice});
+  const _LegendItem({required this.item, required this.color});
 
-  final _ExerciseSlice slice;
+  final ExerciseDistributionItem item;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -97,12 +113,12 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            slice.label,
+            item.label,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -111,18 +127,10 @@ class _LegendItem extends StatelessWidget {
           ),
         ),
         Text(
-          '${slice.value}%',
+          '${item.value.round()}%',
           style: const TextStyle(color: Colors.white60, fontSize: 12),
         ),
       ],
     );
   }
-}
-
-class _ExerciseSlice {
-  const _ExerciseSlice(this.label, this.value, this.color);
-
-  final String label;
-  final int value;
-  final Color color;
 }
