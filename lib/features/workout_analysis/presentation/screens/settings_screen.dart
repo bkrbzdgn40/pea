@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -12,13 +13,10 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsState = ref.watch(settingsControllerProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Ayarlar'),
-        backgroundColor: Colors.black,
-        elevation: 0,
-      ),
+    return AppScaffoldShell(
+      title: 'Ayarlar',
+      currentPage: AppDrawerPage.settings,
+      padding: EdgeInsets.zero,
       body: settingsState.when(
         data: (settings) {
           return ListView(
