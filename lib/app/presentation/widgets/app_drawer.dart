@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/guide_screen.dart';
+import '../../../features/workout_analysis/presentation/screens/how_to_use_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/home_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/session_history_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/settings_screen.dart';
 
-enum AppDrawerPage { home, exerciseSelection, sessionHistory, guide, settings }
+enum AppDrawerPage {
+  home,
+  howToUse,
+  exerciseSelection,
+  sessionHistory,
+  guide,
+  settings,
+}
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, this.currentPage});
@@ -74,6 +82,16 @@ class AppDrawer extends StatelessWidget {
                           context,
                           (_) => HomeScreen(),
                           isCurrent: currentPage == AppDrawerPage.home,
+                        ),
+                      ),
+                      _DrawerItem(
+                        icon: Icons.help_outline_rounded,
+                        label: 'Nasıl Kullanılır',
+                        isSelected: currentPage == AppDrawerPage.howToUse,
+                        onTap: () => _open(
+                          context,
+                          (_) => const HowToUseScreen(),
+                          isCurrent: currentPage == AppDrawerPage.howToUse,
                         ),
                       ),
                       _DrawerItem(

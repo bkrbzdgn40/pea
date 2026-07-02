@@ -34,21 +34,24 @@ class _GoalsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleGoals = state.isFallback
+        ? <WorkoutGoal>[]
+        : state.goals.where((goal) => goal.id != 'three_day_streak').toList();
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: state.goals.length + (state.isFallback ? 2 : 1),
+      itemCount: visibleGoals.isEmpty ? 2 : visibleGoals.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == 0) {
           return const _GoalsHeaderCard();
         }
 
-        if (state.isFallback && index == 1) {
-          return _GoalsSourceNotice(message: state.sourceMessage);
+        if (visibleGoals.isEmpty) {
+          return _GoalsEmptyState(source: state.source);
         }
 
-        final goalIndex = index - (state.isFallback ? 2 : 1);
-        return _GoalCard(goal: state.goals[goalIndex]);
+        return _GoalCard(goal: visibleGoals[index - 1]);
       },
     );
   }
@@ -81,7 +84,7 @@ class _GoalsHeaderCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'Güvenilir hedefler mevcut oturum verilerine bağlanır. Veri yoksa örnek hedefler gösterilir.',
+            'Analizlerin tamamlandıkça haftalık hedeflerin burada netleşir.',
             style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
           ),
         ],
@@ -90,35 +93,38 @@ class _GoalsHeaderCard extends StatelessWidget {
   }
 }
 
-class _GoalsSourceNotice extends StatelessWidget {
-  const _GoalsSourceNotice({required this.message});
+class _GoalsEmptyState extends StatelessWidget {
+  const _GoalsEmptyState({required this.source});
 
-  final String message;
+  final GoalsDataSource source;
 
   @override
   Widget build(BuildContext context) {
+    final message = switch (source) {
+      GoalsDataSource.demoError =>
+        'Hedefler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
+      _ => 'İlk analizini tamamladığında hedef ilerlemen burada görünür.',
+    };
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: Colors.white70,
-            size: 17,
-          ),
-          const SizedBox(width: 9),
+          const Icon(Icons.flag_outlined, color: Colors.greenAccent, size: 24),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                height: 1.35,
               ),
             ),
           ),

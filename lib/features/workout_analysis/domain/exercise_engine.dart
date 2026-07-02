@@ -179,8 +179,7 @@ class ExerciseEngine {
     required double idealSeconds,
   }) {
     return (100 -
-            (idealSeconds - actualSeconds).abs() *
-                config.tempoPenaltyPerSecond)
+            (idealSeconds - actualSeconds).abs() * config.tempoPenaltyPerSecond)
         .clamp(0, 100)
         .toDouble();
   }

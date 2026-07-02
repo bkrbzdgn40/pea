@@ -194,8 +194,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
-      lastRepAscentScoreCandidate:
-          lastBreakdown?.ascentScoreCandidate ?? 0,
+      lastRepAscentScoreCandidate: lastBreakdown?.ascentScoreCandidate ?? 0,
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
     );

@@ -20,17 +20,23 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: Colors.greenAccent),
         ),
-        error: (error, stackTrace) => _ScoreTrendEmptyState(
+        error: (_, _) => const _ScoreTrendEmptyState(
           message: 'Skor verisi alınamadı.',
-          detail: error.toString(),
+          detail: 'Biraz sonra tekrar deneyebilirsin.',
         ),
         data: (snapshot) {
           final points = _buildDetailPoints(snapshot.sessions);
 
           if (points.isEmpty) {
+            final didFail = snapshot.source == UserSessionsSnapshotSource.error;
+
             return _ScoreTrendEmptyState(
-              message: snapshot.sourceMessage,
-              detail: 'Grafik için yeterli geçerli skor verisi bulunamadı.',
+              message: didFail
+                  ? 'Skor trendi hazırlanamadı.'
+                  : 'Henüz skor trendi yok.',
+              detail: didFail
+                  ? 'Biraz sonra tekrar deneyebilirsin.'
+                  : 'İlk analizini tamamladığında skor değişimi burada görünür.',
             );
           }
 
@@ -180,29 +186,40 @@ class _ScoreTrendDetailContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _TrendSummaryTile(
-                  label: 'Oturum',
-                  value: points.length.toString(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TrendSummaryTile(
-                  label: 'Son Skor',
-                  value: lastPoint.score.round().toString(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TrendSummaryTile(
-                  label: 'En İyi',
-                  value: bestScore.round().toString(),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final columnCount = constraints.maxWidth < 340
+                  ? 1
+                  : constraints.maxWidth < 560
+                  ? 2
+                  : 3;
+              final tileWidth =
+                  (constraints.maxWidth - spacing * (columnCount - 1)) /
+                  columnCount;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children:
+                    [
+                          _TrendSummaryTile(
+                            label: 'Oturum',
+                            value: points.length.toString(),
+                          ),
+                          _TrendSummaryTile(
+                            label: 'Son Skor',
+                            value: lastPoint.score.round().toString(),
+                          ),
+                          _TrendSummaryTile(
+                            label: 'En İyi',
+                            value: bestScore.round().toString(),
+                          ),
+                        ]
+                        .map((tile) => SizedBox(width: tileWidth, child: tile))
+                        .toList(),
+              );
+            },
           ),
         ],
       ),
@@ -300,9 +317,7 @@ class _ScoreTrendEmptyState extends StatelessWidget {
   }
 }
 
-List<_ScoreTrendDetailPoint> _buildDetailPoints(
-  List<WorkoutSession> sessions,
-) {
+List<_ScoreTrendDetailPoint> _buildDetailPoints(List<WorkoutSession> sessions) {
   final sortedSessions = [...sessions]
     ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
 

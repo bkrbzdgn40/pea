@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_drawer.dart';
-import '../../../achievements/presentation/data/demo_achievements.dart';
+import '../../../achievements/presentation/models/achievement.dart';
 import '../../../achievements/presentation/providers/achievements_provider.dart';
 import '../../../achievements/presentation/screens/achievements_screen.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
-import '../../../goals/presentation/data/demo_workout_goals.dart';
+import '../../../goals/presentation/models/workout_goal.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../models/home_dashboard_data.dart';
@@ -29,15 +29,11 @@ class HomeScreen extends ConsumerWidget {
     final dashboardData =
         ref.watch(homeDashboardProvider).valueOrNull ??
         HomeDashboardData.fallback();
+    final hasDashboardData = dashboardData.source == HomeDashboardSource.real;
     final goalsState = ref.watch(goalsProvider).valueOrNull;
-    final goalPreview = goalsState == null || goalsState.goals.isEmpty
-        ? demoWorkoutGoals.first
-        : goalsState.goals.first;
+    final goalPreview = _trustedGoalPreview(goalsState);
     final achievementsState = ref.watch(achievementsProvider).valueOrNull;
-    final achievementPreview =
-        achievementsState == null || achievementsState.achievements.isEmpty
-        ? demoAchievements.first
-        : achievementsState.achievements.first;
+    final achievementPreview = _trustedAchievementPreview(achievementsState);
 
     return Scaffold(
       drawer: const AppDrawer(currentPage: AppDrawerPage.home),
@@ -98,57 +94,111 @@ class HomeScreen extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 16),
-              _DashboardSourceBadge(data: dashboardData),
-              const SizedBox(height: 10),
-              _DashboardStats(data: dashboardData),
+              if (hasDashboardData)
+                _DashboardStats(data: dashboardData)
+              else
+                const _HomeProgressEmptyCard(),
               const SizedBox(height: 14),
-              HomeFeaturePreviewCard(
-                title: 'Haftalık Hedef',
-                subtitle: goalPreview.title,
-                icon: Icons.flag_rounded,
-                progress: goalPreview.progress,
-                trailingText:
-                    '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GoalsScreen()),
-                  );
-                },
-              ),
+              if (goalPreview == null)
+                HomeFeaturePreviewCard(
+                  title: 'Haftalık Hedef',
+                  subtitle:
+                      'İlk analizinden sonra hedeflerin burada şekillenir.',
+                  icon: Icons.flag_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                    );
+                  },
+                )
+              else
+                HomeFeaturePreviewCard(
+                  title: 'Haftalık Hedef',
+                  subtitle: goalPreview.title,
+                  icon: Icons.flag_rounded,
+                  progress: goalPreview.progress,
+                  trailingText:
+                      '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                    );
+                  },
+                ),
               const SizedBox(height: 14),
-              HomeFeaturePreviewCard(
-                title: 'Başarılar',
-                subtitle: achievementPreview.title,
-                icon: Icons.emoji_events_rounded,
-                badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
-                progress: achievementPreview.normalizedProgress,
-                trailingText: achievementPreview.requirementText,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AchievementsScreen(),
-                    ),
-                  );
-                },
-              ),
+              if (achievementPreview == null)
+                HomeFeaturePreviewCard(
+                  title: 'Başarılar',
+                  subtitle: 'Rozetlerin analizlerin tamamlandıkça açılır.',
+                  icon: Icons.emoji_events_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AchievementsScreen(),
+                      ),
+                    );
+                  },
+                )
+              else
+                HomeFeaturePreviewCard(
+                  title: 'Başarılar',
+                  subtitle: achievementPreview.title,
+                  icon: Icons.emoji_events_rounded,
+                  badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
+                  progress: achievementPreview.normalizedProgress,
+                  trailingText: achievementPreview.requirementText,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AchievementsScreen(),
+                      ),
+                    );
+                  },
+                ),
               const SizedBox(height: 14),
-              ScoreTrendCard(
-                points: dashboardData.scoreTrend,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ScoreTrendDetailScreen(),
-                    ),
-                  );
-                },
-              ),
+              if (hasDashboardData)
+                ScoreTrendCard(
+                  points: dashboardData.scoreTrend,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ScoreTrendDetailScreen(),
+                      ),
+                    );
+                  },
+                )
+              else
+                _HomeInsightPlaceholderCard(
+                  title: 'Skor Trendi',
+                  subtitle:
+                      'Birkaç analiz tamamlandığında skor değişimin burada görünür.',
+                  icon: Icons.show_chart_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ScoreTrendDetailScreen(),
+                      ),
+                    );
+                  },
+                ),
               const SizedBox(height: 14),
-              ExerciseDistributionCard(
-                items: dashboardData.exerciseDistribution,
-              ),
+              if (hasDashboardData)
+                ExerciseDistributionCard(
+                  items: dashboardData.exerciseDistribution,
+                )
+              else
+                const _HomeInsightPlaceholderCard(
+                  title: 'Egzersiz Dağılımı',
+                  subtitle:
+                      'Kaydedilen oturumların hareket dağılımı burada toplanır.',
+                  icon: Icons.pie_chart_rounded,
+                ),
               const SizedBox(height: 14),
               HomeFeaturePreviewCard(
                 title: 'AI Coach',
@@ -183,9 +233,7 @@ class _HomeGreetingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF151515),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: greeting.accentColor.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: greeting.accentColor.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -200,11 +248,7 @@ class _HomeGreetingCard extends StatelessWidget {
                 color: greeting.accentColor.withValues(alpha: 0.35),
               ),
             ),
-            child: Icon(
-              greeting.icon,
-              color: greeting.accentColor,
-              size: 30,
-            ),
+            child: Icon(greeting.icon, color: greeting.accentColor, size: 30),
           ),
 
           const SizedBox(width: 16),
@@ -312,26 +356,26 @@ class _HomeActionGrid extends StatelessWidget {
             _HomeActionCard(
               icon: Icons.play_arrow_rounded,
               title: 'Analize Başla',
-              subtitle: 'Kamera ile başla',
+              subtitle: 'Canlı kamera analizi',
               isPrimary: true,
               onTap: onStartAnalysis,
             ),
             _HomeActionCard(
               icon: Icons.directions_run_rounded,
               title: 'Hareket Seç',
-              subtitle: 'Egzersiz seçimi',
+              subtitle: 'Desteklenen hareketler',
               onTap: onSelectExercise,
             ),
             _HomeActionCard(
               icon: Icons.menu_book_rounded,
               title: 'Hareket Rehberi',
-              subtitle: 'Form ipuçları',
+              subtitle: 'Teknik ipuçları ve hatalar',
               onTap: onOpenGuide,
             ),
             _HomeActionCard(
               icon: Icons.history_rounded,
               title: 'Geçmiş Oturumlar',
-              subtitle: 'Kayıtları gör',
+              subtitle: 'Kaydedilmiş analizler',
               onTap: onOpenHistory,
             ),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
@@ -372,7 +416,7 @@ class _HomeActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
-          height: 118,
+          height: 132,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -405,7 +449,7 @@ class _HomeActionCard extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white54, fontSize: 11),
               ),
@@ -413,6 +457,130 @@ class _HomeActionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HomeProgressEmptyCard extends StatelessWidget {
+  const _HomeProgressEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.insights_rounded, color: Colors.greenAccent, size: 28),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'İlerlemen burada birikecek',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 7),
+                Text(
+                  'İlk analizini tamamladığında skorların, tekrarların ve haftalık özetin burada görünür.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeInsightPlaceholderCard extends StatelessWidget {
+  const _HomeInsightPlaceholderCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.greenAccent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.greenAccent, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: 10),
+            const Icon(Icons.chevron_right_rounded, color: Colors.greenAccent),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: content,
     );
   }
 }
@@ -458,49 +626,6 @@ class _DashboardStats extends StatelessWidget {
   }
 }
 
-class _DashboardSourceBadge extends StatelessWidget {
-  const _DashboardSourceBadge({required this.data});
-
-  final HomeDashboardData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final isReal = data.source == HomeDashboardSource.real;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: isReal
-            ? Colors.greenAccent.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: isReal ? Colors.greenAccent : Colors.white12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isReal ? Icons.verified_rounded : Icons.info_outline_rounded,
-            color: isReal ? Colors.greenAccent : Colors.white70,
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              data.sourceMessage,
-              style: TextStyle(
-                color: isReal ? Colors.greenAccent : Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DashboardStatCard extends StatelessWidget {
   const _DashboardStatCard({required this.label, required this.value});
 
@@ -537,6 +662,34 @@ class _DashboardStatCard extends StatelessWidget {
       ),
     );
   }
+}
+
+WorkoutGoal? _trustedGoalPreview(GoalsState? state) {
+  if (state == null || state.isFallback) {
+    return null;
+  }
+
+  for (final goal in state.goals) {
+    if (goal.id != 'three_day_streak') {
+      return goal;
+    }
+  }
+
+  return null;
+}
+
+Achievement? _trustedAchievementPreview(AchievementsState? state) {
+  if (state == null || state.isFallback) {
+    return null;
+  }
+
+  for (final achievement in state.achievements) {
+    if (achievement.id != 'seven_day_streak') {
+      return achievement;
+    }
+  }
+
+  return null;
 }
 
 String _formatGoalValue(double value) {

@@ -333,30 +333,47 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 top: topInset + 72,
                 left: 20,
                 right: 20,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _MetricCard(
-                      label: 'TEKRAR',
-                      value: workoutState.repCount.toString(),
-                    ),
-                    _MetricCard(
-                      label: 'FPS',
-                      value: workoutState.cameraFps.toStringAsFixed(0),
-                      color: Colors.cyanAccent,
-                      onLongPress: () {
-                        setState(
-                          () => _showCalibrationPanel =
-                              !_showCalibrationPanel,
-                        );
-                      },
-                    ),
-                    _MetricCard(
-                      label: 'SKOR',
-                      value: workoutState.lastRepScore.toInt().toString(),
-                      color: Colors.greenAccent,
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 8.0;
+                    final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+
+                    return Row(
+                      children: [
+                        SizedBox(
+                          width: cardWidth,
+                          child: _MetricCard(
+                            label: 'TEKRAR',
+                            value: workoutState.repCount.toString(),
+                          ),
+                        ),
+                        const SizedBox(width: spacing),
+                        SizedBox(
+                          width: cardWidth,
+                          child: _MetricCard(
+                            label: 'FPS',
+                            value: workoutState.cameraFps.toStringAsFixed(0),
+                            color: Colors.cyanAccent,
+                            onLongPress: () {
+                              setState(
+                                () => _showCalibrationPanel =
+                                    !_showCalibrationPanel,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: spacing),
+                        SizedBox(
+                          width: cardWidth,
+                          child: _MetricCard(
+                            label: 'SKOR',
+                            value: workoutState.lastRepScore.toInt().toString(),
+                            color: Colors.greenAccent,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               if (_showCalibrationPanel)
@@ -580,28 +597,33 @@ class _MetricCard extends StatelessWidget {
     return GestureDetector(
       onLongPress: onLongPress,
       child: Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black38,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
-          ),
-        ],
-      ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -11,12 +11,10 @@ class ScoreTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final validPoints = points.where(_isValidMiniChartPoint).toList();
-    final fallbackPoints = HomeDashboardData.fallback().scoreTrend
-        .where(_isValidMiniChartPoint)
-        .toList();
-    final chartPoints = validPoints.isEmpty ? fallbackPoints : validPoints;
-    final bounds = _ScoreTrendBounds.fromPoints(chartPoints);
+    final chartPoints = points.where(_isValidMiniChartPoint).toList();
+    final bounds = chartPoints.isEmpty
+        ? null
+        : _ScoreTrendBounds.fromPoints(chartPoints);
     final maxX = chartPoints.length > 1
         ? (chartPoints.length - 1).toDouble()
         : 1.0;
@@ -64,100 +62,126 @@ class ScoreTrendCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Son performans görünümünün örnek özeti',
-              style: TextStyle(color: Colors.white60, fontSize: 13),
+            Text(
+              chartPoints.isEmpty
+                  ? 'İlk skorların geldikçe trend burada görünür.'
+                  : 'Son oturumlardaki skor değişimi',
+              style: const TextStyle(color: Colors.white60, fontSize: 13),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 160,
-              child: LineChart(
-                LineChartData(
-                  minX: 0,
-                  maxX: maxX,
-                  minY: bounds.minY,
-                  maxY: bounds.maxY,
-                  lineTouchData: const LineTouchData(enabled: false),
-                  gridData: FlGridData(
-                    drawVerticalLine: false,
-                    horizontalInterval: bounds.interval,
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 32,
-                        interval: bounds.interval,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                            ),
-                          );
-                        },
+            if (bounds == null)
+              const _ScoreTrendPlaceholder()
+            else
+              SizedBox(
+                height: 160,
+                child: LineChart(
+                  LineChartData(
+                    minX: 0,
+                    maxX: maxX,
+                    minY: bounds.minY,
+                    maxY: bounds.maxY,
+                    lineTouchData: const LineTouchData(enabled: false),
+                    gridData: FlGridData(
+                      drawVerticalLine: false,
+                      horizontalInterval: bounds.interval,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        strokeWidth: 1,
                       ),
                     ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 26,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index < 0 || index >= chartPoints.length) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              chartPoints[index].label,
+                    borderData: FlBorderData(show: false),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 32,
+                          interval: bounds.interval,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              value.toInt().toString(),
                               style: const TextStyle(
                                 color: Colors.white54,
                                 fontSize: 11,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 26,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= chartPoints.length) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                chartPoints[index].label,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: [
+                          for (var i = 0; i < chartPoints.length; i++)
+                            FlSpot(i.toDouble(), chartPoints[i].score),
+                        ],
+                        isCurved: false,
+                        color: Colors.greenAccent,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: Colors.greenAccent.withValues(alpha: 0.10),
+                        ),
+                      ),
+                    ],
                   ),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        for (var i = 0; i < chartPoints.length; i++)
-                          FlSpot(i.toDouble(), chartPoints[i].score),
-                      ],
-                      isCurved: false,
-                      color: Colors.greenAccent,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: const FlDotData(show: true),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Colors.greenAccent.withValues(alpha: 0.10),
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ScoreTrendPlaceholder extends StatelessWidget {
+  const _ScoreTrendPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 120,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Text(
+        'Henüz çizilecek skor yok.',
+        style: TextStyle(color: Colors.white54, fontSize: 13),
       ),
     );
   }

@@ -21,31 +21,46 @@ class SessionDetailScreen extends StatelessWidget {
           children: [
             _SessionSummaryCard(session: session),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _MetricTile(
-                  label: 'Süre',
-                  value: _formatDuration(session.duration),
-                ),
-                _MetricTile(
-                  label: 'Toplam Tekrar',
-                  value: session.totalReps.toString(),
-                ),
-                _MetricTile(
-                  label: 'Ortalama Skor',
-                  value: _formatScore(session.averageScore),
-                ),
-                _MetricTile(
-                  label: 'En İyi Skor',
-                  value: _formatScore(session.bestScore),
-                ),
-                _MetricTile(
-                  label: 'Form Uyarısı',
-                  value: session.formWarningCount.toString(),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 10.0;
+                final columnCount = constraints.maxWidth < 340 ? 1 : 2;
+                final tileWidth =
+                    (constraints.maxWidth - spacing * (columnCount - 1)) /
+                    columnCount;
+
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children:
+                      [
+                            _MetricTile(
+                              label: 'Süre',
+                              value: _formatDuration(session.duration),
+                            ),
+                            _MetricTile(
+                              label: 'Toplam Tekrar',
+                              value: session.totalReps.toString(),
+                            ),
+                            _MetricTile(
+                              label: 'Ortalama Skor',
+                              value: _formatScore(session.averageScore),
+                            ),
+                            _MetricTile(
+                              label: 'En İyi Skor',
+                              value: _formatScore(session.bestScore),
+                            ),
+                            _MetricTile(
+                              label: 'Form Uyarısı',
+                              value: session.formWarningCount.toString(),
+                            ),
+                          ]
+                          .map(
+                            (tile) => SizedBox(width: tileWidth, child: tile),
+                          )
+                          .toList(),
+                );
+              },
             ),
             const SizedBox(height: 14),
             _RecommendationCard(session: session),
@@ -135,34 +150,31 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 160,
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white60, fontSize: 12),
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
             ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.greenAccent,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

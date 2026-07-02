@@ -17,10 +17,6 @@ class ExerciseDistributionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chartItems = items.isEmpty
-        ? HomeDashboardData.fallback().exerciseDistribution
-        : items;
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -41,14 +37,17 @@ class ExerciseDistributionCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Örnek oturum dağılım görünümü',
+            'Oturumlarının hareketlere göre dağılımı',
             style: TextStyle(color: Colors.white60, fontSize: 13),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
+          if (items.isEmpty)
+            const _DistributionPlaceholder()
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 360;
+                final chart = SizedBox(
                   height: 150,
                   child: PieChart(
                     PieChartData(
@@ -56,12 +55,12 @@ class ExerciseDistributionCard extends StatelessWidget {
                       sectionsSpace: 2,
                       startDegreeOffset: -90,
                       sections: [
-                        for (var i = 0; i < chartItems.length; i++)
+                        for (var i = 0; i < items.length; i++)
                           PieChartSectionData(
-                            value: chartItems[i].value,
+                            value: items[i].value,
                             color: _colorForIndex(i),
                             radius: 46,
-                            title: '${chartItems[i].value.round()}%',
+                            title: '${items[i].value.round()}%',
                             titleStyle: const TextStyle(
                               color: Colors.black,
                               fontSize: 11,
@@ -71,25 +70,32 @@ class ExerciseDistributionCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
+                );
+                final legend = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var i = 0; i < chartItems.length; i++) ...[
-                      _LegendItem(
-                        item: chartItems[i],
-                        color: _colorForIndex(i),
-                      ),
-                      const SizedBox(height: 10),
+                    for (var i = 0; i < items.length; i++) ...[
+                      _LegendItem(item: items[i], color: _colorForIndex(i)),
+                      if (i != items.length - 1) const SizedBox(height: 10),
                     ],
                   ],
-                ),
-              ),
-            ],
-          ),
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    children: [chart, const SizedBox(height: 14), legend],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: chart),
+                    const SizedBox(width: 14),
+                    Expanded(child: legend),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );
@@ -97,6 +103,34 @@ class ExerciseDistributionCard extends StatelessWidget {
 
   Color _colorForIndex(int index) {
     return _colors[index % _colors.length];
+  }
+}
+
+class _DistributionPlaceholder extends StatelessWidget {
+  const _DistributionPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.pie_chart_outline_rounded, color: Colors.greenAccent),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Kaydedilen analizler arttıkça dağılım burada oluşur.',
+              style: TextStyle(color: Colors.white60, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

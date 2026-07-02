@@ -34,23 +34,28 @@ class _AchievementsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleAchievements = state.isFallback
+        ? <Achievement>[]
+        : state.achievements
+              .where((achievement) => achievement.id != 'seven_day_streak')
+              .toList();
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: state.achievements.length + (state.isFallback ? 2 : 1),
+      itemCount: visibleAchievements.isEmpty
+          ? 2
+          : visibleAchievements.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == 0) {
           return const _AchievementsHeaderCard();
         }
 
-        if (state.isFallback && index == 1) {
-          return _AchievementsSourceNotice(message: state.sourceMessage);
+        if (visibleAchievements.isEmpty) {
+          return _AchievementsEmptyState(source: state.source);
         }
 
-        final achievementIndex = index - (state.isFallback ? 2 : 1);
-        return _AchievementCard(
-          achievement: state.achievements[achievementIndex],
-        );
+        return _AchievementCard(achievement: visibleAchievements[index - 1]);
       },
     );
   }
@@ -83,7 +88,7 @@ class _AchievementsHeaderCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'Güvenilir rozetler mevcut oturum verilerine bağlanır. Veri yoksa örnek rozetler gösterilir.',
+            'Analizlerini tamamladıkça rozetlerin burada açılır.',
             style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
           ),
         ],
@@ -92,35 +97,42 @@ class _AchievementsHeaderCard extends StatelessWidget {
   }
 }
 
-class _AchievementsSourceNotice extends StatelessWidget {
-  const _AchievementsSourceNotice({required this.message});
+class _AchievementsEmptyState extends StatelessWidget {
+  const _AchievementsEmptyState({required this.source});
 
-  final String message;
+  final AchievementsDataSource source;
 
   @override
   Widget build(BuildContext context) {
+    final message = switch (source) {
+      AchievementsDataSource.demoError =>
+        'Rozetler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
+      _ => 'İlk analizini tamamladığında rozetlerin burada görünür.',
+    };
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
-            Icons.info_outline_rounded,
-            color: Colors.white70,
-            size: 17,
+            Icons.emoji_events_outlined,
+            color: Colors.greenAccent,
+            size: 24,
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                height: 1.35,
               ),
             ),
           ),
