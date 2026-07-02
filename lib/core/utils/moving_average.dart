@@ -1,33 +1,27 @@
 import 'dart:collection';
 
-// Açı verisini yumuşatır.
+/// Smooths noisy angle samples with a fixed-size moving average window.
 class MovingAverageFilter {
   final int windowSize;
   final Queue<double> _values = Queue<double>();
   double _sum = 0.0;
 
-  /// [windowSize] değeri filtrenin ne kadar geriye bakacağını belirler.
-  /// İdeal FPS için genellikle 5 ile 10 arası bir değer tercih edilir.
   MovingAverageFilter({this.windowSize = 5});
 
-  /// Yeni bir açı değeri ekler ve filtrelenmiş (pürüzsüz) ortalamayı döndürür.
-  // Yeni değeri ekleyip ortalamayı döndürür.
+  /// Adds a new sample and returns the current smoothed average.
   double process(double newValue) {
     _values.addLast(newValue);
     _sum += newValue;
 
-    // Kuyruk kapasitesi dolduğunda en eski veriyi at ve toplamdan çıkar
     if (_values.length > windowSize) {
       double oldestValue = _values.removeFirst();
       _sum -= oldestValue;
     }
 
-    // Mevcut değerlerin ortalamasını döndür
     return _sum / _values.length;
   }
 
-  /// Yeni bir antrenman setine geçildiğinde kuyruğu sıfırlamak için kullanılır
-  // Filtre geçmişini temizler.
+  /// Clears previous samples before a fresh analysis session.
   void reset() {
     _values.clear();
     _sum = 0.0;

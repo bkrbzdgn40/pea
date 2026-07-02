@@ -18,6 +18,7 @@ class RepResult {
   });
 }
 
+/// Rep-level scoring diagnostics captured when a full repetition completes.
 class RepScoreBreakdown {
   const RepScoreBreakdown({
     required this.minAngle,
@@ -42,6 +43,7 @@ class RepScoreBreakdown {
   final double finalScore;
 }
 
+/// Small squat state machine that turns smoothed angles into reps and scores.
 class ExerciseEngine {
   final ExerciseConfig config;
 
@@ -72,14 +74,14 @@ class ExerciseEngine {
 
   bool get currentRepHadFormViolation => _currentRepHadFormViolation;
 
-  // Formu ve tekrar fazını günceller.
+  /// Updates live form feedback and advances the repetition state machine.
   void update(double currentAngle, double backAngle) {
     _checkForm(backAngle);
     _processState(currentAngle, backAngle);
   }
 
-  // Açıya göre faz geçişlerini yönetir.
   void _processState(double angle, double backAngle) {
+    // Aborted descents reset to neutral without counting a repetition.
     switch (state) {
       case MovementPhase.neutral:
         if (angle < config.thresholdActive) {
@@ -133,8 +135,8 @@ class ExerciseEngine {
     }
   }
 
-  // Tekrarı sayar ve skoru hesaplar.
   void _finishRep() {
+    // Score is finalized only after descent, peak, and ascent return to neutral.
     repCount++;
     maxROM = _currentRepMinAngle;
 
@@ -151,7 +153,7 @@ class ExerciseEngine {
     );
     final tempoScore = (descentScore + ascentScoreCandidate) / 2;
 
-    // Form penalty stays binary, but is now based on the full rep history.
+    // Keep the penalty binary, but base it on full rep history, not the last frame.
     final finalScore = _currentRepHadFormViolation
         ? (romScore + tempoScore) / 4
         : (romScore + tempoScore) / 2;
@@ -205,8 +207,8 @@ class ExerciseEngine {
     _currentRepHadFormViolation = false;
   }
 
-  // Sırt açısına göre formu kontrol eder.
   void _checkForm(double backAngle) {
+    // Live feedback uses the current frame; final scoring uses rep-level history.
     if (backAngle < config.formThreshold) {
       isFormBad = true;
       feedback = "Sırtını Dik Tut!";
@@ -215,7 +217,6 @@ class ExerciseEngine {
     }
   }
 
-  // Sayaç ve metrikleri sıfırlar.
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;

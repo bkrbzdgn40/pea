@@ -1,3 +1,4 @@
+/// Persistable summary of one completed workout analysis session.
 class WorkoutSession {
   const WorkoutSession({
     required this.id,

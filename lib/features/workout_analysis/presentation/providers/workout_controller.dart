@@ -12,12 +12,13 @@ import '../../domain/models/exercise_config.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'pose_provider.dart';
 
-// Controller state'ini sağlar.
+/// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
     AutoDisposeNotifierProvider<WorkoutController, WorkoutState>(() {
       return WorkoutController();
     });
 
+/// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   static const Duration _analysisFrameInterval = Duration(milliseconds: 100);
 
@@ -37,8 +38,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final InputImageConverter _inputImageConverter = const InputImageConverter();
 
   @override
-  // Analiz motorunu ve filtreleri kurar.
   WorkoutState build() {
+    // Recreating this provider starts a fresh analysis session and filter state.
     ref.watch(poseDetectorProvider);
 
     _config = ExerciseConfig.squat();
@@ -57,7 +58,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return WorkoutState();
   }
 
-  // Kamera karesini analiz edip UI state'ini günceller.
+  /// Processes one camera frame and publishes the latest live telemetry.
   Future<void> processCameraImage(
     CameraImage image,
     int sensorOrientation,
@@ -67,6 +68,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _updateFpsIfNeeded();
 
     if (_isProcessing) return;
+    // Keep ML Kit work below camera FPS so preview rendering stays responsive.
     if (_lastAnalysisStartedAt != null &&
         now.difference(_lastAnalysisStartedAt!) < _analysisFrameInterval) {
       return;
@@ -93,6 +95,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         final rawAngle = _calculatePrimaryAngle(pose);
         final rawBack = _calculateBackAngle(pose);
 
+        // Smooth landmark jitter before feeding the scoring state machine.
         final smoothAngle = _angleFilter.process(rawAngle);
         final smoothBack = _backFilter.process(rawBack);
 
@@ -112,6 +115,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           calibrationMetrics: _buildCalibrationMetrics(smoothBack),
         );
       } else {
+        // No-pose frames should not reset session counters or last rep results.
         state = WorkoutState(
           landmarks: [],
           repCount: state.repCount,
@@ -133,7 +137,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  // FPS sayaçlarını saniyelik yeniler.
   void _updateFpsIfNeeded() {
     final now = DateTime.now();
     final elapsedMs = now.difference(_lastFpsCalculationTime).inMilliseconds;
@@ -150,8 +153,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
-  /// Konfigürasyona göre ana eklem açısını dinamik olarak hesaplar
-  // Ana eklem açısını hesaplar.
   double _calculatePrimaryAngle(Pose pose) {
     final p1 = pose.landmarks[_config.joint1];
     final mid = pose.landmarks[_config.primaryJoint];
@@ -164,10 +165,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         math.Point(p2.x, p2.y),
       );
     }
+    // Neutral fallback prevents a missing joint from being counted as movement.
     return 180.0;
   }
 
-  // Sırt açısını hesaplar.
   double _calculateBackAngle(Pose pose) {
     final shoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final hip = pose.landmarks[PoseLandmarkType.leftHip];
@@ -180,12 +181,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         math.Point(knee.x, knee.y),
       );
     }
+    // Upright-ish fallback avoids false form violations from incomplete torso landmarks.
     return 90.0;
   }
 
   WorkoutCalibrationMetrics _buildCalibrationMetrics(double currentBackAngle) {
     final lastBreakdown = _engine.lastRepScoreBreakdown;
 
+    // Debug-only telemetry for calibration; scoring still lives in ExerciseEngine.
     return WorkoutCalibrationMetrics(
       currentBackAngle: currentBackAngle,
       formThreshold: _config.formThreshold,

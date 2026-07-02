@@ -10,6 +10,7 @@ extension ExerciseDifficultyLabel on ExerciseDifficulty {
   }
 }
 
+/// Local guide entry for exercises, independent from the analysis engine.
 class ExerciseGuideContent {
   const ExerciseGuideContent({
     required this.id,

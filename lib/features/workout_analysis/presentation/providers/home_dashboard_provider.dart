@@ -4,6 +4,7 @@ import '../../domain/models/workout_session.dart';
 import '../models/home_dashboard_data.dart';
 import 'user_sessions_snapshot_provider.dart';
 
+/// Builds Home dashboard aggregates from the shared session snapshot.
 final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
   final snapshot = await ref.watch(userSessionsSnapshotProvider.future);
 

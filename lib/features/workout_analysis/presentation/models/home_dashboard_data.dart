@@ -1,5 +1,6 @@
 enum HomeDashboardSource { real, demoNoUser, demoEmpty, demoError }
 
+/// Aggregated values used by Home without exposing session query details.
 class HomeDashboardData {
   const HomeDashboardData({
     required this.totalAnalyses,

@@ -1,5 +1,6 @@
 import '../models/exercise_guide_content.dart';
 
+/// Static product copy for the guide; analysis availability is declared per item.
 const exerciseGuideContents = [
   ExerciseGuideContent(
     id: 'squat',

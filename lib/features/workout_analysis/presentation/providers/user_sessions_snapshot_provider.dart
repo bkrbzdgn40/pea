@@ -4,6 +4,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import 'session_repository_provider.dart';
 
+/// Shared one-shot session feed for Home, Goals, and Achievements.
 final userSessionsSnapshotProvider = FutureProvider<UserSessionsSnapshot>((
   ref,
 ) async {
@@ -48,6 +49,7 @@ class UserSessionsSnapshot {
   final List<WorkoutSession> sessions;
   final UserSessionsSnapshotSource source;
 
+  /// Non-real sources deliberately keep UI surfaces honest about fallback data.
   bool get isFallback => source != UserSessionsSnapshotSource.real;
 
   String get sourceMessage {

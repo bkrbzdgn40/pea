@@ -4,9 +4,11 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+/// Converts platform camera frames into ML Kit input images when the format is safe.
 class InputImageConverter {
   const InputImageConverter();
 
+  /// Returns null instead of manufacturing bytes for unsupported platform formats.
   InputImage? convert(CameraImage image, int sensorOrientation) {
     try {
       if (image.width <= 0 || image.height <= 0 || image.planes.isEmpty) {

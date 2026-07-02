@@ -362,6 +362,7 @@ class _VideoButton extends StatelessWidget {
   }
 
   Future<void> _openVideo(BuildContext context, String url) async {
+    // Product choice: keep guide videos external until an in-app player is designed.
     final uri = Uri.parse(url);
     final didLaunch = await launchUrl(
       uri,

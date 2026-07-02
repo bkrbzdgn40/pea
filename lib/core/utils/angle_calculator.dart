@@ -1,11 +1,7 @@
 import 'dart:math' as math;
 
 class AngleCalculator {
-  /// 3 nokta arasındaki iç açıyı derece (degree) cinsinden döndürür.
-  /// [firstPoint] : Başlangıç noktası (Örn: Kalça)
-  /// [midPoint]   : Açı merkezi olan köşe noktası (Örn: Diz)
-  /// [lastPoint]  : Bitiş noktası (Örn: Ayak Bileği)
-  // Üç noktadan iç açıyı hesaplar.
+  /// Returns the inner angle, in degrees, at [midPoint].
   static double calculate(
     math.Point<double> firstPoint,
     math.Point<double> midPoint,
@@ -17,7 +13,7 @@ class AngleCalculator {
 
     double angle = (radians * 180.0 / math.pi).abs();
 
-    // Dış açıyı değil, her zaman iç açıyı almak istiyoruz
+    // Pose scoring expects the smaller inner angle, not the reflex angle.
     if (angle > 180.0) {
       angle = 360.0 - angle;
     }

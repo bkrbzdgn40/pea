@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/home_dashboard_data.dart';
 
+/// Compact Home chart; detailed history lives on the score trend detail screen.
 class ScoreTrendCard extends StatelessWidget {
   const ScoreTrendCard({super.key, required this.points, this.onTap});
 

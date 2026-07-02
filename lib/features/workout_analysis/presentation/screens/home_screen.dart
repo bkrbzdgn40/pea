@@ -29,6 +29,7 @@ class HomeScreen extends ConsumerWidget {
     final dashboardData =
         ref.watch(homeDashboardProvider).valueOrNull ??
         HomeDashboardData.fallback();
+    // Fallback data powers placeholders, but metric cards only show real sessions.
     final hasDashboardData = dashboardData.source == HomeDashboardSource.real;
     final goalsState = ref.watch(goalsProvider).valueOrNull;
     final goalPreview = _trustedGoalPreview(goalsState);

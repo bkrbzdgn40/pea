@@ -4,6 +4,7 @@ import '../../../../core/firebase/firebase_failures.dart';
 import '../../../../core/firebase/firestore_paths.dart';
 import '../../domain/models/workout_session.dart';
 
+/// One-shot Firestore data source for user-owned workout sessions.
 class FirestoreSessionRemoteSource {
   const FirestoreSessionRemoteSource(this._firestore);
 
@@ -120,6 +121,7 @@ class FirestoreSessionRemoteSource {
 
   Map<String, dynamic> _toFirestoreData(WorkoutSession session) {
     final now = DateTime.now();
+    // Client timestamps keep the first Firestore integration deterministic.
     final createdAt = session.createdAt ?? now;
     final updatedAt = session.updatedAt ?? now;
 
@@ -144,6 +146,7 @@ class FirestoreSessionRemoteSource {
     required String fallbackId,
     required String fallbackOwnerId,
   }) {
+    // Keep Firebase Timestamp details out of the domain model.
     return WorkoutSession.fromMap(<String, Object?>{
       'id': data['id'] ?? fallbackId,
       'ownerId': data['ownerId'] ?? fallbackOwnerId,

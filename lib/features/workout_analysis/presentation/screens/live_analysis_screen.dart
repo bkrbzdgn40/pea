@@ -17,6 +17,7 @@ import '../widgets/pose_painter.dart';
 import 'camera_permission_screen.dart';
 import 'workout_summary_screen.dart';
 
+/// Runs the live camera analysis session and handles camera lifecycle recovery.
 class LiveAnalysisScreen extends ConsumerStatefulWidget {
   const LiveAnalysisScreen({super.key});
 
@@ -73,6 +74,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   void _collectSessionMetrics(WorkoutState? _, WorkoutState next) {
+    // Collect from state transitions so save/summary does not depend on the final frame.
     final repDelta = next.repCount - _lastObservedRepCount;
     if (repDelta > 0) {
       _repScoreSum += next.lastRepScore * repDelta;
@@ -98,6 +100,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      // Hide preview before teardown so CameraPreview never builds a disposed controller.
       _markCameraRecovering();
       unawaited(_stopImageStreamIfNeeded());
       return;
@@ -224,6 +227,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     try {
       await ref.read(sessionRepositoryProvider).saveSession(session);
+      // Shared Home/Goals/Achievements data is one-shot cached and must refetch.
       ref.invalidate(userSessionsSnapshotProvider);
     } catch (_) {
       if (!mounted) return;
@@ -251,7 +255,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   @override
-  // Kamera önizlemesini ve analiz katmanını çizer.
   Widget build(BuildContext context) {
     if (_isFinishingSession) {
       return const Scaffold(
@@ -592,7 +595,6 @@ class _MetricCard extends StatelessWidget {
   });
 
   @override
-  // Tek bir metrik kartını çizer.
   Widget build(BuildContext context) {
     return GestureDetector(
       onLongPress: onLongPress,

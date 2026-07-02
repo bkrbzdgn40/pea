@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Shared Home preview card for secondary surfaces such as goals and coach.
 class HomeFeaturePreviewCard extends StatelessWidget {
   const HomeFeaturePreviewCard({
     super.key,

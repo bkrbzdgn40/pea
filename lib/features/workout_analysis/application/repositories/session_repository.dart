@@ -1,5 +1,6 @@
 import '../../domain/models/workout_session.dart';
 
+/// Repository contract for saving and reading completed workout sessions.
 abstract interface class SessionRepository {
   Future<void> saveSession(WorkoutSession session);
 

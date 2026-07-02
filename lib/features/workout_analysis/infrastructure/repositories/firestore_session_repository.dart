@@ -2,6 +2,7 @@ import '../../application/repositories/session_repository.dart';
 import '../../domain/models/workout_session.dart';
 import '../remote/firestore_session_remote_source.dart';
 
+/// Firestore-backed implementation that keeps storage details in infrastructure.
 class FirestoreSessionRepository implements SessionRepository {
   const FirestoreSessionRepository(this._remoteSource);
 
