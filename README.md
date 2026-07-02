@@ -8,18 +8,31 @@ Mobil cihaz kamerası üzerinden egzersiz formunu gerçek zamanlı izlemeyi, tek
 
 <br/>
 
+<p align="center">
+  <img src="./docs/assets/pea-banner.png" alt="PEA README Banner" width="100%" />
+</p>
+
+<br/>
+
 <img src="https://skillicons.dev/icons?i=flutter,dart,firebase" height="52" alt="Flutter, Dart ve Firebase ikonları" />
 
 <br/>
 <br/>
 
-![Flutter](https://img.shields.io/badge/Flutter-Mobile_App-02569B?logo=flutter\&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart\&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-Backend-FFCA28?logo=firebase\&logoColor=black)
-![Riverpod](https://img.shields.io/badge/Riverpod-State_Management-6C63FF)
-![ML Kit](https://img.shields.io/badge/Google_ML_Kit-Pose_Detection-34A853?logo=google\&logoColor=white)
-![Firestore](https://img.shields.io/badge/Cloud_Firestore-Session_Storage-FFCA28?logo=firebase\&logoColor=black)
-![Status](https://img.shields.io/badge/Status-Active_Development-7C3AED)
+![Flutter](https://img.shields.io/badge/Flutter-Mobile-00C853?style=for-the-badge\&logo=flutter\&logoColor=white\&labelColor=111111)
+![Dart](https://img.shields.io/badge/Dart-3.x-00C853?style=for-the-badge\&logo=dart\&logoColor=white\&labelColor=111111)
+![Firebase](https://img.shields.io/badge/Firebase-Backend-00C853?style=for-the-badge\&logo=firebase\&logoColor=white\&labelColor=111111)
+![ML Kit](https://img.shields.io/badge/ML_Kit-Pose_Detection-00C853?style=for-the-badge\&logo=google\&logoColor=white\&labelColor=111111)
+![Riverpod](https://img.shields.io/badge/Riverpod-State_Management-00C853?style=for-the-badge\&labelColor=111111)
+![Firestore](https://img.shields.io/badge/Cloud_Firestore-Session_Storage-00C853?style=for-the-badge\&logo=firebase\&logoColor=white\&labelColor=111111)
+
+<br/>
+
+![Real Time Analysis](https://img.shields.io/badge/Real--Time-Analysis-00E676?style=for-the-badge\&labelColor=111111)
+![Rep Counting](https://img.shields.io/badge/Rep-Counting-00E676?style=for-the-badge\&labelColor=111111)
+![Session History](https://img.shields.io/badge/Session-History-00E676?style=for-the-badge\&labelColor=111111)
+![Exercise Guide](https://img.shields.io/badge/Exercise-Guide-00E676?style=for-the-badge\&labelColor=111111)
+![Status](https://img.shields.io/badge/Status-Active_Development-00E676?style=for-the-badge\&labelColor=111111)
 
 </div>
 
@@ -132,7 +145,7 @@ Uygulamanın ne yaptığını ve nasıl kullanılması gerektiğini kısa, sade 
 
 Proje, feature odaklı ve katmanlı bir yapıyla ilerler.
 
-```text id="tree01"
+```text
 lib/
 ├── app/
 ├── core/
@@ -156,7 +169,7 @@ lib/
 
 ## Analiz Akışı
 
-```text id="flow01"
+```text
 Camera Stream
    ↓
 InputImage dönüşümü
@@ -239,7 +252,7 @@ sunulur.
 
 Session verileri kullanıcı bazlı saklanır:
 
-```text id="db01"
+```text
 users/{uid}/sessions/{sessionId}
 ```
 
@@ -260,14 +273,14 @@ Kaydedilen temel alanlar şunları içerir:
 
 ### 1. Depoyu klonlayın
 
-```bash id="install01"
+```bash
 git clone https://github.com/bkrbzdgn40/pea.git
 cd pea
 ```
 
 ### 2. Bağımlılıkları yükleyin
 
-```bash id="install02"
+```bash
 flutter pub get
 ```
 
@@ -282,7 +295,7 @@ Projeyi çalıştırmadan önce Firebase tarafında gerekli yapılandırmayı ta
 
 ### 4. Uygulamayı başlatın
 
-```bash id="install03"
+```bash
 flutter run
 ```
 
