@@ -7,7 +7,9 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/workout_state.dart';
+import '../../domain/models/exercise_type.dart';
 import '../../domain/models/workout_session.dart';
+import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_provider.dart';
 import '../providers/session_repository_provider.dart';
@@ -29,6 +31,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
   bool _isRecoveringCamera = false;
+  ExerciseType _activeSessionExercise = ExerciseType.squat;
   DateTime? _sessionStartedAt;
   int _lastObservedRepCount = 0;
   double _repScoreSum = 0;
@@ -62,6 +65,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   void _startSessionLifecycle() {
+    _activeSessionExercise = ref.read(activeAnalysisExerciseProvider);
     _sessionStartedAt = DateTime.now();
     _lastObservedRepCount = 0;
     _repScoreSum = 0;
@@ -215,7 +219,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final session = WorkoutSession(
       id: 'session_${endedAt.microsecondsSinceEpoch}',
       ownerId: ownerId,
-      exerciseType: 'squat',
+      exerciseType: _activeSessionExercise.id,
       startedAt: startedAt,
       endedAt: endedAt,
       durationSec: durationSec < 0 ? 0 : durationSec,

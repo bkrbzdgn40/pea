@@ -10,6 +10,7 @@ import '../../application/workout_state.dart';
 import '../../domain/exercise_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
+import 'exercise_config_provider.dart';
 import 'pose_provider.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
@@ -42,7 +43,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     // Recreating this provider starts a fresh analysis session and filter state.
     ref.watch(poseDetectorProvider);
 
-    _config = ExerciseConfig.squat();
+    _config = ref.watch(exerciseConfigProvider);
     _engine = ExerciseEngine(config: _config);
 
     _angleFilter = MovingAverageFilter(windowSize: 5);
