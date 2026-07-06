@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../application/engine_kind.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
@@ -41,6 +42,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   double _bestScore = 0;
   int _formWarningCount = 0;
   bool _previousFormBad = false;
+  double _lastObservedHoldSeconds = 0;
+  double _totalHoldSeconds = 0;
+  double _bestHoldSeconds = 0;
+  int _formBreakCount = 0;
+  bool _previousHoldFormBreak = false;
   bool _isFinishingSession = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
@@ -91,6 +97,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _bestScore = 0;
     _formWarningCount = 0;
     _previousFormBad = false;
+    _lastObservedHoldSeconds = 0;
+    _totalHoldSeconds = 0;
+    _bestHoldSeconds = 0;
+    _formBreakCount = 0;
+    _previousHoldFormBreak = false;
     _isFinishingSession = false;
     ref.read(completedSessionProvider.notifier).state = null;
   }
@@ -111,8 +122,25 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       _formWarningCount += 1;
     }
 
+    if (next.isHolding) {
+      final holdDelta = next.currentHoldSeconds - _lastObservedHoldSeconds;
+      if (holdDelta > 0) {
+        _totalHoldSeconds += holdDelta;
+      }
+    }
+
+    if (next.bestHoldSeconds > _bestHoldSeconds) {
+      _bestHoldSeconds = next.bestHoldSeconds;
+    }
+
+    if (!_previousHoldFormBreak && next.hadHoldFormBreak) {
+      _formBreakCount += 1;
+    }
+
     _lastObservedRepCount = next.repCount;
     _previousFormBad = next.isFormBad;
+    _lastObservedHoldSeconds = next.isHolding ? next.currentHoldSeconds : 0;
+    _previousHoldFormBreak = next.hadHoldFormBreak;
   }
 
   @override
@@ -234,17 +262,24 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final endedAt = DateTime.now();
     final startedAt = _sessionStartedAt ?? endedAt;
     final durationSec = endedAt.difference(startedAt).inSeconds;
+    final isHoldAnalysis = workoutState.analysisKind == EngineKind.hold;
     final session = WorkoutSession(
       id: 'session_${endedAt.microsecondsSinceEpoch}',
       ownerId: ownerId,
       exerciseType: _activeSessionExercise.id,
+      analysisKind: workoutState.analysisKind.name,
       startedAt: startedAt,
       endedAt: endedAt,
       durationSec: durationSec < 0 ? 0 : durationSec,
       totalReps: workoutState.repCount,
-      averageScore: _scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount,
-      bestScore: _bestScore,
-      formWarningCount: _formWarningCount,
+      averageScore: isHoldAnalysis
+          ? 0
+          : (_scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount),
+      bestScore: isHoldAnalysis ? 0 : _bestScore,
+      formWarningCount: isHoldAnalysis ? 0 : _formWarningCount,
+      totalHoldSeconds: _totalHoldSeconds,
+      bestHoldSeconds: _bestHoldSeconds,
+      formBreakCount: _formBreakCount,
     );
 
     try {

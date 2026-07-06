@@ -182,6 +182,16 @@ class _SummaryValueCard extends StatelessWidget {
 }
 
 List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
+  if (session.isHoldSession) {
+    return <MapEntry<String, String>>[
+      MapEntry('Egzersiz tipi', _exerciseTitle(session.exerciseType)),
+      MapEntry('Toplam hold', _formatHoldSeconds(session.totalHoldSeconds)),
+      MapEntry('En iyi hold', _formatHoldSeconds(session.bestHoldSeconds)),
+      MapEntry('Form kesintisi', session.formBreakCount.toString()),
+      MapEntry('Sure', _formatDuration(session.duration)),
+    ];
+  }
+
   return <MapEntry<String, String>>[
     MapEntry('Egzersiz tipi', _exerciseTitle(session.exerciseType)),
     MapEntry('Toplam tekrar', session.totalReps.toString()),
@@ -213,4 +223,8 @@ String _formatDuration(Duration duration) {
   final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
 
   return '$minutes:$seconds';
+}
+
+String _formatHoldSeconds(double seconds) {
+  return _formatDuration(Duration(seconds: seconds.round()));
 }

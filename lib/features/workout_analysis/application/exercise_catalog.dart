@@ -23,8 +23,9 @@ class ExerciseCatalog {
       title: ExerciseType.plank.title,
       isAnalysisSupported: false,
       activeAnalysisExercise: ExerciseType.squat,
-      configExercise: ExerciseType.squat,
+      configExercise: ExerciseType.plank,
       engineKind: EngineKind.hold,
+      configAssetPath: 'assets/config/exercises/plank.json',
     ),
     ExerciseDefinition(
       type: ExerciseType.lunge,

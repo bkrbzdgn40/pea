@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/moving_average.dart';
 import '../../application/analysis_engine_factory.dart';
+import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
+import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
@@ -36,6 +38,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   double _analysisFps = 0.0;
 
   late final AnalysisEngine _engine;
+  late final EngineKind _engineKind;
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final ExerciseConfig _config;
@@ -52,9 +55,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
     final definition = _exerciseCatalog.definitionFor(activeExercise);
+    _engineKind = definition.engineKind;
     _config = ref.watch(exerciseConfigProvider).requireValue;
     _engine = _engineFactory.create(
-      engineKind: definition.engineKind,
+      engineKind: _engineKind,
       config: _config,
     );
 
@@ -68,7 +72,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFps = 0.0;
     _lastAnalysisStartedAt = null;
 
-    return WorkoutState();
+    return WorkoutState(analysisKind: _engineKind);
   }
 
   /// Processes one camera frame and publishes the latest live telemetry.
@@ -112,14 +116,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         final smoothFormMetric = _backFilter.process(metrics.formMetric);
 
         _engine.update(smoothAngle, smoothFormMetric);
+        final holdDiagnostics = _holdDiagnosticsSnapshot();
 
         state = WorkoutState(
           landmarks: metrics.landmarks,
+          analysisKind: _engineKind,
           repCount: _engine.repCount,
           isFormBad: _engine.isFormBad,
           currentAngle: smoothAngle,
           lastRepScore: _engine.lastRepScore,
           lastRepROM: _engine.maxRom,
+          currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
+          bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+          isHolding: holdDiagnostics.isHolding,
+          hadHoldFormBreak: holdDiagnostics.hadFormBreak,
           feedbackMessage: _engine.feedback,
           currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
@@ -130,11 +140,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         // No-pose frames should not reset session counters or last rep results.
         state = WorkoutState(
           landmarks: metrics.landmarks,
+          analysisKind: _engineKind,
           repCount: state.repCount,
           isFormBad: false,
           currentAngle: metrics.primaryAngle,
           lastRepScore: state.lastRepScore,
           lastRepROM: state.lastRepROM,
+          currentHoldSeconds: 0,
+          bestHoldSeconds: state.bestHoldSeconds,
+          isHolding: false,
+          hadHoldFormBreak: state.hadHoldFormBreak,
           feedbackMessage: "Vucut Bekleniyor...",
           currentPhase: "WAITING",
           cameraFps: _cameraFps,
@@ -166,9 +181,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   WorkoutCalibrationMetrics _buildCalibrationMetrics(double currentFormMetric) {
-    final diagnostics = _engine is RangeRepDiagnostics
-        ? (_engine as RangeRepDiagnostics).diagnosticsSnapshot
-        : const RangeRepDiagnosticsSnapshot();
+    final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
 
     // Calibration telemetry still shows the current squat form metric.
@@ -184,5 +197,21 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
     );
+  }
+
+  RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
+    if (_engine is RangeRepDiagnostics) {
+      return (_engine as RangeRepDiagnostics).diagnosticsSnapshot;
+    }
+
+    return const RangeRepDiagnosticsSnapshot();
+  }
+
+  HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
+    if (_engine is HoldDiagnostics) {
+      return (_engine as HoldDiagnostics).diagnosticsSnapshot;
+    }
+
+    return const HoldDiagnosticsSnapshot();
   }
 }

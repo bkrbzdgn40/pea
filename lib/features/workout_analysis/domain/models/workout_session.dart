@@ -4,6 +4,7 @@ class WorkoutSession {
     required this.id,
     required this.ownerId,
     required this.exerciseType,
+    this.analysisKind = 'rangeRep',
     required this.startedAt,
     required this.endedAt,
     required this.durationSec,
@@ -11,6 +12,9 @@ class WorkoutSession {
     required this.averageScore,
     required this.bestScore,
     required this.formWarningCount,
+    this.totalHoldSeconds = 0.0,
+    this.bestHoldSeconds = 0.0,
+    this.formBreakCount = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -18,6 +22,7 @@ class WorkoutSession {
   final String id;
   final String ownerId;
   final String exerciseType;
+  final String analysisKind;
   final DateTime startedAt;
   final DateTime endedAt;
   final int durationSec;
@@ -25,15 +30,20 @@ class WorkoutSession {
   final double averageScore;
   final double bestScore;
   final int formWarningCount;
+  final double totalHoldSeconds;
+  final double bestHoldSeconds;
+  final int formBreakCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   Duration get duration => Duration(seconds: durationSec);
+  bool get isHoldSession => analysisKind == 'hold';
 
   WorkoutSession copyWith({
     String? id,
     String? ownerId,
     String? exerciseType,
+    String? analysisKind,
     DateTime? startedAt,
     DateTime? endedAt,
     int? durationSec,
@@ -41,6 +51,9 @@ class WorkoutSession {
     double? averageScore,
     double? bestScore,
     int? formWarningCount,
+    double? totalHoldSeconds,
+    double? bestHoldSeconds,
+    int? formBreakCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -48,6 +61,7 @@ class WorkoutSession {
       id: id ?? this.id,
       ownerId: ownerId ?? this.ownerId,
       exerciseType: exerciseType ?? this.exerciseType,
+      analysisKind: analysisKind ?? this.analysisKind,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       durationSec: durationSec ?? this.durationSec,
@@ -55,6 +69,9 @@ class WorkoutSession {
       averageScore: averageScore ?? this.averageScore,
       bestScore: bestScore ?? this.bestScore,
       formWarningCount: formWarningCount ?? this.formWarningCount,
+      totalHoldSeconds: totalHoldSeconds ?? this.totalHoldSeconds,
+      bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
+      formBreakCount: formBreakCount ?? this.formBreakCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -65,6 +82,7 @@ class WorkoutSession {
       'id': id,
       'ownerId': ownerId,
       'exerciseType': exerciseType,
+      'analysisKind': analysisKind,
       'startedAt': startedAt.toIso8601String(),
       'endedAt': endedAt.toIso8601String(),
       'durationSec': durationSec,
@@ -72,6 +90,9 @@ class WorkoutSession {
       'averageScore': averageScore,
       'bestScore': bestScore,
       'formWarningCount': formWarningCount,
+      'totalHoldSeconds': totalHoldSeconds,
+      'bestHoldSeconds': bestHoldSeconds,
+      'formBreakCount': formBreakCount,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -82,6 +103,7 @@ class WorkoutSession {
       id: _readString(map, 'id'),
       ownerId: _readString(map, 'ownerId'),
       exerciseType: _readString(map, 'exerciseType'),
+      analysisKind: _readStringOrDefault(map, 'analysisKind', 'rangeRep'),
       startedAt: _readDateTime(map, 'startedAt'),
       endedAt: _readDateTime(map, 'endedAt'),
       durationSec: _readInt(map, 'durationSec'),
@@ -89,6 +111,9 @@ class WorkoutSession {
       averageScore: _readDouble(map, 'averageScore'),
       bestScore: _readDouble(map, 'bestScore'),
       formWarningCount: _readInt(map, 'formWarningCount'),
+      totalHoldSeconds: _readDoubleOrDefault(map, 'totalHoldSeconds', 0),
+      bestHoldSeconds: _readDoubleOrDefault(map, 'bestHoldSeconds', 0),
+      formBreakCount: _readIntOrDefault(map, 'formBreakCount', 0),
       createdAt: _readNullableDateTime(map, 'createdAt'),
       updatedAt: _readNullableDateTime(map, 'updatedAt'),
     );
@@ -97,6 +122,23 @@ class WorkoutSession {
 
 String _readString(Map<String, Object?> map, String key) {
   final value = map[key];
+  if (value is String) {
+    return value;
+  }
+
+  throw FormatException('Expected string for "$key".');
+}
+
+String _readStringOrDefault(
+  Map<String, Object?> map,
+  String key,
+  String fallback,
+) {
+  final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
   if (value is String) {
     return value;
   }
@@ -113,8 +155,38 @@ int _readInt(Map<String, Object?> map, String key) {
   throw FormatException('Expected number for "$key".');
 }
 
+int _readIntOrDefault(Map<String, Object?> map, String key, int fallback) {
+  final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  throw FormatException('Expected number for "$key".');
+}
+
 double _readDouble(Map<String, Object?> map, String key) {
   final value = map[key];
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  throw FormatException('Expected number for "$key".');
+}
+
+double _readDoubleOrDefault(
+  Map<String, Object?> map,
+  String key,
+  double fallback,
+) {
+  final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
   if (value is num) {
     return value.toDouble();
   }

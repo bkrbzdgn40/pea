@@ -1,5 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import 'engine_kind.dart';
+
 class WorkoutCalibrationMetrics {
   const WorkoutCalibrationMetrics({
     this.currentBackAngle = 0.0,
@@ -28,11 +30,16 @@ class WorkoutCalibrationMetrics {
 
 class WorkoutState {
   final List<PoseLandmark>? landmarks;
+  final EngineKind analysisKind;
   final int repCount;
   final bool isFormBad;
   final double currentAngle;
   final double lastRepScore;
   final double lastRepROM;
+  final double currentHoldSeconds;
+  final double bestHoldSeconds;
+  final bool isHolding;
+  final bool hadHoldFormBreak;
   final String feedbackMessage;
   final String currentPhase;
   final double cameraFps;
@@ -41,26 +48,36 @@ class WorkoutState {
 
   WorkoutState({
     this.landmarks,
+    this.analysisKind = EngineKind.rangeRep,
     this.repCount = 0,
     this.isFormBad = false,
     this.currentAngle = 0.0,
     this.lastRepScore = 0.0,
     this.lastRepROM = 0.0,
-    this.feedbackMessage = "Hazır mısın?",
-    this.currentPhase = "NEUTRAL",
+    this.currentHoldSeconds = 0.0,
+    this.bestHoldSeconds = 0.0,
+    this.isHolding = false,
+    this.hadHoldFormBreak = false,
+    this.feedbackMessage = 'Hazir misin?',
+    this.currentPhase = 'NEUTRAL',
     this.cameraFps = 0.0,
     this.analysisFps = 0.0,
     this.calibrationMetrics = const WorkoutCalibrationMetrics(),
   });
 
-  // Mevcut durumu seçili alanlarla kopyalar.
+  // Mevcut durumu secili alanlarla kopyalar.
   WorkoutState copyWith({
     List<PoseLandmark>? landmarks,
+    EngineKind? analysisKind,
     int? repCount,
     bool? isFormBad,
     double? currentAngle,
     double? lastRepScore,
     double? lastRepROM,
+    double? currentHoldSeconds,
+    double? bestHoldSeconds,
+    bool? isHolding,
+    bool? hadHoldFormBreak,
     String? feedbackMessage,
     String? currentPhase,
     double? cameraFps,
@@ -69,11 +86,16 @@ class WorkoutState {
   }) {
     return WorkoutState(
       landmarks: landmarks ?? this.landmarks,
+      analysisKind: analysisKind ?? this.analysisKind,
       repCount: repCount ?? this.repCount,
       isFormBad: isFormBad ?? this.isFormBad,
       currentAngle: currentAngle ?? this.currentAngle,
       lastRepScore: lastRepScore ?? this.lastRepScore,
       lastRepROM: lastRepROM ?? this.lastRepROM,
+      currentHoldSeconds: currentHoldSeconds ?? this.currentHoldSeconds,
+      bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
+      isHolding: isHolding ?? this.isHolding,
+      hadHoldFormBreak: hadHoldFormBreak ?? this.hadHoldFormBreak,
       feedbackMessage: feedbackMessage ?? this.feedbackMessage,
       currentPhase: currentPhase ?? this.currentPhase,
       cameraFps: cameraFps ?? this.cameraFps,
