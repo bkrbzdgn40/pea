@@ -11,7 +11,7 @@ class SessionDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffoldShell(
-      title: 'Oturum Detayı',
+      title: 'Oturum Detayi',
       showDrawer: false,
       padding: EdgeInsets.zero,
       body: SingleChildScrollView(
@@ -32,33 +32,17 @@ class SessionDetailScreen extends StatelessWidget {
                 return Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
-                  children:
-                      [
-                            _MetricTile(
-                              label: 'Süre',
-                              value: _formatDuration(session.duration),
-                            ),
-                            _MetricTile(
-                              label: 'Toplam Tekrar',
-                              value: session.totalReps.toString(),
-                            ),
-                            _MetricTile(
-                              label: 'Ortalama Skor',
-                              value: _formatScore(session.averageScore),
-                            ),
-                            _MetricTile(
-                              label: 'En İyi Skor',
-                              value: _formatScore(session.bestScore),
-                            ),
-                            _MetricTile(
-                              label: 'Form Uyarısı',
-                              value: session.formWarningCount.toString(),
-                            ),
-                          ]
-                          .map(
-                            (tile) => SizedBox(width: tileWidth, child: tile),
-                          )
-                          .toList(),
+                  children: _detailMetrics(session)
+                      .map(
+                        (metric) => SizedBox(
+                          width: tileWidth,
+                          child: _MetricTile(
+                            label: metric.key,
+                            value: metric.value,
+                          ),
+                        ),
+                      )
+                      .toList(),
                 );
               },
             ),
@@ -129,7 +113,7 @@ class _SessionSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '${session.totalReps} tekrar • Ortalama skor ${_formatScore(session.averageScore)}',
+            _summaryLine(session),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 15,
@@ -198,7 +182,7 @@ class _RecommendationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Öneri Özeti',
+            'Oneri Ozeti',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -220,31 +204,75 @@ class _RecommendationCard extends StatelessWidget {
   }
 }
 
+List<MapEntry<String, String>> _detailMetrics(WorkoutSession session) {
+  if (session.isHoldSession) {
+    return <MapEntry<String, String>>[
+      MapEntry('Sure', _formatDuration(session.duration)),
+      MapEntry('Toplam Hold', _formatHoldSeconds(session.totalHoldSeconds)),
+      MapEntry('En Iyi Hold', _formatHoldSeconds(session.bestHoldSeconds)),
+      MapEntry('Form Kesintisi', session.formBreakCount.toString()),
+    ];
+  }
+
+  return <MapEntry<String, String>>[
+    MapEntry('Sure', _formatDuration(session.duration)),
+    MapEntry('Toplam Tekrar', session.totalReps.toString()),
+    MapEntry('Ortalama Skor', _formatScore(session.averageScore)),
+    MapEntry('En Iyi Skor', _formatScore(session.bestScore)),
+    MapEntry('Form Uyarisi', session.formWarningCount.toString()),
+  ];
+}
+
+String _summaryLine(WorkoutSession session) {
+  if (session.isHoldSession) {
+    return 'Toplam hold ${_formatHoldSeconds(session.totalHoldSeconds)} • '
+        'En iyi hold ${_formatHoldSeconds(session.bestHoldSeconds)}';
+  }
+
+  return '${session.totalReps} tekrar • '
+      'Ortalama skor ${_formatScore(session.averageScore)}';
+}
+
 String _recommendationFor(WorkoutSession session) {
+  if (session.isHoldSession) {
+    if (session.formBreakCount >= 3) {
+      return 'Formunu biraz daha sabit tutmaya odaklan. Kisa ama temiz hold setleri iyi bir sonraki adim olur.';
+    }
+
+    if (session.bestHoldSeconds >= 30) {
+      return 'Tutus suresi iyi gorunuyor. Ayni kaliteyi koruyarak sureyi kademeli artirabilirsin.';
+    }
+
+    if (session.totalHoldSeconds < 15) {
+      return 'Biraz daha uzun ve kontrollu hold denemeleri faydali olabilir.';
+    }
+
+    return 'Dengeli bir hold oturumu gorunuyor. Siradaki sette ayni sabitligi korumaya odaklanabilirsin.';
+  }
+
   if (session.formWarningCount >= 3) {
-    return 'Form kontrolüne biraz daha odaklan. Uyarı sayısı yükseldiğinde daha yavaş ve kontrollü tekrarlar faydalı olabilir.';
+    return 'Form kontrolune biraz daha odaklan. Uyari sayisi yuksektiginde daha yavas ve kontrollu tekrarlar faydali olabilir.';
   }
 
   if (session.averageScore >= 85) {
-    return 'Tempo ve form dengesi iyi görünüyor. Aynı kaliteyi koruyarak set süresini kademeli artırabilirsin.';
+    return 'Tempo ve form dengesi iyi gorunuyor. Ayni kaliteyi koruyarak set suresini kademeli artirabilirsin.';
   }
 
   if (session.totalReps < 5) {
-    return 'Biraz daha uzun setlerle devam edebilirsin. Öncelik yine kontrollü hareket kalitesi olsun.';
+    return 'Biraz daha uzun setlerle devam edebilirsin. Oncelik yine kontrollu hareket kalitesi olsun.';
   }
 
-  return 'Dengeli bir oturum görünüyor. Bir sonraki sette aynı formu korumaya odaklanabilirsin.';
+  return 'Dengeli bir oturum gorunuyor. Bir sonraki sette ayni formu korumaya odaklanabilirsin.';
 }
 
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
-    _ =>
-      exerciseType
-          .split('_')
-          .where((part) => part.isNotEmpty)
-          .map((part) => part[0].toUpperCase() + part.substring(1))
-          .join(' '),
+    _ => exerciseType
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' '),
   };
 }
 
@@ -253,6 +281,10 @@ String _formatDuration(Duration duration) {
   final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
 
   return '$minutes:$seconds';
+}
+
+String _formatHoldSeconds(double seconds) {
+  return _formatDuration(Duration(seconds: seconds.round()));
 }
 
 String _formatScore(double score) {

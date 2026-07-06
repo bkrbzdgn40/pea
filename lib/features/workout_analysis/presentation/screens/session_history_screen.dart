@@ -86,7 +86,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
-        _emptyMessage = 'Geçmiş oturumları görmek için önce bir analiz başlat.';
+        _emptyMessage = 'Gecmis oturumlari gormek icin once bir analiz baslat.';
       });
       return;
     }
@@ -115,7 +115,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
-        _errorMessage = 'Geçmiş oturumlar yüklenemedi. Lütfen tekrar dene.';
+        _errorMessage = 'Gecmis oturumlar yuklenemedi. Lutfen tekrar dene.';
       });
     }
   }
@@ -132,13 +132,11 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     });
 
     try {
-      final sessions = await ref
-          .read(sessionRepositoryProvider)
-          .listSessions(
-            ownerId: ownerId,
-            limit: _pageSize,
-            startAfter: _sessions.last,
-          );
+      final sessions = await ref.read(sessionRepositoryProvider).listSessions(
+        ownerId: ownerId,
+        limit: _pageSize,
+        startAfter: _sessions.last,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -151,7 +149,8 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
       setState(() {
         _isLoadingMore = false;
-        _errorMessage = 'Daha fazla oturum yüklenemedi. Lütfen tekrar dene.';
+        _errorMessage =
+            'Daha fazla oturum yuklenemedi. Lutfen tekrar dene.';
       });
     }
   }
@@ -159,7 +158,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffoldShell(
-      title: 'Geçmiş Oturumlar',
+      title: 'Gecmis Oturumlar',
       currentPage: AppDrawerPage.sessionHistory,
       body: _buildBody(),
     );
@@ -175,7 +174,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     if (_errorMessage != null && _sessions.isEmpty) {
       return _HistoryMessage(
         icon: Icons.history_toggle_off_rounded,
-        title: 'Geçmiş yüklenemedi',
+        title: 'Gecmis yuklenemedi',
         message: _errorMessage!,
         actionLabel: 'Tekrar Dene',
         onAction: () => unawaited(_loadInitialSessions()),
@@ -185,9 +184,8 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     if (_sessions.isEmpty) {
       return _HistoryMessage(
         icon: Icons.history_rounded,
-        title: 'Henüz oturum yok',
-        message:
-            _emptyMessage ?? 'Kaydedilmiş antrenmanların burada görünecek.',
+        title: 'Henuz oturum yok',
+        message: _emptyMessage ?? 'Kaydedilmis antrenmanlarin burada gorunecek.',
       );
     }
 
@@ -239,7 +237,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.expand_more_rounded),
-            label: Text(_isLoadingMore ? 'Yükleniyor' : 'Daha Fazla Yükle'),
+            label: Text(_isLoadingMore ? 'Yukleniyor' : 'Daha Fazla Yukle'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
@@ -329,6 +327,21 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = session.isHoldSession
+        ? <MapEntry<String, String>>[
+            MapEntry('Sure', _formatDuration(session.duration)),
+            MapEntry('Toplam Hold', _formatHoldSeconds(session.totalHoldSeconds)),
+            MapEntry('En Iyi Hold', _formatHoldSeconds(session.bestHoldSeconds)),
+            MapEntry('Kesinti', session.formBreakCount.toString()),
+          ]
+        : <MapEntry<String, String>>[
+            MapEntry('Sure', _formatDuration(session.duration)),
+            MapEntry('Tekrar', session.totalReps.toString()),
+            MapEntry('Ort. Skor', _formatScore(session.averageScore)),
+            MapEntry('En Iyi', _formatScore(session.bestScore)),
+            MapEntry('Uyari', session.formWarningCount.toString()),
+          ];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -368,28 +381,12 @@ class _SessionCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _SessionMetric(
-                label: 'Süre',
-                value: _formatDuration(session.duration),
-              ),
-              _SessionMetric(
-                label: 'Tekrar',
-                value: session.totalReps.toString(),
-              ),
-              _SessionMetric(
-                label: 'Ort. Skor',
-                value: _formatScore(session.averageScore),
-              ),
-              _SessionMetric(
-                label: 'En İyi',
-                value: _formatScore(session.bestScore),
-              ),
-              _SessionMetric(
-                label: 'Uyarı',
-                value: session.formWarningCount.toString(),
-              ),
-            ],
+            children: metrics
+                .map(
+                  (entry) =>
+                      _SessionMetric(label: entry.key, value: entry.value),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -441,12 +438,11 @@ class _SessionMetric extends StatelessWidget {
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
-    _ =>
-      exerciseType
-          .split('_')
-          .where((part) => part.isNotEmpty)
-          .map((part) => part[0].toUpperCase() + part.substring(1))
-          .join(' '),
+    _ => exerciseType
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' '),
   };
 }
 
@@ -455,6 +451,10 @@ String _formatDuration(Duration duration) {
   final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
 
   return '$minutes:$seconds';
+}
+
+String _formatHoldSeconds(double seconds) {
+  return _formatDuration(Duration(seconds: seconds.round()));
 }
 
 String _formatScore(double score) {
