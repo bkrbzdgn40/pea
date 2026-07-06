@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import 'live_analysis_screen.dart';
 
@@ -17,6 +18,16 @@ class CalibrationScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedExercise = ref.watch(selectedExerciseProvider);
+    final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+    final isFallback = selectedExercise != activeExercise;
+    final title = '${activeExercise.title} analizi öncesi';
+    final description =
+        'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.';
+    final ctaLabel = '${activeExercise.title} analizine başla';
+    final fallbackMessage = isFallback
+        ? '${selectedExercise.title} henüz aktif analiz için desteklenmiyor. '
+              'Şimdilik ${activeExercise.title} analizi ile devam edebilirsin.'
+        : null;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -32,7 +43,7 @@ class CalibrationScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${selectedExercise.title} analizi öncesi',
+                title,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
@@ -41,13 +52,32 @@ class CalibrationScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.',
+                description,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 16,
                   height: 1.4,
                 ),
               ),
+              if (fallbackMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Text(
+                    fallbackMessage,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(18),
@@ -98,7 +128,7 @@ class CalibrationScreen extends ConsumerWidget {
                   );
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: Text('${selectedExercise.title} analizine başla'),
+                label: Text(ctaLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,
