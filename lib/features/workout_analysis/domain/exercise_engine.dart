@@ -1,6 +1,7 @@
 import 'analysis_engine.dart';
 import 'models/exercise_config.dart';
 import 'models/rep_score_breakdown.dart';
+import 'range_rep_diagnostics.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
@@ -24,7 +25,7 @@ class RepResult {
 ///
 /// The class name is intentionally kept stable for now to avoid rename churn
 /// while the multi-engine seam settles.
-class ExerciseEngine implements AnalysisEngine {
+class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
   final ExerciseConfig config;
 
   MovementPhase state = MovementPhase.neutral;
@@ -56,9 +57,13 @@ class ExerciseEngine implements AnalysisEngine {
   @override
   String get phaseLabel => state.name.toUpperCase();
 
-  double get currentRepWorstBackAngle => _currentRepWorstBackAngle;
-
-  bool get currentRepHadFormViolation => _currentRepHadFormViolation;
+  @override
+  RangeRepDiagnosticsSnapshot get diagnosticsSnapshot =>
+      RangeRepDiagnosticsSnapshot(
+        currentRepWorstBackAngle: _currentRepWorstBackAngle,
+        currentRepHadFormViolation: _currentRepHadFormViolation,
+        lastRepScoreBreakdown: lastRepScoreBreakdown,
+      );
 
   /// Updates live form feedback and advances the repetition state machine.
   @override

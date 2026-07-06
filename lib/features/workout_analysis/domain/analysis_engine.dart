@@ -1,10 +1,8 @@
-import 'models/rep_score_breakdown.dart';
-
 /// Common contract for engines that consume extracted analysis metrics.
 ///
-/// The first group is the stable live-analysis surface used by the controller.
-/// The diagnostics getters are kept for today's calibration/debug needs and do
-/// not imply that every future engine family must expose the same internals.
+/// This surface stays focused on values the live-analysis pipeline can expect
+/// from every engine family. Calibration/debug diagnostics live on separate,
+/// family-specific surfaces.
 abstract class AnalysisEngine {
   void update(double primaryMetric, double formMetric);
 
@@ -16,9 +14,4 @@ abstract class AnalysisEngine {
   double get maxRom;
   String get feedback;
   String get phaseLabel;
-
-  // Diagnostics surface kept during the transition to multiple engine families.
-  double get currentRepWorstBackAngle;
-  bool get currentRepHadFormViolation;
-  RepScoreBreakdown? get lastRepScoreBreakdown;
 }

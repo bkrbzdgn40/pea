@@ -10,6 +10,7 @@ import '../../application/exercise_metrics_extractor.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/range_rep_diagnostics.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
@@ -165,14 +166,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   WorkoutCalibrationMetrics _buildCalibrationMetrics(double currentFormMetric) {
-    final lastBreakdown = _engine.lastRepScoreBreakdown;
+    final diagnostics = _engine is RangeRepDiagnostics
+        ? (_engine as RangeRepDiagnostics).diagnosticsSnapshot
+        : const RangeRepDiagnosticsSnapshot();
+    final lastBreakdown = diagnostics.lastRepScoreBreakdown;
 
     // Calibration telemetry still shows the current squat form metric.
     return WorkoutCalibrationMetrics(
       currentBackAngle: currentFormMetric,
       formThreshold: _config.formThreshold,
-      currentRepWorstBackAngle: _engine.currentRepWorstBackAngle,
-      currentRepHadFormViolation: _engine.currentRepHadFormViolation,
+      currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
+      currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
