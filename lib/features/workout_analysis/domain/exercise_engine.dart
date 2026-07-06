@@ -1,4 +1,6 @@
+import 'analysis_engine.dart';
 import 'models/exercise_config.dart';
+import 'models/rep_score_breakdown.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
@@ -18,33 +20,11 @@ class RepResult {
   });
 }
 
-/// Rep-level scoring diagnostics captured when a full repetition completes.
-class RepScoreBreakdown {
-  const RepScoreBreakdown({
-    required this.minAngle,
-    required this.romScore,
-    required this.descentSeconds,
-    required this.descentScore,
-    required this.ascentSeconds,
-    required this.ascentScoreCandidate,
-    required this.worstBackAngle,
-    required this.hadFormViolation,
-    required this.finalScore,
-  });
-
-  final double minAngle;
-  final double romScore;
-  final double descentSeconds;
-  final double descentScore;
-  final double ascentSeconds;
-  final double ascentScoreCandidate;
-  final double worstBackAngle;
-  final bool hadFormViolation;
-  final double finalScore;
-}
-
-/// Small squat state machine that turns smoothed angles into reps and scores.
-class ExerciseEngine {
+/// Current range-rep style engine backing the squat analysis flow.
+///
+/// The class name is intentionally kept stable for now to avoid rename churn
+/// while the multi-engine seam settles.
+class ExerciseEngine implements AnalysisEngine {
   final ExerciseConfig config;
 
   MovementPhase state = MovementPhase.neutral;
@@ -70,11 +50,18 @@ class ExerciseEngine {
 
   ExerciseEngine({required this.config});
 
+  @override
+  double get maxRom => maxROM;
+
+  @override
+  String get phaseLabel => state.name.toUpperCase();
+
   double get currentRepWorstBackAngle => _currentRepWorstBackAngle;
 
   bool get currentRepHadFormViolation => _currentRepHadFormViolation;
 
   /// Updates live form feedback and advances the repetition state machine.
+  @override
   void update(double currentAngle, double backAngle) {
     _checkForm(backAngle);
     _processState(currentAngle, backAngle);
@@ -217,6 +204,7 @@ class ExerciseEngine {
     }
   }
 
+  @override
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;

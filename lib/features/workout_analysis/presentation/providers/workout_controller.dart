@@ -3,12 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/moving_average.dart';
+import '../../application/analysis_engine_factory.dart';
+import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
 import '../../application/workout_state.dart';
-import '../../domain/exercise_engine.dart';
+import '../../domain/analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
+import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
 import 'pose_provider.dart';
 
@@ -31,10 +34,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   double _cameraFps = 0.0;
   double _analysisFps = 0.0;
 
-  late final ExerciseEngine _engine;
+  late final AnalysisEngine _engine;
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final ExerciseConfig _config;
+  final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
+  final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
   final InputImageConverter _inputImageConverter = const InputImageConverter();
@@ -44,8 +49,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     // Recreating this provider starts a fresh analysis session and filter state.
     ref.watch(poseDetectorProvider);
 
+    final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+    final definition = _exerciseCatalog.definitionFor(activeExercise);
     _config = ref.watch(exerciseConfigProvider).requireValue;
-    _engine = ExerciseEngine(config: _config);
+    _engine = _engineFactory.create(
+      engineKind: definition.engineKind,
+      config: _config,
+    );
 
     _angleFilter = MovingAverageFilter(windowSize: 5);
     _backFilter = MovingAverageFilter(windowSize: 5);
@@ -108,9 +118,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           isFormBad: _engine.isFormBad,
           currentAngle: smoothAngle,
           lastRepScore: _engine.lastRepScore,
-          lastRepROM: _engine.maxROM,
+          lastRepROM: _engine.maxRom,
           feedbackMessage: _engine.feedback,
-          currentPhase: _engine.state.name.toUpperCase(),
+          currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
           calibrationMetrics: _buildCalibrationMetrics(smoothFormMetric),
