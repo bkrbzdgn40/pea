@@ -34,6 +34,53 @@ class ExerciseConfig {
     this.tempoPenaltyPerSecond = 20.0,
   });
 
+  factory ExerciseConfig.fromMap(Map<String, dynamic> map) {
+    PoseLandmarkType readLandmark(String key) {
+      final value = map[key];
+      if (value is! String) {
+        throw FormatException('ExerciseConfig.$key must be a String.');
+      }
+
+      try {
+        return PoseLandmarkType.values.byName(value);
+      } on ArgumentError {
+        throw FormatException('Unsupported PoseLandmarkType for $key: $value');
+      }
+    }
+
+    double readDouble(String key) {
+      final value = map[key];
+      if (value is num) {
+        return value.toDouble();
+      }
+      if (value is String) {
+        return double.parse(value);
+      }
+
+      throw FormatException('ExerciseConfig.$key must be a number.');
+    }
+
+    final name = map['name'];
+    if (name is! String) {
+      throw FormatException('ExerciseConfig.name must be a String.');
+    }
+
+    return ExerciseConfig(
+      name: name,
+      primaryJoint: readLandmark('primaryJoint'),
+      joint1: readLandmark('joint1'),
+      joint2: readLandmark('joint2'),
+      thresholdNeutral: readDouble('thresholdNeutral'),
+      thresholdActive: readDouble('thresholdActive'),
+      thresholdPeak: readDouble('thresholdPeak'),
+      idealDescentSeconds: readDouble('idealDescentSeconds'),
+      idealAscentSeconds: readDouble('idealAscentSeconds'),
+      formThreshold: readDouble('formThreshold'),
+      targetMinAngle: readDouble('targetMinAngle'),
+      tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond'),
+    );
+  }
+
   // İleride JSON'dan yüklemek için
   // Squat için varsayılan eşikleri kurar.
   factory ExerciseConfig.squat() => ExerciseConfig(

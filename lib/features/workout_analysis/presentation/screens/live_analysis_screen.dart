@@ -7,11 +7,13 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/workout_state.dart';
+import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_provider.dart';
+import '../providers/exercise_config_provider.dart';
 import '../providers/session_repository_provider.dart';
 import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_controller.dart';
@@ -43,6 +45,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
   Timer? _recoveryTimer;
+  ProviderSubscription<AsyncValue<ExerciseConfig>>? _exerciseConfigSubscription;
   ProviderSubscription<WorkoutState>? _workoutStateSubscription;
 
   @override
@@ -50,18 +53,33 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startSessionLifecycle();
-    _workoutStateSubscription = ref.listenManual<WorkoutState>(
-      workoutControllerProvider,
-      _collectSessionMetrics,
+    if (ref.read(exerciseConfigProvider).hasValue) {
+      _attachWorkoutStateSubscription();
+    }
+    _exerciseConfigSubscription = ref.listenManual<AsyncValue<ExerciseConfig>>(
+      exerciseConfigProvider,
+      (_, next) {
+        if (next.hasValue) {
+          _attachWorkoutStateSubscription();
+        }
+      },
     );
   }
 
   @override
   void dispose() {
     _recoveryTimer?.cancel();
+    _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _attachWorkoutStateSubscription() {
+    _workoutStateSubscription ??= ref.listenManual<WorkoutState>(
+      workoutControllerProvider,
+      _collectSessionMetrics,
+    );
   }
 
   void _startSessionLifecycle() {
@@ -264,6 +282,22 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       return const Scaffold(
         backgroundColor: Colors.black,
         body: _CameraRecoveryView(),
+      );
+    }
+
+    final configState = ref.watch(exerciseConfigProvider);
+    if (configState.isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: _ExerciseConfigLoadingView(),
+      );
+    }
+    if (configState.hasError) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: _ExerciseConfigErrorView(
+          onRetry: () => ref.invalidate(exerciseConfigProvider),
+        ),
       );
     }
 
@@ -503,6 +537,78 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markCameraRecovering();
     });
+  }
+}
+
+class _ExerciseConfigLoadingView extends StatelessWidget {
+  const _ExerciseConfigLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: Colors.greenAccent),
+          SizedBox(height: 16),
+          Text(
+            'Analiz yapilandirmasi hazirlaniyor...',
+            style: TextStyle(color: Colors.white70, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseConfigErrorView extends StatelessWidget {
+  const _ExerciseConfigErrorView({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.tune_rounded, color: Colors.greenAccent, size: 42),
+            const SizedBox(height: 16),
+            const Text(
+              'Analiz yapilandirmasi yuklenemedi',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Egzersiz ayarlari hazir olmadan canli analiz baslatilamaz.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 15,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tekrar Dene'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.greenAccent,
+                foregroundColor: Colors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

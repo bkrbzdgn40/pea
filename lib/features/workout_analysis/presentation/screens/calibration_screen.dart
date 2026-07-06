@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/active_analysis_exercise_provider.dart';
+import '../providers/exercise_config_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import 'live_analysis_screen.dart';
 
@@ -10,29 +11,31 @@ class CalibrationScreen extends ConsumerWidget {
 
   static const List<String> _guidanceItems = [
     'Telefonu sabit bir yere koy.',
-    'Tüm vücudun kamerada görünsün.',
-    'Ortam ışığı yeterli olsun.',
-    'Hareketi kontrollü yap.',
+    'Tum vucudun kamerada gorunsun.',
+    'Ortam isigi yeterli olsun.',
+    'Hareketi kontrollu yap.',
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+    final configState = ref.watch(exerciseConfigProvider);
     final isFallback = selectedExercise != activeExercise;
-    final title = '${activeExercise.title} analizi öncesi';
+    final isConfigReady = configState.hasValue;
+    final title = '${activeExercise.title} analizi oncesi';
     final description =
-        'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.';
-    final ctaLabel = '${activeExercise.title} analizine başla';
+        'Daha dogru sonuclar icin kisa bir hazirlik kontrolu yap.';
+    final ctaLabel = '${activeExercise.title} analizine basla';
     final fallbackMessage = isFallback
-        ? '${selectedExercise.title} henüz aktif analiz için desteklenmiyor. '
-              'Şimdilik ${activeExercise.title} analizi ile devam edebilirsin.'
+        ? '${selectedExercise.title} henuz aktif analiz icin desteklenmiyor. '
+              'Simdilik ${activeExercise.title} analizi ile devam edebilirsin.'
         : null;
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Hazırlık'),
+        title: const Text('Hazirlik'),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
@@ -78,6 +81,37 @@ class CalibrationScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (configState.hasError) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Analiz yapilandirmasi yuklenemedi.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => ref.invalidate(exerciseConfigProvider),
+                        child: const Text('Tekrar Dene'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(18),
@@ -119,16 +153,28 @@ class CalibrationScreen extends ConsumerWidget {
               ),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LiveAnalysisScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(ctaLabel),
+                onPressed: isConfigReady
+                    ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LiveAnalysisScreen(),
+                          ),
+                        );
+                      }
+                    : null,
+                icon: configState.isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.play_arrow_rounded),
+                label: Text(
+                  isConfigReady
+                      ? ctaLabel
+                      : 'Analiz yapilandirmasi hazirlaniyor',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,

@@ -2,28 +2,40 @@ import '../domain/models/exercise_config.dart';
 import '../domain/models/exercise_type.dart';
 import 'exercise_catalog.dart';
 
+abstract class ExerciseConfigSource {
+  Future<ExerciseConfig> loadConfig(String assetPath);
+}
+
 /// Resolves the analysis config for the active exercise.
 class ExerciseConfigResolver {
-  const ExerciseConfigResolver([this._catalog = const ExerciseCatalog()]);
+  const ExerciseConfigResolver({
+    required ExerciseConfigSource source,
+    ExerciseCatalog catalog = const ExerciseCatalog(),
+  }) : _source = source,
+       _catalog = catalog;
 
+  final ExerciseConfigSource _source;
   final ExerciseCatalog _catalog;
 
-  ExerciseConfig resolve(ExerciseType activeExercise) {
+  Future<ExerciseConfig> resolve(ExerciseType activeExercise) {
     final definition = _catalog.definitionFor(activeExercise);
-    if (definition.isAnalysisSupported &&
-        definition.configExercise == ExerciseType.squat) {
-      return ExerciseConfig.squat();
-    }
+    final fallbackAssetPath = _catalog
+        .definitionFor(ExerciseType.squat)
+        .configAssetPath;
+    final assetPath = definition.configAssetPath ?? fallbackAssetPath;
 
     assert(
-      false,
+      definition.isAnalysisSupported,
       'Unsupported active analysis exercise reached config resolution: '
       '$activeExercise',
     );
-    if (definition.configExercise == ExerciseType.squat) {
-      return ExerciseConfig.squat();
+
+    if (assetPath == null) {
+      throw StateError(
+        'No exercise config asset path registered for $activeExercise.',
+      );
     }
 
-    return ExerciseConfig.squat();
+    return _source.loadConfig(assetPath);
   }
 }

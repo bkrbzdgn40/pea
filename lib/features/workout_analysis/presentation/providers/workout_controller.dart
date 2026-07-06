@@ -43,7 +43,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     // Recreating this provider starts a fresh analysis session and filter state.
     ref.watch(poseDetectorProvider);
 
-    _config = ref.watch(exerciseConfigProvider);
+    _config = ref.watch(exerciseConfigProvider).requireValue;
     _engine = ExerciseEngine(config: _config);
 
     _angleFilter = MovingAverageFilter(windowSize: 5);

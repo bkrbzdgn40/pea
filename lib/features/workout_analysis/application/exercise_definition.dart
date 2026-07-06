@@ -9,6 +9,7 @@ class ExerciseDefinition {
     required this.isAnalysisSupported,
     required this.activeAnalysisExercise,
     required this.configExercise,
+    this.configAssetPath,
   });
 
   final ExerciseType type;
@@ -17,4 +18,5 @@ class ExerciseDefinition {
   final bool isAnalysisSupported;
   final ExerciseType activeAnalysisExercise;
   final ExerciseType configExercise;
+  final String? configAssetPath;
 }

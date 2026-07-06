@@ -13,6 +13,7 @@ class ExerciseCatalog {
       isAnalysisSupported: true,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      configAssetPath: 'assets/config/exercises/squat.json',
     ),
     ExerciseDefinition(
       type: ExerciseType.plank,
@@ -79,6 +80,8 @@ class ExerciseCatalog {
       }
     }
 
-    throw StateError('ExerciseCatalog must include a squat fallback definition.');
+    throw StateError(
+      'ExerciseCatalog must include a squat fallback definition.',
+    );
   }
 }

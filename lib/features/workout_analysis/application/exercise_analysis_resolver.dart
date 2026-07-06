@@ -8,8 +8,6 @@ class ExerciseAnalysisResolver {
   final ExerciseCatalog _catalog;
 
   ExerciseType resolveActiveExercise(ExerciseType selectedExercise) {
-    return _catalog
-        .definitionFor(selectedExercise)
-        .activeAnalysisExercise;
+    return _catalog.definitionFor(selectedExercise).activeAnalysisExercise;
   }
 }
