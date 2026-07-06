@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/selected_exercise_provider.dart';
 import 'live_analysis_screen.dart';
 
-class CalibrationScreen extends StatelessWidget {
+class CalibrationScreen extends ConsumerWidget {
   const CalibrationScreen({super.key});
 
   static const List<String> _guidanceItems = [
@@ -13,7 +15,9 @@ class CalibrationScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedExercise = ref.watch(selectedExerciseProvider);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -27,9 +31,9 @@ class CalibrationScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Analize başlamadan önce',
-                style: TextStyle(
+              Text(
+                '${selectedExercise.title} analizi öncesi',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -94,7 +98,7 @@ class CalibrationScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Analize Başla'),
+                label: Text('${selectedExercise.title} analizine başla'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,
