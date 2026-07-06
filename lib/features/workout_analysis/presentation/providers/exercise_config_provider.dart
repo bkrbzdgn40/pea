@@ -7,8 +7,14 @@ import 'active_analysis_exercise_provider.dart';
 final exerciseConfigProvider = Provider<ExerciseConfig>((ref) {
   final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
-  return switch (activeExercise) {
-    ExerciseType.squat => ExerciseConfig.squat(),
-    _ => ExerciseConfig.squat(),
-  };
+  if (activeExercise == ExerciseType.squat) {
+    return ExerciseConfig.squat();
+  }
+
+  assert(
+    false,
+    'Unsupported active analysis exercise reached config resolution: '
+    '$activeExercise',
+  );
+  return ExerciseConfig.squat();
 });
