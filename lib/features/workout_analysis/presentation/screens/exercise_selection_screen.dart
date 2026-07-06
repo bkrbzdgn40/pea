@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/exercise_type.dart';
 import '../data/exercise_guide_contents.dart';
 import '../models/exercise_guide_content.dart';
+import '../providers/selected_exercise_provider.dart';
 import 'camera_permission_screen.dart';
 
-class ExerciseSelectionScreen extends StatelessWidget {
+class ExerciseSelectionScreen extends ConsumerWidget {
   const ExerciseSelectionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -26,7 +29,7 @@ class ExerciseSelectionScreen extends StatelessWidget {
             final content = exerciseGuideContents[index];
             return _ExerciseSelectionCard(
               content: content,
-              onTap: () => _handleExerciseTap(context, content),
+              onTap: () => _handleExerciseTap(context, ref, content),
             );
           },
         ),
@@ -34,7 +37,11 @@ class ExerciseSelectionScreen extends StatelessWidget {
     );
   }
 
-  void _handleExerciseTap(BuildContext context, ExerciseGuideContent content) {
+  void _handleExerciseTap(
+    BuildContext context,
+    WidgetRef ref,
+    ExerciseGuideContent content,
+  ) {
     if (!content.isAnalysisAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -45,6 +52,10 @@ class ExerciseSelectionScreen extends StatelessWidget {
       );
       return;
     }
+
+    ref.read(selectedExerciseProvider.notifier).state = ExerciseType.fromId(
+      content.id,
+    );
 
     Navigator.push(
       context,
