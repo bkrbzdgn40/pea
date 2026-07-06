@@ -413,14 +413,32 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   builder: (context, constraints) {
                     const spacing = 8.0;
                     final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+                    final isHoldAnalysis =
+                        workoutState.analysisKind == EngineKind.hold;
+                    String formatHoldSeconds(double seconds) {
+                      final duration = Duration(
+                        milliseconds: (seconds * 1000).round(),
+                      );
+                      final minutes = duration.inMinutes;
+                      final remainingSeconds = duration.inSeconds
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
+
+                      return '$minutes:$remainingSeconds';
+                    }
 
                     return Row(
                       children: [
                         SizedBox(
                           width: cardWidth,
                           child: _MetricCard(
-                            label: 'TEKRAR',
-                            value: workoutState.repCount.toString(),
+                            label: isHoldAnalysis ? 'HOLD' : 'TEKRAR',
+                            value: isHoldAnalysis
+                                ? formatHoldSeconds(
+                                    workoutState.currentHoldSeconds,
+                                  )
+                                : workoutState.repCount.toString(),
                           ),
                         ),
                         const SizedBox(width: spacing),
@@ -442,8 +460,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         SizedBox(
                           width: cardWidth,
                           child: _MetricCard(
-                            label: 'SKOR',
-                            value: workoutState.lastRepScore.toInt().toString(),
+                            label: isHoldAnalysis ? 'EN IYI' : 'SKOR',
+                            value: isHoldAnalysis
+                                ? formatHoldSeconds(
+                                    workoutState.bestHoldSeconds,
+                                  )
+                                : workoutState.lastRepScore.toInt().toString(),
                             color: Colors.greenAccent,
                           ),
                         ),
