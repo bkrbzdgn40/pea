@@ -10,7 +10,7 @@ extension ExerciseDifficultyLabel on ExerciseDifficulty {
   }
 }
 
-/// Local guide entry for exercises, independent from the analysis engine.
+/// Local guide entry for rich presentation copy; analysis policy lives in ExerciseCatalog.
 class ExerciseGuideContent {
   const ExerciseGuideContent({
     required this.id,
@@ -23,7 +23,6 @@ class ExerciseGuideContent {
     required this.commonMistakes,
     required this.youtubeUrl,
     required this.youtubeSourceLabel,
-    this.isAnalysisAvailable = false,
   });
 
   final String id;
@@ -36,5 +35,4 @@ class ExerciseGuideContent {
   final List<String> commonMistakes;
   final String youtubeUrl;
   final String youtubeSourceLabel;
-  final bool isAnalysisAvailable;
 }

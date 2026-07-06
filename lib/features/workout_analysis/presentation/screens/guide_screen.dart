@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../application/exercise_catalog.dart';
 import '../data/exercise_guide_contents.dart';
 import '../models/exercise_guide_content.dart';
 
@@ -17,6 +18,7 @@ class _GuideScreenState extends State<GuideScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const catalog = ExerciseCatalog();
     final contents = _selectedDifficulty == null
         ? exerciseGuideContents
         : exerciseGuideContents
@@ -43,7 +45,16 @@ class _GuideScreenState extends State<GuideScreen> {
                     itemCount: contents.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      return _ExerciseGuideCard(content: contents[index]);
+                      final content = contents[index];
+                      final definition = catalog.definitionForIdOrNull(
+                        content.id,
+                      );
+
+                      return _ExerciseGuideCard(
+                        content: content,
+                        isAnalysisSupported:
+                            definition?.isAnalysisSupported ?? false,
+                      );
                     },
                   ),
           ),
@@ -120,9 +131,13 @@ class _FilterChipButton extends StatelessWidget {
 }
 
 class _ExerciseGuideCard extends StatelessWidget {
-  const _ExerciseGuideCard({required this.content});
+  const _ExerciseGuideCard({
+    required this.content,
+    required this.isAnalysisSupported,
+  });
 
   final ExerciseGuideContent content;
+  final bool isAnalysisSupported;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +171,7 @@ class _ExerciseGuideCard extends StatelessWidget {
                 runSpacing: 6,
                 children: [
                   _GuideBadge(label: content.difficulty.label, isActive: false),
-                  if (content.isAnalysisAvailable)
+                  if (isAnalysisSupported)
                     const _GuideBadge(label: 'Analiz aktif', isActive: true),
                 ],
               ),

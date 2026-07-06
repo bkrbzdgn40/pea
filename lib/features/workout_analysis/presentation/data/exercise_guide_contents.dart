@@ -1,6 +1,6 @@
 import '../models/exercise_guide_content.dart';
 
-/// Static product copy for the guide; analysis availability is declared per item.
+/// Static product copy for the guide; analysis support policy lives in ExerciseCatalog.
 const exerciseGuideContents = [
   ExerciseGuideContent(
     id: 'squat',
@@ -9,7 +9,6 @@ const exerciseGuideContents = [
     purpose:
         'Bacak, kalça ve gövde stabilitesini birlikte çalıştırır. Kontrollü derinlik ve düzgün hat önceliklidir.',
     difficulty: ExerciseDifficulty.intermediate,
-    isAnalysisAvailable: true,
     setupSteps: [
       'Ayaklarını omuz genişliğine yakın yerleştir.',
       'Ağırlığını topuk ve orta ayakta dengede tut.',

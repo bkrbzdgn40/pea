@@ -51,13 +51,34 @@ class ExerciseCatalog {
   List<ExerciseDefinition> get definitions => _definitions;
 
   ExerciseDefinition definitionFor(ExerciseType type) {
-  for (final definition in _definitions) {
-    if (definition.type == type) {
-      return definition;
+    for (final definition in _definitions) {
+      if (definition.type == type) {
+        return definition;
+      }
     }
+
+    assert(false, 'Missing exercise definition for: $type');
+    return _fallbackDefinition();
   }
 
-  assert(false, 'Missing exercise definition for: $type');
-  return _definitions.first;
-}
+  ExerciseDefinition? definitionForIdOrNull(String id) {
+    for (final definition in _definitions) {
+      if (definition.id == id) {
+        return definition;
+      }
+    }
+
+    assert(false, 'Missing exercise definition for id: $id');
+    return null;
+  }
+
+  ExerciseDefinition _fallbackDefinition() {
+    for (final definition in _definitions) {
+      if (definition.type == ExerciseType.squat) {
+        return definition;
+      }
+    }
+
+    throw StateError('ExerciseCatalog must include a squat fallback definition.');
+  }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/models/exercise_type.dart';
+import '../../application/exercise_catalog.dart';
+import '../../application/exercise_definition.dart';
 import '../data/exercise_guide_contents.dart';
 import '../models/exercise_guide_content.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -12,6 +13,8 @@ class ExerciseSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const catalog = ExerciseCatalog();
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -27,9 +30,11 @@ class ExerciseSelectionScreen extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final content = exerciseGuideContents[index];
+            final definition = catalog.definitionForIdOrNull(content.id);
             return _ExerciseSelectionCard(
               content: content,
-              onTap: () => _handleExerciseTap(context, ref, content),
+              isAnalysisSupported: definition?.isAnalysisSupported ?? false,
+              onTap: () => _handleExerciseTap(context, ref, definition),
             );
           },
         ),
@@ -40,9 +45,9 @@ class ExerciseSelectionScreen extends ConsumerWidget {
   void _handleExerciseTap(
     BuildContext context,
     WidgetRef ref,
-    ExerciseGuideContent content,
+    ExerciseDefinition? definition,
   ) {
-    if (!content.isAnalysisAvailable) {
+    if (definition == null || !definition.isAnalysisSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -53,9 +58,7 @@ class ExerciseSelectionScreen extends ConsumerWidget {
       return;
     }
 
-    ref.read(selectedExerciseProvider.notifier).state = ExerciseType.fromId(
-      content.id,
-    );
+    ref.read(selectedExerciseProvider.notifier).state = definition.type;
 
     Navigator.push(
       context,
@@ -65,14 +68,19 @@ class ExerciseSelectionScreen extends ConsumerWidget {
 }
 
 class _ExerciseSelectionCard extends StatelessWidget {
-  const _ExerciseSelectionCard({required this.content, required this.onTap});
+  const _ExerciseSelectionCard({
+    required this.content,
+    required this.isAnalysisSupported,
+    required this.onTap,
+  });
 
   final ExerciseGuideContent content;
+  final bool isAnalysisSupported;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isActive = content.isAnalysisAvailable;
+    final isActive = isAnalysisSupported;
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
