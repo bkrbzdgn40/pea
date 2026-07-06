@@ -1,3 +1,4 @@
+import 'engine_kind.dart';
 import '../domain/models/exercise_type.dart';
 
 /// In-memory exercise metadata that can later come from a JSON-backed source.
@@ -9,6 +10,7 @@ class ExerciseDefinition {
     required this.isAnalysisSupported,
     required this.activeAnalysisExercise,
     required this.configExercise,
+    required this.engineKind,
     this.configAssetPath,
   });
 
@@ -18,5 +20,6 @@ class ExerciseDefinition {
   final bool isAnalysisSupported;
   final ExerciseType activeAnalysisExercise;
   final ExerciseType configExercise;
+  final EngineKind engineKind;
   final String? configAssetPath;
 }

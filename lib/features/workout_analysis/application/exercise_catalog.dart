@@ -1,4 +1,5 @@
 import '../domain/models/exercise_type.dart';
+import 'engine_kind.dart';
 import 'exercise_definition.dart';
 
 /// Central exercise metadata source for analysis capability and fallback policy.
@@ -13,6 +14,7 @@ class ExerciseCatalog {
       isAnalysisSupported: true,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      engineKind: EngineKind.rangeRep,
       configAssetPath: 'assets/config/exercises/squat.json',
     ),
     ExerciseDefinition(
@@ -22,6 +24,7 @@ class ExerciseCatalog {
       isAnalysisSupported: false,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      engineKind: EngineKind.hold,
     ),
     ExerciseDefinition(
       type: ExerciseType.lunge,
@@ -30,6 +33,7 @@ class ExerciseCatalog {
       isAnalysisSupported: false,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      engineKind: EngineKind.alternatingRep,
     ),
     ExerciseDefinition(
       type: ExerciseType.pushUp,
@@ -38,6 +42,7 @@ class ExerciseCatalog {
       isAnalysisSupported: false,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      engineKind: EngineKind.rangeRep,
     ),
     ExerciseDefinition(
       type: ExerciseType.sitUp,
@@ -46,6 +51,7 @@ class ExerciseCatalog {
       isAnalysisSupported: false,
       activeAnalysisExercise: ExerciseType.squat,
       configExercise: ExerciseType.squat,
+      engineKind: EngineKind.rangeRep,
     ),
   ];
 

@@ -81,19 +81,4 @@ class ExerciseConfig {
     );
   }
 
-  // İleride JSON'dan yüklemek için
-  // Squat için varsayılan eşikleri kurar.
-  factory ExerciseConfig.squat() => ExerciseConfig(
-    name: "Squat",
-    primaryJoint: PoseLandmarkType.leftKnee,
-    joint1: PoseLandmarkType.leftHip,
-    joint2: PoseLandmarkType.leftAnkle,
-    thresholdNeutral: 160.0,
-    thresholdActive: 150.0,
-    thresholdPeak: 95.0,
-    idealDescentSeconds: 1.5,
-    idealAscentSeconds: 1.0,
-    targetMinAngle: 70.0,
-    tempoPenaltyPerSecond: 20.0,
-  );
 }
