@@ -11,9 +11,14 @@ class ExerciseMetricsExtractor {
   const ExerciseMetricsExtractor();
 
   ExerciseMetrics extract(Pose pose, ExerciseConfig config) {
+    final bodyLineAngle = _calculateBodyLineAngle(pose, config);
+    final armSupportAngle = _calculateArmSupportAngle(pose, config);
+
     return ExerciseMetrics(
       primaryAngle: _calculatePrimaryAngle(pose, config),
       formMetric: _calculateFormMetric(pose),
+      bodyLineAngle: bodyLineAngle,
+      armSupportAngle: armSupportAngle,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
     );
@@ -51,5 +56,58 @@ class ExerciseMetricsExtractor {
 
     // Preserve the current upright-ish fallback used for squat form checks.
     return 90.0;
+  }
+
+  double? _calculateBodyLineAngle(Pose pose, ExerciseConfig config) {
+    if (!_isPlankConfig(config)) {
+      return null;
+    }
+
+    return _tryCalculateAngle(
+      pose,
+      PoseLandmarkType.leftShoulder,
+      PoseLandmarkType.leftHip,
+      PoseLandmarkType.leftAnkle,
+    );
+  }
+
+  double? _calculateArmSupportAngle(Pose pose, ExerciseConfig config) {
+    if (!_isPlankConfig(config)) {
+      return null;
+    }
+
+    return _tryCalculateAngle(
+      pose,
+      PoseLandmarkType.leftShoulder,
+      PoseLandmarkType.leftElbow,
+      PoseLandmarkType.leftWrist,
+    );
+  }
+
+  double? _tryCalculateAngle(
+    Pose pose,
+    PoseLandmarkType first,
+    PoseLandmarkType middle,
+    PoseLandmarkType last,
+  ) {
+    final firstLandmark = pose.landmarks[first];
+    final middleLandmark = pose.landmarks[middle];
+    final lastLandmark = pose.landmarks[last];
+
+    if (firstLandmark == null ||
+        middleLandmark == null ||
+        lastLandmark == null) {
+      return null;
+    }
+
+    return AngleCalculator.calculate(
+      math.Point(firstLandmark.x, firstLandmark.y),
+      math.Point(middleLandmark.x, middleLandmark.y),
+      math.Point(lastLandmark.x, lastLandmark.y),
+    );
+  }
+
+  bool _isPlankConfig(ExerciseConfig config) {
+    return config.name.trim().toLowerCase() == 'plank';
   }
 }
