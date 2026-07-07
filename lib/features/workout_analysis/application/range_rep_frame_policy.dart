@@ -49,12 +49,12 @@ class RangeRepFrameAssessment {
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
   }) : this._(
-          selection: selection,
-          shouldUpdateEngine: true,
-          hasPrimaryAngle: hasPrimaryAngle,
-          hasFormMetric: hasFormMetric,
-          feedbackMessage: '',
-        );
+         selection: selection,
+         shouldUpdateEngine: true,
+         hasPrimaryAngle: hasPrimaryAngle,
+         hasFormMetric: hasFormMetric,
+         feedbackMessage: '',
+       );
 
   RangeRepFrameAssessment.invalid({
     required RangeRepSideSelection selection,
@@ -62,13 +62,13 @@ class RangeRepFrameAssessment {
     required bool hasFormMetric,
     required RangeRepFrameInvalidReason invalidReason,
   }) : this._(
-          selection: selection,
-          shouldUpdateEngine: false,
-          hasPrimaryAngle: hasPrimaryAngle,
-          hasFormMetric: hasFormMetric,
-          feedbackMessage: invalidReason.feedbackMessage,
-          invalidReason: invalidReason,
-        );
+         selection: selection,
+         shouldUpdateEngine: false,
+         hasPrimaryAngle: hasPrimaryAngle,
+         hasFormMetric: hasFormMetric,
+         feedbackMessage: invalidReason.feedbackMessage,
+         invalidReason: invalidReason,
+       );
 
   final RangeRepSideSelection selection;
   final bool shouldUpdateEngine;

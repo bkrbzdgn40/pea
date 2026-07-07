@@ -136,7 +136,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         rangeRepSideSelection,
       );
       final rangeRepVisibilityAssessment = _rangeRepVisibilityAssessment(
-        isInvalidFrame: _engineKind == EngineKind.rangeRep &&
+        isInvalidFrame:
+            _engineKind == EngineKind.rangeRep &&
             !rangeRepFrameAssessment.shouldUpdateEngine,
         now: now,
       );
@@ -382,7 +383,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         hasPrimaryAngle: assessment.hasPrimaryAngle,
         hasFormMetric: assessment.hasFormMetric,
         rangeRepInvalidReason: assessment.invalidReason,
-        selectedRangeRepSide: _rangeRepSideLabel(assessment.selection.selectedSide),
+        selectedRangeRepSide: _rangeRepSideLabel(
+          assessment.selection.selectedSide,
+        ),
         rangeRepSideSelectionReason: assessment.selection.debugLabel,
         leftRangeRepCoverage: assessment.selection.leftMetrics.coverageScore,
         rightRangeRepCoverage: assessment.selection.rightMetrics.coverageScore,
@@ -461,8 +464,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
       rangeRepPhaseGateStatus: diagnostics.phaseGateStatus,
       rangeRepPendingTransition: diagnostics.pendingTransitionLabel,
-      rangeRepLastConfirmedTransition:
-          diagnostics.lastConfirmedTransitionLabel,
+      rangeRepLastConfirmedTransition: diagnostics.lastConfirmedTransitionLabel,
       rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
       rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
       rangeRepResyncTriggered: rangeRepResyncTriggered,

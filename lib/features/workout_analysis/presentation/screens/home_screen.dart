@@ -9,6 +9,7 @@ import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../goals/presentation/models/workout_goal.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
+import '../../domain/models/exercise_type.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -67,6 +68,7 @@ class HomeScreen extends ConsumerWidget {
               const _HomeGreetingCard(),
               const SizedBox(height: 14),
               _HomeActionGrid(
+                selectedExercise: selectedExercise,
                 onStartAnalysis: () {
                   Navigator.push(
                     context,
@@ -336,12 +338,14 @@ class _HomeGreetingData {
 
 class _HomeActionGrid extends StatelessWidget {
   const _HomeActionGrid({
+    required this.selectedExercise,
     required this.onStartAnalysis,
     required this.onSelectExercise,
     required this.onOpenGuide,
     required this.onOpenHistory,
   });
 
+  final ExerciseType? selectedExercise;
   final VoidCallback onStartAnalysis;
   final VoidCallback onSelectExercise;
   final VoidCallback onOpenGuide;
@@ -349,43 +353,150 @@ class _HomeActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const spacing = 10.0;
-        final cardWidth = (constraints.maxWidth - spacing) / 2;
+    final primaryTitle = selectedExercise == null
+        ? 'Hareket seç ve analize başla'
+        : '${selectedExercise!.title} analizine başla';
+    final primarySubtitle = selectedExercise == null
+        ? 'İlk adımda hangi hareketi analiz edeceğini seç.'
+        : 'Tek dokunuşla izin ve hazırlık akışına geç.';
+    final selectionTitle = selectedExercise == null
+        ? 'Hareket Seç'
+        : 'Hareketi Değiştir';
+    final selectionSubtitle = selectedExercise == null
+        ? 'Desteklenen hareketleri gör'
+        : 'Farklı bir analiz hattı seç';
 
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            _HomeActionCard(
-              icon: Icons.play_arrow_rounded,
-              title: 'Analize Başla',
-              subtitle: 'Canlı kamera analizi',
-              isPrimary: true,
-              onTap: onStartAnalysis,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SelectedExerciseSummary(
+          selectedExercise: selectedExercise,
+          onChangeExercise: onSelectExercise,
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 10.0;
+            final cardWidth = (constraints.maxWidth - spacing) / 2;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                _HomeActionCard(
+                  icon: Icons.play_arrow_rounded,
+                  title: primaryTitle,
+                  subtitle: primarySubtitle,
+                  isPrimary: true,
+                  onTap: onStartAnalysis,
+                ),
+                _HomeActionCard(
+                  icon: selectedExercise == null
+                      ? Icons.directions_run_rounded
+                      : Icons.swap_horiz_rounded,
+                  title: selectionTitle,
+                  subtitle: selectionSubtitle,
+                  onTap: onSelectExercise,
+                ),
+                _HomeActionCard(
+                  icon: Icons.menu_book_rounded,
+                  title: 'Hareket Rehberi',
+                  subtitle: 'Teknik ipuçları ve hatalar',
+                  onTap: onOpenGuide,
+                ),
+                _HomeActionCard(
+                  icon: Icons.history_rounded,
+                  title: 'Geçmiş Oturumlar',
+                  subtitle: 'Kaydedilmiş analizler',
+                  onTap: onOpenHistory,
+                ),
+              ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _SelectedExerciseSummary extends StatelessWidget {
+  const _SelectedExerciseSummary({
+    required this.selectedExercise,
+    required this.onChangeExercise,
+  });
+
+  final ExerciseType? selectedExercise;
+  final VoidCallback onChangeExercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSelection = selectedExercise != null;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasSelection
+              ? Colors.greenAccent.withValues(alpha: 0.35)
+              : Colors.white12,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: (hasSelection ? Colors.greenAccent : Colors.white70)
+                  .withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
             ),
-            _HomeActionCard(
-              icon: Icons.directions_run_rounded,
-              title: 'Hareket Seç',
-              subtitle: 'Desteklenen hareketler',
-              onTap: onSelectExercise,
+            child: Icon(
+              hasSelection
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.info_outline_rounded,
+              color: hasSelection ? Colors.greenAccent : Colors.white70,
+              size: 20,
             ),
-            _HomeActionCard(
-              icon: Icons.menu_book_rounded,
-              title: 'Hareket Rehberi',
-              subtitle: 'Teknik ipuçları ve hatalar',
-              onTap: onOpenGuide,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasSelection
+                      ? 'Seçili hareket: ${selectedExercise!.title}'
+                      : 'Henüz hareket seçilmedi',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasSelection
+                      ? 'Hızlı başlatma bu hareket üzerinden devam eder.'
+                      : 'Hızlı başlatma için önce analiz edeceğin hareketi seç.',
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
-            _HomeActionCard(
-              icon: Icons.history_rounded,
-              title: 'Geçmiş Oturumlar',
-              subtitle: 'Kaydedilmiş analizler',
-              onTap: onOpenHistory,
-            ),
-          ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
-        );
-      },
+          ),
+          const SizedBox(width: 10),
+          TextButton(
+            onPressed: onChangeExercise,
+            child: Text(hasSelection ? 'Değiştir' : 'Seç'),
+          ),
+        ],
+      ),
     );
   }
 }

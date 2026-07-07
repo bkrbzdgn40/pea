@@ -11,11 +11,11 @@ class RangeRepVisibilityAssessment {
   });
 
   const RangeRepVisibilityAssessment.stable()
-      : invalidFrameStreak = 0,
-        invalidDuration = Duration.zero,
-        shouldResync = false,
-        hasResyncedCurrentRun = false,
-        resyncReason = null;
+    : invalidFrameStreak = 0,
+      invalidDuration = Duration.zero,
+      shouldResync = false,
+      hasResyncedCurrentRun = false,
+      resyncReason = null;
 
   final int invalidFrameStreak;
   final Duration invalidDuration;

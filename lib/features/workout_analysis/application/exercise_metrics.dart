@@ -12,10 +12,10 @@ class RangeRepSideMetrics {
   });
 
   const RangeRepSideMetrics.unavailable(this.side)
-      : primaryAngle = 180.0,
-        formMetric = 90.0,
-        hasPrimaryAngle = false,
-        hasFormMetric = false;
+    : primaryAngle = 180.0,
+      formMetric = 90.0,
+      hasPrimaryAngle = false,
+      hasFormMetric = false;
 
   final RangeRepSide side;
   final double primaryAngle;
@@ -23,8 +23,7 @@ class RangeRepSideMetrics {
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
 
-  int get coverageScore =>
-      (hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0);
+  int get coverageScore => (hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0);
 }
 
 class ExerciseMetrics {
@@ -43,21 +42,21 @@ class ExerciseMetrics {
   });
 
   const ExerciseMetrics.noPose()
-      : primaryAngle = 180.0,
-        formMetric = 90.0,
-        hasPrimaryAngle = false,
-        hasFormMetric = false,
-        hasPose = false,
-        landmarks = const <PoseLandmark>[],
-        leftRangeRepMetrics = const RangeRepSideMetrics.unavailable(
-          RangeRepSide.left,
-        ),
-        rightRangeRepMetrics = const RangeRepSideMetrics.unavailable(
-          RangeRepSide.right,
-        ),
-        bodyLineAngle = null,
-        armSupportAngle = null,
-        legExtensionAngle = null;
+    : primaryAngle = 180.0,
+      formMetric = 90.0,
+      hasPrimaryAngle = false,
+      hasFormMetric = false,
+      hasPose = false,
+      landmarks = const <PoseLandmark>[],
+      leftRangeRepMetrics = const RangeRepSideMetrics.unavailable(
+        RangeRepSide.left,
+      ),
+      rightRangeRepMetrics = const RangeRepSideMetrics.unavailable(
+        RangeRepSide.right,
+      ),
+      bodyLineAngle = null,
+      armSupportAngle = null,
+      legExtensionAngle = null;
 
   final double primaryAngle;
   final double formMetric;

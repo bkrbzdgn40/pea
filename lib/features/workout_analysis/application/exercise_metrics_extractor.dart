@@ -82,19 +82,13 @@ class ExerciseMetricsExtractor {
     return null;
   }
 
-  double? _tryCalculateFormMetric(
-    Pose pose, {
-    required RangeRepSide side,
-  }) {
-    final shoulder = pose.landmarks[
-      _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side)
-    ];
-    final hip = pose.landmarks[
-      _landmarkTypeForSide(PoseLandmarkType.leftHip, side)
-    ];
-    final knee = pose.landmarks[
-      _landmarkTypeForSide(PoseLandmarkType.leftKnee, side)
-    ];
+  double? _tryCalculateFormMetric(Pose pose, {required RangeRepSide side}) {
+    final shoulder = pose
+        .landmarks[_landmarkTypeForSide(PoseLandmarkType.leftShoulder, side)];
+    final hip =
+        pose.landmarks[_landmarkTypeForSide(PoseLandmarkType.leftHip, side)];
+    final knee =
+        pose.landmarks[_landmarkTypeForSide(PoseLandmarkType.leftKnee, side)];
 
     if (shoulder != null && hip != null && knee != null) {
       return AngleCalculator.calculate(

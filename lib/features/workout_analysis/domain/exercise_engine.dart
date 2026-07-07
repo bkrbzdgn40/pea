@@ -299,7 +299,8 @@ class ExerciseEngine
     }
   }
 
-  double get _descentEntryThreshold => config.thresholdActive - _descentEntryMargin;
+  double get _descentEntryThreshold =>
+      config.thresholdActive - _descentEntryMargin;
 
   double get _peakEntryThreshold => config.thresholdPeak - _peakEntryMargin;
 
@@ -333,7 +334,8 @@ class ExerciseEngine
       return null;
     }
 
-    if (_pendingTransition != transition || _pendingTransitionStartedAt == null) {
+    if (_pendingTransition != transition ||
+        _pendingTransitionStartedAt == null) {
       _pendingTransition = transition;
       _pendingTransitionStartedAt = now;
       return null;
