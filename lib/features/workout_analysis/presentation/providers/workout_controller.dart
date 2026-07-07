@@ -8,6 +8,7 @@ import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
+import '../../application/range_rep_frame_policy.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
@@ -50,6 +51,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
+  final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
   final InputImageConverter _inputImageConverter = const InputImageConverter();
 
   @override
@@ -121,6 +123,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               engineKind: _engineKind,
             )
           : const ExerciseMetrics.noPose();
+      final rangeRepFrameAssessment = _rangeRepFrameAssessment(metrics);
+
+      if (_engineKind == EngineKind.rangeRep &&
+          !rangeRepFrameAssessment.shouldUpdateEngine) {
+        state = _buildBlockedRangeRepState(metrics, rangeRepFrameAssessment);
+        return;
+      }
 
       if (metrics.hasPose) {
         // Smooth landmark jitter before feeding the scoring state machine.
@@ -152,6 +161,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentBodyLineAngle: analysisFrame.bodyLineAngle,
             currentArmSupportAngle: analysisFrame.armSupportAngle,
             currentLegExtensionAngle: analysisFrame.legExtensionAngle,
+            isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
+            hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
+            hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
+            rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
             hasBodyLineAngle: metrics.bodyLineAngle != null,
             hasArmSupportAngle: metrics.armSupportAngle != null,
             hasLegExtensionAngle: metrics.legExtensionAngle != null,
@@ -206,6 +219,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
+  RangeRepFrameAssessment _rangeRepFrameAssessment(ExerciseMetrics metrics) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return const RangeRepFrameAssessment.valid();
+    }
+
+    return _rangeRepFramePolicy.evaluate(metrics);
+  }
+
   AnalysisFrame _buildAnalysisFrame(ExerciseMetrics metrics) {
     return AnalysisFrame(
       primaryMetric: _angleFilter.process(metrics.primaryAngle),
@@ -227,6 +248,63 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return filter.process(value);
   }
 
+  WorkoutState _buildBlockedRangeRepState(
+    ExerciseMetrics metrics,
+    RangeRepFrameAssessment assessment,
+  ) {
+    final previewAngle = _previewRangeRepMetric(
+      hasSignal: assessment.hasPrimaryAngle,
+      value: metrics.primaryAngle,
+      filter: _angleFilter,
+      fallback: state.currentAngle,
+    );
+    final previewBackAngle = _previewRangeRepMetric(
+      hasSignal: assessment.hasFormMetric,
+      value: metrics.formMetric,
+      filter: _backFilter,
+      fallback: state.calibrationMetrics.currentBackAngle,
+    );
+
+    return WorkoutState(
+      landmarks: metrics.landmarks,
+      analysisKind: _engineKind,
+      repCount: state.repCount,
+      isFormBad: false,
+      currentAngle: previewAngle,
+      lastRepScore: state.lastRepScore,
+      lastRepROM: state.lastRepROM,
+      currentHoldSeconds: state.currentHoldSeconds,
+      bestHoldSeconds: state.bestHoldSeconds,
+      isHolding: state.isHolding,
+      hadHoldFormBreak: state.hadHoldFormBreak,
+      feedbackMessage: assessment.feedbackMessage,
+      currentPhase: 'WAITING',
+      cameraFps: _cameraFps,
+      analysisFps: _analysisFps,
+      calibrationMetrics: _buildCalibrationMetrics(
+        currentFormMetric: previewBackAngle,
+        thresholdValue: _config.formThreshold,
+        isRangeRepFrameValid: false,
+        hasPrimaryAngle: assessment.hasPrimaryAngle,
+        hasFormMetric: assessment.hasFormMetric,
+        rangeRepInvalidReason: assessment.invalidReason,
+      ),
+    );
+  }
+
+  double _previewRangeRepMetric({
+    required bool hasSignal,
+    required double value,
+    required MovingAverageFilter filter,
+    required double fallback,
+  }) {
+    if (!hasSignal) {
+      return fallback;
+    }
+
+    return filter.process(value);
+  }
+
   double _currentAngleForState(AnalysisFrame frame) {
     return frame.bodyLineAngle ?? frame.primaryMetric;
   }
@@ -234,6 +312,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   WorkoutCalibrationMetrics _buildCalibrationMetrics({
     required double currentFormMetric,
     required double thresholdValue,
+    bool isRangeRepFrameValid = true,
+    bool hasPrimaryAngle = false,
+    bool hasFormMetric = false,
+    RangeRepFrameInvalidReason? rangeRepInvalidReason,
     double? currentBodyLineAngle,
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
@@ -248,6 +330,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return WorkoutCalibrationMetrics(
       currentBackAngle: currentFormMetric,
       formThreshold: thresholdValue,
+      isRangeRepFrameValid: isRangeRepFrameValid,
+      hasPrimaryAngle: hasPrimaryAngle,
+      hasFormMetric: hasFormMetric,
+      rangeRepInvalidReason: rangeRepInvalidReason?.debugLabel,
       currentBodyLineAngle: currentBodyLineAngle,
       currentArmSupportAngle: currentArmSupportAngle,
       currentLegExtensionAngle: currentLegExtensionAngle,

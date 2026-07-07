@@ -16,13 +16,17 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config, {
     required EngineKind engineKind,
   }) {
+    final primaryAngle = _tryCalculatePrimaryAngle(pose, config);
+    final formMetric = _tryCalculateFormMetric(pose);
     final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
     final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
     final legExtensionAngle = _calculateLegExtensionAngle(pose, engineKind);
 
     return ExerciseMetrics(
-      primaryAngle: _calculatePrimaryAngle(pose, config),
-      formMetric: _calculateFormMetric(pose),
+      primaryAngle: primaryAngle ?? 180.0,
+      formMetric: formMetric ?? 90.0,
+      hasPrimaryAngle: primaryAngle != null,
+      hasFormMetric: formMetric != null,
       bodyLineAngle: bodyLineAngle,
       armSupportAngle: armSupportAngle,
       legExtensionAngle: legExtensionAngle,
@@ -31,7 +35,7 @@ class ExerciseMetricsExtractor {
     );
   }
 
-  double _calculatePrimaryAngle(Pose pose, ExerciseConfig config) {
+  double? _tryCalculatePrimaryAngle(Pose pose, ExerciseConfig config) {
     final p1 = pose.landmarks[config.joint1];
     final mid = pose.landmarks[config.primaryJoint];
     final p2 = pose.landmarks[config.joint2];
@@ -44,11 +48,10 @@ class ExerciseMetricsExtractor {
       );
     }
 
-    // Keep the existing neutral fallback for incomplete joint sets.
-    return 180.0;
+    return null;
   }
 
-  double _calculateFormMetric(Pose pose) {
+  double? _tryCalculateFormMetric(Pose pose) {
     final shoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final hip = pose.landmarks[PoseLandmarkType.leftHip];
     final knee = pose.landmarks[PoseLandmarkType.leftKnee];
@@ -61,8 +64,7 @@ class ExerciseMetricsExtractor {
       );
     }
 
-    // Preserve the current upright-ish fallback used for squat form checks.
-    return 90.0;
+    return null;
   }
 
   double? _calculateBodyLineAngle(Pose pose, EngineKind engineKind) {

@@ -939,6 +939,18 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 label: 'back-angle',
                 value: _formatAngle(metrics.currentBackAngle),
               ),
+              _DebugMetricRow(
+                label: 'frame valid',
+                value: metrics.isRangeRepFrameValid ? 'true' : 'false',
+              ),
+              _DebugMetricRow(
+                label: 'coverage',
+                value: _formatRangeRepCoverage(metrics),
+              ),
+              _DebugMetricRow(
+                label: 'invalid reason',
+                value: metrics.rangeRepInvalidReason ?? '--',
+              ),
             ],
             _DebugMetricRow(
               label: isHoldAnalysis ? 'body target' : 'threshold',
@@ -1004,6 +1016,15 @@ String _formatHoldCoverage(WorkoutCalibrationMetrics metrics) {
   final legCoverage = metrics.hasLegExtensionAngle ? 'leg ok' : 'leg missing';
 
   return '$bodyCoverage / $armCoverage / $legCoverage';
+}
+
+String _formatRangeRepCoverage(WorkoutCalibrationMetrics metrics) {
+  final primaryCoverage = metrics.hasPrimaryAngle
+      ? 'primary ok'
+      : 'primary missing';
+  final formCoverage = metrics.hasFormMetric ? 'form ok' : 'form missing';
+
+  return '$primaryCoverage / $formCoverage';
 }
 
 class _DebugMetricRow extends StatelessWidget {

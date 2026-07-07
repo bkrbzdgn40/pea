@@ -6,6 +6,10 @@ class WorkoutCalibrationMetrics {
   const WorkoutCalibrationMetrics({
     this.currentBackAngle = 0.0,
     this.formThreshold = 0.0,
+    this.isRangeRepFrameValid = true,
+    this.hasPrimaryAngle = false,
+    this.hasFormMetric = false,
+    this.rangeRepInvalidReason,
     this.currentBodyLineAngle,
     this.currentArmSupportAngle,
     this.currentLegExtensionAngle,
@@ -24,6 +28,10 @@ class WorkoutCalibrationMetrics {
 
   final double currentBackAngle;
   final double formThreshold;
+  final bool isRangeRepFrameValid;
+  final bool hasPrimaryAngle;
+  final bool hasFormMetric;
+  final String? rangeRepInvalidReason;
   final double? currentBodyLineAngle;
   final double? currentArmSupportAngle;
   final double? currentLegExtensionAngle;
