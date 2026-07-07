@@ -944,8 +944,20 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 value: metrics.isRangeRepFrameValid ? 'true' : 'false',
               ),
               _DebugMetricRow(
+                label: 'selected side',
+                value: metrics.selectedRangeRepSide ?? '--',
+              ),
+              _DebugMetricRow(
+                label: 'side reason',
+                value: metrics.rangeRepSideSelectionReason ?? '--',
+              ),
+              _DebugMetricRow(
                 label: 'coverage',
                 value: _formatRangeRepCoverage(metrics),
+              ),
+              _DebugMetricRow(
+                label: 'side coverage',
+                value: _formatRangeRepSideCoverage(metrics),
               ),
               _DebugMetricRow(
                 label: 'invalid reason',
@@ -1025,6 +1037,11 @@ String _formatRangeRepCoverage(WorkoutCalibrationMetrics metrics) {
   final formCoverage = metrics.hasFormMetric ? 'form ok' : 'form missing';
 
   return '$primaryCoverage / $formCoverage';
+}
+
+String _formatRangeRepSideCoverage(WorkoutCalibrationMetrics metrics) {
+  return 'L ${metrics.leftRangeRepCoverage}/2 / '
+      'R ${metrics.rightRangeRepCoverage}/2';
 }
 
 class _DebugMetricRow extends StatelessWidget {

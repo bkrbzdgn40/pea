@@ -1,95 +1,137 @@
 import 'exercise_metrics.dart';
+import 'range_rep_side_policy.dart';
 
 enum RangeRepFrameInvalidReason {
-  poseMissing('pose missing', 'Tum vucudunu kamerada tut'),
-  primaryJointsMissing(
-    'primary joints missing',
-    'Kalca, diz ve ayak bilegini goster',
-  ),
-  formJointsMissing('form joints missing', 'Omuz, kalca ve dizi goster'),
-  primaryAndFormJointsMissing(
-    'primary + form joints missing',
-    'Squat eklemlerini kamerada tut',
-  );
+  noPose,
+  missingPrimaryAngle,
+  missingFormMetric,
+  missingPrimaryAndFormMetrics,
+}
 
-  const RangeRepFrameInvalidReason(this.debugLabel, this.feedbackMessage);
+extension RangeRepFrameInvalidReasonX on RangeRepFrameInvalidReason {
+  String get debugLabel {
+    switch (this) {
+      case RangeRepFrameInvalidReason.noPose:
+        return 'pose missing';
+      case RangeRepFrameInvalidReason.missingPrimaryAngle:
+        return 'primary joints missing';
+      case RangeRepFrameInvalidReason.missingFormMetric:
+        return 'form joints missing';
+      case RangeRepFrameInvalidReason.missingPrimaryAndFormMetrics:
+        return 'primary + form joints missing';
+    }
+  }
 
-  final String debugLabel;
-  final String feedbackMessage;
+  String get feedbackMessage {
+    switch (this) {
+      case RangeRepFrameInvalidReason.noPose:
+        return 'Vucut Bekleniyor...';
+      case RangeRepFrameInvalidReason.missingPrimaryAngle:
+      case RangeRepFrameInvalidReason.missingFormMetric:
+      case RangeRepFrameInvalidReason.missingPrimaryAndFormMetrics:
+        return 'Tum eklemleri kadraja al.';
+    }
+  }
 }
 
 class RangeRepFrameAssessment {
   const RangeRepFrameAssessment._({
+    required this.selection,
+    required this.shouldUpdateEngine,
     required this.hasPrimaryAngle,
     required this.hasFormMetric,
-    required this.invalidReason,
+    required this.feedbackMessage,
+    this.invalidReason,
   });
 
-  const RangeRepFrameAssessment.valid()
-    : this._(
-        hasPrimaryAngle: true,
-        hasFormMetric: true,
-        invalidReason: null,
-      );
+  RangeRepFrameAssessment.valid({
+    required RangeRepSideSelection selection,
+    required bool hasPrimaryAngle,
+    required bool hasFormMetric,
+  }) : this._(
+          selection: selection,
+          shouldUpdateEngine: true,
+          hasPrimaryAngle: hasPrimaryAngle,
+          hasFormMetric: hasFormMetric,
+          feedbackMessage: '',
+        );
 
-  const RangeRepFrameAssessment.invalid({
+  RangeRepFrameAssessment.invalid({
+    required RangeRepSideSelection selection,
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
     required RangeRepFrameInvalidReason invalidReason,
   }) : this._(
-         hasPrimaryAngle: hasPrimaryAngle,
-         hasFormMetric: hasFormMetric,
-         invalidReason: invalidReason,
-       );
+          selection: selection,
+          shouldUpdateEngine: false,
+          hasPrimaryAngle: hasPrimaryAngle,
+          hasFormMetric: hasFormMetric,
+          feedbackMessage: invalidReason.feedbackMessage,
+          invalidReason: invalidReason,
+        );
 
+  final RangeRepSideSelection selection;
+  final bool shouldUpdateEngine;
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
+  final String feedbackMessage;
   final RangeRepFrameInvalidReason? invalidReason;
 
-  bool get isValid => invalidReason == null;
-  bool get shouldUpdateEngine => isValid;
-
-  String get invalidReasonLabel => invalidReason?.debugLabel ?? '--';
-  String get feedbackMessage =>
-      invalidReason?.feedbackMessage ?? 'Hazir!';
+  bool get isValid => shouldUpdateEngine;
+  RangeRepSideMetrics? get selectedMetrics => selection.selectedMetrics;
 }
 
 class RangeRepFramePolicy {
   const RangeRepFramePolicy();
 
-  RangeRepFrameAssessment evaluate(ExerciseMetrics metrics) {
+  RangeRepFrameAssessment assess({
+    required ExerciseMetrics metrics,
+    required RangeRepSideSelection selection,
+  }) {
+    final selectedMetrics = selection.selectedMetrics;
+    final hasPrimaryAngle = selectedMetrics?.hasPrimaryAngle ?? false;
+    final hasFormMetric = selectedMetrics?.hasFormMetric ?? false;
+
     if (!metrics.hasPose) {
-      return const RangeRepFrameAssessment.invalid(
+      return RangeRepFrameAssessment.invalid(
+        selection: selection,
+        hasPrimaryAngle: hasPrimaryAngle,
+        hasFormMetric: hasFormMetric,
+        invalidReason: RangeRepFrameInvalidReason.noPose,
+      );
+    }
+
+    if (!hasPrimaryAngle && !hasFormMetric) {
+      return RangeRepFrameAssessment.invalid(
+        selection: selection,
         hasPrimaryAngle: false,
         hasFormMetric: false,
-        invalidReason: RangeRepFrameInvalidReason.poseMissing,
+        invalidReason: RangeRepFrameInvalidReason.missingPrimaryAndFormMetrics,
       );
     }
 
-    if (!metrics.hasPrimaryAngle && !metrics.hasFormMetric) {
-      return const RangeRepFrameAssessment.invalid(
+    if (!hasPrimaryAngle) {
+      return RangeRepFrameAssessment.invalid(
+        selection: selection,
         hasPrimaryAngle: false,
-        hasFormMetric: false,
-        invalidReason: RangeRepFrameInvalidReason.primaryAndFormJointsMissing,
+        hasFormMetric: hasFormMetric,
+        invalidReason: RangeRepFrameInvalidReason.missingPrimaryAngle,
       );
     }
 
-    if (!metrics.hasPrimaryAngle) {
-      return const RangeRepFrameAssessment.invalid(
-        hasPrimaryAngle: false,
-        hasFormMetric: true,
-        invalidReason: RangeRepFrameInvalidReason.primaryJointsMissing,
-      );
-    }
-
-    if (!metrics.hasFormMetric) {
-      return const RangeRepFrameAssessment.invalid(
+    if (!hasFormMetric) {
+      return RangeRepFrameAssessment.invalid(
+        selection: selection,
         hasPrimaryAngle: true,
         hasFormMetric: false,
-        invalidReason: RangeRepFrameInvalidReason.formJointsMissing,
+        invalidReason: RangeRepFrameInvalidReason.missingFormMetric,
       );
     }
 
-    return const RangeRepFrameAssessment.valid();
+    return RangeRepFrameAssessment.valid(
+      selection: selection,
+      hasPrimaryAngle: true,
+      hasFormMetric: true,
+    );
   }
 }

@@ -10,6 +10,10 @@ class WorkoutCalibrationMetrics {
     this.hasPrimaryAngle = false,
     this.hasFormMetric = false,
     this.rangeRepInvalidReason,
+    this.selectedRangeRepSide,
+    this.rangeRepSideSelectionReason,
+    this.leftRangeRepCoverage = 0,
+    this.rightRangeRepCoverage = 0,
     this.currentBodyLineAngle,
     this.currentArmSupportAngle,
     this.currentLegExtensionAngle,
@@ -32,6 +36,10 @@ class WorkoutCalibrationMetrics {
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
   final String? rangeRepInvalidReason;
+  final String? selectedRangeRepSide;
+  final String? rangeRepSideSelectionReason;
+  final int leftRangeRepCoverage;
+  final int rightRangeRepCoverage;
   final double? currentBodyLineAngle;
   final double? currentArmSupportAngle;
   final double? currentLegExtensionAngle;

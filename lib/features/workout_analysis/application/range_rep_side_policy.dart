@@ -1,0 +1,153 @@
+import 'exercise_metrics.dart';
+
+enum RangeRepSideSelectionReason {
+  poseMissing,
+  keptPreviousSide,
+  switchedToHigherCoverage,
+  selectedHigherCoverage,
+  selectedLeftTie,
+  keptPreviousSideWithoutCoverage,
+  noAvailableSide,
+}
+
+class RangeRepSideSelection {
+  const RangeRepSideSelection({
+    required this.selectedSide,
+    required this.leftMetrics,
+    required this.rightMetrics,
+    required this.reason,
+  });
+
+  final RangeRepSide? selectedSide;
+  final RangeRepSideMetrics leftMetrics;
+  final RangeRepSideMetrics rightMetrics;
+  final RangeRepSideSelectionReason reason;
+
+  RangeRepSideMetrics? get selectedMetrics {
+    switch (selectedSide) {
+      case RangeRepSide.left:
+        return leftMetrics;
+      case RangeRepSide.right:
+        return rightMetrics;
+      case null:
+        return null;
+    }
+  }
+
+  String get debugLabel {
+    switch (reason) {
+      case RangeRepSideSelectionReason.poseMissing:
+        return 'pose missing';
+      case RangeRepSideSelectionReason.keptPreviousSide:
+        return 'kept previous side';
+      case RangeRepSideSelectionReason.switchedToHigherCoverage:
+        return 'switched to higher coverage';
+      case RangeRepSideSelectionReason.selectedHigherCoverage:
+        return 'selected higher coverage';
+      case RangeRepSideSelectionReason.selectedLeftTie:
+        return 'selected left tie';
+      case RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage:
+        return 'kept previous side without coverage';
+      case RangeRepSideSelectionReason.noAvailableSide:
+        return 'no available side';
+    }
+  }
+}
+
+class RangeRepSidePolicy {
+  const RangeRepSidePolicy();
+
+  RangeRepSideSelection select({
+    required ExerciseMetrics metrics,
+    RangeRepSide? previousSide,
+  }) {
+    final leftMetrics = metrics.leftRangeRepMetrics;
+    final rightMetrics = metrics.rightRangeRepMetrics;
+
+    if (!metrics.hasPose) {
+      return RangeRepSideSelection(
+        selectedSide: previousSide,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.poseMissing,
+      );
+    }
+
+    if (previousSide != null) {
+      final previousMetrics = previousSide == RangeRepSide.left
+          ? leftMetrics
+          : rightMetrics;
+      final alternateMetrics = previousSide == RangeRepSide.left
+          ? rightMetrics
+          : leftMetrics;
+
+      if (alternateMetrics.coverageScore > previousMetrics.coverageScore) {
+        return RangeRepSideSelection(
+          selectedSide: alternateMetrics.side,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason: RangeRepSideSelectionReason.switchedToHigherCoverage,
+        );
+      }
+
+      if (previousMetrics.coverageScore > 0) {
+        return RangeRepSideSelection(
+          selectedSide: previousSide,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason: RangeRepSideSelectionReason.keptPreviousSide,
+        );
+      }
+
+      if (alternateMetrics.coverageScore > 0) {
+        return RangeRepSideSelection(
+          selectedSide: alternateMetrics.side,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason: RangeRepSideSelectionReason.selectedHigherCoverage,
+        );
+      }
+
+      return RangeRepSideSelection(
+        selectedSide: previousSide,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage,
+      );
+    }
+
+    if (leftMetrics.coverageScore == 0 && rightMetrics.coverageScore == 0) {
+      return RangeRepSideSelection(
+        selectedSide: null,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.noAvailableSide,
+      );
+    }
+
+    if (rightMetrics.coverageScore > leftMetrics.coverageScore) {
+      return RangeRepSideSelection(
+        selectedSide: RangeRepSide.right,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.selectedHigherCoverage,
+      );
+    }
+
+    if (leftMetrics.coverageScore > rightMetrics.coverageScore) {
+      return RangeRepSideSelection(
+        selectedSide: RangeRepSide.left,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.selectedHigherCoverage,
+      );
+    }
+
+    return RangeRepSideSelection(
+      selectedSide: RangeRepSide.left,
+      leftMetrics: leftMetrics,
+      rightMetrics: rightMetrics,
+      reason: RangeRepSideSelectionReason.selectedLeftTie,
+    );
+  }
+}

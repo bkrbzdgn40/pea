@@ -16,29 +16,60 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config, {
     required EngineKind engineKind,
   }) {
-    final primaryAngle = _tryCalculatePrimaryAngle(pose, config);
-    final formMetric = _tryCalculateFormMetric(pose);
+    final leftRangeRepMetrics = _extractRangeRepSideMetrics(
+      pose,
+      config,
+      RangeRepSide.left,
+    );
+    final rightRangeRepMetrics = _extractRangeRepSideMetrics(
+      pose,
+      config,
+      RangeRepSide.right,
+    );
     final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
     final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
     final legExtensionAngle = _calculateLegExtensionAngle(pose, engineKind);
 
     return ExerciseMetrics(
-      primaryAngle: primaryAngle ?? 180.0,
-      formMetric: formMetric ?? 90.0,
-      hasPrimaryAngle: primaryAngle != null,
-      hasFormMetric: formMetric != null,
+      primaryAngle: leftRangeRepMetrics.primaryAngle,
+      formMetric: leftRangeRepMetrics.formMetric,
+      hasPrimaryAngle: leftRangeRepMetrics.hasPrimaryAngle,
+      hasFormMetric: leftRangeRepMetrics.hasFormMetric,
       bodyLineAngle: bodyLineAngle,
       armSupportAngle: armSupportAngle,
       legExtensionAngle: legExtensionAngle,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
+      leftRangeRepMetrics: leftRangeRepMetrics,
+      rightRangeRepMetrics: rightRangeRepMetrics,
     );
   }
 
-  double? _tryCalculatePrimaryAngle(Pose pose, ExerciseConfig config) {
-    final p1 = pose.landmarks[config.joint1];
-    final mid = pose.landmarks[config.primaryJoint];
-    final p2 = pose.landmarks[config.joint2];
+  RangeRepSideMetrics _extractRangeRepSideMetrics(
+    Pose pose,
+    ExerciseConfig config,
+    RangeRepSide side,
+  ) {
+    final primaryAngle = _tryCalculatePrimaryAngle(pose, config, side: side);
+    final formMetric = _tryCalculateFormMetric(pose, side: side);
+
+    return RangeRepSideMetrics(
+      side: side,
+      primaryAngle: primaryAngle ?? 180.0,
+      formMetric: formMetric ?? 90.0,
+      hasPrimaryAngle: primaryAngle != null,
+      hasFormMetric: formMetric != null,
+    );
+  }
+
+  double? _tryCalculatePrimaryAngle(
+    Pose pose,
+    ExerciseConfig config, {
+    required RangeRepSide side,
+  }) {
+    final p1 = pose.landmarks[_landmarkTypeForSide(config.joint1, side)];
+    final mid = pose.landmarks[_landmarkTypeForSide(config.primaryJoint, side)];
+    final p2 = pose.landmarks[_landmarkTypeForSide(config.joint2, side)];
 
     if (p1 != null && mid != null && p2 != null) {
       return AngleCalculator.calculate(
@@ -51,10 +82,19 @@ class ExerciseMetricsExtractor {
     return null;
   }
 
-  double? _tryCalculateFormMetric(Pose pose) {
-    final shoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
-    final hip = pose.landmarks[PoseLandmarkType.leftHip];
-    final knee = pose.landmarks[PoseLandmarkType.leftKnee];
+  double? _tryCalculateFormMetric(
+    Pose pose, {
+    required RangeRepSide side,
+  }) {
+    final shoulder = pose.landmarks[
+      _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side)
+    ];
+    final hip = pose.landmarks[
+      _landmarkTypeForSide(PoseLandmarkType.leftHip, side)
+    ];
+    final knee = pose.landmarks[
+      _landmarkTypeForSide(PoseLandmarkType.leftKnee, side)
+    ];
 
     if (shoulder != null && hip != null && knee != null) {
       return AngleCalculator.calculate(
@@ -127,6 +167,44 @@ class ExerciseMetricsExtractor {
       math.Point(middleLandmark.x, middleLandmark.y),
       math.Point(lastLandmark.x, lastLandmark.y),
     );
+  }
+
+  PoseLandmarkType _landmarkTypeForSide(
+    PoseLandmarkType landmarkType,
+    RangeRepSide side,
+  ) {
+    if (side == RangeRepSide.left) {
+      return landmarkType;
+    }
+
+    switch (landmarkType) {
+      case PoseLandmarkType.leftShoulder:
+        return PoseLandmarkType.rightShoulder;
+      case PoseLandmarkType.leftElbow:
+        return PoseLandmarkType.rightElbow;
+      case PoseLandmarkType.leftWrist:
+        return PoseLandmarkType.rightWrist;
+      case PoseLandmarkType.leftHip:
+        return PoseLandmarkType.rightHip;
+      case PoseLandmarkType.leftKnee:
+        return PoseLandmarkType.rightKnee;
+      case PoseLandmarkType.leftAnkle:
+        return PoseLandmarkType.rightAnkle;
+      case PoseLandmarkType.rightShoulder:
+        return PoseLandmarkType.leftShoulder;
+      case PoseLandmarkType.rightElbow:
+        return PoseLandmarkType.leftElbow;
+      case PoseLandmarkType.rightWrist:
+        return PoseLandmarkType.leftWrist;
+      case PoseLandmarkType.rightHip:
+        return PoseLandmarkType.leftHip;
+      case PoseLandmarkType.rightKnee:
+        return PoseLandmarkType.leftKnee;
+      case PoseLandmarkType.rightAnkle:
+        return PoseLandmarkType.leftAnkle;
+      default:
+        return landmarkType;
+    }
   }
 
   bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {

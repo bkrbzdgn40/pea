@@ -9,6 +9,7 @@ import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
 import '../../application/range_rep_frame_policy.dart';
+import '../../application/range_rep_side_policy.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
@@ -52,7 +53,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
   final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
+  final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
   final InputImageConverter _inputImageConverter = const InputImageConverter();
+  RangeRepSide? _selectedRangeRepSide;
 
   @override
   WorkoutState build() {
@@ -81,6 +84,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _cameraFps = 0.0;
     _analysisFps = 0.0;
     _lastAnalysisStartedAt = null;
+    _selectedRangeRepSide = null;
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -123,7 +127,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               engineKind: _engineKind,
             )
           : const ExerciseMetrics.noPose();
-      final rangeRepFrameAssessment = _rangeRepFrameAssessment(metrics);
+      final rangeRepSideSelection = _rangeRepSideSelection(metrics);
+      final rangeRepFrameAssessment = _rangeRepFrameAssessment(
+        metrics,
+        rangeRepSideSelection,
+      );
+
+      if (rangeRepSideSelection.selectedSide != null) {
+        _selectedRangeRepSide = rangeRepSideSelection.selectedSide;
+      }
 
       if (_engineKind == EngineKind.rangeRep &&
           !rangeRepFrameAssessment.shouldUpdateEngine) {
@@ -133,7 +145,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
       if (metrics.hasPose) {
         // Smooth landmark jitter before feeding the scoring state machine.
-        final analysisFrame = _buildAnalysisFrame(metrics);
+        final analysisFrame = _buildAnalysisFrame(
+          metrics,
+          rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
+        );
         _engine.update(analysisFrame);
         final holdDiagnostics = _holdDiagnosticsSnapshot();
 
@@ -165,6 +180,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
             hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
             rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
+            selectedRangeRepSide: _rangeRepSideLabel(
+              rangeRepFrameAssessment.selection.selectedSide,
+            ),
+            rangeRepSideSelectionReason:
+                rangeRepFrameAssessment.selection.debugLabel,
+            leftRangeRepCoverage:
+                rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
+            rightRangeRepCoverage:
+                rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
             hasBodyLineAngle: metrics.bodyLineAngle != null,
             hasArmSupportAngle: metrics.armSupportAngle != null,
             hasLegExtensionAngle: metrics.legExtensionAngle != null,
@@ -219,18 +243,47 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
-  RangeRepFrameAssessment _rangeRepFrameAssessment(ExerciseMetrics metrics) {
+  RangeRepSideSelection _rangeRepSideSelection(ExerciseMetrics metrics) {
     if (_engineKind != EngineKind.rangeRep) {
-      return const RangeRepFrameAssessment.valid();
+      return const RangeRepSideSelection(
+        selectedSide: null,
+        leftMetrics: RangeRepSideMetrics.unavailable(RangeRepSide.left),
+        rightMetrics: RangeRepSideMetrics.unavailable(RangeRepSide.right),
+        reason: RangeRepSideSelectionReason.noAvailableSide,
+      );
     }
 
-    return _rangeRepFramePolicy.evaluate(metrics);
+    return _rangeRepSidePolicy.select(
+      metrics: metrics,
+      previousSide: _selectedRangeRepSide,
+    );
   }
 
-  AnalysisFrame _buildAnalysisFrame(ExerciseMetrics metrics) {
+  RangeRepFrameAssessment _rangeRepFrameAssessment(
+    ExerciseMetrics metrics,
+    RangeRepSideSelection selection,
+  ) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return RangeRepFrameAssessment.valid(
+        selection: selection,
+        hasPrimaryAngle: metrics.hasPrimaryAngle,
+        hasFormMetric: metrics.hasFormMetric,
+      );
+    }
+
+    return _rangeRepFramePolicy.assess(metrics: metrics, selection: selection);
+  }
+
+  AnalysisFrame _buildAnalysisFrame(
+    ExerciseMetrics metrics, {
+    RangeRepSideMetrics? rangeRepMetrics,
+  }) {
+    final primaryMetric = rangeRepMetrics?.primaryAngle ?? metrics.primaryAngle;
+    final formMetric = rangeRepMetrics?.formMetric ?? metrics.formMetric;
+
     return AnalysisFrame(
-      primaryMetric: _angleFilter.process(metrics.primaryAngle),
-      formMetric: _backFilter.process(metrics.formMetric),
+      primaryMetric: _angleFilter.process(primaryMetric),
+      formMetric: _backFilter.process(formMetric),
       bodyLineAngle: _smoothOptional(metrics.bodyLineAngle, _bodyLineFilter),
       armSupportAngle: _smoothOptional(
         metrics.armSupportAngle,
@@ -252,15 +305,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     ExerciseMetrics metrics,
     RangeRepFrameAssessment assessment,
   ) {
+    final selectedMetrics = assessment.selectedMetrics;
     final previewAngle = _previewRangeRepMetric(
       hasSignal: assessment.hasPrimaryAngle,
-      value: metrics.primaryAngle,
+      value: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
       filter: _angleFilter,
       fallback: state.currentAngle,
     );
     final previewBackAngle = _previewRangeRepMetric(
       hasSignal: assessment.hasFormMetric,
-      value: metrics.formMetric,
+      value: selectedMetrics?.formMetric ?? metrics.formMetric,
       filter: _backFilter,
       fallback: state.calibrationMetrics.currentBackAngle,
     );
@@ -288,6 +342,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         hasPrimaryAngle: assessment.hasPrimaryAngle,
         hasFormMetric: assessment.hasFormMetric,
         rangeRepInvalidReason: assessment.invalidReason,
+        selectedRangeRepSide: _rangeRepSideLabel(assessment.selection.selectedSide),
+        rangeRepSideSelectionReason: assessment.selection.debugLabel,
+        leftRangeRepCoverage: assessment.selection.leftMetrics.coverageScore,
+        rightRangeRepCoverage: assessment.selection.rightMetrics.coverageScore,
       ),
     );
   }
@@ -316,6 +374,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     bool hasPrimaryAngle = false,
     bool hasFormMetric = false,
     RangeRepFrameInvalidReason? rangeRepInvalidReason,
+    String? selectedRangeRepSide,
+    String? rangeRepSideSelectionReason,
+    int leftRangeRepCoverage = 0,
+    int rightRangeRepCoverage = 0,
     double? currentBodyLineAngle,
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
@@ -334,6 +396,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       hasPrimaryAngle: hasPrimaryAngle,
       hasFormMetric: hasFormMetric,
       rangeRepInvalidReason: rangeRepInvalidReason?.debugLabel,
+      selectedRangeRepSide: selectedRangeRepSide,
+      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+      leftRangeRepCoverage: leftRangeRepCoverage,
+      rightRangeRepCoverage: rightRangeRepCoverage,
       currentBodyLineAngle: currentBodyLineAngle,
       currentArmSupportAngle: currentArmSupportAngle,
       currentLegExtensionAngle: currentLegExtensionAngle,
@@ -365,5 +431,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return const HoldDiagnosticsSnapshot();
+  }
+
+  String? _rangeRepSideLabel(RangeRepSide? side) {
+    switch (side) {
+      case RangeRepSide.left:
+        return 'left';
+      case RangeRepSide.right:
+        return 'right';
+      case null:
+        return null;
+    }
   }
 }
