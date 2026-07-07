@@ -7,7 +7,11 @@ class ExerciseAnalysisResolver {
 
   final ExerciseCatalog _catalog;
 
-  ExerciseType resolveActiveExercise(ExerciseType selectedExercise) {
+  ExerciseType? resolveActiveExercise(ExerciseType? selectedExercise) {
+    if (selectedExercise == null) {
+      return null;
+    }
+
     return _catalog.definitionFor(selectedExercise).activeAnalysisExercise;
   }
 }

@@ -15,11 +15,14 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_provider.dart';
 import '../providers/exercise_config_provider.dart';
+import '../providers/selected_exercise_provider.dart';
 import '../providers/session_repository_provider.dart';
 import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_controller.dart';
+import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/pose_painter.dart';
 import 'camera_permission_screen.dart';
+import 'exercise_selection_screen.dart';
 import 'workout_summary_screen.dart';
 
 /// Runs the live camera analysis session and handles camera lifecycle recovery.
@@ -34,7 +37,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
   bool _isRecoveringCamera = false;
-  ExerciseType _activeSessionExercise = ExerciseType.squat;
+  ExerciseType? _activeSessionExercise;
   DateTime? _sessionStartedAt;
   int _lastObservedRepCount = 0;
   double _repScoreSum = 0;
@@ -58,18 +61,21 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _startSessionLifecycle();
-    if (ref.read(exerciseConfigProvider).hasValue) {
-      _attachWorkoutStateSubscription();
+    if (_hasAnalysisSelection()) {
+      _startSessionLifecycle();
+      if (ref.read(exerciseConfigProvider).hasValue) {
+        _attachWorkoutStateSubscription();
+      }
+      _exerciseConfigSubscription = ref
+          .listenManual<AsyncValue<ExerciseConfig>>(exerciseConfigProvider, (
+            _,
+            next,
+          ) {
+            if (next.hasValue) {
+              _attachWorkoutStateSubscription();
+            }
+          });
     }
-    _exerciseConfigSubscription = ref.listenManual<AsyncValue<ExerciseConfig>>(
-      exerciseConfigProvider,
-      (_, next) {
-        if (next.hasValue) {
-          _attachWorkoutStateSubscription();
-        }
-      },
-    );
   }
 
   @override
@@ -88,8 +94,20 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
+  bool _hasAnalysisSelection() {
+    final selectedExercise = ref.read(selectedExerciseProvider);
+    final activeExercise = ref.read(activeAnalysisExerciseProvider);
+
+    return selectedExercise != null && activeExercise != null;
+  }
+
   void _startSessionLifecycle() {
-    _activeSessionExercise = ref.read(activeAnalysisExerciseProvider);
+    final activeExercise = ref.read(activeAnalysisExerciseProvider);
+    if (activeExercise == null) {
+      return;
+    }
+
+    _activeSessionExercise = activeExercise;
     _sessionStartedAt = DateTime.now();
     _lastObservedRepCount = 0;
     _repScoreSum = 0;
@@ -186,6 +204,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   Future<void> _recoverCameraIfAllowed() async {
     if (_isFinishingSession || _isRecoveringCameraRefreshInFlight) return;
     if (_isRecoveringCamera && ref.read(cameraProvider).isLoading) return;
+    if (!_hasAnalysisSelection()) {
+      return;
+    }
 
     _isRecoveringCameraRefreshInFlight = true;
     _markCameraRecovering();
@@ -234,6 +255,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
+  void _goToExerciseSelectionScreen() {
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const ExerciseSelectionScreen()),
+    );
+  }
+
   Future<void> _finishSession(WorkoutState workoutState) async {
     if (_isFinishingSession || !mounted) return;
 
@@ -259,6 +289,17 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     _collectSessionMetrics(null, workoutState);
 
+    final activeSessionExercise = _activeSessionExercise;
+    if (activeSessionExercise == null) {
+      setState(() => _isFinishingSession = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Analiz icin once gecerli bir hareket secmelisin.'),
+        ),
+      );
+      return;
+    }
+
     final endedAt = DateTime.now();
     final startedAt = _sessionStartedAt ?? endedAt;
     final durationSec = endedAt.difference(startedAt).inSeconds;
@@ -266,7 +307,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final session = WorkoutSession(
       id: 'session_${endedAt.microsecondsSinceEpoch}',
       ownerId: ownerId,
-      exerciseType: _activeSessionExercise.id,
+      exerciseType: activeSessionExercise.id,
       analysisKind: workoutState.analysisKind.name,
       startedAt: startedAt,
       endedAt: endedAt,
@@ -313,6 +354,21 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   @override
   Widget build(BuildContext context) {
+    final selectedExercise = ref.watch(selectedExerciseProvider);
+    final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+
+    if (selectedExercise == null || activeExercise == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: AnalysisSelectionRequiredView(
+          title: 'Canli analize girmek icin hareket sec',
+          message:
+              'Canli analiz ekrani yalnizca gecerli bir hareket seciminden sonra acilabilir.',
+          onSelectExercise: _goToExerciseSelectionScreen,
+        ),
+      );
+    }
+
     if (_isFinishingSession) {
       return const Scaffold(
         backgroundColor: Colors.black,

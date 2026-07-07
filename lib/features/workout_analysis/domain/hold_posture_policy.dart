@@ -46,13 +46,13 @@ class HoldPosturePolicy {
         legExtensionAngle != null;
     final hasActivePosture =
         bodyLineAngle != null && bodyLineAngle >= config.activePostureAngle;
-    final isBodyAligned = hasCompleteMetrics && bodyLineAngle! >= targetAngle;
+    final isBodyAligned = hasCompleteMetrics && bodyLineAngle >= targetAngle;
     final isArmSupported =
         hasCompleteMetrics &&
-        armSupportAngle! >= config.armSupportMinAngle &&
-        armSupportAngle! <= config.armSupportMaxAngle;
+        armSupportAngle >= config.armSupportMinAngle &&
+        armSupportAngle <= config.armSupportMaxAngle;
     final areLegsExtended =
-        hasCompleteMetrics && legExtensionAngle! >= config.legExtensionMinAngle;
+        hasCompleteMetrics && legExtensionAngle >= config.legExtensionMinAngle;
 
     return HoldPostureEvaluation(
       hasActivePosture: hasActivePosture,

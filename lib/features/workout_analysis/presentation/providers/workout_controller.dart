@@ -58,6 +58,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     ref.watch(poseDetectorProvider);
 
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+    if (activeExercise == null) {
+      throw StateError('No active analysis exercise selected.');
+    }
+
     final definition = _exerciseCatalog.definitionFor(activeExercise);
     _engineKind = definition.engineKind;
     _config = ref.watch(exerciseConfigProvider).requireValue;

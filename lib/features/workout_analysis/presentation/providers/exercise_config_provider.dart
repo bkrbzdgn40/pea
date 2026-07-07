@@ -11,6 +11,10 @@ final exerciseConfigSourceProvider = Provider<ExerciseConfigSource>((ref) {
 
 final exerciseConfigProvider = FutureProvider<ExerciseConfig>((ref) async {
   final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+  if (activeExercise == null) {
+    throw StateError('No active analysis exercise selected.');
+  }
+
   final source = ref.watch(exerciseConfigSourceProvider);
   final resolver = ExerciseConfigResolver(source: source);
 

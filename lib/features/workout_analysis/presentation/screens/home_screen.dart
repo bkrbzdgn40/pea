@@ -11,6 +11,7 @@ import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
+import '../providers/selected_exercise_provider.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
@@ -35,6 +36,7 @@ class HomeScreen extends ConsumerWidget {
     final goalPreview = _trustedGoalPreview(goalsState);
     final achievementsState = ref.watch(achievementsProvider).valueOrNull;
     final achievementPreview = _trustedAchievementPreview(achievementsState);
+    final selectedExercise = ref.watch(selectedExerciseProvider);
 
     return Scaffold(
       drawer: const AppDrawer(currentPage: AppDrawerPage.home),
@@ -69,7 +71,9 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const CameraPermissionScreen(),
+                      builder: (_) => selectedExercise != null
+                          ? const CameraPermissionScreen()
+                          : ExerciseSelectionScreen(),
                     ),
                   );
                 },

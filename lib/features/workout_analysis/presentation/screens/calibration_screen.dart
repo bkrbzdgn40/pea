@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../widgets/analysis_selection_required_view.dart';
+import 'exercise_selection_screen.dart';
 import 'live_analysis_screen.dart';
 
 class CalibrationScreen extends ConsumerWidget {
@@ -20,6 +22,31 @@ class CalibrationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+
+    if (selectedExercise == null || activeExercise == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          title: const Text('Hazirlik'),
+          backgroundColor: Colors.black,
+          elevation: 0,
+        ),
+        body: AnalysisSelectionRequiredView(
+          title: 'Hazirliktan once hareket sec',
+          message:
+              'Kalibrasyon ve analiz adimlarina gecmeden once gecerli bir hareket secimi gerekiyor.',
+          onSelectExercise: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ExerciseSelectionScreen(),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     final configState = ref.watch(exerciseConfigProvider);
     final isFallback = selectedExercise != activeExercise;
     final isConfigReady = configState.hasValue;

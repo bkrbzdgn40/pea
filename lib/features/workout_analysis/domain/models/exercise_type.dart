@@ -10,10 +10,22 @@ enum ExerciseType {
   final String id;
   final String title;
 
+  static ExerciseType? fromIdOrNull(String id) {
+    for (final exercise in ExerciseType.values) {
+      if (exercise.id == id) {
+        return exercise;
+      }
+    }
+
+    return null;
+  }
+
   static ExerciseType fromId(String id) {
-    return ExerciseType.values.firstWhere(
-      (exercise) => exercise.id == id,
-      orElse: () => ExerciseType.squat,
-    );
+    final exercise = fromIdOrNull(id);
+    if (exercise != null) {
+      return exercise;
+    }
+
+    throw ArgumentError.value(id, 'id', 'Unknown exercise id');
   }
 }

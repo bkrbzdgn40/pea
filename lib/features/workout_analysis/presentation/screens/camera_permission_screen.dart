@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../providers/active_analysis_exercise_provider.dart';
+import '../providers/selected_exercise_provider.dart';
+import '../widgets/analysis_selection_required_view.dart';
 import 'calibration_screen.dart';
+import 'exercise_selection_screen.dart';
 
 class CameraPermissionScreen extends ConsumerStatefulWidget {
   const CameraPermissionScreen({super.key});
@@ -28,11 +32,21 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
 
   bool get _isBusy => _isChecking;
 
+  bool get _hasAnalysisSelection {
+    final selectedExercise = ref.read(selectedExerciseProvider);
+    final activeExercise = ref.read(activeAnalysisExerciseProvider);
+
+    return selectedExercise != null && activeExercise != null;
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasAnalysisSelection) {
+        return;
+      }
       unawaited(_checkPermission(continueIfGranted: true));
     });
   }
@@ -45,13 +59,13 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && _hasAnalysisSelection) {
       unawaited(_checkPermission(continueIfGranted: true));
     }
   }
 
   Future<void> _checkPermission({bool continueIfGranted = false}) async {
-    if (_isChecking || _hasNavigated) return;
+    if (_isChecking || _hasNavigated || !_hasAnalysisSelection) return;
 
     setState(() => _isChecking = true);
 
@@ -69,7 +83,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
   }
 
   Future<void> _requestPermission() async {
-    if (_isBusy || _hasNavigated) return;
+    if (_isBusy || _hasNavigated || !_hasAnalysisSelection) return;
 
     setState(() => _isChecking = true);
 
@@ -92,6 +106,11 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
   }
 
   Future<void> _handlePrimaryAction() async {
+    if (!_hasAnalysisSelection) {
+      _goToExerciseSelection();
+      return;
+    }
+
     if (_isBlocked) {
       await _openSettings();
       return;
@@ -101,12 +120,22 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
   }
 
   void _goToCalibration() {
-    if (_hasNavigated || !mounted) return;
+    if (_hasNavigated || !mounted || !_hasAnalysisSelection) return;
 
     _hasNavigated = true;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const CalibrationScreen()),
+    );
+  }
+
+  void _goToExerciseSelection() {
+    if (_hasNavigated || !mounted) return;
+
+    _hasNavigated = true;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const ExerciseSelectionScreen()),
     );
   }
 
@@ -152,6 +181,26 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final selectedExercise = ref.watch(selectedExerciseProvider);
+    final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+
+    if (selectedExercise == null || activeExercise == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          title: const Text('Kamera Izni'),
+          backgroundColor: Colors.black,
+          elevation: 0,
+        ),
+        body: AnalysisSelectionRequiredView(
+          title: 'Analiz icin hareket sec',
+          message:
+              'Kamera izni akisina girmeden once hangi hareketi analiz etmek istedigini secmelisin.',
+          onSelectExercise: _goToExerciseSelection,
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
