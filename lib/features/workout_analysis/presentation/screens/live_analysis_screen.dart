@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/engine_kind.dart';
@@ -62,6 +63,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (_hasAnalysisSelection()) {
+      unawaited(_setLiveAnalysisScreenAwake(true));
       _startSessionLifecycle();
       if (ref.read(exerciseConfigProvider).hasValue) {
         _attachWorkoutStateSubscription();
@@ -80,6 +82,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   @override
   void dispose() {
+    unawaited(_setLiveAnalysisScreenAwake(false));
     _recoveryTimer?.cancel();
     _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
@@ -161,6 +164,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _previousHoldFormBreak = next.hadHoldFormBreak;
   }
 
+  Future<void> _setLiveAnalysisScreenAwake(bool enable) async {
+    try {
+      await WakelockPlus.toggle(enable: enable);
+    } catch (_) {
+      // Keep the analysis flow running even if wakelock is unavailable.
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isFinishingSession) return;
@@ -168,6 +179,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      unawaited(_setLiveAnalysisScreenAwake(false));
       // Hide preview before teardown so CameraPreview never builds a disposed controller.
       _markCameraRecovering();
       unawaited(_stopImageStreamIfNeeded());
@@ -175,6 +187,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
 
     if (state == AppLifecycleState.resumed) {
+      if (_hasAnalysisSelection()) {
+        unawaited(_setLiveAnalysisScreenAwake(true));
+      }
       unawaited(_recoverCameraIfAllowed());
     }
   }
@@ -342,12 +357,16 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     ref.read(completedSessionProvider.notifier).state = session;
     if (!mounted) return;
 
+    await _setLiveAnalysisScreenAwake(false);
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
     );
 
     if (mounted) {
+      if (_hasAnalysisSelection()) {
+        unawaited(_setLiveAnalysisScreenAwake(true));
+      }
       setState(() => _isFinishingSession = false);
     }
   }

@@ -38,6 +38,7 @@ dependencies:
   # Canlı Kamera Akışı ve İzinler
   camera: ^0.10.5+8
   permission_handler: ^11.3.1
+  wakelock_plus: ^1.4.0
   shared_preferences: ^2.3.2
 
   # Yapay Zeka / Pose Estimation (İlerleyen adım için hazır tutuyoruz)
