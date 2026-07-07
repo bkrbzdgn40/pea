@@ -810,6 +810,7 @@ class _CalibrationDebugPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metrics = workoutState.calibrationMetrics;
+    final isHoldAnalysis = workoutState.analysisKind == EngineKind.hold;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -847,31 +848,63 @@ class _CalibrationDebugPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            if (isHoldAnalysis) ...[
+              _DebugMetricRow(
+                label: 'body line',
+                value: _formatOptionalAngle(
+                  metrics.currentBodyLineAngle,
+                  isAvailable: metrics.hasBodyLineAngle,
+                ),
+              ),
+              _DebugMetricRow(
+                label: 'arm support',
+                value: _formatOptionalAngle(
+                  metrics.currentArmSupportAngle,
+                  isAvailable: metrics.hasArmSupportAngle,
+                ),
+              ),
+              _DebugMetricRow(
+                label: 'coverage',
+                value: _formatHoldCoverage(metrics),
+              ),
+            ] else ...[
+              _DebugMetricRow(
+                label: 'knee/current',
+                value: _formatAngle(workoutState.currentAngle),
+              ),
+              _DebugMetricRow(
+                label: 'back-angle',
+                value: _formatAngle(metrics.currentBackAngle),
+              ),
+            ],
             _DebugMetricRow(
-              label: 'knee/current',
-              value: _formatAngle(workoutState.currentAngle),
-            ),
-            _DebugMetricRow(
-              label: 'back-angle',
-              value: _formatAngle(metrics.currentBackAngle),
-            ),
-            _DebugMetricRow(
-              label: 'threshold',
+              label: isHoldAnalysis ? 'body target' : 'threshold',
               value: _formatAngle(metrics.formThreshold),
             ),
             _DebugMetricRow(
               label: 'isFormBad',
               value: workoutState.isFormBad ? 'true' : 'false',
             ),
-            _DebugMetricRow(
-              label: 'rep worst back',
-              value: _formatAngle(metrics.currentRepWorstBackAngle),
-            ),
-            _DebugMetricRow(
-              label: 'rep violation',
-              value: metrics.currentRepHadFormViolation ? 'true' : 'false',
-            ),
-            if (metrics.hasLastRepBreakdown) ...[
+            if (isHoldAnalysis) ...[
+              _DebugMetricRow(
+                label: 'isHolding',
+                value: workoutState.isHolding ? 'true' : 'false',
+              ),
+              _DebugMetricRow(
+                label: 'hold break',
+                value: workoutState.hadHoldFormBreak ? 'true' : 'false',
+              ),
+            ] else ...[
+              _DebugMetricRow(
+                label: 'rep worst back',
+                value: _formatAngle(metrics.currentRepWorstBackAngle),
+              ),
+              _DebugMetricRow(
+                label: 'rep violation',
+                value: metrics.currentRepHadFormViolation ? 'true' : 'false',
+              ),
+            ],
+            if (!isHoldAnalysis && metrics.hasLastRepBreakdown) ...[
               const Divider(color: Colors.white24, height: 14),
               Text(
                 'last rep: score ${workoutState.lastRepScore.toStringAsFixed(1)} | '
@@ -892,6 +925,21 @@ class _CalibrationDebugPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatOptionalAngle(double? value, {required bool isAvailable}) {
+  if (!isAvailable || value == null) {
+    return '--';
+  }
+
+  return _formatAngle(value);
+}
+
+String _formatHoldCoverage(WorkoutCalibrationMetrics metrics) {
+  final bodyCoverage = metrics.hasBodyLineAngle ? 'body ok' : 'body missing';
+  final armCoverage = metrics.hasArmSupportAngle ? 'arm ok' : 'arm missing';
+
+  return '$bodyCoverage / $armCoverage';
 }
 
 class _DebugMetricRow extends StatelessWidget {

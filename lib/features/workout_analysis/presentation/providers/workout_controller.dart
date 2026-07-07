@@ -153,7 +153,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
-          calibrationMetrics: _buildCalibrationMetrics(smoothFormMetric),
+          calibrationMetrics: _buildCalibrationMetrics(
+            currentFormMetric: smoothFormMetric,
+            thresholdValue: _engineKind == EngineKind.hold
+                ? _config.thresholdActive
+                : _config.formThreshold,
+            currentBodyLineAngle: metrics.bodyLineAngle != null
+                ? smoothAngle
+                : null,
+            currentArmSupportAngle: metrics.armSupportAngle != null
+                ? smoothFormMetric
+                : null,
+            hasBodyLineAngle: metrics.bodyLineAngle != null,
+            hasArmSupportAngle: metrics.armSupportAngle != null,
+          ),
         );
       } else {
         // No-pose frames should not reset session counters or last rep results.
@@ -173,7 +186,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           currentPhase: "WAITING",
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
-          calibrationMetrics: _buildCalibrationMetrics(metrics.formMetric),
+          calibrationMetrics: _buildCalibrationMetrics(
+            currentFormMetric: metrics.formMetric,
+            thresholdValue: _engineKind == EngineKind.hold
+                ? _config.thresholdActive
+                : _config.formThreshold,
+          ),
         );
       }
     } catch (e) {
@@ -199,14 +217,25 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
-  WorkoutCalibrationMetrics _buildCalibrationMetrics(double currentFormMetric) {
+  WorkoutCalibrationMetrics _buildCalibrationMetrics({
+    required double currentFormMetric,
+    required double thresholdValue,
+    double? currentBodyLineAngle,
+    double? currentArmSupportAngle,
+    bool hasBodyLineAngle = false,
+    bool hasArmSupportAngle = false,
+  }) {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
 
     // Calibration telemetry surfaces the active engine's current secondary metric.
     return WorkoutCalibrationMetrics(
       currentBackAngle: currentFormMetric,
-      formThreshold: _config.formThreshold,
+      formThreshold: thresholdValue,
+      currentBodyLineAngle: currentBodyLineAngle,
+      currentArmSupportAngle: currentArmSupportAngle,
+      hasBodyLineAngle: hasBodyLineAngle,
+      hasArmSupportAngle: hasArmSupportAngle,
       currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
       currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
       hasLastRepBreakdown: lastBreakdown != null,

@@ -6,6 +6,10 @@ class WorkoutCalibrationMetrics {
   const WorkoutCalibrationMetrics({
     this.currentBackAngle = 0.0,
     this.formThreshold = 0.0,
+    this.currentBodyLineAngle,
+    this.currentArmSupportAngle,
+    this.hasBodyLineAngle = false,
+    this.hasArmSupportAngle = false,
     this.currentRepWorstBackAngle = 0.0,
     this.currentRepHadFormViolation = false,
     this.hasLastRepBreakdown = false,
@@ -18,6 +22,10 @@ class WorkoutCalibrationMetrics {
 
   final double currentBackAngle;
   final double formThreshold;
+  final double? currentBodyLineAngle;
+  final double? currentArmSupportAngle;
+  final bool hasBodyLineAngle;
+  final bool hasArmSupportAngle;
   final double currentRepWorstBackAngle;
   final bool currentRepHadFormViolation;
   final bool hasLastRepBreakdown;
