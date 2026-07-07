@@ -57,10 +57,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final definition = _exerciseCatalog.definitionFor(activeExercise);
     _engineKind = definition.engineKind;
     _config = ref.watch(exerciseConfigProvider).requireValue;
-    _engine = _engineFactory.create(
-      engineKind: _engineKind,
-      config: _config,
-    );
+    _engine = _engineFactory.create(engineKind: _engineKind, config: _config);
 
     _angleFilter = MovingAverageFilter(windowSize: 5);
     _backFilter = MovingAverageFilter(windowSize: 5);

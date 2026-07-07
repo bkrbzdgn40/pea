@@ -1,5 +1,1 @@
-enum EngineKind {
-  rangeRep,
-  alternatingRep,
-  hold,
-}
+enum EngineKind { rangeRep, alternatingRep, hold }

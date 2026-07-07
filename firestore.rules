@@ -15,6 +15,7 @@ service cloud.firestore {
         'id',
         'ownerId',
         'exerciseType',
+        'analysisKind',
         'startedAt',
         'endedAt',
         'durationSec',
@@ -22,6 +23,9 @@ service cloud.firestore {
         'averageScore',
         'bestScore',
         'formWarningCount',
+        'totalHoldSeconds',
+        'bestHoldSeconds',
+        'formBreakCount',
         'createdAt',
         'updatedAt',
       ]) &&
@@ -29,6 +33,7 @@ service cloud.firestore {
         'id',
         'ownerId',
         'exerciseType',
+        'analysisKind',
         'startedAt',
         'endedAt',
         'durationSec',
@@ -36,6 +41,9 @@ service cloud.firestore {
         'averageScore',
         'bestScore',
         'formWarningCount',
+        'totalHoldSeconds',
+        'bestHoldSeconds',
+        'formBreakCount',
         'createdAt',
         'updatedAt',
       ]);
@@ -48,6 +56,7 @@ service cloud.firestore {
         request.resource.data.ownerId == userId &&
         request.resource.data.ownerId == request.auth.uid &&
         request.resource.data.exerciseType is string &&
+        request.resource.data.analysisKind is string &&
         request.resource.data.startedAt is timestamp &&
         request.resource.data.endedAt is timestamp &&
         request.resource.data.createdAt is timestamp &&
@@ -57,7 +66,10 @@ service cloud.firestore {
         request.resource.data.totalReps is int &&
         request.resource.data.averageScore is number &&
         request.resource.data.bestScore is number &&
-        request.resource.data.formWarningCount is int;
+        request.resource.data.formWarningCount is int &&
+        request.resource.data.totalHoldSeconds is number &&
+        request.resource.data.bestHoldSeconds is number &&
+        request.resource.data.formBreakCount is int;
     }
 
     function isValidSessionCreate(userId, sessionId) {

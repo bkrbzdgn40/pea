@@ -132,11 +132,13 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     });
 
     try {
-      final sessions = await ref.read(sessionRepositoryProvider).listSessions(
-        ownerId: ownerId,
-        limit: _pageSize,
-        startAfter: _sessions.last,
-      );
+      final sessions = await ref
+          .read(sessionRepositoryProvider)
+          .listSessions(
+            ownerId: ownerId,
+            limit: _pageSize,
+            startAfter: _sessions.last,
+          );
       if (!mounted) return;
 
       setState(() {
@@ -149,8 +151,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
       setState(() {
         _isLoadingMore = false;
-        _errorMessage =
-            'Daha fazla oturum yuklenemedi. Lutfen tekrar dene.';
+        _errorMessage = 'Daha fazla oturum yuklenemedi. Lutfen tekrar dene.';
       });
     }
   }
@@ -185,7 +186,8 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       return _HistoryMessage(
         icon: Icons.history_rounded,
         title: 'Henuz oturum yok',
-        message: _emptyMessage ?? 'Kaydedilmis antrenmanlarin burada gorunecek.',
+        message:
+            _emptyMessage ?? 'Kaydedilmis antrenmanlarin burada gorunecek.',
       );
     }
 
@@ -330,8 +332,14 @@ class _SessionCard extends StatelessWidget {
     final metrics = session.isHoldSession
         ? <MapEntry<String, String>>[
             MapEntry('Sure', _formatDuration(session.duration)),
-            MapEntry('Toplam Hold', _formatHoldSeconds(session.totalHoldSeconds)),
-            MapEntry('En Iyi Hold', _formatHoldSeconds(session.bestHoldSeconds)),
+            MapEntry(
+              'Toplam Hold',
+              _formatHoldSeconds(session.totalHoldSeconds),
+            ),
+            MapEntry(
+              'En Iyi Hold',
+              _formatHoldSeconds(session.bestHoldSeconds),
+            ),
             MapEntry('Kesinti', session.formBreakCount.toString()),
           ]
         : <MapEntry<String, String>>[
@@ -438,11 +446,12 @@ class _SessionMetric extends StatelessWidget {
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
-    _ => exerciseType
-        .split('_')
-        .where((part) => part.isNotEmpty)
-        .map((part) => part[0].toUpperCase() + part.substring(1))
-        .join(' '),
+    _ =>
+      exerciseType
+          .split('_')
+          .where((part) => part.isNotEmpty)
+          .map((part) => part[0].toUpperCase() + part.substring(1))
+          .join(' '),
   };
 }
 
