@@ -12,6 +12,9 @@ enum HoldPhase { ready, holding, broken }
 /// those values at safe placeholders while exposing meaningful hold telemetry
 /// through its own diagnostics surface.
 class HoldEngine implements AnalysisEngine, HoldDiagnostics {
+  static const double _armSupportMinAngle = 60.0;
+  static const double _armSupportMaxAngle = 120.0;
+
   HoldEngine({required this.config});
 
   final ExerciseConfig config;
@@ -21,6 +24,8 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   double _currentHoldSeconds = 0.0;
   double _bestHoldSeconds = 0.0;
   bool _hadFormBreak = false;
+  bool _isBodyAligned = false;
+  bool _isArmSupported = false;
 
   @override
   int get repCount => 0;
@@ -42,7 +47,13 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
       case HoldPhase.holding:
         return 'Pozisyonu Koru';
       case HoldPhase.broken:
-        return 'Formu Duzelt';
+        if (!_isBodyAligned && !_isArmSupported) {
+          return 'Formu Duzelt';
+        }
+        if (!_isBodyAligned) {
+          return 'Govde Hattini Duzelt';
+        }
+        return 'Kol Destegini Duzelt';
     }
   }
 
@@ -60,21 +71,21 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   @override
   void update(double primaryMetric, double formMetric) {
     final now = DateTime.now();
-    final isActivePosture = primaryMetric >= config.thresholdActive;
-    final isFormAligned = formMetric >= config.formThreshold;
+    final hasActivePosture = primaryMetric >= config.thresholdNeutral;
+    final isBodyAligned = primaryMetric >= config.thresholdActive;
+    final isArmSupported = _isArmSupportAligned(formMetric);
 
-    if (isActivePosture && isFormAligned) {
+    _isBodyAligned = isBodyAligned;
+    _isArmSupported = isArmSupported;
+
+    if (isBodyAligned && isArmSupported) {
       _startOrContinueHold(now);
       return;
     }
 
-    if (_phase == HoldPhase.holding) {
-      _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
-      _holdStartedAt = null;
-      _currentHoldSeconds = 0.0;
-    }
+    _stopActiveHoldIfNeeded();
 
-    if (isActivePosture && !isFormAligned) {
+    if (hasActivePosture) {
       _phase = HoldPhase.broken;
       _hadFormBreak = true;
       return;
@@ -98,6 +109,21 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
   }
 
+  void _stopActiveHoldIfNeeded() {
+    if (_phase != HoldPhase.holding) {
+      return;
+    }
+
+    _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    _holdStartedAt = null;
+    _currentHoldSeconds = 0.0;
+  }
+
+  bool _isArmSupportAligned(double angle) {
+    // Initial plank heuristic: forearm support should stay near a right angle.
+    return angle >= _armSupportMinAngle && angle <= _armSupportMaxAngle;
+  }
+
   @override
   void reset() {
     _phase = HoldPhase.ready;
@@ -105,5 +131,7 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _currentHoldSeconds = 0.0;
     _bestHoldSeconds = 0.0;
     _hadFormBreak = false;
+    _isBodyAligned = false;
+    _isArmSupported = false;
   }
 }

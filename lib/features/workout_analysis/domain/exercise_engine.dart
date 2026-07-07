@@ -29,14 +29,18 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
   final ExerciseConfig config;
 
   MovementPhase state = MovementPhase.neutral;
+  @override
   int repCount = 0;
+  @override
   bool isFormBad = false;
 
   // Kept for WorkoutController compatibility; this is the last rep's min angle.
   double maxROM = 180.0;
+  @override
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
-  String feedback = "Hazır!";
+  @override
+  String feedback = "Hazir!";
 
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
@@ -80,7 +84,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
           state = MovementPhase.descending;
           _descentStartTime = DateTime.now();
           _startRepMetrics(angle, backAngle);
-          feedback = "Aşağı in...";
+          feedback = "Asagi in...";
         }
         break;
 
@@ -94,11 +98,11 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
           if (_descentStartTime != null) {
             lastDescentTime = _peakStartTime!.difference(_descentStartTime!);
           }
-          feedback = "Harika, şimdi yukarı!";
+          feedback = "Harika, simdi yukari!";
         } else if (angle > config.thresholdNeutral) {
           state = MovementPhase.neutral;
           _resetCurrentRepMetrics();
-          feedback = "Hareketi tamamlamadın.";
+          feedback = "Hareketi tamamlamadin.";
         }
         break;
 
@@ -109,7 +113,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
         if (angle > config.thresholdPeak + 10) {
           state = MovementPhase.ascending;
           _ascentStartTime = DateTime.now();
-          feedback = "Yukarı...";
+          feedback = "Yukari...";
         }
         break;
 
@@ -121,7 +125,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
           }
           _finishRep();
           state = MovementPhase.neutral;
-          feedback = "Başarılı!";
+          feedback = "Basarili!";
         }
         break;
     }
@@ -203,7 +207,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
     // Live feedback uses the current frame; final scoring uses rep-level history.
     if (backAngle < config.formThreshold) {
       isFormBad = true;
-      feedback = "Sırtını Dik Tut!";
+      feedback = "Sirtini Dik Tut!";
     } else {
       isFormBad = false;
     }
@@ -213,7 +217,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;
-    feedback = "Sıfırlandı";
+    feedback = "Sifirlandi";
     isFormBad = false;
     lastRepScore = 0;
     lastRepScoreBreakdown = null;

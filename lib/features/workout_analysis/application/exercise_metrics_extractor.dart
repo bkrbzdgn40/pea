@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/angle_calculator.dart';
+import 'engine_kind.dart';
 import '../domain/models/exercise_config.dart';
 import 'exercise_metrics.dart';
 
@@ -10,9 +11,13 @@ import 'exercise_metrics.dart';
 class ExerciseMetricsExtractor {
   const ExerciseMetricsExtractor();
 
-  ExerciseMetrics extract(Pose pose, ExerciseConfig config) {
-    final bodyLineAngle = _calculateBodyLineAngle(pose, config);
-    final armSupportAngle = _calculateArmSupportAngle(pose, config);
+  ExerciseMetrics extract(
+    Pose pose,
+    ExerciseConfig config, {
+    required EngineKind engineKind,
+  }) {
+    final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
+    final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
 
     return ExerciseMetrics(
       primaryAngle: _calculatePrimaryAngle(pose, config),
@@ -58,8 +63,8 @@ class ExerciseMetricsExtractor {
     return 90.0;
   }
 
-  double? _calculateBodyLineAngle(Pose pose, ExerciseConfig config) {
-    if (!_isPlankConfig(config)) {
+  double? _calculateBodyLineAngle(Pose pose, EngineKind engineKind) {
+    if (!_supportsHoldAlignmentMetrics(engineKind)) {
       return null;
     }
 
@@ -71,8 +76,8 @@ class ExerciseMetricsExtractor {
     );
   }
 
-  double? _calculateArmSupportAngle(Pose pose, ExerciseConfig config) {
-    if (!_isPlankConfig(config)) {
+  double? _calculateArmSupportAngle(Pose pose, EngineKind engineKind) {
+    if (!_supportsHoldAlignmentMetrics(engineKind)) {
       return null;
     }
 
@@ -107,7 +112,7 @@ class ExerciseMetricsExtractor {
     );
   }
 
-  bool _isPlankConfig(ExerciseConfig config) {
-    return config.name.trim().toLowerCase() == 'plank';
+  bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {
+    return engineKind == EngineKind.hold;
   }
 }

@@ -107,13 +107,32 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _updateFpsIfNeeded();
 
       final metrics = poses.isNotEmpty
-          ? _metricsExtractor.extract(poses.first, _config)
+          ? _metricsExtractor.extract(
+              poses.first,
+              _config,
+              engineKind: _engineKind,
+            )
           : const ExerciseMetrics.noPose();
 
       if (metrics.hasPose) {
         // Smooth landmark jitter before feeding the scoring state machine.
-        final smoothAngle = _angleFilter.process(metrics.primaryAngle);
-        final smoothFormMetric = _backFilter.process(metrics.formMetric);
+        final hasCompleteHoldMetrics =
+            metrics.bodyLineAngle != null && metrics.armSupportAngle != null;
+        final primaryMetric = _engineKind == EngineKind.hold
+            ? hasCompleteHoldMetrics
+                  ? metrics.bodyLineAngle!
+                  : 0.0
+            : metrics.primaryAngle;
+        final formMetric = _engineKind == EngineKind.hold
+            // Hold analysis depends on body line + arm support together.
+            // If either signal is missing, fail closed for this frame instead
+            // of falling back to the legacy squat-style metrics.
+            ? hasCompleteHoldMetrics
+                  ? metrics.armSupportAngle!
+                  : 0.0
+            : metrics.formMetric;
+        final smoothAngle = _angleFilter.process(primaryMetric);
+        final smoothFormMetric = _backFilter.process(formMetric);
 
         _engine.update(smoothAngle, smoothFormMetric);
         final holdDiagnostics = _holdDiagnosticsSnapshot();
@@ -184,7 +203,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
 
-    // Calibration telemetry still shows the current squat form metric.
+    // Calibration telemetry surfaces the active engine's current secondary metric.
     return WorkoutCalibrationMetrics(
       currentBackAngle: currentFormMetric,
       formThreshold: _config.formThreshold,
