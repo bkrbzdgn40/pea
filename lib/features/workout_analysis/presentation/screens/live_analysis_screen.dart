@@ -456,6 +456,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     isMirrored:
                         controller.description.lensDirection ==
                         CameraLensDirection.front,
+                    showDebugLandmarks: _showCalibrationPanel,
                   ),
                 ),
               Positioned(
