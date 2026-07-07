@@ -1,10 +1,12 @@
+import 'models/analysis_frame.dart';
+
 /// Common contract for engines that consume extracted analysis metrics.
 ///
 /// This surface stays focused on values the live-analysis pipeline can expect
 /// from every engine family. Calibration/debug diagnostics live on separate,
 /// family-specific surfaces.
 abstract class AnalysisEngine {
-  void update(double primaryMetric, double formMetric);
+  void update(AnalysisFrame frame);
 
   void reset();
 

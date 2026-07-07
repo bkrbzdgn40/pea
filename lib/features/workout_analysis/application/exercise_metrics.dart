@@ -7,6 +7,7 @@ class ExerciseMetrics {
     required this.formMetric,
     this.bodyLineAngle,
     this.armSupportAngle,
+    this.legExtensionAngle,
     required this.hasPose,
     required this.landmarks,
   });
@@ -16,6 +17,7 @@ class ExerciseMetrics {
       formMetric = 0,
       bodyLineAngle = null,
       armSupportAngle = null,
+      legExtensionAngle = null,
       hasPose = false,
       landmarks = const [];
 
@@ -23,6 +25,7 @@ class ExerciseMetrics {
   final double formMetric;
   final double? bodyLineAngle;
   final double? armSupportAngle;
+  final double? legExtensionAngle;
   final bool hasPose;
   final List<PoseLandmark> landmarks;
 }

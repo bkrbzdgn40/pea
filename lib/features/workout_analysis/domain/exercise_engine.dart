@@ -1,5 +1,6 @@
 import 'analysis_engine.dart';
 import 'models/exercise_config.dart';
+import 'models/analysis_frame.dart';
 import 'models/rep_score_breakdown.dart';
 import 'range_rep_diagnostics.dart';
 
@@ -71,9 +72,9 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
 
   /// Updates live form feedback and advances the repetition state machine.
   @override
-  void update(double currentAngle, double backAngle) {
-    _checkForm(backAngle);
-    _processState(currentAngle, backAngle);
+  void update(AnalysisFrame frame) {
+    _checkForm(frame.formMetric);
+    _processState(frame.primaryMetric, frame.formMetric);
   }
 
   void _processState(double angle, double backAngle) {

@@ -864,6 +864,13 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 ),
               ),
               _DebugMetricRow(
+                label: 'leg extension',
+                value: _formatOptionalAngle(
+                  metrics.currentLegExtensionAngle,
+                  isAvailable: metrics.hasLegExtensionAngle,
+                ),
+              ),
+              _DebugMetricRow(
                 label: 'coverage',
                 value: _formatHoldCoverage(metrics),
               ),
@@ -938,8 +945,9 @@ String _formatOptionalAngle(double? value, {required bool isAvailable}) {
 String _formatHoldCoverage(WorkoutCalibrationMetrics metrics) {
   final bodyCoverage = metrics.hasBodyLineAngle ? 'body ok' : 'body missing';
   final armCoverage = metrics.hasArmSupportAngle ? 'arm ok' : 'arm missing';
+  final legCoverage = metrics.hasLegExtensionAngle ? 'leg ok' : 'leg missing';
 
-  return '$bodyCoverage / $armCoverage';
+  return '$bodyCoverage / $armCoverage / $legCoverage';
 }
 
 class _DebugMetricRow extends StatelessWidget {

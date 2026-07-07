@@ -8,8 +8,10 @@ class WorkoutCalibrationMetrics {
     this.formThreshold = 0.0,
     this.currentBodyLineAngle,
     this.currentArmSupportAngle,
+    this.currentLegExtensionAngle,
     this.hasBodyLineAngle = false,
     this.hasArmSupportAngle = false,
+    this.hasLegExtensionAngle = false,
     this.currentRepWorstBackAngle = 0.0,
     this.currentRepHadFormViolation = false,
     this.hasLastRepBreakdown = false,
@@ -24,8 +26,10 @@ class WorkoutCalibrationMetrics {
   final double formThreshold;
   final double? currentBodyLineAngle;
   final double? currentArmSupportAngle;
+  final double? currentLegExtensionAngle;
   final bool hasBodyLineAngle;
   final bool hasArmSupportAngle;
+  final bool hasLegExtensionAngle;
   final double currentRepWorstBackAngle;
   final bool currentRepHadFormViolation;
   final bool hasLastRepBreakdown;

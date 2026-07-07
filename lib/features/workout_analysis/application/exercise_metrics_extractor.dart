@@ -18,12 +18,14 @@ class ExerciseMetricsExtractor {
   }) {
     final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
     final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
+    final legExtensionAngle = _calculateLegExtensionAngle(pose, engineKind);
 
     return ExerciseMetrics(
       primaryAngle: _calculatePrimaryAngle(pose, config),
       formMetric: _calculateFormMetric(pose),
       bodyLineAngle: bodyLineAngle,
       armSupportAngle: armSupportAngle,
+      legExtensionAngle: legExtensionAngle,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
     );
@@ -86,6 +88,19 @@ class ExerciseMetricsExtractor {
       PoseLandmarkType.leftShoulder,
       PoseLandmarkType.leftElbow,
       PoseLandmarkType.leftWrist,
+    );
+  }
+
+  double? _calculateLegExtensionAngle(Pose pose, EngineKind engineKind) {
+    if (!_supportsHoldAlignmentMetrics(engineKind)) {
+      return null;
+    }
+
+    return _tryCalculateAngle(
+      pose,
+      PoseLandmarkType.leftHip,
+      PoseLandmarkType.leftKnee,
+      PoseLandmarkType.leftAnkle,
     );
   }
 

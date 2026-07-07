@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'analysis_engine.dart';
 import 'hold_diagnostics.dart';
+import 'hold_posture_policy.dart';
+import 'models/analysis_frame.dart';
 import 'models/exercise_config.dart';
 
 enum HoldPhase { ready, holding, broken }
@@ -12,12 +14,11 @@ enum HoldPhase { ready, holding, broken }
 /// those values at safe placeholders while exposing meaningful hold telemetry
 /// through its own diagnostics surface.
 class HoldEngine implements AnalysisEngine, HoldDiagnostics {
-  static const double _armSupportMinAngle = 60.0;
-  static const double _armSupportMaxAngle = 120.0;
-
-  HoldEngine({required this.config});
+  HoldEngine({required this.config})
+    : _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
 
   final ExerciseConfig config;
+  final HoldPosturePolicy _posturePolicy;
 
   HoldPhase _phase = HoldPhase.ready;
   DateTime? _holdStartedAt;
@@ -26,6 +27,8 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   bool _hadFormBreak = false;
   bool _isBodyAligned = false;
   bool _isArmSupported = false;
+  bool _areLegsExtended = false;
+  DateTime? _misalignmentStartedAt;
 
   @override
   int get repCount => 0;
@@ -45,15 +48,12 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
       case HoldPhase.ready:
         return 'Pozisyonu Hazirla';
       case HoldPhase.holding:
+        if (_misalignmentStartedAt != null) {
+          return _alignmentFeedback();
+        }
         return 'Pozisyonu Koru';
       case HoldPhase.broken:
-        if (!_isBodyAligned && !_isArmSupported) {
-          return 'Formu Duzelt';
-        }
-        if (!_isBodyAligned) {
-          return 'Govde Hattini Duzelt';
-        }
-        return 'Kol Destegini Duzelt';
+        return _alignmentFeedback();
     }
   }
 
@@ -66,26 +66,45 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     bestHoldSeconds: _bestHoldSeconds,
     isHolding: _phase == HoldPhase.holding,
     hadFormBreak: _hadFormBreak,
+    bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
+      isHolding: _phase == HoldPhase.holding,
+    ),
   );
 
   @override
-  void update(double primaryMetric, double formMetric) {
+  void update(AnalysisFrame frame) {
     final now = DateTime.now();
-    final hasActivePosture = primaryMetric >= config.thresholdNeutral;
-    final isBodyAligned = primaryMetric >= config.thresholdActive;
-    final isArmSupported = _isArmSupportAligned(formMetric);
+    final evaluation = _posturePolicy.evaluate(
+      bodyLineAngle: frame.bodyLineAngle,
+      armSupportAngle: frame.armSupportAngle,
+      legExtensionAngle: frame.legExtensionAngle,
+      isHolding: _phase == HoldPhase.holding,
+    );
 
-    _isBodyAligned = isBodyAligned;
-    _isArmSupported = isArmSupported;
+    _isBodyAligned = evaluation.isBodyAligned;
+    _isArmSupported = evaluation.isArmSupported;
+    _areLegsExtended = evaluation.areLegsExtended;
 
-    if (isBodyAligned && isArmSupported) {
+    if (evaluation.isValidHoldPosture) {
+      _misalignmentStartedAt = null;
       _startOrContinueHold(now);
       return;
     }
 
-    _stopActiveHoldIfNeeded();
+    if (_phase == HoldPhase.holding && evaluation.supportsGraceWindow) {
+      _misalignmentStartedAt ??= now;
+      if (now.difference(_misalignmentStartedAt!) <
+          _posturePolicy.config.breakGraceDuration) {
+        return;
+      }
+    } else {
+      _misalignmentStartedAt = null;
+    }
 
-    if (hasActivePosture) {
+    _stopActiveHoldIfNeeded();
+    _misalignmentStartedAt = null;
+
+    if (evaluation.hasActivePosture) {
       _phase = HoldPhase.broken;
       _hadFormBreak = true;
       return;
@@ -119,9 +138,17 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _currentHoldSeconds = 0.0;
   }
 
-  bool _isArmSupportAligned(double angle) {
-    // Initial plank heuristic: forearm support should stay near a right angle.
-    return angle >= _armSupportMinAngle && angle <= _armSupportMaxAngle;
+  String _alignmentFeedback() {
+    if (!_isBodyAligned) {
+      return 'Kalcayi Hizala';
+    }
+    if (!_isArmSupported) {
+      return 'Dirsek Destegini Duzelt';
+    }
+    if (!_areLegsExtended) {
+      return 'Dizleri Kaldir';
+    }
+    return 'Formu Duzelt';
   }
 
   @override
@@ -133,5 +160,7 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _hadFormBreak = false;
     _isBodyAligned = false;
     _isArmSupported = false;
+    _areLegsExtended = false;
+    _misalignmentStartedAt = null;
   }
 }

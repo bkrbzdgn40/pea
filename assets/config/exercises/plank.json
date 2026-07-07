@@ -3,12 +3,13 @@
   "primaryJoint": "leftHip",
   "joint1": "leftShoulder",
   "joint2": "leftAnkle",
-  "thresholdNeutral": 150.0,
-  "thresholdActive": 160.0,
-  "thresholdPeak": 0.0,
-  "idealDescentSeconds": 0.0,
-  "idealAscentSeconds": 0.0,
-  "formThreshold": 150.0,
-  "targetMinAngle": 0.0,
-  "tempoPenaltyPerSecond": 0.0
+  "holdPosture": {
+    "activePostureAngle": 160.0,
+    "bodyLineEntryAngle": 168.0,
+    "bodyLineSustainAngle": 166.0,
+    "armSupportMinAngle": 60.0,
+    "armSupportMaxAngle": 120.0,
+    "legExtensionMinAngle": 165.0,
+    "breakGraceMillis": 300
+  }
 }

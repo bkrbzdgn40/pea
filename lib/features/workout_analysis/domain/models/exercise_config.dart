@@ -1,23 +1,92 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+class HoldPostureConfig {
+  const HoldPostureConfig({
+    required this.activePostureAngle,
+    required this.bodyLineEntryAngle,
+    required this.bodyLineSustainAngle,
+    required this.armSupportMinAngle,
+    required this.armSupportMaxAngle,
+    required this.legExtensionMinAngle,
+    required this.breakGraceDuration,
+  });
+
+  final double activePostureAngle;
+  final double bodyLineEntryAngle;
+  final double bodyLineSustainAngle;
+  final double armSupportMinAngle;
+  final double armSupportMaxAngle;
+  final double legExtensionMinAngle;
+  final Duration breakGraceDuration;
+
+  factory HoldPostureConfig.fromMap(Map<String, dynamic> map) {
+    double readDouble(String key) {
+      final value = map[key];
+      if (value is num) {
+        return value.toDouble();
+      }
+      if (value is String) {
+        return double.parse(value);
+      }
+
+      throw FormatException('HoldPostureConfig.$key must be a number.');
+    }
+
+    int readInt(String key) {
+      final value = map[key];
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.round();
+      }
+      if (value is String) {
+        return int.parse(value);
+      }
+
+      throw FormatException('HoldPostureConfig.$key must be an integer.');
+    }
+
+    return HoldPostureConfig(
+      activePostureAngle: readDouble('activePostureAngle'),
+      bodyLineEntryAngle: readDouble('bodyLineEntryAngle'),
+      bodyLineSustainAngle: readDouble('bodyLineSustainAngle'),
+      armSupportMinAngle: readDouble('armSupportMinAngle'),
+      armSupportMaxAngle: readDouble('armSupportMaxAngle'),
+      legExtensionMinAngle: readDouble('legExtensionMinAngle'),
+      breakGraceDuration: Duration(milliseconds: readInt('breakGraceMillis')),
+    );
+  }
+
+  factory HoldPostureConfig.legacy(ExerciseConfig config) {
+    return HoldPostureConfig(
+      activePostureAngle: config.thresholdNeutral,
+      bodyLineEntryAngle: config.thresholdActive,
+      bodyLineSustainAngle: config.thresholdActive,
+      armSupportMinAngle: 60.0,
+      armSupportMaxAngle: 120.0,
+      legExtensionMinAngle: 165.0,
+      breakGraceDuration: const Duration(milliseconds: 300),
+    );
+  }
+}
+
 class ExerciseConfig {
   final String name;
-  final PoseLandmarkType primaryJoint; // Açı merkezi (Örn: Diz)
-  final PoseLandmarkType joint1; // Açıyı oluşturan nokta 1 (Örn: Kalça)
-  final PoseLandmarkType joint2; // Açıyı oluşturan nokta 2 (Örn: Ayak Bileği)
+  final PoseLandmarkType primaryJoint;
+  final PoseLandmarkType joint1;
+  final PoseLandmarkType joint2;
 
-  // Hareket eşikleri
-  final double thresholdNeutral; // Ayakta duruş açısı (Örn: 160+)
-  final double thresholdActive; // Hareketin başladığı açı (Örn: 150)
-  final double
-  thresholdPeak; // Tekrarın sayılması için gereken min/max açı (Örn: 90-)
+  final double thresholdNeutral;
+  final double thresholdActive;
+  final double thresholdPeak;
 
-  // Kalite kriterleri
-  final double idealDescentSeconds; // İdeal iniş süresi
-  final double idealAscentSeconds; // İdeal kalkış süresi
-  final double formThreshold; // Form hatası açısı
+  final double idealDescentSeconds;
+  final double idealAscentSeconds;
+  final double formThreshold;
   final double targetMinAngle;
   final double tempoPenaltyPerSecond;
+  final HoldPostureConfig? holdPosture;
 
   ExerciseConfig({
     required this.name,
@@ -32,7 +101,12 @@ class ExerciseConfig {
     this.formThreshold = 45.0,
     this.targetMinAngle = 70.0,
     this.tempoPenaltyPerSecond = 20.0,
+    this.holdPosture,
   });
+
+  HoldPostureConfig get resolvedHoldPosture {
+    return holdPosture ?? HoldPostureConfig.legacy(this);
+  }
 
   factory ExerciseConfig.fromMap(Map<String, dynamic> map) {
     PoseLandmarkType readLandmark(String key) {
@@ -48,8 +122,14 @@ class ExerciseConfig {
       }
     }
 
-    double readDouble(String key) {
+    double readDouble(String key, {double? fallback}) {
       final value = map[key];
+      if (value == null) {
+        if (fallback != null) {
+          return fallback;
+        }
+        throw FormatException('ExerciseConfig.$key must be a number.');
+      }
       if (value is num) {
         return value.toDouble();
       }
@@ -60,24 +140,45 @@ class ExerciseConfig {
       throw FormatException('ExerciseConfig.$key must be a number.');
     }
 
+    HoldPostureConfig? readHoldPostureOrNull() {
+      final value = map['holdPosture'];
+      if (value == null) {
+        return null;
+      }
+      if (value is! Map) {
+        throw FormatException('ExerciseConfig.holdPosture must be an object.');
+      }
+
+      return HoldPostureConfig.fromMap(Map<String, dynamic>.from(value));
+    }
+
     final name = map['name'];
     if (name is! String) {
       throw FormatException('ExerciseConfig.name must be a String.');
     }
+
+    final holdPosture = readHoldPostureOrNull();
 
     return ExerciseConfig(
       name: name,
       primaryJoint: readLandmark('primaryJoint'),
       joint1: readLandmark('joint1'),
       joint2: readLandmark('joint2'),
-      thresholdNeutral: readDouble('thresholdNeutral'),
-      thresholdActive: readDouble('thresholdActive'),
-      thresholdPeak: readDouble('thresholdPeak'),
-      idealDescentSeconds: readDouble('idealDescentSeconds'),
-      idealAscentSeconds: readDouble('idealAscentSeconds'),
-      formThreshold: readDouble('formThreshold'),
-      targetMinAngle: readDouble('targetMinAngle'),
-      tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond'),
+      thresholdNeutral: readDouble(
+        'thresholdNeutral',
+        fallback: holdPosture?.activePostureAngle,
+      ),
+      thresholdActive: readDouble(
+        'thresholdActive',
+        fallback: holdPosture?.bodyLineEntryAngle,
+      ),
+      thresholdPeak: readDouble('thresholdPeak', fallback: 0.0),
+      idealDescentSeconds: readDouble('idealDescentSeconds', fallback: 0.0),
+      idealAscentSeconds: readDouble('idealAscentSeconds', fallback: 0.0),
+      formThreshold: readDouble('formThreshold', fallback: 0.0),
+      targetMinAngle: readDouble('targetMinAngle', fallback: 0.0),
+      tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond', fallback: 0.0),
+      holdPosture: holdPosture,
     );
   }
 }
