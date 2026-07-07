@@ -10,6 +10,7 @@ import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
 import '../../application/range_rep_frame_policy.dart';
 import '../../application/range_rep_side_policy.dart';
+import '../../application/range_rep_visibility_policy.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
@@ -54,6 +55,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       const ExerciseMetricsExtractor();
   final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
   final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
+  late final RangeRepVisibilityPolicy _rangeRepVisibilityPolicy;
   final InputImageConverter _inputImageConverter = const InputImageConverter();
   RangeRepSide? _selectedRangeRepSide;
 
@@ -85,6 +87,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFps = 0.0;
     _lastAnalysisStartedAt = null;
     _selectedRangeRepSide = null;
+    _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -132,6 +135,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         metrics,
         rangeRepSideSelection,
       );
+      final rangeRepVisibilityAssessment = _rangeRepVisibilityAssessment(
+        isInvalidFrame: _engineKind == EngineKind.rangeRep &&
+            !rangeRepFrameAssessment.shouldUpdateEngine,
+        now: now,
+      );
 
       if (rangeRepSideSelection.selectedSide != null) {
         _selectedRangeRepSide = rangeRepSideSelection.selectedSide;
@@ -139,7 +147,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
       if (_engineKind == EngineKind.rangeRep &&
           !rangeRepFrameAssessment.shouldUpdateEngine) {
-        state = _buildBlockedRangeRepState(metrics, rangeRepFrameAssessment);
+        if (rangeRepVisibilityAssessment.shouldResync) {
+          _clearRangeRepActiveContext(
+            reason: rangeRepVisibilityAssessment.resyncReason,
+          );
+        }
+        state = _buildBlockedRangeRepState(
+          metrics,
+          rangeRepFrameAssessment,
+          rangeRepVisibilityAssessment,
+        );
         return;
       }
 
@@ -189,6 +206,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
                 rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
             rightRangeRepCoverage:
                 rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
+            rangeRepInvalidFrameStreak:
+                rangeRepVisibilityAssessment.invalidFrameStreak,
+            rangeRepInvalidDurationMs:
+                rangeRepVisibilityAssessment.invalidDuration.inMilliseconds,
+            rangeRepResyncTriggered:
+                rangeRepVisibilityAssessment.hasResyncedCurrentRun,
+            rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
+            rangeRepVisibilityStatus: rangeRepVisibilityAssessment.statusLabel,
             hasBodyLineAngle: metrics.bodyLineAngle != null,
             hasArmSupportAngle: metrics.armSupportAngle != null,
             hasLegExtensionAngle: metrics.legExtensionAngle != null,
@@ -274,6 +299,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return _rangeRepFramePolicy.assess(metrics: metrics, selection: selection);
   }
 
+  RangeRepVisibilityAssessment _rangeRepVisibilityAssessment({
+    required bool isInvalidFrame,
+    required DateTime now,
+  }) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return const RangeRepVisibilityAssessment.stable();
+    }
+
+    return _rangeRepVisibilityPolicy.evaluate(
+      isInvalidFrame: isInvalidFrame,
+      now: now,
+    );
+  }
+
   AnalysisFrame _buildAnalysisFrame(
     ExerciseMetrics metrics, {
     RangeRepSideMetrics? rangeRepMetrics,
@@ -304,6 +343,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   WorkoutState _buildBlockedRangeRepState(
     ExerciseMetrics metrics,
     RangeRepFrameAssessment assessment,
+    RangeRepVisibilityAssessment visibilityAssessment,
   ) {
     final selectedMetrics = assessment.selectedMetrics;
     final previewAngle = _previewRangeRepMetric(
@@ -346,6 +386,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         rangeRepSideSelectionReason: assessment.selection.debugLabel,
         leftRangeRepCoverage: assessment.selection.leftMetrics.coverageScore,
         rightRangeRepCoverage: assessment.selection.rightMetrics.coverageScore,
+        rangeRepInvalidFrameStreak: visibilityAssessment.invalidFrameStreak,
+        rangeRepInvalidDurationMs:
+            visibilityAssessment.invalidDuration.inMilliseconds,
+        rangeRepResyncTriggered: visibilityAssessment.hasResyncedCurrentRun,
+        rangeRepResyncReason: visibilityAssessment.resyncReason,
+        rangeRepVisibilityStatus: visibilityAssessment.statusLabel,
       ),
     );
   }
@@ -378,6 +424,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     String? rangeRepSideSelectionReason,
     int leftRangeRepCoverage = 0,
     int rightRangeRepCoverage = 0,
+    int rangeRepInvalidFrameStreak = 0,
+    int rangeRepInvalidDurationMs = 0,
+    bool rangeRepResyncTriggered = false,
+    String? rangeRepResyncReason,
+    String rangeRepVisibilityStatus = 'stable',
     double? currentBodyLineAngle,
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
@@ -408,6 +459,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       hasLegExtensionAngle: hasLegExtensionAngle,
       currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
       currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
+      rangeRepPhaseGateStatus: diagnostics.phaseGateStatus,
+      rangeRepPendingTransition: diagnostics.pendingTransitionLabel,
+      rangeRepLastConfirmedTransition:
+          diagnostics.lastConfirmedTransitionLabel,
+      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
+      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
+      rangeRepResyncTriggered: rangeRepResyncTriggered,
+      rangeRepResyncReason: rangeRepResyncReason,
+      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
@@ -423,6 +483,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return const RangeRepDiagnosticsSnapshot();
+  }
+
+  void _clearRangeRepActiveContext({String? reason}) {
+    if (_engine is RangeRepResyncControl) {
+      (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
+    }
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {

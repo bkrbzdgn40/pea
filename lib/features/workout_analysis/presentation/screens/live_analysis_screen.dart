@@ -960,6 +960,38 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 value: _formatRangeRepSideCoverage(metrics),
               ),
               _DebugMetricRow(
+                label: 'visibility',
+                value: metrics.rangeRepVisibilityStatus,
+              ),
+              _DebugMetricRow(
+                label: 'invalid streak',
+                value: metrics.rangeRepInvalidFrameStreak.toString(),
+              ),
+              _DebugMetricRow(
+                label: 'invalid duration',
+                value: _formatMilliseconds(metrics.rangeRepInvalidDurationMs),
+              ),
+              _DebugMetricRow(
+                label: 'resync triggered',
+                value: metrics.rangeRepResyncTriggered ? 'true' : 'false',
+              ),
+              _DebugMetricRow(
+                label: 'resync reason',
+                value: metrics.rangeRepResyncReason ?? '--',
+              ),
+              _DebugMetricRow(
+                label: 'phase gate',
+                value: metrics.rangeRepPhaseGateStatus,
+              ),
+              _DebugMetricRow(
+                label: 'pending transition',
+                value: metrics.rangeRepPendingTransition ?? '--',
+              ),
+              _DebugMetricRow(
+                label: 'last transition',
+                value: metrics.rangeRepLastConfirmedTransition ?? '--',
+              ),
+              _DebugMetricRow(
                 label: 'invalid reason',
                 value: metrics.rangeRepInvalidReason ?? '--',
               ),
@@ -1042,6 +1074,10 @@ String _formatRangeRepCoverage(WorkoutCalibrationMetrics metrics) {
 String _formatRangeRepSideCoverage(WorkoutCalibrationMetrics metrics) {
   return 'L ${metrics.leftRangeRepCoverage}/2 / '
       'R ${metrics.rightRangeRepCoverage}/2';
+}
+
+String _formatMilliseconds(int milliseconds) {
+  return '${milliseconds}ms';
 }
 
 class _DebugMetricRow extends StatelessWidget {

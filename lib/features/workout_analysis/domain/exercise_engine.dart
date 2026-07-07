@@ -6,6 +6,54 @@ import 'range_rep_diagnostics.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
+const Duration _descentConfirmationDuration = Duration(milliseconds: 80);
+const Duration _peakConfirmationDuration = Duration(milliseconds: 80);
+const Duration _ascentConfirmationDuration = Duration(milliseconds: 80);
+const Duration _neutralConfirmationDuration = Duration(milliseconds: 100);
+
+const double _descentEntryMargin = 3.0;
+const double _peakEntryMargin = 3.0;
+const double _peakExitMargin = 8.0;
+
+enum _PhaseTransition {
+  startDescending,
+  reachPeak,
+  startAscending,
+  abortToNeutral,
+  completeRep,
+}
+
+extension _PhaseTransitionX on _PhaseTransition {
+  Duration get confirmationDuration {
+    switch (this) {
+      case _PhaseTransition.startDescending:
+        return _descentConfirmationDuration;
+      case _PhaseTransition.reachPeak:
+        return _peakConfirmationDuration;
+      case _PhaseTransition.startAscending:
+        return _ascentConfirmationDuration;
+      case _PhaseTransition.abortToNeutral:
+      case _PhaseTransition.completeRep:
+        return _neutralConfirmationDuration;
+    }
+  }
+
+  String get debugLabel {
+    switch (this) {
+      case _PhaseTransition.startDescending:
+        return 'neutral -> descending';
+      case _PhaseTransition.reachPeak:
+        return 'descending -> peak';
+      case _PhaseTransition.startAscending:
+        return 'peak -> ascending';
+      case _PhaseTransition.abortToNeutral:
+        return 'descending -> neutral';
+      case _PhaseTransition.completeRep:
+        return 'ascending -> neutral';
+    }
+  }
+}
+
 class RepResult {
   final int index;
   final double rom;
@@ -26,7 +74,8 @@ class RepResult {
 ///
 /// The class name is intentionally kept stable for now to avoid rename churn
 /// while the multi-engine seam settles.
-class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
+class ExerciseEngine
+    implements AnalysisEngine, RangeRepDiagnostics, RangeRepResyncControl {
   final ExerciseConfig config;
 
   MovementPhase state = MovementPhase.neutral;
@@ -53,6 +102,9 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
   double _currentRepMinAngle = 180.0;
   double _currentRepWorstBackAngle = 180.0;
   bool _currentRepHadFormViolation = false;
+  _PhaseTransition? _pendingTransition;
+  DateTime? _pendingTransitionStartedAt;
+  String? _lastConfirmedTransitionLabel;
 
   ExerciseEngine({required this.config});
 
@@ -67,6 +119,9 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
       RangeRepDiagnosticsSnapshot(
         currentRepWorstBackAngle: _currentRepWorstBackAngle,
         currentRepHadFormViolation: _currentRepHadFormViolation,
+        phaseGateStatus: _phaseGateStatus,
+        pendingTransitionLabel: _pendingTransition?.debugLabel,
+        lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
         lastRepScoreBreakdown: lastRepScoreBreakdown,
       );
 
@@ -78,12 +133,19 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
   }
 
   void _processState(double angle, double backAngle) {
+    final now = DateTime.now();
+
     // Aborted descents reset to neutral without counting a repetition.
     switch (state) {
       case MovementPhase.neutral:
-        if (angle < config.thresholdActive) {
+        final confirmedAt = _confirmTransition(
+          transition: _PhaseTransition.startDescending,
+          condition: angle < _descentEntryThreshold,
+          now: now,
+        );
+        if (confirmedAt != null) {
           state = MovementPhase.descending;
-          _descentStartTime = DateTime.now();
+          _descentStartTime = confirmedAt;
           _startRepMetrics(angle, backAngle);
           feedback = "Asagi in...";
         }
@@ -93,17 +155,29 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
         _trackRepForm(backAngle);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
 
-        if (angle < config.thresholdPeak) {
+        final peakConfirmedAt = _confirmTransition(
+          transition: _PhaseTransition.reachPeak,
+          condition: angle < _peakEntryThreshold,
+          now: now,
+        );
+        if (peakConfirmedAt != null) {
           state = MovementPhase.peak;
-          _peakStartTime = DateTime.now();
+          _peakStartTime = peakConfirmedAt;
           if (_descentStartTime != null) {
             lastDescentTime = _peakStartTime!.difference(_descentStartTime!);
           }
           feedback = "Harika, simdi yukari!";
-        } else if (angle > config.thresholdNeutral) {
-          state = MovementPhase.neutral;
-          _resetCurrentRepMetrics();
-          feedback = "Hareketi tamamlamadin.";
+        } else {
+          final abortConfirmedAt = _confirmTransition(
+            transition: _PhaseTransition.abortToNeutral,
+            condition: angle > _neutralReturnThreshold,
+            now: now,
+          );
+          if (abortConfirmedAt != null) {
+            state = MovementPhase.neutral;
+            _resetCurrentRepMetrics();
+            feedback = "Hareketi tamamlamadin.";
+          }
         }
         break;
 
@@ -111,18 +185,28 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
         _trackRepForm(backAngle);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
 
-        if (angle > config.thresholdPeak + 10) {
+        final ascentConfirmedAt = _confirmTransition(
+          transition: _PhaseTransition.startAscending,
+          condition: angle > _peakExitThreshold,
+          now: now,
+        );
+        if (ascentConfirmedAt != null) {
           state = MovementPhase.ascending;
-          _ascentStartTime = DateTime.now();
+          _ascentStartTime = ascentConfirmedAt;
           feedback = "Yukari...";
         }
         break;
 
       case MovementPhase.ascending:
         _trackRepForm(backAngle);
-        if (angle > config.thresholdNeutral) {
+        final repCompleteAt = _confirmTransition(
+          transition: _PhaseTransition.completeRep,
+          condition: angle > _neutralReturnThreshold,
+          now: now,
+        );
+        if (repCompleteAt != null) {
           if (_ascentStartTime != null) {
-            lastAscentTime = DateTime.now().difference(_ascentStartTime!);
+            lastAscentTime = repCompleteAt.difference(_ascentStartTime!);
           }
           _finishRep();
           state = MovementPhase.neutral;
@@ -202,6 +286,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
     _currentRepMinAngle = 180.0;
     _currentRepWorstBackAngle = 180.0;
     _currentRepHadFormViolation = false;
+    _clearPendingTransition();
   }
 
   void _checkForm(double backAngle) {
@@ -212,6 +297,73 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
     } else {
       isFormBad = false;
     }
+  }
+
+  double get _descentEntryThreshold => config.thresholdActive - _descentEntryMargin;
+
+  double get _peakEntryThreshold => config.thresholdPeak - _peakEntryMargin;
+
+  double get _peakExitThreshold => config.thresholdPeak + _peakExitMargin;
+
+  double get _neutralReturnThreshold => config.thresholdNeutral;
+
+  String get _phaseGateStatus {
+    if (_pendingTransition == null || _pendingTransitionStartedAt == null) {
+      return 'stable ${state.name}';
+    }
+
+    final elapsedMs = DateTime.now()
+        .difference(_pendingTransitionStartedAt!)
+        .inMilliseconds;
+    final requiredMs = _pendingTransition!.confirmationDuration.inMilliseconds;
+
+    return 'confirming ${_pendingTransition!.debugLabel} '
+        '(${elapsedMs}ms/${requiredMs}ms)';
+  }
+
+  DateTime? _confirmTransition({
+    required _PhaseTransition transition,
+    required bool condition,
+    required DateTime now,
+  }) {
+    if (!condition) {
+      if (_pendingTransition == transition) {
+        _clearPendingTransition();
+      }
+      return null;
+    }
+
+    if (_pendingTransition != transition || _pendingTransitionStartedAt == null) {
+      _pendingTransition = transition;
+      _pendingTransitionStartedAt = now;
+      return null;
+    }
+
+    final startedAt = _pendingTransitionStartedAt!;
+    if (now.difference(startedAt) < transition.confirmationDuration) {
+      return null;
+    }
+
+    _lastConfirmedTransitionLabel = transition.debugLabel;
+    _clearPendingTransition();
+    return startedAt;
+  }
+
+  void _clearPendingTransition() {
+    _pendingTransition = null;
+    _pendingTransitionStartedAt = null;
+  }
+
+  @override
+  void clearActiveRepContext({String? reason}) {
+    state = MovementPhase.neutral;
+    isFormBad = false;
+    feedback = "Hazir!";
+    _descentStartTime = null;
+    _peakStartTime = null;
+    _ascentStartTime = null;
+    _lastConfirmedTransitionLabel = null;
+    _resetCurrentRepMetrics();
   }
 
   @override
@@ -228,6 +380,7 @@ class ExerciseEngine implements AnalysisEngine, RangeRepDiagnostics {
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
+    _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
   }
 }

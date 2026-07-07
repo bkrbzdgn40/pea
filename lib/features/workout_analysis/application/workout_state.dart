@@ -22,6 +22,14 @@ class WorkoutCalibrationMetrics {
     this.hasLegExtensionAngle = false,
     this.currentRepWorstBackAngle = 0.0,
     this.currentRepHadFormViolation = false,
+    this.rangeRepPhaseGateStatus = 'stable',
+    this.rangeRepPendingTransition,
+    this.rangeRepLastConfirmedTransition,
+    this.rangeRepInvalidFrameStreak = 0,
+    this.rangeRepInvalidDurationMs = 0,
+    this.rangeRepResyncTriggered = false,
+    this.rangeRepResyncReason,
+    this.rangeRepVisibilityStatus = 'stable',
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -48,6 +56,14 @@ class WorkoutCalibrationMetrics {
   final bool hasLegExtensionAngle;
   final double currentRepWorstBackAngle;
   final bool currentRepHadFormViolation;
+  final String rangeRepPhaseGateStatus;
+  final String? rangeRepPendingTransition;
+  final String? rangeRepLastConfirmedTransition;
+  final int rangeRepInvalidFrameStreak;
+  final int rangeRepInvalidDurationMs;
+  final bool rangeRepResyncTriggered;
+  final String? rangeRepResyncReason;
+  final String rangeRepVisibilityStatus;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
