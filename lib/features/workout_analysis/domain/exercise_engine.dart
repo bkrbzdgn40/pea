@@ -77,6 +77,7 @@ class RepResult {
 class ExerciseEngine
     implements AnalysisEngine, RangeRepDiagnostics, RangeRepResyncControl {
   final ExerciseConfig config;
+  final DateTime Function() _now;
 
   MovementPhase state = MovementPhase.neutral;
   @override
@@ -106,7 +107,10 @@ class ExerciseEngine
   DateTime? _pendingTransitionStartedAt;
   String? _lastConfirmedTransitionLabel;
 
-  ExerciseEngine({required this.config});
+  ExerciseEngine({
+    required this.config,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   @override
   double get maxRom => maxROM;
@@ -135,7 +139,7 @@ class ExerciseEngine
   }
 
   void _processState(double angle, double backAngle) {
-    final now = DateTime.now();
+    final now = _now();
 
     // Aborted descents reset to neutral without counting a repetition.
     switch (state) {
@@ -315,9 +319,7 @@ class ExerciseEngine
       return 'stable ${state.name}';
     }
 
-    final elapsedMs = DateTime.now()
-        .difference(_pendingTransitionStartedAt!)
-        .inMilliseconds;
+    final elapsedMs = _now().difference(_pendingTransitionStartedAt!).inMilliseconds;
     final requiredMs = _pendingTransition!.confirmationDuration.inMilliseconds;
 
     return 'confirming ${_pendingTransition!.debugLabel} '
