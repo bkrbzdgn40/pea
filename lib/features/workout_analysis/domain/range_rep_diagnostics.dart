@@ -6,6 +6,8 @@ class RangeRepDiagnosticsSnapshot {
     this.currentRepWorstBackAngle = 0.0,
     this.currentRepHadFormViolation = false,
     this.phaseGateStatus = 'stable',
+    this.hasActiveRepPhase = false,
+    this.hasPendingTransition = false,
     this.pendingTransitionLabel,
     this.lastConfirmedTransitionLabel,
     this.lastRepScoreBreakdown,
@@ -14,6 +16,8 @@ class RangeRepDiagnosticsSnapshot {
   final double currentRepWorstBackAngle;
   final bool currentRepHadFormViolation;
   final String phaseGateStatus;
+  final bool hasActiveRepPhase;
+  final bool hasPendingTransition;
   final String? pendingTransitionLabel;
   final String? lastConfirmedTransitionLabel;
   final RepScoreBreakdown? lastRepScoreBreakdown;

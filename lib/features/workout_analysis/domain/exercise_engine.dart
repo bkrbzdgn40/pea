@@ -120,6 +120,8 @@ class ExerciseEngine
         currentRepWorstBackAngle: _currentRepWorstBackAngle,
         currentRepHadFormViolation: _currentRepHadFormViolation,
         phaseGateStatus: _phaseGateStatus,
+        hasActiveRepPhase: state != MovementPhase.neutral,
+        hasPendingTransition: _pendingTransition != null,
         pendingTransitionLabel: _pendingTransition?.debugLabel,
         lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
         lastRepScoreBreakdown: lastRepScoreBreakdown,

@@ -28,6 +28,19 @@ final workoutControllerProvider =
       return WorkoutController();
     });
 
+@visibleForTesting
+bool shouldLockRangeRepSideSelection({
+  required EngineKind engineKind,
+  required RangeRepSide? selectedSide,
+  required RangeRepDiagnosticsSnapshot diagnostics,
+}) {
+  if (engineKind != EngineKind.rangeRep || selectedSide == null) {
+    return false;
+  }
+
+  return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
+}
+
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   static const Duration _analysisFrameInterval = Duration(milliseconds: 100);
@@ -288,7 +301,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return _rangeRepSidePolicy.select(
       metrics: metrics,
       previousSide: _selectedRangeRepSide,
-      lockPreviousSide: _hasActiveRangeRepContext,
+      lockPreviousSide: _shouldLockRangeRepSideSelection,
     );
   }
 
@@ -498,10 +511,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return const RangeRepDiagnosticsSnapshot();
   }
 
-  bool get _hasActiveRangeRepContext {
-    return _engineKind == EngineKind.rangeRep &&
-        _selectedRangeRepSide != null &&
-        _engine.phaseLabel != 'NEUTRAL';
+  bool get _shouldLockRangeRepSideSelection {
+    return shouldLockRangeRepSideSelection(
+      engineKind: _engineKind,
+      selectedSide: _selectedRangeRepSide,
+      diagnostics: _rangeRepDiagnosticsSnapshot(),
+    );
   }
 
   void _clearRangeRepActiveContext({String? reason}) {
