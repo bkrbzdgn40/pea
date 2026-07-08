@@ -141,15 +141,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             !rangeRepFrameAssessment.shouldUpdateEngine,
         now: now,
       );
+      final shouldFreezeRangeRepPreview =
+          _engineKind == EngineKind.rangeRep &&
+          !rangeRepFrameAssessment.shouldUpdateEngine &&
+          rangeRepVisibilityAssessment.hasResyncedCurrentRun;
 
-      if (rangeRepSideSelection.selectedSide != null) {
+      if (rangeRepSideSelection.selectedSide != null &&
+          !shouldFreezeRangeRepPreview) {
         _selectedRangeRepSide = rangeRepSideSelection.selectedSide;
       }
 
       if (_engineKind == EngineKind.rangeRep &&
           !rangeRepFrameAssessment.shouldUpdateEngine) {
         if (rangeRepVisibilityAssessment.shouldResync) {
-          _clearRangeRepActiveContext(
+          _resetRangeRepVisibilityResyncState(
             reason: rangeRepVisibilityAssessment.resyncReason,
           );
         }
@@ -157,6 +162,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           metrics,
           rangeRepFrameAssessment,
           rangeRepVisibilityAssessment,
+          shouldFreezeRangeRepPreview,
         );
         return;
       }
@@ -345,19 +351,22 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     ExerciseMetrics metrics,
     RangeRepFrameAssessment assessment,
     RangeRepVisibilityAssessment visibilityAssessment,
+    bool freezeSmoothedPreview,
   ) {
     final selectedMetrics = assessment.selectedMetrics;
     final previewAngle = _previewRangeRepMetric(
-      hasSignal: assessment.hasPrimaryAngle,
-      value: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
-      filter: _angleFilter,
-      fallback: state.currentAngle,
+      assessment.hasPrimaryAngle,
+      selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
+      _angleFilter,
+      state.currentAngle,
+      freezeSmoothedPreview,
     );
     final previewBackAngle = _previewRangeRepMetric(
-      hasSignal: assessment.hasFormMetric,
-      value: selectedMetrics?.formMetric ?? metrics.formMetric,
-      filter: _backFilter,
-      fallback: state.calibrationMetrics.currentBackAngle,
+      assessment.hasFormMetric,
+      selectedMetrics?.formMetric ?? metrics.formMetric,
+      _backFilter,
+      state.calibrationMetrics.currentBackAngle,
+      freezeSmoothedPreview,
     );
 
     return WorkoutState(
@@ -399,13 +408,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
-  double _previewRangeRepMetric({
-    required bool hasSignal,
-    required double value,
-    required MovingAverageFilter filter,
-    required double fallback,
-  }) {
-    if (!hasSignal) {
+  double _previewRangeRepMetric(
+    bool hasSignal,
+    double value,
+    MovingAverageFilter filter,
+    double fallback,
+    bool freezePreview,
+  ) {
+    if (freezePreview || !hasSignal) {
       return fallback;
     }
 
@@ -491,6 +501,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (_engine is RangeRepResyncControl) {
       (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
     }
+  }
+
+  void _resetRangeRepVisibilityResyncState({String? reason}) {
+    _clearRangeRepActiveContext(reason: reason);
+    _angleFilter.reset();
+    _backFilter.reset();
+    // Force side selection to be reacquired from fresh post-resync coverage.
+    _selectedRangeRepSide = null;
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
