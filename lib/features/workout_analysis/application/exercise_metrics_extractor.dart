@@ -52,6 +52,13 @@ class ExerciseMetricsExtractor {
   ) {
     final primaryAngle = _tryCalculatePrimaryAngle(pose, config, side: side);
     final formMetric = _tryCalculateFormMetric(pose, side: side);
+    final formSignals = _extractRangeRepFormSignals(
+      pose,
+      config,
+      side: side,
+      primaryAngle: primaryAngle,
+      formMetric: formMetric,
+    );
 
     return RangeRepSideMetrics(
       side: side,
@@ -59,7 +66,45 @@ class ExerciseMetricsExtractor {
       formMetric: formMetric ?? 90.0,
       hasPrimaryAngle: primaryAngle != null,
       hasFormMetric: formMetric != null,
+      formSignals: formSignals,
     );
+  }
+
+  RangeRepFormSignals? _extractRangeRepFormSignals(
+    Pose pose,
+    ExerciseConfig config, {
+    required RangeRepSide side,
+    required double? primaryAngle,
+    required double? formMetric,
+  }) {
+    if (!_supportsSquatFormSignals(config)) {
+      return null;
+    }
+
+    // Reuse only the raw squat angles we already trust in this compatibility
+    // step. More interpretive signals stay null until a later scoring pass.
+    final signals = RangeRepFormSignals(
+      torsoAngle: formMetric,
+      depthMetric: primaryAngle,
+      alignmentMetric: _tryCalculateSideAngle(
+        pose,
+        side: side,
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      stabilityMetric: null,
+      lockoutMetric: _tryCalculateSideAngle(
+        pose,
+        side: side,
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      bottomControlMetric: null,
+    );
+
+    return signals.hasAnyValue ? signals : null;
   }
 
   double? _tryCalculatePrimaryAngle(
@@ -99,6 +144,21 @@ class ExerciseMetricsExtractor {
     }
 
     return null;
+  }
+
+  double? _tryCalculateSideAngle(
+    Pose pose, {
+    required RangeRepSide side,
+    required PoseLandmarkType first,
+    required PoseLandmarkType middle,
+    required PoseLandmarkType last,
+  }) {
+    return _tryCalculateAngle(
+      pose,
+      _landmarkTypeForSide(first, side),
+      _landmarkTypeForSide(middle, side),
+      _landmarkTypeForSide(last, side),
+    );
   }
 
   double? _calculateBodyLineAngle(Pose pose, EngineKind engineKind) {
@@ -203,5 +263,11 @@ class ExerciseMetricsExtractor {
 
   bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {
     return engineKind == EngineKind.hold;
+  }
+
+  bool _supportsSquatFormSignals(ExerciseConfig config) {
+    return config.primaryJoint == PoseLandmarkType.leftKnee &&
+        config.joint1 == PoseLandmarkType.leftHip &&
+        config.joint2 == PoseLandmarkType.leftAnkle;
   }
 }

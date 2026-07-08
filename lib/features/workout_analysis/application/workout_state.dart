@@ -17,6 +17,12 @@ class WorkoutCalibrationMetrics {
     this.currentBodyLineAngle,
     this.currentArmSupportAngle,
     this.currentLegExtensionAngle,
+    this.currentTorsoAngle,
+    this.currentDepthMetric,
+    this.currentAlignmentMetric,
+    this.currentStabilityMetric,
+    this.currentLockoutMetric,
+    this.currentBottomControlMetric,
     this.hasBodyLineAngle = false,
     this.hasArmSupportAngle = false,
     this.hasLegExtensionAngle = false,
@@ -51,6 +57,12 @@ class WorkoutCalibrationMetrics {
   final double? currentBodyLineAngle;
   final double? currentArmSupportAngle;
   final double? currentLegExtensionAngle;
+  final double? currentTorsoAngle;
+  final double? currentDepthMetric;
+  final double? currentAlignmentMetric;
+  final double? currentStabilityMetric;
+  final double? currentLockoutMetric;
+  final double? currentBottomControlMetric;
   final bool hasBodyLineAngle;
   final bool hasArmSupportAngle;
   final bool hasLegExtensionAngle;

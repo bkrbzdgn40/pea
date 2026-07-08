@@ -181,6 +181,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       }
 
       if (metrics.hasPose) {
+        // Raw range-rep form signals are telemetry only; engine inputs stay legacy.
+        final selectedFormSignals =
+            rangeRepFrameAssessment.selectedMetrics?.formSignals;
         // Smooth landmark jitter before feeding the scoring state machine.
         final analysisFrame = _buildAnalysisFrame(
           metrics,
@@ -213,6 +216,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentBodyLineAngle: analysisFrame.bodyLineAngle,
             currentArmSupportAngle: analysisFrame.armSupportAngle,
             currentLegExtensionAngle: analysisFrame.legExtensionAngle,
+            currentTorsoAngle: selectedFormSignals?.torsoAngle,
+            currentDepthMetric: selectedFormSignals?.depthMetric,
+            currentAlignmentMetric: selectedFormSignals?.alignmentMetric,
+            currentStabilityMetric: selectedFormSignals?.stabilityMetric,
+            currentLockoutMetric: selectedFormSignals?.lockoutMetric,
+            currentBottomControlMetric: selectedFormSignals?.bottomControlMetric,
             isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
             hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
             hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
@@ -368,6 +377,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     bool freezeSmoothedPreview,
   ) {
     final selectedMetrics = assessment.selectedMetrics;
+    final formSignals = selectedMetrics?.formSignals;
     final previewAngle = _previewRangeRepMetric(
       assessment.hasPrimaryAngle,
       selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
@@ -402,6 +412,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       calibrationMetrics: _buildCalibrationMetrics(
         currentFormMetric: previewBackAngle,
         thresholdValue: _config.formThreshold,
+        currentTorsoAngle: formSignals?.torsoAngle,
+        currentDepthMetric: formSignals?.depthMetric,
+        currentAlignmentMetric: formSignals?.alignmentMetric,
+        currentStabilityMetric: formSignals?.stabilityMetric,
+        currentLockoutMetric: formSignals?.lockoutMetric,
+        currentBottomControlMetric: formSignals?.bottomControlMetric,
         isRangeRepFrameValid: false,
         hasPrimaryAngle: assessment.hasPrimaryAngle,
         hasFormMetric: assessment.hasFormMetric,
@@ -459,6 +475,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     double? currentBodyLineAngle,
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
+    double? currentTorsoAngle,
+    double? currentDepthMetric,
+    double? currentAlignmentMetric,
+    double? currentStabilityMetric,
+    double? currentLockoutMetric,
+    double? currentBottomControlMetric,
     bool hasBodyLineAngle = false,
     bool hasArmSupportAngle = false,
     bool hasLegExtensionAngle = false,
@@ -481,6 +503,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       currentBodyLineAngle: currentBodyLineAngle,
       currentArmSupportAngle: currentArmSupportAngle,
       currentLegExtensionAngle: currentLegExtensionAngle,
+      currentTorsoAngle: currentTorsoAngle,
+      currentDepthMetric: currentDepthMetric,
+      currentAlignmentMetric: currentAlignmentMetric,
+      currentStabilityMetric: currentStabilityMetric,
+      currentLockoutMetric: currentLockoutMetric,
+      currentBottomControlMetric: currentBottomControlMetric,
       hasBodyLineAngle: hasBodyLineAngle,
       hasArmSupportAngle: hasArmSupportAngle,
       hasLegExtensionAngle: hasLegExtensionAngle,

@@ -960,6 +960,38 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 label: 'back-angle',
                 value: _formatAngle(metrics.currentBackAngle),
               ),
+              if (metrics.currentTorsoAngle != null)
+                _DebugMetricRow(
+                  label: 'Torso',
+                  value: _formatTelemetryValue(metrics.currentTorsoAngle!),
+                ),
+              if (metrics.currentDepthMetric != null)
+                _DebugMetricRow(
+                  label: 'Depth',
+                  value: _formatTelemetryValue(metrics.currentDepthMetric!),
+                ),
+              if (metrics.currentAlignmentMetric != null)
+                _DebugMetricRow(
+                  label: 'Align',
+                  value: _formatTelemetryValue(metrics.currentAlignmentMetric!),
+                ),
+              if (metrics.currentStabilityMetric != null)
+                _DebugMetricRow(
+                  label: 'Stability',
+                  value: _formatTelemetryValue(metrics.currentStabilityMetric!),
+                ),
+              if (metrics.currentLockoutMetric != null)
+                _DebugMetricRow(
+                  label: 'Lockout',
+                  value: _formatTelemetryValue(metrics.currentLockoutMetric!),
+                ),
+              if (metrics.currentBottomControlMetric != null)
+                _DebugMetricRow(
+                  label: 'BottomCtrl',
+                  value: _formatTelemetryValue(
+                    metrics.currentBottomControlMetric!,
+                  ),
+                ),
               _DebugMetricRow(
                 label: 'frame valid',
                 value: metrics.isRangeRepFrameValid ? 'true' : 'false',
@@ -1073,6 +1105,10 @@ String _formatOptionalAngle(double? value, {required bool isAvailable}) {
   }
 
   return _formatAngle(value);
+}
+
+String _formatTelemetryValue(double value) {
+  return value.toStringAsFixed(1);
 }
 
 String _formatHoldCoverage(WorkoutCalibrationMetrics metrics) {

@@ -2,6 +2,33 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 enum RangeRepSide { left, right }
 
+/// Raw range-rep support signals kept separate from the legacy engine inputs.
+class RangeRepFormSignals {
+  const RangeRepFormSignals({
+    this.torsoAngle,
+    this.depthMetric,
+    this.alignmentMetric,
+    this.stabilityMetric,
+    this.lockoutMetric,
+    this.bottomControlMetric,
+  });
+
+  final double? torsoAngle;
+  final double? depthMetric;
+  final double? alignmentMetric;
+  final double? stabilityMetric;
+  final double? lockoutMetric;
+  final double? bottomControlMetric;
+
+  bool get hasAnyValue =>
+      torsoAngle != null ||
+      depthMetric != null ||
+      alignmentMetric != null ||
+      stabilityMetric != null ||
+      lockoutMetric != null ||
+      bottomControlMetric != null;
+}
+
 class RangeRepSideMetrics {
   const RangeRepSideMetrics({
     required this.side,
@@ -9,19 +36,22 @@ class RangeRepSideMetrics {
     required this.formMetric,
     required this.hasPrimaryAngle,
     required this.hasFormMetric,
+    this.formSignals,
   });
 
   const RangeRepSideMetrics.unavailable(this.side)
     : primaryAngle = 180.0,
       formMetric = 90.0,
       hasPrimaryAngle = false,
-      hasFormMetric = false;
+      hasFormMetric = false,
+      formSignals = null;
 
   final RangeRepSide side;
   final double primaryAngle;
   final double formMetric;
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
+  final RangeRepFormSignals? formSignals;
 
   int get coverageScore => (hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0);
 }
