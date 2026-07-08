@@ -13,14 +13,20 @@ void main() {
       );
     });
 
-    test('falls back unsupported selections to squat', () {
-      for (final exercise in const [
+    test('keeps plank as the active analysis exercise', () {
+      expect(
+        resolver.resolveActiveExercise(ExerciseType.plank),
         ExerciseType.plank,
+      );
+    });
+
+    test('returns null for unsupported selections', () {
+      for (final exercise in const [
         ExerciseType.lunge,
         ExerciseType.pushUp,
         ExerciseType.sitUp,
       ]) {
-        expect(resolver.resolveActiveExercise(exercise), ExerciseType.squat);
+        expect(resolver.resolveActiveExercise(exercise), isNull);
       }
     });
   });

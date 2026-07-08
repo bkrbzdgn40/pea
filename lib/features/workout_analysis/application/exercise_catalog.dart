@@ -2,57 +2,39 @@ import '../domain/models/exercise_type.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
 
-/// Central exercise metadata source for analysis capability and fallback policy.
+/// Central exercise metadata source for analysis capability.
 class ExerciseCatalog {
   const ExerciseCatalog();
 
   static final List<ExerciseDefinition> _definitions = [
-    ExerciseDefinition(
+    ExerciseDefinition.supported(
       type: ExerciseType.squat,
       id: ExerciseType.squat.id,
       title: ExerciseType.squat.title,
-      isAnalysisSupported: true,
-      activeAnalysisExercise: ExerciseType.squat,
-      configExercise: ExerciseType.squat,
       engineKind: EngineKind.rangeRep,
       configAssetPath: 'assets/config/exercises/squat.json',
     ),
-    ExerciseDefinition(
+    ExerciseDefinition.supported(
       type: ExerciseType.plank,
       id: ExerciseType.plank.id,
       title: ExerciseType.plank.title,
-      isAnalysisSupported: true,
-      activeAnalysisExercise: ExerciseType.plank,
-      configExercise: ExerciseType.plank,
       engineKind: EngineKind.hold,
       configAssetPath: 'assets/config/exercises/plank.json',
     ),
-    ExerciseDefinition(
+    ExerciseDefinition.unsupported(
       type: ExerciseType.lunge,
       id: ExerciseType.lunge.id,
       title: ExerciseType.lunge.title,
-      isAnalysisSupported: false,
-      activeAnalysisExercise: ExerciseType.squat,
-      configExercise: ExerciseType.squat,
-      engineKind: EngineKind.alternatingRep,
     ),
-    ExerciseDefinition(
+    ExerciseDefinition.unsupported(
       type: ExerciseType.pushUp,
       id: ExerciseType.pushUp.id,
       title: ExerciseType.pushUp.title,
-      isAnalysisSupported: false,
-      activeAnalysisExercise: ExerciseType.squat,
-      configExercise: ExerciseType.squat,
-      engineKind: EngineKind.rangeRep,
     ),
-    ExerciseDefinition(
+    ExerciseDefinition.unsupported(
       type: ExerciseType.sitUp,
       id: ExerciseType.sitUp.id,
       title: ExerciseType.sitUp.title,
-      isAnalysisSupported: false,
-      activeAnalysisExercise: ExerciseType.squat,
-      configExercise: ExerciseType.squat,
-      engineKind: EngineKind.rangeRep,
     ),
   ];
 
@@ -65,8 +47,7 @@ class ExerciseCatalog {
       }
     }
 
-    assert(false, 'Missing exercise definition for: $type');
-    return _fallbackDefinition();
+    throw StateError('Missing exercise definition for: $type');
   }
 
   ExerciseDefinition? definitionForIdOrNull(String id) {
@@ -78,17 +59,5 @@ class ExerciseCatalog {
 
     assert(false, 'Missing exercise definition for id: $id');
     return null;
-  }
-
-  ExerciseDefinition _fallbackDefinition() {
-    for (final definition in _definitions) {
-      if (definition.type == ExerciseType.squat) {
-        return definition;
-      }
-    }
-
-    throw StateError(
-      'ExerciseCatalog must include a squat fallback definition.',
-    );
   }
 }

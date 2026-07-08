@@ -19,23 +19,13 @@ class ExerciseConfigResolver {
 
   Future<ExerciseConfig> resolve(ExerciseType activeExercise) {
     final definition = _catalog.definitionFor(activeExercise);
-    final fallbackAssetPath = _catalog
-        .definitionFor(ExerciseType.squat)
-        .configAssetPath;
-    final assetPath = definition.configAssetPath ?? fallbackAssetPath;
-
-    assert(
-      definition.isAnalysisSupported,
-      'Unsupported active analysis exercise reached config resolution: '
-      '$activeExercise',
-    );
-
-    if (assetPath == null) {
+    if (!definition.isAnalysisSupported) {
       throw StateError(
-        'No exercise config asset path registered for $activeExercise.',
+        'Unsupported active analysis exercise reached config resolution: '
+        '$activeExercise',
       );
     }
 
-    return _source.loadConfig(assetPath);
+    return _source.loadConfig(definition.analysisConfigAssetPath);
   }
 }

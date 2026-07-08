@@ -12,6 +12,11 @@ class ExerciseAnalysisResolver {
       return null;
     }
 
-    return _catalog.definitionFor(selectedExercise).activeAnalysisExercise;
+    final definition = _catalog.definitionFor(selectedExercise);
+    if (!definition.isAnalysisSupported) {
+      return null;
+    }
+
+    return definition.analysisExercise;
   }
 }

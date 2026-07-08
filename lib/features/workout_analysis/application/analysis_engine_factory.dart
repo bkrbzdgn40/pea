@@ -21,12 +21,10 @@ class AnalysisEngineFactory {
       case EngineKind.hold:
         return HoldEngine(config: config);
       case EngineKind.alternatingRep:
-        assert(
-          false,
-          'EngineKind $engineKind is not implemented yet. Falling back to '
-          'the current range-rep engine.',
+        throw StateError(
+          'EngineKind $engineKind is not implemented for analysis engine '
+          'creation.',
         );
-        return ExerciseEngine(config: config);
     }
   }
 }
