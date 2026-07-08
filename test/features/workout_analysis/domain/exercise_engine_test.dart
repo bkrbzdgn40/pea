@@ -1,4 +1,3 @@
-import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/exercise_engine.dart';
@@ -8,98 +7,121 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 void main() {
   group('ExerciseEngine squat state machine', () {
     test('counts a completed squat rep', () {
-      fakeAsync((async) {
-        final engine = ExerciseEngine(config: _squatConfig());
+      final clock = _TestClock();
+      final engine = ExerciseEngine(
+        config: _squatConfig(),
+        now: clock.now,
+      );
 
-        _confirmTransition(async, engine, angle: 140);
-        _confirmTransition(async, engine, angle: 90);
-        _confirmTransition(async, engine, angle: 110);
-        _confirmTransition(
-          async,
-          engine,
-          angle: 170,
-          confirmationWindow: const Duration(milliseconds: 101),
-        );
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
+      _confirmTransition(clock, engine, angle: 110);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: const Duration(milliseconds: 101),
+      );
 
-        expect(engine.repCount, 1);
-        expect(engine.phaseLabel, 'NEUTRAL');
-        expect(engine.lastRepScoreBreakdown, isNotNull);
-      });
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNotNull);
     });
 
     test('does not count an aborted descent', () {
-      fakeAsync((async) {
-        final engine = ExerciseEngine(config: _squatConfig());
+      final clock = _TestClock();
+      final engine = ExerciseEngine(
+        config: _squatConfig(),
+        now: clock.now,
+      );
 
-        _confirmTransition(async, engine, angle: 140);
-        _confirmTransition(
-          async,
-          engine,
-          angle: 170,
-          confirmationWindow: const Duration(milliseconds: 101),
-        );
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: const Duration(milliseconds: 101),
+      );
 
-        expect(engine.repCount, 0);
-        expect(engine.phaseLabel, 'NEUTRAL');
-        expect(engine.lastRepScoreBreakdown, isNull);
-      });
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNull);
     });
 
     test('penalizes the final score when form breaks during the rep', () {
-      fakeAsync((async) {
-        final cleanEngine = ExerciseEngine(config: _squatConfig());
-        _completeSquatRep(async, cleanEngine);
+      final cleanClock = _TestClock();
+      final cleanEngine = ExerciseEngine(
+        config: _squatConfig(),
+        now: cleanClock.now,
+      );
+      _completeSquatRep(cleanClock, cleanEngine);
 
-        final violatedEngine = ExerciseEngine(config: _squatConfig());
-        _completeSquatRep(async, violatedEngine, repBackAngle: 40);
+      final violatedClock = _TestClock();
+      final violatedEngine = ExerciseEngine(
+        config: _squatConfig(),
+        now: violatedClock.now,
+      );
+      _completeSquatRep(violatedClock, violatedEngine, repBackAngle: 40);
 
-        expect(cleanEngine.repCount, 1);
-        expect(violatedEngine.repCount, 1);
-        expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
-        expect(
-          violatedEngine.lastRepScoreBreakdown?.hadFormViolation,
-          isTrue,
-        );
-      });
+      expect(cleanEngine.repCount, 1);
+      expect(violatedEngine.repCount, 1);
+      expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
+      expect(
+        violatedEngine.lastRepScoreBreakdown?.hadFormViolation,
+        isTrue,
+      );
     });
 
     test(
       'clearActiveRepContext clears active rep state but keeps session rep history',
       () {
-        fakeAsync((async) {
-          final engine = ExerciseEngine(config: _squatConfig());
-          _completeSquatRep(async, engine);
-          final completedScore = engine.lastRepScore;
+        final clock = _TestClock();
+        final engine = ExerciseEngine(
+          config: _squatConfig(),
+          now: clock.now,
+        );
 
-          _confirmTransition(async, engine, angle: 140);
-          expect(engine.phaseLabel, 'DESCENDING');
+        _completeSquatRep(clock, engine);
+        final completedScore = engine.lastRepScore;
 
-          engine.clearActiveRepContext(reason: 'side switch');
+        _confirmTransition(clock, engine, angle: 140);
+        expect(engine.phaseLabel, 'DESCENDING');
 
-          expect(engine.repCount, 1);
-          expect(engine.phaseLabel, 'NEUTRAL');
-          expect(engine.lastRepScore, completedScore);
-          expect(engine.lastRepScoreBreakdown, isNotNull);
-          expect(
-            engine.diagnosticsSnapshot.currentRepWorstBackAngle,
-            equals(180.0),
-          );
-        });
+        engine.clearActiveRepContext(reason: 'side switch');
+
+        expect(engine.repCount, 1);
+        expect(engine.phaseLabel, 'NEUTRAL');
+        expect(engine.lastRepScore, completedScore);
+        expect(engine.lastRepScoreBreakdown, isNotNull);
+        expect(
+          engine.diagnosticsSnapshot.currentRepWorstBackAngle,
+          equals(180.0),
+        );
       },
     );
   });
 }
 
+class _TestClock {
+  DateTime _current = DateTime(2026, 1, 1, 12);
+
+  DateTime now() => _current;
+
+  void advance(Duration duration) {
+    _current = _current.add(duration);
+  }
+}
+
 void _completeSquatRep(
-  FakeAsync async,
+  _TestClock clock,
   ExerciseEngine engine, {
   double repBackAngle = 60,
 }) {
-  _confirmTransition(async, engine, angle: 140, backAngle: repBackAngle);
-  _confirmTransition(async, engine, angle: 90, backAngle: repBackAngle);
-  _confirmTransition(async, engine, angle: 110, backAngle: repBackAngle);
+  _confirmTransition(clock, engine, angle: 140, backAngle: repBackAngle);
+  _confirmTransition(clock, engine, angle: 90, backAngle: repBackAngle);
+  _confirmTransition(clock, engine, angle: 110, backAngle: repBackAngle);
   _confirmTransition(
-    async,
+    clock,
     engine,
     angle: 170,
     backAngle: repBackAngle,
@@ -108,14 +130,14 @@ void _completeSquatRep(
 }
 
 void _confirmTransition(
-  FakeAsync async,
+  _TestClock clock,
   ExerciseEngine engine, {
   required double angle,
   double backAngle = 60,
   Duration confirmationWindow = const Duration(milliseconds: 81),
 }) {
   engine.update(_frame(angle, backAngle));
-  async.elapse(confirmationWindow);
+  clock.advance(confirmationWindow);
   engine.update(_frame(angle, backAngle));
 }
 
