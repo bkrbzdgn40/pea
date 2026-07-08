@@ -288,6 +288,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return _rangeRepSidePolicy.select(
       metrics: metrics,
       previousSide: _selectedRangeRepSide,
+      lockPreviousSide: _hasActiveRangeRepContext,
     );
   }
 
@@ -495,6 +496,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return const RangeRepDiagnosticsSnapshot();
+  }
+
+  bool get _hasActiveRangeRepContext {
+    return _engineKind == EngineKind.rangeRep &&
+        _selectedRangeRepSide != null &&
+        _engine.phaseLabel != 'NEUTRAL';
   }
 
   void _clearRangeRepActiveContext({String? reason}) {

@@ -7,12 +7,10 @@ class ExerciseDefinition {
     required this.type,
     required this.id,
     required this.title,
-    required EngineKind engineKind,
-    required String configAssetPath,
+    required this.engineKind,
+    required this.configAssetPath,
   }) : isAnalysisSupported = true,
-       activeAnalysisExercise = type,
-       engineKind = engineKind,
-       configAssetPath = configAssetPath;
+       activeAnalysisExercise = type;
 
   const ExerciseDefinition.unsupported({
     required this.type,

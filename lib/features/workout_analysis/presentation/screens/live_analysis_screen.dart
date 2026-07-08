@@ -358,6 +358,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (!mounted) return;
 
     await _setLiveAnalysisScreenAwake(false);
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),

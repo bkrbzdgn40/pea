@@ -2,6 +2,7 @@ import 'exercise_metrics.dart';
 
 enum RangeRepSideSelectionReason {
   poseMissing,
+  lockedActiveRepSide,
   keptPreviousSide,
   switchedToHigherCoverage,
   selectedHigherCoverage,
@@ -38,6 +39,8 @@ class RangeRepSideSelection {
     switch (reason) {
       case RangeRepSideSelectionReason.poseMissing:
         return 'pose missing';
+      case RangeRepSideSelectionReason.lockedActiveRepSide:
+        return 'locked active rep side';
       case RangeRepSideSelectionReason.keptPreviousSide:
         return 'kept previous side';
       case RangeRepSideSelectionReason.switchedToHigherCoverage:
@@ -60,6 +63,7 @@ class RangeRepSidePolicy {
   RangeRepSideSelection select({
     required ExerciseMetrics metrics,
     RangeRepSide? previousSide,
+    bool lockPreviousSide = false,
   }) {
     final leftMetrics = metrics.leftRangeRepMetrics;
     final rightMetrics = metrics.rightRangeRepMetrics;
@@ -74,6 +78,15 @@ class RangeRepSidePolicy {
     }
 
     if (previousSide != null) {
+      if (lockPreviousSide) {
+        return RangeRepSideSelection(
+          selectedSide: previousSide,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason: RangeRepSideSelectionReason.lockedActiveRepSide,
+        );
+      }
+
       final previousMetrics = previousSide == RangeRepSide.left
           ? leftMetrics
           : rightMetrics;
