@@ -10,6 +10,7 @@ import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
+import '../../application/range_rep_blocked_state_builder.dart';
 import '../../application/range_rep_frame_policy.dart';
 import '../../application/range_rep_rep_outcome_tracker.dart';
 import '../../application/range_rep_side_policy.dart';
@@ -71,6 +72,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final EngineKind _engineKind;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder =
       const WorkoutAnalysisFrameBuilder();
+  final RangeRepBlockedStateBuilder _rangeRepBlockedStateBuilder =
+      const RangeRepBlockedStateBuilder();
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final MovingAverageFilter _bodyLineFilter;
@@ -236,11 +239,75 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             reason: rangeRepVisibilityAssessment.resyncReason,
           );
         }
-        state = _buildBlockedRangeRepState(
-          metrics,
-          rangeRepFrameAssessment,
-          rangeRepVisibilityAssessment,
-          shouldFreezeRangeRepPreview,
+        final selectedRangeRepSide = _rangeRepSideLabel(
+          rangeRepFrameAssessment.selection.selectedSide,
+        );
+        state = _rangeRepBlockedStateBuilder.build(
+          metrics: metrics,
+          assessment: rangeRepFrameAssessment,
+          freezeSmoothedPreview: shouldFreezeRangeRepPreview,
+          primaryMetricFilter: _angleFilter,
+          formMetricFilter: _backFilter,
+          currentState: state,
+          analysisKind: _engineKind,
+          cameraFps: _cameraFps,
+          analysisFps: _analysisFps,
+          selectedRangeRepSide: selectedRangeRepSide,
+          calibrationMetricsBuilder: (preview) {
+            final formThresholdResolution = _resolveFormThreshold(
+              baseThreshold: _config.formThreshold,
+              selectedRangeRepSide: preview.selectedRangeRepSide,
+            );
+
+            return _buildCalibrationMetrics(
+              currentFormMetric: preview.previewBackAngle,
+              currentPrimaryMetric: preview.previewAngle,
+              thresholdValue: formThresholdResolution.effectiveThreshold,
+              currentTorsoAngle: preview.formSignals?.torsoAngle,
+              currentDepthMetric: preview.formSignals?.depthMetric,
+              currentAlignmentMetric: preview.formSignals?.alignmentMetric,
+              currentStabilityMetric: preview.formSignals?.stabilityMetric,
+              currentLockoutMetric: preview.formSignals?.lockoutMetric,
+              currentBottomControlMetric:
+                  preview.formSignals?.bottomControlMetric,
+              baseFormThreshold: formThresholdResolution.baseThreshold,
+              effectiveFormThreshold: formThresholdResolution.effectiveThreshold,
+              calibrationThresholdOffsetCandidate:
+                  formThresholdResolution.offsetCandidate,
+              calibrationThresholdOffsetApplied:
+                  formThresholdResolution.isApplied,
+              calibrationThresholdOffsetFallbackReason:
+                  formThresholdResolution.decisionReason,
+              calibrationThresholdOffsetSampleCount:
+                  formThresholdResolution.sampleCount,
+              calibrationThresholdOffsetBaselineSideLabel:
+                  formThresholdResolution.baselineSideLabel,
+              isRangeRepFrameValid: false,
+              hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
+              hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
+              rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
+              selectedRangeRepSide: preview.selectedRangeRepSide,
+              rangeRepSideSelectionReason:
+                  rangeRepFrameAssessment.selection.debugLabel,
+              leftRangeRepCoverage:
+                  rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
+              rightRangeRepCoverage:
+                  rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
+              leftRangeRepSideConfidence:
+                  rangeRepFrameAssessment.selection.leftMetrics.sideConfidence,
+              rightRangeRepSideConfidence:
+                  rangeRepFrameAssessment.selection.rightMetrics.sideConfidence,
+              rangeRepInvalidFrameStreak:
+                  rangeRepVisibilityAssessment.invalidFrameStreak,
+              rangeRepInvalidDurationMs:
+                  rangeRepVisibilityAssessment.invalidDuration.inMilliseconds,
+              rangeRepResyncTriggered:
+                  rangeRepVisibilityAssessment.hasResyncedCurrentRun,
+              rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
+              rangeRepVisibilityStatus:
+                  rangeRepVisibilityAssessment.statusLabel,
+            );
+          },
         );
         return;
       }
@@ -501,109 +568,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return _engine.feedback;
-  }
-
-  WorkoutState _buildBlockedRangeRepState(
-    ExerciseMetrics metrics,
-    RangeRepFrameAssessment assessment,
-    RangeRepVisibilityAssessment visibilityAssessment,
-    bool freezeSmoothedPreview,
-  ) {
-    final selectedMetrics = assessment.selectedMetrics;
-    final formSignals = selectedMetrics?.formSignals;
-    final selectedRangeRepSide = _rangeRepSideLabel(
-      assessment.selection.selectedSide,
-    );
-    final previewAngle = _previewRangeRepMetric(
-      assessment.hasPrimaryAngle,
-      selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
-      _angleFilter,
-      state.currentAngle,
-      freezeSmoothedPreview,
-    );
-    final previewBackAngle = _previewRangeRepMetric(
-      assessment.hasFormMetric,
-      selectedMetrics?.formMetric ?? metrics.formMetric,
-      _backFilter,
-      state.calibrationMetrics.currentBackAngle,
-      freezeSmoothedPreview,
-    );
-    final formThresholdResolution = _resolveFormThreshold(
-      baseThreshold: _config.formThreshold,
-      selectedRangeRepSide: selectedRangeRepSide,
-    );
-
-    return WorkoutState(
-      landmarks: metrics.landmarks,
-      analysisKind: _engineKind,
-      repCount: state.repCount,
-      isFormBad: false,
-      currentAngle: previewAngle,
-      lastRepScore: state.lastRepScore,
-      lastRepROM: state.lastRepROM,
-      currentHoldSeconds: state.currentHoldSeconds,
-      bestHoldSeconds: state.bestHoldSeconds,
-      isHolding: state.isHolding,
-      hadHoldFormBreak: state.hadHoldFormBreak,
-      feedbackMessage: assessment.feedbackMessage,
-      currentPhase: 'WAITING',
-      cameraFps: _cameraFps,
-      analysisFps: _analysisFps,
-      calibrationMetrics: _buildCalibrationMetrics(
-        currentFormMetric: previewBackAngle,
-        currentPrimaryMetric: previewAngle,
-        thresholdValue: formThresholdResolution.effectiveThreshold,
-        currentTorsoAngle: formSignals?.torsoAngle,
-        currentDepthMetric: formSignals?.depthMetric,
-        currentAlignmentMetric: formSignals?.alignmentMetric,
-        currentStabilityMetric: formSignals?.stabilityMetric,
-        currentLockoutMetric: formSignals?.lockoutMetric,
-        currentBottomControlMetric: formSignals?.bottomControlMetric,
-        baseFormThreshold: formThresholdResolution.baseThreshold,
-        effectiveFormThreshold: formThresholdResolution.effectiveThreshold,
-        calibrationThresholdOffsetCandidate:
-            formThresholdResolution.offsetCandidate,
-        calibrationThresholdOffsetApplied: formThresholdResolution.isApplied,
-        calibrationThresholdOffsetFallbackReason:
-            formThresholdResolution.decisionReason,
-        calibrationThresholdOffsetSampleCount:
-            formThresholdResolution.sampleCount,
-        calibrationThresholdOffsetBaselineSideLabel:
-            formThresholdResolution.baselineSideLabel,
-        isRangeRepFrameValid: false,
-        hasPrimaryAngle: assessment.hasPrimaryAngle,
-        hasFormMetric: assessment.hasFormMetric,
-        rangeRepInvalidReason: assessment.invalidReason,
-        selectedRangeRepSide: selectedRangeRepSide,
-        rangeRepSideSelectionReason: assessment.selection.debugLabel,
-        leftRangeRepCoverage: assessment.selection.leftMetrics.coverageScore,
-        rightRangeRepCoverage: assessment.selection.rightMetrics.coverageScore,
-        leftRangeRepSideConfidence:
-            assessment.selection.leftMetrics.sideConfidence,
-        rightRangeRepSideConfidence:
-            assessment.selection.rightMetrics.sideConfidence,
-        rangeRepInvalidFrameStreak: visibilityAssessment.invalidFrameStreak,
-        rangeRepInvalidDurationMs:
-            visibilityAssessment.invalidDuration.inMilliseconds,
-        rangeRepResyncTriggered: visibilityAssessment.hasResyncedCurrentRun,
-        rangeRepResyncReason: visibilityAssessment.resyncReason,
-        rangeRepVisibilityStatus: visibilityAssessment.statusLabel,
-      ),
-    );
-  }
-
-  double _previewRangeRepMetric(
-    bool hasSignal,
-    double value,
-    MovingAverageFilter filter,
-    double fallback,
-    bool freezePreview,
-  ) {
-    if (freezePreview || !hasSignal) {
-      return fallback;
-    }
-
-    return filter.process(value);
   }
 
   double _currentAngleForState(AnalysisFrame frame) {
