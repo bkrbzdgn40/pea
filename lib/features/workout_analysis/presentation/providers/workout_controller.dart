@@ -12,6 +12,7 @@ import '../../application/exercise_metrics_extractor.dart';
 import '../../application/range_rep_frame_policy.dart';
 import '../../application/range_rep_rep_outcome_tracker.dart';
 import '../../application/range_rep_side_policy.dart';
+import '../../application/range_rep_side_stabilizer.dart';
 import '../../application/range_rep_threshold_resolver.dart';
 import '../../application/range_rep_visibility_policy.dart';
 import '../../application/session_calibration_baseline_accumulator.dart';
@@ -55,10 +56,6 @@ bool shouldLockRangeRepSideSelection({
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   static const Duration _analysisFrameInterval = Duration(milliseconds: 100);
-  static const int _rangeRepSideSwitchConfirmationFrames = 2;
-  static const double _rangeRepSideConfidenceSwitchMargin = 0.15;
-  static const int _rangeRepSideRepSwitchConfirmationFrames = 2;
-  static const double _rangeRepSideRepConfidenceSwitchMargin = 0.20;
 
   bool _isProcessing = false;
   DateTime? _lastAnalysisStartedAt;
@@ -95,13 +92,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       const RangeRepValidationPolicy();
   final InputImageConverter _inputImageConverter = const InputImageConverter();
   RangeRepSide? _selectedRangeRepSide;
-  RangeRepSide? _pendingRangeRepSideSwitch;
-  int _pendingRangeRepSideSwitchWins = 0;
-  String? _rangeRepSideHysteresisStatus;
-  RangeRepSide? _activeRangeRepConsistentSide;
-  RangeRepSide? _pendingRangeRepConsistentSideSwitch;
-  int _pendingRangeRepConsistentSideSwitchWins = 0;
-  String? _rangeRepSideConsistencyStatus;
+  late RangeRepSideStabilizer _rangeRepSideStabilizer;
   late RangeRepRepOutcomeTracker _rangeRepRepOutcomeTracker;
   int _calibrationThresholdDecisionCount = 0;
   int _calibrationThresholdAppliedCount = 0;
@@ -150,13 +141,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFps = 0.0;
     _lastAnalysisStartedAt = null;
     _selectedRangeRepSide = null;
-    _pendingRangeRepSideSwitch = null;
-    _pendingRangeRepSideSwitchWins = 0;
-    _rangeRepSideHysteresisStatus = null;
-    _activeRangeRepConsistentSide = null;
-    _pendingRangeRepConsistentSideSwitch = null;
-    _pendingRangeRepConsistentSideSwitchWins = 0;
-    _rangeRepSideConsistencyStatus = null;
+    _rangeRepSideStabilizer = RangeRepSideStabilizer();
     _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
     _rangeRepRepOutcomeTracker = RangeRepRepOutcomeTracker(
       validationPolicy: _rangeRepValidationPolicy,
@@ -444,7 +429,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   RangeRepSideSelection _rangeRepSideSelection(ExerciseMetrics metrics) {
     if (_engineKind != EngineKind.rangeRep) {
-      _rangeRepSideHysteresisStatus = null;
       return const RangeRepSideSelection(
         selectedSide: null,
         leftMetrics: RangeRepSideMetrics.unavailable(RangeRepSide.left),
@@ -458,9 +442,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       previousSide: _selectedRangeRepSide,
       lockPreviousSide: false,
     );
-
-    final stabilizedSelection = _applyRangeRepSideHysteresis(selection);
-    return _applyRangeRepSideRepConsistency(stabilizedSelection);
+    final diagnostics = _rangeRepDiagnosticsSnapshot();
+    return _rangeRepSideStabilizer.stabilizeSelection(
+      selection: selection,
+      currentSide: _selectedRangeRepSide,
+      hasActiveRepContext: _isRangeRepRepContextActive(diagnostics),
+    );
   }
 
   RangeRepFrameAssessment _rangeRepFrameAssessment(
@@ -718,8 +705,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       lastBreakdown: lastBreakdown,
       lastValidationResult: lastValidationResult,
       lastSummaryCandidate: lastSummaryCandidate,
-      rangeRepSideHysteresisStatus: _rangeRepSideHysteresisStatus,
-      rangeRepSideConsistencyStatus: _rangeRepSideConsistencyStatus,
+      rangeRepSideHysteresisStatus: _rangeRepSideStabilizer.hysteresisStatus,
+      rangeRepSideConsistencyStatus: _rangeRepSideStabilizer.consistencyStatus,
       calibrationSnapshot: _lastCalibrationSnapshot,
       calibrationThresholdDecisionCount: _calibrationThresholdDecisionCount,
       calibrationThresholdAppliedCount: _calibrationThresholdAppliedCount,
@@ -897,8 +884,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _backFilter.reset();
     // Force side selection to be reacquired from fresh post-resync coverage.
     _selectedRangeRepSide = null;
-    _resetRangeRepSideHysteresis();
-    _resetRangeRepSideRepConsistency();
+    _rangeRepSideStabilizer.reset();
     _rangeRepRepOutcomeTracker.resetRepContext();
   }
 
@@ -918,212 +904,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         return 'right';
       case null:
         return null;
-    }
-  }
-
-  RangeRepSideSelection _applyRangeRepSideHysteresis(
-    RangeRepSideSelection selection,
-  ) {
-    final currentSide = _selectedRangeRepSide;
-    final selectedSide = selection.selectedSide;
-
-    if (selection.reason == RangeRepSideSelectionReason.lockedActiveRepSide) {
-      _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus =
-          'locked:${_rangeRepSideLabel(selectedSide) ?? '--'}';
-      return selection;
-    }
-
-    if (currentSide == null) {
-      _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus = selectedSide == null
-          ? 'unavailable'
-          : 'acquire:${_rangeRepSideLabel(selectedSide)}';
-      return selection;
-    }
-
-    if (selectedSide == null || selectedSide == currentSide) {
-      _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus = 'stay:${_rangeRepSideLabel(currentSide)}';
-      return selection;
-    }
-
-    final currentMetrics = _rangeRepSideMetricsFor(selection, currentSide);
-    final alternateMetrics = _rangeRepSideMetricsFor(selection, selectedSide);
-    final coverageAdvantage =
-        alternateMetrics.coverageScore - currentMetrics.coverageScore;
-    final confidenceAdvantage =
-        (alternateMetrics.sideConfidence ?? 0.0) -
-        (currentMetrics.sideConfidence ?? 0.0);
-    final currentSideUnusable =
-        currentMetrics.coverageScore == 0 && alternateMetrics.coverageScore > 0;
-    final clearCoverageWin = coverageAdvantage >= 2;
-    final clearConfidenceStabilizedWin =
-        coverageAdvantage >= 1 &&
-        confidenceAdvantage >= _rangeRepSideConfidenceSwitchMargin;
-
-    if (currentSideUnusable ||
-        clearCoverageWin ||
-        clearConfidenceStabilizedWin) {
-      _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus =
-          'switch:${_rangeRepSideLabel(selectedSide)}';
-      return selection;
-    }
-
-    if (_pendingRangeRepSideSwitch == selectedSide) {
-      _pendingRangeRepSideSwitchWins += 1;
-    } else {
-      _pendingRangeRepSideSwitch = selectedSide;
-      _pendingRangeRepSideSwitchWins = 1;
-    }
-
-    if (_pendingRangeRepSideSwitchWins >=
-        _rangeRepSideSwitchConfirmationFrames) {
-      _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus =
-          'confirm:${_rangeRepSideLabel(selectedSide)}';
-      return selection;
-    }
-
-    _rangeRepSideHysteresisStatus =
-        'hold:${_rangeRepSideLabel(selectedSide)} '
-        '$_pendingRangeRepSideSwitchWins/$_rangeRepSideSwitchConfirmationFrames';
-
-    return RangeRepSideSelection(
-      selectedSide: currentSide,
-      leftMetrics: selection.leftMetrics,
-      rightMetrics: selection.rightMetrics,
-      reason: currentMetrics.coverageScore > 0
-          ? RangeRepSideSelectionReason.keptPreviousSide
-          : RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage,
-    );
-  }
-
-  RangeRepSideSelection _applyRangeRepSideRepConsistency(
-    RangeRepSideSelection selection,
-  ) {
-    final diagnostics = _rangeRepDiagnosticsSnapshot();
-    final hasActiveRepContext = _isRangeRepRepContextActive(diagnostics);
-    final selectedSide = selection.selectedSide;
-
-    if (!hasActiveRepContext) {
-      _resetRangeRepSideRepConsistency();
-      return selection;
-    }
-
-    if (_activeRangeRepConsistentSide == null) {
-      if (selectedSide == null) {
-        _rangeRepSideConsistencyStatus = 'await-side';
-        return selection;
-      }
-
-      _activeRangeRepConsistentSide = selectedSide;
-      _resetRangeRepSideRepConsistency(keepAnchor: true, keepStatus: true);
-      _rangeRepSideConsistencyStatus =
-          'anchor:${_rangeRepSideLabel(selectedSide)}';
-      return selection;
-    }
-
-    final anchoredSide = _activeRangeRepConsistentSide!;
-    if (selectedSide == null || selectedSide == anchoredSide) {
-      _resetRangeRepSideRepConsistency(keepAnchor: true, keepStatus: true);
-      _rangeRepSideConsistencyStatus =
-          'stay:${_rangeRepSideLabel(anchoredSide)}';
-      return _selectionKeepingRangeRepSide(selection, anchoredSide);
-    }
-
-    final anchoredMetrics = _rangeRepSideMetricsFor(selection, anchoredSide);
-    final alternateMetrics = _rangeRepSideMetricsFor(selection, selectedSide);
-    final coverageAdvantage =
-        alternateMetrics.coverageScore - anchoredMetrics.coverageScore;
-    final confidenceAdvantage =
-        (alternateMetrics.sideConfidence ?? 0.0) -
-        (anchoredMetrics.sideConfidence ?? 0.0);
-    final anchoredSideClearlyUnusable =
-        anchoredMetrics.coverageScore == 0 &&
-        alternateMetrics.coverageScore > 0;
-    final strongRepSwitchCandidate =
-        coverageAdvantage >= 2 ||
-        (coverageAdvantage >= 1 &&
-            confidenceAdvantage >= _rangeRepSideRepConfidenceSwitchMargin);
-
-    if (!anchoredSideClearlyUnusable && !strongRepSwitchCandidate) {
-      _resetRangeRepSideRepConsistency(keepAnchor: true, keepStatus: true);
-      _rangeRepSideConsistencyStatus =
-          'keep:${_rangeRepSideLabel(anchoredSide)}';
-      return _selectionKeepingRangeRepSide(selection, anchoredSide);
-    }
-
-    if (_pendingRangeRepConsistentSideSwitch == selectedSide) {
-      _pendingRangeRepConsistentSideSwitchWins += 1;
-    } else {
-      _pendingRangeRepConsistentSideSwitch = selectedSide;
-      _pendingRangeRepConsistentSideSwitchWins = 1;
-    }
-
-    if (_pendingRangeRepConsistentSideSwitchWins >=
-        _rangeRepSideRepSwitchConfirmationFrames) {
-      _activeRangeRepConsistentSide = selectedSide;
-      _resetRangeRepSideRepConsistency(keepAnchor: true, keepStatus: true);
-      _rangeRepSideConsistencyStatus =
-          'switch:${_rangeRepSideLabel(selectedSide)}';
-      return selection;
-    }
-
-    _rangeRepSideConsistencyStatus =
-        'hold:${_rangeRepSideLabel(selectedSide)} '
-        '$_pendingRangeRepConsistentSideSwitchWins/$_rangeRepSideRepSwitchConfirmationFrames';
-    return _selectionKeepingRangeRepSide(selection, anchoredSide);
-  }
-
-  RangeRepSideMetrics _rangeRepSideMetricsFor(
-    RangeRepSideSelection selection,
-    RangeRepSide side,
-  ) {
-    switch (side) {
-      case RangeRepSide.left:
-        return selection.leftMetrics;
-      case RangeRepSide.right:
-        return selection.rightMetrics;
-    }
-  }
-
-  void _resetRangeRepSideHysteresis({bool keepStatus = false}) {
-    _pendingRangeRepSideSwitch = null;
-    _pendingRangeRepSideSwitchWins = 0;
-    if (!keepStatus) {
-      _rangeRepSideHysteresisStatus = null;
-    }
-  }
-
-  RangeRepSideSelection _selectionKeepingRangeRepSide(
-    RangeRepSideSelection selection,
-    RangeRepSide side,
-  ) {
-    final sideMetrics = _rangeRepSideMetricsFor(selection, side);
-
-    return RangeRepSideSelection(
-      selectedSide: side,
-      leftMetrics: selection.leftMetrics,
-      rightMetrics: selection.rightMetrics,
-      reason: sideMetrics.coverageScore > 0
-          ? RangeRepSideSelectionReason.keptPreviousSide
-          : RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage,
-    );
-  }
-
-  void _resetRangeRepSideRepConsistency({
-    bool keepAnchor = false,
-    bool keepStatus = false,
-  }) {
-    _pendingRangeRepConsistentSideSwitch = null;
-    _pendingRangeRepConsistentSideSwitchWins = 0;
-    if (!keepAnchor) {
-      _activeRangeRepConsistentSide = null;
-    }
-    if (!keepStatus) {
-      _rangeRepSideConsistencyStatus = null;
     }
   }
 }
