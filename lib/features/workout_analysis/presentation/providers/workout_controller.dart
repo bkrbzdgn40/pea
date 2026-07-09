@@ -10,6 +10,7 @@ import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
 import '../../application/range_rep_frame_policy.dart';
+import '../../application/range_rep_rep_outcome_tracker.dart';
 import '../../application/range_rep_side_policy.dart';
 import '../../application/range_rep_threshold_resolver.dart';
 import '../../application/range_rep_visibility_policy.dart';
@@ -22,9 +23,6 @@ import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
-import '../../domain/models/range_rep_rep_summary.dart';
-import '../../domain/models/range_rep_validation_outcome.dart';
-import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/models/session_calibration_baseline.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../domain/range_rep_validation_policy.dart';
@@ -101,12 +99,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepSide? _pendingRangeRepConsistentSideSwitch;
   int _pendingRangeRepConsistentSideSwitchWins = 0;
   String? _rangeRepSideConsistencyStatus;
-  RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
-  RangeRepValidationResult? _lastRangeRepValidationResult;
-  int? _lastRangeRepValidatedRepIndex;
-  int _rangeRepValidatedCount = 0;
-  int _rangeRepLowConfidenceCount = 0;
-  int _rangeRepInvalidCount = 0;
+  late RangeRepRepOutcomeTracker _rangeRepRepOutcomeTracker;
   int _calibrationThresholdDecisionCount = 0;
   int _calibrationThresholdAppliedCount = 0;
   int _calibrationThresholdNoBaselineCount = 0;
@@ -114,9 +107,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   int _calibrationThresholdMissingFormBaselineCount = 0;
   int _calibrationThresholdSideMismatchCount = 0;
   int _calibrationThresholdOffsetTooSmallCount = 0;
-  bool _activeRangeRepHadCoverageDrop = false;
-  bool _activeRangeRepSwitchedSideDuringRep = false;
-  String? _activeRangeRepSelectedSideLabel;
   CalibrationSnapshot? _lastCalibrationSnapshot;
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
   late SessionCalibrationBaselineAccumulator
@@ -165,10 +155,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _pendingRangeRepConsistentSideSwitchWins = 0;
     _rangeRepSideConsistencyStatus = null;
     _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
-    _resetRangeRepRepSummaryContext(clearCandidate: true);
-    _rangeRepValidatedCount = 0;
-    _rangeRepLowConfidenceCount = 0;
-    _rangeRepInvalidCount = 0;
+    _rangeRepRepOutcomeTracker = RangeRepRepOutcomeTracker(
+      validationPolicy: _rangeRepValidationPolicy,
+    );
     _calibrationThresholdDecisionCount = 0;
     _calibrationThresholdAppliedCount = 0;
     _calibrationThresholdNoBaselineCount = 0;
@@ -295,10 +284,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         final completedRepCoreData = _consumeCompletedRepCoreData();
         final postUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
         final didCompleteRep = completedRepCoreData != null;
-        _assembleRangeRepRepSummaryCandidateIfNeeded(
+        _rangeRepRepOutcomeTracker.activateCompletedRepOutcomeIfAny(
+          engineKind: _engineKind,
+          analysisKindLabel: _engineKind.name,
           completedRepCoreData: completedRepCoreData,
         );
-        _resetRangeRepRepSummaryContextIfCycleEnded(
+        _rangeRepRepOutcomeTracker.resetRepContextIfCycleEnded(
           previousDiagnostics: preUpdateRangeRepDiagnostics,
           currentDiagnostics: postUpdateRangeRepDiagnostics,
           didCompleteRep: didCompleteRep,
@@ -689,8 +680,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }) {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
-    final lastValidationResult = _lastRangeRepValidationResult;
-    final lastSummaryCandidate = _lastRangeRepRepSummaryCandidate;
+    final lastValidationResult =
+        _rangeRepRepOutcomeTracker.lastRangeRepValidationResult;
+    final lastSummaryCandidate =
+        _rangeRepRepOutcomeTracker.lastRangeRepRepSummaryCandidate;
     final calibrationSnapshotCandidate = _calibrationSnapshotBuilder
         .buildCandidate(
           engineKind: _engineKind,
@@ -804,10 +797,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           : lastValidationResult.reasons
                 .map((reason) => reason.debugLabel)
                 .toList(growable: false),
-      lastRangeRepValidatedRepIndex: _lastRangeRepValidatedRepIndex,
-      rangeRepValidatedCount: _rangeRepValidatedCount,
-      rangeRepLowConfidenceCount: _rangeRepLowConfidenceCount,
-      rangeRepInvalidCount: _rangeRepInvalidCount,
+      lastRangeRepValidatedRepIndex:
+          _rangeRepRepOutcomeTracker.lastRangeRepValidatedRepIndex,
+      rangeRepValidatedCount: _rangeRepRepOutcomeTracker.rangeRepValidatedCount,
+      rangeRepLowConfidenceCount:
+          _rangeRepRepOutcomeTracker.rangeRepLowConfidenceCount,
+      rangeRepInvalidCount: _rangeRepRepOutcomeTracker.rangeRepInvalidCount,
       hasLastRangeRepSummary: lastSummaryCandidate != null,
       lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
       lastRangeRepSummaryWorstFormMetric: lastSummaryCandidate?.worstFormMetric,
@@ -943,26 +938,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required RangeRepSide? selectedSide,
     bool markCoverageDrop = false,
   }) {
-    if (_engineKind != EngineKind.rangeRep ||
-        !_isRangeRepRepContextActive(diagnostics)) {
-      return;
-    }
-
-    if (markCoverageDrop) {
-      _activeRangeRepHadCoverageDrop = true;
-    }
-
-    final selectedSideLabel = _rangeRepSideLabel(selectedSide);
-    if (selectedSideLabel == null) {
-      return;
-    }
-
-    if (_activeRangeRepSelectedSideLabel != null &&
-        _activeRangeRepSelectedSideLabel != selectedSideLabel) {
-      _activeRangeRepSwitchedSideDuringRep = true;
-    }
-
-    _activeRangeRepSelectedSideLabel = selectedSideLabel;
+    _rangeRepRepOutcomeTracker.trackRepContext(
+      engineKind: _engineKind,
+      diagnostics: diagnostics,
+      selectedSideLabel: _rangeRepSideLabel(selectedSide),
+      markCoverageDrop: markCoverageDrop,
+    );
   }
 
   RangeRepCompletedRepCoreData? _consumeCompletedRepCoreData() {
@@ -971,87 +952,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return (_engine as RangeRepValidationHook).consumeCompletedRepCoreData();
-  }
-
-  void _assembleRangeRepRepSummaryCandidateIfNeeded({
-    required RangeRepCompletedRepCoreData? completedRepCoreData,
-  }) {
-    if (_engineKind != EngineKind.rangeRep || completedRepCoreData == null) {
-      return;
-    }
-
-    final summaryCandidate = RangeRepRepSummary(
-      repIndex: completedRepCoreData.repIndex,
-      minAngle: completedRepCoreData.minAngle,
-      worstFormMetric: completedRepCoreData.worstFormMetric,
-      descentDuration: completedRepCoreData.descentDuration,
-      ascentDuration: completedRepCoreData.ascentDuration,
-      hadFormViolation: completedRepCoreData.hadFormViolation,
-      hadCoverageDrop: _activeRangeRepHadCoverageDrop,
-      switchedSideDuringRep: _activeRangeRepSwitchedSideDuringRep,
-      completedPhaseSequence: completedRepCoreData.completedPhaseSequence,
-      selectedSideLabel: _activeRangeRepSelectedSideLabel,
-      analysisKindLabel: _engineKind.name,
-    );
-    final validationOutcome = _buildRangeRepValidationOutcome(summaryCandidate);
-    _activateRangeRepValidationOutcome(validationOutcome);
-    _resetRangeRepRepSummaryContext();
-  }
-
-  RangeRepValidationOutcome _buildRangeRepValidationOutcome(
-    RangeRepRepSummary summary,
-  ) {
-    return RangeRepValidationOutcome(
-      summary: summary,
-      result: _rangeRepValidationPolicy.evaluate(summary),
-    );
-  }
-
-  void _activateRangeRepValidationOutcome(RangeRepValidationOutcome outcome) {
-    if (_lastRangeRepValidatedRepIndex == outcome.repIndex) {
-      return;
-    }
-
-    _lastRangeRepRepSummaryCandidate = outcome.summary;
-    _lastRangeRepValidationResult = outcome.result;
-    _lastRangeRepValidatedRepIndex = outcome.repIndex;
-
-    switch (outcome.status) {
-      case RangeRepValidationStatus.valid:
-        _rangeRepValidatedCount += 1;
-        break;
-      case RangeRepValidationStatus.lowConfidence:
-        _rangeRepLowConfidenceCount += 1;
-        break;
-      case RangeRepValidationStatus.invalid:
-        _rangeRepInvalidCount += 1;
-        break;
-    }
-  }
-
-  void _resetRangeRepRepSummaryContextIfCycleEnded({
-    required RangeRepDiagnosticsSnapshot previousDiagnostics,
-    required RangeRepDiagnosticsSnapshot currentDiagnostics,
-    required bool didCompleteRep,
-  }) {
-    if (didCompleteRep ||
-        !_isRangeRepRepContextActive(previousDiagnostics) ||
-        _isRangeRepRepContextActive(currentDiagnostics)) {
-      return;
-    }
-
-    _resetRangeRepRepSummaryContext();
-  }
-
-  void _resetRangeRepRepSummaryContext({bool clearCandidate = false}) {
-    _activeRangeRepHadCoverageDrop = false;
-    _activeRangeRepSwitchedSideDuringRep = false;
-    _activeRangeRepSelectedSideLabel = null;
-    if (clearCandidate) {
-      _lastRangeRepRepSummaryCandidate = null;
-      _lastRangeRepValidationResult = null;
-      _lastRangeRepValidatedRepIndex = null;
-    }
   }
 
   bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {
@@ -1072,7 +972,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _selectedRangeRepSide = null;
     _resetRangeRepSideHysteresis();
     _resetRangeRepSideRepConsistency();
-    _resetRangeRepRepSummaryContext();
+    _rangeRepRepOutcomeTracker.resetRepContext();
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
