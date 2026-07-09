@@ -435,14 +435,14 @@ class RangeRepEngine
       idealSeconds: config.idealDescentSeconds,
     );
     final ascentSeconds = lastAscentTime.inMilliseconds / 1000.0;
-    final ascentScoreCandidate = _calculateTempoScore(
+    final ascentScore = _calculateTempoScore(
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
     );
-    final tempoScore = (descentScore + ascentScoreCandidate) / 2;
+    final tempoScore = (descentScore + ascentScore) / 2;
     final depthScore = romScore;
     final descentControlScore = descentScore;
-    final ascentControlScore = ascentScoreCandidate;
+    final ascentControlScore = ascentScore;
     final scoreWeights = config.rangeRepScoreWeights;
     final weightedBaseScore = scoreWeights == null
         ? null
@@ -478,7 +478,7 @@ class RangeRepEngine
       phaseQuality: completedPhaseQualityTelemetry.ascendingPhaseQuality,
       isActivePhase: false,
     );
-    final phaseQualityPenaltyCandidate = _phaseQualityPenaltyCandidate(
+    final phaseQualityPenalty = _phaseQualityPenaltyCandidate(
       descendingPhaseAssessment: descendingPhaseAssessment,
       ascendingPhaseAssessment: ascendingPhaseAssessment,
     );
@@ -497,12 +497,12 @@ class RangeRepEngine
         : (_currentRepHadFormViolation
               ? weightedBaseScore / 2
               : weightedBaseScore);
-    final phaseInformedScoreCandidate = phaseQualityPenaltyCandidate == null
+    final phaseAdjustedScore = phaseQualityPenalty == null
         ? null
-        : (baseScore - phaseQualityPenaltyCandidate)
+        : (baseScore - phaseQualityPenalty)
               .clamp(0.0, 100.0)
               .toDouble();
-    final finalScore = phaseInformedScoreCandidate ?? baseScore;
+    final finalScore = phaseAdjustedScore ?? baseScore;
 
     lastRepScore = finalScore;
     _setFeedback(phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted);
@@ -512,7 +512,7 @@ class RangeRepEngine
       descentSeconds: descentSeconds,
       descentScore: descentScore,
       ascentSeconds: ascentSeconds,
-      ascentScoreCandidate: ascentScoreCandidate,
+      ascentScore: ascentScore,
       worstBackAngle: _currentRepWorstBackAngle,
       hadFormViolation: _currentRepHadFormViolation,
       runtimeBaseScore: baseScore,
@@ -521,8 +521,8 @@ class RangeRepEngine
       descentControlScore: descentControlScore,
       ascentControlScore: ascentControlScore,
       weightedBaseScore: weightedBaseScore,
-      phaseQualityPenaltyCandidate: phaseQualityPenaltyCandidate,
-      phaseInformedScoreCandidate: phaseInformedScoreCandidate,
+      phaseQualityPenalty: phaseQualityPenalty,
+      phaseAdjustedScore: phaseAdjustedScore,
     );
     lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
       repIndex: repCount,
