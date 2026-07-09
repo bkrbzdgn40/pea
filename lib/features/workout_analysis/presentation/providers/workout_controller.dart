@@ -78,6 +78,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepSide? _selectedRangeRepSide;
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
   RangeRepValidationResult? _lastRangeRepValidationResult;
+  int? _lastRangeRepValidatedRepIndex;
   bool _activeRangeRepHadCoverageDrop = false;
   bool _activeRangeRepSwitchedSideDuringRep = false;
   String? _activeRangeRepSelectedSideLabel;
@@ -563,6 +564,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           : lastValidationResult.reasons
                 .map((reason) => reason.debugLabel)
                 .toList(growable: false),
+      lastRangeRepValidatedRepIndex: _lastRangeRepValidatedRepIndex,
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
@@ -639,6 +641,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _lastRangeRepValidationResult = _rangeRepValidationPolicy.evaluate(
       summaryCandidate,
     );
+    _lastRangeRepValidatedRepIndex = summaryCandidate.repIndex;
     _resetRangeRepRepSummaryContext();
   }
 
@@ -663,6 +666,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (clearCandidate) {
       _lastRangeRepRepSummaryCandidate = null;
       _lastRangeRepValidationResult = null;
+      _lastRangeRepValidatedRepIndex = null;
     }
   }
 

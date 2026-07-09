@@ -1053,6 +1053,11 @@ class _CalibrationDebugPanel extends StatelessWidget {
                   label: 'Validation',
                   value: metrics.lastRangeRepValidationStatus ?? '--',
                 ),
+                if (metrics.lastRangeRepValidatedRepIndex != null)
+                  _DebugMetricRow(
+                    label: 'Rep',
+                    value: metrics.lastRangeRepValidatedRepIndex.toString(),
+                  ),
                 if (metrics.lastRangeRepValidationReasons.isNotEmpty)
                   _DebugMetricRow(
                     label: 'Reasons',

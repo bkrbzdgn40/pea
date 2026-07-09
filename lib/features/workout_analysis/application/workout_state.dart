@@ -39,6 +39,7 @@ class WorkoutCalibrationMetrics {
     this.hasLastRangeRepValidation = false,
     this.lastRangeRepValidationStatus,
     this.lastRangeRepValidationReasons = const <String>[],
+    this.lastRangeRepValidatedRepIndex,
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -82,6 +83,7 @@ class WorkoutCalibrationMetrics {
   final bool hasLastRangeRepValidation;
   final String? lastRangeRepValidationStatus;
   final List<String> lastRangeRepValidationReasons;
+  final int? lastRangeRepValidatedRepIndex;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
