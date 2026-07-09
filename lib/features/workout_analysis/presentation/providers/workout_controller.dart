@@ -15,6 +15,7 @@ import '../../application/range_rep_frame_policy.dart';
 import '../../application/range_rep_rep_outcome_tracker.dart';
 import '../../application/range_rep_side_policy.dart';
 import '../../application/range_rep_side_stabilizer.dart';
+import '../../application/range_rep_threshold_bookkeeper.dart';
 import '../../application/range_rep_threshold_resolver.dart';
 import '../../application/range_rep_visibility_policy.dart';
 import '../../application/session_calibration_baseline_accumulator.dart';
@@ -91,8 +92,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       const ExerciseMetricsExtractor();
   final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
   final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
-  final RangeRepThresholdResolver _rangeRepThresholdResolver =
-      const RangeRepThresholdResolver();
+  late RangeRepThresholdBookkeeper _rangeRepThresholdBookkeeper;
   late final RangeRepVisibilityPolicy _rangeRepVisibilityPolicy;
   final RangeRepValidationPolicy _rangeRepValidationPolicy =
       const RangeRepValidationPolicy();
@@ -100,13 +100,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepSide? _selectedRangeRepSide;
   late RangeRepSideStabilizer _rangeRepSideStabilizer;
   late RangeRepRepOutcomeTracker _rangeRepRepOutcomeTracker;
-  int _calibrationThresholdDecisionCount = 0;
-  int _calibrationThresholdAppliedCount = 0;
-  int _calibrationThresholdNoBaselineCount = 0;
-  int _calibrationThresholdInsufficientSamplesCount = 0;
-  int _calibrationThresholdMissingFormBaselineCount = 0;
-  int _calibrationThresholdSideMismatchCount = 0;
-  int _calibrationThresholdOffsetTooSmallCount = 0;
   CalibrationSnapshot? _lastCalibrationSnapshot;
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
   late SessionCalibrationBaselineAccumulator
@@ -152,13 +145,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _rangeRepRepOutcomeTracker = RangeRepRepOutcomeTracker(
       validationPolicy: _rangeRepValidationPolicy,
     );
-    _calibrationThresholdDecisionCount = 0;
-    _calibrationThresholdAppliedCount = 0;
-    _calibrationThresholdNoBaselineCount = 0;
-    _calibrationThresholdInsufficientSamplesCount = 0;
-    _calibrationThresholdMissingFormBaselineCount = 0;
-    _calibrationThresholdSideMismatchCount = 0;
-    _calibrationThresholdOffsetTooSmallCount = 0;
+    _rangeRepThresholdBookkeeper = RangeRepThresholdBookkeeper(
+      analysisKind: _engineKind.name,
+      config: _config,
+    );
     _lastCalibrationSnapshot = null;
     _sessionCalibrationBaseline = null;
     _sessionCalibrationBaselineAccumulator =
@@ -254,8 +244,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           analysisFps: _analysisFps,
           selectedRangeRepSide: selectedRangeRepSide,
           calibrationMetricsBuilder: (preview) {
-            final formThresholdResolution = _resolveFormThreshold(
+            final formThresholdResolution = _rangeRepThresholdBookkeeper.resolve(
               baseThreshold: _config.formThreshold,
+              sessionCalibrationBaseline: _sessionCalibrationBaseline,
               selectedRangeRepSide: preview.selectedRangeRepSide,
             );
 
@@ -334,8 +325,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           legFilter: _legFilter,
         );
         final formThresholdResolution = _engineKind == EngineKind.rangeRep
-            ? _resolveFormThreshold(
+            ? _rangeRepThresholdBookkeeper.resolve(
                 baseThreshold: _config.formThreshold,
+                sessionCalibrationBaseline: _sessionCalibrationBaseline,
                 selectedRangeRepSide: selectedRangeRepSide,
               )
             : null;
@@ -434,8 +426,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       } else {
         // No-pose frames should not reset session counters or last rep results.
         final formThresholdResolution = _engineKind == EngineKind.rangeRep
-            ? _resolveFormThreshold(
+            ? _rangeRepThresholdBookkeeper.resolve(
                 baseThreshold: _config.formThreshold,
+                sessionCalibrationBaseline: _sessionCalibrationBaseline,
                 selectedRangeRepSide: null,
               )
             : null;
@@ -653,17 +646,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       rangeRepSideHysteresisStatus: _rangeRepSideStabilizer.hysteresisStatus,
       rangeRepSideConsistencyStatus: _rangeRepSideStabilizer.consistencyStatus,
       calibrationSnapshot: _lastCalibrationSnapshot,
-      calibrationThresholdDecisionCount: _calibrationThresholdDecisionCount,
-      calibrationThresholdAppliedCount: _calibrationThresholdAppliedCount,
-      calibrationThresholdNoBaselineCount: _calibrationThresholdNoBaselineCount,
+      calibrationThresholdDecisionCount:
+          _rangeRepThresholdBookkeeper.decisionCount,
+      calibrationThresholdAppliedCount:
+          _rangeRepThresholdBookkeeper.appliedCount,
+      calibrationThresholdNoBaselineCount:
+          _rangeRepThresholdBookkeeper.noBaselineCount,
       calibrationThresholdInsufficientSamplesCount:
-          _calibrationThresholdInsufficientSamplesCount,
+          _rangeRepThresholdBookkeeper.insufficientSamplesCount,
       calibrationThresholdMissingFormBaselineCount:
-          _calibrationThresholdMissingFormBaselineCount,
+          _rangeRepThresholdBookkeeper.missingFormBaselineCount,
       calibrationThresholdSideMismatchCount:
-          _calibrationThresholdSideMismatchCount,
+          _rangeRepThresholdBookkeeper.sideMismatchCount,
       calibrationThresholdOffsetTooSmallCount:
-          _calibrationThresholdOffsetTooSmallCount,
+          _rangeRepThresholdBookkeeper.offsetTooSmallCount,
       sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
       lastRangeRepValidatedRepIndex:
           _rangeRepRepOutcomeTracker.lastRangeRepValidatedRepIndex,
@@ -709,50 +705,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       hasArmSupportAngle: hasArmSupportAngle,
       hasLegExtensionAngle: hasLegExtensionAngle,
     );
-  }
-
-  RangeRepThresholdResolution _resolveFormThreshold({
-    required double baseThreshold,
-    required String? selectedRangeRepSide,
-  }) {
-    return _recordFormThresholdResolution(
-      _rangeRepThresholdResolver.resolve(
-        analysisKind: _engineKind.name,
-        config: _config,
-        baseThreshold: baseThreshold,
-        sessionCalibrationBaseline: _sessionCalibrationBaseline,
-        selectedRangeRepSide: selectedRangeRepSide,
-      ),
-    );
-  }
-
-  RangeRepThresholdResolution _recordFormThresholdResolution(
-    RangeRepThresholdResolution resolution,
-  ) {
-    _calibrationThresholdDecisionCount++;
-
-    switch (resolution.decisionReason) {
-      case 'applied':
-        _calibrationThresholdAppliedCount++;
-        break;
-      case 'no_baseline':
-        _calibrationThresholdNoBaselineCount++;
-        break;
-      case 'insufficient_samples':
-        _calibrationThresholdInsufficientSamplesCount++;
-        break;
-      case 'missing_form_baseline':
-        _calibrationThresholdMissingFormBaselineCount++;
-        break;
-      case 'side_mismatch':
-        _calibrationThresholdSideMismatchCount++;
-        break;
-      case 'offset_too_small':
-        _calibrationThresholdOffsetTooSmallCount++;
-        break;
-    }
-
-    return resolution;
   }
 
   AnalysisFrame _applyFormThresholdResolution(
