@@ -71,10 +71,7 @@ class RepResult {
 }
 
 class _WeightedScoreComponent {
-  const _WeightedScoreComponent({
-    required this.score,
-    required this.weight,
-  });
+  const _WeightedScoreComponent({required this.score, required this.weight});
 
   final double? score;
   final double weight;
@@ -112,10 +109,14 @@ class _MutableRangeRepPhaseQuality {
     _hasData = true;
     _minPrimaryMetric = _minPrimaryMetric == null
         ? primaryMetric
-        : (primaryMetric < _minPrimaryMetric! ? primaryMetric : _minPrimaryMetric);
+        : (primaryMetric < _minPrimaryMetric!
+              ? primaryMetric
+              : _minPrimaryMetric);
     _maxPrimaryMetric = _maxPrimaryMetric == null
         ? primaryMetric
-        : (primaryMetric > _maxPrimaryMetric! ? primaryMetric : _maxPrimaryMetric);
+        : (primaryMetric > _maxPrimaryMetric!
+              ? primaryMetric
+              : _maxPrimaryMetric);
     _worstFormMetric = _worstFormMetric == null
         ? formMetric
         : (formMetric < _worstFormMetric! ? formMetric : _worstFormMetric);
@@ -215,10 +216,8 @@ class ExerciseEngine
       _MutableRangeRepPhaseQuality();
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
 
-  ExerciseEngine({
-    required this.config,
-    DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  ExerciseEngine({required this.config, DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   @override
   double get maxRom => maxROM;
@@ -294,11 +293,7 @@ class ExerciseEngine
         if (confirmedAt != null) {
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
-          _startRepMetrics(
-            angle,
-            backAngle,
-            phaseStartedAt: confirmedAt,
-          );
+          _startRepMetrics(angle, backAngle, phaseStartedAt: confirmedAt);
           feedback = "Asagi in...";
         }
         break;
@@ -432,19 +427,20 @@ class ExerciseEngine
     final descentControlScore = descentScore;
     final ascentControlScore = ascentScoreCandidate;
     final scoreWeights = config.rangeRepScoreWeights;
-    final weightedScoreCandidate = _composeWeightedScore(
-      <_WeightedScoreComponent>[
-        _WeightedScoreComponent(
-          score: descentControlScore,
-          weight: scoreWeights?.descentControlWeight ?? 1.0,
-        ),
-        _WeightedScoreComponent(
-          score: ascentControlScore,
-          weight: scoreWeights?.ascentControlWeight ?? 1.0,
-        ),
-      ],
+    final weightedScoreCandidate =
+        _composeWeightedScore(<_WeightedScoreComponent>[
+          _WeightedScoreComponent(
+            score: descentControlScore,
+            weight: scoreWeights?.descentControlWeight ?? 1.0,
+          ),
+          _WeightedScoreComponent(
+            score: ascentControlScore,
+            weight: scoreWeights?.ascentControlWeight ?? 1.0,
+          ),
+        ]);
+    final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
+      _now(),
     );
-    final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(_now());
     final descendingPhaseAssessment = _assessPhaseQuality(
       phase: MovementPhase.descending,
       phaseQuality: completedPhaseQualityTelemetry.descendingPhaseQuality,
@@ -624,7 +620,8 @@ class ExerciseEngine
   }) {
     var penalty = 0.0;
 
-    if (descendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged) {
+    if (descendingPhaseAssessment.status ==
+        RangeRepPhaseQualityStatus.flagged) {
       penalty += 5.0;
     }
     if (ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged) {
@@ -667,8 +664,9 @@ class ExerciseEngine
   }
 
   void _captureLastCompletedPhaseQualityTelemetry(DateTime capturedAt) {
-    _lastCompletedPhaseQualityTelemetry =
-        _completedPhaseQualityTelemetry(capturedAt);
+    _lastCompletedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
+      capturedAt,
+    );
   }
 
   void _beginPhaseTelemetry({
@@ -707,7 +705,11 @@ class ExerciseEngine
   _MutableRangeRepPhaseQuality _phaseQualityFor(MovementPhase phase) {
     switch (phase) {
       case MovementPhase.neutral:
-        throw ArgumentError.value(phase, 'phase', 'Neutral has no phase telemetry.');
+        throw ArgumentError.value(
+          phase,
+          'phase',
+          'Neutral has no phase telemetry.',
+        );
       case MovementPhase.descending:
         return _descendingPhaseQuality;
       case MovementPhase.peak:
@@ -781,7 +783,9 @@ class ExerciseEngine
       return 'stable ${state.name}';
     }
 
-    final elapsedMs = _now().difference(_pendingTransitionStartedAt!).inMilliseconds;
+    final elapsedMs = _now()
+        .difference(_pendingTransitionStartedAt!)
+        .inMilliseconds;
     final requiredMs = _pendingTransition!.confirmationDuration.inMilliseconds;
 
     return 'confirming ${_pendingTransition!.debugLabel} '

@@ -49,9 +49,7 @@ class RangeRepValidationPolicy {
     }
 
     if (summary.descentDuration.inMilliseconds < config.minDescentMillis) {
-      lowConfidenceReasons.add(
-        RangeRepValidationReason.excessiveDescentSpeed,
-      );
+      lowConfidenceReasons.add(RangeRepValidationReason.excessiveDescentSpeed);
     }
 
     if (summary.ascentDuration.inMilliseconds < config.minAscentMillis) {
@@ -63,12 +61,10 @@ class RangeRepValidationPolicy {
     }
 
     if (invalidReasons.isNotEmpty) {
-      return RangeRepValidationResult.invalid(
-        <RangeRepValidationReason>[
-          ...invalidReasons,
-          ...lowConfidenceReasons,
-        ],
-      );
+      return RangeRepValidationResult.invalid(<RangeRepValidationReason>[
+        ...invalidReasons,
+        ...lowConfidenceReasons,
+      ]);
     }
 
     if (lowConfidenceReasons.isNotEmpty) {

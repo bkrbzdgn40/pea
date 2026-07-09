@@ -1,3 +1,5 @@
+import 'workout_rep.dart';
+
 /// Persistable summary of one completed workout analysis session.
 class WorkoutSession {
   const WorkoutSession({
@@ -15,6 +17,7 @@ class WorkoutSession {
     this.totalHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.formBreakCount = 0,
+    this.reps,
     this.createdAt,
     this.updatedAt,
   });
@@ -33,6 +36,7 @@ class WorkoutSession {
   final double totalHoldSeconds;
   final double bestHoldSeconds;
   final int formBreakCount;
+  final List<WorkoutRep>? reps;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -54,6 +58,7 @@ class WorkoutSession {
     double? totalHoldSeconds,
     double? bestHoldSeconds,
     int? formBreakCount,
+    List<WorkoutRep>? reps,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -72,6 +77,7 @@ class WorkoutSession {
       totalHoldSeconds: totalHoldSeconds ?? this.totalHoldSeconds,
       bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
       formBreakCount: formBreakCount ?? this.formBreakCount,
+      reps: reps ?? this.reps,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -93,6 +99,7 @@ class WorkoutSession {
       'totalHoldSeconds': totalHoldSeconds,
       'bestHoldSeconds': bestHoldSeconds,
       'formBreakCount': formBreakCount,
+      'reps': reps?.map((rep) => rep.toMap()).toList(growable: false),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -114,6 +121,7 @@ class WorkoutSession {
       totalHoldSeconds: _readDoubleOrDefault(map, 'totalHoldSeconds', 0),
       bestHoldSeconds: _readDoubleOrDefault(map, 'bestHoldSeconds', 0),
       formBreakCount: _readIntOrDefault(map, 'formBreakCount', 0),
+      reps: _readNullableWorkoutReps(map, 'reps'),
       createdAt: _readNullableDateTime(map, 'createdAt'),
       updatedAt: _readNullableDateTime(map, 'updatedAt'),
     );
@@ -222,4 +230,28 @@ DateTime? _readNullableDateTime(Map<String, Object?> map, String key) {
   }
 
   throw FormatException('Expected nullable ISO-8601 date string for "$key".');
+}
+
+List<WorkoutRep>? _readNullableWorkoutReps(
+  Map<String, Object?> map,
+  String key,
+) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  if (value is Iterable) {
+    return List<WorkoutRep>.unmodifiable(
+      value.map((entry) {
+        if (entry is Map) {
+          return WorkoutRep.fromMap(Map<String, Object?>.from(entry));
+        }
+
+        throw FormatException('Expected map entries in "$key".');
+      }),
+    );
+  }
+
+  throw FormatException('Expected list for "$key".');
 }

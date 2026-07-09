@@ -11,6 +11,7 @@ import '../../application/engine_kind.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
+import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
@@ -51,6 +52,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   double _bestHoldSeconds = 0;
   int _formBreakCount = 0;
   bool _previousHoldFormBreak = false;
+  final List<WorkoutRep> _completedWorkoutReps = <WorkoutRep>[];
   bool _isFinishingSession = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
@@ -123,6 +125,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _bestHoldSeconds = 0;
     _formBreakCount = 0;
     _previousHoldFormBreak = false;
+    _completedWorkoutReps.clear();
     _isFinishingSession = false;
     ref.read(completedSessionProvider.notifier).state = null;
   }
@@ -137,6 +140,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       if (next.lastRepScore > _bestScore) {
         _bestScore = next.lastRepScore;
       }
+
+      _collectCompletedWorkoutRep(next: next, repDelta: repDelta);
     }
 
     if (!_previousFormBad && next.isFormBad) {
@@ -162,6 +167,73 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _previousFormBad = next.isFormBad;
     _lastObservedHoldSeconds = next.isHolding ? next.currentHoldSeconds : 0;
     _previousHoldFormBreak = next.hadHoldFormBreak;
+  }
+
+  void _collectCompletedWorkoutRep({
+    required WorkoutState next,
+    required int repDelta,
+  }) {
+    final candidate = _buildCompletedWorkoutRep(next: next, repDelta: repDelta);
+    if (candidate == null) {
+      return;
+    }
+
+    final alreadyCollected = _completedWorkoutReps.any(
+      (rep) => rep.repIndex == candidate.repIndex,
+    );
+    if (alreadyCollected) {
+      return;
+    }
+
+    _completedWorkoutReps.add(candidate);
+  }
+
+  WorkoutRep? _buildCompletedWorkoutRep({
+    required WorkoutState next,
+    required int repDelta,
+  }) {
+    if (next.analysisKind != EngineKind.rangeRep) {
+      return null;
+    }
+
+    final activeSessionExercise = _activeSessionExercise;
+    if (activeSessionExercise == null) {
+      return null;
+    }
+
+    final metrics = next.calibrationMetrics;
+    if (!metrics.hasLastRangeRepSummary) {
+      return null;
+    }
+
+    final explicitRepIndex = metrics.lastRangeRepValidatedRepIndex;
+    final repIndex = explicitRepIndex ?? (repDelta == 1 ? next.repCount : null);
+    if (repIndex == null || repIndex < 1 || repIndex > next.repCount) {
+      return null;
+    }
+
+    return WorkoutRep(
+      repIndex: repIndex,
+      exerciseType: activeSessionExercise.id,
+      analysisKind: next.analysisKind.name,
+      recordedAt: DateTime.now(),
+      validationStatus: metrics.hasLastRangeRepValidation
+          ? metrics.lastRangeRepValidationStatus
+          : null,
+      validationReasons: metrics.hasLastRangeRepValidation
+          ? List<String>.from(metrics.lastRangeRepValidationReasons)
+          : const <String>[],
+      score: next.lastRepScore,
+      minPrimaryMetric: metrics.lastRangeRepSummaryMinAngle,
+      worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
+      descentMillis: metrics.lastRangeRepSummaryDescentMillis,
+      ascentMillis: metrics.lastRangeRepSummaryAscentMillis,
+      hadFormViolation: metrics.lastRangeRepSummaryHadFormViolation,
+      hadCoverageDrop: metrics.lastRangeRepSummaryHadCoverageDrop,
+      switchedSideDuringRep: metrics.lastRangeRepSummarySwitchedSideDuringRep,
+      completedPhaseSequence: metrics.lastRangeRepSummaryCompletedPhaseSequence,
+      selectedSideLabel: metrics.lastRangeRepSummarySelectedSideLabel,
+    );
   }
 
   Future<void> _setLiveAnalysisScreenAwake(bool enable) async {
@@ -336,6 +408,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       totalHoldSeconds: _totalHoldSeconds,
       bestHoldSeconds: _bestHoldSeconds,
       formBreakCount: _formBreakCount,
+      reps: _completedWorkoutReps.isEmpty
+          ? null
+          : List<WorkoutRep>.unmodifiable(_completedWorkoutReps),
     );
 
     try {
@@ -912,10 +987,7 @@ class _CalibrationDebugPanel extends StatelessWidget {
           isAvailable: metrics.hasLegExtensionAngle,
         ),
       ),
-      _DebugMetricRow(
-        label: 'coverage',
-        value: _formatHoldCoverage(metrics),
-      ),
+      _DebugMetricRow(label: 'coverage', value: _formatHoldCoverage(metrics)),
       _DebugMetricRow(
         label: 'body target',
         value: _formatAngle(metrics.formThreshold),
@@ -1113,28 +1185,19 @@ class _CalibrationDebugPanel extends StatelessWidget {
             metrics.ascendingPhaseHadFormViolation,
           ),
         ),
-      _DebugMetricRow(
-        label: 'DescQ',
-        value: metrics.descendingPhaseStatus,
-      ),
+      _DebugMetricRow(label: 'DescQ', value: metrics.descendingPhaseStatus),
       if (metrics.descendingPhaseIssues.isNotEmpty)
         _DebugMetricRow(
           label: 'DescIssues',
           value: metrics.descendingPhaseIssues.join(', '),
         ),
-      _DebugMetricRow(
-        label: 'PeakQ',
-        value: metrics.peakPhaseStatus,
-      ),
+      _DebugMetricRow(label: 'PeakQ', value: metrics.peakPhaseStatus),
       if (metrics.peakPhaseIssues.isNotEmpty)
         _DebugMetricRow(
           label: 'PeakIssues',
           value: metrics.peakPhaseIssues.join(', '),
         ),
-      _DebugMetricRow(
-        label: 'AscQ',
-        value: metrics.ascendingPhaseStatus,
-      ),
+      _DebugMetricRow(label: 'AscQ', value: metrics.ascendingPhaseStatus),
       if (metrics.ascendingPhaseIssues.isNotEmpty)
         _DebugMetricRow(
           label: 'AscIssues',
@@ -1278,7 +1341,10 @@ class _CalibrationDebugPanel extends StatelessWidget {
                       if (isHoldAnalysis)
                         _DebugSection(title: 'Hold', children: holdRows)
                       else ...[
-                        _DebugSection(title: 'Core', children: rangeRepCoreRows),
+                        _DebugSection(
+                          title: 'Core',
+                          children: rangeRepCoreRows,
+                        ),
                         if (signalRows.isNotEmpty)
                           _DebugSection(title: 'Signals', children: signalRows),
                         _DebugSection(

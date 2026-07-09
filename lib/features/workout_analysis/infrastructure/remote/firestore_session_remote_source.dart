@@ -124,8 +124,7 @@ class FirestoreSessionRemoteSource {
     // Client timestamps keep the first Firestore integration deterministic.
     final createdAt = session.createdAt ?? now;
     final updatedAt = session.updatedAt ?? now;
-
-    return <String, dynamic>{
+    final firestoreData = <String, dynamic>{
       'id': session.id,
       'ownerId': session.ownerId,
       'exerciseType': session.exerciseType,
@@ -143,6 +142,14 @@ class FirestoreSessionRemoteSource {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
+
+    if (session.reps != null) {
+      firestoreData['reps'] = session.reps!
+          .map((rep) => rep.toMap())
+          .toList(growable: false);
+    }
+
+    return firestoreData;
   }
 
   WorkoutSession _fromFirestoreData(
@@ -166,9 +173,38 @@ class FirestoreSessionRemoteSource {
       'totalHoldSeconds': data['totalHoldSeconds'],
       'bestHoldSeconds': data['bestHoldSeconds'],
       'formBreakCount': data['formBreakCount'],
+      'reps': _toPlainRepsData(data['reps']),
       'createdAt': _toPlainDate(data['createdAt']),
       'updatedAt': _toPlainDate(data['updatedAt']),
     });
+  }
+
+  List<Map<String, Object?>>? _toPlainRepsData(Object? value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Iterable) {
+      return value
+          .map((entry) => _toPlainRepData(entry))
+          .toList(growable: false);
+    }
+
+    throw const FormatException('Expected list for "reps".');
+  }
+
+  Map<String, Object?> _toPlainRepData(Object? value) {
+    if (value is Map) {
+      return <String, Object?>{
+        for (final entry in value.entries)
+          if (entry.key is String)
+            entry.key as String: entry.key == 'recordedAt'
+                ? _toPlainDate(entry.value)
+                : entry.value,
+      };
+    }
+
+    throw const FormatException('Expected map entry for "reps".');
   }
 
   Object? _toPlainDate(Object? value) {

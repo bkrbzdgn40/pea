@@ -261,7 +261,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentAlignmentMetric: selectedFormSignals?.alignmentMetric,
             currentStabilityMetric: selectedFormSignals?.stabilityMetric,
             currentLockoutMetric: selectedFormSignals?.lockoutMetric,
-            currentBottomControlMetric: selectedFormSignals?.bottomControlMetric,
+            currentBottomControlMetric:
+                selectedFormSignals?.bottomControlMetric,
             isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
             hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
             hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
@@ -573,8 +574,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ascendingPhaseDurationMs: diagnostics.ascendingPhaseQuality.hasData
           ? diagnostics.ascendingPhaseQuality.durationMs
           : null,
-      descendingPhaseWorstFormMetric:
-          diagnostics.descendingPhaseQuality.hasData
+      descendingPhaseWorstFormMetric: diagnostics.descendingPhaseQuality.hasData
           ? diagnostics.descendingPhaseQuality.worstFormMetric
           : null,
       peakPhaseWorstFormMetric: diagnostics.peakPhaseQuality.hasData
@@ -596,7 +596,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       descendingPhaseStatus:
           diagnostics.descendingPhaseAssessment.status.debugLabel,
       peakPhaseStatus: diagnostics.peakPhaseAssessment.status.debugLabel,
-      ascendingPhaseStatus: diagnostics.ascendingPhaseAssessment.status.debugLabel,
+      ascendingPhaseStatus:
+          diagnostics.ascendingPhaseAssessment.status.debugLabel,
       descendingPhaseIssues: diagnostics.descendingPhaseAssessment.issues
           .map((issue) => issue.debugLabel)
           .toList(growable: false),
@@ -622,8 +623,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       rangeRepInvalidCount: _rangeRepInvalidCount,
       hasLastRangeRepSummary: lastSummaryCandidate != null,
       lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
-      lastRangeRepSummaryWorstFormMetric:
-          lastSummaryCandidate?.worstFormMetric,
+      lastRangeRepSummaryWorstFormMetric: lastSummaryCandidate?.worstFormMetric,
       lastRangeRepSummaryDescentMillis:
           lastSummaryCandidate?.descentDuration.inMilliseconds,
       lastRangeRepSummaryAscentMillis:

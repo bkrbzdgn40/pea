@@ -1,0 +1,215 @@
+/// Persistable exercise-agnostic facts about one completed workout rep.
+class WorkoutRep {
+  const WorkoutRep({
+    required this.repIndex,
+    required this.exerciseType,
+    required this.analysisKind,
+    this.recordedAt,
+    this.validationStatus,
+    this.validationReasons = const <String>[],
+    this.score,
+    this.minPrimaryMetric,
+    this.worstFormMetric,
+    this.descentMillis,
+    this.ascentMillis,
+    this.hadFormViolation = false,
+    this.hadCoverageDrop = false,
+    this.switchedSideDuringRep = false,
+    this.completedPhaseSequence = false,
+    this.selectedSideLabel,
+  });
+
+  final int repIndex;
+  final String exerciseType;
+  final String analysisKind;
+  final DateTime? recordedAt;
+  final String? validationStatus;
+  final List<String> validationReasons;
+  final double? score;
+  final double? minPrimaryMetric;
+  final double? worstFormMetric;
+  final int? descentMillis;
+  final int? ascentMillis;
+  final bool hadFormViolation;
+  final bool hadCoverageDrop;
+  final bool switchedSideDuringRep;
+  final bool completedPhaseSequence;
+  final String? selectedSideLabel;
+
+  Map<String, Object?> toMap() {
+    return {
+      'repIndex': repIndex,
+      'exerciseType': exerciseType,
+      'analysisKind': analysisKind,
+      'recordedAt': recordedAt?.toIso8601String(),
+      'validationStatus': validationStatus,
+      'validationReasons': validationReasons.toList(growable: false),
+      'score': score,
+      'minPrimaryMetric': minPrimaryMetric,
+      'worstFormMetric': worstFormMetric,
+      'descentMillis': descentMillis,
+      'ascentMillis': ascentMillis,
+      'hadFormViolation': hadFormViolation,
+      'hadCoverageDrop': hadCoverageDrop,
+      'switchedSideDuringRep': switchedSideDuringRep,
+      'completedPhaseSequence': completedPhaseSequence,
+      'selectedSideLabel': selectedSideLabel,
+    };
+  }
+
+  factory WorkoutRep.fromMap(Map<String, Object?> map) {
+    return WorkoutRep(
+      repIndex: _readRequiredInt(map, 'repIndex'),
+      exerciseType: _readRequiredString(map, 'exerciseType'),
+      analysisKind: _readRequiredString(map, 'analysisKind'),
+      recordedAt: _readNullableDateTime(map, 'recordedAt'),
+      validationStatus: _readNullableString(map, 'validationStatus'),
+      validationReasons: _readStringList(map, 'validationReasons'),
+      score: _readNullableDouble(map, 'score'),
+      minPrimaryMetric: _readNullableDouble(map, 'minPrimaryMetric'),
+      worstFormMetric: _readNullableDouble(map, 'worstFormMetric'),
+      descentMillis: _readNullableInt(map, 'descentMillis'),
+      ascentMillis: _readNullableInt(map, 'ascentMillis'),
+      hadFormViolation: _readBoolOrDefault(map, 'hadFormViolation', false),
+      hadCoverageDrop: _readBoolOrDefault(map, 'hadCoverageDrop', false),
+      switchedSideDuringRep: _readBoolOrDefault(
+        map,
+        'switchedSideDuringRep',
+        false,
+      ),
+      completedPhaseSequence: _readBoolOrDefault(
+        map,
+        'completedPhaseSequence',
+        false,
+      ),
+      selectedSideLabel: _readNullableString(map, 'selectedSideLabel'),
+    );
+  }
+}
+
+String _readRequiredString(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value is String) {
+    return value;
+  }
+
+  throw FormatException('Expected string for "$key".');
+}
+
+String? _readNullableString(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  if (value is String) {
+    return value;
+  }
+
+  throw FormatException('Expected nullable string for "$key".');
+}
+
+int _readRequiredInt(Map<String, Object?> map, String key) {
+  final value = map[key];
+  final parsed = _parseInt(value);
+  if (parsed != null) {
+    return parsed;
+  }
+
+  throw FormatException('Expected integer for "$key".');
+}
+
+int? _readNullableInt(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  final parsed = _parseInt(value);
+  if (parsed != null) {
+    return parsed;
+  }
+
+  throw FormatException('Expected nullable integer for "$key".');
+}
+
+double? _readNullableDouble(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  final parsed = _parseDouble(value);
+  if (parsed != null) {
+    return parsed;
+  }
+
+  throw FormatException('Expected nullable number for "$key".');
+}
+
+DateTime? _readNullableDateTime(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  if (value is DateTime) {
+    return value;
+  }
+
+  if (value is String) {
+    return DateTime.tryParse(value);
+  }
+
+  throw FormatException('Expected nullable ISO-8601 date string for "$key".');
+}
+
+List<String> _readStringList(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return const <String>[];
+  }
+
+  if (value is Iterable) {
+    return List<String>.unmodifiable(value.whereType<String>());
+  }
+
+  throw FormatException('Expected list for "$key".');
+}
+
+bool _readBoolOrDefault(Map<String, Object?> map, String key, bool fallback) {
+  final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
+  if (value is bool) {
+    return value;
+  }
+
+  throw FormatException('Expected boolean for "$key".');
+}
+
+int? _parseInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+
+  if (value is String) {
+    return int.tryParse(value);
+  }
+
+  return null;
+}
+
+double? _parseDouble(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  if (value is String) {
+    return double.tryParse(value);
+  }
+
+  return null;
+}
