@@ -14,52 +14,64 @@ void main() {
       expect(result.reasons, isEmpty);
     });
 
-    test('returns low confidence on coverage loss when configured to allow it', () {
-      final result = policy.evaluate(
-        _summary(hadCoverageDrop: true),
-      );
+    test(
+      'returns low confidence on coverage loss when configured to allow it',
+      () {
+        final result = policy.evaluate(_summary(hadCoverageDrop: true));
 
-      expect(result.status, RangeRepValidationStatus.lowConfidence);
-      expect(result.reasons, [RangeRepValidationReason.coverageLoss]);
-    });
+        expect(result.status, RangeRepValidationStatus.lowConfidence);
+        expect(result.reasons, [RangeRepValidationReason.coverageLoss]);
+      },
+    );
 
     test('returns invalid when the phase sequence is incomplete', () {
-      final result = policy.evaluate(
-        _summary(completedPhaseSequence: false),
-      );
+      final result = policy.evaluate(_summary(completedPhaseSequence: false));
 
       expect(result.status, RangeRepValidationStatus.invalid);
-      expect(result.reasons, contains(RangeRepValidationReason.incompletePhase));
+      expect(
+        result.reasons,
+        contains(RangeRepValidationReason.incompletePhase),
+      );
     });
 
     test('returns invalid when ROM stays above the acceptable threshold', () {
-      final result = policy.evaluate(
-        _summary(minAngle: 130),
-      );
+      final result = policy.evaluate(_summary(minAngle: 130));
 
       expect(result.status, RangeRepValidationStatus.invalid);
-      expect(result.reasons, contains(RangeRepValidationReason.insufficientRom));
-    });
-
-    test('keeps invalid status when low-confidence reasons are also present', () {
-      final result = policy.evaluate(
-        _summary(
-          completedPhaseSequence: false,
-          minAngle: 125,
-          hadCoverageDrop: true,
-          hadFormViolation: true,
-        ),
-      );
-
-      expect(result.status, RangeRepValidationStatus.invalid);
-      expect(result.reasons, contains(RangeRepValidationReason.incompletePhase));
-      expect(result.reasons, contains(RangeRepValidationReason.insufficientRom));
-      expect(result.reasons, contains(RangeRepValidationReason.coverageLoss));
       expect(
         result.reasons,
-        contains(RangeRepValidationReason.persistentFormBreak),
+        contains(RangeRepValidationReason.insufficientRom),
       );
     });
+
+    test(
+      'keeps invalid status when low-confidence reasons are also present',
+      () {
+        final result = policy.evaluate(
+          _summary(
+            completedPhaseSequence: false,
+            minAngle: 125,
+            hadCoverageDrop: true,
+            hadFormViolation: true,
+          ),
+        );
+
+        expect(result.status, RangeRepValidationStatus.invalid);
+        expect(
+          result.reasons,
+          contains(RangeRepValidationReason.incompletePhase),
+        );
+        expect(
+          result.reasons,
+          contains(RangeRepValidationReason.insufficientRom),
+        );
+        expect(result.reasons, contains(RangeRepValidationReason.coverageLoss));
+        expect(
+          result.reasons,
+          contains(RangeRepValidationReason.persistentFormBreak),
+        );
+      },
+    );
   });
 }
 

@@ -9,10 +9,7 @@ void main() {
   group('RangeRepEngine squat state machine', () {
     test('counts a completed squat rep', () {
       final clock = _TestClock();
-      final engine = RangeRepEngine(
-        config: _squatConfig(),
-        now: clock.now,
-      );
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
       _confirmTransition(clock, engine, angle: 140);
       _confirmTransition(clock, engine, angle: 90);
@@ -31,10 +28,7 @@ void main() {
 
     test('does not count an aborted descent', () {
       final clock = _TestClock();
-      final engine = RangeRepEngine(
-        config: _squatConfig(),
-        now: clock.now,
-      );
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
       _confirmTransition(clock, engine, angle: 140);
       _confirmTransition(
@@ -67,20 +61,14 @@ void main() {
       expect(cleanEngine.repCount, 1);
       expect(violatedEngine.repCount, 1);
       expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
-      expect(
-        violatedEngine.lastRepScoreBreakdown?.hadFormViolation,
-        isTrue,
-      );
+      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
     });
 
     test(
       'clearActiveRepContext clears active rep state but keeps session rep history',
       () {
         final clock = _TestClock();
-        final engine = RangeRepEngine(
-          config: _squatConfig(),
-          now: clock.now,
-        );
+        final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
         _completeSquatRep(clock, engine);
         final completedScore = engine.lastRepScore;
@@ -103,14 +91,12 @@ void main() {
 
     test('completed rep exposes core data exactly once', () {
       final clock = _TestClock();
-      final engine = RangeRepEngine(
-        config: _squatConfig(),
-        now: clock.now,
-      );
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
       _completeSquatRep(clock, engine);
 
-      final diagnosticsCoreData = engine.diagnosticsSnapshot.lastCompletedRepCoreData;
+      final diagnosticsCoreData =
+          engine.diagnosticsSnapshot.lastCompletedRepCoreData;
       final consumedCoreData = engine.consumeCompletedRepCoreData();
 
       expect(engine.repCount, 1);
@@ -122,36 +108,39 @@ void main() {
       expect(engine.consumeCompletedRepCoreData(), isNull);
     });
 
-    test('applies phase-aware penalty and feedback when descent quality is flagged', () {
-      final clock = _TestClock();
-      final engine = RangeRepEngine(
-        config: _squatConfig(
-          phaseQuality: const RangeRepPhaseQualityConfig(
-            minDescendingMillis: 1000,
+    test(
+      'applies phase-aware penalty and feedback when descent quality is flagged',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(
+          config: _squatConfig(
+            phaseQuality: const RangeRepPhaseQualityConfig(
+              minDescendingMillis: 1000,
+            ),
           ),
-        ),
-        now: clock.now,
-      );
+          now: clock.now,
+        );
 
-      _completeSquatRep(clock, engine);
+        _completeSquatRep(clock, engine);
 
-      final breakdown = engine.lastRepScoreBreakdown;
-      final diagnostics = engine.diagnosticsSnapshot;
+        final breakdown = engine.lastRepScoreBreakdown;
+        final diagnostics = engine.diagnosticsSnapshot;
 
-      expect(engine.repCount, 1);
-      expect(breakdown, isNotNull);
-      expect(breakdown?.phaseQualityPenalty, 5.0);
-      expect(breakdown?.phaseAdjustedScore, isNotNull);
-      expect(
-        breakdown!.phaseAdjustedScore!,
-        lessThan(breakdown.runtimeBaseScore),
-      );
-      expect(engine.feedbackCode, RangeRepFeedbackCode.controlDescent);
-      expect(
-        diagnostics.phaseFeedbackCandidate,
-        RangeRepFeedbackCode.controlDescent.code,
-      );
-    });
+        expect(engine.repCount, 1);
+        expect(breakdown, isNotNull);
+        expect(breakdown?.phaseQualityPenalty, 5.0);
+        expect(breakdown?.phaseAdjustedScore, isNotNull);
+        expect(
+          breakdown!.phaseAdjustedScore!,
+          lessThan(breakdown.runtimeBaseScore),
+        );
+        expect(engine.feedbackCode, RangeRepFeedbackCode.controlDescent);
+        expect(
+          diagnostics.phaseFeedbackCandidate,
+          RangeRepFeedbackCode.controlDescent.code,
+        );
+      },
+    );
   });
 }
 
@@ -198,9 +187,7 @@ AnalysisFrame _frame(double angle, double backAngle) {
   return AnalysisFrame(primaryMetric: angle, formMetric: backAngle);
 }
 
-ExerciseConfig _squatConfig({
-  RangeRepPhaseQualityConfig? phaseQuality,
-}) {
+ExerciseConfig _squatConfig({RangeRepPhaseQualityConfig? phaseQuality}) {
   return ExerciseConfig(
     name: 'Squat',
     primaryJoint: PoseLandmarkType.leftKnee,

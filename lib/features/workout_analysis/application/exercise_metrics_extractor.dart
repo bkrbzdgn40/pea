@@ -178,21 +178,24 @@ class ExerciseMetricsExtractor {
     // Reuse only the raw squat angles we already trust in this compatibility
     // step. More interpretive signals stay null until a later scoring pass.
     final signals = RangeRepFormSignals(
-      torsoAngle: _canExtractContractAwareRangeRepFormSignal(
+      torsoAngle:
+          _canExtractContractAwareRangeRepFormSignal(
             config,
             rangeRepContract,
             RangeRepSignal.postureAngle,
           )
           ? formMetric
           : null,
-      depthMetric: _canExtractContractAwareRangeRepFormSignal(
+      depthMetric:
+          _canExtractContractAwareRangeRepFormSignal(
             config,
             rangeRepContract,
             RangeRepSignal.depthMetric,
           )
           ? primaryAngle
           : null,
-      alignmentMetric: _canExtractContractAwareRangeRepFormSignal(
+      alignmentMetric:
+          _canExtractContractAwareRangeRepFormSignal(
             config,
             rangeRepContract,
             RangeRepSignal.alignmentMetric,
@@ -206,7 +209,8 @@ class ExerciseMetricsExtractor {
             )
           : null,
       stabilityMetric: null,
-      lockoutMetric: _canExtractContractAwareRangeRepFormSignal(
+      lockoutMetric:
+          _canExtractContractAwareRangeRepFormSignal(
             config,
             rangeRepContract,
             RangeRepSignal.endRangeMetric,

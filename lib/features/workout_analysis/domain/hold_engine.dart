@@ -14,10 +14,12 @@ enum HoldPhase { ready, holding, broken }
 /// those values at safe placeholders while exposing meaningful hold telemetry
 /// through its own diagnostics surface.
 class HoldEngine implements AnalysisEngine, HoldDiagnostics {
-  HoldEngine({required this.config})
-    : _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
+  HoldEngine({required this.config, DateTime Function()? now})
+    : _now = now ?? DateTime.now,
+      _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
 
   final ExerciseConfig config;
+  final DateTime Function() _now;
   final HoldPosturePolicy _posturePolicy;
 
   HoldPhase _phase = HoldPhase.ready;
@@ -73,7 +75,7 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
 
   @override
   void update(AnalysisFrame frame) {
-    final now = DateTime.now();
+    final now = _now();
     final evaluation = _posturePolicy.evaluate(
       bodyLineAngle: frame.bodyLineAngle,
       armSupportAngle: frame.armSupportAngle,

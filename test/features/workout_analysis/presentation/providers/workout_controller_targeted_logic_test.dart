@@ -20,7 +20,9 @@ void main() {
       final shouldLock = shouldLockRangeRepSideSelection(
         engineKind: EngineKind.rangeRep,
         selectedSide: null,
-        diagnostics: const RangeRepDiagnosticsSnapshot(hasPendingTransition: true),
+        diagnostics: const RangeRepDiagnosticsSnapshot(
+          hasPendingTransition: true,
+        ),
       );
 
       expect(shouldLock, isFalse);

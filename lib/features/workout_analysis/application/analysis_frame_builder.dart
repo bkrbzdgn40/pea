@@ -26,10 +26,7 @@ class WorkoutAnalysisFrameBuilder {
         metrics.armSupportAngle,
         armSupportFilter,
       ),
-      legExtensionAngle: _smoothOptional(
-        metrics.legExtensionAngle,
-        legFilter,
-      ),
+      legExtensionAngle: _smoothOptional(metrics.legExtensionAngle, legFilter),
     );
   }
 

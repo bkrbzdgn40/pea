@@ -103,7 +103,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   CalibrationSnapshot? _lastCalibrationSnapshot;
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
   late SessionCalibrationBaselineAccumulator
-      _sessionCalibrationBaselineAccumulator;
+  _sessionCalibrationBaselineAccumulator;
 
   @override
   WorkoutState build() {
@@ -245,11 +245,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           analysisFps: _analysisFps,
           selectedRangeRepSide: selectedRangeRepSide,
           calibrationMetricsBuilder: (preview) {
-            final formThresholdResolution = _rangeRepThresholdBookkeeper.resolve(
-              baseThreshold: _config.formThreshold,
-              sessionCalibrationBaseline: _sessionCalibrationBaseline,
-              selectedRangeRepSide: preview.selectedRangeRepSide,
-            );
+            final formThresholdResolution = _rangeRepThresholdBookkeeper
+                .resolve(
+                  baseThreshold: _config.formThreshold,
+                  sessionCalibrationBaseline: _sessionCalibrationBaseline,
+                  selectedRangeRepSide: preview.selectedRangeRepSide,
+                );
 
             return _buildCalibrationMetrics(
               currentFormMetric: preview.previewBackAngle,
@@ -263,7 +264,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               currentBottomControlMetric:
                   preview.formSignals?.bottomControlMetric,
               baseFormThreshold: formThresholdResolution.baseThreshold,
-              effectiveFormThreshold: formThresholdResolution.effectiveThreshold,
+              effectiveFormThreshold:
+                  formThresholdResolution.effectiveThreshold,
               calibrationThresholdOffsetCandidate:
                   formThresholdResolution.offsetCandidate,
               calibrationThresholdOffsetApplied:

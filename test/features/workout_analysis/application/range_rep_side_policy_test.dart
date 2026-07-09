@@ -111,32 +111,38 @@ void main() {
       expect(selection.reason, RangeRepSideSelectionReason.noAvailableSide);
     });
 
-    test('locks the active rep to the previous side to avoid mixed-side input', () {
-      final selection = policy.select(
-        metrics: _metrics(
-          left: const RangeRepSideMetrics(
-            side: RangeRepSide.left,
-            primaryAngle: 180,
-            formMetric: 90,
-            hasPrimaryAngle: false,
-            hasFormMetric: false,
+    test(
+      'locks the active rep to the previous side to avoid mixed-side input',
+      () {
+        final selection = policy.select(
+          metrics: _metrics(
+            left: const RangeRepSideMetrics(
+              side: RangeRepSide.left,
+              primaryAngle: 180,
+              formMetric: 90,
+              hasPrimaryAngle: false,
+              hasFormMetric: false,
+            ),
+            right: const RangeRepSideMetrics(
+              side: RangeRepSide.right,
+              primaryAngle: 90,
+              formMetric: 60,
+              hasPrimaryAngle: true,
+              hasFormMetric: true,
+            ),
           ),
-          right: const RangeRepSideMetrics(
-            side: RangeRepSide.right,
-            primaryAngle: 90,
-            formMetric: 60,
-            hasPrimaryAngle: true,
-            hasFormMetric: true,
-          ),
-        ),
-        previousSide: RangeRepSide.left,
-        lockPreviousSide: true,
-      );
+          previousSide: RangeRepSide.left,
+          lockPreviousSide: true,
+        );
 
-      expect(selection.selectedSide, RangeRepSide.left);
-      expect(selection.selectedMetrics, same(selection.leftMetrics));
-      expect(selection.reason, RangeRepSideSelectionReason.lockedActiveRepSide);
-    });
+        expect(selection.selectedSide, RangeRepSide.left);
+        expect(selection.selectedMetrics, same(selection.leftMetrics));
+        expect(
+          selection.reason,
+          RangeRepSideSelectionReason.lockedActiveRepSide,
+        );
+      },
+    );
   });
 }
 

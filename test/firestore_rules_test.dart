@@ -14,13 +14,9 @@ void main() {
       skip: _rulesEmulatorSkipReason,
     );
 
-    test(
-      'users can read their own session data',
-      () {
-        expect(_sessionPath('owner-a', 'session-a'), contains('owner-a'));
-      },
-      skip: _rulesEmulatorSkipReason,
-    );
+    test('users can read their own session data', () {
+      expect(_sessionPath('owner-a', 'session-a'), contains('owner-a'));
+    }, skip: _rulesEmulatorSkipReason);
 
     test(
       'users cannot read another user session data',
@@ -30,13 +26,9 @@ void main() {
       skip: _rulesEmulatorSkipReason,
     );
 
-    test(
-      'users can create their own session data',
-      () {
-        expect(_validSessionData(ownerId: 'owner-a', id: 'session-a'), isMap);
-      },
-      skip: _rulesEmulatorSkipReason,
-    );
+    test('users can create their own session data', () {
+      expect(_validSessionData(ownerId: 'owner-a', id: 'session-a'), isMap);
+    }, skip: _rulesEmulatorSkipReason);
 
     test(
       'users cannot create session data for another owner',
@@ -48,29 +40,27 @@ void main() {
       skip: _rulesEmulatorSkipReason,
     );
 
-    test(
-      'users cannot change ownerId during update',
-      () {
-        final original = _validSessionData(ownerId: 'owner-a', id: 'session-a');
-        final updated = <String, Object?>{...original, 'ownerId': 'owner-b'};
+    test('users cannot change ownerId during update', () {
+      final original = _validSessionData(ownerId: 'owner-a', id: 'session-a');
+      final updated = <String, Object?>{...original, 'ownerId': 'owner-b'};
 
-        expect(updated['ownerId'], isNot(original['ownerId']));
-      },
-      skip: _rulesEmulatorSkipReason,
-    );
+      expect(updated['ownerId'], isNot(original['ownerId']));
+    }, skip: _rulesEmulatorSkipReason);
 
-    test(
-      'users can delete their own session data',
-      () {
-        expect(_sessionPath('owner-a', 'session-a'), 'users/owner-a/sessions/session-a');
-      },
-      skip: _rulesEmulatorSkipReason,
-    );
+    test('users can delete their own session data', () {
+      expect(
+        _sessionPath('owner-a', 'session-a'),
+        'users/owner-a/sessions/session-a',
+      );
+    }, skip: _rulesEmulatorSkipReason);
 
     test(
       'users cannot delete another user session data',
       () {
-        expect(_sessionPath('owner-b', 'session-a'), 'users/owner-b/sessions/session-a');
+        expect(
+          _sessionPath('owner-b', 'session-a'),
+          'users/owner-b/sessions/session-a',
+        );
       },
       skip: _rulesEmulatorSkipReason,
     );

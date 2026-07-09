@@ -123,7 +123,8 @@ class WorkoutCalibrationMetricsBuilder {
       ascendingPhaseWorstFormMetric: diagnostics.ascendingPhaseQuality.hasData
           ? diagnostics.ascendingPhaseQuality.worstFormMetric
           : null,
-      descendingPhaseHadFormViolation: diagnostics.descendingPhaseQuality.hasData
+      descendingPhaseHadFormViolation:
+          diagnostics.descendingPhaseQuality.hasData
           ? diagnostics.descendingPhaseQuality.hadFormViolation
           : false,
       peakPhaseHadFormViolation: diagnostics.peakPhaseQuality.hasData
