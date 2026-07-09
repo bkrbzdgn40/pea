@@ -90,6 +90,13 @@ class WorkoutCalibrationMetrics {
     this.calibrationThresholdOffsetFallbackReason,
     this.calibrationThresholdOffsetSampleCount,
     this.calibrationThresholdOffsetBaselineSideLabel,
+    this.calibrationThresholdDecisionCount = 0,
+    this.calibrationThresholdAppliedCount = 0,
+    this.calibrationThresholdNoBaselineCount = 0,
+    this.calibrationThresholdInsufficientSamplesCount = 0,
+    this.calibrationThresholdMissingFormBaselineCount = 0,
+    this.calibrationThresholdSideMismatchCount = 0,
+    this.calibrationThresholdOffsetTooSmallCount = 0,
     this.sessionCalibrationBaselineCandidate,
   });
 
@@ -178,6 +185,13 @@ class WorkoutCalibrationMetrics {
   final String? calibrationThresholdOffsetFallbackReason;
   final int? calibrationThresholdOffsetSampleCount;
   final String? calibrationThresholdOffsetBaselineSideLabel;
+  final int calibrationThresholdDecisionCount;
+  final int calibrationThresholdAppliedCount;
+  final int calibrationThresholdNoBaselineCount;
+  final int calibrationThresholdInsufficientSamplesCount;
+  final int calibrationThresholdMissingFormBaselineCount;
+  final int calibrationThresholdSideMismatchCount;
+  final int calibrationThresholdOffsetTooSmallCount;
   final SessionCalibrationBaseline? sessionCalibrationBaselineCandidate;
 }
 

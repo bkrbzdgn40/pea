@@ -1134,6 +1134,21 @@ class _CalibrationDebugPanel extends StatelessWidget {
         ),
     ];
 
+    final thresholdRows = <Widget>[
+      _DebugMetricRow(
+        label: 'Current',
+        value: _formatThresholdCurrent(metrics),
+      ),
+      _DebugMetricRow(
+        label: 'Decision',
+        value: _formatThresholdDecisionMeta(metrics),
+      ),
+      _DebugMetricRow(
+        label: 'Session',
+        value: _formatThresholdDecisionSummary(metrics),
+      ),
+    ];
+
     final validationRows = <Widget>[
       _DebugMetricRow(
         label: 'ValidCount',
@@ -1371,6 +1386,10 @@ class _CalibrationDebugPanel extends StatelessWidget {
                           title: 'Validation',
                           children: validationRows,
                         ),
+                        _DebugSection(
+                          title: 'Threshold',
+                          children: thresholdRows,
+                        ),
                         _DebugSection(title: 'Phase', children: phaseRows),
                         _DebugSection(title: 'Last Rep', children: lastRepRows),
                       ],
@@ -1418,6 +1437,49 @@ String _formatRangeRepCoverage(WorkoutCalibrationMetrics metrics) {
 String _formatRangeRepSideCoverage(WorkoutCalibrationMetrics metrics) {
   return 'L ${metrics.leftRangeRepCoverage}/2 / '
       'R ${metrics.rightRangeRepCoverage}/2';
+}
+
+String _formatThresholdCurrent(WorkoutCalibrationMetrics metrics) {
+  final baseThreshold = metrics.baseFormThreshold ?? metrics.formThreshold;
+  final effectiveThreshold =
+      metrics.effectiveFormThreshold ?? metrics.formThreshold;
+  final parts = <String>[
+    'base ${_formatAngle(baseThreshold)}',
+    'eff ${_formatAngle(effectiveThreshold)}',
+  ];
+
+  if (metrics.calibrationThresholdOffsetCandidate != null) {
+    final offset = metrics.calibrationThresholdOffsetCandidate!;
+    final sign = offset >= 0 ? '+' : '';
+    parts.add('off $sign${_formatTelemetryValue(offset)}');
+  }
+
+  return parts.join(' | ');
+}
+
+String _formatThresholdDecisionMeta(WorkoutCalibrationMetrics metrics) {
+  final parts = <String>[
+    metrics.calibrationThresholdOffsetFallbackReason ?? '--',
+  ];
+
+  if (metrics.calibrationThresholdOffsetSampleCount != null) {
+    parts.add('n ${metrics.calibrationThresholdOffsetSampleCount}');
+  }
+  if (metrics.calibrationThresholdOffsetBaselineSideLabel != null) {
+    parts.add('side ${metrics.calibrationThresholdOffsetBaselineSideLabel}');
+  }
+
+  return parts.join(' | ');
+}
+
+String _formatThresholdDecisionSummary(WorkoutCalibrationMetrics metrics) {
+  return 'all ${metrics.calibrationThresholdDecisionCount} | '
+      'ap ${metrics.calibrationThresholdAppliedCount} | '
+      'nb ${metrics.calibrationThresholdNoBaselineCount} | '
+      'ins ${metrics.calibrationThresholdInsufficientSamplesCount} | '
+      'miss ${metrics.calibrationThresholdMissingFormBaselineCount} | '
+      'side ${metrics.calibrationThresholdSideMismatchCount} | '
+      'small ${metrics.calibrationThresholdOffsetTooSmallCount}';
 }
 
 String _formatMilliseconds(int milliseconds) {
