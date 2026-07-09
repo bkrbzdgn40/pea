@@ -15,7 +15,7 @@ class FirestoreSessionRemoteSource {
       await _sessionDocument(
         session.ownerId,
         session.id,
-      ).set(_toFirestoreData(session));
+      ).set(_toSessionSummaryDocumentData(session));
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be saved.',
@@ -119,12 +119,17 @@ class FirestoreSessionRemoteSource {
     return _firestore.doc(FirestorePaths.userSessionDoc(ownerId, sessionId));
   }
 
-  Map<String, dynamic> _toFirestoreData(WorkoutSession session) {
+  /// Maps the domain session into today's summary-only session document shape.
+  ///
+  /// `WorkoutSession.reps` is intentionally excluded here. Rep-level data may
+  /// still exist in the domain model for in-memory and future flows, but it is
+  /// not part of the current Firestore session document contract.
+  Map<String, dynamic> _toSessionSummaryDocumentData(WorkoutSession session) {
     final now = DateTime.now();
     // Client timestamps keep the first Firestore integration deterministic.
     final createdAt = session.createdAt ?? now;
     final updatedAt = session.updatedAt ?? now;
-    final firestoreData = <String, dynamic>{
+    final sessionSummaryDocumentData = <String, dynamic>{
       'id': session.id,
       'ownerId': session.ownerId,
       'exerciseType': session.exerciseType,
@@ -143,7 +148,7 @@ class FirestoreSessionRemoteSource {
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
 
-    return firestoreData;
+    return sessionSummaryDocumentData;
   }
 
   WorkoutSession _fromFirestoreData(

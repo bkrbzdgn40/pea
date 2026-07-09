@@ -1,6 +1,6 @@
 import 'workout_rep.dart';
 
-/// Persistable summary of one completed workout analysis session.
+/// Persistable domain snapshot of one completed workout analysis session.
 class WorkoutSession {
   const WorkoutSession({
     required this.id,
@@ -36,6 +36,10 @@ class WorkoutSession {
   final double totalHoldSeconds;
   final double bestHoldSeconds;
   final int formBreakCount;
+  /// Optional rep-level details kept in the domain model.
+  ///
+  /// The current Firestore session document contract is summary-only and does
+  /// not persist this field.
   final List<WorkoutRep>? reps;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -83,6 +87,10 @@ class WorkoutSession {
     );
   }
 
+  /// Generic domain serialization for local/model usage.
+  ///
+  /// This shape is intentionally broader than today's Firestore session
+  /// document payload, which persists summary fields only.
   Map<String, Object?> toMap() {
     return {
       'id': id,
