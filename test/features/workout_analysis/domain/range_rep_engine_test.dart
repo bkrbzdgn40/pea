@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/exercise_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 
 void main() {
-  group('ExerciseEngine squat state machine', () {
+  group('RangeRepEngine squat state machine', () {
     test('counts a completed squat rep', () {
       final clock = _TestClock();
-      final engine = ExerciseEngine(
+      final engine = RangeRepEngine(
         config: _squatConfig(),
         now: clock.now,
       );
@@ -30,7 +30,7 @@ void main() {
 
     test('does not count an aborted descent', () {
       final clock = _TestClock();
-      final engine = ExerciseEngine(
+      final engine = RangeRepEngine(
         config: _squatConfig(),
         now: clock.now,
       );
@@ -50,14 +50,14 @@ void main() {
 
     test('penalizes the final score when form breaks during the rep', () {
       final cleanClock = _TestClock();
-      final cleanEngine = ExerciseEngine(
+      final cleanEngine = RangeRepEngine(
         config: _squatConfig(),
         now: cleanClock.now,
       );
       _completeSquatRep(cleanClock, cleanEngine);
 
       final violatedClock = _TestClock();
-      final violatedEngine = ExerciseEngine(
+      final violatedEngine = RangeRepEngine(
         config: _squatConfig(),
         now: violatedClock.now,
       );
@@ -76,7 +76,7 @@ void main() {
       'clearActiveRepContext clears active rep state but keeps session rep history',
       () {
         final clock = _TestClock();
-        final engine = ExerciseEngine(
+        final engine = RangeRepEngine(
           config: _squatConfig(),
           now: clock.now,
         );
@@ -114,7 +114,7 @@ class _TestClock {
 
 void _completeSquatRep(
   _TestClock clock,
-  ExerciseEngine engine, {
+  RangeRepEngine engine, {
   double repBackAngle = 60,
 }) {
   _confirmTransition(clock, engine, angle: 140, backAngle: repBackAngle);
@@ -131,7 +131,7 @@ void _completeSquatRep(
 
 void _confirmTransition(
   _TestClock clock,
-  ExerciseEngine engine, {
+  RangeRepEngine engine, {
   required double angle,
   double backAngle = 60,
   Duration confirmationWindow = const Duration(milliseconds: 81),

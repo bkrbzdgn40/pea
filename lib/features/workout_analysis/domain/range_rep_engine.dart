@@ -172,11 +172,8 @@ class _MutableRangeRepPhaseQuality {
   }
 }
 
-/// Current range-rep style engine backing the squat analysis flow.
-///
-/// The class name is intentionally kept stable for now to avoid rename churn
-/// while the multi-engine seam settles.
-class ExerciseEngine
+/// Current range-rep engine backing the workout analysis flow.
+class RangeRepEngine
     implements
         AnalysisEngine,
         RangeRepDiagnostics,
@@ -222,7 +219,7 @@ class ExerciseEngine
       _MutableRangeRepPhaseQuality();
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
 
-  ExerciseEngine({required this.config, DateTime Function()? now})
+  RangeRepEngine({required this.config, DateTime Function()? now})
     : _now = now ?? DateTime.now {
     _setFeedback(RangeRepFeedbackCode.ready);
   }

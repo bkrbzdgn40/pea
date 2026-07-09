@@ -1,5 +1,5 @@
 import '../domain/analysis_engine.dart';
-import '../domain/exercise_engine.dart';
+import '../domain/range_rep_engine.dart';
 import '../domain/hold_engine.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -22,7 +22,7 @@ class AnalysisEngineFactory {
         _validateRangeRepEngineContract(
           rangeRepContract ?? RangeRepContracts.squat,
         );
-        return ExerciseEngine(config: config);
+        return RangeRepEngine(config: config);
       case EngineKind.hold:
         return HoldEngine(config: config);
       case EngineKind.alternatingRep:
