@@ -17,7 +17,9 @@ import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_rep_summary.dart';
+import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_diagnostics.dart';
+import '../../domain/range_rep_validation_policy.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
@@ -70,9 +72,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
   final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
   late final RangeRepVisibilityPolicy _rangeRepVisibilityPolicy;
+  final RangeRepValidationPolicy _rangeRepValidationPolicy =
+      const RangeRepValidationPolicy();
   final InputImageConverter _inputImageConverter = const InputImageConverter();
   RangeRepSide? _selectedRangeRepSide;
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
+  RangeRepValidationResult? _lastRangeRepValidationResult;
   bool _activeRangeRepHadCoverageDrop = false;
   bool _activeRangeRepSwitchedSideDuringRep = false;
   String? _activeRangeRepSelectedSideLabel;
@@ -609,7 +614,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       return;
     }
 
-    _lastRangeRepRepSummaryCandidate = RangeRepRepSummary(
+    final summaryCandidate = RangeRepRepSummary(
       repIndex: coreData.repIndex,
       minAngle: coreData.minAngle,
       worstFormMetric: coreData.worstFormMetric,
@@ -621,6 +626,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       completedPhaseSequence: coreData.completedPhaseSequence,
       selectedSideLabel: _activeRangeRepSelectedSideLabel,
       analysisKindLabel: _engineKind.name,
+    );
+    _lastRangeRepRepSummaryCandidate = summaryCandidate;
+    _lastRangeRepValidationResult = _rangeRepValidationPolicy.evaluate(
+      summaryCandidate,
     );
     _resetRangeRepRepSummaryContext();
   }
@@ -645,6 +654,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _activeRangeRepSelectedSideLabel = null;
     if (clearCandidate) {
       _lastRangeRepRepSummaryCandidate = null;
+      _lastRangeRepValidationResult = null;
     }
   }
 
