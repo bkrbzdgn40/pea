@@ -79,6 +79,36 @@ void main() {
     );
 
     test(
+      'listSessionReps returns an empty list for summary-only sessions',
+      () async {
+        final session = WorkoutSession(
+          id: 'session_summary_only',
+          ownerId: 'owner_1',
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          startedAt: DateTime.utc(2026, 1, 1, 12),
+          endedAt: DateTime.utc(2026, 1, 1, 12, 10),
+          durationSec: 600,
+          totalReps: 2,
+          averageScore: 83.5,
+          bestScore: 90.0,
+          worstScore: 77.0,
+          validReps: 1,
+          invalidReps: 1,
+          formWarningCount: 2,
+        );
+
+        await remoteSource.saveSession(session);
+        final reps = await remoteSource.listSessionReps(
+          ownerId: session.ownerId,
+          sessionId: session.id,
+        );
+
+        expect(reps, isEmpty);
+      },
+    );
+
+    test(
       'deleteSession removes both the session document and rep subcollection',
       () async {
         final session = _session();

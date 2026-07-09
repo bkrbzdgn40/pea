@@ -18,8 +18,32 @@ service cloud.firestore {
       return value == null || value is number;
     }
 
+    function isScore(value) {
+      return value is number && value >= 0 && value <= 100;
+    }
+
+    function isNullableScore(value) {
+      return value == null || isScore(value);
+    }
+
     function isNullableInt(value) {
       return value == null || value is int;
+    }
+
+    function isNonNegativeInt(value) {
+      return value is int && value >= 0;
+    }
+
+    function isNullableNonNegativeInt(value) {
+      return value == null || isNonNegativeInt(value);
+    }
+
+    function isNonNegativeNumber(value) {
+      return value is number && value >= 0;
+    }
+
+    function isNullableNonNegativeNumber(value) {
+      return value == null || isNonNegativeNumber(value);
     }
 
     function isNullableBool(value) {
@@ -88,17 +112,19 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp &&
         request.resource.data.updatedAt is timestamp &&
         request.resource.data.endedAt >= request.resource.data.startedAt &&
-        request.resource.data.durationSeconds is int &&
-        request.resource.data.totalReps is int &&
-        request.resource.data.validReps is int &&
-        request.resource.data.invalidReps is int &&
-        request.resource.data.averageScore is number &&
-        request.resource.data.bestScore is number &&
-        request.resource.data.worstScore is number &&
-        request.resource.data.formWarningCount is int &&
-        request.resource.data.holdDurationSeconds is number &&
-        request.resource.data.bestHoldSeconds is number &&
-        request.resource.data.holdFormBreakCount is int;
+        isNonNegativeInt(request.resource.data.durationSeconds) &&
+        isNonNegativeInt(request.resource.data.totalReps) &&
+        isNonNegativeInt(request.resource.data.validReps) &&
+        isNonNegativeInt(request.resource.data.invalidReps) &&
+        request.resource.data.validReps + request.resource.data.invalidReps <=
+          request.resource.data.totalReps &&
+        isScore(request.resource.data.averageScore) &&
+        isScore(request.resource.data.bestScore) &&
+        isScore(request.resource.data.worstScore) &&
+        isNonNegativeInt(request.resource.data.formWarningCount) &&
+        isNonNegativeNumber(request.resource.data.holdDurationSeconds) &&
+        isNonNegativeNumber(request.resource.data.bestHoldSeconds) &&
+        isNonNegativeInt(request.resource.data.holdFormBreakCount);
     }
 
     function isValidSessionCreate(userId, sessionId) {
@@ -166,9 +192,10 @@ service cloud.firestore {
         request.resource.data.exerciseType is string &&
         request.resource.data.analysisKind is string &&
         request.resource.data.repIndex is int &&
+        request.resource.data.repIndex >= 1 &&
         request.resource.data.isValid is bool &&
         request.resource.data.createdAt is timestamp &&
-        isNullableNumber(request.resource.data.score) &&
+        isNullableScore(request.resource.data.score) &&
         isNullableString(request.resource.data.validationStatus) &&
         isNullableString(request.resource.data.invalidReason) &&
         (
@@ -176,11 +203,11 @@ service cloud.firestore {
           request.resource.data.validationReasons is list
         ) &&
         isNullableTimestamp(request.resource.data.endedAt) &&
-        isNullableNumber(request.resource.data.durationSeconds) &&
+        isNullableNonNegativeNumber(request.resource.data.durationSeconds) &&
         isNullableNumber(request.resource.data.minPrimaryMetric) &&
         isNullableNumber(request.resource.data.worstFormMetric) &&
-        isNullableInt(request.resource.data.descentMillis) &&
-        isNullableInt(request.resource.data.ascentMillis) &&
+        isNullableNonNegativeInt(request.resource.data.descentMillis) &&
+        isNullableNonNegativeInt(request.resource.data.ascentMillis) &&
         isNullableBool(request.resource.data.hadFormViolation) &&
         isNullableBool(request.resource.data.hadCoverageDrop) &&
         isNullableBool(request.resource.data.switchedSideDuringRep) &&
