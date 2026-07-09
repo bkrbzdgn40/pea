@@ -15,17 +15,19 @@ import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
+import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_contract.dart';
+import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_rep_summary.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
+import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
 import 'pose_provider.dart';
-import '../../domain/models/calibration_snapshot.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
@@ -274,7 +276,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           isHolding: holdDiagnostics.isHolding,
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
-          feedbackMessage: _engine.feedback,
+          feedbackMessage: _resolvedEngineFeedbackMessage(),
           currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
@@ -425,6 +427,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       isInvalidFrame: isInvalidFrame,
       now: now,
     );
+  }
+
+  String _resolvedEngineFeedbackMessage() {
+    if (_engineKind == EngineKind.rangeRep && _engine is RangeRepFeedbackSource) {
+      final feedbackCode = (_engine as RangeRepFeedbackSource).feedbackCode;
+      if (feedbackCode != null) {
+        return mapRangeRepFeedbackCodeToMessage(feedbackCode);
+      }
+    }
+
+    return _engine.feedback;
   }
 
   AnalysisFrame _buildAnalysisFrame(
