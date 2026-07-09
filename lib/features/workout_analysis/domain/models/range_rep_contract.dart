@@ -40,3 +40,22 @@ class RangeRepContract {
     return supportedSignals.contains(signal);
   }
 }
+
+/// Predefined range-rep contracts kept separate from runtime wiring.
+abstract final class RangeRepContracts {
+  static final RangeRepContract squat = RangeRepContract(
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+      RangeRepSignal.alignmentMetric,
+      RangeRepSignal.endRangeMetric,
+    },
+  );
+}
