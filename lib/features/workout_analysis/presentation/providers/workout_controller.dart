@@ -262,10 +262,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           metrics,
           rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
         );
-        final formThresholdResolution = _resolveFormThreshold(
-          baseThreshold: _config.formThreshold,
-          selectedRangeRepSide: selectedRangeRepSide,
-        );
+        final formThresholdResolution = _engineKind == EngineKind.rangeRep
+            ? _resolveFormThreshold(
+                baseThreshold: _config.formThreshold,
+                selectedRangeRepSide: selectedRangeRepSide,
+              )
+            : null;
         final engineFrame = _applyFormThresholdResolution(
           analysisFrame,
           formThresholdResolution,
@@ -305,7 +307,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentPrimaryMetric: analysisFrame.primaryMetric,
             thresholdValue: _engineKind == EngineKind.hold
                 ? holdDiagnostics.bodyLineTargetAngle
-                : formThresholdResolution.effectiveThreshold,
+                : formThresholdResolution!.effectiveThreshold,
             currentBodyLineAngle: analysisFrame.bodyLineAngle,
             currentArmSupportAngle: analysisFrame.armSupportAngle,
             currentLegExtensionAngle: analysisFrame.legExtensionAngle,
@@ -316,10 +318,18 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentLockoutMetric: selectedFormSignals?.lockoutMetric,
             currentBottomControlMetric:
                 selectedFormSignals?.bottomControlMetric,
+            baseFormThreshold: formThresholdResolution?.baseThreshold,
+            effectiveFormThreshold: formThresholdResolution?.effectiveThreshold,
             calibrationThresholdOffsetCandidate:
-                formThresholdResolution.offsetCandidate,
+                formThresholdResolution?.offsetCandidate,
             calibrationThresholdOffsetApplied:
-                formThresholdResolution.isApplied,
+                formThresholdResolution?.isApplied ?? false,
+            calibrationThresholdOffsetFallbackReason:
+                formThresholdResolution?.decisionReason,
+            calibrationThresholdOffsetSampleCount:
+                formThresholdResolution?.sampleCount,
+            calibrationThresholdOffsetBaselineSideLabel:
+                formThresholdResolution?.baselineSideLabel,
             isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
             hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
             hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
@@ -350,6 +360,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         );
       } else {
         // No-pose frames should not reset session counters or last rep results.
+        final formThresholdResolution = _engineKind == EngineKind.rangeRep
+            ? _resolveFormThreshold(
+                baseThreshold: _config.formThreshold,
+                selectedRangeRepSide: null,
+              )
+            : null;
         state = WorkoutState(
           landmarks: metrics.landmarks,
           analysisKind: _engineKind,
@@ -370,7 +386,23 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentFormMetric: metrics.formMetric,
             thresholdValue: _engineKind == EngineKind.hold
                 ? _config.resolvedHoldPosture.bodyLineEntryAngle
-                : _config.formThreshold,
+                : formThresholdResolution!.effectiveThreshold,
+            baseFormThreshold: _engineKind == EngineKind.rangeRep
+                ? formThresholdResolution?.baseThreshold
+                : null,
+            effectiveFormThreshold: _engineKind == EngineKind.rangeRep
+                ? formThresholdResolution?.effectiveThreshold
+                : null,
+            calibrationThresholdOffsetCandidate:
+                formThresholdResolution?.offsetCandidate,
+            calibrationThresholdOffsetApplied:
+                formThresholdResolution?.isApplied ?? false,
+            calibrationThresholdOffsetFallbackReason:
+                formThresholdResolution?.decisionReason,
+            calibrationThresholdOffsetSampleCount:
+                formThresholdResolution?.sampleCount,
+            calibrationThresholdOffsetBaselineSideLabel:
+                formThresholdResolution?.baselineSideLabel,
           ),
         );
       }
@@ -545,9 +577,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentStabilityMetric: formSignals?.stabilityMetric,
         currentLockoutMetric: formSignals?.lockoutMetric,
         currentBottomControlMetric: formSignals?.bottomControlMetric,
+        baseFormThreshold: formThresholdResolution.baseThreshold,
+        effectiveFormThreshold: formThresholdResolution.effectiveThreshold,
         calibrationThresholdOffsetCandidate:
             formThresholdResolution.offsetCandidate,
         calibrationThresholdOffsetApplied: formThresholdResolution.isApplied,
+        calibrationThresholdOffsetFallbackReason:
+            formThresholdResolution.decisionReason,
+        calibrationThresholdOffsetSampleCount:
+            formThresholdResolution.sampleCount,
+        calibrationThresholdOffsetBaselineSideLabel:
+            formThresholdResolution.baselineSideLabel,
         isRangeRepFrameValid: false,
         hasPrimaryAngle: assessment.hasPrimaryAngle,
         hasFormMetric: assessment.hasFormMetric,
@@ -592,8 +632,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required double currentFormMetric,
     required double thresholdValue,
     double? currentPrimaryMetric,
+    double? baseFormThreshold,
+    double? effectiveFormThreshold,
     double? calibrationThresholdOffsetCandidate,
     bool calibrationThresholdOffsetApplied = false,
+    String? calibrationThresholdOffsetFallbackReason,
+    int? calibrationThresholdOffsetSampleCount,
+    String? calibrationThresholdOffsetBaselineSideLabel,
     bool isRangeRepFrameValid = true,
     bool hasPrimaryAngle = false,
     bool hasFormMetric = false,
@@ -765,9 +810,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
       calibrationSnapshot: _lastCalibrationSnapshot,
+      baseFormThreshold: baseFormThreshold,
+      effectiveFormThreshold: effectiveFormThreshold ?? thresholdValue,
       calibrationThresholdOffsetCandidate:
           calibrationThresholdOffsetCandidate,
       calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
+      calibrationThresholdOffsetFallbackReason:
+          calibrationThresholdOffsetFallbackReason,
+      calibrationThresholdOffsetSampleCount:
+          calibrationThresholdOffsetSampleCount,
+      calibrationThresholdOffsetBaselineSideLabel:
+          calibrationThresholdOffsetBaselineSideLabel,
       sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
     );
   }
@@ -776,37 +829,51 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required double baseThreshold,
     required String? selectedRangeRepSide,
   }) {
-    final offsetCandidate = _buildCalibrationThresholdOffsetCandidate(
-      baseThreshold: baseThreshold,
-      selectedRangeRepSide: selectedRangeRepSide,
-    );
-    if (offsetCandidate == null) {
-      return _FormThresholdResolution.fallback(baseThreshold);
-    }
-
-    return _FormThresholdResolution(
-      offsetCandidate: offsetCandidate,
-      isApplied: true,
-      effectiveThreshold: _config.resolveFormThreshold(offset: offsetCandidate),
-    );
-  }
-
-  double? _buildCalibrationThresholdOffsetCandidate({
-    required double baseThreshold,
-    required String? selectedRangeRepSide,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return null;
-    }
-
     final baseline = _sessionCalibrationBaseline;
-    if (baseline == null ||
-        baseline.analysisKind != _engineKind.name ||
-        baseline.sampleCount < _minCalibrationBaselineSamplesForThresholdOffset ||
-        baseline.formMetricBaseline == null ||
-        selectedRangeRepSide == null ||
+    final sampleCount = baseline?.sampleCount;
+    final baselineSideLabel = baseline?.selectedSideLabel;
+    if (baseline == null) {
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'no_baseline',
+      );
+    }
+
+    if (baseline.analysisKind != _engineKind.name) {
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'no_baseline',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
+    }
+
+    if (baseline.sampleCount < _minCalibrationBaselineSamplesForThresholdOffset) {
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'insufficient_samples',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
+    }
+
+    if (baseline.formMetricBaseline == null) {
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'missing_form_baseline',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
+    }
+
+    if (selectedRangeRepSide == null ||
         baseline.selectedSideLabel != selectedRangeRepSide) {
-      return null;
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'side_mismatch',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
     }
 
     final offset = (baseline.formMetricBaseline! - baseThreshold)
@@ -816,18 +883,31 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         )
         .toDouble();
     if (offset.abs() < _minCalibrationThresholdOffsetMagnitude) {
-      return null;
+      return _FormThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'offset_too_small',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
     }
 
-    return offset;
+    return _FormThresholdResolution(
+      baseThreshold: baseThreshold,
+      effectiveThreshold: _config.resolveFormThreshold(offset: offset),
+      isApplied: true,
+      offsetCandidate: offset,
+      decisionReason: 'applied',
+      sampleCount: sampleCount,
+      baselineSideLabel: baselineSideLabel,
+    );
   }
 
   AnalysisFrame _applyFormThresholdResolution(
     AnalysisFrame frame,
-    _FormThresholdResolution resolution,
+    _FormThresholdResolution? resolution,
   ) {
-    final offsetCandidate = resolution.offsetCandidate;
-    if (!resolution.isApplied || offsetCandidate == null) {
+    final offsetCandidate = resolution?.offsetCandidate;
+    if (resolution == null || !resolution.isApplied || offsetCandidate == null) {
       return frame;
     }
 
@@ -1285,18 +1365,31 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
 class _FormThresholdResolution {
   const _FormThresholdResolution({
+    required this.baseThreshold,
     required this.effectiveThreshold,
     required this.isApplied,
     this.offsetCandidate,
+    required this.decisionReason,
+    this.sampleCount,
+    this.baselineSideLabel,
   });
 
-  const _FormThresholdResolution.fallback(this.effectiveThreshold)
-    : isApplied = false,
-      offsetCandidate = null;
+  const _FormThresholdResolution.fallback({
+    required this.baseThreshold,
+    required this.decisionReason,
+    this.sampleCount,
+    this.baselineSideLabel,
+  }) : effectiveThreshold = baseThreshold,
+       isApplied = false,
+       offsetCandidate = null;
 
+  final double baseThreshold;
   final double effectiveThreshold;
   final bool isApplied;
   final double? offsetCandidate;
+  final String decisionReason;
+  final int? sampleCount;
+  final String? baselineSideLabel;
 }
 
 class _SessionCalibrationBaselineAccumulator {

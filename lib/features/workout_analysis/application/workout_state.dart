@@ -83,8 +83,13 @@ class WorkoutCalibrationMetrics {
     this.lastRepWorstBackAngle = 0.0,
     this.lastRepHadFormViolation = false,
     this.calibrationSnapshot,
+    this.baseFormThreshold,
+    this.effectiveFormThreshold,
     this.calibrationThresholdOffsetCandidate,
     this.calibrationThresholdOffsetApplied = false,
+    this.calibrationThresholdOffsetFallbackReason,
+    this.calibrationThresholdOffsetSampleCount,
+    this.calibrationThresholdOffsetBaselineSideLabel,
     this.sessionCalibrationBaselineCandidate,
   });
 
@@ -166,8 +171,13 @@ class WorkoutCalibrationMetrics {
   final double lastRepWorstBackAngle;
   final bool lastRepHadFormViolation;
   final CalibrationSnapshot? calibrationSnapshot;
+  final double? baseFormThreshold;
+  final double? effectiveFormThreshold;
   final double? calibrationThresholdOffsetCandidate;
   final bool calibrationThresholdOffsetApplied;
+  final String? calibrationThresholdOffsetFallbackReason;
+  final int? calibrationThresholdOffsetSampleCount;
+  final String? calibrationThresholdOffsetBaselineSideLabel;
   final SessionCalibrationBaseline? sessionCalibrationBaselineCandidate;
 }
 
