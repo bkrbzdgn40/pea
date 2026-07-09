@@ -1,5 +1,51 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+class RangeRepScoreWeightsConfig {
+  const RangeRepScoreWeightsConfig({
+    this.depthWeight,
+    this.postureWeight,
+    this.stabilityWeight,
+    this.descentControlWeight,
+    this.ascentControlWeight,
+    this.consistencyWeight,
+  });
+
+  final double? depthWeight;
+  final double? postureWeight;
+  final double? stabilityWeight;
+  final double? descentControlWeight;
+  final double? ascentControlWeight;
+  final double? consistencyWeight;
+
+  factory RangeRepScoreWeightsConfig.fromMap(Map<String, dynamic> map) {
+    double? readDoubleOrNull(String key) {
+      final value = map[key];
+      if (value == null) {
+        return null;
+      }
+      if (value is num) {
+        return value.toDouble();
+      }
+      if (value is String) {
+        return double.parse(value);
+      }
+
+      throw FormatException(
+        'RangeRepScoreWeightsConfig.$key must be a number.',
+      );
+    }
+
+    return RangeRepScoreWeightsConfig(
+      depthWeight: readDoubleOrNull('depthWeight'),
+      postureWeight: readDoubleOrNull('postureWeight'),
+      stabilityWeight: readDoubleOrNull('stabilityWeight'),
+      descentControlWeight: readDoubleOrNull('descentControlWeight'),
+      ascentControlWeight: readDoubleOrNull('ascentControlWeight'),
+      consistencyWeight: readDoubleOrNull('consistencyWeight'),
+    );
+  }
+}
+
 class HoldPostureConfig {
   const HoldPostureConfig({
     required this.activePostureAngle,
@@ -87,6 +133,7 @@ class ExerciseConfig {
   final double targetMinAngle;
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
+  final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
 
   ExerciseConfig({
     required this.name,
@@ -102,6 +149,7 @@ class ExerciseConfig {
     this.targetMinAngle = 70.0,
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
+    this.rangeRepScoreWeights,
   });
 
   HoldPostureConfig get resolvedHoldPosture {
@@ -152,12 +200,29 @@ class ExerciseConfig {
       return HoldPostureConfig.fromMap(Map<String, dynamic>.from(value));
     }
 
+    RangeRepScoreWeightsConfig? readRangeRepScoreWeightsOrNull() {
+      final value = map['rangeRepScoreWeights'];
+      if (value == null) {
+        return null;
+      }
+      if (value is! Map) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepScoreWeights must be an object.',
+        );
+      }
+
+      return RangeRepScoreWeightsConfig.fromMap(
+        Map<String, dynamic>.from(value),
+      );
+    }
+
     final name = map['name'];
     if (name is! String) {
       throw FormatException('ExerciseConfig.name must be a String.');
     }
 
     final holdPosture = readHoldPostureOrNull();
+    final rangeRepScoreWeights = readRangeRepScoreWeightsOrNull();
 
     return ExerciseConfig(
       name: name,
@@ -179,6 +244,7 @@ class ExerciseConfig {
       targetMinAngle: readDouble('targetMinAngle', fallback: 0.0),
       tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond', fallback: 0.0),
       holdPosture: holdPosture,
+      rangeRepScoreWeights: rangeRepScoreWeights,
     );
   }
 }

@@ -70,6 +70,16 @@ class RepResult {
   });
 }
 
+class _WeightedScoreComponent {
+  const _WeightedScoreComponent({
+    required this.score,
+    required this.weight,
+  });
+
+  final double? score;
+  final double weight;
+}
+
 /// Current range-rep style engine backing the squat analysis flow.
 ///
 /// The class name is intentionally kept stable for now to avoid rename churn
@@ -245,6 +255,21 @@ class ExerciseEngine
       idealSeconds: config.idealAscentSeconds,
     );
     final tempoScore = (descentScore + ascentScoreCandidate) / 2;
+    final descentControlScore = descentScore;
+    final ascentControlScore = ascentScoreCandidate;
+    final scoreWeights = config.rangeRepScoreWeights;
+    final weightedScoreCandidate = _composeWeightedScore(
+      <_WeightedScoreComponent>[
+        _WeightedScoreComponent(
+          score: descentControlScore,
+          weight: scoreWeights?.descentControlWeight ?? 1.0,
+        ),
+        _WeightedScoreComponent(
+          score: ascentControlScore,
+          weight: scoreWeights?.ascentControlWeight ?? 1.0,
+        ),
+      ],
+    );
 
     // Keep the penalty binary, but base it on full rep history, not the last frame.
     final finalScore = _currentRepHadFormViolation
@@ -262,6 +287,9 @@ class ExerciseEngine
       worstBackAngle: _currentRepWorstBackAngle,
       hadFormViolation: _currentRepHadFormViolation,
       finalScore: finalScore,
+      descentControlScore: descentControlScore,
+      ascentControlScore: ascentControlScore,
+      weightedScoreCandidate: weightedScoreCandidate,
     );
     lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
       repIndex: repCount,
@@ -286,6 +314,27 @@ class ExerciseEngine
             (idealSeconds - actualSeconds).abs() * config.tempoPenaltyPerSecond)
         .clamp(0, 100)
         .toDouble();
+  }
+
+  double? _composeWeightedScore(Iterable<_WeightedScoreComponent> components) {
+    var weightedScoreTotal = 0.0;
+    var totalWeight = 0.0;
+
+    for (final component in components) {
+      final score = component.score;
+      if (score == null || component.weight <= 0) {
+        continue;
+      }
+
+      weightedScoreTotal += score * component.weight;
+      totalWeight += component.weight;
+    }
+
+    if (totalWeight <= 0) {
+      return null;
+    }
+
+    return weightedScoreTotal / totalWeight;
   }
 
   void _startRepMetrics(double angle, double backAngle) {

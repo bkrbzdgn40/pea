@@ -10,5 +10,9 @@
   "idealAscentSeconds": 1.0,
   "formThreshold": 45.0,
   "targetMinAngle": 70.0,
-  "tempoPenaltyPerSecond": 20.0
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  }
 }
