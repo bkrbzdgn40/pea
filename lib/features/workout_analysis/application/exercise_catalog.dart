@@ -1,4 +1,5 @@
 import '../domain/models/exercise_type.dart';
+import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
 
@@ -13,6 +14,7 @@ class ExerciseCatalog {
       title: ExerciseType.squat.title,
       engineKind: EngineKind.rangeRep,
       configAssetPath: 'assets/config/exercises/squat.json',
+      rangeRepContract: RangeRepContracts.squat,
     ),
     ExerciseDefinition.supported(
       type: ExerciseType.plank,
