@@ -1181,14 +1181,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
   }
 
-  bool get _shouldLockRangeRepSideSelection {
-    return shouldLockRangeRepSideSelection(
-      engineKind: _engineKind,
-      selectedSide: _selectedRangeRepSide,
-      diagnostics: _rangeRepDiagnosticsSnapshot(),
-    );
-  }
-
   void _clearRangeRepActiveContext({String? reason}) {
     if (_engine is RangeRepResyncControl) {
       (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
