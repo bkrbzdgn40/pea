@@ -3,6 +3,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 
 void main() {
   group('RangeRepEngine squat state machine', () {
@@ -99,6 +100,58 @@ void main() {
         );
       },
     );
+
+    test('completed rep exposes core data exactly once', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(
+        config: _squatConfig(),
+        now: clock.now,
+      );
+
+      _completeSquatRep(clock, engine);
+
+      final diagnosticsCoreData = engine.diagnosticsSnapshot.lastCompletedRepCoreData;
+      final consumedCoreData = engine.consumeCompletedRepCoreData();
+
+      expect(engine.repCount, 1);
+      expect(engine.lastRepScoreBreakdown, isNotNull);
+      expect(diagnosticsCoreData, isNotNull);
+      expect(consumedCoreData, isNotNull);
+      expect(consumedCoreData?.repIndex, 1);
+      expect(consumedCoreData?.repIndex, diagnosticsCoreData?.repIndex);
+      expect(engine.consumeCompletedRepCoreData(), isNull);
+    });
+
+    test('applies phase-aware penalty and feedback when descent quality is flagged', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(
+        config: _squatConfig(
+          phaseQuality: const RangeRepPhaseQualityConfig(
+            minDescendingMillis: 1000,
+          ),
+        ),
+        now: clock.now,
+      );
+
+      _completeSquatRep(clock, engine);
+
+      final breakdown = engine.lastRepScoreBreakdown;
+      final diagnostics = engine.diagnosticsSnapshot;
+
+      expect(engine.repCount, 1);
+      expect(breakdown, isNotNull);
+      expect(breakdown?.phaseQualityPenalty, 5.0);
+      expect(breakdown?.phaseAdjustedScore, isNotNull);
+      expect(
+        breakdown!.phaseAdjustedScore!,
+        lessThan(breakdown.runtimeBaseScore),
+      );
+      expect(engine.feedbackCode, RangeRepFeedbackCode.controlDescent);
+      expect(
+        diagnostics.phaseFeedbackCandidate,
+        RangeRepFeedbackCode.controlDescent.code,
+      );
+    });
   });
 }
 
@@ -145,7 +198,9 @@ AnalysisFrame _frame(double angle, double backAngle) {
   return AnalysisFrame(primaryMetric: angle, formMetric: backAngle);
 }
 
-ExerciseConfig _squatConfig() {
+ExerciseConfig _squatConfig({
+  RangeRepPhaseQualityConfig? phaseQuality,
+}) {
   return ExerciseConfig(
     name: 'Squat',
     primaryJoint: PoseLandmarkType.leftKnee,
@@ -159,5 +214,6 @@ ExerciseConfig _squatConfig() {
     formThreshold: 45.0,
     targetMinAngle: 70.0,
     tempoPenaltyPerSecond: 20.0,
+    rangeRepPhaseQuality: phaseQuality,
   );
 }

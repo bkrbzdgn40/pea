@@ -59,6 +59,58 @@ void main() {
       );
     });
 
+    test('selects the higher coverage side when no previous side exists', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 180,
+            formMetric: 90,
+            hasPrimaryAngle: false,
+            hasFormMetric: false,
+          ),
+          right: const RangeRepSideMetrics(
+            side: RangeRepSide.right,
+            primaryAngle: 95,
+            formMetric: 65,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+        ),
+      );
+
+      expect(selection.selectedSide, RangeRepSide.right);
+      expect(
+        selection.reason,
+        RangeRepSideSelectionReason.selectedHigherCoverage,
+      );
+    });
+
+    test('returns noAvailableSide when both sides have zero coverage', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 180,
+            formMetric: 90,
+            hasPrimaryAngle: false,
+            hasFormMetric: false,
+          ),
+          right: const RangeRepSideMetrics(
+            side: RangeRepSide.right,
+            primaryAngle: 180,
+            formMetric: 90,
+            hasPrimaryAngle: false,
+            hasFormMetric: false,
+          ),
+        ),
+      );
+
+      expect(selection.selectedSide, isNull);
+      expect(selection.selectedMetrics, isNull);
+      expect(selection.reason, RangeRepSideSelectionReason.noAvailableSide);
+    });
+
     test('locks the active rep to the previous side to avoid mixed-side input', () {
       final selection = policy.select(
         metrics: _metrics(
