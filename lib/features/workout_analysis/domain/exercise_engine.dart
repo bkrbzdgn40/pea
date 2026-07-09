@@ -1,6 +1,7 @@
 import 'analysis_engine.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
+import 'models/range_rep_feedback_code.dart';
 import 'models/rep_score_breakdown.dart';
 import 'range_rep_diagnostics.dart';
 
@@ -264,11 +265,11 @@ class ExerciseEngine
       descendingPhaseAssessment: descendingPhaseAssessment,
       peakPhaseAssessment: peakPhaseAssessment,
       ascendingPhaseAssessment: ascendingPhaseAssessment,
-      phaseFeedbackCandidate: _phaseFeedbackCandidate(
+      phaseFeedbackCandidate: _phaseFeedbackCodeCandidate(
         descendingPhaseAssessment: descendingPhaseAssessment,
         peakPhaseAssessment: peakPhaseAssessment,
         ascendingPhaseAssessment: ascendingPhaseAssessment,
-      ),
+      )?.code,
     );
   }
 
@@ -294,7 +295,7 @@ class ExerciseEngine
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
           _startRepMetrics(angle, backAngle, phaseStartedAt: confirmedAt);
-          feedback = "Asagi in...";
+          feedback = _feedbackMessageForCode(RangeRepFeedbackCode.descend);
         }
         break;
 
@@ -338,7 +339,9 @@ class ExerciseEngine
           if (abortConfirmedAt != null) {
             state = MovementPhase.neutral;
             _resetCurrentRepMetrics();
-            feedback = "Hareketi tamamlamadin.";
+            feedback = _feedbackMessageForCode(
+              RangeRepFeedbackCode.repIncomplete,
+            );
           }
         }
         break;
@@ -370,7 +373,7 @@ class ExerciseEngine
             primaryMetric: angle,
             formMetric: backAngle,
           );
-          feedback = "Yukari...";
+          feedback = _feedbackMessageForCode(RangeRepFeedbackCode.ascend);
         }
         break;
 
@@ -397,7 +400,6 @@ class ExerciseEngine
           _finishRep();
           state = MovementPhase.neutral;
           _captureLastCompletedPhaseQualityTelemetry(repCompleteAt);
-          feedback = "Basarili!";
         }
         break;
     }
@@ -460,18 +462,25 @@ class ExerciseEngine
       descendingPhaseAssessment: descendingPhaseAssessment,
       ascendingPhaseAssessment: ascendingPhaseAssessment,
     );
+    final phaseFeedbackCodeCandidate = _phaseFeedbackCodeCandidate(
+      descendingPhaseAssessment: descendingPhaseAssessment,
+      peakPhaseAssessment: peakPhaseAssessment,
+      ascendingPhaseAssessment: ascendingPhaseAssessment,
+    );
 
-    // Keep the penalty binary, but base it on full rep history, not the last frame.
-    final finalScore = _currentRepHadFormViolation
+    // Phase-aware score now becomes the runtime score when a completed rep is flagged.
+    final baseScore = _currentRepHadFormViolation
         ? (romScore + tempoScore) / 4
         : (romScore + tempoScore) / 2;
     final phaseInformedScoreCandidate = phaseQualityPenaltyCandidate == null
         ? null
-        : (finalScore - phaseQualityPenaltyCandidate)
-              .clamp(0.0, 100.0)
-              .toDouble();
+        : (baseScore - phaseQualityPenaltyCandidate).clamp(0.0, 100.0).toDouble();
+    final finalScore = phaseInformedScoreCandidate ?? baseScore;
 
     lastRepScore = finalScore;
+    feedback = _feedbackMessageForCode(
+      phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
+    );
     lastRepScoreBreakdown = RepScoreBreakdown(
       minAngle: maxROM,
       romScore: romScore,
@@ -631,7 +640,7 @@ class ExerciseEngine
     return penalty > 0 ? penalty : null;
   }
 
-  String? _phaseFeedbackCandidate({
+  RangeRepFeedbackCode? _phaseFeedbackCodeCandidate({
     required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
     required RangeRepPhaseQualityAssessment peakPhaseAssessment,
     required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
@@ -639,17 +648,17 @@ class ExerciseEngine
     if (descendingPhaseAssessment.issues.contains(
       RangeRepPhaseQualityIssue.durationTooShort,
     )) {
-      return 'control_descent';
+      return RangeRepFeedbackCode.controlDescent;
     }
     if (ascendingPhaseAssessment.issues.contains(
       RangeRepPhaseQualityIssue.durationTooShort,
     )) {
-      return 'control_ascent';
+      return RangeRepFeedbackCode.controlAscent;
     }
     if (peakPhaseAssessment.issues.contains(
       RangeRepPhaseQualityIssue.formViolation,
     )) {
-      return 'stabilize_transition';
+      return RangeRepFeedbackCode.stabilizeTransition;
     }
     if (descendingPhaseAssessment.issues.contains(
           RangeRepPhaseQualityIssue.formViolation,
@@ -657,10 +666,37 @@ class ExerciseEngine
         ascendingPhaseAssessment.issues.contains(
           RangeRepPhaseQualityIssue.formViolation,
         )) {
-      return 'maintain_form';
+      return RangeRepFeedbackCode.maintainForm;
     }
 
     return null;
+  }
+
+  String _feedbackMessageForCode(RangeRepFeedbackCode code) {
+    switch (code) {
+      case RangeRepFeedbackCode.ready:
+        return 'Hazir!';
+      case RangeRepFeedbackCode.waitForBody:
+        return 'Vucut Bekleniyor...';
+      case RangeRepFeedbackCode.descend:
+        return 'Asagi in...';
+      case RangeRepFeedbackCode.ascend:
+        return 'Yukari...';
+      case RangeRepFeedbackCode.repCompleted:
+        return 'Basarili!';
+      case RangeRepFeedbackCode.repIncomplete:
+        return 'Hareketi tamamlamadin.';
+      case RangeRepFeedbackCode.keepBodyUpright:
+        return 'Sirtini Dik Tut!';
+      case RangeRepFeedbackCode.controlDescent:
+        return 'Inisi kontrollu yap.';
+      case RangeRepFeedbackCode.controlAscent:
+        return 'Yukselisi kontrollu yap.';
+      case RangeRepFeedbackCode.stabilizeTransition:
+        return 'Dipte gecisi sabitle.';
+      case RangeRepFeedbackCode.maintainForm:
+        return 'Formunu koru.';
+    }
   }
 
   void _captureLastCompletedPhaseQualityTelemetry(DateTime capturedAt) {
@@ -763,7 +799,7 @@ class ExerciseEngine
     // Live feedback uses the current frame; final scoring uses rep-level history.
     if (backAngle < config.formThreshold) {
       isFormBad = true;
-      feedback = "Sirtini Dik Tut!";
+      feedback = _feedbackMessageForCode(RangeRepFeedbackCode.keepBodyUpright);
     } else {
       isFormBad = false;
     }
@@ -830,7 +866,7 @@ class ExerciseEngine
   void clearActiveRepContext({String? reason}) {
     state = MovementPhase.neutral;
     isFormBad = false;
-    feedback = "Hazir!";
+    feedback = _feedbackMessageForCode(RangeRepFeedbackCode.ready);
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
