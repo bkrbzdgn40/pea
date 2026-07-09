@@ -1035,6 +1035,16 @@ class _CalibrationDebugPanel extends StatelessWidget {
         label: 'side reason',
         value: metrics.rangeRepSideSelectionReason ?? '--',
       ),
+      if (metrics.rangeRepSideHysteresisStatus != null)
+        _DebugMetricRow(
+          label: 'SideHys',
+          value: metrics.rangeRepSideHysteresisStatus!,
+        ),
+      if (metrics.rangeRepSideConsistencyStatus != null)
+        _DebugMetricRow(
+          label: 'SideRep',
+          value: metrics.rangeRepSideConsistencyStatus!,
+        ),
       _DebugMetricRow(
         label: 'invalid reason',
         value: metrics.rangeRepInvalidReason ?? '--',
@@ -1079,6 +1089,16 @@ class _CalibrationDebugPanel extends StatelessWidget {
         label: 'side coverage',
         value: _formatRangeRepSideCoverage(metrics),
       ),
+      if (metrics.leftRangeRepSideConfidence != null)
+        _DebugMetricRow(
+          label: 'L Conf',
+          value: _formatTelemetryValue(metrics.leftRangeRepSideConfidence!),
+        ),
+      if (metrics.rightRangeRepSideConfidence != null)
+        _DebugMetricRow(
+          label: 'R Conf',
+          value: _formatTelemetryValue(metrics.rightRangeRepSideConfidence!),
+        ),
     ];
 
     final signalRows = <Widget>[

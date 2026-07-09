@@ -52,6 +52,13 @@ class ExerciseMetricsExtractor {
   ) {
     final primaryAngle = _tryCalculatePrimaryAngle(pose, config, side: side);
     final formMetric = _tryCalculateFormMetric(pose, side: side);
+    final sideConfidence = _calculateRangeRepSideConfidence(
+      pose,
+      config,
+      side: side,
+      hasPrimaryAngle: primaryAngle != null,
+      hasFormMetric: formMetric != null,
+    );
     final formSignals = _extractRangeRepFormSignals(
       pose,
       config,
@@ -66,8 +73,38 @@ class ExerciseMetricsExtractor {
       formMetric: formMetric ?? 90.0,
       hasPrimaryAngle: primaryAngle != null,
       hasFormMetric: formMetric != null,
+      sideConfidence: sideConfidence,
       formSignals: formSignals,
     );
+  }
+
+  double _calculateRangeRepSideConfidence(
+    Pose pose,
+    ExerciseConfig config, {
+    required RangeRepSide side,
+    required bool hasPrimaryAngle,
+    required bool hasFormMetric,
+  }) {
+    final requiredLandmarks = <PoseLandmarkType>{
+      _landmarkTypeForSide(config.joint1, side),
+      _landmarkTypeForSide(config.primaryJoint, side),
+      _landmarkTypeForSide(config.joint2, side),
+      _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side),
+      _landmarkTypeForSide(PoseLandmarkType.leftHip, side),
+      _landmarkTypeForSide(PoseLandmarkType.leftKnee, side),
+    };
+    final observedLandmarks = requiredLandmarks
+        .where((landmarkType) => pose.landmarks[landmarkType] != null)
+        .length;
+    final landmarkCompleteness = requiredLandmarks.isEmpty
+        ? 0.0
+        : observedLandmarks / requiredLandmarks.length;
+    final signalAvailability =
+        ((hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0)) / 2.0;
+
+    return ((landmarkCompleteness + signalAvailability) / 2.0)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   RangeRepFormSignals? _extractRangeRepFormSignals(

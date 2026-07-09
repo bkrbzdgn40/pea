@@ -12,8 +12,12 @@ class WorkoutCalibrationMetrics {
     this.rangeRepInvalidReason,
     this.selectedRangeRepSide,
     this.rangeRepSideSelectionReason,
+    this.rangeRepSideHysteresisStatus,
+    this.rangeRepSideConsistencyStatus,
     this.leftRangeRepCoverage = 0,
     this.rightRangeRepCoverage = 0,
+    this.leftRangeRepSideConfidence,
+    this.rightRangeRepSideConfidence,
     this.currentBodyLineAngle,
     this.currentArmSupportAngle,
     this.currentLegExtensionAngle,
@@ -87,8 +91,12 @@ class WorkoutCalibrationMetrics {
   final String? rangeRepInvalidReason;
   final String? selectedRangeRepSide;
   final String? rangeRepSideSelectionReason;
+  final String? rangeRepSideHysteresisStatus;
+  final String? rangeRepSideConsistencyStatus;
   final int leftRangeRepCoverage;
   final int rightRangeRepCoverage;
+  final double? leftRangeRepSideConfidence;
+  final double? rightRangeRepSideConfidence;
   final double? currentBodyLineAngle;
   final double? currentArmSupportAngle;
   final double? currentLegExtensionAngle;

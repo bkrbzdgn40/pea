@@ -36,6 +36,7 @@ class RangeRepSideMetrics {
     required this.formMetric,
     required this.hasPrimaryAngle,
     required this.hasFormMetric,
+    this.sideConfidence,
     this.formSignals,
   });
 
@@ -44,6 +45,7 @@ class RangeRepSideMetrics {
       formMetric = 90.0,
       hasPrimaryAngle = false,
       hasFormMetric = false,
+      sideConfidence = null,
       formSignals = null;
 
   final RangeRepSide side;
@@ -51,6 +53,7 @@ class RangeRepSideMetrics {
   final double formMetric;
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
+  final double? sideConfidence;
   final RangeRepFormSignals? formSignals;
 
   int get coverageScore => (hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0);
