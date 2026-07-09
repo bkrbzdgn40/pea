@@ -198,8 +198,8 @@ class ExerciseEngine
   RepScoreBreakdown? lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
   @override
-  String feedback = "Hazir!";
-  RangeRepFeedbackCode? _feedbackCode = RangeRepFeedbackCode.ready;
+  late String feedback;
+  RangeRepFeedbackCode? _feedbackCode;
 
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
@@ -223,7 +223,9 @@ class ExerciseEngine
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
 
   ExerciseEngine({required this.config, DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+    : _now = now ?? DateTime.now {
+    _setFeedback(RangeRepFeedbackCode.ready);
+  }
 
   @override
   double get maxRom => maxROM;
@@ -337,8 +339,7 @@ class ExerciseEngine
             primaryMetric: angle,
             formMetric: backAngle,
           );
-          _feedbackCode = null;
-          feedback = "Harika, simdi yukari!";
+          _setFeedback(RangeRepFeedbackCode.ascend);
         } else {
           final abortConfirmedAt = _confirmTransition(
             transition: _PhaseTransition.abortToNeutral,
@@ -890,8 +891,7 @@ class ExerciseEngine
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;
-    _feedbackCode = null;
-    feedback = "Sifirlandi";
+    _setFeedback(RangeRepFeedbackCode.ready);
     isFormBad = false;
     lastRepScore = 0;
     lastRepScoreBreakdown = null;
