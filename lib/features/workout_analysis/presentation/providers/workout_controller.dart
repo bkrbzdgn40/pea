@@ -16,6 +16,7 @@ import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_rep_summary.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_diagnostics.dart';
@@ -70,6 +71,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final MovingAverageFilter _armSupportFilter;
   late final MovingAverageFilter _legFilter;
   late final ExerciseConfig _config;
+  late final RangeRepContract? _rangeRepContract;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
@@ -111,8 +113,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     final definition = _exerciseCatalog.definitionFor(activeExercise);
     _engineKind = definition.analysisEngineKind;
+    _rangeRepContract = _engineKind == EngineKind.rangeRep
+        ? definition.analysisRangeRepContract
+        : null;
     _config = ref.watch(exerciseConfigProvider).requireValue;
-    _engine = _engineFactory.create(engineKind: _engineKind, config: _config);
+    _engine = _engineFactory.create(
+      engineKind: _engineKind,
+      config: _config,
+      rangeRepContract: _rangeRepContract,
+    );
 
     _angleFilter = MovingAverageFilter(windowSize: 5);
     _backFilter = MovingAverageFilter(windowSize: 5);
@@ -397,7 +406,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
 
-    return _rangeRepFramePolicy.assess(metrics: metrics, selection: selection);
+    return _rangeRepFramePolicy.assessWithContract(
+      metrics: metrics,
+      selection: selection,
+      contract: _rangeRepContract ?? RangeRepContracts.squat,
+    );
   }
 
   RangeRepVisibilityAssessment _rangeRepVisibilityAssessment({
