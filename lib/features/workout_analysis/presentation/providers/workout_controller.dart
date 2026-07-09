@@ -772,8 +772,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ascendingPhaseIssues: diagnostics.ascendingPhaseAssessment.issues
           .map((issue) => issue.debugLabel)
           .toList(growable: false),
-      phaseQualityPenaltyCandidate: lastBreakdown?.phaseQualityPenalty,
-      phaseInformedScoreCandidate: lastBreakdown?.phaseAdjustedScore,
+      phaseQualityPenalty: lastBreakdown?.phaseQualityPenalty,
+      phaseAdjustedScore: lastBreakdown?.phaseAdjustedScore,
       phaseFeedbackCandidate: diagnostics.phaseFeedbackCandidate,
       hasLastRangeRepValidation: lastValidationResult != null,
       lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
@@ -806,7 +806,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
-      lastRepAscentScoreCandidate: lastBreakdown?.ascentScore ?? 0,
+      lastRepAscentScore: lastBreakdown?.ascentScore ?? 0,
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
       calibrationSnapshot: _lastCalibrationSnapshot,

@@ -1223,15 +1223,15 @@ class _CalibrationDebugPanel extends StatelessWidget {
           label: 'AscIssues',
           value: metrics.ascendingPhaseIssues.join(', '),
         ),
-      if (metrics.phaseQualityPenaltyCandidate != null)
+      if (metrics.phaseQualityPenalty != null)
         _DebugMetricRow(
           label: 'PhasePenalty',
-          value: _formatTelemetryValue(metrics.phaseQualityPenaltyCandidate!),
+          value: _formatTelemetryValue(metrics.phaseQualityPenalty!),
         ),
-      if (metrics.phaseInformedScoreCandidate != null)
+      if (metrics.phaseAdjustedScore != null)
         _DebugMetricRow(
           label: 'PhaseScore',
-          value: _formatTelemetryValue(metrics.phaseInformedScoreCandidate!),
+          value: _formatTelemetryValue(metrics.phaseAdjustedScore!),
         ),
       if (metrics.phaseFeedbackCandidate != null)
         _DebugMetricRow(
@@ -1303,7 +1303,7 @@ class _CalibrationDebugPanel extends StatelessWidget {
           'last rep: score ${workoutState.lastRepScore.toStringAsFixed(1)} | '
           'rom ${metrics.lastRepRomScore.toStringAsFixed(1)} | '
           'desc ${metrics.lastRepDescentScore.toStringAsFixed(1)} | '
-          'asc ${metrics.lastRepAscentScoreCandidate.toStringAsFixed(1)}',
+          'asc ${metrics.lastRepAscentScore.toStringAsFixed(1)}',
           style: const TextStyle(color: Colors.white70, fontSize: 11),
         ),
         const SizedBox(height: 4),

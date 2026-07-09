@@ -56,8 +56,8 @@ class WorkoutCalibrationMetrics {
     this.descendingPhaseIssues = const <String>[],
     this.peakPhaseIssues = const <String>[],
     this.ascendingPhaseIssues = const <String>[],
-    this.phaseQualityPenaltyCandidate,
-    this.phaseInformedScoreCandidate,
+    this.phaseQualityPenalty,
+    this.phaseAdjustedScore,
     this.phaseFeedbackCandidate,
     this.hasLastRangeRepValidation = false,
     this.lastRangeRepValidationStatus,
@@ -79,7 +79,7 @@ class WorkoutCalibrationMetrics {
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
-    this.lastRepAscentScoreCandidate = 0.0,
+    this.lastRepAscentScore = 0.0,
     this.lastRepWorstBackAngle = 0.0,
     this.lastRepHadFormViolation = false,
     this.calibrationSnapshot,
@@ -144,8 +144,8 @@ class WorkoutCalibrationMetrics {
   final List<String> descendingPhaseIssues;
   final List<String> peakPhaseIssues;
   final List<String> ascendingPhaseIssues;
-  final double? phaseQualityPenaltyCandidate;
-  final double? phaseInformedScoreCandidate;
+  final double? phaseQualityPenalty;
+  final double? phaseAdjustedScore;
   final String? phaseFeedbackCandidate;
   final bool hasLastRangeRepValidation;
   final String? lastRangeRepValidationStatus;
@@ -167,7 +167,7 @@ class WorkoutCalibrationMetrics {
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
-  final double lastRepAscentScoreCandidate;
+  final double lastRepAscentScore;
   final double lastRepWorstBackAngle;
   final bool lastRepHadFormViolation;
   final CalibrationSnapshot? calibrationSnapshot;
