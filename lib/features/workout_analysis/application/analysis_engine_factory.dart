@@ -19,9 +19,14 @@ class AnalysisEngineFactory {
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
-        _validateRangeRepEngineContract(
-          rangeRepContract ?? RangeRepContracts.squat,
-        );
+        final requiredRangeRepContract = rangeRepContract;
+        if (requiredRangeRepContract == null) {
+          throw StateError(
+            'Range-rep engine creation requires a non-null '
+            'rangeRepContract.',
+          );
+        }
+        _validateRangeRepEngineContract(requiredRangeRepContract);
         return RangeRepEngine(config: config);
       case EngineKind.hold:
         return HoldEngine(config: config);
