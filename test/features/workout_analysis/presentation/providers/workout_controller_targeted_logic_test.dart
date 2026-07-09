@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_side_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 
