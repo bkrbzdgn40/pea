@@ -1,9 +1,5 @@
 /// High-level feedback families for range-rep analysis.
-enum RangeRepFeedbackFamily {
-  systemState,
-  movementCue,
-  correctiveCue,
-}
+enum RangeRepFeedbackFamily { systemState, movementCue, correctiveCue }
 
 /// Stable domain-level feedback codes for range-rep analysis.
 ///

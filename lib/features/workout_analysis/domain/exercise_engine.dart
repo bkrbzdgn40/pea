@@ -474,7 +474,9 @@ class ExerciseEngine
         : (romScore + tempoScore) / 2;
     final phaseInformedScoreCandidate = phaseQualityPenaltyCandidate == null
         ? null
-        : (baseScore - phaseQualityPenaltyCandidate).clamp(0.0, 100.0).toDouble();
+        : (baseScore - phaseQualityPenaltyCandidate)
+              .clamp(0.0, 100.0)
+              .toDouble();
     final finalScore = phaseInformedScoreCandidate ?? baseScore;
 
     lastRepScore = finalScore;

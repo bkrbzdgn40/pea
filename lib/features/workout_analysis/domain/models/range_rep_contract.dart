@@ -1,9 +1,5 @@
 /// Canonical phases for range-rep style movements.
-enum RangeRepPhase {
-  descending,
-  peak,
-  ascending,
-}
+enum RangeRepPhase { descending, peak, ascending }
 
 /// Canonical signal identifiers that a range-rep contract may support.
 ///

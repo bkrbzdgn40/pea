@@ -722,7 +722,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
-    CalibrationSnapshot? _buildCalibrationSnapshotCandidate({
+  CalibrationSnapshot? _buildCalibrationSnapshotCandidate({
     required RangeRepDiagnosticsSnapshot diagnostics,
     required bool isRangeRepFrameValid,
     required bool hasPrimaryAngle,
