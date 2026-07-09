@@ -85,17 +85,6 @@ class RangeRepFrameAssessment {
 class RangeRepFramePolicy {
   const RangeRepFramePolicy();
 
-  RangeRepFrameAssessment assess({
-    required ExerciseMetrics metrics,
-    required RangeRepSideSelection selection,
-  }) {
-    return assessWithContract(
-      metrics: metrics,
-      selection: selection,
-      contract: RangeRepContracts.squat,
-    );
-  }
-
   RangeRepFrameAssessment assessWithContract({
     required ExerciseMetrics metrics,
     required RangeRepSideSelection selection,
