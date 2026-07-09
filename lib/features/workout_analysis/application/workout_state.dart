@@ -1,5 +1,6 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/calibration_snapshot.dart';
+import '../domain/models/session_calibration_baseline.dart';
 import 'engine_kind.dart';
 
 class WorkoutCalibrationMetrics {
@@ -82,6 +83,7 @@ class WorkoutCalibrationMetrics {
     this.lastRepWorstBackAngle = 0.0,
     this.lastRepHadFormViolation = false,
     this.calibrationSnapshot,
+    this.sessionCalibrationBaselineCandidate,
   });
 
   final double currentBackAngle;
@@ -162,6 +164,7 @@ class WorkoutCalibrationMetrics {
   final double lastRepWorstBackAngle;
   final bool lastRepHadFormViolation;
   final CalibrationSnapshot? calibrationSnapshot;
+  final SessionCalibrationBaseline? sessionCalibrationBaselineCandidate;
 }
 
 class WorkoutState {
