@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/moving_average.dart';
+import '../../application/analysis_frame_builder.dart';
 import '../../application/analysis_engine_factory.dart';
 import '../../application/calibration_snapshot_builder.dart';
 import '../../application/engine_kind.dart';
@@ -68,6 +69,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   late final AnalysisEngine _engine;
   late final EngineKind _engineKind;
+  final WorkoutAnalysisFrameBuilder _analysisFrameBuilder =
+      const WorkoutAnalysisFrameBuilder();
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final MovingAverageFilter _bodyLineFilter;
@@ -254,9 +257,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           selectedSide: rangeRepFrameAssessment.selection.selectedSide,
         );
         // Smooth landmark jitter before feeding the scoring state machine.
-        final analysisFrame = _buildAnalysisFrame(
-          metrics,
+        final analysisFrame = _analysisFrameBuilder.build(
+          metrics: metrics,
           rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
+          primaryMetricFilter: _angleFilter,
+          formMetricFilter: _backFilter,
+          bodyLineFilter: _bodyLineFilter,
+          armSupportFilter: _armSupportFilter,
+          legFilter: _legFilter,
         );
         final formThresholdResolution = _engineKind == EngineKind.rangeRep
             ? _resolveFormThreshold(
@@ -493,33 +501,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return _engine.feedback;
-  }
-
-  AnalysisFrame _buildAnalysisFrame(
-    ExerciseMetrics metrics, {
-    RangeRepSideMetrics? rangeRepMetrics,
-  }) {
-    final primaryMetric = rangeRepMetrics?.primaryAngle ?? metrics.primaryAngle;
-    final formMetric = rangeRepMetrics?.formMetric ?? metrics.formMetric;
-
-    return AnalysisFrame(
-      primaryMetric: _angleFilter.process(primaryMetric),
-      formMetric: _backFilter.process(formMetric),
-      bodyLineAngle: _smoothOptional(metrics.bodyLineAngle, _bodyLineFilter),
-      armSupportAngle: _smoothOptional(
-        metrics.armSupportAngle,
-        _armSupportFilter,
-      ),
-      legExtensionAngle: _smoothOptional(metrics.legExtensionAngle, _legFilter),
-    );
-  }
-
-  double? _smoothOptional(double? value, MovingAverageFilter filter) {
-    if (value == null) {
-      return null;
-    }
-
-    return filter.process(value);
   }
 
   WorkoutState _buildBlockedRangeRepState(
