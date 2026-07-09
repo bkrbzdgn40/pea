@@ -24,6 +24,7 @@ import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
 import 'pose_provider.dart';
+import '../../domain/models/calibration_snapshot.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
@@ -96,6 +97,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   bool _activeRangeRepHadCoverageDrop = false;
   bool _activeRangeRepSwitchedSideDuringRep = false;
   String? _activeRangeRepSelectedSideLabel;
+  CalibrationSnapshot? _lastCalibrationSnapshot;
 
   @override
   WorkoutState build() {
@@ -137,6 +139,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _rangeRepValidatedCount = 0;
     _rangeRepLowConfidenceCount = 0;
     _rangeRepInvalidCount = 0;
+    _lastCalibrationSnapshot = null;
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -268,6 +271,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           analysisFps: _analysisFps,
           calibrationMetrics: _buildCalibrationMetrics(
             currentFormMetric: analysisFrame.formMetric,
+            currentPrimaryMetric: analysisFrame.primaryMetric,
             thresholdValue: _engineKind == EngineKind.hold
                 ? holdDiagnostics.bodyLineTargetAngle
                 : _config.formThreshold,
@@ -478,6 +482,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       analysisFps: _analysisFps,
       calibrationMetrics: _buildCalibrationMetrics(
         currentFormMetric: previewBackAngle,
+        currentPrimaryMetric: previewAngle,
         thresholdValue: _config.formThreshold,
         currentTorsoAngle: formSignals?.torsoAngle,
         currentDepthMetric: formSignals?.depthMetric,
@@ -530,6 +535,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   WorkoutCalibrationMetrics _buildCalibrationMetrics({
     required double currentFormMetric,
     required double thresholdValue,
+    double? currentPrimaryMetric,
     bool isRangeRepFrameValid = true,
     bool hasPrimaryAngle = false,
     bool hasFormMetric = false,
@@ -562,6 +568,25 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
     final lastValidationResult = _lastRangeRepValidationResult;
     final lastSummaryCandidate = _lastRangeRepRepSummaryCandidate;
+    final calibrationSnapshotCandidate = _buildCalibrationSnapshotCandidate(
+      diagnostics: diagnostics,
+      currentPrimaryMetric: currentPrimaryMetric,
+      currentFormMetric: currentFormMetric,
+      hasPrimaryAngle: hasPrimaryAngle,
+      hasFormMetric: hasFormMetric,
+      isRangeRepFrameValid: isRangeRepFrameValid,
+      selectedRangeRepSide: selectedRangeRepSide,
+      currentTorsoAngle: currentTorsoAngle,
+      currentDepthMetric: currentDepthMetric,
+      currentAlignmentMetric: currentAlignmentMetric,
+      currentStabilityMetric: currentStabilityMetric,
+      currentLockoutMetric: currentLockoutMetric,
+      currentBottomControlMetric: currentBottomControlMetric,
+    );
+
+    if (calibrationSnapshotCandidate != null) {
+      _lastCalibrationSnapshot = calibrationSnapshotCandidate;
+    }
 
     // Calibration telemetry surfaces the active engine's current secondary metric.
     return WorkoutCalibrationMetrics(
@@ -680,7 +705,54 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       lastRepAscentScoreCandidate: lastBreakdown?.ascentScoreCandidate ?? 0,
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
+      calibrationSnapshot: _lastCalibrationSnapshot,
     );
+  }
+
+    CalibrationSnapshot? _buildCalibrationSnapshotCandidate({
+    required RangeRepDiagnosticsSnapshot diagnostics,
+    required bool isRangeRepFrameValid,
+    required bool hasPrimaryAngle,
+    required bool hasFormMetric,
+    required double currentFormMetric,
+    double? currentPrimaryMetric,
+    String? selectedRangeRepSide,
+    double? currentTorsoAngle,
+    double? currentDepthMetric,
+    double? currentAlignmentMetric,
+    double? currentStabilityMetric,
+    double? currentLockoutMetric,
+    double? currentBottomControlMetric,
+  }) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return null;
+    }
+
+    final isStableSnapshotMoment =
+        isRangeRepFrameValid &&
+        !diagnostics.hasActiveRepPhase &&
+        !diagnostics.hasPendingTransition &&
+        selectedRangeRepSide != null;
+
+    if (!isStableSnapshotMoment) {
+      return null;
+    }
+
+    final snapshot = CalibrationSnapshot(
+      analysisKind: _engineKind.name,
+      selectedSideLabel: selectedRangeRepSide,
+      primaryMetricBaseline: hasPrimaryAngle ? currentPrimaryMetric : null,
+      formMetricBaseline: hasFormMetric ? currentFormMetric : null,
+      torsoAngleBaseline: currentTorsoAngle,
+      depthMetricBaseline: currentDepthMetric,
+      alignmentMetricBaseline: currentAlignmentMetric,
+      stabilityMetricBaseline: currentStabilityMetric,
+      lockoutMetricBaseline: currentLockoutMetric,
+      bottomControlMetricBaseline: currentBottomControlMetric,
+      createdAt: DateTime.now(),
+    );
+
+    return snapshot.hasAnyBaseline ? snapshot : null;
   }
 
   RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
