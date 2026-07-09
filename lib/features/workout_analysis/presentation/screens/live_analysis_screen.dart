@@ -888,6 +888,349 @@ class _CalibrationDebugPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = workoutState.calibrationMetrics;
     final isHoldAnalysis = workoutState.analysisKind == EngineKind.hold;
+    final scrollMaxHeight = MediaQuery.of(context).size.height * 0.42;
+
+    final holdRows = <Widget>[
+      _DebugMetricRow(
+        label: 'body line',
+        value: _formatOptionalAngle(
+          metrics.currentBodyLineAngle,
+          isAvailable: metrics.hasBodyLineAngle,
+        ),
+      ),
+      _DebugMetricRow(
+        label: 'arm support',
+        value: _formatOptionalAngle(
+          metrics.currentArmSupportAngle,
+          isAvailable: metrics.hasArmSupportAngle,
+        ),
+      ),
+      _DebugMetricRow(
+        label: 'leg extension',
+        value: _formatOptionalAngle(
+          metrics.currentLegExtensionAngle,
+          isAvailable: metrics.hasLegExtensionAngle,
+        ),
+      ),
+      _DebugMetricRow(
+        label: 'coverage',
+        value: _formatHoldCoverage(metrics),
+      ),
+      _DebugMetricRow(
+        label: 'body target',
+        value: _formatAngle(metrics.formThreshold),
+      ),
+      _DebugMetricRow(
+        label: 'isFormBad',
+        value: workoutState.isFormBad ? 'true' : 'false',
+      ),
+      _DebugMetricRow(
+        label: 'isHolding',
+        value: workoutState.isHolding ? 'true' : 'false',
+      ),
+      _DebugMetricRow(
+        label: 'hold break',
+        value: workoutState.hadHoldFormBreak ? 'true' : 'false',
+      ),
+    ];
+
+    final rangeRepCoreRows = <Widget>[
+      _DebugMetricRow(
+        label: 'knee/current',
+        value: _formatAngle(workoutState.currentAngle),
+      ),
+      _DebugMetricRow(
+        label: 'back-angle',
+        value: _formatAngle(metrics.currentBackAngle),
+      ),
+      _DebugMetricRow(
+        label: 'threshold',
+        value: _formatAngle(metrics.formThreshold),
+      ),
+      _DebugMetricRow(
+        label: 'isFormBad',
+        value: workoutState.isFormBad ? 'true' : 'false',
+      ),
+      _DebugMetricRow(
+        label: 'frame valid',
+        value: metrics.isRangeRepFrameValid ? 'true' : 'false',
+      ),
+      _DebugMetricRow(
+        label: 'selected side',
+        value: metrics.selectedRangeRepSide ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'side reason',
+        value: metrics.rangeRepSideSelectionReason ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'invalid reason',
+        value: metrics.rangeRepInvalidReason ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'visibility',
+        value: metrics.rangeRepVisibilityStatus,
+      ),
+      _DebugMetricRow(
+        label: 'invalid streak',
+        value: metrics.rangeRepInvalidFrameStreak.toString(),
+      ),
+      _DebugMetricRow(
+        label: 'invalid duration',
+        value: _formatMilliseconds(metrics.rangeRepInvalidDurationMs),
+      ),
+      _DebugMetricRow(
+        label: 'resync triggered',
+        value: metrics.rangeRepResyncTriggered ? 'true' : 'false',
+      ),
+      _DebugMetricRow(
+        label: 'resync reason',
+        value: metrics.rangeRepResyncReason ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'phase gate',
+        value: metrics.rangeRepPhaseGateStatus,
+      ),
+      _DebugMetricRow(
+        label: 'pending transition',
+        value: metrics.rangeRepPendingTransition ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'last transition',
+        value: metrics.rangeRepLastConfirmedTransition ?? '--',
+      ),
+      _DebugMetricRow(
+        label: 'coverage',
+        value: _formatRangeRepCoverage(metrics),
+      ),
+      _DebugMetricRow(
+        label: 'side coverage',
+        value: _formatRangeRepSideCoverage(metrics),
+      ),
+    ];
+
+    final signalRows = <Widget>[
+      if (metrics.currentTorsoAngle != null)
+        _DebugMetricRow(
+          label: 'Torso',
+          value: _formatTelemetryValue(metrics.currentTorsoAngle!),
+        ),
+      if (metrics.currentDepthMetric != null)
+        _DebugMetricRow(
+          label: 'Depth',
+          value: _formatTelemetryValue(metrics.currentDepthMetric!),
+        ),
+      if (metrics.currentAlignmentMetric != null)
+        _DebugMetricRow(
+          label: 'Align',
+          value: _formatTelemetryValue(metrics.currentAlignmentMetric!),
+        ),
+      if (metrics.currentStabilityMetric != null)
+        _DebugMetricRow(
+          label: 'Stability',
+          value: _formatTelemetryValue(metrics.currentStabilityMetric!),
+        ),
+      if (metrics.currentLockoutMetric != null)
+        _DebugMetricRow(
+          label: 'Lockout',
+          value: _formatTelemetryValue(metrics.currentLockoutMetric!),
+        ),
+      if (metrics.currentBottomControlMetric != null)
+        _DebugMetricRow(
+          label: 'BottomCtrl',
+          value: _formatTelemetryValue(metrics.currentBottomControlMetric!),
+        ),
+    ];
+
+    final validationRows = <Widget>[
+      _DebugMetricRow(
+        label: 'ValidCount',
+        value: metrics.rangeRepValidatedCount.toString(),
+      ),
+      _DebugMetricRow(
+        label: 'LowConfCount',
+        value: metrics.rangeRepLowConfidenceCount.toString(),
+      ),
+      _DebugMetricRow(
+        label: 'InvalidCount',
+        value: metrics.rangeRepInvalidCount.toString(),
+      ),
+      if (metrics.hasLastRangeRepValidation) ...[
+        _DebugMetricRow(
+          label: 'Validation',
+          value: metrics.lastRangeRepValidationStatus ?? '--',
+        ),
+        if (metrics.lastRangeRepValidatedRepIndex != null)
+          _DebugMetricRow(
+            label: 'Rep',
+            value: metrics.lastRangeRepValidatedRepIndex.toString(),
+          ),
+        if (metrics.lastRangeRepValidationReasons.isNotEmpty)
+          _DebugMetricRow(
+            label: 'Reasons',
+            value: metrics.lastRangeRepValidationReasons.join(', '),
+          ),
+      ],
+    ];
+
+    final phaseRows = <Widget>[
+      if (metrics.descendingPhaseDurationMs != null)
+        _DebugMetricRow(
+          label: 'DescMs',
+          value: metrics.descendingPhaseDurationMs.toString(),
+        ),
+      if (metrics.peakPhaseDurationMs != null)
+        _DebugMetricRow(
+          label: 'PeakMs',
+          value: metrics.peakPhaseDurationMs.toString(),
+        ),
+      if (metrics.ascendingPhaseDurationMs != null)
+        _DebugMetricRow(
+          label: 'AscMs',
+          value: metrics.ascendingPhaseDurationMs.toString(),
+        ),
+      if (metrics.descendingPhaseWorstFormMetric != null)
+        _DebugMetricRow(
+          label: 'DescForm',
+          value: _formatPhaseFormTelemetry(
+            metrics.descendingPhaseWorstFormMetric,
+            metrics.descendingPhaseHadFormViolation,
+          ),
+        ),
+      if (metrics.peakPhaseWorstFormMetric != null)
+        _DebugMetricRow(
+          label: 'PeakForm',
+          value: _formatPhaseFormTelemetry(
+            metrics.peakPhaseWorstFormMetric,
+            metrics.peakPhaseHadFormViolation,
+          ),
+        ),
+      if (metrics.ascendingPhaseWorstFormMetric != null)
+        _DebugMetricRow(
+          label: 'AscForm',
+          value: _formatPhaseFormTelemetry(
+            metrics.ascendingPhaseWorstFormMetric,
+            metrics.ascendingPhaseHadFormViolation,
+          ),
+        ),
+      _DebugMetricRow(
+        label: 'DescQ',
+        value: metrics.descendingPhaseStatus,
+      ),
+      if (metrics.descendingPhaseIssues.isNotEmpty)
+        _DebugMetricRow(
+          label: 'DescIssues',
+          value: metrics.descendingPhaseIssues.join(', '),
+        ),
+      _DebugMetricRow(
+        label: 'PeakQ',
+        value: metrics.peakPhaseStatus,
+      ),
+      if (metrics.peakPhaseIssues.isNotEmpty)
+        _DebugMetricRow(
+          label: 'PeakIssues',
+          value: metrics.peakPhaseIssues.join(', '),
+        ),
+      _DebugMetricRow(
+        label: 'AscQ',
+        value: metrics.ascendingPhaseStatus,
+      ),
+      if (metrics.ascendingPhaseIssues.isNotEmpty)
+        _DebugMetricRow(
+          label: 'AscIssues',
+          value: metrics.ascendingPhaseIssues.join(', '),
+        ),
+      if (metrics.phaseQualityPenaltyCandidate != null)
+        _DebugMetricRow(
+          label: 'PhasePenalty',
+          value: _formatTelemetryValue(metrics.phaseQualityPenaltyCandidate!),
+        ),
+      if (metrics.phaseInformedScoreCandidate != null)
+        _DebugMetricRow(
+          label: 'PhaseScore',
+          value: _formatTelemetryValue(metrics.phaseInformedScoreCandidate!),
+        ),
+      if (metrics.phaseFeedbackCandidate != null)
+        _DebugMetricRow(
+          label: 'PhaseCue',
+          value: metrics.phaseFeedbackCandidate!,
+        ),
+    ];
+
+    final lastRepRows = <Widget>[
+      if (metrics.hasLastRangeRepSummary) ...[
+        if (metrics.lastRangeRepSummaryMinAngle != null)
+          _DebugMetricRow(
+            label: 'MinAngle',
+            value: _formatTelemetryValue(metrics.lastRangeRepSummaryMinAngle!),
+          ),
+        if (metrics.lastRangeRepSummaryWorstFormMetric != null)
+          _DebugMetricRow(
+            label: 'WorstForm',
+            value: _formatTelemetryValue(
+              metrics.lastRangeRepSummaryWorstFormMetric!,
+            ),
+          ),
+        if (metrics.lastRangeRepSummaryDescentMillis != null)
+          _DebugMetricRow(
+            label: 'DescentMs',
+            value: metrics.lastRangeRepSummaryDescentMillis.toString(),
+          ),
+        if (metrics.lastRangeRepSummaryAscentMillis != null)
+          _DebugMetricRow(
+            label: 'AscentMs',
+            value: metrics.lastRangeRepSummaryAscentMillis.toString(),
+          ),
+        _DebugMetricRow(
+          label: 'FormBreak',
+          value: metrics.lastRangeRepSummaryHadFormViolation ? 'true' : 'false',
+        ),
+        _DebugMetricRow(
+          label: 'CoverageDrop',
+          value: metrics.lastRangeRepSummaryHadCoverageDrop ? 'true' : 'false',
+        ),
+        _DebugMetricRow(
+          label: 'SideSwitch',
+          value: metrics.lastRangeRepSummarySwitchedSideDuringRep
+              ? 'true'
+              : 'false',
+        ),
+        _DebugMetricRow(
+          label: 'FullPhase',
+          value: metrics.lastRangeRepSummaryCompletedPhaseSequence
+              ? 'true'
+              : 'false',
+        ),
+        _DebugMetricRow(
+          label: 'Side',
+          value: metrics.lastRangeRepSummarySelectedSideLabel ?? '--',
+        ),
+      ],
+      _DebugMetricRow(
+        label: 'rep worst back',
+        value: _formatAngle(metrics.currentRepWorstBackAngle),
+      ),
+      _DebugMetricRow(
+        label: 'rep violation',
+        value: metrics.currentRepHadFormViolation ? 'true' : 'false',
+      ),
+      if (metrics.hasLastRepBreakdown) ...[
+        const Divider(color: Colors.white24, height: 14),
+        Text(
+          'last rep: score ${workoutState.lastRepScore.toStringAsFixed(1)} | '
+          'rom ${metrics.lastRepRomScore.toStringAsFixed(1)} | '
+          'desc ${metrics.lastRepDescentScore.toStringAsFixed(1)} | '
+          'asc ${metrics.lastRepAscentScoreCandidate.toStringAsFixed(1)}',
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'last form: worst ${_formatAngle(metrics.lastRepWorstBackAngle)} | '
+          'violation ${metrics.lastRepHadFormViolation ? 'true' : 'false'}',
+          style: const TextStyle(color: Colors.white54, fontSize: 11),
+        ),
+      ],
+    ];
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -925,340 +1268,31 @@ class _CalibrationDebugPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            if (isHoldAnalysis) ...[
-              _DebugMetricRow(
-                label: 'body line',
-                value: _formatOptionalAngle(
-                  metrics.currentBodyLineAngle,
-                  isAvailable: metrics.hasBodyLineAngle,
-                ),
-              ),
-              _DebugMetricRow(
-                label: 'arm support',
-                value: _formatOptionalAngle(
-                  metrics.currentArmSupportAngle,
-                  isAvailable: metrics.hasArmSupportAngle,
-                ),
-              ),
-              _DebugMetricRow(
-                label: 'leg extension',
-                value: _formatOptionalAngle(
-                  metrics.currentLegExtensionAngle,
-                  isAvailable: metrics.hasLegExtensionAngle,
-                ),
-              ),
-              _DebugMetricRow(
-                label: 'coverage',
-                value: _formatHoldCoverage(metrics),
-              ),
-            ] else ...[
-              _DebugMetricRow(
-                label: 'knee/current',
-                value: _formatAngle(workoutState.currentAngle),
-              ),
-              _DebugMetricRow(
-                label: 'back-angle',
-                value: _formatAngle(metrics.currentBackAngle),
-              ),
-              if (metrics.currentTorsoAngle != null)
-                _DebugMetricRow(
-                  label: 'Torso',
-                  value: _formatTelemetryValue(metrics.currentTorsoAngle!),
-                ),
-              if (metrics.currentDepthMetric != null)
-                _DebugMetricRow(
-                  label: 'Depth',
-                  value: _formatTelemetryValue(metrics.currentDepthMetric!),
-                ),
-              if (metrics.currentAlignmentMetric != null)
-                _DebugMetricRow(
-                  label: 'Align',
-                  value: _formatTelemetryValue(metrics.currentAlignmentMetric!),
-                ),
-              if (metrics.currentStabilityMetric != null)
-                _DebugMetricRow(
-                  label: 'Stability',
-                  value: _formatTelemetryValue(metrics.currentStabilityMetric!),
-                ),
-              if (metrics.currentLockoutMetric != null)
-                _DebugMetricRow(
-                  label: 'Lockout',
-                  value: _formatTelemetryValue(metrics.currentLockoutMetric!),
-                ),
-              if (metrics.currentBottomControlMetric != null)
-                _DebugMetricRow(
-                  label: 'BottomCtrl',
-                  value: _formatTelemetryValue(
-                    metrics.currentBottomControlMetric!,
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: scrollMaxHeight),
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isHoldAnalysis)
+                        _DebugSection(title: 'Hold', children: holdRows)
+                      else ...[
+                        _DebugSection(title: 'Core', children: rangeRepCoreRows),
+                        if (signalRows.isNotEmpty)
+                          _DebugSection(title: 'Signals', children: signalRows),
+                        _DebugSection(
+                          title: 'Validation',
+                          children: validationRows,
+                        ),
+                        _DebugSection(title: 'Phase', children: phaseRows),
+                        _DebugSection(title: 'Last Rep', children: lastRepRows),
+                      ],
+                    ],
                   ),
                 ),
-              _DebugMetricRow(
-                label: 'frame valid',
-                value: metrics.isRangeRepFrameValid ? 'true' : 'false',
               ),
-              _DebugMetricRow(
-                label: 'selected side',
-                value: metrics.selectedRangeRepSide ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'side reason',
-                value: metrics.rangeRepSideSelectionReason ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'coverage',
-                value: _formatRangeRepCoverage(metrics),
-              ),
-              _DebugMetricRow(
-                label: 'side coverage',
-                value: _formatRangeRepSideCoverage(metrics),
-              ),
-              _DebugMetricRow(
-                label: 'visibility',
-                value: metrics.rangeRepVisibilityStatus,
-              ),
-              _DebugMetricRow(
-                label: 'invalid streak',
-                value: metrics.rangeRepInvalidFrameStreak.toString(),
-              ),
-              _DebugMetricRow(
-                label: 'invalid duration',
-                value: _formatMilliseconds(metrics.rangeRepInvalidDurationMs),
-              ),
-              _DebugMetricRow(
-                label: 'resync triggered',
-                value: metrics.rangeRepResyncTriggered ? 'true' : 'false',
-              ),
-              _DebugMetricRow(
-                label: 'resync reason',
-                value: metrics.rangeRepResyncReason ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'phase gate',
-                value: metrics.rangeRepPhaseGateStatus,
-              ),
-              _DebugMetricRow(
-                label: 'pending transition',
-                value: metrics.rangeRepPendingTransition ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'last transition',
-                value: metrics.rangeRepLastConfirmedTransition ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'invalid reason',
-                value: metrics.rangeRepInvalidReason ?? '--',
-              ),
-              _DebugMetricRow(
-                label: 'ValidCount',
-                value: metrics.rangeRepValidatedCount.toString(),
-              ),
-              _DebugMetricRow(
-                label: 'LowConfCount',
-                value: metrics.rangeRepLowConfidenceCount.toString(),
-              ),
-              _DebugMetricRow(
-                label: 'InvalidCount',
-                value: metrics.rangeRepInvalidCount.toString(),
-              ),
-              if (metrics.descendingPhaseDurationMs != null)
-                _DebugMetricRow(
-                  label: 'DescMs',
-                  value: metrics.descendingPhaseDurationMs.toString(),
-                ),
-              if (metrics.peakPhaseDurationMs != null)
-                _DebugMetricRow(
-                  label: 'PeakMs',
-                  value: metrics.peakPhaseDurationMs.toString(),
-                ),
-              if (metrics.ascendingPhaseDurationMs != null)
-                _DebugMetricRow(
-                  label: 'AscMs',
-                  value: metrics.ascendingPhaseDurationMs.toString(),
-                ),
-              if (metrics.descendingPhaseWorstFormMetric != null)
-                _DebugMetricRow(
-                  label: 'DescForm',
-                  value: _formatPhaseFormTelemetry(
-                    metrics.descendingPhaseWorstFormMetric,
-                    metrics.descendingPhaseHadFormViolation,
-                  ),
-                ),
-              if (metrics.peakPhaseWorstFormMetric != null)
-                _DebugMetricRow(
-                  label: 'PeakForm',
-                  value: _formatPhaseFormTelemetry(
-                    metrics.peakPhaseWorstFormMetric,
-                    metrics.peakPhaseHadFormViolation,
-                  ),
-                ),
-              if (metrics.ascendingPhaseWorstFormMetric != null)
-                _DebugMetricRow(
-                  label: 'AscForm',
-                  value: _formatPhaseFormTelemetry(
-                    metrics.ascendingPhaseWorstFormMetric,
-                    metrics.ascendingPhaseHadFormViolation,
-                  ),
-                ),
-              _DebugMetricRow(
-                label: 'DescQ',
-                value: metrics.descendingPhaseStatus,
-              ),
-              if (metrics.descendingPhaseIssues.isNotEmpty)
-                _DebugMetricRow(
-                  label: 'DescIssues',
-                  value: metrics.descendingPhaseIssues.join(', '),
-                ),
-              _DebugMetricRow(
-                label: 'PeakQ',
-                value: metrics.peakPhaseStatus,
-              ),
-              if (metrics.peakPhaseIssues.isNotEmpty)
-                _DebugMetricRow(
-                  label: 'PeakIssues',
-                  value: metrics.peakPhaseIssues.join(', '),
-                ),
-              _DebugMetricRow(
-                label: 'AscQ',
-                value: metrics.ascendingPhaseStatus,
-              ),
-              if (metrics.ascendingPhaseIssues.isNotEmpty)
-                _DebugMetricRow(
-                  label: 'AscIssues',
-                  value: metrics.ascendingPhaseIssues.join(', '),
-                ),
-              if (metrics.phaseQualityPenaltyCandidate != null)
-                _DebugMetricRow(
-                  label: 'PhasePenalty',
-                  value: _formatTelemetryValue(
-                    metrics.phaseQualityPenaltyCandidate!,
-                  ),
-                ),
-              if (metrics.phaseInformedScoreCandidate != null)
-                _DebugMetricRow(
-                  label: 'PhaseScore',
-                  value: _formatTelemetryValue(
-                    metrics.phaseInformedScoreCandidate!,
-                  ),
-                ),
-              if (metrics.phaseFeedbackCandidate != null)
-                _DebugMetricRow(
-                  label: 'PhaseCue',
-                  value: metrics.phaseFeedbackCandidate!,
-                ),
-              if (metrics.hasLastRangeRepValidation) ...[
-                _DebugMetricRow(
-                  label: 'Validation',
-                  value: metrics.lastRangeRepValidationStatus ?? '--',
-                ),
-                if (metrics.lastRangeRepValidatedRepIndex != null)
-                  _DebugMetricRow(
-                    label: 'Rep',
-                    value: metrics.lastRangeRepValidatedRepIndex.toString(),
-                  ),
-                if (metrics.lastRangeRepValidationReasons.isNotEmpty)
-                  _DebugMetricRow(
-                    label: 'Reasons',
-                    value: metrics.lastRangeRepValidationReasons.join(', '),
-                  ),
-              ],
-              if (metrics.hasLastRangeRepSummary) ...[
-                if (metrics.lastRangeRepSummaryMinAngle != null)
-                  _DebugMetricRow(
-                    label: 'MinAngle',
-                    value: _formatTelemetryValue(
-                      metrics.lastRangeRepSummaryMinAngle!,
-                    ),
-                  ),
-                if (metrics.lastRangeRepSummaryWorstFormMetric != null)
-                  _DebugMetricRow(
-                    label: 'WorstForm',
-                    value: _formatTelemetryValue(
-                      metrics.lastRangeRepSummaryWorstFormMetric!,
-                    ),
-                  ),
-                if (metrics.lastRangeRepSummaryDescentMillis != null)
-                  _DebugMetricRow(
-                    label: 'DescentMs',
-                    value: metrics.lastRangeRepSummaryDescentMillis.toString(),
-                  ),
-                if (metrics.lastRangeRepSummaryAscentMillis != null)
-                  _DebugMetricRow(
-                    label: 'AscentMs',
-                    value: metrics.lastRangeRepSummaryAscentMillis.toString(),
-                  ),
-                _DebugMetricRow(
-                  label: 'FormBreak',
-                  value: metrics.lastRangeRepSummaryHadFormViolation
-                      ? 'true'
-                      : 'false',
-                ),
-                _DebugMetricRow(
-                  label: 'CoverageDrop',
-                  value: metrics.lastRangeRepSummaryHadCoverageDrop
-                      ? 'true'
-                      : 'false',
-                ),
-                _DebugMetricRow(
-                  label: 'SideSwitch',
-                  value: metrics.lastRangeRepSummarySwitchedSideDuringRep
-                      ? 'true'
-                      : 'false',
-                ),
-                _DebugMetricRow(
-                  label: 'FullPhase',
-                  value: metrics.lastRangeRepSummaryCompletedPhaseSequence
-                      ? 'true'
-                      : 'false',
-                ),
-                _DebugMetricRow(
-                  label: 'Side',
-                  value: metrics.lastRangeRepSummarySelectedSideLabel ?? '--',
-                ),
-              ],
-            ],
-            _DebugMetricRow(
-              label: isHoldAnalysis ? 'body target' : 'threshold',
-              value: _formatAngle(metrics.formThreshold),
             ),
-            _DebugMetricRow(
-              label: 'isFormBad',
-              value: workoutState.isFormBad ? 'true' : 'false',
-            ),
-            if (isHoldAnalysis) ...[
-              _DebugMetricRow(
-                label: 'isHolding',
-                value: workoutState.isHolding ? 'true' : 'false',
-              ),
-              _DebugMetricRow(
-                label: 'hold break',
-                value: workoutState.hadHoldFormBreak ? 'true' : 'false',
-              ),
-            ] else ...[
-              _DebugMetricRow(
-                label: 'rep worst back',
-                value: _formatAngle(metrics.currentRepWorstBackAngle),
-              ),
-              _DebugMetricRow(
-                label: 'rep violation',
-                value: metrics.currentRepHadFormViolation ? 'true' : 'false',
-              ),
-            ],
-            if (!isHoldAnalysis && metrics.hasLastRepBreakdown) ...[
-              const Divider(color: Colors.white24, height: 14),
-              Text(
-                'last rep: score ${workoutState.lastRepScore.toStringAsFixed(1)} | '
-                'rom ${metrics.lastRepRomScore.toStringAsFixed(1)} | '
-                'desc ${metrics.lastRepDescentScore.toStringAsFixed(1)} | '
-                'asc ${metrics.lastRepAscentScoreCandidate.toStringAsFixed(1)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'last form: worst ${_formatAngle(metrics.lastRepWorstBackAngle)} | '
-                'violation ${metrics.lastRepHadFormViolation ? 'true' : 'false'}',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-            ],
           ],
         ),
       ),
@@ -1313,6 +1347,35 @@ String _formatPhaseFormTelemetry(
       : _formatTelemetryValue(worstFormMetric);
 
   return '$worstValue / ${hadFormViolation ? 'true' : 'false'}';
+}
+
+class _DebugSection extends StatelessWidget {
+  const _DebugSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...children,
+        ],
+      ),
+    );
+  }
 }
 
 class _DebugMetricRow extends StatelessWidget {
