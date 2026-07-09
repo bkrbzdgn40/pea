@@ -195,6 +195,10 @@ class ExerciseConfig {
     return holdPosture ?? HoldPostureConfig.legacy(this);
   }
 
+  double resolveFormThreshold({double offset = 0.0}) {
+    return (formThreshold + offset).clamp(0.0, 180.0).toDouble();
+  }
+
   factory ExerciseConfig.fromMap(Map<String, dynamic> map) {
     PoseLandmarkType readLandmark(String key) {
       final value = map[key];

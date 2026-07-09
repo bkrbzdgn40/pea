@@ -83,6 +83,8 @@ class WorkoutCalibrationMetrics {
     this.lastRepWorstBackAngle = 0.0,
     this.lastRepHadFormViolation = false,
     this.calibrationSnapshot,
+    this.calibrationThresholdOffsetCandidate,
+    this.calibrationThresholdOffsetApplied = false,
     this.sessionCalibrationBaselineCandidate,
   });
 
@@ -164,6 +166,8 @@ class WorkoutCalibrationMetrics {
   final double lastRepWorstBackAngle;
   final bool lastRepHadFormViolation;
   final CalibrationSnapshot? calibrationSnapshot;
+  final double? calibrationThresholdOffsetCandidate;
+  final bool calibrationThresholdOffsetApplied;
   final SessionCalibrationBaseline? sessionCalibrationBaselineCandidate;
 }
 

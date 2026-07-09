@@ -56,6 +56,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   static const double _rangeRepSideConfidenceSwitchMargin = 0.15;
   static const int _rangeRepSideRepSwitchConfirmationFrames = 2;
   static const double _rangeRepSideRepConfidenceSwitchMargin = 0.20;
+  static const int _minCalibrationBaselineSamplesForThresholdOffset = 3;
+  static const double _maxCalibrationThresholdOffsetMagnitude = 5.0;
+  static const double _minCalibrationThresholdOffsetMagnitude = 0.5;
 
   bool _isProcessing = false;
   DateTime? _lastAnalysisStartedAt;
@@ -246,6 +249,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         // Raw range-rep form signals are telemetry only; engine inputs stay legacy.
         final selectedFormSignals =
             rangeRepFrameAssessment.selectedMetrics?.formSignals;
+        final selectedRangeRepSide = _rangeRepSideLabel(
+          rangeRepFrameAssessment.selection.selectedSide,
+        );
         final previousRepCount = state.repCount;
         _trackRangeRepRepContext(
           diagnostics: preUpdateRangeRepDiagnostics,
@@ -256,7 +262,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           metrics,
           rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
         );
-        _engine.update(analysisFrame);
+        final formThresholdResolution = _resolveFormThreshold(
+          baseThreshold: _config.formThreshold,
+          selectedRangeRepSide: selectedRangeRepSide,
+        );
+        final engineFrame = _applyFormThresholdResolution(
+          analysisFrame,
+          formThresholdResolution,
+        );
+        _engine.update(engineFrame);
         final postUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
         final didCompleteRep = _engine.repCount > previousRepCount;
         _assembleRangeRepRepSummaryCandidateIfNeeded(
@@ -291,7 +305,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentPrimaryMetric: analysisFrame.primaryMetric,
             thresholdValue: _engineKind == EngineKind.hold
                 ? holdDiagnostics.bodyLineTargetAngle
-                : _config.formThreshold,
+                : formThresholdResolution.effectiveThreshold,
             currentBodyLineAngle: analysisFrame.bodyLineAngle,
             currentArmSupportAngle: analysisFrame.armSupportAngle,
             currentLegExtensionAngle: analysisFrame.legExtensionAngle,
@@ -302,13 +316,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             currentLockoutMetric: selectedFormSignals?.lockoutMetric,
             currentBottomControlMetric:
                 selectedFormSignals?.bottomControlMetric,
+            calibrationThresholdOffsetCandidate:
+                formThresholdResolution.offsetCandidate,
+            calibrationThresholdOffsetApplied:
+                formThresholdResolution.isApplied,
             isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
             hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
             hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
             rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
-            selectedRangeRepSide: _rangeRepSideLabel(
-              rangeRepFrameAssessment.selection.selectedSide,
-            ),
+            selectedRangeRepSide: selectedRangeRepSide,
             rangeRepSideSelectionReason:
                 rangeRepFrameAssessment.selection.debugLabel,
             leftRangeRepCoverage:
@@ -481,6 +497,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   ) {
     final selectedMetrics = assessment.selectedMetrics;
     final formSignals = selectedMetrics?.formSignals;
+    final selectedRangeRepSide = _rangeRepSideLabel(
+      assessment.selection.selectedSide,
+    );
     final previewAngle = _previewRangeRepMetric(
       assessment.hasPrimaryAngle,
       selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
@@ -494,6 +513,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _backFilter,
       state.calibrationMetrics.currentBackAngle,
       freezeSmoothedPreview,
+    );
+    final formThresholdResolution = _resolveFormThreshold(
+      baseThreshold: _config.formThreshold,
+      selectedRangeRepSide: selectedRangeRepSide,
     );
 
     return WorkoutState(
@@ -515,20 +538,21 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       calibrationMetrics: _buildCalibrationMetrics(
         currentFormMetric: previewBackAngle,
         currentPrimaryMetric: previewAngle,
-        thresholdValue: _config.formThreshold,
+        thresholdValue: formThresholdResolution.effectiveThreshold,
         currentTorsoAngle: formSignals?.torsoAngle,
         currentDepthMetric: formSignals?.depthMetric,
         currentAlignmentMetric: formSignals?.alignmentMetric,
         currentStabilityMetric: formSignals?.stabilityMetric,
         currentLockoutMetric: formSignals?.lockoutMetric,
         currentBottomControlMetric: formSignals?.bottomControlMetric,
+        calibrationThresholdOffsetCandidate:
+            formThresholdResolution.offsetCandidate,
+        calibrationThresholdOffsetApplied: formThresholdResolution.isApplied,
         isRangeRepFrameValid: false,
         hasPrimaryAngle: assessment.hasPrimaryAngle,
         hasFormMetric: assessment.hasFormMetric,
         rangeRepInvalidReason: assessment.invalidReason,
-        selectedRangeRepSide: _rangeRepSideLabel(
-          assessment.selection.selectedSide,
-        ),
+        selectedRangeRepSide: selectedRangeRepSide,
         rangeRepSideSelectionReason: assessment.selection.debugLabel,
         leftRangeRepCoverage: assessment.selection.leftMetrics.coverageScore,
         rightRangeRepCoverage: assessment.selection.rightMetrics.coverageScore,
@@ -568,6 +592,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required double currentFormMetric,
     required double thresholdValue,
     double? currentPrimaryMetric,
+    double? calibrationThresholdOffsetCandidate,
+    bool calibrationThresholdOffsetApplied = false,
     bool isRangeRepFrameValid = true,
     bool hasPrimaryAngle = false,
     bool hasFormMetric = false,
@@ -739,7 +765,78 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
       lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
       calibrationSnapshot: _lastCalibrationSnapshot,
+      calibrationThresholdOffsetCandidate:
+          calibrationThresholdOffsetCandidate,
+      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
       sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
+    );
+  }
+
+  _FormThresholdResolution _resolveFormThreshold({
+    required double baseThreshold,
+    required String? selectedRangeRepSide,
+  }) {
+    final offsetCandidate = _buildCalibrationThresholdOffsetCandidate(
+      baseThreshold: baseThreshold,
+      selectedRangeRepSide: selectedRangeRepSide,
+    );
+    if (offsetCandidate == null) {
+      return _FormThresholdResolution.fallback(baseThreshold);
+    }
+
+    return _FormThresholdResolution(
+      offsetCandidate: offsetCandidate,
+      isApplied: true,
+      effectiveThreshold: _config.resolveFormThreshold(offset: offsetCandidate),
+    );
+  }
+
+  double? _buildCalibrationThresholdOffsetCandidate({
+    required double baseThreshold,
+    required String? selectedRangeRepSide,
+  }) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return null;
+    }
+
+    final baseline = _sessionCalibrationBaseline;
+    if (baseline == null ||
+        baseline.analysisKind != _engineKind.name ||
+        baseline.sampleCount < _minCalibrationBaselineSamplesForThresholdOffset ||
+        baseline.formMetricBaseline == null ||
+        selectedRangeRepSide == null ||
+        baseline.selectedSideLabel != selectedRangeRepSide) {
+      return null;
+    }
+
+    final offset = (baseline.formMetricBaseline! - baseThreshold)
+        .clamp(
+          -_maxCalibrationThresholdOffsetMagnitude,
+          _maxCalibrationThresholdOffsetMagnitude,
+        )
+        .toDouble();
+    if (offset.abs() < _minCalibrationThresholdOffsetMagnitude) {
+      return null;
+    }
+
+    return offset;
+  }
+
+  AnalysisFrame _applyFormThresholdResolution(
+    AnalysisFrame frame,
+    _FormThresholdResolution resolution,
+  ) {
+    final offsetCandidate = resolution.offsetCandidate;
+    if (!resolution.isApplied || offsetCandidate == null) {
+      return frame;
+    }
+
+    return AnalysisFrame(
+      primaryMetric: frame.primaryMetric,
+      formMetric: frame.formMetric - offsetCandidate,
+      bodyLineAngle: frame.bodyLineAngle,
+      armSupportAngle: frame.armSupportAngle,
+      legExtensionAngle: frame.legExtensionAngle,
     );
   }
 
@@ -1171,6 +1268,22 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _rangeRepSideConsistencyStatus = null;
     }
   }
+}
+
+class _FormThresholdResolution {
+  const _FormThresholdResolution({
+    required this.effectiveThreshold,
+    required this.isApplied,
+    this.offsetCandidate,
+  });
+
+  const _FormThresholdResolution.fallback(this.effectiveThreshold)
+    : isApplied = false,
+      offsetCandidate = null;
+
+  final double effectiveThreshold;
+  final bool isApplied;
+  final double? offsetCandidate;
 }
 
 class _SessionCalibrationBaselineAccumulator {
