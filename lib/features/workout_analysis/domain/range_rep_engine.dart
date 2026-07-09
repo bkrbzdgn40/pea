@@ -177,6 +177,7 @@ class RangeRepEngine
     implements
         AnalysisEngine,
         RangeRepDiagnostics,
+        RangeRepValidationHook,
         RangeRepResyncControl,
         RangeRepFeedbackSource {
   final ExerciseConfig config;
@@ -194,6 +195,7 @@ class RangeRepEngine
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
+  RangeRepCompletedRepCoreData? _pendingCompletedRepCoreData;
   @override
   late String feedback;
   RangeRepFeedbackCode? _feedbackCode;
@@ -229,6 +231,13 @@ class RangeRepEngine
 
   @override
   RangeRepFeedbackCode? get feedbackCode => _feedbackCode;
+
+  @override
+  RangeRepCompletedRepCoreData? consumeCompletedRepCoreData() {
+    final completedRepCoreData = _pendingCompletedRepCoreData;
+    _pendingCompletedRepCoreData = null;
+    return completedRepCoreData;
+  }
 
   @override
   String get phaseLabel => state.name.toUpperCase();
@@ -511,6 +520,7 @@ class RangeRepEngine
       hadFormViolation: _currentRepHadFormViolation,
       completedPhaseSequence: completedPhaseSequence,
     );
+    _pendingCompletedRepCoreData = lastCompletedRepCoreData;
   }
 
   double _calculateRomScore(double minAngle) {
@@ -893,6 +903,7 @@ class RangeRepEngine
     lastRepScore = 0;
     lastRepScoreBreakdown = null;
     lastCompletedRepCoreData = null;
+    _pendingCompletedRepCoreData = null;
     maxROM = 180;
     lastDescentTime = Duration.zero;
     lastAscentTime = Duration.zero;

@@ -133,6 +133,12 @@ abstract class RangeRepDiagnostics {
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot;
 }
 
+/// Optional explicit seam for consuming newly completed rep core facts exactly
+/// once from a range-rep engine.
+abstract class RangeRepValidationHook {
+  RangeRepCompletedRepCoreData? consumeCompletedRepCoreData();
+}
+
 /// Optional recovery surface for range-rep engines that can discard only the
 /// active repetition context while preserving session-level history.
 abstract class RangeRepResyncControl {

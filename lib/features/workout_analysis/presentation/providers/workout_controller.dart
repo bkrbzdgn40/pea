@@ -252,7 +252,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         final selectedRangeRepSide = _rangeRepSideLabel(
           rangeRepFrameAssessment.selection.selectedSide,
         );
-        final previousRepCount = state.repCount;
         _trackRangeRepRepContext(
           diagnostics: preUpdateRangeRepDiagnostics,
           selectedSide: rangeRepFrameAssessment.selection.selectedSide,
@@ -271,11 +270,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           formThresholdResolution,
         );
         _engine.update(engineFrame);
+        final completedRepCoreData = _consumeCompletedRepCoreData();
         final postUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
-        final didCompleteRep = _engine.repCount > previousRepCount;
+        final didCompleteRep = completedRepCoreData != null;
         _assembleRangeRepRepSummaryCandidateIfNeeded(
-          previousRepCount: previousRepCount,
-          diagnostics: postUpdateRangeRepDiagnostics,
+          completedRepCoreData: completedRepCoreData,
         );
         _resetRangeRepRepSummaryContextIfCycleEnded(
           previousDiagnostics: preUpdateRangeRepDiagnostics,
@@ -939,31 +938,31 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _activeRangeRepSelectedSideLabel = selectedSideLabel;
   }
 
-  void _assembleRangeRepRepSummaryCandidateIfNeeded({
-    required int previousRepCount,
-    required RangeRepDiagnosticsSnapshot diagnostics,
-  }) {
-    if (_engineKind != EngineKind.rangeRep ||
-        _engine.repCount <= previousRepCount) {
-      return;
+  RangeRepCompletedRepCoreData? _consumeCompletedRepCoreData() {
+    if (_engine is! RangeRepValidationHook) {
+      return null;
     }
 
-    final coreData = diagnostics.lastCompletedRepCoreData;
-    if (coreData == null) {
-      _resetRangeRepRepSummaryContext();
+    return (_engine as RangeRepValidationHook).consumeCompletedRepCoreData();
+  }
+
+  void _assembleRangeRepRepSummaryCandidateIfNeeded({
+    required RangeRepCompletedRepCoreData? completedRepCoreData,
+  }) {
+    if (_engineKind != EngineKind.rangeRep || completedRepCoreData == null) {
       return;
     }
 
     final summaryCandidate = RangeRepRepSummary(
-      repIndex: coreData.repIndex,
-      minAngle: coreData.minAngle,
-      worstFormMetric: coreData.worstFormMetric,
-      descentDuration: coreData.descentDuration,
-      ascentDuration: coreData.ascentDuration,
-      hadFormViolation: coreData.hadFormViolation,
+      repIndex: completedRepCoreData.repIndex,
+      minAngle: completedRepCoreData.minAngle,
+      worstFormMetric: completedRepCoreData.worstFormMetric,
+      descentDuration: completedRepCoreData.descentDuration,
+      ascentDuration: completedRepCoreData.ascentDuration,
+      hadFormViolation: completedRepCoreData.hadFormViolation,
       hadCoverageDrop: _activeRangeRepHadCoverageDrop,
       switchedSideDuringRep: _activeRangeRepSwitchedSideDuringRep,
-      completedPhaseSequence: coreData.completedPhaseSequence,
+      completedPhaseSequence: completedRepCoreData.completedPhaseSequence,
       selectedSideLabel: _activeRangeRepSelectedSideLabel,
       analysisKindLabel: _engineKind.name,
     );
