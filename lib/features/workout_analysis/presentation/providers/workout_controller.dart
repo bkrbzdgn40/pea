@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/moving_average.dart';
 import '../../application/analysis_engine_factory.dart';
+import '../../application/calibration_snapshot_builder.dart';
 import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
@@ -79,6 +80,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final ExerciseConfig _config;
   late final RangeRepContract? _rangeRepContract;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
+  final CalibrationSnapshotBuilder _calibrationSnapshotBuilder =
+      const CalibrationSnapshotBuilder();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
@@ -688,21 +691,23 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
     final lastValidationResult = _lastRangeRepValidationResult;
     final lastSummaryCandidate = _lastRangeRepRepSummaryCandidate;
-    final calibrationSnapshotCandidate = _buildCalibrationSnapshotCandidate(
-      diagnostics: diagnostics,
-      currentPrimaryMetric: currentPrimaryMetric,
-      currentFormMetric: currentFormMetric,
-      hasPrimaryAngle: hasPrimaryAngle,
-      hasFormMetric: hasFormMetric,
-      isRangeRepFrameValid: isRangeRepFrameValid,
-      selectedRangeRepSide: selectedRangeRepSide,
-      currentTorsoAngle: currentTorsoAngle,
-      currentDepthMetric: currentDepthMetric,
-      currentAlignmentMetric: currentAlignmentMetric,
-      currentStabilityMetric: currentStabilityMetric,
-      currentLockoutMetric: currentLockoutMetric,
-      currentBottomControlMetric: currentBottomControlMetric,
-    );
+    final calibrationSnapshotCandidate = _calibrationSnapshotBuilder
+        .buildCandidate(
+          engineKind: _engineKind,
+          diagnostics: diagnostics,
+          currentPrimaryMetric: currentPrimaryMetric,
+          currentFormMetric: currentFormMetric,
+          hasPrimaryAngle: hasPrimaryAngle,
+          hasFormMetric: hasFormMetric,
+          isRangeRepFrameValid: isRangeRepFrameValid,
+          selectedRangeRepSide: selectedRangeRepSide,
+          currentTorsoAngle: currentTorsoAngle,
+          currentDepthMetric: currentDepthMetric,
+          currentAlignmentMetric: currentAlignmentMetric,
+          currentStabilityMetric: currentStabilityMetric,
+          currentLockoutMetric: currentLockoutMetric,
+          currentBottomControlMetric: currentBottomControlMetric,
+        );
 
     if (calibrationSnapshotCandidate != null) {
       _lastCalibrationSnapshot = calibrationSnapshotCandidate;
@@ -914,52 +919,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       armSupportAngle: frame.armSupportAngle,
       legExtensionAngle: frame.legExtensionAngle,
     );
-  }
-
-  CalibrationSnapshot? _buildCalibrationSnapshotCandidate({
-    required RangeRepDiagnosticsSnapshot diagnostics,
-    required bool isRangeRepFrameValid,
-    required bool hasPrimaryAngle,
-    required bool hasFormMetric,
-    required double currentFormMetric,
-    double? currentPrimaryMetric,
-    String? selectedRangeRepSide,
-    double? currentTorsoAngle,
-    double? currentDepthMetric,
-    double? currentAlignmentMetric,
-    double? currentStabilityMetric,
-    double? currentLockoutMetric,
-    double? currentBottomControlMetric,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return null;
-    }
-
-    final isStableSnapshotMoment =
-        isRangeRepFrameValid &&
-        !diagnostics.hasActiveRepPhase &&
-        !diagnostics.hasPendingTransition &&
-        selectedRangeRepSide != null;
-
-    if (!isStableSnapshotMoment) {
-      return null;
-    }
-
-    final snapshot = CalibrationSnapshot(
-      analysisKind: _engineKind.name,
-      selectedSideLabel: selectedRangeRepSide,
-      primaryMetricBaseline: hasPrimaryAngle ? currentPrimaryMetric : null,
-      formMetricBaseline: hasFormMetric ? currentFormMetric : null,
-      torsoAngleBaseline: currentTorsoAngle,
-      depthMetricBaseline: currentDepthMetric,
-      alignmentMetricBaseline: currentAlignmentMetric,
-      stabilityMetricBaseline: currentStabilityMetric,
-      lockoutMetricBaseline: currentLockoutMetric,
-      bottomControlMetricBaseline: currentBottomControlMetric,
-      createdAt: DateTime.now(),
-    );
-
-    return snapshot.hasAnyBaseline ? snapshot : null;
   }
 
   void _updateSessionCalibrationBaseline(CalibrationSnapshot snapshot) {
