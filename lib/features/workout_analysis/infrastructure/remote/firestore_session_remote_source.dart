@@ -143,12 +143,6 @@ class FirestoreSessionRemoteSource {
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
 
-    if (session.reps != null) {
-      firestoreData['reps'] = session.reps!
-          .map((rep) => rep.toMap())
-          .toList(growable: false);
-    }
-
     return firestoreData;
   }
 
