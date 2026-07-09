@@ -499,13 +499,13 @@ class RangeRepEngine
               : weightedBaseScore);
     final phaseAdjustedScore = phaseQualityPenalty == null
         ? null
-        : (baseScore - phaseQualityPenalty)
-              .clamp(0.0, 100.0)
-              .toDouble();
+        : (baseScore - phaseQualityPenalty).clamp(0.0, 100.0).toDouble();
     final finalScore = phaseAdjustedScore ?? baseScore;
 
     lastRepScore = finalScore;
-    _setFeedback(phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted);
+    _setFeedback(
+      phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
+    );
     lastRepScoreBreakdown = RepScoreBreakdown(
       minAngle: maxROM,
       romScore: romScore,

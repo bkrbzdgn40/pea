@@ -36,6 +36,7 @@ class WorkoutSession {
   final double totalHoldSeconds;
   final double bestHoldSeconds;
   final int formBreakCount;
+
   /// Optional rep-level details kept in the domain model.
   ///
   /// The current Firestore session document contract is summary-only and does
