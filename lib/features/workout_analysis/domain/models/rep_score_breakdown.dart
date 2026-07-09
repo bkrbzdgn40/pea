@@ -9,6 +9,7 @@ class RepScoreBreakdown {
     required this.ascentScoreCandidate,
     required this.worstBackAngle,
     required this.hadFormViolation,
+    required this.runtimeBaseScore,
     required this.finalScore,
     this.depthScore,
     this.postureScore,
@@ -16,7 +17,7 @@ class RepScoreBreakdown {
     this.descentControlScore,
     this.ascentControlScore,
     this.consistencyScore,
-    this.weightedScoreCandidate,
+    this.weightedBaseScore,
     this.phaseQualityPenaltyCandidate,
     this.phaseInformedScoreCandidate,
   });
@@ -29,6 +30,7 @@ class RepScoreBreakdown {
   final double ascentScoreCandidate;
   final double worstBackAngle;
   final bool hadFormViolation;
+  final double runtimeBaseScore;
   final double finalScore;
   final double? depthScore;
   final double? postureScore;
@@ -36,7 +38,7 @@ class RepScoreBreakdown {
   final double? descentControlScore;
   final double? ascentControlScore;
   final double? consistencyScore;
-  final double? weightedScoreCandidate;
+  final double? weightedBaseScore;
   final double? phaseQualityPenaltyCandidate;
   final double? phaseInformedScoreCandidate;
 }

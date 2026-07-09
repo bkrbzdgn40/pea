@@ -440,20 +440,26 @@ class RangeRepEngine
       idealSeconds: config.idealAscentSeconds,
     );
     final tempoScore = (descentScore + ascentScoreCandidate) / 2;
+    final depthScore = romScore;
     final descentControlScore = descentScore;
     final ascentControlScore = ascentScoreCandidate;
     final scoreWeights = config.rangeRepScoreWeights;
-    final weightedScoreCandidate =
-        _composeWeightedScore(<_WeightedScoreComponent>[
-          _WeightedScoreComponent(
-            score: descentControlScore,
-            weight: scoreWeights?.descentControlWeight ?? 1.0,
-          ),
-          _WeightedScoreComponent(
-            score: ascentControlScore,
-            weight: scoreWeights?.ascentControlWeight ?? 1.0,
-          ),
-        ]);
+    final weightedBaseScore = scoreWeights == null
+        ? null
+        : _composeWeightedScore(<_WeightedScoreComponent>[
+            _WeightedScoreComponent(
+              score: depthScore,
+              weight: scoreWeights.depthWeight ?? 1.0,
+            ),
+            _WeightedScoreComponent(
+              score: descentControlScore,
+              weight: scoreWeights.descentControlWeight ?? 1.0,
+            ),
+            _WeightedScoreComponent(
+              score: ascentControlScore,
+              weight: scoreWeights.ascentControlWeight ?? 1.0,
+            ),
+          ]);
     final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
       _now(),
     );
@@ -483,9 +489,14 @@ class RangeRepEngine
     );
 
     // Phase-aware score now becomes the runtime score when a completed rep is flagged.
-    final baseScore = _currentRepHadFormViolation
+    final legacyBaseScore = _currentRepHadFormViolation
         ? (romScore + tempoScore) / 4
         : (romScore + tempoScore) / 2;
+    final baseScore = weightedBaseScore == null
+        ? legacyBaseScore
+        : (_currentRepHadFormViolation
+              ? weightedBaseScore / 2
+              : weightedBaseScore);
     final phaseInformedScoreCandidate = phaseQualityPenaltyCandidate == null
         ? null
         : (baseScore - phaseQualityPenaltyCandidate)
@@ -504,10 +515,12 @@ class RangeRepEngine
       ascentScoreCandidate: ascentScoreCandidate,
       worstBackAngle: _currentRepWorstBackAngle,
       hadFormViolation: _currentRepHadFormViolation,
+      runtimeBaseScore: baseScore,
       finalScore: finalScore,
+      depthScore: depthScore,
       descentControlScore: descentControlScore,
       ascentControlScore: ascentControlScore,
-      weightedScoreCandidate: weightedScoreCandidate,
+      weightedBaseScore: weightedBaseScore,
       phaseQualityPenaltyCandidate: phaseQualityPenaltyCandidate,
       phaseInformedScoreCandidate: phaseInformedScoreCandidate,
     );
