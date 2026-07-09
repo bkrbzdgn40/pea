@@ -1,0 +1,109 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
+import 'package:pose_estimation_app/features/workout_analysis/infrastructure/mappers/workout_session_firestore_mapper.dart';
+
+void main() {
+  group('WorkoutSessionFirestoreMapper', () {
+    const mapper = WorkoutSessionFirestoreMapper();
+
+    test('serializes summary fields without inlining reps', () {
+      final session = _sessionWithReps();
+
+      final document = mapper.toDocument(session);
+
+      expect(document['id'], session.id);
+      expect(document['ownerId'], session.ownerId);
+      expect(document['durationSeconds'], session.durationSec);
+      expect(document['validReps'], 1);
+      expect(document['invalidReps'], 1);
+      expect(document['worstScore'], 77.0);
+      expect(document['holdDurationSeconds'], session.totalHoldSeconds);
+      expect(document['bestHoldSeconds'], session.bestHoldSeconds);
+      expect(document['holdFormBreakCount'], session.formBreakCount);
+      expect(document['startedAt'], isA<Timestamp>());
+      expect(document['endedAt'], isA<Timestamp>());
+      expect(document.containsKey('reps'), isFalse);
+    });
+
+    test('reads both current and legacy summary field names', () {
+      final session = mapper.fromDocument(
+        <String, dynamic>{
+          'id': 'session_1',
+          'ownerId': 'owner_1',
+          'exerciseType': 'squat',
+          'analysisKind': 'rangeRep',
+          'startedAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12)),
+          'endedAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 10)),
+          'durationSec': 600,
+          'totalReps': 8,
+          'validReps': 6,
+          'invalidReps': 1,
+          'averageScore': 82.5,
+          'bestScore': 95.0,
+          'worstScore': 70.0,
+          'formWarningCount': 2,
+          'totalHoldSeconds': 0.0,
+          'bestHoldSeconds': 0.0,
+          'formBreakCount': 0,
+          'createdAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12)),
+          'updatedAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 10)),
+        },
+        fallbackId: 'fallback',
+        fallbackOwnerId: 'fallback-owner',
+      );
+
+      expect(session.id, 'session_1');
+      expect(session.ownerId, 'owner_1');
+      expect(session.durationSec, 600);
+      expect(session.validReps, 6);
+      expect(session.invalidReps, 1);
+      expect(session.worstScore, 70.0);
+      expect(session.totalHoldSeconds, 0.0);
+      expect(session.formBreakCount, 0);
+      expect(session.reps, isNull);
+    });
+  });
+}
+
+WorkoutSession _sessionWithReps() {
+  return WorkoutSession(
+    id: 'session_1',
+    ownerId: 'owner_1',
+    exerciseType: 'squat',
+    analysisKind: 'rangeRep',
+    startedAt: DateTime.utc(2026, 1, 1, 12),
+    endedAt: DateTime.utc(2026, 1, 1, 12, 10),
+    durationSec: 600,
+    totalReps: 2,
+    averageScore: 83.5,
+    bestScore: 90.0,
+    worstScore: 77.0,
+    validReps: 1,
+    invalidReps: 1,
+    formWarningCount: 2,
+    totalHoldSeconds: 0.0,
+    bestHoldSeconds: 0.0,
+    formBreakCount: 0,
+    createdAt: DateTime.utc(2026, 1, 1, 12),
+    updatedAt: DateTime.utc(2026, 1, 1, 12, 10),
+    reps: const <WorkoutRep>[
+      WorkoutRep(
+        repIndex: 1,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'valid',
+        score: 90.0,
+      ),
+      WorkoutRep(
+        repIndex: 2,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'invalid',
+        validationReasons: <String>['insufficient rom'],
+        score: 77.0,
+      ),
+    ],
+  );
+}

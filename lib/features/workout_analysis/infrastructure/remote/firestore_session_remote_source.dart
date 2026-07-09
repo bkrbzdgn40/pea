@@ -2,20 +2,49 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/firebase/firebase_failures.dart';
 import '../../../../core/firebase/firestore_paths.dart';
+import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
+import '../mappers/workout_rep_firestore_mapper.dart';
+import '../mappers/workout_session_firestore_mapper.dart';
 
 /// One-shot Firestore data source for user-owned workout sessions.
 class FirestoreSessionRemoteSource {
-  const FirestoreSessionRemoteSource(this._firestore);
+  FirestoreSessionRemoteSource(
+    this._firestore, {
+    WorkoutSessionFirestoreMapper? sessionMapper,
+    WorkoutRepFirestoreMapper? repMapper,
+  }) : _sessionMapper = sessionMapper ?? const WorkoutSessionFirestoreMapper(),
+       _repMapper = repMapper ?? const WorkoutRepFirestoreMapper();
 
   final FirebaseFirestore _firestore;
+  final WorkoutSessionFirestoreMapper _sessionMapper;
+  final WorkoutRepFirestoreMapper _repMapper;
 
   Future<void> saveSession(WorkoutSession session) async {
     try {
-      await _sessionDocument(
+      final batch = _firestore.batch();
+      final sessionDocument = _sessionDocument(session.ownerId, session.id);
+      final repsCollection = _sessionRepsCollection(
         session.ownerId,
         session.id,
-      ).set(_toSessionSummaryDocumentData(session));
+      );
+      final existingRepDocuments = await repsCollection.get();
+
+      for (final document in existingRepDocuments.docs) {
+        batch.delete(document.reference);
+      }
+
+      batch.set(sessionDocument, _sessionMapper.toDocument(session));
+
+      for (final rep in session.reps ?? const <WorkoutRep>[]) {
+        final repId = _repMapper.documentIdFor(rep);
+        batch.set(
+          repsCollection.doc(repId),
+          _repMapper.toDocument(rep: rep, session: session),
+        );
+      }
+
+      await batch.commit();
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be saved.',
@@ -37,7 +66,7 @@ class FirestoreSessionRemoteSource {
         return null;
       }
 
-      return _fromFirestoreData(
+      return _sessionMapper.fromDocument(
         data,
         fallbackId: snapshot.id,
         fallbackOwnerId: ownerId,
@@ -45,6 +74,28 @@ class FirestoreSessionRemoteSource {
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be loaded.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<List<WorkoutRep>> listSessionReps({
+    required String ownerId,
+    required String sessionId,
+  }) async {
+    try {
+      final snapshot = await _sessionRepsCollection(
+        ownerId,
+        sessionId,
+      ).orderBy('repIndex').get();
+
+      return snapshot.docs
+          .map((document) => _repMapper.fromDocument(document.data()))
+          .toList(growable: false);
+    } on FirebaseException catch (error, stackTrace) {
+      throw FirestoreFailure(
+        message: 'Workout reps could not be listed.',
         cause: error,
         stackTrace: stackTrace,
       );
@@ -76,7 +127,7 @@ class FirestoreSessionRemoteSource {
       final snapshot = await query.limit(_safeLimit(limit)).get();
 
       return snapshot.docs.map((document) {
-        return _fromFirestoreData(
+        return _sessionMapper.fromDocument(
           document.data(),
           fallbackId: document.id,
           fallbackOwnerId: ownerId,
@@ -96,7 +147,18 @@ class FirestoreSessionRemoteSource {
     required String sessionId,
   }) async {
     try {
-      await _sessionDocument(ownerId, sessionId).delete();
+      final batch = _firestore.batch();
+      final repDocuments = await _sessionRepsCollection(
+        ownerId,
+        sessionId,
+      ).get();
+
+      for (final document in repDocuments.docs) {
+        batch.delete(document.reference);
+      }
+
+      batch.delete(_sessionDocument(ownerId, sessionId));
+      await batch.commit();
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be deleted.',
@@ -112,106 +174,20 @@ class FirestoreSessionRemoteSource {
     return _firestore.collection(FirestorePaths.userSessions(ownerId));
   }
 
+  CollectionReference<Map<String, dynamic>> _sessionRepsCollection(
+    String ownerId,
+    String sessionId,
+  ) {
+    return _firestore.collection(
+      FirestorePaths.userSessionReps(ownerId, sessionId),
+    );
+  }
+
   DocumentReference<Map<String, dynamic>> _sessionDocument(
     String ownerId,
     String sessionId,
   ) {
     return _firestore.doc(FirestorePaths.userSessionDoc(ownerId, sessionId));
-  }
-
-  /// Maps the domain session into today's summary-only session document shape.
-  ///
-  /// `WorkoutSession.reps` is intentionally excluded here. Rep-level data may
-  /// still exist in the domain model for in-memory and future flows, but it is
-  /// not part of the current Firestore session document contract.
-  Map<String, dynamic> _toSessionSummaryDocumentData(WorkoutSession session) {
-    final now = DateTime.now();
-    // Client timestamps keep the first Firestore integration deterministic.
-    final createdAt = session.createdAt ?? now;
-    final updatedAt = session.updatedAt ?? now;
-    final sessionSummaryDocumentData = <String, dynamic>{
-      'id': session.id,
-      'ownerId': session.ownerId,
-      'exerciseType': session.exerciseType,
-      'analysisKind': session.analysisKind,
-      'startedAt': Timestamp.fromDate(session.startedAt),
-      'endedAt': Timestamp.fromDate(session.endedAt),
-      'durationSec': session.durationSec,
-      'totalReps': session.totalReps,
-      'averageScore': session.averageScore,
-      'bestScore': session.bestScore,
-      'formWarningCount': session.formWarningCount,
-      'totalHoldSeconds': session.totalHoldSeconds,
-      'bestHoldSeconds': session.bestHoldSeconds,
-      'formBreakCount': session.formBreakCount,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
-    };
-
-    return sessionSummaryDocumentData;
-  }
-
-  WorkoutSession _fromFirestoreData(
-    Map<String, dynamic> data, {
-    required String fallbackId,
-    required String fallbackOwnerId,
-  }) {
-    // Keep Firebase Timestamp details out of the domain model.
-    return WorkoutSession.fromMap(<String, Object?>{
-      'id': data['id'] ?? fallbackId,
-      'ownerId': data['ownerId'] ?? fallbackOwnerId,
-      'exerciseType': data['exerciseType'],
-      'analysisKind': data['analysisKind'],
-      'startedAt': _toPlainDate(data['startedAt']),
-      'endedAt': _toPlainDate(data['endedAt']),
-      'durationSec': data['durationSec'],
-      'totalReps': data['totalReps'],
-      'averageScore': data['averageScore'],
-      'bestScore': data['bestScore'],
-      'formWarningCount': data['formWarningCount'],
-      'totalHoldSeconds': data['totalHoldSeconds'],
-      'bestHoldSeconds': data['bestHoldSeconds'],
-      'formBreakCount': data['formBreakCount'],
-      'reps': _toPlainRepsData(data['reps']),
-      'createdAt': _toPlainDate(data['createdAt']),
-      'updatedAt': _toPlainDate(data['updatedAt']),
-    });
-  }
-
-  List<Map<String, Object?>>? _toPlainRepsData(Object? value) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is Iterable) {
-      return value
-          .map((entry) => _toPlainRepData(entry))
-          .toList(growable: false);
-    }
-
-    throw const FormatException('Expected list for "reps".');
-  }
-
-  Map<String, Object?> _toPlainRepData(Object? value) {
-    if (value is Map) {
-      return <String, Object?>{
-        for (final entry in value.entries)
-          if (entry.key is String)
-            entry.key as String: entry.key == 'recordedAt'
-                ? _toPlainDate(entry.value)
-                : entry.value,
-      };
-    }
-
-    throw const FormatException('Expected map entry for "reps".');
-  }
-
-  Object? _toPlainDate(Object? value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    return value;
   }
 
   int _safeLimit(int limit) {

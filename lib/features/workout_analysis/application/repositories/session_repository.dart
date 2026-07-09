@@ -1,3 +1,4 @@
+import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
 
 /// Repository contract for saving and reading completed workout sessions.
@@ -5,6 +6,11 @@ abstract interface class SessionRepository {
   Future<void> saveSession(WorkoutSession session);
 
   Future<WorkoutSession?> getSessionById({
+    required String ownerId,
+    required String sessionId,
+  });
+
+  Future<List<WorkoutRep>> listSessionReps({
     required String ownerId,
     required String sessionId,
   });

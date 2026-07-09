@@ -1,3 +1,4 @@
+import '../../domain/models/workout_rep.dart';
 import '../../application/repositories/session_repository.dart';
 import '../../domain/models/workout_session.dart';
 import '../remote/firestore_session_remote_source.dart';
@@ -19,6 +20,17 @@ class FirestoreSessionRepository implements SessionRepository {
     required String sessionId,
   }) {
     return _remoteSource.getSessionById(ownerId: ownerId, sessionId: sessionId);
+  }
+
+  @override
+  Future<List<WorkoutRep>> listSessionReps({
+    required String ownerId,
+    required String sessionId,
+  }) {
+    return _remoteSource.listSessionReps(
+      ownerId: ownerId,
+      sessionId: sessionId,
+    );
   }
 
   @override

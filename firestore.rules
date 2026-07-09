@@ -10,6 +10,26 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isNullableString(value) {
+      return value == null || value is string;
+    }
+
+    function isNullableNumber(value) {
+      return value == null || value is number;
+    }
+
+    function isNullableInt(value) {
+      return value == null || value is int;
+    }
+
+    function isNullableBool(value) {
+      return value == null || value is bool;
+    }
+
+    function isNullableTimestamp(value) {
+      return value == null || value is timestamp;
+    }
+
     function hasSessionFields() {
       return request.resource.data.keys().hasOnly([
         'id',
@@ -18,14 +38,17 @@ service cloud.firestore {
         'analysisKind',
         'startedAt',
         'endedAt',
-        'durationSec',
+        'durationSeconds',
         'totalReps',
+        'validReps',
+        'invalidReps',
         'averageScore',
         'bestScore',
+        'worstScore',
         'formWarningCount',
-        'totalHoldSeconds',
+        'holdDurationSeconds',
         'bestHoldSeconds',
-        'formBreakCount',
+        'holdFormBreakCount',
         'createdAt',
         'updatedAt',
       ]) &&
@@ -36,14 +59,17 @@ service cloud.firestore {
         'analysisKind',
         'startedAt',
         'endedAt',
-        'durationSec',
+        'durationSeconds',
         'totalReps',
+        'validReps',
+        'invalidReps',
         'averageScore',
         'bestScore',
+        'worstScore',
         'formWarningCount',
-        'totalHoldSeconds',
+        'holdDurationSeconds',
         'bestHoldSeconds',
-        'formBreakCount',
+        'holdFormBreakCount',
         'createdAt',
         'updatedAt',
       ]);
@@ -62,14 +88,17 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp &&
         request.resource.data.updatedAt is timestamp &&
         request.resource.data.endedAt >= request.resource.data.startedAt &&
-        request.resource.data.durationSec is int &&
+        request.resource.data.durationSeconds is int &&
         request.resource.data.totalReps is int &&
+        request.resource.data.validReps is int &&
+        request.resource.data.invalidReps is int &&
         request.resource.data.averageScore is number &&
         request.resource.data.bestScore is number &&
+        request.resource.data.worstScore is number &&
         request.resource.data.formWarningCount is int &&
-        request.resource.data.totalHoldSeconds is number &&
+        request.resource.data.holdDurationSeconds is number &&
         request.resource.data.bestHoldSeconds is number &&
-        request.resource.data.formBreakCount is int;
+        request.resource.data.holdFormBreakCount is int;
     }
 
     function isValidSessionCreate(userId, sessionId) {
@@ -87,6 +116,95 @@ service cloud.firestore {
         hasValidSessionShape(userId, sessionId);
     }
 
+    function hasRepFields() {
+      return request.resource.data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'sessionId',
+        'exerciseType',
+        'analysisKind',
+        'repIndex',
+        'score',
+        'isValid',
+        'validationStatus',
+        'invalidReason',
+        'validationReasons',
+        'endedAt',
+        'durationSeconds',
+        'minPrimaryMetric',
+        'worstFormMetric',
+        'descentMillis',
+        'ascentMillis',
+        'hadFormViolation',
+        'hadCoverageDrop',
+        'switchedSideDuringRep',
+        'completedPhaseSequence',
+        'selectedSide',
+        'feedback',
+        'createdAt',
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'id',
+        'ownerId',
+        'sessionId',
+        'exerciseType',
+        'analysisKind',
+        'repIndex',
+        'isValid',
+        'createdAt',
+      ]);
+    }
+
+    function hasValidRepShape(userId, sessionId, repId) {
+      return request.resource.data.id is string &&
+        request.resource.data.id == repId &&
+        request.resource.data.ownerId is string &&
+        request.resource.data.ownerId == userId &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.sessionId == sessionId &&
+        request.resource.data.exerciseType is string &&
+        request.resource.data.analysisKind is string &&
+        request.resource.data.repIndex is int &&
+        request.resource.data.isValid is bool &&
+        request.resource.data.createdAt is timestamp &&
+        isNullableNumber(request.resource.data.score) &&
+        isNullableString(request.resource.data.validationStatus) &&
+        isNullableString(request.resource.data.invalidReason) &&
+        (
+          request.resource.data.validationReasons == null ||
+          request.resource.data.validationReasons is list
+        ) &&
+        isNullableTimestamp(request.resource.data.endedAt) &&
+        isNullableNumber(request.resource.data.durationSeconds) &&
+        isNullableNumber(request.resource.data.minPrimaryMetric) &&
+        isNullableNumber(request.resource.data.worstFormMetric) &&
+        isNullableInt(request.resource.data.descentMillis) &&
+        isNullableInt(request.resource.data.ascentMillis) &&
+        isNullableBool(request.resource.data.hadFormViolation) &&
+        isNullableBool(request.resource.data.hadCoverageDrop) &&
+        isNullableBool(request.resource.data.switchedSideDuringRep) &&
+        isNullableBool(request.resource.data.completedPhaseSequence) &&
+        isNullableString(request.resource.data.selectedSide) &&
+        isNullableString(request.resource.data.feedback);
+    }
+
+    function isValidRepCreate(userId, sessionId, repId) {
+      return isOwner(userId) &&
+        hasRepFields() &&
+        hasValidRepShape(userId, sessionId, repId);
+    }
+
+    function isValidRepUpdate(userId, sessionId, repId) {
+      return isOwner(userId) &&
+        resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.sessionId == resource.data.sessionId &&
+        hasRepFields() &&
+        hasValidRepShape(userId, sessionId, repId);
+    }
+
     match /users/{userId} {
       allow create: if isOwner(userId);
       allow read, update, delete: if isOwner(userId);
@@ -96,6 +214,13 @@ service cloud.firestore {
         allow create: if isValidSessionCreate(userId, sessionId);
         allow update: if isValidSessionUpdate(userId, sessionId);
         allow delete: if isOwner(userId);
+
+        match /reps/{repId} {
+          allow read: if isOwner(userId);
+          allow create: if isValidRepCreate(userId, sessionId, repId);
+          allow update: if isValidRepUpdate(userId, sessionId, repId);
+          allow delete: if isOwner(userId);
+        }
       }
     }
 

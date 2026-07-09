@@ -12,6 +12,7 @@ class WorkoutRep {
     this.worstFormMetric,
     this.descentMillis,
     this.ascentMillis,
+    this.feedback,
     this.hadFormViolation = false,
     this.hadCoverageDrop = false,
     this.switchedSideDuringRep = false,
@@ -30,11 +31,38 @@ class WorkoutRep {
   final double? worstFormMetric;
   final int? descentMillis;
   final int? ascentMillis;
+  final String? feedback;
   final bool hadFormViolation;
   final bool hadCoverageDrop;
   final bool switchedSideDuringRep;
   final bool completedPhaseSequence;
   final String? selectedSideLabel;
+
+  /// Stable Firestore document id for persisted reps.
+  String get stableId {
+    return 'rep_${repIndex.toString().padLeft(4, '0')}';
+  }
+
+  /// Observed rep duration derived from the phase timings currently retained.
+  Duration? get observedDuration {
+    if (descentMillis == null && ascentMillis == null) {
+      return null;
+    }
+
+    return Duration(milliseconds: (descentMillis ?? 0) + (ascentMillis ?? 0));
+  }
+
+  bool get isValidatedAsValid => validationStatus == 'valid';
+
+  bool get isValidatedAsInvalid => validationStatus == 'invalid';
+
+  String? get primaryValidationReason {
+    if (validationReasons.isEmpty) {
+      return null;
+    }
+
+    return validationReasons.first;
+  }
 
   Map<String, Object?> toMap() {
     return {
@@ -49,6 +77,7 @@ class WorkoutRep {
       'worstFormMetric': worstFormMetric,
       'descentMillis': descentMillis,
       'ascentMillis': ascentMillis,
+      'feedback': feedback,
       'hadFormViolation': hadFormViolation,
       'hadCoverageDrop': hadCoverageDrop,
       'switchedSideDuringRep': switchedSideDuringRep,
@@ -70,6 +99,7 @@ class WorkoutRep {
       worstFormMetric: _readNullableDouble(map, 'worstFormMetric'),
       descentMillis: _readNullableInt(map, 'descentMillis'),
       ascentMillis: _readNullableInt(map, 'ascentMillis'),
+      feedback: _readNullableString(map, 'feedback'),
       hadFormViolation: _readBoolOrDefault(map, 'hadFormViolation', false),
       hadCoverageDrop: _readBoolOrDefault(map, 'hadCoverageDrop', false),
       switchedSideDuringRep: _readBoolOrDefault(
@@ -82,7 +112,9 @@ class WorkoutRep {
         'completedPhaseSequence',
         false,
       ),
-      selectedSideLabel: _readNullableString(map, 'selectedSideLabel'),
+      selectedSideLabel:
+          _readNullableString(map, 'selectedSideLabel') ??
+          _readNullableString(map, 'selectedSide'),
     );
   }
 }

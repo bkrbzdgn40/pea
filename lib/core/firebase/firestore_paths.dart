@@ -3,6 +3,7 @@ class FirestorePaths {
 
   static const usersCollection = 'users';
   static const sessionsSubcollection = 'sessions';
+  static const repsSubcollection = 'reps';
 
   static String userDoc(String uid) {
     return '$usersCollection/$uid';
@@ -14,5 +15,13 @@ class FirestorePaths {
 
   static String userSessionDoc(String uid, String sessionId) {
     return '${userSessions(uid)}/$sessionId';
+  }
+
+  static String userSessionReps(String uid, String sessionId) {
+    return '${userSessionDoc(uid, sessionId)}/$repsSubcollection';
+  }
+
+  static String userSessionRepDoc(String uid, String sessionId, String repId) {
+    return '${userSessionReps(uid, sessionId)}/$repId';
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 const _rulesEmulatorSkipReason =
-    'Rules test skeleton only. Wire this file to the Firestore/Auth emulators '
-    'before enabling these checks.';
+    'Rules emulator coverage is still pending. Wire this file to the '
+    'Firestore/Auth emulators before enabling session and rep rule checks.';
 
 void main() {
   group('Firestore session security rules', () {
@@ -81,13 +81,20 @@ Map<String, Object?> _validSessionData({
     'id': id,
     'ownerId': ownerId,
     'exerciseType': 'squat',
+    'analysisKind': 'rangeRep',
     'startedAt': now,
     'endedAt': now.add(const Duration(minutes: 10)),
-    'durationSec': 600,
+    'durationSeconds': 600,
     'totalReps': 12,
+    'validReps': 10,
+    'invalidReps': 1,
     'averageScore': 82.5,
     'bestScore': 95.0,
+    'worstScore': 70.0,
     'formWarningCount': 2,
+    'holdDurationSeconds': 0.0,
+    'bestHoldSeconds': 0.0,
+    'holdFormBreakCount': 0,
     'createdAt': now,
     'updatedAt': now,
   };

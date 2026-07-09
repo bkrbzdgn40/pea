@@ -13,6 +13,9 @@ class WorkoutSession {
     required this.totalReps,
     required this.averageScore,
     required this.bestScore,
+    this.worstScore = 0.0,
+    this.validReps = 0,
+    this.invalidReps = 0,
     required this.formWarningCount,
     this.totalHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
@@ -32,6 +35,9 @@ class WorkoutSession {
   final int totalReps;
   final double averageScore;
   final double bestScore;
+  final double worstScore;
+  final int validReps;
+  final int invalidReps;
   final int formWarningCount;
   final double totalHoldSeconds;
   final double bestHoldSeconds;
@@ -59,6 +65,9 @@ class WorkoutSession {
     int? totalReps,
     double? averageScore,
     double? bestScore,
+    double? worstScore,
+    int? validReps,
+    int? invalidReps,
     int? formWarningCount,
     double? totalHoldSeconds,
     double? bestHoldSeconds,
@@ -78,6 +87,9 @@ class WorkoutSession {
       totalReps: totalReps ?? this.totalReps,
       averageScore: averageScore ?? this.averageScore,
       bestScore: bestScore ?? this.bestScore,
+      worstScore: worstScore ?? this.worstScore,
+      validReps: validReps ?? this.validReps,
+      invalidReps: invalidReps ?? this.invalidReps,
       formWarningCount: formWarningCount ?? this.formWarningCount,
       totalHoldSeconds: totalHoldSeconds ?? this.totalHoldSeconds,
       bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
@@ -104,6 +116,9 @@ class WorkoutSession {
       'totalReps': totalReps,
       'averageScore': averageScore,
       'bestScore': bestScore,
+      'worstScore': worstScore,
+      'validReps': validReps,
+      'invalidReps': invalidReps,
       'formWarningCount': formWarningCount,
       'totalHoldSeconds': totalHoldSeconds,
       'bestHoldSeconds': bestHoldSeconds,
@@ -122,14 +137,27 @@ class WorkoutSession {
       analysisKind: _readStringOrDefault(map, 'analysisKind', 'rangeRep'),
       startedAt: _readDateTime(map, 'startedAt'),
       endedAt: _readDateTime(map, 'endedAt'),
-      durationSec: _readInt(map, 'durationSec'),
+      durationSec: _readIntWithFallback(map, 'durationSec', 'durationSeconds'),
       totalReps: _readInt(map, 'totalReps'),
       averageScore: _readDouble(map, 'averageScore'),
       bestScore: _readDouble(map, 'bestScore'),
+      worstScore: _readDoubleOrDefault(map, 'worstScore', 0),
+      validReps: _readIntOrDefault(map, 'validReps', 0),
+      invalidReps: _readIntOrDefault(map, 'invalidReps', 0),
       formWarningCount: _readInt(map, 'formWarningCount'),
-      totalHoldSeconds: _readDoubleOrDefault(map, 'totalHoldSeconds', 0),
+      totalHoldSeconds: _readDoubleWithFallback(
+        map,
+        'totalHoldSeconds',
+        'holdDurationSeconds',
+        0,
+      ),
       bestHoldSeconds: _readDoubleOrDefault(map, 'bestHoldSeconds', 0),
-      formBreakCount: _readIntOrDefault(map, 'formBreakCount', 0),
+      formBreakCount: _readIntWithFallbackOrDefault(
+        map,
+        'formBreakCount',
+        'holdFormBreakCount',
+        0,
+      ),
       reps: _readNullableWorkoutReps(map, 'reps'),
       createdAt: _readNullableDateTime(map, 'createdAt'),
       updatedAt: _readNullableDateTime(map, 'updatedAt'),
@@ -172,8 +200,39 @@ int _readInt(Map<String, Object?> map, String key) {
   throw FormatException('Expected number for "$key".');
 }
 
+int _readIntWithFallback(
+  Map<String, Object?> map,
+  String key,
+  String fallbackKey,
+) {
+  final value = map[key] ?? map[fallbackKey];
+  if (value is num) {
+    return value.toInt();
+  }
+
+  throw FormatException('Expected number for "$key".');
+}
+
 int _readIntOrDefault(Map<String, Object?> map, String key, int fallback) {
   final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  throw FormatException('Expected number for "$key".');
+}
+
+int _readIntWithFallbackOrDefault(
+  Map<String, Object?> map,
+  String key,
+  String fallbackKey,
+  int fallback,
+) {
+  final value = map[key] ?? map[fallbackKey];
   if (value == null) {
     return fallback;
   }
@@ -200,6 +259,24 @@ double _readDoubleOrDefault(
   double fallback,
 ) {
   final value = map[key];
+  if (value == null) {
+    return fallback;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  throw FormatException('Expected number for "$key".');
+}
+
+double _readDoubleWithFallback(
+  Map<String, Object?> map,
+  String key,
+  String fallbackKey,
+  double fallback,
+) {
+  final value = map[key] ?? map[fallbackKey];
   if (value == null) {
     return fallback;
   }

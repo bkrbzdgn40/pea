@@ -228,6 +228,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
       descentMillis: metrics.lastRangeRepSummaryDescentMillis,
       ascentMillis: metrics.lastRangeRepSummaryAscentMillis,
+      feedback: next.feedbackMessage,
       hadFormViolation: metrics.lastRangeRepSummaryHadFormViolation,
       hadCoverageDrop: metrics.lastRangeRepSummaryHadCoverageDrop,
       switchedSideDuringRep: metrics.lastRangeRepSummarySwitchedSideDuringRep,
@@ -391,6 +392,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final startedAt = _sessionStartedAt ?? endedAt;
     final durationSec = endedAt.difference(startedAt).inSeconds;
     final isHoldAnalysis = workoutState.analysisKind == EngineKind.hold;
+    final persistedReps = _completedWorkoutReps.isEmpty
+        ? null
+        : List<WorkoutRep>.unmodifiable(
+            _completedWorkoutReps.toList()
+              ..sort((left, right) => left.repIndex.compareTo(right.repIndex)),
+          );
     final session = WorkoutSession(
       id: 'session_${endedAt.microsecondsSinceEpoch}',
       ownerId: ownerId,
@@ -404,13 +411,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           ? 0
           : (_scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount),
       bestScore: isHoldAnalysis ? 0 : _bestScore,
+      worstScore: isHoldAnalysis ? 0 : _worstRepScore(),
+      validReps: isHoldAnalysis ? 0 : _validRepCount(),
+      invalidReps: isHoldAnalysis ? 0 : _invalidRepCount(),
       formWarningCount: isHoldAnalysis ? 0 : _formWarningCount,
       totalHoldSeconds: _totalHoldSeconds,
       bestHoldSeconds: _bestHoldSeconds,
       formBreakCount: _formBreakCount,
-      reps: _completedWorkoutReps.isEmpty
-          ? null
-          : List<WorkoutRep>.unmodifiable(_completedWorkoutReps),
+      reps: persistedReps,
     );
 
     try {
@@ -445,6 +453,28 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       }
       setState(() => _isFinishingSession = false);
     }
+  }
+
+  int _validRepCount() {
+    return _completedWorkoutReps.where((rep) => rep.isValidatedAsValid).length;
+  }
+
+  int _invalidRepCount() {
+    return _completedWorkoutReps
+        .where((rep) => rep.isValidatedAsInvalid)
+        .length;
+  }
+
+  double _worstRepScore() {
+    final scoredReps = _completedWorkoutReps
+        .map((rep) => rep.score)
+        .whereType<double>()
+        .toList(growable: false);
+    if (scoredReps.isEmpty) {
+      return 0;
+    }
+
+    return scoredReps.reduce((value, next) => value < next ? value : next);
   }
 
   @override
