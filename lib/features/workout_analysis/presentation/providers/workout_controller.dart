@@ -850,7 +850,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     if (selection.reason == RangeRepSideSelectionReason.lockedActiveRepSide) {
       _resetRangeRepSideHysteresis(keepStatus: true);
-      _rangeRepSideHysteresisStatus = 'locked:${_rangeRepSideLabel(selectedSide) ?? '--'}';
+      _rangeRepSideHysteresisStatus =
+          'locked:${_rangeRepSideLabel(selectedSide) ?? '--'}';
       return selection;
     }
 
@@ -876,8 +877,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         (alternateMetrics.sideConfidence ?? 0.0) -
         (currentMetrics.sideConfidence ?? 0.0);
     final currentSideUnusable =
-        currentMetrics.coverageScore == 0 &&
-        alternateMetrics.coverageScore > 0;
+        currentMetrics.coverageScore == 0 && alternateMetrics.coverageScore > 0;
     final clearCoverageWin = coverageAdvantage >= 2;
     final clearConfidenceStabilizedWin =
         coverageAdvantage >= 1 &&
