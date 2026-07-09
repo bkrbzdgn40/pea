@@ -193,6 +193,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               poses.first,
               _config,
               engineKind: _engineKind,
+              rangeRepContract: _rangeRepContract,
             )
           : const ExerciseMetrics.noPose();
       final rangeRepSideSelection = _rangeRepSideSelection(metrics);

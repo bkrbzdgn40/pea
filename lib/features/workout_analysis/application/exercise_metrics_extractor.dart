@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/angle_calculator.dart';
-import 'engine_kind.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/range_rep_contract.dart';
+import 'engine_kind.dart';
 import 'exercise_metrics.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -15,16 +16,21 @@ class ExerciseMetricsExtractor {
     Pose pose,
     ExerciseConfig config, {
     required EngineKind engineKind,
+    RangeRepContract? rangeRepContract,
   }) {
+    final effectiveRangeRepContract =
+        rangeRepContract ?? RangeRepContracts.squat;
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.left,
+      rangeRepContract: effectiveRangeRepContract,
     );
     final rightRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.right,
+      rangeRepContract: effectiveRangeRepContract,
     );
     final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
     final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
@@ -48,13 +54,15 @@ class ExerciseMetricsExtractor {
   RangeRepSideMetrics _extractRangeRepSideMetrics(
     Pose pose,
     ExerciseConfig config,
-    RangeRepSide side,
-  ) {
+    RangeRepSide side, {
+    required RangeRepContract rangeRepContract,
+  }) {
     final primaryAngle = _tryCalculatePrimaryAngle(pose, config, side: side);
     final formMetric = _tryCalculateFormMetric(pose, side: side);
     final sideConfidence = _calculateRangeRepSideConfidence(
       pose,
       config,
+      rangeRepContract: rangeRepContract,
       side: side,
       hasPrimaryAngle: primaryAngle != null,
       hasFormMetric: formMetric != null,
@@ -62,6 +70,7 @@ class ExerciseMetricsExtractor {
     final formSignals = _extractRangeRepFormSignals(
       pose,
       config,
+      rangeRepContract: rangeRepContract,
       side: side,
       primaryAngle: primaryAngle,
       formMetric: formMetric,
@@ -81,26 +90,73 @@ class ExerciseMetricsExtractor {
   double _calculateRangeRepSideConfidence(
     Pose pose,
     ExerciseConfig config, {
+    required RangeRepContract rangeRepContract,
     required RangeRepSide side,
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
   }) {
-    final requiredLandmarks = <PoseLandmarkType>{
-      _landmarkTypeForSide(config.joint1, side),
-      _landmarkTypeForSide(config.primaryJoint, side),
-      _landmarkTypeForSide(config.joint2, side),
-      _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side),
-      _landmarkTypeForSide(PoseLandmarkType.leftHip, side),
-      _landmarkTypeForSide(PoseLandmarkType.leftKnee, side),
-    };
+    final requiresPrimaryMetric = rangeRepContract.supportsSignal(
+      RangeRepSignal.primaryMetric,
+    );
+    final requiresFormMetric = rangeRepContract.supportsSignal(
+      RangeRepSignal.formMetric,
+    );
+    final emitsDepthMetric = _canExtractContractAwareRangeRepFormSignal(
+      config,
+      rangeRepContract,
+      RangeRepSignal.depthMetric,
+    );
+    final emitsPostureAngle = _canExtractContractAwareRangeRepFormSignal(
+      config,
+      rangeRepContract,
+      RangeRepSignal.postureAngle,
+    );
+    final emitsAlignmentMetric = _canExtractContractAwareRangeRepFormSignal(
+      config,
+      rangeRepContract,
+      RangeRepSignal.alignmentMetric,
+    );
+    final emitsEndRangeMetric = _canExtractContractAwareRangeRepFormSignal(
+      config,
+      rangeRepContract,
+      RangeRepSignal.endRangeMetric,
+    );
+    final requiredLandmarks = <PoseLandmarkType>{};
+    if (requiresPrimaryMetric || emitsDepthMetric || emitsEndRangeMetric) {
+      requiredLandmarks.addAll(<PoseLandmarkType>{
+        _landmarkTypeForSide(config.joint1, side),
+        _landmarkTypeForSide(config.primaryJoint, side),
+        _landmarkTypeForSide(config.joint2, side),
+      });
+    }
+    if (requiresFormMetric || emitsPostureAngle) {
+      requiredLandmarks.addAll(<PoseLandmarkType>{
+        _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side),
+        _landmarkTypeForSide(PoseLandmarkType.leftHip, side),
+        _landmarkTypeForSide(PoseLandmarkType.leftKnee, side),
+      });
+    }
+    if (emitsAlignmentMetric) {
+      requiredLandmarks.addAll(<PoseLandmarkType>{
+        _landmarkTypeForSide(PoseLandmarkType.leftShoulder, side),
+        _landmarkTypeForSide(PoseLandmarkType.leftHip, side),
+        _landmarkTypeForSide(PoseLandmarkType.leftAnkle, side),
+      });
+    }
     final observedLandmarks = requiredLandmarks
         .where((landmarkType) => pose.landmarks[landmarkType] != null)
         .length;
     final landmarkCompleteness = requiredLandmarks.isEmpty
         ? 0.0
         : observedLandmarks / requiredLandmarks.length;
-    final signalAvailability =
-        ((hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0)) / 2.0;
+    final requiredSignalCount =
+        (requiresPrimaryMetric ? 1 : 0) + (requiresFormMetric ? 1 : 0);
+    final availableSignalCount =
+        ((requiresPrimaryMetric && hasPrimaryAngle) ? 1 : 0) +
+        ((requiresFormMetric && hasFormMetric) ? 1 : 0);
+    final signalAvailability = requiredSignalCount == 0
+        ? 0.0
+        : availableSignalCount / requiredSignalCount;
 
     return ((landmarkCompleteness + signalAvailability) / 2.0)
         .clamp(0.0, 1.0)
@@ -110,6 +166,7 @@ class ExerciseMetricsExtractor {
   RangeRepFormSignals? _extractRangeRepFormSignals(
     Pose pose,
     ExerciseConfig config, {
+    required RangeRepContract rangeRepContract,
     required RangeRepSide side,
     required double? primaryAngle,
     required double? formMetric,
@@ -121,23 +178,47 @@ class ExerciseMetricsExtractor {
     // Reuse only the raw squat angles we already trust in this compatibility
     // step. More interpretive signals stay null until a later scoring pass.
     final signals = RangeRepFormSignals(
-      torsoAngle: formMetric,
-      depthMetric: primaryAngle,
-      alignmentMetric: _tryCalculateSideAngle(
-        pose,
-        side: side,
-        first: PoseLandmarkType.leftShoulder,
-        middle: PoseLandmarkType.leftHip,
-        last: PoseLandmarkType.leftAnkle,
-      ),
+      torsoAngle: _canExtractContractAwareRangeRepFormSignal(
+            config,
+            rangeRepContract,
+            RangeRepSignal.postureAngle,
+          )
+          ? formMetric
+          : null,
+      depthMetric: _canExtractContractAwareRangeRepFormSignal(
+            config,
+            rangeRepContract,
+            RangeRepSignal.depthMetric,
+          )
+          ? primaryAngle
+          : null,
+      alignmentMetric: _canExtractContractAwareRangeRepFormSignal(
+            config,
+            rangeRepContract,
+            RangeRepSignal.alignmentMetric,
+          )
+          ? _tryCalculateSideAngle(
+              pose,
+              side: side,
+              first: PoseLandmarkType.leftShoulder,
+              middle: PoseLandmarkType.leftHip,
+              last: PoseLandmarkType.leftAnkle,
+            )
+          : null,
       stabilityMetric: null,
-      lockoutMetric: _tryCalculateSideAngle(
-        pose,
-        side: side,
-        first: PoseLandmarkType.leftHip,
-        middle: PoseLandmarkType.leftKnee,
-        last: PoseLandmarkType.leftAnkle,
-      ),
+      lockoutMetric: _canExtractContractAwareRangeRepFormSignal(
+            config,
+            rangeRepContract,
+            RangeRepSignal.endRangeMetric,
+          )
+          ? _tryCalculateSideAngle(
+              pose,
+              side: side,
+              first: PoseLandmarkType.leftHip,
+              middle: PoseLandmarkType.leftKnee,
+              last: PoseLandmarkType.leftAnkle,
+            )
+          : null,
       bottomControlMetric: null,
     );
 
@@ -300,6 +381,30 @@ class ExerciseMetricsExtractor {
 
   bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {
     return engineKind == EngineKind.hold;
+  }
+
+  bool _canExtractContractAwareRangeRepFormSignal(
+    ExerciseConfig config,
+    RangeRepContract rangeRepContract,
+    RangeRepSignal signal,
+  ) {
+    if (!rangeRepContract.supportsSignal(signal)) {
+      return false;
+    }
+
+    switch (signal) {
+      case RangeRepSignal.postureAngle:
+      case RangeRepSignal.depthMetric:
+      case RangeRepSignal.alignmentMetric:
+      case RangeRepSignal.endRangeMetric:
+        return _supportsSquatFormSignals(config);
+      case RangeRepSignal.stabilityMetric:
+      case RangeRepSignal.bottomControlMetric:
+        return false;
+      case RangeRepSignal.primaryMetric:
+      case RangeRepSignal.formMetric:
+        return true;
+    }
   }
 
   bool _supportsSquatFormSignals(ExerciseConfig config) {
