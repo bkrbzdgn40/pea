@@ -15,6 +15,7 @@ import '../../application/range_rep_side_policy.dart';
 import '../../application/range_rep_threshold_resolver.dart';
 import '../../application/range_rep_visibility_policy.dart';
 import '../../application/session_calibration_baseline_accumulator.dart';
+import '../../application/workout_calibration_metrics_builder.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
@@ -24,7 +25,6 @@ import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/session_calibration_baseline.dart';
-import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
@@ -81,6 +81,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder =
       const CalibrationSnapshotBuilder();
+  final WorkoutCalibrationMetricsBuilder _workoutCalibrationMetricsBuilder =
+      const WorkoutCalibrationMetricsBuilder();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
@@ -709,135 +711,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     // Calibration telemetry surfaces the active engine's current secondary metric.
-    return WorkoutCalibrationMetrics(
-      currentBackAngle: currentFormMetric,
-      formThreshold: thresholdValue,
-      isRangeRepFrameValid: isRangeRepFrameValid,
-      hasPrimaryAngle: hasPrimaryAngle,
-      hasFormMetric: hasFormMetric,
-      rangeRepInvalidReason: rangeRepInvalidReason?.debugLabel,
-      selectedRangeRepSide: selectedRangeRepSide,
-      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+    return _workoutCalibrationMetricsBuilder.build(
+      currentFormMetric: currentFormMetric,
+      thresholdValue: thresholdValue,
+      diagnostics: diagnostics,
+      lastBreakdown: lastBreakdown,
+      lastValidationResult: lastValidationResult,
+      lastSummaryCandidate: lastSummaryCandidate,
       rangeRepSideHysteresisStatus: _rangeRepSideHysteresisStatus,
       rangeRepSideConsistencyStatus: _rangeRepSideConsistencyStatus,
-      leftRangeRepCoverage: leftRangeRepCoverage,
-      rightRangeRepCoverage: rightRangeRepCoverage,
-      leftRangeRepSideConfidence: leftRangeRepSideConfidence,
-      rightRangeRepSideConfidence: rightRangeRepSideConfidence,
-      currentBodyLineAngle: currentBodyLineAngle,
-      currentArmSupportAngle: currentArmSupportAngle,
-      currentLegExtensionAngle: currentLegExtensionAngle,
-      currentTorsoAngle: currentTorsoAngle,
-      currentDepthMetric: currentDepthMetric,
-      currentAlignmentMetric: currentAlignmentMetric,
-      currentStabilityMetric: currentStabilityMetric,
-      currentLockoutMetric: currentLockoutMetric,
-      currentBottomControlMetric: currentBottomControlMetric,
-      hasBodyLineAngle: hasBodyLineAngle,
-      hasArmSupportAngle: hasArmSupportAngle,
-      hasLegExtensionAngle: hasLegExtensionAngle,
-      currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
-      currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
-      rangeRepPhaseGateStatus: diagnostics.phaseGateStatus,
-      rangeRepPendingTransition: diagnostics.pendingTransitionLabel,
-      rangeRepLastConfirmedTransition: diagnostics.lastConfirmedTransitionLabel,
-      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
-      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
-      rangeRepResyncTriggered: rangeRepResyncTriggered,
-      rangeRepResyncReason: rangeRepResyncReason,
-      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
-      descendingPhaseDurationMs: diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.durationMs
-          : null,
-      peakPhaseDurationMs: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.durationMs
-          : null,
-      ascendingPhaseDurationMs: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.durationMs
-          : null,
-      descendingPhaseWorstFormMetric: diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.worstFormMetric
-          : null,
-      peakPhaseWorstFormMetric: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.worstFormMetric
-          : null,
-      ascendingPhaseWorstFormMetric: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.worstFormMetric
-          : null,
-      descendingPhaseHadFormViolation:
-          diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.hadFormViolation
-          : false,
-      peakPhaseHadFormViolation: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.hadFormViolation
-          : false,
-      ascendingPhaseHadFormViolation: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.hadFormViolation
-          : false,
-      descendingPhaseStatus:
-          diagnostics.descendingPhaseAssessment.status.debugLabel,
-      peakPhaseStatus: diagnostics.peakPhaseAssessment.status.debugLabel,
-      ascendingPhaseStatus:
-          diagnostics.ascendingPhaseAssessment.status.debugLabel,
-      descendingPhaseIssues: diagnostics.descendingPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      peakPhaseIssues: diagnostics.peakPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      ascendingPhaseIssues: diagnostics.ascendingPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      phaseQualityPenalty: lastBreakdown?.phaseQualityPenalty,
-      phaseAdjustedScore: lastBreakdown?.phaseAdjustedScore,
-      phaseFeedbackCandidate: diagnostics.phaseFeedbackCandidate,
-      hasLastRangeRepValidation: lastValidationResult != null,
-      lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
-      lastRangeRepValidationReasons: lastValidationResult == null
-          ? const <String>[]
-          : lastValidationResult.reasons
-                .map((reason) => reason.debugLabel)
-                .toList(growable: false),
-      lastRangeRepValidatedRepIndex:
-          _rangeRepRepOutcomeTracker.lastRangeRepValidatedRepIndex,
-      rangeRepValidatedCount: _rangeRepRepOutcomeTracker.rangeRepValidatedCount,
-      rangeRepLowConfidenceCount:
-          _rangeRepRepOutcomeTracker.rangeRepLowConfidenceCount,
-      rangeRepInvalidCount: _rangeRepRepOutcomeTracker.rangeRepInvalidCount,
-      hasLastRangeRepSummary: lastSummaryCandidate != null,
-      lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
-      lastRangeRepSummaryWorstFormMetric: lastSummaryCandidate?.worstFormMetric,
-      lastRangeRepSummaryDescentMillis:
-          lastSummaryCandidate?.descentDuration.inMilliseconds,
-      lastRangeRepSummaryAscentMillis:
-          lastSummaryCandidate?.ascentDuration.inMilliseconds,
-      lastRangeRepSummaryHadFormViolation:
-          lastSummaryCandidate?.hadFormViolation ?? false,
-      lastRangeRepSummaryHadCoverageDrop:
-          lastSummaryCandidate?.hadCoverageDrop ?? false,
-      lastRangeRepSummarySwitchedSideDuringRep:
-          lastSummaryCandidate?.switchedSideDuringRep ?? false,
-      lastRangeRepSummaryCompletedPhaseSequence:
-          lastSummaryCandidate?.completedPhaseSequence ?? false,
-      lastRangeRepSummarySelectedSideLabel:
-          lastSummaryCandidate?.selectedSideLabel,
-      hasLastRepBreakdown: lastBreakdown != null,
-      lastRepRomScore: lastBreakdown?.romScore ?? 0,
-      lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
-      lastRepAscentScore: lastBreakdown?.ascentScore ?? 0,
-      lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
-      lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
       calibrationSnapshot: _lastCalibrationSnapshot,
-      baseFormThreshold: baseFormThreshold,
-      effectiveFormThreshold: effectiveFormThreshold ?? thresholdValue,
-      calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
-      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
-      calibrationThresholdOffsetFallbackReason:
-          calibrationThresholdOffsetFallbackReason,
-      calibrationThresholdOffsetSampleCount:
-          calibrationThresholdOffsetSampleCount,
-      calibrationThresholdOffsetBaselineSideLabel:
-          calibrationThresholdOffsetBaselineSideLabel,
       calibrationThresholdDecisionCount: _calibrationThresholdDecisionCount,
       calibrationThresholdAppliedCount: _calibrationThresholdAppliedCount,
       calibrationThresholdNoBaselineCount: _calibrationThresholdNoBaselineCount,
@@ -850,6 +733,49 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       calibrationThresholdOffsetTooSmallCount:
           _calibrationThresholdOffsetTooSmallCount,
       sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
+      lastRangeRepValidatedRepIndex:
+          _rangeRepRepOutcomeTracker.lastRangeRepValidatedRepIndex,
+      rangeRepValidatedCount: _rangeRepRepOutcomeTracker.rangeRepValidatedCount,
+      rangeRepLowConfidenceCount:
+          _rangeRepRepOutcomeTracker.rangeRepLowConfidenceCount,
+      rangeRepInvalidCount: _rangeRepRepOutcomeTracker.rangeRepInvalidCount,
+      baseFormThreshold: baseFormThreshold,
+      effectiveFormThreshold: effectiveFormThreshold,
+      calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
+      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
+      calibrationThresholdOffsetFallbackReason:
+          calibrationThresholdOffsetFallbackReason,
+      calibrationThresholdOffsetSampleCount:
+          calibrationThresholdOffsetSampleCount,
+      calibrationThresholdOffsetBaselineSideLabel:
+          calibrationThresholdOffsetBaselineSideLabel,
+      isRangeRepFrameValid: isRangeRepFrameValid,
+      hasPrimaryAngle: hasPrimaryAngle,
+      hasFormMetric: hasFormMetric,
+      rangeRepInvalidReason: rangeRepInvalidReason,
+      selectedRangeRepSide: selectedRangeRepSide,
+      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+      leftRangeRepCoverage: leftRangeRepCoverage,
+      rightRangeRepCoverage: rightRangeRepCoverage,
+      leftRangeRepSideConfidence: leftRangeRepSideConfidence,
+      rightRangeRepSideConfidence: rightRangeRepSideConfidence,
+      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
+      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
+      rangeRepResyncTriggered: rangeRepResyncTriggered,
+      rangeRepResyncReason: rangeRepResyncReason,
+      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+      currentBodyLineAngle: currentBodyLineAngle,
+      currentArmSupportAngle: currentArmSupportAngle,
+      currentLegExtensionAngle: currentLegExtensionAngle,
+      currentTorsoAngle: currentTorsoAngle,
+      currentDepthMetric: currentDepthMetric,
+      currentAlignmentMetric: currentAlignmentMetric,
+      currentStabilityMetric: currentStabilityMetric,
+      currentLockoutMetric: currentLockoutMetric,
+      currentBottomControlMetric: currentBottomControlMetric,
+      hasBodyLineAngle: hasBodyLineAngle,
+      hasArmSupportAngle: hasArmSupportAngle,
+      hasLegExtensionAngle: hasLegExtensionAngle,
     );
   }
 
