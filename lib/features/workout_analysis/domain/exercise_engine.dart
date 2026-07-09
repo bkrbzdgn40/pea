@@ -177,7 +177,11 @@ class _MutableRangeRepPhaseQuality {
 /// The class name is intentionally kept stable for now to avoid rename churn
 /// while the multi-engine seam settles.
 class ExerciseEngine
-    implements AnalysisEngine, RangeRepDiagnostics, RangeRepResyncControl {
+    implements
+        AnalysisEngine,
+        RangeRepDiagnostics,
+        RangeRepResyncControl,
+        RangeRepFeedbackSource {
   final ExerciseConfig config;
   final DateTime Function() _now;
 
@@ -195,6 +199,7 @@ class ExerciseEngine
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
   @override
   String feedback = "Hazir!";
+  RangeRepFeedbackCode? _feedbackCode = RangeRepFeedbackCode.ready;
 
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
@@ -222,6 +227,9 @@ class ExerciseEngine
 
   @override
   double get maxRom => maxROM;
+
+  @override
+  RangeRepFeedbackCode? get feedbackCode => _feedbackCode;
 
   @override
   String get phaseLabel => state.name.toUpperCase();
@@ -295,7 +303,7 @@ class ExerciseEngine
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
           _startRepMetrics(angle, backAngle, phaseStartedAt: confirmedAt);
-          feedback = _feedbackMessageForCode(RangeRepFeedbackCode.descend);
+          _setFeedback(RangeRepFeedbackCode.descend);
         }
         break;
 
@@ -329,6 +337,7 @@ class ExerciseEngine
             primaryMetric: angle,
             formMetric: backAngle,
           );
+          _feedbackCode = null;
           feedback = "Harika, simdi yukari!";
         } else {
           final abortConfirmedAt = _confirmTransition(
@@ -339,9 +348,7 @@ class ExerciseEngine
           if (abortConfirmedAt != null) {
             state = MovementPhase.neutral;
             _resetCurrentRepMetrics();
-            feedback = _feedbackMessageForCode(
-              RangeRepFeedbackCode.repIncomplete,
-            );
+            _setFeedback(RangeRepFeedbackCode.repIncomplete);
           }
         }
         break;
@@ -373,7 +380,7 @@ class ExerciseEngine
             primaryMetric: angle,
             formMetric: backAngle,
           );
-          feedback = _feedbackMessageForCode(RangeRepFeedbackCode.ascend);
+          _setFeedback(RangeRepFeedbackCode.ascend);
         }
         break;
 
@@ -480,9 +487,7 @@ class ExerciseEngine
     final finalScore = phaseInformedScoreCandidate ?? baseScore;
 
     lastRepScore = finalScore;
-    feedback = _feedbackMessageForCode(
-      phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
-    );
+    _setFeedback(phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted);
     lastRepScoreBreakdown = RepScoreBreakdown(
       minAngle: maxROM,
       romScore: romScore,
@@ -701,6 +706,11 @@ class ExerciseEngine
     }
   }
 
+  void _setFeedback(RangeRepFeedbackCode code) {
+    _feedbackCode = code;
+    feedback = _feedbackMessageForCode(code);
+  }
+
   void _captureLastCompletedPhaseQualityTelemetry(DateTime capturedAt) {
     _lastCompletedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
       capturedAt,
@@ -801,7 +811,7 @@ class ExerciseEngine
     // Live feedback uses the current frame; final scoring uses rep-level history.
     if (backAngle < config.formThreshold) {
       isFormBad = true;
-      feedback = _feedbackMessageForCode(RangeRepFeedbackCode.keepBodyUpright);
+      _setFeedback(RangeRepFeedbackCode.keepBodyUpright);
     } else {
       isFormBad = false;
     }
@@ -868,7 +878,7 @@ class ExerciseEngine
   void clearActiveRepContext({String? reason}) {
     state = MovementPhase.neutral;
     isFormBad = false;
-    feedback = _feedbackMessageForCode(RangeRepFeedbackCode.ready);
+    _setFeedback(RangeRepFeedbackCode.ready);
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
@@ -880,6 +890,7 @@ class ExerciseEngine
   void reset() {
     repCount = 0;
     state = MovementPhase.neutral;
+    _feedbackCode = null;
     feedback = "Sifirlandi";
     isFormBad = false;
     lastRepScore = 0;
