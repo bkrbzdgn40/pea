@@ -12,6 +12,7 @@ import '../../application/range_rep_frame_policy.dart';
 import '../../application/range_rep_side_policy.dart';
 import '../../application/range_rep_threshold_resolver.dart';
 import '../../application/range_rep_visibility_policy.dart';
+import '../../application/session_calibration_baseline_accumulator.dart';
 import '../../application/workout_state.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
@@ -115,8 +116,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   String? _activeRangeRepSelectedSideLabel;
   CalibrationSnapshot? _lastCalibrationSnapshot;
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
-  _SessionCalibrationBaselineAccumulator?
-  _sessionCalibrationBaselineAccumulator;
+  late SessionCalibrationBaselineAccumulator
+      _sessionCalibrationBaselineAccumulator;
 
   @override
   WorkoutState build() {
@@ -174,7 +175,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _calibrationThresholdOffsetTooSmallCount = 0;
     _lastCalibrationSnapshot = null;
     _sessionCalibrationBaseline = null;
-    _sessionCalibrationBaselineAccumulator = null;
+    _sessionCalibrationBaselineAccumulator =
+        SessionCalibrationBaselineAccumulator();
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -961,21 +963,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _updateSessionCalibrationBaseline(CalibrationSnapshot snapshot) {
-    final accumulator = _sessionCalibrationBaselineAccumulator;
-    if (accumulator == null) {
-      final nextAccumulator =
-          _SessionCalibrationBaselineAccumulator.fromSnapshot(snapshot);
-      _sessionCalibrationBaselineAccumulator = nextAccumulator;
-      _sessionCalibrationBaseline = nextAccumulator.baseline;
+    if (!_sessionCalibrationBaselineAccumulator.addIfAccepted(snapshot)) {
       return;
     }
 
-    if (!accumulator.canAccept(snapshot)) {
-      return;
-    }
-
-    accumulator.add(snapshot);
-    _sessionCalibrationBaseline = accumulator.baseline;
+    _sessionCalibrationBaseline =
+        _sessionCalibrationBaselineAccumulator.baseline;
   }
 
   RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
@@ -1346,89 +1339,5 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (!keepStatus) {
       _rangeRepSideConsistencyStatus = null;
     }
-  }
-}
-
-class _SessionCalibrationBaselineAccumulator {
-  _SessionCalibrationBaselineAccumulator._({
-    required this.analysisKind,
-    required this.selectedSideLabel,
-  });
-
-  factory _SessionCalibrationBaselineAccumulator.fromSnapshot(
-    CalibrationSnapshot snapshot,
-  ) {
-    final accumulator = _SessionCalibrationBaselineAccumulator._(
-      analysisKind: snapshot.analysisKind,
-      selectedSideLabel: snapshot.selectedSideLabel,
-    );
-    accumulator.add(snapshot);
-    return accumulator;
-  }
-
-  final String analysisKind;
-  final String? selectedSideLabel;
-  int sampleCount = 0;
-  final _RunningAverage _primaryMetricBaseline = _RunningAverage();
-  final _RunningAverage _formMetricBaseline = _RunningAverage();
-  final _RunningAverage _torsoAngleBaseline = _RunningAverage();
-  final _RunningAverage _depthMetricBaseline = _RunningAverage();
-  final _RunningAverage _alignmentMetricBaseline = _RunningAverage();
-  final _RunningAverage _stabilityMetricBaseline = _RunningAverage();
-  final _RunningAverage _lockoutMetricBaseline = _RunningAverage();
-  final _RunningAverage _bottomControlMetricBaseline = _RunningAverage();
-
-  bool canAccept(CalibrationSnapshot snapshot) {
-    return snapshot.analysisKind == analysisKind &&
-        snapshot.selectedSideLabel == selectedSideLabel;
-  }
-
-  void add(CalibrationSnapshot snapshot) {
-    sampleCount += 1;
-    _primaryMetricBaseline.add(snapshot.primaryMetricBaseline);
-    _formMetricBaseline.add(snapshot.formMetricBaseline);
-    _torsoAngleBaseline.add(snapshot.torsoAngleBaseline);
-    _depthMetricBaseline.add(snapshot.depthMetricBaseline);
-    _alignmentMetricBaseline.add(snapshot.alignmentMetricBaseline);
-    _stabilityMetricBaseline.add(snapshot.stabilityMetricBaseline);
-    _lockoutMetricBaseline.add(snapshot.lockoutMetricBaseline);
-    _bottomControlMetricBaseline.add(snapshot.bottomControlMetricBaseline);
-  }
-
-  SessionCalibrationBaseline get baseline {
-    return SessionCalibrationBaseline(
-      analysisKind: analysisKind,
-      selectedSideLabel: selectedSideLabel,
-      sampleCount: sampleCount,
-      primaryMetricBaseline: _primaryMetricBaseline.value,
-      formMetricBaseline: _formMetricBaseline.value,
-      torsoAngleBaseline: _torsoAngleBaseline.value,
-      depthMetricBaseline: _depthMetricBaseline.value,
-      alignmentMetricBaseline: _alignmentMetricBaseline.value,
-      stabilityMetricBaseline: _stabilityMetricBaseline.value,
-      lockoutMetricBaseline: _lockoutMetricBaseline.value,
-      bottomControlMetricBaseline: _bottomControlMetricBaseline.value,
-    );
-  }
-}
-
-class _RunningAverage {
-  int _valueCount = 0;
-  double? _value;
-
-  double? get value => _value;
-
-  void add(double? nextValue) {
-    if (nextValue == null) {
-      return;
-    }
-
-    _valueCount += 1;
-    if (_value == null) {
-      _value = nextValue;
-      return;
-    }
-
-    _value = _value! + ((nextValue - _value!) / _valueCount);
   }
 }
