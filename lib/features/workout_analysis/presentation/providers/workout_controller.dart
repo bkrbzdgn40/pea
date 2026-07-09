@@ -24,6 +24,7 @@ import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/session_calibration_baseline.dart';
+import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
