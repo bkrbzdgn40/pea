@@ -89,10 +89,7 @@ void main() {
       expect(rep.ascentMillis, 500);
       expect(rep.feedback, 'Guzel kontrol');
       expect(rep.selectedSideLabel, 'right');
-      expect(
-        rep.recordedAt?.toUtc(),
-        DateTime.utc(2026, 1, 1, 12, 0, 3),
-      );
+      expect(rep.recordedAt?.toUtc(), DateTime.utc(2026, 1, 1, 12, 0, 3));
     });
   });
 }
