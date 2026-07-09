@@ -46,6 +46,43 @@ class RangeRepScoreWeightsConfig {
   }
 }
 
+class RangeRepPhaseQualityConfig {
+  const RangeRepPhaseQualityConfig({
+    this.minDescendingMillis,
+    this.minAscendingMillis,
+  });
+
+  final int? minDescendingMillis;
+  final int? minAscendingMillis;
+
+  factory RangeRepPhaseQualityConfig.fromMap(Map<String, dynamic> map) {
+    int? readIntOrNull(String key) {
+      final value = map[key];
+      if (value == null) {
+        return null;
+      }
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.round();
+      }
+      if (value is String) {
+        return int.parse(value);
+      }
+
+      throw FormatException(
+        'RangeRepPhaseQualityConfig.$key must be an integer.',
+      );
+    }
+
+    return RangeRepPhaseQualityConfig(
+      minDescendingMillis: readIntOrNull('minDescendingMillis'),
+      minAscendingMillis: readIntOrNull('minAscendingMillis'),
+    );
+  }
+}
+
 class HoldPostureConfig {
   const HoldPostureConfig({
     required this.activePostureAngle,
@@ -134,6 +171,7 @@ class ExerciseConfig {
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
   final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
+  final RangeRepPhaseQualityConfig? rangeRepPhaseQuality;
 
   ExerciseConfig({
     required this.name,
@@ -150,6 +188,7 @@ class ExerciseConfig {
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
     this.rangeRepScoreWeights,
+    this.rangeRepPhaseQuality,
   });
 
   HoldPostureConfig get resolvedHoldPosture {
@@ -216,6 +255,22 @@ class ExerciseConfig {
       );
     }
 
+    RangeRepPhaseQualityConfig? readRangeRepPhaseQualityOrNull() {
+      final value = map['rangeRepPhaseQuality'];
+      if (value == null) {
+        return null;
+      }
+      if (value is! Map) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepPhaseQuality must be an object.',
+        );
+      }
+
+      return RangeRepPhaseQualityConfig.fromMap(
+        Map<String, dynamic>.from(value),
+      );
+    }
+
     final name = map['name'];
     if (name is! String) {
       throw FormatException('ExerciseConfig.name must be a String.');
@@ -223,6 +278,7 @@ class ExerciseConfig {
 
     final holdPosture = readHoldPostureOrNull();
     final rangeRepScoreWeights = readRangeRepScoreWeightsOrNull();
+    final rangeRepPhaseQuality = readRangeRepPhaseQualityOrNull();
 
     return ExerciseConfig(
       name: name,
@@ -245,6 +301,7 @@ class ExerciseConfig {
       tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond', fallback: 0.0),
       holdPosture: holdPosture,
       rangeRepScoreWeights: rangeRepScoreWeights,
+      rangeRepPhaseQuality: rangeRepPhaseQuality,
     );
   }
 }

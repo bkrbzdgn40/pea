@@ -36,6 +36,24 @@ class WorkoutCalibrationMetrics {
     this.rangeRepResyncTriggered = false,
     this.rangeRepResyncReason,
     this.rangeRepVisibilityStatus = 'stable',
+    this.descendingPhaseDurationMs,
+    this.peakPhaseDurationMs,
+    this.ascendingPhaseDurationMs,
+    this.descendingPhaseWorstFormMetric,
+    this.peakPhaseWorstFormMetric,
+    this.ascendingPhaseWorstFormMetric,
+    this.descendingPhaseHadFormViolation = false,
+    this.peakPhaseHadFormViolation = false,
+    this.ascendingPhaseHadFormViolation = false,
+    this.descendingPhaseStatus = 'unavailable',
+    this.peakPhaseStatus = 'unavailable',
+    this.ascendingPhaseStatus = 'unavailable',
+    this.descendingPhaseIssues = const <String>[],
+    this.peakPhaseIssues = const <String>[],
+    this.ascendingPhaseIssues = const <String>[],
+    this.phaseQualityPenaltyCandidate,
+    this.phaseInformedScoreCandidate,
+    this.phaseFeedbackCandidate,
     this.hasLastRangeRepValidation = false,
     this.lastRangeRepValidationStatus,
     this.lastRangeRepValidationReasons = const <String>[],
@@ -93,6 +111,24 @@ class WorkoutCalibrationMetrics {
   final bool rangeRepResyncTriggered;
   final String? rangeRepResyncReason;
   final String rangeRepVisibilityStatus;
+  final int? descendingPhaseDurationMs;
+  final int? peakPhaseDurationMs;
+  final int? ascendingPhaseDurationMs;
+  final double? descendingPhaseWorstFormMetric;
+  final double? peakPhaseWorstFormMetric;
+  final double? ascendingPhaseWorstFormMetric;
+  final bool descendingPhaseHadFormViolation;
+  final bool peakPhaseHadFormViolation;
+  final bool ascendingPhaseHadFormViolation;
+  final String descendingPhaseStatus;
+  final String peakPhaseStatus;
+  final String ascendingPhaseStatus;
+  final List<String> descendingPhaseIssues;
+  final List<String> peakPhaseIssues;
+  final List<String> ascendingPhaseIssues;
+  final double? phaseQualityPenaltyCandidate;
+  final double? phaseInformedScoreCandidate;
+  final String? phaseFeedbackCandidate;
   final bool hasLastRangeRepValidation;
   final String? lastRangeRepValidationStatus;
   final List<String> lastRangeRepValidationReasons;

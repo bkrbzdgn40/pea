@@ -564,6 +564,51 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       rangeRepResyncTriggered: rangeRepResyncTriggered,
       rangeRepResyncReason: rangeRepResyncReason,
       rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+      descendingPhaseDurationMs: diagnostics.descendingPhaseQuality.hasData
+          ? diagnostics.descendingPhaseQuality.durationMs
+          : null,
+      peakPhaseDurationMs: diagnostics.peakPhaseQuality.hasData
+          ? diagnostics.peakPhaseQuality.durationMs
+          : null,
+      ascendingPhaseDurationMs: diagnostics.ascendingPhaseQuality.hasData
+          ? diagnostics.ascendingPhaseQuality.durationMs
+          : null,
+      descendingPhaseWorstFormMetric:
+          diagnostics.descendingPhaseQuality.hasData
+          ? diagnostics.descendingPhaseQuality.worstFormMetric
+          : null,
+      peakPhaseWorstFormMetric: diagnostics.peakPhaseQuality.hasData
+          ? diagnostics.peakPhaseQuality.worstFormMetric
+          : null,
+      ascendingPhaseWorstFormMetric: diagnostics.ascendingPhaseQuality.hasData
+          ? diagnostics.ascendingPhaseQuality.worstFormMetric
+          : null,
+      descendingPhaseHadFormViolation:
+          diagnostics.descendingPhaseQuality.hasData
+          ? diagnostics.descendingPhaseQuality.hadFormViolation
+          : false,
+      peakPhaseHadFormViolation: diagnostics.peakPhaseQuality.hasData
+          ? diagnostics.peakPhaseQuality.hadFormViolation
+          : false,
+      ascendingPhaseHadFormViolation: diagnostics.ascendingPhaseQuality.hasData
+          ? diagnostics.ascendingPhaseQuality.hadFormViolation
+          : false,
+      descendingPhaseStatus:
+          diagnostics.descendingPhaseAssessment.status.debugLabel,
+      peakPhaseStatus: diagnostics.peakPhaseAssessment.status.debugLabel,
+      ascendingPhaseStatus: diagnostics.ascendingPhaseAssessment.status.debugLabel,
+      descendingPhaseIssues: diagnostics.descendingPhaseAssessment.issues
+          .map((issue) => issue.debugLabel)
+          .toList(growable: false),
+      peakPhaseIssues: diagnostics.peakPhaseAssessment.issues
+          .map((issue) => issue.debugLabel)
+          .toList(growable: false),
+      ascendingPhaseIssues: diagnostics.ascendingPhaseAssessment.issues
+          .map((issue) => issue.debugLabel)
+          .toList(growable: false),
+      phaseQualityPenaltyCandidate: lastBreakdown?.phaseQualityPenaltyCandidate,
+      phaseInformedScoreCandidate: lastBreakdown?.phaseInformedScoreCandidate,
+      phaseFeedbackCandidate: diagnostics.phaseFeedbackCandidate,
       hasLastRangeRepValidation: lastValidationResult != null,
       lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
       lastRangeRepValidationReasons: lastValidationResult == null

@@ -14,5 +14,9 @@
   "rangeRepScoreWeights": {
     "descentControlWeight": 1.0,
     "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 300,
+    "minAscendingMillis": 250
   }
 }

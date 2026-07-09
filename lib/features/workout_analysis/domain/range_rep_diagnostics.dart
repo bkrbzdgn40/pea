@@ -1,5 +1,73 @@
 import 'models/rep_score_breakdown.dart';
 
+class RangeRepPhaseQualitySnapshot {
+  const RangeRepPhaseQualitySnapshot({
+    this.hasData = false,
+    this.durationMs = 0,
+    this.minPrimaryMetric,
+    this.maxPrimaryMetric,
+    this.worstFormMetric,
+    this.hadFormViolation = false,
+  });
+
+  final bool hasData;
+  final int durationMs;
+  final double? minPrimaryMetric;
+  final double? maxPrimaryMetric;
+  final double? worstFormMetric;
+  final bool hadFormViolation;
+}
+
+class RangeRepPhaseQualityTelemetry {
+  const RangeRepPhaseQualityTelemetry({
+    this.descendingPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+    this.peakPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+    this.ascendingPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+  });
+
+  final RangeRepPhaseQualitySnapshot descendingPhaseQuality;
+  final RangeRepPhaseQualitySnapshot peakPhaseQuality;
+  final RangeRepPhaseQualitySnapshot ascendingPhaseQuality;
+}
+
+enum RangeRepPhaseQualityStatus { unavailable, observed, flagged }
+
+extension RangeRepPhaseQualityStatusX on RangeRepPhaseQualityStatus {
+  String get debugLabel {
+    switch (this) {
+      case RangeRepPhaseQualityStatus.unavailable:
+        return 'unavailable';
+      case RangeRepPhaseQualityStatus.observed:
+        return 'observed';
+      case RangeRepPhaseQualityStatus.flagged:
+        return 'flagged';
+    }
+  }
+}
+
+enum RangeRepPhaseQualityIssue { durationTooShort, formViolation }
+
+extension RangeRepPhaseQualityIssueX on RangeRepPhaseQualityIssue {
+  String get debugLabel {
+    switch (this) {
+      case RangeRepPhaseQualityIssue.durationTooShort:
+        return 'duration too short';
+      case RangeRepPhaseQualityIssue.formViolation:
+        return 'form violation';
+    }
+  }
+}
+
+class RangeRepPhaseQualityAssessment {
+  const RangeRepPhaseQualityAssessment({
+    this.status = RangeRepPhaseQualityStatus.unavailable,
+    this.issues = const <RangeRepPhaseQualityIssue>[],
+  });
+
+  final RangeRepPhaseQualityStatus status;
+  final List<RangeRepPhaseQualityIssue> issues;
+}
+
 /// Core engine-owned facts about the last fully completed range-rep repetition.
 class RangeRepCompletedRepCoreData {
   const RangeRepCompletedRepCoreData({
@@ -33,6 +101,13 @@ class RangeRepDiagnosticsSnapshot {
     this.lastConfirmedTransitionLabel,
     this.lastRepScoreBreakdown,
     this.lastCompletedRepCoreData,
+    this.descendingPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+    this.peakPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+    this.ascendingPhaseQuality = const RangeRepPhaseQualitySnapshot(),
+    this.descendingPhaseAssessment = const RangeRepPhaseQualityAssessment(),
+    this.peakPhaseAssessment = const RangeRepPhaseQualityAssessment(),
+    this.ascendingPhaseAssessment = const RangeRepPhaseQualityAssessment(),
+    this.phaseFeedbackCandidate,
   });
 
   final double currentRepWorstBackAngle;
@@ -44,6 +119,13 @@ class RangeRepDiagnosticsSnapshot {
   final String? lastConfirmedTransitionLabel;
   final RepScoreBreakdown? lastRepScoreBreakdown;
   final RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
+  final RangeRepPhaseQualitySnapshot descendingPhaseQuality;
+  final RangeRepPhaseQualitySnapshot peakPhaseQuality;
+  final RangeRepPhaseQualitySnapshot ascendingPhaseQuality;
+  final RangeRepPhaseQualityAssessment descendingPhaseAssessment;
+  final RangeRepPhaseQualityAssessment peakPhaseAssessment;
+  final RangeRepPhaseQualityAssessment ascendingPhaseAssessment;
+  final String? phaseFeedbackCandidate;
 }
 
 /// Optional diagnostics surface for range-rep style engines.

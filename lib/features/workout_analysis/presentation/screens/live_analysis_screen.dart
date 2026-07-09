@@ -1060,6 +1060,91 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 label: 'InvalidCount',
                 value: metrics.rangeRepInvalidCount.toString(),
               ),
+              if (metrics.descendingPhaseDurationMs != null)
+                _DebugMetricRow(
+                  label: 'DescMs',
+                  value: metrics.descendingPhaseDurationMs.toString(),
+                ),
+              if (metrics.peakPhaseDurationMs != null)
+                _DebugMetricRow(
+                  label: 'PeakMs',
+                  value: metrics.peakPhaseDurationMs.toString(),
+                ),
+              if (metrics.ascendingPhaseDurationMs != null)
+                _DebugMetricRow(
+                  label: 'AscMs',
+                  value: metrics.ascendingPhaseDurationMs.toString(),
+                ),
+              if (metrics.descendingPhaseWorstFormMetric != null)
+                _DebugMetricRow(
+                  label: 'DescForm',
+                  value: _formatPhaseFormTelemetry(
+                    metrics.descendingPhaseWorstFormMetric,
+                    metrics.descendingPhaseHadFormViolation,
+                  ),
+                ),
+              if (metrics.peakPhaseWorstFormMetric != null)
+                _DebugMetricRow(
+                  label: 'PeakForm',
+                  value: _formatPhaseFormTelemetry(
+                    metrics.peakPhaseWorstFormMetric,
+                    metrics.peakPhaseHadFormViolation,
+                  ),
+                ),
+              if (metrics.ascendingPhaseWorstFormMetric != null)
+                _DebugMetricRow(
+                  label: 'AscForm',
+                  value: _formatPhaseFormTelemetry(
+                    metrics.ascendingPhaseWorstFormMetric,
+                    metrics.ascendingPhaseHadFormViolation,
+                  ),
+                ),
+              _DebugMetricRow(
+                label: 'DescQ',
+                value: metrics.descendingPhaseStatus,
+              ),
+              if (metrics.descendingPhaseIssues.isNotEmpty)
+                _DebugMetricRow(
+                  label: 'DescIssues',
+                  value: metrics.descendingPhaseIssues.join(', '),
+                ),
+              _DebugMetricRow(
+                label: 'PeakQ',
+                value: metrics.peakPhaseStatus,
+              ),
+              if (metrics.peakPhaseIssues.isNotEmpty)
+                _DebugMetricRow(
+                  label: 'PeakIssues',
+                  value: metrics.peakPhaseIssues.join(', '),
+                ),
+              _DebugMetricRow(
+                label: 'AscQ',
+                value: metrics.ascendingPhaseStatus,
+              ),
+              if (metrics.ascendingPhaseIssues.isNotEmpty)
+                _DebugMetricRow(
+                  label: 'AscIssues',
+                  value: metrics.ascendingPhaseIssues.join(', '),
+                ),
+              if (metrics.phaseQualityPenaltyCandidate != null)
+                _DebugMetricRow(
+                  label: 'PhasePenalty',
+                  value: _formatTelemetryValue(
+                    metrics.phaseQualityPenaltyCandidate!,
+                  ),
+                ),
+              if (metrics.phaseInformedScoreCandidate != null)
+                _DebugMetricRow(
+                  label: 'PhaseScore',
+                  value: _formatTelemetryValue(
+                    metrics.phaseInformedScoreCandidate!,
+                  ),
+                ),
+              if (metrics.phaseFeedbackCandidate != null)
+                _DebugMetricRow(
+                  label: 'PhaseCue',
+                  value: metrics.phaseFeedbackCandidate!,
+                ),
               if (metrics.hasLastRangeRepValidation) ...[
                 _DebugMetricRow(
                   label: 'Validation',
@@ -1217,6 +1302,17 @@ String _formatRangeRepSideCoverage(WorkoutCalibrationMetrics metrics) {
 
 String _formatMilliseconds(int milliseconds) {
   return '${milliseconds}ms';
+}
+
+String _formatPhaseFormTelemetry(
+  double? worstFormMetric,
+  bool hadFormViolation,
+) {
+  final worstValue = worstFormMetric == null
+      ? '--'
+      : _formatTelemetryValue(worstFormMetric);
+
+  return '$worstValue / ${hadFormViolation ? 'true' : 'false'}';
 }
 
 class _DebugMetricRow extends StatelessWidget {

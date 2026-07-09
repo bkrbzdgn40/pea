@@ -17,6 +17,8 @@ class RepScoreBreakdown {
     this.ascentControlScore,
     this.consistencyScore,
     this.weightedScoreCandidate,
+    this.phaseQualityPenaltyCandidate,
+    this.phaseInformedScoreCandidate,
   });
 
   final double minAngle;
@@ -35,4 +37,6 @@ class RepScoreBreakdown {
   final double? ascentControlScore;
   final double? consistencyScore;
   final double? weightedScoreCandidate;
+  final double? phaseQualityPenaltyCandidate;
+  final double? phaseInformedScoreCandidate;
 }

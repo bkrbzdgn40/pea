@@ -80,6 +80,96 @@ class _WeightedScoreComponent {
   final double weight;
 }
 
+class _MutableRangeRepPhaseQuality {
+  DateTime? _startedAt;
+  int _completedDurationMs = 0;
+  double? _minPrimaryMetric;
+  double? _maxPrimaryMetric;
+  double? _worstFormMetric;
+  bool _hadFormViolation = false;
+  bool _hasData = false;
+
+  void start({
+    required DateTime startedAt,
+    required double primaryMetric,
+    required double formMetric,
+    required bool hadFormViolation,
+  }) {
+    reset();
+    _startedAt = startedAt;
+    record(
+      primaryMetric: primaryMetric,
+      formMetric: formMetric,
+      hadFormViolation: hadFormViolation,
+    );
+  }
+
+  void record({
+    required double primaryMetric,
+    required double formMetric,
+    required bool hadFormViolation,
+  }) {
+    _hasData = true;
+    _minPrimaryMetric = _minPrimaryMetric == null
+        ? primaryMetric
+        : (primaryMetric < _minPrimaryMetric! ? primaryMetric : _minPrimaryMetric);
+    _maxPrimaryMetric = _maxPrimaryMetric == null
+        ? primaryMetric
+        : (primaryMetric > _maxPrimaryMetric! ? primaryMetric : _maxPrimaryMetric);
+    _worstFormMetric = _worstFormMetric == null
+        ? formMetric
+        : (formMetric < _worstFormMetric! ? formMetric : _worstFormMetric);
+    if (hadFormViolation) {
+      _hadFormViolation = true;
+    }
+  }
+
+  void complete(DateTime endedAt) {
+    if (_startedAt == null) {
+      return;
+    }
+
+    final durationMs = endedAt.difference(_startedAt!).inMilliseconds;
+    _completedDurationMs = durationMs < 0 ? 0 : durationMs;
+  }
+
+  RangeRepPhaseQualitySnapshot snapshot({
+    required DateTime now,
+    required bool isActive,
+  }) {
+    if (!_hasData) {
+      return const RangeRepPhaseQualitySnapshot();
+    }
+
+    var durationMs = _completedDurationMs;
+    if (isActive && _startedAt != null) {
+      durationMs = now.difference(_startedAt!).inMilliseconds;
+      if (durationMs < 0) {
+        durationMs = 0;
+      }
+    }
+
+    return RangeRepPhaseQualitySnapshot(
+      hasData: true,
+      durationMs: durationMs,
+      minPrimaryMetric: _minPrimaryMetric,
+      maxPrimaryMetric: _maxPrimaryMetric,
+      worstFormMetric: _worstFormMetric,
+      hadFormViolation: _hadFormViolation,
+    );
+  }
+
+  void reset() {
+    _startedAt = null;
+    _completedDurationMs = 0;
+    _minPrimaryMetric = null;
+    _maxPrimaryMetric = null;
+    _worstFormMetric = null;
+    _hadFormViolation = false;
+    _hasData = false;
+  }
+}
+
 /// Current range-rep style engine backing the squat analysis flow.
 ///
 /// The class name is intentionally kept stable for now to avoid rename churn
@@ -117,6 +207,13 @@ class ExerciseEngine
   _PhaseTransition? _pendingTransition;
   DateTime? _pendingTransitionStartedAt;
   String? _lastConfirmedTransitionLabel;
+  final _MutableRangeRepPhaseQuality _descendingPhaseQuality =
+      _MutableRangeRepPhaseQuality();
+  final _MutableRangeRepPhaseQuality _peakPhaseQuality =
+      _MutableRangeRepPhaseQuality();
+  final _MutableRangeRepPhaseQuality _ascendingPhaseQuality =
+      _MutableRangeRepPhaseQuality();
+  RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
 
   ExerciseEngine({
     required this.config,
@@ -130,18 +227,51 @@ class ExerciseEngine
   String get phaseLabel => state.name.toUpperCase();
 
   @override
-  RangeRepDiagnosticsSnapshot get diagnosticsSnapshot =>
-      RangeRepDiagnosticsSnapshot(
-        currentRepWorstBackAngle: _currentRepWorstBackAngle,
-        currentRepHadFormViolation: _currentRepHadFormViolation,
-        phaseGateStatus: _phaseGateStatus,
-        hasActiveRepPhase: state != MovementPhase.neutral,
-        hasPendingTransition: _pendingTransition != null,
-        pendingTransitionLabel: _pendingTransition?.debugLabel,
-        lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
-        lastRepScoreBreakdown: lastRepScoreBreakdown,
-        lastCompletedRepCoreData: lastCompletedRepCoreData,
-      );
+  RangeRepDiagnosticsSnapshot get diagnosticsSnapshot {
+    final now = _now();
+    final phaseQualityTelemetry =
+        state == MovementPhase.neutral && _pendingTransition == null
+        ? (_lastCompletedPhaseQualityTelemetry ?? _phaseQualityTelemetry(now))
+        : _phaseQualityTelemetry(now);
+    final descendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.descending,
+      phaseQuality: phaseQualityTelemetry.descendingPhaseQuality,
+      isActivePhase: state == MovementPhase.descending,
+    );
+    final peakPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.peak,
+      phaseQuality: phaseQualityTelemetry.peakPhaseQuality,
+      isActivePhase: state == MovementPhase.peak,
+    );
+    final ascendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.ascending,
+      phaseQuality: phaseQualityTelemetry.ascendingPhaseQuality,
+      isActivePhase: state == MovementPhase.ascending,
+    );
+
+    return RangeRepDiagnosticsSnapshot(
+      currentRepWorstBackAngle: _currentRepWorstBackAngle,
+      currentRepHadFormViolation: _currentRepHadFormViolation,
+      phaseGateStatus: _phaseGateStatus,
+      hasActiveRepPhase: state != MovementPhase.neutral,
+      hasPendingTransition: _pendingTransition != null,
+      pendingTransitionLabel: _pendingTransition?.debugLabel,
+      lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
+      lastRepScoreBreakdown: lastRepScoreBreakdown,
+      lastCompletedRepCoreData: lastCompletedRepCoreData,
+      descendingPhaseQuality: phaseQualityTelemetry.descendingPhaseQuality,
+      peakPhaseQuality: phaseQualityTelemetry.peakPhaseQuality,
+      ascendingPhaseQuality: phaseQualityTelemetry.ascendingPhaseQuality,
+      descendingPhaseAssessment: descendingPhaseAssessment,
+      peakPhaseAssessment: peakPhaseAssessment,
+      ascendingPhaseAssessment: ascendingPhaseAssessment,
+      phaseFeedbackCandidate: _phaseFeedbackCandidate(
+        descendingPhaseAssessment: descendingPhaseAssessment,
+        peakPhaseAssessment: peakPhaseAssessment,
+        ascendingPhaseAssessment: ascendingPhaseAssessment,
+      ),
+    );
+  }
 
   /// Updates live form feedback and advances the repetition state machine.
   @override
@@ -164,7 +294,11 @@ class ExerciseEngine
         if (confirmedAt != null) {
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
-          _startRepMetrics(angle, backAngle);
+          _startRepMetrics(
+            angle,
+            backAngle,
+            phaseStartedAt: confirmedAt,
+          );
           feedback = "Asagi in...";
         }
         break;
@@ -172,6 +306,11 @@ class ExerciseEngine
       case MovementPhase.descending:
         _trackRepForm(backAngle);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
+        _recordPhaseObservation(
+          phase: MovementPhase.descending,
+          primaryMetric: angle,
+          formMetric: backAngle,
+        );
 
         final peakConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.reachPeak,
@@ -184,6 +323,16 @@ class ExerciseEngine
           if (_descentStartTime != null) {
             lastDescentTime = _peakStartTime!.difference(_descentStartTime!);
           }
+          _completePhaseTelemetry(
+            phase: MovementPhase.descending,
+            phaseEndedAt: peakConfirmedAt,
+          );
+          _beginPhaseTelemetry(
+            phase: MovementPhase.peak,
+            phaseStartedAt: peakConfirmedAt,
+            primaryMetric: angle,
+            formMetric: backAngle,
+          );
           feedback = "Harika, simdi yukari!";
         } else {
           final abortConfirmedAt = _confirmTransition(
@@ -202,6 +351,11 @@ class ExerciseEngine
       case MovementPhase.peak:
         _trackRepForm(backAngle);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
+        _recordPhaseObservation(
+          phase: MovementPhase.peak,
+          primaryMetric: angle,
+          formMetric: backAngle,
+        );
 
         final ascentConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.startAscending,
@@ -211,12 +365,27 @@ class ExerciseEngine
         if (ascentConfirmedAt != null) {
           state = MovementPhase.ascending;
           _ascentStartTime = ascentConfirmedAt;
+          _completePhaseTelemetry(
+            phase: MovementPhase.peak,
+            phaseEndedAt: ascentConfirmedAt,
+          );
+          _beginPhaseTelemetry(
+            phase: MovementPhase.ascending,
+            phaseStartedAt: ascentConfirmedAt,
+            primaryMetric: angle,
+            formMetric: backAngle,
+          );
           feedback = "Yukari...";
         }
         break;
 
       case MovementPhase.ascending:
         _trackRepForm(backAngle);
+        _recordPhaseObservation(
+          phase: MovementPhase.ascending,
+          primaryMetric: angle,
+          formMetric: backAngle,
+        );
         final repCompleteAt = _confirmTransition(
           transition: _PhaseTransition.completeRep,
           condition: angle > _neutralReturnThreshold,
@@ -226,8 +395,13 @@ class ExerciseEngine
           if (_ascentStartTime != null) {
             lastAscentTime = repCompleteAt.difference(_ascentStartTime!);
           }
+          _completePhaseTelemetry(
+            phase: MovementPhase.ascending,
+            phaseEndedAt: repCompleteAt,
+          );
           _finishRep();
           state = MovementPhase.neutral;
+          _captureLastCompletedPhaseQualityTelemetry(repCompleteAt);
           feedback = "Basarili!";
         }
         break;
@@ -270,11 +444,36 @@ class ExerciseEngine
         ),
       ],
     );
+    final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(_now());
+    final descendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.descending,
+      phaseQuality: completedPhaseQualityTelemetry.descendingPhaseQuality,
+      isActivePhase: false,
+    );
+    final peakPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.peak,
+      phaseQuality: completedPhaseQualityTelemetry.peakPhaseQuality,
+      isActivePhase: false,
+    );
+    final ascendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.ascending,
+      phaseQuality: completedPhaseQualityTelemetry.ascendingPhaseQuality,
+      isActivePhase: false,
+    );
+    final phaseQualityPenaltyCandidate = _phaseQualityPenaltyCandidate(
+      descendingPhaseAssessment: descendingPhaseAssessment,
+      ascendingPhaseAssessment: ascendingPhaseAssessment,
+    );
 
     // Keep the penalty binary, but base it on full rep history, not the last frame.
     final finalScore = _currentRepHadFormViolation
         ? (romScore + tempoScore) / 4
         : (romScore + tempoScore) / 2;
+    final phaseInformedScoreCandidate = phaseQualityPenaltyCandidate == null
+        ? null
+        : (finalScore - phaseQualityPenaltyCandidate)
+              .clamp(0.0, 100.0)
+              .toDouble();
 
     lastRepScore = finalScore;
     lastRepScoreBreakdown = RepScoreBreakdown(
@@ -290,6 +489,8 @@ class ExerciseEngine
       descentControlScore: descentControlScore,
       ascentControlScore: ascentControlScore,
       weightedScoreCandidate: weightedScoreCandidate,
+      phaseQualityPenaltyCandidate: phaseQualityPenaltyCandidate,
+      phaseInformedScoreCandidate: phaseInformedScoreCandidate,
     );
     lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
       repIndex: repCount,
@@ -337,10 +538,206 @@ class ExerciseEngine
     return weightedScoreTotal / totalWeight;
   }
 
-  void _startRepMetrics(double angle, double backAngle) {
+  RangeRepPhaseQualityTelemetry _phaseQualityTelemetry(DateTime now) {
+    return RangeRepPhaseQualityTelemetry(
+      descendingPhaseQuality: _descendingPhaseQuality.snapshot(
+        now: now,
+        isActive: state == MovementPhase.descending,
+      ),
+      peakPhaseQuality: _peakPhaseQuality.snapshot(
+        now: now,
+        isActive: state == MovementPhase.peak,
+      ),
+      ascendingPhaseQuality: _ascendingPhaseQuality.snapshot(
+        now: now,
+        isActive: state == MovementPhase.ascending,
+      ),
+    );
+  }
+
+  RangeRepPhaseQualityTelemetry _completedPhaseQualityTelemetry(
+    DateTime capturedAt,
+  ) {
+    return RangeRepPhaseQualityTelemetry(
+      descendingPhaseQuality: _descendingPhaseQuality.snapshot(
+        now: capturedAt,
+        isActive: false,
+      ),
+      peakPhaseQuality: _peakPhaseQuality.snapshot(
+        now: capturedAt,
+        isActive: false,
+      ),
+      ascendingPhaseQuality: _ascendingPhaseQuality.snapshot(
+        now: capturedAt,
+        isActive: false,
+      ),
+    );
+  }
+
+  RangeRepPhaseQualityAssessment _assessPhaseQuality({
+    required MovementPhase phase,
+    required RangeRepPhaseQualitySnapshot phaseQuality,
+    required bool isActivePhase,
+  }) {
+    if (!phaseQuality.hasData) {
+      return const RangeRepPhaseQualityAssessment();
+    }
+
+    final issues = <RangeRepPhaseQualityIssue>[];
+    final phaseQualityConfig = config.rangeRepPhaseQuality;
+
+    if (!isActivePhase) {
+      int? minDurationMillis;
+      switch (phase) {
+        case MovementPhase.descending:
+          minDurationMillis = phaseQualityConfig?.minDescendingMillis;
+          break;
+        case MovementPhase.ascending:
+          minDurationMillis = phaseQualityConfig?.minAscendingMillis;
+          break;
+        case MovementPhase.neutral:
+        case MovementPhase.peak:
+          minDurationMillis = null;
+          break;
+      }
+      if (minDurationMillis != null &&
+          phaseQuality.durationMs < minDurationMillis) {
+        issues.add(RangeRepPhaseQualityIssue.durationTooShort);
+      }
+    }
+
+    if (phaseQuality.hadFormViolation) {
+      issues.add(RangeRepPhaseQualityIssue.formViolation);
+    }
+
+    return RangeRepPhaseQualityAssessment(
+      status: issues.isEmpty
+          ? RangeRepPhaseQualityStatus.observed
+          : RangeRepPhaseQualityStatus.flagged,
+      issues: issues,
+    );
+  }
+
+  double? _phaseQualityPenaltyCandidate({
+    required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
+    required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
+  }) {
+    var penalty = 0.0;
+
+    if (descendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged) {
+      penalty += 5.0;
+    }
+    if (ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged) {
+      penalty += 5.0;
+    }
+
+    return penalty > 0 ? penalty : null;
+  }
+
+  String? _phaseFeedbackCandidate({
+    required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
+    required RangeRepPhaseQualityAssessment peakPhaseAssessment,
+    required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
+  }) {
+    if (descendingPhaseAssessment.issues.contains(
+      RangeRepPhaseQualityIssue.durationTooShort,
+    )) {
+      return 'control_descent';
+    }
+    if (ascendingPhaseAssessment.issues.contains(
+      RangeRepPhaseQualityIssue.durationTooShort,
+    )) {
+      return 'control_ascent';
+    }
+    if (peakPhaseAssessment.issues.contains(
+      RangeRepPhaseQualityIssue.formViolation,
+    )) {
+      return 'stabilize_transition';
+    }
+    if (descendingPhaseAssessment.issues.contains(
+          RangeRepPhaseQualityIssue.formViolation,
+        ) ||
+        ascendingPhaseAssessment.issues.contains(
+          RangeRepPhaseQualityIssue.formViolation,
+        )) {
+      return 'maintain_form';
+    }
+
+    return null;
+  }
+
+  void _captureLastCompletedPhaseQualityTelemetry(DateTime capturedAt) {
+    _lastCompletedPhaseQualityTelemetry =
+        _completedPhaseQualityTelemetry(capturedAt);
+  }
+
+  void _beginPhaseTelemetry({
+    required MovementPhase phase,
+    required DateTime phaseStartedAt,
+    required double primaryMetric,
+    required double formMetric,
+  }) {
+    _phaseQualityFor(phase).start(
+      startedAt: phaseStartedAt,
+      primaryMetric: primaryMetric,
+      formMetric: formMetric,
+      hadFormViolation: formMetric < config.formThreshold,
+    );
+  }
+
+  void _recordPhaseObservation({
+    required MovementPhase phase,
+    required double primaryMetric,
+    required double formMetric,
+  }) {
+    _phaseQualityFor(phase).record(
+      primaryMetric: primaryMetric,
+      formMetric: formMetric,
+      hadFormViolation: formMetric < config.formThreshold,
+    );
+  }
+
+  void _completePhaseTelemetry({
+    required MovementPhase phase,
+    required DateTime phaseEndedAt,
+  }) {
+    _phaseQualityFor(phase).complete(phaseEndedAt);
+  }
+
+  _MutableRangeRepPhaseQuality _phaseQualityFor(MovementPhase phase) {
+    switch (phase) {
+      case MovementPhase.neutral:
+        throw ArgumentError.value(phase, 'phase', 'Neutral has no phase telemetry.');
+      case MovementPhase.descending:
+        return _descendingPhaseQuality;
+      case MovementPhase.peak:
+        return _peakPhaseQuality;
+      case MovementPhase.ascending:
+        return _ascendingPhaseQuality;
+    }
+  }
+
+  void _resetPhaseQualityTelemetry() {
+    _descendingPhaseQuality.reset();
+    _peakPhaseQuality.reset();
+    _ascendingPhaseQuality.reset();
+  }
+
+  void _startRepMetrics(
+    double angle,
+    double backAngle, {
+    required DateTime phaseStartedAt,
+  }) {
     _currentRepMinAngle = angle;
     _currentRepWorstBackAngle = backAngle;
     _currentRepHadFormViolation = backAngle < config.formThreshold;
+    _resetPhaseQualityTelemetry();
+    _beginPhaseTelemetry(
+      phase: MovementPhase.descending,
+      phaseStartedAt: phaseStartedAt,
+      primaryMetric: angle,
+      formMetric: backAngle,
+    );
   }
 
   void _trackRepForm(double backAngle) {
@@ -356,6 +753,7 @@ class ExerciseEngine
     _currentRepMinAngle = 180.0;
     _currentRepWorstBackAngle = 180.0;
     _currentRepHadFormViolation = false;
+    _resetPhaseQualityTelemetry();
     _clearPendingTransition();
   }
 
@@ -451,6 +849,7 @@ class ExerciseEngine
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
+    _lastCompletedPhaseQualityTelemetry = null;
     _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
   }
