@@ -1,5 +1,6 @@
 import 'engine_kind.dart';
 import '../domain/models/exercise_type.dart';
+import '../domain/models/range_rep_contract.dart';
 
 /// In-memory exercise metadata that can later come from a JSON-backed source.
 class ExerciseDefinition {
@@ -9,6 +10,7 @@ class ExerciseDefinition {
     required this.title,
     required this.engineKind,
     required this.configAssetPath,
+    this.rangeRepContract,
   }) : isAnalysisSupported = true,
        activeAnalysisExercise = type;
 
@@ -19,7 +21,8 @@ class ExerciseDefinition {
   }) : isAnalysisSupported = false,
        activeAnalysisExercise = null,
        engineKind = null,
-       configAssetPath = null;
+       configAssetPath = null,
+       rangeRepContract = null;
 
   final ExerciseType type;
   final String id;
@@ -28,6 +31,7 @@ class ExerciseDefinition {
   final ExerciseType? activeAnalysisExercise;
   final EngineKind? engineKind;
   final String? configAssetPath;
+  final RangeRepContract? rangeRepContract;
 
   ExerciseType get analysisExercise {
     final activeAnalysisExercise = this.activeAnalysisExercise;
@@ -54,5 +58,18 @@ class ExerciseDefinition {
     }
 
     return configAssetPath;
+  }
+
+  RangeRepContract get analysisRangeRepContract {
+    if (engineKind != EngineKind.rangeRep) {
+      throw StateError('No range-rep contract registered for $type.');
+    }
+
+    final rangeRepContract = this.rangeRepContract;
+    if (rangeRepContract == null) {
+      throw StateError('No range-rep contract registered for $type.');
+    }
+
+    return rangeRepContract;
   }
 }
