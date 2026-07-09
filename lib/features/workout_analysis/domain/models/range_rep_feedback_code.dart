@@ -20,6 +20,11 @@ enum RangeRepFeedbackCode {
   maintainForm,
 }
 
+/// Optional surface for range-rep engines that can expose a typed feedback code.
+abstract class RangeRepFeedbackSource {
+  RangeRepFeedbackCode? get feedbackCode;
+}
+
 extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
   RangeRepFeedbackFamily get family {
     switch (this) {
