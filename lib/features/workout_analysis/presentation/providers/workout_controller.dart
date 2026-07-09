@@ -79,6 +79,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
   RangeRepValidationResult? _lastRangeRepValidationResult;
   int? _lastRangeRepValidatedRepIndex;
+  int _rangeRepValidatedCount = 0;
+  int _rangeRepLowConfidenceCount = 0;
+  int _rangeRepInvalidCount = 0;
   bool _activeRangeRepHadCoverageDrop = false;
   bool _activeRangeRepSwitchedSideDuringRep = false;
   String? _activeRangeRepSelectedSideLabel;
@@ -113,6 +116,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _selectedRangeRepSide = null;
     _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
     _resetRangeRepRepSummaryContext(clearCandidate: true);
+    _rangeRepValidatedCount = 0;
+    _rangeRepLowConfidenceCount = 0;
+    _rangeRepInvalidCount = 0;
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -522,6 +528,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
     final lastValidationResult = _lastRangeRepValidationResult;
+    final lastSummaryCandidate = _lastRangeRepRepSummaryCandidate;
 
     // Calibration telemetry surfaces the active engine's current secondary metric.
     return WorkoutCalibrationMetrics(
@@ -565,6 +572,27 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
                 .map((reason) => reason.debugLabel)
                 .toList(growable: false),
       lastRangeRepValidatedRepIndex: _lastRangeRepValidatedRepIndex,
+      rangeRepValidatedCount: _rangeRepValidatedCount,
+      rangeRepLowConfidenceCount: _rangeRepLowConfidenceCount,
+      rangeRepInvalidCount: _rangeRepInvalidCount,
+      hasLastRangeRepSummary: lastSummaryCandidate != null,
+      lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
+      lastRangeRepSummaryWorstFormMetric:
+          lastSummaryCandidate?.worstFormMetric,
+      lastRangeRepSummaryDescentMillis:
+          lastSummaryCandidate?.descentDuration.inMilliseconds,
+      lastRangeRepSummaryAscentMillis:
+          lastSummaryCandidate?.ascentDuration.inMilliseconds,
+      lastRangeRepSummaryHadFormViolation:
+          lastSummaryCandidate?.hadFormViolation ?? false,
+      lastRangeRepSummaryHadCoverageDrop:
+          lastSummaryCandidate?.hadCoverageDrop ?? false,
+      lastRangeRepSummarySwitchedSideDuringRep:
+          lastSummaryCandidate?.switchedSideDuringRep ?? false,
+      lastRangeRepSummaryCompletedPhaseSequence:
+          lastSummaryCandidate?.completedPhaseSequence ?? false,
+      lastRangeRepSummarySelectedSideLabel:
+          lastSummaryCandidate?.selectedSideLabel,
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
@@ -641,8 +669,23 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _lastRangeRepValidationResult = _rangeRepValidationPolicy.evaluate(
       summaryCandidate,
     );
+    _recordRangeRepValidationOutcome(_lastRangeRepValidationResult!);
     _lastRangeRepValidatedRepIndex = summaryCandidate.repIndex;
     _resetRangeRepRepSummaryContext();
+  }
+
+  void _recordRangeRepValidationOutcome(RangeRepValidationResult result) {
+    switch (result.status) {
+      case RangeRepValidationStatus.valid:
+        _rangeRepValidatedCount += 1;
+        break;
+      case RangeRepValidationStatus.lowConfidence:
+        _rangeRepLowConfidenceCount += 1;
+        break;
+      case RangeRepValidationStatus.invalid:
+        _rangeRepInvalidCount += 1;
+        break;
+    }
   }
 
   void _resetRangeRepRepSummaryContextIfCycleEnded({

@@ -1048,6 +1048,18 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 label: 'invalid reason',
                 value: metrics.rangeRepInvalidReason ?? '--',
               ),
+              _DebugMetricRow(
+                label: 'ValidCount',
+                value: metrics.rangeRepValidatedCount.toString(),
+              ),
+              _DebugMetricRow(
+                label: 'LowConfCount',
+                value: metrics.rangeRepLowConfidenceCount.toString(),
+              ),
+              _DebugMetricRow(
+                label: 'InvalidCount',
+                value: metrics.rangeRepInvalidCount.toString(),
+              ),
               if (metrics.hasLastRangeRepValidation) ...[
                 _DebugMetricRow(
                   label: 'Validation',
@@ -1063,6 +1075,60 @@ class _CalibrationDebugPanel extends StatelessWidget {
                     label: 'Reasons',
                     value: metrics.lastRangeRepValidationReasons.join(', '),
                   ),
+              ],
+              if (metrics.hasLastRangeRepSummary) ...[
+                if (metrics.lastRangeRepSummaryMinAngle != null)
+                  _DebugMetricRow(
+                    label: 'MinAngle',
+                    value: _formatTelemetryValue(
+                      metrics.lastRangeRepSummaryMinAngle!,
+                    ),
+                  ),
+                if (metrics.lastRangeRepSummaryWorstFormMetric != null)
+                  _DebugMetricRow(
+                    label: 'WorstForm',
+                    value: _formatTelemetryValue(
+                      metrics.lastRangeRepSummaryWorstFormMetric!,
+                    ),
+                  ),
+                if (metrics.lastRangeRepSummaryDescentMillis != null)
+                  _DebugMetricRow(
+                    label: 'DescentMs',
+                    value: metrics.lastRangeRepSummaryDescentMillis.toString(),
+                  ),
+                if (metrics.lastRangeRepSummaryAscentMillis != null)
+                  _DebugMetricRow(
+                    label: 'AscentMs',
+                    value: metrics.lastRangeRepSummaryAscentMillis.toString(),
+                  ),
+                _DebugMetricRow(
+                  label: 'FormBreak',
+                  value: metrics.lastRangeRepSummaryHadFormViolation
+                      ? 'true'
+                      : 'false',
+                ),
+                _DebugMetricRow(
+                  label: 'CoverageDrop',
+                  value: metrics.lastRangeRepSummaryHadCoverageDrop
+                      ? 'true'
+                      : 'false',
+                ),
+                _DebugMetricRow(
+                  label: 'SideSwitch',
+                  value: metrics.lastRangeRepSummarySwitchedSideDuringRep
+                      ? 'true'
+                      : 'false',
+                ),
+                _DebugMetricRow(
+                  label: 'FullPhase',
+                  value: metrics.lastRangeRepSummaryCompletedPhaseSequence
+                      ? 'true'
+                      : 'false',
+                ),
+                _DebugMetricRow(
+                  label: 'Side',
+                  value: metrics.lastRangeRepSummarySelectedSideLabel ?? '--',
+                ),
               ],
             ],
             _DebugMetricRow(

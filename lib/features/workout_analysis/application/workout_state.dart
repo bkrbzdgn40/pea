@@ -40,6 +40,19 @@ class WorkoutCalibrationMetrics {
     this.lastRangeRepValidationStatus,
     this.lastRangeRepValidationReasons = const <String>[],
     this.lastRangeRepValidatedRepIndex,
+    this.rangeRepValidatedCount = 0,
+    this.rangeRepLowConfidenceCount = 0,
+    this.rangeRepInvalidCount = 0,
+    this.hasLastRangeRepSummary = false,
+    this.lastRangeRepSummaryMinAngle,
+    this.lastRangeRepSummaryWorstFormMetric,
+    this.lastRangeRepSummaryDescentMillis,
+    this.lastRangeRepSummaryAscentMillis,
+    this.lastRangeRepSummaryHadFormViolation = false,
+    this.lastRangeRepSummaryHadCoverageDrop = false,
+    this.lastRangeRepSummarySwitchedSideDuringRep = false,
+    this.lastRangeRepSummaryCompletedPhaseSequence = false,
+    this.lastRangeRepSummarySelectedSideLabel,
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -84,6 +97,19 @@ class WorkoutCalibrationMetrics {
   final String? lastRangeRepValidationStatus;
   final List<String> lastRangeRepValidationReasons;
   final int? lastRangeRepValidatedRepIndex;
+  final int rangeRepValidatedCount;
+  final int rangeRepLowConfidenceCount;
+  final int rangeRepInvalidCount;
+  final bool hasLastRangeRepSummary;
+  final double? lastRangeRepSummaryMinAngle;
+  final double? lastRangeRepSummaryWorstFormMetric;
+  final int? lastRangeRepSummaryDescentMillis;
+  final int? lastRangeRepSummaryAscentMillis;
+  final bool lastRangeRepSummaryHadFormViolation;
+  final bool lastRangeRepSummaryHadCoverageDrop;
+  final bool lastRangeRepSummarySwitchedSideDuringRep;
+  final bool lastRangeRepSummaryCompletedPhaseSequence;
+  final String? lastRangeRepSummarySelectedSideLabel;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
