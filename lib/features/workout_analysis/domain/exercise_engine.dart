@@ -90,6 +90,7 @@ class ExerciseEngine
   @override
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
+  RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
   @override
   String feedback = "Hazir!";
 
@@ -129,6 +130,7 @@ class ExerciseEngine
         pendingTransitionLabel: _pendingTransition?.debugLabel,
         lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
         lastRepScoreBreakdown: lastRepScoreBreakdown,
+        lastCompletedRepCoreData: lastCompletedRepCoreData,
       );
 
   /// Updates live form feedback and advances the repetition state machine.
@@ -226,6 +228,10 @@ class ExerciseEngine
     // Score is finalized only after descent, peak, and ascent return to neutral.
     repCount++;
     maxROM = _currentRepMinAngle;
+    final completedPhaseSequence =
+        _descentStartTime != null &&
+        _peakStartTime != null &&
+        _ascentStartTime != null;
 
     final romScore = _calculateRomScore(maxROM);
     final descentSeconds = lastDescentTime.inMilliseconds / 1000.0;
@@ -256,6 +262,15 @@ class ExerciseEngine
       worstBackAngle: _currentRepWorstBackAngle,
       hadFormViolation: _currentRepHadFormViolation,
       finalScore: finalScore,
+    );
+    lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
+      repIndex: repCount,
+      minAngle: maxROM,
+      worstFormMetric: _currentRepWorstBackAngle,
+      descentDuration: lastDescentTime,
+      ascentDuration: lastAscentTime,
+      hadFormViolation: _currentRepHadFormViolation,
+      completedPhaseSequence: completedPhaseSequence,
     );
   }
 
@@ -380,6 +395,7 @@ class ExerciseEngine
     isFormBad = false;
     lastRepScore = 0;
     lastRepScoreBreakdown = null;
+    lastCompletedRepCoreData = null;
     maxROM = 180;
     lastDescentTime = Duration.zero;
     lastAscentTime = Duration.zero;

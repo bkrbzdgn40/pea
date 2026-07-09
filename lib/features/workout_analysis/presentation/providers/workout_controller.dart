@@ -16,6 +16,7 @@ import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/range_rep_rep_summary.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
@@ -71,6 +72,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final RangeRepVisibilityPolicy _rangeRepVisibilityPolicy;
   final InputImageConverter _inputImageConverter = const InputImageConverter();
   RangeRepSide? _selectedRangeRepSide;
+  RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
+  bool _activeRangeRepHadCoverageDrop = false;
+  bool _activeRangeRepSwitchedSideDuringRep = false;
+  String? _activeRangeRepSelectedSideLabel;
 
   @override
   WorkoutState build() {
@@ -101,6 +106,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _lastAnalysisStartedAt = null;
     _selectedRangeRepSide = null;
     _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
+    _resetRangeRepRepSummaryContext(clearCandidate: true);
 
     return WorkoutState(analysisKind: _engineKind);
   }
@@ -154,6 +160,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             !rangeRepFrameAssessment.shouldUpdateEngine,
         now: now,
       );
+      final preUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
       final shouldFreezeRangeRepPreview =
           _engineKind == EngineKind.rangeRep &&
           !rangeRepFrameAssessment.shouldUpdateEngine &&
@@ -166,6 +173,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
       if (_engineKind == EngineKind.rangeRep &&
           !rangeRepFrameAssessment.shouldUpdateEngine) {
+        _trackRangeRepRepContext(
+          diagnostics: preUpdateRangeRepDiagnostics,
+          selectedSide: rangeRepFrameAssessment.selection.selectedSide,
+          markCoverageDrop: true,
+        );
         if (rangeRepVisibilityAssessment.shouldResync) {
           _resetRangeRepVisibilityResyncState(
             reason: rangeRepVisibilityAssessment.resyncReason,
@@ -184,12 +196,28 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         // Raw range-rep form signals are telemetry only; engine inputs stay legacy.
         final selectedFormSignals =
             rangeRepFrameAssessment.selectedMetrics?.formSignals;
+        final previousRepCount = state.repCount;
+        _trackRangeRepRepContext(
+          diagnostics: preUpdateRangeRepDiagnostics,
+          selectedSide: rangeRepFrameAssessment.selection.selectedSide,
+        );
         // Smooth landmark jitter before feeding the scoring state machine.
         final analysisFrame = _buildAnalysisFrame(
           metrics,
           rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
         );
         _engine.update(analysisFrame);
+        final postUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
+        final didCompleteRep = _engine.repCount > previousRepCount;
+        _assembleRangeRepRepSummaryCandidateIfNeeded(
+          previousRepCount: previousRepCount,
+          diagnostics: postUpdateRangeRepDiagnostics,
+        );
+        _resetRangeRepRepSummaryContextIfCycleEnded(
+          previousDiagnostics: preUpdateRangeRepDiagnostics,
+          currentDiagnostics: postUpdateRangeRepDiagnostics,
+          didCompleteRep: didCompleteRep,
+        );
         final holdDiagnostics = _holdDiagnosticsSnapshot();
 
         state = WorkoutState(
@@ -539,6 +567,91 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return const RangeRepDiagnosticsSnapshot();
   }
 
+  void _trackRangeRepRepContext({
+    required RangeRepDiagnosticsSnapshot diagnostics,
+    required RangeRepSide? selectedSide,
+    bool markCoverageDrop = false,
+  }) {
+    if (_engineKind != EngineKind.rangeRep ||
+        !_isRangeRepRepContextActive(diagnostics)) {
+      return;
+    }
+
+    if (markCoverageDrop) {
+      _activeRangeRepHadCoverageDrop = true;
+    }
+
+    final selectedSideLabel = _rangeRepSideLabel(selectedSide);
+    if (selectedSideLabel == null) {
+      return;
+    }
+
+    if (_activeRangeRepSelectedSideLabel != null &&
+        _activeRangeRepSelectedSideLabel != selectedSideLabel) {
+      _activeRangeRepSwitchedSideDuringRep = true;
+    }
+
+    _activeRangeRepSelectedSideLabel = selectedSideLabel;
+  }
+
+  void _assembleRangeRepRepSummaryCandidateIfNeeded({
+    required int previousRepCount,
+    required RangeRepDiagnosticsSnapshot diagnostics,
+  }) {
+    if (_engineKind != EngineKind.rangeRep ||
+        _engine.repCount <= previousRepCount) {
+      return;
+    }
+
+    final coreData = diagnostics.lastCompletedRepCoreData;
+    if (coreData == null) {
+      _resetRangeRepRepSummaryContext();
+      return;
+    }
+
+    _lastRangeRepRepSummaryCandidate = RangeRepRepSummary(
+      repIndex: coreData.repIndex,
+      minAngle: coreData.minAngle,
+      worstFormMetric: coreData.worstFormMetric,
+      descentDuration: coreData.descentDuration,
+      ascentDuration: coreData.ascentDuration,
+      hadFormViolation: coreData.hadFormViolation,
+      hadCoverageDrop: _activeRangeRepHadCoverageDrop,
+      switchedSideDuringRep: _activeRangeRepSwitchedSideDuringRep,
+      completedPhaseSequence: coreData.completedPhaseSequence,
+      selectedSideLabel: _activeRangeRepSelectedSideLabel,
+      analysisKindLabel: _engineKind.name,
+    );
+    _resetRangeRepRepSummaryContext();
+  }
+
+  void _resetRangeRepRepSummaryContextIfCycleEnded({
+    required RangeRepDiagnosticsSnapshot previousDiagnostics,
+    required RangeRepDiagnosticsSnapshot currentDiagnostics,
+    required bool didCompleteRep,
+  }) {
+    if (didCompleteRep ||
+        !_isRangeRepRepContextActive(previousDiagnostics) ||
+        _isRangeRepRepContextActive(currentDiagnostics)) {
+      return;
+    }
+
+    _resetRangeRepRepSummaryContext();
+  }
+
+  void _resetRangeRepRepSummaryContext({bool clearCandidate = false}) {
+    _activeRangeRepHadCoverageDrop = false;
+    _activeRangeRepSwitchedSideDuringRep = false;
+    _activeRangeRepSelectedSideLabel = null;
+    if (clearCandidate) {
+      _lastRangeRepRepSummaryCandidate = null;
+    }
+  }
+
+  bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {
+    return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
+  }
+
   bool get _shouldLockRangeRepSideSelection {
     return shouldLockRangeRepSideSelection(
       engineKind: _engineKind,
@@ -559,6 +672,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _backFilter.reset();
     // Force side selection to be reacquired from fresh post-resync coverage.
     _selectedRangeRepSide = null;
+    _resetRangeRepRepSummaryContext();
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {

@@ -1,5 +1,26 @@
 import 'models/rep_score_breakdown.dart';
 
+/// Core engine-owned facts about the last fully completed range-rep repetition.
+class RangeRepCompletedRepCoreData {
+  const RangeRepCompletedRepCoreData({
+    required this.repIndex,
+    required this.minAngle,
+    required this.worstFormMetric,
+    required this.descentDuration,
+    required this.ascentDuration,
+    required this.hadFormViolation,
+    required this.completedPhaseSequence,
+  });
+
+  final int repIndex;
+  final double minAngle;
+  final double worstFormMetric;
+  final Duration descentDuration;
+  final Duration ascentDuration;
+  final bool hadFormViolation;
+  final bool completedPhaseSequence;
+}
+
 /// Range-rep specific diagnostics used by today's calibration/debug surface.
 class RangeRepDiagnosticsSnapshot {
   const RangeRepDiagnosticsSnapshot({
@@ -11,6 +32,7 @@ class RangeRepDiagnosticsSnapshot {
     this.pendingTransitionLabel,
     this.lastConfirmedTransitionLabel,
     this.lastRepScoreBreakdown,
+    this.lastCompletedRepCoreData,
   });
 
   final double currentRepWorstBackAngle;
@@ -21,6 +43,7 @@ class RangeRepDiagnosticsSnapshot {
   final String? pendingTransitionLabel;
   final String? lastConfirmedTransitionLabel;
   final RepScoreBreakdown? lastRepScoreBreakdown;
+  final RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
 }
 
 /// Optional diagnostics surface for range-rep style engines.
