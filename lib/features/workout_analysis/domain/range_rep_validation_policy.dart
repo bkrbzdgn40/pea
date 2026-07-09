@@ -15,7 +15,7 @@ class RangeRepValidationConfig {
   final bool allowLowConfidenceOnCoverageLoss;
 }
 
-/// Standalone range-rep validator scaffold. This is not wired into runtime yet.
+/// Standalone range-rep validator used by the runtime validation outcome flow.
 class RangeRepValidationPolicy {
   const RangeRepValidationPolicy({
     this.config = const RangeRepValidationConfig(),

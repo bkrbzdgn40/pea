@@ -20,6 +20,7 @@ import '../../domain/models/exercise_config.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_rep_summary.dart';
+import '../../domain/models/range_rep_validation_outcome.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/models/session_calibration_baseline.dart';
 import '../../domain/range_rep_diagnostics.dart';
@@ -966,17 +967,30 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       selectedSideLabel: _activeRangeRepSelectedSideLabel,
       analysisKindLabel: _engineKind.name,
     );
-    _lastRangeRepRepSummaryCandidate = summaryCandidate;
-    _lastRangeRepValidationResult = _rangeRepValidationPolicy.evaluate(
-      summaryCandidate,
-    );
-    _recordRangeRepValidationOutcome(_lastRangeRepValidationResult!);
-    _lastRangeRepValidatedRepIndex = summaryCandidate.repIndex;
+    final validationOutcome = _buildRangeRepValidationOutcome(summaryCandidate);
+    _activateRangeRepValidationOutcome(validationOutcome);
     _resetRangeRepRepSummaryContext();
   }
 
-  void _recordRangeRepValidationOutcome(RangeRepValidationResult result) {
-    switch (result.status) {
+  RangeRepValidationOutcome _buildRangeRepValidationOutcome(
+    RangeRepRepSummary summary,
+  ) {
+    return RangeRepValidationOutcome(
+      summary: summary,
+      result: _rangeRepValidationPolicy.evaluate(summary),
+    );
+  }
+
+  void _activateRangeRepValidationOutcome(RangeRepValidationOutcome outcome) {
+    if (_lastRangeRepValidatedRepIndex == outcome.repIndex) {
+      return;
+    }
+
+    _lastRangeRepRepSummaryCandidate = outcome.summary;
+    _lastRangeRepValidationResult = outcome.result;
+    _lastRangeRepValidatedRepIndex = outcome.repIndex;
+
+    switch (outcome.status) {
       case RangeRepValidationStatus.valid:
         _rangeRepValidatedCount += 1;
         break;
