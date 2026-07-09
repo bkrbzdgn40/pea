@@ -36,6 +36,9 @@ class WorkoutCalibrationMetrics {
     this.rangeRepResyncTriggered = false,
     this.rangeRepResyncReason,
     this.rangeRepVisibilityStatus = 'stable',
+    this.hasLastRangeRepValidation = false,
+    this.lastRangeRepValidationStatus,
+    this.lastRangeRepValidationReasons = const <String>[],
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -76,6 +79,9 @@ class WorkoutCalibrationMetrics {
   final bool rangeRepResyncTriggered;
   final String? rangeRepResyncReason;
   final String rangeRepVisibilityStatus;
+  final bool hasLastRangeRepValidation;
+  final String? lastRangeRepValidationStatus;
+  final List<String> lastRangeRepValidationReasons;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;

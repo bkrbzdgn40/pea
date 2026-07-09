@@ -520,6 +520,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }) {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
     final lastBreakdown = diagnostics.lastRepScoreBreakdown;
+    final lastValidationResult = _lastRangeRepValidationResult;
 
     // Calibration telemetry surfaces the active engine's current secondary metric.
     return WorkoutCalibrationMetrics(
@@ -555,6 +556,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       rangeRepResyncTriggered: rangeRepResyncTriggered,
       rangeRepResyncReason: rangeRepResyncReason,
       rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+      hasLastRangeRepValidation: lastValidationResult != null,
+      lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
+      lastRangeRepValidationReasons: lastValidationResult == null
+          ? const <String>[]
+          : lastValidationResult.reasons
+                .map((reason) => reason.debugLabel)
+                .toList(growable: false),
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
