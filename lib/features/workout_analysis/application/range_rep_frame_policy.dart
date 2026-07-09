@@ -1,3 +1,4 @@
+import '../domain/models/range_rep_contract.dart';
 import 'exercise_metrics.dart';
 import 'range_rep_side_policy.dart';
 
@@ -88,9 +89,29 @@ class RangeRepFramePolicy {
     required ExerciseMetrics metrics,
     required RangeRepSideSelection selection,
   }) {
+    return assessWithContract(
+      metrics: metrics,
+      selection: selection,
+      contract: RangeRepContracts.squat,
+    );
+  }
+
+  RangeRepFrameAssessment assessWithContract({
+    required ExerciseMetrics metrics,
+    required RangeRepSideSelection selection,
+    required RangeRepContract contract,
+  }) {
     final selectedMetrics = selection.selectedMetrics;
     final hasPrimaryAngle = selectedMetrics?.hasPrimaryAngle ?? false;
     final hasFormMetric = selectedMetrics?.hasFormMetric ?? false;
+    final requiresPrimaryAngle = contract.supportsSignal(
+      RangeRepSignal.primaryMetric,
+    );
+    final requiresFormMetric = contract.supportsSignal(
+      RangeRepSignal.formMetric,
+    );
+    final isMissingPrimaryAngle = requiresPrimaryAngle && !hasPrimaryAngle;
+    final isMissingFormMetric = requiresFormMetric && !hasFormMetric;
 
     if (!metrics.hasPose) {
       return RangeRepFrameAssessment.invalid(
@@ -101,7 +122,7 @@ class RangeRepFramePolicy {
       );
     }
 
-    if (!hasPrimaryAngle && !hasFormMetric) {
+    if (isMissingPrimaryAngle && isMissingFormMetric) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
         hasPrimaryAngle: false,
@@ -110,7 +131,7 @@ class RangeRepFramePolicy {
       );
     }
 
-    if (!hasPrimaryAngle) {
+    if (isMissingPrimaryAngle) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
         hasPrimaryAngle: false,
@@ -119,10 +140,10 @@ class RangeRepFramePolicy {
       );
     }
 
-    if (!hasFormMetric) {
+    if (isMissingFormMetric) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
-        hasPrimaryAngle: true,
+        hasPrimaryAngle: hasPrimaryAngle,
         hasFormMetric: false,
         invalidReason: RangeRepFrameInvalidReason.missingFormMetric,
       );
@@ -130,8 +151,8 @@ class RangeRepFramePolicy {
 
     return RangeRepFrameAssessment.valid(
       selection: selection,
-      hasPrimaryAngle: true,
-      hasFormMetric: true,
+      hasPrimaryAngle: hasPrimaryAngle,
+      hasFormMetric: hasFormMetric,
     );
   }
 }
