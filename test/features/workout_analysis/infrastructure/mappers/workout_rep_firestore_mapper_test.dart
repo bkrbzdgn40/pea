@@ -91,6 +91,30 @@ void main() {
       expect(rep.selectedSideLabel, 'right');
       expect(rep.recordedAt?.toUtc(), DateTime.utc(2026, 1, 1, 12, 0, 3));
     });
+
+    test(
+      'treats false isValid without invalid reasons as unknown and keeps nullables safe',
+      () {
+        final rep = mapper.fromDocument(<String, dynamic>{
+          'id': 'rep_0003',
+          'ownerId': 'owner_1',
+          'sessionId': 'session_1',
+          'exerciseType': 'squat',
+          'analysisKind': 'rangeRep',
+          'repIndex': 3,
+          'isValid': false,
+          'score': null,
+          'durationSeconds': null,
+          'validationReasons': const <String>[],
+          'createdAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 0, 6)),
+        });
+
+        expect(rep.validationStatus, 'unknown');
+        expect(rep.isValidationUnknown, isTrue);
+        expect(rep.score, isNull);
+        expect(rep.observedDuration, isNull);
+      },
+    );
   });
 }
 

@@ -134,14 +134,19 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     // Collect from state transitions so save/summary does not depend on the final frame.
     final repDelta = next.repCount - _lastObservedRepCount;
     if (repDelta > 0) {
-      _repScoreSum += next.lastRepScore * repDelta;
-      _scoredRepCount += repDelta;
+      final collectedRep = _collectCompletedWorkoutRep(
+        next: next,
+        repDelta: repDelta,
+      );
+      final collectedScore = collectedRep?.score;
+      if (collectedScore != null) {
+        _repScoreSum += collectedScore;
+        _scoredRepCount += 1;
 
-      if (next.lastRepScore > _bestScore) {
-        _bestScore = next.lastRepScore;
+        if (collectedScore > _bestScore) {
+          _bestScore = collectedScore;
+        }
       }
-
-      _collectCompletedWorkoutRep(next: next, repDelta: repDelta);
     }
 
     if (!_previousFormBad && next.isFormBad) {
@@ -169,23 +174,24 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _previousHoldFormBreak = next.hadHoldFormBreak;
   }
 
-  void _collectCompletedWorkoutRep({
+  WorkoutRep? _collectCompletedWorkoutRep({
     required WorkoutState next,
     required int repDelta,
   }) {
     final candidate = _buildCompletedWorkoutRep(next: next, repDelta: repDelta);
     if (candidate == null) {
-      return;
+      return null;
     }
 
     final alreadyCollected = _completedWorkoutReps.any(
       (rep) => rep.repIndex == candidate.repIndex,
     );
     if (alreadyCollected) {
-      return;
+      return null;
     }
 
     _completedWorkoutReps.add(candidate);
+    return candidate;
   }
 
   WorkoutRep? _buildCompletedWorkoutRep({
@@ -219,7 +225,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       recordedAt: DateTime.now(),
       validationStatus: metrics.hasLastRangeRepValidation
           ? metrics.lastRangeRepValidationStatus
-          : null,
+          : 'unknown',
       validationReasons: metrics.hasLastRangeRepValidation
           ? List<String>.from(metrics.lastRangeRepValidationReasons)
           : const <String>[],

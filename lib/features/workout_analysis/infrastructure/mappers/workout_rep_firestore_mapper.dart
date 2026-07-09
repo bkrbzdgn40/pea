@@ -54,14 +54,15 @@ class WorkoutRepFirestoreMapper {
   }
 
   WorkoutRep fromDocument(Map<String, dynamic> data) {
+    final validationReasons = _readStringList(data['validationReasons']);
+    final invalidReason = _readNullableString(data['invalidReason']);
     final validationStatus =
         _readNullableString(data['validationStatus']) ??
         _fallbackValidationStatus(
           isValid: data['isValid'],
-          invalidReason: data['invalidReason'],
+          invalidReason: invalidReason,
+          validationReasons: validationReasons,
         );
-    final validationReasons = _readStringList(data['validationReasons']);
-    final invalidReason = _readNullableString(data['invalidReason']);
 
     return WorkoutRep.fromMap(<String, Object?>{
       'repIndex': data['repIndex'],
@@ -91,9 +92,19 @@ class WorkoutRepFirestoreMapper {
   String? _fallbackValidationStatus({
     required Object? isValid,
     required Object? invalidReason,
+    required List<String> validationReasons,
   }) {
     if (isValid is bool) {
-      return isValid ? 'valid' : 'invalid';
+      if (isValid) {
+        return 'valid';
+      }
+
+      if (validationReasons.isNotEmpty ||
+          invalidReason is String && invalidReason.isNotEmpty) {
+        return 'invalid';
+      }
+
+      return 'unknown';
     }
 
     if (invalidReason is String && invalidReason.isNotEmpty) {

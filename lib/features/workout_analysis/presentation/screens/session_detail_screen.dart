@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/session_repository_provider.dart';
@@ -28,7 +29,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   void initState() {
     super.initState();
     _session = widget.session;
-    _reps = widget.session.reps;
+    _reps = _sortedReps(widget.session.reps);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadSessionDetails());
     });
@@ -60,8 +61,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
       final nextSession = refreshedSession ?? _session;
       final nextReps = reps.isEmpty
-          ? nextSession.reps
-          : List<WorkoutRep>.unmodifiable(reps);
+          ? _sortedReps(nextSession.reps)
+          : _sortedReps(reps);
 
       setState(() {
         _session = nextSession.copyWith(reps: nextReps);
@@ -75,15 +76,18 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
       setState(() {
         _isLoadingRepDetails = false;
-        _repLoadError = 'Tekrar detaylari yuklenemedi. Lutfen tekrar dene.';
+        _repLoadError = 'Tekrar detayları yüklenemedi. Lütfen tekrar dene.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final reps = _reps ?? const <WorkoutRep>[];
+    final report = SessionReport.fromSession(session: _session, reps: reps);
+
     return AppScaffoldShell(
-      title: 'Oturum Detayi',
+      title: 'Oturum Raporu',
       showDrawer: false,
       padding: EdgeInsets.zero,
       body: SingleChildScrollView(
@@ -91,33 +95,15 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SessionSummaryCard(session: _session),
+            _SessionSummaryCard(session: _session, report: report),
             const SizedBox(height: 14),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const spacing = 10.0;
-                final columnCount = constraints.maxWidth < 340 ? 1 : 2;
-                final tileWidth =
-                    (constraints.maxWidth - spacing * (columnCount - 1)) /
-                    columnCount;
-
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: _detailMetrics(_session)
-                      .map(
-                        (metric) => SizedBox(
-                          width: tileWidth,
-                          child: _MetricTile(
-                            label: metric.key,
-                            value: metric.value,
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                );
-              },
-            ),
+            _OverviewCard(session: _session, report: report),
+            const SizedBox(height: 14),
+            _ReportSummaryCard(report: report),
+            if (report.recommendations.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _RecommendationsCard(report: report),
+            ],
             const SizedBox(height: 14),
             _RepDetailsCard(
               reps: _reps,
@@ -125,22 +111,45 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               errorMessage: _repLoadError,
               onRetry: _loadSessionDetails,
             ),
-            const SizedBox(height: 14),
-            _RecommendationCard(session: _session),
           ],
         ),
       ),
     );
   }
+
+  List<WorkoutRep>? _sortedReps(List<WorkoutRep>? reps) {
+    if (reps == null || reps.isEmpty) {
+      return reps;
+    }
+
+    return List<WorkoutRep>.unmodifiable(
+      reps.toList()
+        ..sort((left, right) => left.repIndex.compareTo(right.repIndex)),
+    );
+  }
 }
 
 class _SessionSummaryCard extends StatelessWidget {
-  const _SessionSummaryCard({required this.session});
+  const _SessionSummaryCard({required this.session, required this.report});
 
   final WorkoutSession session;
+  final SessionReport report;
 
   @override
   Widget build(BuildContext context) {
+    final chips = <MapEntry<String, String>>[
+      MapEntry('Analiz', _analysisKindLabel(session.analysisKind)),
+      MapEntry('Süre', _formatDuration(session.duration)),
+      MapEntry(
+        report.isHoldSession ? 'Toplam Hold' : 'Toplam Tekrar',
+        report.isHoldSession
+            ? _formatHoldSeconds(report.totalHoldSeconds)
+            : report.totalReps.toString(),
+      ),
+      if (!report.isHoldSession && report.hasScoreData)
+        MapEntry('Ortalama Skor', _formatScore(report.averageScore)),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -191,13 +200,12 @@ class _SessionSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            _summaryLine(session),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
-              height: 1.3,
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: chips
+                .map((chip) => _SummaryChip(label: chip.key, value: chip.value))
+                .toList(growable: false),
           ),
         ],
       ),
@@ -205,39 +213,94 @@ class _SessionSummaryCard extends StatelessWidget {
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.label, required this.value});
+class _OverviewCard extends StatelessWidget {
+  const _OverviewCard({required this.session, required this.report});
 
-  final String label;
-  final String value;
+  final WorkoutSession session;
+  final SessionReport report;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
+    final metrics = _overviewMetrics(session: session, report: report);
+
+    return _SectionCard(
+      title: report.isHoldSession ? 'Hold Özeti' : 'Skor Görünümü',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const spacing = 10.0;
+          final columnCount = constraints.maxWidth < 340 ? 1 : 2;
+          final tileWidth =
+              (constraints.maxWidth - spacing * (columnCount - 1)) /
+              columnCount;
+
+          return Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: metrics
+                .map(
+                  (metric) => SizedBox(
+                    width: tileWidth,
+                    child: _MetricTile(label: metric.key, value: metric.value),
+                  ),
+                )
+                .toList(growable: false),
+          );
+        },
       ),
+    );
+  }
+}
+
+class _ReportSummaryCard extends StatelessWidget {
+  const _ReportSummaryCard({required this.report});
+
+  final SessionReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Rapor Özeti',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            label,
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
+            report.summaryMessage,
             style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.4,
             ),
           ),
+          if (report.topIssues.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: report.topIssues
+                  .map((issue) => _IssueChip(label: issue))
+                  .toList(growable: false),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _RecommendationsCard extends StatelessWidget {
+  const _RecommendationsCard({required this.report});
+
+  final SessionReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Öneriler',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: report.recommendations
+            .map((recommendation) => _RecommendationRow(text: recommendation))
+            .toList(growable: false),
       ),
     );
   }
@@ -258,25 +321,13 @@ class _RepDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
+    final hasReps = reps != null && reps!.isNotEmpty;
+
+    return _SectionCard(
+      title: 'Tekrar Detayları',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Tekrar Detaylari',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
           if (isLoading)
             const Center(
               child: Padding(
@@ -284,7 +335,7 @@ class _RepDetailsCard extends StatelessWidget {
                 child: CircularProgressIndicator(color: Colors.greenAccent),
               ),
             )
-          else if (errorMessage != null)
+          else if (!hasReps && errorMessage != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -303,16 +354,27 @@ class _RepDetailsCard extends StatelessWidget {
                 ),
               ],
             )
-          else if (reps == null || reps!.isEmpty)
+          else if (!hasReps)
             const Text(
-              'Bu oturumda tekrar detaylari kaydedilmemis.',
+              'Bu oturumda tekrar detayları kaydedilmemiş. Eski oturumlarda yalnızca özet veriler bulunabilir.',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
                 height: 1.35,
               ),
             )
-          else
+          else ...[
+            if (errorMessage != null) ...[
+              const Text(
+                'Güncel detaylar alınamadı; eldeki kayıt gösteriliyor.',
+                style: TextStyle(
+                  color: Colors.amberAccent,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -322,6 +384,7 @@ class _RepDetailsCard extends StatelessWidget {
                 return _RepTile(rep: reps![index]);
               },
             ),
+          ],
         ],
       ),
     );
@@ -335,14 +398,14 @@ class _RepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _repStatusLabel(rep);
-    final statusColor = _repStatusColor(rep);
     final detailMetrics = <MapEntry<String, String>>[
+      MapEntry('Durum', _repStatusLabel(rep)),
       MapEntry('Skor', _formatOptionalScore(rep.score)),
-      MapEntry('Sure', _formatRepDuration(rep)),
-      MapEntry('Min Metric', _formatOptionalMetric(rep.minPrimaryMetric)),
-      MapEntry('Worst Form', _formatOptionalMetric(rep.worstFormMetric)),
-      MapEntry('Taraf', rep.selectedSideLabel ?? '--'),
+      MapEntry('Süre', _formatRepDuration(rep)),
+      MapEntry('Taraf', _formatSideLabel(rep.selectedSideLabel)),
+      MapEntry('Birincil Metrik', _formatOptionalMetric(rep.minPrimaryMetric)),
+      MapEntry('En Kötü Form', _formatOptionalMetric(rep.worstFormMetric)),
+      MapEntry('İniş / Çıkış', _formatRepTempo(rep)),
     ];
 
     return Container(
@@ -373,14 +436,16 @@ class _RepTile extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.16),
+                  color: _repStatusColor(rep).withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: _repStatusColor(rep).withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Text(
-                  status,
+                  _repStatusLabel(rep),
                   style: TextStyle(
-                    color: statusColor,
+                    color: _repStatusColor(rep),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -399,20 +464,182 @@ class _RepTile extends StatelessWidget {
                 )
                 .toList(growable: false),
           ),
-          if (rep.feedback != null && rep.feedback!.isNotEmpty) ...[
+          if (rep.primaryValidationReason != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Feedback: ${rep.feedback!}',
+              'Birincil sorun: ${_formatIssueLabel(rep.primaryValidationReason!)}',
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ],
-          if (rep.primaryValidationReason != null) ...[
+          if (rep.feedback != null && rep.feedback!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Neden: ${rep.primaryValidationReason!}',
+              'Feedback: ${rep.feedback!}',
               style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black45,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _IssueChip extends StatelessWidget {
+  const _IssueChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.redAccent,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecommendationRow extends StatelessWidget {
+  const _RecommendationRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.subdirectory_arrow_right_rounded,
+              color: Colors.greenAccent,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -457,115 +684,60 @@ class _RepMetricPill extends StatelessWidget {
   }
 }
 
-class _RecommendationCard extends StatelessWidget {
-  const _RecommendationCard({required this.session});
-
-  final WorkoutSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Oneri Ozeti',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _recommendationFor(session),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-List<MapEntry<String, String>> _detailMetrics(WorkoutSession session) {
-  if (session.isHoldSession) {
+List<MapEntry<String, String>> _overviewMetrics({
+  required WorkoutSession session,
+  required SessionReport report,
+}) {
+  if (report.isHoldSession) {
     return <MapEntry<String, String>>[
-      MapEntry('Sure', _formatDuration(session.duration)),
-      MapEntry('Toplam Hold', _formatHoldSeconds(session.totalHoldSeconds)),
-      MapEntry('En Iyi Hold', _formatHoldSeconds(session.bestHoldSeconds)),
-      MapEntry('Form Kesintisi', session.formBreakCount.toString()),
+      MapEntry('Süre', _formatDuration(session.duration)),
+      MapEntry('Toplam Hold', _formatHoldSeconds(report.totalHoldSeconds)),
+      MapEntry('En İyi Hold', _formatHoldSeconds(report.bestHoldSeconds)),
+      MapEntry('Form Kesintisi', report.formBreakCount.toString()),
     ];
   }
 
-  return <MapEntry<String, String>>[
-    MapEntry('Sure', _formatDuration(session.duration)),
-    MapEntry('Toplam Tekrar', session.totalReps.toString()),
-    MapEntry('Gecerli Tekrar', session.validReps.toString()),
-    MapEntry('Gecersiz Tekrar', session.invalidReps.toString()),
-    MapEntry('Ortalama Skor', _formatScore(session.averageScore)),
-    MapEntry('En Iyi Skor', _formatScore(session.bestScore)),
-    MapEntry('En Dusuk Skor', _formatScore(session.worstScore)),
-    MapEntry('Form Uyarisi', session.formWarningCount.toString()),
+  final metrics = <MapEntry<String, String>>[
+    MapEntry('Toplam Tekrar', report.totalReps.toString()),
+    MapEntry('Geçerli', report.validReps.toString()),
+    MapEntry('Geçersiz', report.invalidReps.toString()),
+    if (report.unknownReps > 0)
+      MapEntry('Belirsiz', report.unknownReps.toString()),
+    MapEntry(
+      'Ortalama Skor',
+      report.hasScoreData ? _formatScore(report.averageScore) : '--',
+    ),
+    MapEntry(
+      'En İyi Skor',
+      report.hasScoreData ? _formatScore(report.bestScore) : '--',
+    ),
+    MapEntry(
+      'En Düşük Skor',
+      report.hasScoreData ? _formatScore(report.worstScore) : '--',
+    ),
+    MapEntry('Form Uyarısı', report.formWarningCount.toString()),
   ];
-}
 
-String _summaryLine(WorkoutSession session) {
-  if (session.isHoldSession) {
-    return 'Toplam hold ${_formatHoldSeconds(session.totalHoldSeconds)} • '
-        'En iyi hold ${_formatHoldSeconds(session.bestHoldSeconds)}';
+  if (report.formViolationCount > 0) {
+    metrics.add(MapEntry('Form İhlali', report.formViolationCount.toString()));
+  }
+  if (report.coverageDropCount > 0) {
+    metrics.add(
+      MapEntry('Görünürlük Kaybı', report.coverageDropCount.toString()),
+    );
+  }
+  if (report.sideSwitchCount > 0) {
+    metrics.add(MapEntry('Taraf Değişimi', report.sideSwitchCount.toString()));
   }
 
-  return '${session.totalReps} tekrar • '
-      'Ortalama skor ${_formatScore(session.averageScore)}';
-}
-
-String _recommendationFor(WorkoutSession session) {
-  if (session.isHoldSession) {
-    if (session.formBreakCount >= 3) {
-      return 'Formunu biraz daha sabit tutmaya odaklan. Kisa ama temiz hold setleri iyi bir sonraki adim olur.';
-    }
-
-    if (session.bestHoldSeconds >= 30) {
-      return 'Tutus suresi iyi gorunuyor. Ayni kaliteyi koruyarak sureyi kademeli artirabilirsin.';
-    }
-
-    if (session.totalHoldSeconds < 15) {
-      return 'Biraz daha uzun ve kontrollu hold denemeleri faydali olabilir.';
-    }
-
-    return 'Dengeli bir hold oturumu gorunuyor. Siradaki sette ayni sabitligi korumaya odaklanabilirsin.';
-  }
-
-  if (session.formWarningCount >= 3) {
-    return 'Form kontrolune biraz daha odaklan. Uyari sayisi yuksektiginde daha yavas ve kontrollu tekrarlar faydali olabilir.';
-  }
-
-  if (session.averageScore >= 85) {
-    return 'Tempo ve form dengesi iyi gorunuyor. Ayni kaliteyi koruyarak set suresini kademeli artirabilirsin.';
-  }
-
-  if (session.totalReps < 5) {
-    return 'Biraz daha uzun setlerle devam edebilirsin. Oncelik yine kontrollu hareket kalitesi olsun.';
-  }
-
-  return 'Dengeli bir oturum gorunuyor. Bir sonraki sette ayni formu korumaya odaklanabilirsin.';
+  return metrics;
 }
 
 String _repStatusLabel(WorkoutRep rep) {
   return switch (rep.validationStatus) {
-    'valid' => 'Gecerli',
-    'low confidence' => 'Dusuk Guven',
-    'invalid' => 'Gecersiz',
+    'valid' => 'Geçerli',
+    'low confidence' => 'Düşük Güven',
+    'invalid' => 'Geçersiz',
     _ => 'Belirsiz',
   };
 }
@@ -579,9 +751,18 @@ Color _repStatusColor(WorkoutRep rep) {
   };
 }
 
+String _analysisKindLabel(String analysisKind) {
+  return switch (analysisKind) {
+    'hold' => 'Hold',
+    'rangeRep' => 'Range Rep',
+    _ => analysisKind,
+  };
+}
+
 String _exerciseTitle(String exerciseType) {
   return switch (exerciseType) {
     'squat' => 'Squat',
+    'plank' => 'Plank',
     _ =>
       exerciseType
           .split('_')
@@ -603,7 +784,7 @@ String _formatHoldSeconds(double seconds) {
 }
 
 String _formatScore(double score) {
-  return score.round().toString();
+  return score.toStringAsFixed(score.truncateToDouble() == score ? 0 : 1);
 }
 
 String _formatOptionalScore(double? score) {
@@ -629,6 +810,43 @@ String _formatRepDuration(WorkoutRep rep) {
   }
 
   return _formatDuration(duration);
+}
+
+String _formatRepTempo(WorkoutRep rep) {
+  final descent = rep.descentMillis == null ? '--' : '${rep.descentMillis} ms';
+  final ascent = rep.ascentMillis == null ? '--' : '${rep.ascentMillis} ms';
+
+  return '$descent / $ascent';
+}
+
+String _formatSideLabel(String? value) {
+  return switch (value) {
+    'left' => 'Sol',
+    'right' => 'Sağ',
+    null => '--',
+    _ => value,
+  };
+}
+
+String _formatIssueLabel(String value) {
+  switch (value) {
+    case 'insufficient rom':
+      return 'Yetersiz hareket açıklığı';
+    case 'excessive descent speed':
+      return 'İniş çok hızlı';
+    case 'excessive ascent speed':
+      return 'Çıkış çok hızlı';
+    case 'persistent form break':
+      return 'Kalıcı form bozulması';
+    case 'coverage loss':
+      return 'Görünürlük kaybı';
+    case 'side switch during rep':
+      return 'Tekrar içinde taraf değişimi';
+    case 'incomplete phase':
+      return 'Eksik faz tamamlanması';
+    default:
+      return value;
+  }
 }
 
 String _formatDateTime(DateTime dateTime) {

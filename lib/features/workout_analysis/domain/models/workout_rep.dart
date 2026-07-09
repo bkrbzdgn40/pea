@@ -56,6 +56,10 @@ class WorkoutRep {
 
   bool get isValidatedAsInvalid => validationStatus == 'invalid';
 
+  bool get isValidationUnknown {
+    return !isValidatedAsValid && !isValidatedAsInvalid;
+  }
+
   String? get primaryValidationReason {
     if (validationReasons.isEmpty) {
       return null;
