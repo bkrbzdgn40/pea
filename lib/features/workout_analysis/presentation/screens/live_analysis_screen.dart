@@ -1048,6 +1048,17 @@ class _CalibrationDebugPanel extends StatelessWidget {
                 label: 'invalid reason',
                 value: metrics.rangeRepInvalidReason ?? '--',
               ),
+              if (metrics.hasLastRangeRepValidation) ...[
+                _DebugMetricRow(
+                  label: 'Validation',
+                  value: metrics.lastRangeRepValidationStatus ?? '--',
+                ),
+                if (metrics.lastRangeRepValidationReasons.isNotEmpty)
+                  _DebugMetricRow(
+                    label: 'Reasons',
+                    value: metrics.lastRangeRepValidationReasons.join(', '),
+                  ),
+              ],
             ],
             _DebugMetricRow(
               label: isHoldAnalysis ? 'body target' : 'threshold',
