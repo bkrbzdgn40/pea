@@ -1,10 +1,48 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
   group('ExerciseConfig.fromMap', () {
-    test('parses a squat-style range-rep config', () {
+    test('parses explicit range-rep signals from squat asset config', () {
+      final rawJson = File(
+        'assets/config/exercises/squat.json',
+      ).readAsStringSync();
+      final config = ExerciseConfig.fromMap(
+        jsonDecode(rawJson) as Map<String, dynamic>,
+      );
+
+      expect(config.name, 'Squat');
+      expect(config.primaryJoint, PoseLandmarkType.leftKnee);
+      expect(config.rangeRepSignals, isNotNull);
+      expect(config.usesLegacyRangeRepSignalFallback, isFalse);
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.first,
+        PoseLandmarkType.leftShoulder,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.depthMetric)
+            ?.source,
+        RangeRepSignalSource.primaryMetric,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.endRangeMetric)
+            ?.angle
+            ?.last,
+        PoseLandmarkType.leftAnkle,
+      );
+    });
+
+    test('parses rangeRepSignals angle triples and source aliases', () {
       final config = ExerciseConfig.fromMap(<String, dynamic>{
         'name': 'Squat',
         'primaryJoint': 'leftKnee',
@@ -13,55 +51,152 @@ void main() {
         'thresholdNeutral': 160.0,
         'thresholdActive': 150.0,
         'thresholdPeak': 95.0,
-        'idealDescentSeconds': 1.5,
-        'idealAscentSeconds': 1.0,
-        'formThreshold': 45.0,
-        'targetMinAngle': 70.0,
-        'tempoPenaltyPerSecond': 20.0,
-        'rangeRepScoreWeights': <String, dynamic>{
-          'descentControlWeight': 1.0,
-          'ascentControlWeight': 1.0,
-        },
-        'rangeRepPhaseQuality': <String, dynamic>{
-          'minDescendingMillis': 300,
-          'minAscendingMillis': 250,
+        'rangeRepSignals': <String, dynamic>{
+          'postureAngle': <String, dynamic>{
+            'first': 'leftShoulder',
+            'middle': 'leftHip',
+            'last': 'leftKnee',
+          },
+          'depthMetric': <String, dynamic>{'source': 'primaryMetric'},
+          'alignmentMetric': <String, dynamic>{
+            'first': 'leftShoulder',
+            'middle': 'leftHip',
+            'last': 'leftAnkle',
+          },
         },
       });
 
-      expect(config.name, 'Squat');
-      expect(config.primaryJoint, PoseLandmarkType.leftKnee);
-      expect(config.thresholdPeak, 95.0);
-      expect(config.holdPosture, isNull);
-      expect(config.rangeRepScoreWeights?.descentControlWeight, 1.0);
-      expect(config.rangeRepScoreWeights?.ascentControlWeight, 1.0);
-      expect(config.rangeRepPhaseQuality?.minDescendingMillis, 300);
-      expect(config.rangeRepPhaseQuality?.minAscendingMillis, 250);
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.middle,
+        PoseLandmarkType.leftHip,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.depthMetric)
+            ?.source,
+        RangeRepSignalSource.primaryMetric,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.alignmentMetric)
+            ?.angle
+            ?.last,
+        PoseLandmarkType.leftAnkle,
+      );
     });
 
-    test('parses a hold posture config and applies fallback thresholds', () {
+    test('keeps old range-rep config without rangeRepSignals valid', () {
       final config = ExerciseConfig.fromMap(<String, dynamic>{
-        'name': 'Plank',
-        'primaryJoint': 'leftHip',
-        'joint1': 'leftShoulder',
+        'name': 'Legacy Squat',
+        'primaryJoint': 'leftKnee',
+        'joint1': 'leftHip',
         'joint2': 'leftAnkle',
-        'holdPosture': <String, dynamic>{
-          'activePostureAngle': 160.0,
-          'bodyLineEntryAngle': 168.0,
-          'bodyLineSustainAngle': 166.0,
-          'armSupportMinAngle': 60.0,
-          'armSupportMaxAngle': 120.0,
-          'legExtensionMinAngle': 165.0,
-          'breakGraceMillis': 300,
-        },
+        'thresholdNeutral': 160.0,
+        'thresholdActive': 150.0,
+        'thresholdPeak': 95.0,
       });
 
+      expect(config.rangeRepSignals, isNull);
+      expect(config.usesLegacyRangeRepSignalFallback, isTrue);
+      expect(
+        config.resolvedRangeRepSignals?.definitionFor(
+          RangeRepSignal.postureAngle,
+        ),
+        isNotNull,
+      );
+    });
+
+    test('keeps hold/plank config valid', () {
+      final rawJson = File(
+        'assets/config/exercises/plank.json',
+      ).readAsStringSync();
+      final config = ExerciseConfig.fromMap(
+        jsonDecode(rawJson) as Map<String, dynamic>,
+      );
+
       expect(config.name, 'Plank');
+      expect(config.rangeRepSignals, isNull);
+      expect(config.resolvedRangeRepSignals, isNull);
       expect(config.thresholdNeutral, 160.0);
       expect(config.thresholdActive, 168.0);
-      expect(config.thresholdPeak, 0.0);
+    });
+
+    test('rejects invalid landmark names inside rangeRepSignals', () {
       expect(
-        config.resolvedHoldPosture.breakGraceDuration,
-        const Duration(milliseconds: 300),
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Squat',
+          'primaryJoint': 'leftKnee',
+          'joint1': 'leftHip',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 150.0,
+          'thresholdPeak': 95.0,
+          'rangeRepSignals': <String, dynamic>{
+            'postureAngle': <String, dynamic>{
+              'first': 'leftWing',
+              'middle': 'leftHip',
+              'last': 'leftKnee',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.rangeRepSignals.postureAngle.first'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects invalid source names inside rangeRepSignals', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Squat',
+          'primaryJoint': 'leftKnee',
+          'joint1': 'leftHip',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 150.0,
+          'thresholdPeak': 95.0,
+          'rangeRepSignals': <String, dynamic>{
+            'depthMetric': <String, dynamic>{'source': 'secondaryMetric'},
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('Unsupported RangeRepSignalSource'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects unknown keys inside rangeRepSignals', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Squat',
+          'primaryJoint': 'leftKnee',
+          'joint1': 'leftHip',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 150.0,
+          'thresholdPeak': 95.0,
+          'rangeRepSignals': <String, dynamic>{
+            'mysterySignal': <String, dynamic>{'source': 'primaryMetric'},
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('Unsupported ExerciseConfig.rangeRepSignals key'),
+          ),
+        ),
       );
     });
 
