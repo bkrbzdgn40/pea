@@ -20,12 +20,15 @@ void main() {
       );
     });
 
-    test('returns null for unsupported selections', () {
-      for (final exercise in const [
-        ExerciseType.lunge,
+    test('keeps push-up as the active analysis exercise', () {
+      expect(
+        resolver.resolveActiveExercise(ExerciseType.pushUp),
         ExerciseType.pushUp,
-        ExerciseType.sitUp,
-      ]) {
+      );
+    });
+
+    test('returns null for unsupported selections', () {
+      for (final exercise in const [ExerciseType.lunge, ExerciseType.sitUp]) {
         expect(resolver.resolveActiveExercise(exercise), isNull);
       }
     });

@@ -270,6 +270,150 @@ void main() {
         );
       },
     );
+
+    test('push-up synthetic pose emits the expected range-rep signals', () {
+      final config = _loadConfig('assets/config/exercises/push_up.json');
+      final metrics = extractor.extract(
+        _pushUpPose(),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+      );
+
+      expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
+      expect(metrics.leftRangeRepMetrics.hasFormMetric, isTrue);
+      expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(90.0, 0.001));
+      expect(metrics.leftRangeRepMetrics.formMetric, closeTo(180.0, 0.001));
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.torsoAngle,
+        closeTo(180.0, 0.001),
+      );
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+        closeTo(90.0, 0.001),
+      );
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.alignmentMetric,
+        closeTo(180.0, 0.001),
+      );
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.lockoutMetric,
+        closeTo(90.0, 0.001),
+      );
+    });
+
+    test('push-up right-side substitution works', () {
+      final config = _loadConfig('assets/config/exercises/push_up.json');
+      final metrics = extractor.extract(
+        _pushUpPose(),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+      );
+
+      expect(metrics.rightRangeRepMetrics.hasPrimaryAngle, isTrue);
+      expect(metrics.rightRangeRepMetrics.hasFormMetric, isTrue);
+      expect(metrics.rightRangeRepMetrics.primaryAngle, closeTo(90.0, 0.001));
+      expect(metrics.rightRangeRepMetrics.formMetric, closeTo(180.0, 0.001));
+    });
+
+    test('push-up safely degrades primary signal when wrist is missing', () {
+      final config = _loadConfig('assets/config/exercises/push_up.json');
+      final fullMetrics = extractor.extract(
+        _pushUpPose(),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+      );
+      final missingMetrics = extractor.extract(
+        _pushUpPose(includeLeftWrist: false),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+      );
+
+      expect(missingMetrics.leftRangeRepMetrics.hasPrimaryAngle, isFalse);
+      expect(
+        missingMetrics.leftRangeRepMetrics.formMetric,
+        closeTo(180.0, 0.001),
+      );
+      expect(
+        missingMetrics.leftRangeRepMetrics.formSignals?.depthMetric,
+        isNull,
+      );
+      expect(
+        missingMetrics.leftRangeRepMetrics.formSignals?.lockoutMetric,
+        isNull,
+      );
+      expect(
+        fullMetrics.leftRangeRepMetrics.sideConfidence,
+        greaterThan(missingMetrics.leftRangeRepMetrics.sideConfidence!),
+      );
+    });
+
+    test('push-up missing ankle degrades posture signals without crashing', () {
+      final config = _loadConfig('assets/config/exercises/push_up.json');
+      final metrics = extractor.extract(
+        _pushUpPose(includeLeftAnkle: false),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+      );
+
+      expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
+      expect(metrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+      expect(metrics.leftRangeRepMetrics.formSignals?.torsoAngle, isNull);
+      expect(metrics.leftRangeRepMetrics.formSignals?.alignmentMetric, isNull);
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+        closeTo(90.0, 0.001),
+      );
+      expect(
+        metrics.leftRangeRepMetrics.formSignals?.lockoutMetric,
+        closeTo(90.0, 0.001),
+      );
+    });
+
+    test(
+      'push-up suppresses configured signals that the contract does not support',
+      () {
+        final config = _loadConfig('assets/config/exercises/push_up.json');
+        final contract = RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{
+            RangeRepPhase.descending,
+            RangeRepPhase.peak,
+            RangeRepPhase.ascending,
+          },
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.postureAngle,
+            RangeRepSignal.depthMetric,
+          },
+        );
+
+        final metrics = extractor.extract(
+          _pushUpPose(),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: contract,
+        );
+
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.torsoAngle,
+          closeTo(180.0, 0.001),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+          closeTo(90.0, 0.001),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.alignmentMetric,
+          isNull,
+        );
+        expect(metrics.leftRangeRepMetrics.formSignals?.lockoutMetric, isNull);
+      },
+    );
   });
 }
 
@@ -356,6 +500,33 @@ Pose _futureTemplatePose() {
       PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 5, 1),
     },
   );
+}
+
+Pose _pushUpPose({bool includeLeftWrist = true, bool includeLeftAnkle = true}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{
+    PoseLandmarkType.leftShoulder: _landmark(
+      PoseLandmarkType.leftShoulder,
+      0,
+      2,
+    ),
+    PoseLandmarkType.leftElbow: _landmark(PoseLandmarkType.leftElbow, 1, 2),
+    if (includeLeftWrist)
+      PoseLandmarkType.leftWrist: _landmark(PoseLandmarkType.leftWrist, 1, 1),
+    PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 2, 2),
+    if (includeLeftAnkle)
+      PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 4, 2),
+    PoseLandmarkType.rightShoulder: _landmark(
+      PoseLandmarkType.rightShoulder,
+      10,
+      2,
+    ),
+    PoseLandmarkType.rightElbow: _landmark(PoseLandmarkType.rightElbow, 9, 2),
+    PoseLandmarkType.rightWrist: _landmark(PoseLandmarkType.rightWrist, 9, 1),
+    PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 8, 2),
+    PoseLandmarkType.rightAnkle: _landmark(PoseLandmarkType.rightAnkle, 6, 2),
+  };
+
+  return Pose(landmarks: landmarks);
 }
 
 PoseLandmark _landmark(PoseLandmarkType type, double x, double y) {

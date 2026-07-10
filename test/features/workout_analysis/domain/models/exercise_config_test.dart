@@ -42,6 +42,47 @@ void main() {
       );
     });
 
+    test('parses explicit range-rep signals from push-up asset config', () {
+      final rawJson = File(
+        'assets/config/exercises/push_up.json',
+      ).readAsStringSync();
+      final config = ExerciseConfig.fromMap(
+        jsonDecode(rawJson) as Map<String, dynamic>,
+      );
+
+      expect(config.name, 'Push-Up');
+      expect(config.primaryJoint, PoseLandmarkType.leftElbow);
+      expect(config.rangeRepSignals, isNotNull);
+      expect(config.usesLegacyRangeRepSignalFallback, isFalse);
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.depthMetric)
+            ?.source,
+        RangeRepSignalSource.primaryMetric,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.middle,
+        PoseLandmarkType.leftHip,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.alignmentMetric)
+            ?.angle
+            ?.last,
+        PoseLandmarkType.leftAnkle,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.endRangeMetric)
+            ?.angle
+            ?.middle,
+        PoseLandmarkType.leftElbow,
+      );
+    });
+
     test('parses rangeRepSignals angle triples and source aliases', () {
       final config = ExerciseConfig.fromMap(<String, dynamic>{
         'name': 'Squat',
