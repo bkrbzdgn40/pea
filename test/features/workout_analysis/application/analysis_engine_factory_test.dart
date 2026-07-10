@@ -18,6 +18,15 @@ void main() {
     thresholdActive: 150.0,
     thresholdPeak: 95.0,
   );
+  final pushUpConfig = ExerciseConfig(
+    name: 'Push-Up',
+    primaryJoint: PoseLandmarkType.leftElbow,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftWrist,
+    thresholdNeutral: 165.0,
+    thresholdActive: 135.0,
+    thresholdPeak: 95.0,
+  );
 
   group('AnalysisEngineFactory', () {
     test('rejects range-rep creation without a contract', () {
@@ -41,6 +50,16 @@ void main() {
         engineKind: EngineKind.rangeRep,
         config: squatConfig,
         rangeRepContract: RangeRepContracts.squat,
+      );
+
+      expect(engine, isA<RangeRepEngine>());
+    });
+
+    test('accepts the push-up range-rep contract', () {
+      final engine = factory.create(
+        engineKind: EngineKind.rangeRep,
+        config: pushUpConfig,
+        rangeRepContract: RangeRepContracts.pushUp,
       );
 
       expect(engine, isA<RangeRepEngine>());
