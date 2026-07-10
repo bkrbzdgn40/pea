@@ -1,5 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import 'range_rep_contract.dart';
+
 class RangeRepScoreWeightsConfig {
   const RangeRepScoreWeightsConfig({
     this.depthWeight,
@@ -80,6 +82,67 @@ class RangeRepPhaseQualityConfig {
       minDescendingMillis: readIntOrNull('minDescendingMillis'),
       minAscendingMillis: readIntOrNull('minAscendingMillis'),
     );
+  }
+}
+
+enum RangeRepSignalSource { primaryMetric }
+
+class RangeRepAngleSignalConfig {
+  const RangeRepAngleSignalConfig({
+    required this.first,
+    required this.middle,
+    required this.last,
+  });
+
+  final PoseLandmarkType first;
+  final PoseLandmarkType middle;
+  final PoseLandmarkType last;
+}
+
+class RangeRepSignalDefinition {
+  const RangeRepSignalDefinition.angle(this.angle) : source = null;
+
+  const RangeRepSignalDefinition.source(this.source) : angle = null;
+
+  final RangeRepAngleSignalConfig? angle;
+  final RangeRepSignalSource? source;
+}
+
+class RangeRepSignalExtractionConfig {
+  const RangeRepSignalExtractionConfig({
+    this.postureAngle,
+    this.depthMetric,
+    this.alignmentMetric,
+    this.stabilityMetric,
+    this.endRangeMetric,
+    this.bottomControlMetric,
+  });
+
+  final RangeRepSignalDefinition? postureAngle;
+  final RangeRepSignalDefinition? depthMetric;
+  final RangeRepSignalDefinition? alignmentMetric;
+  final RangeRepSignalDefinition? stabilityMetric;
+  final RangeRepSignalDefinition? endRangeMetric;
+  final RangeRepSignalDefinition? bottomControlMetric;
+
+  RangeRepSignalDefinition? definitionFor(RangeRepSignal signal) {
+    switch (signal) {
+      case RangeRepSignal.primaryMetric:
+      case RangeRepSignal.formMetric:
+        return null;
+      case RangeRepSignal.postureAngle:
+        return postureAngle;
+      case RangeRepSignal.depthMetric:
+        return depthMetric;
+      case RangeRepSignal.alignmentMetric:
+        return alignmentMetric;
+      case RangeRepSignal.stabilityMetric:
+        return stabilityMetric;
+      case RangeRepSignal.endRangeMetric:
+        return endRangeMetric;
+      case RangeRepSignal.bottomControlMetric:
+        return bottomControlMetric;
+    }
   }
 }
 
@@ -172,6 +235,7 @@ class ExerciseConfig {
   final HoldPostureConfig? holdPosture;
   final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
   final RangeRepPhaseQualityConfig? rangeRepPhaseQuality;
+  final RangeRepSignalExtractionConfig? rangeRepSignals;
 
   ExerciseConfig({
     required this.name,
@@ -189,10 +253,22 @@ class ExerciseConfig {
     this.holdPosture,
     this.rangeRepScoreWeights,
     this.rangeRepPhaseQuality,
+    this.rangeRepSignals,
   });
 
   HoldPostureConfig get resolvedHoldPosture {
     return holdPosture ?? HoldPostureConfig.legacy(this);
+  }
+
+  RangeRepSignalExtractionConfig? get resolvedRangeRepSignals {
+    return rangeRepSignals ??
+        (_matchesLegacySquatRangeRepSignals
+            ? _legacySquatRangeRepSignals
+            : null);
+  }
+
+  bool get usesLegacyRangeRepSignalFallback {
+    return rangeRepSignals == null && _matchesLegacySquatRangeRepSignals;
   }
 
   double resolveFormThreshold({double offset = 0.0}) {
@@ -275,6 +351,161 @@ class ExerciseConfig {
       );
     }
 
+    RangeRepSignalSource readRangeRepSignalSource(
+      String key,
+      String signalName,
+    ) {
+      final value = key;
+      try {
+        return RangeRepSignalSource.values.byName(value);
+      } on ArgumentError {
+        throw FormatException(
+          'Unsupported RangeRepSignalSource for '
+          'ExerciseConfig.rangeRepSignals.$signalName.source: $value',
+        );
+      }
+    }
+
+    RangeRepSignalDefinition? readRangeRepSignalDefinition(
+      String signalName,
+      Object? rawValue,
+    ) {
+      if (rawValue == null) {
+        return null;
+      }
+      if (rawValue is! Map) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepSignals.$signalName must be an object.',
+        );
+      }
+
+      final map = Map<String, dynamic>.from(rawValue);
+      final keys = map.keys.toSet();
+      final hasSource = keys.contains('source');
+      final hasAngleTriple =
+          keys.contains('first') ||
+          keys.contains('middle') ||
+          keys.contains('last');
+
+      if (hasSource && hasAngleTriple) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepSignals.$signalName must declare either '
+          'a source or an angle triple, not both.',
+        );
+      }
+
+      if (hasSource) {
+        if (keys.length != 1) {
+          throw FormatException(
+            'ExerciseConfig.rangeRepSignals.$signalName only supports the '
+            '"source" key for alias definitions.',
+          );
+        }
+        final source = map['source'];
+        if (source is! String) {
+          throw FormatException(
+            'ExerciseConfig.rangeRepSignals.$signalName.source must be a String.',
+          );
+        }
+
+        return RangeRepSignalDefinition.source(
+          readRangeRepSignalSource(source, signalName),
+        );
+      }
+
+      final expectedAngleKeys = <String>{'first', 'middle', 'last'};
+      if (!keys.containsAll(expectedAngleKeys) || keys.length != 3) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepSignals.$signalName must define exactly '
+          '"first", "middle", and "last".',
+        );
+      }
+
+      PoseLandmarkType readSignalLandmark(String partKey) {
+        final value = map[partKey];
+        if (value is! String) {
+          throw FormatException(
+            'ExerciseConfig.rangeRepSignals.$signalName.$partKey must be a String.',
+          );
+        }
+
+        try {
+          return PoseLandmarkType.values.byName(value);
+        } on ArgumentError {
+          throw FormatException(
+            'Unsupported PoseLandmarkType for '
+            'ExerciseConfig.rangeRepSignals.$signalName.$partKey: $value',
+          );
+        }
+      }
+
+      return RangeRepSignalDefinition.angle(
+        RangeRepAngleSignalConfig(
+          first: readSignalLandmark('first'),
+          middle: readSignalLandmark('middle'),
+          last: readSignalLandmark('last'),
+        ),
+      );
+    }
+
+    RangeRepSignalExtractionConfig? readRangeRepSignalsOrNull() {
+      final value = map['rangeRepSignals'];
+      if (value == null) {
+        return null;
+      }
+      if (value is! Map) {
+        throw FormatException(
+          'ExerciseConfig.rangeRepSignals must be an object.',
+        );
+      }
+
+      final signalMap = Map<String, dynamic>.from(value);
+      final allowedKeys = <String>{
+        'postureAngle',
+        'depthMetric',
+        'alignmentMetric',
+        'stabilityMetric',
+        'endRangeMetric',
+        'bottomControlMetric',
+      };
+      final unexpectedKeys = signalMap.keys
+          .where((key) => !allowedKeys.contains(key))
+          .toList(growable: false);
+      if (unexpectedKeys.isNotEmpty) {
+        throw FormatException(
+          'Unsupported ExerciseConfig.rangeRepSignals key: '
+          '${unexpectedKeys.first}',
+        );
+      }
+
+      return RangeRepSignalExtractionConfig(
+        postureAngle: readRangeRepSignalDefinition(
+          'postureAngle',
+          signalMap['postureAngle'],
+        ),
+        depthMetric: readRangeRepSignalDefinition(
+          'depthMetric',
+          signalMap['depthMetric'],
+        ),
+        alignmentMetric: readRangeRepSignalDefinition(
+          'alignmentMetric',
+          signalMap['alignmentMetric'],
+        ),
+        stabilityMetric: readRangeRepSignalDefinition(
+          'stabilityMetric',
+          signalMap['stabilityMetric'],
+        ),
+        endRangeMetric: readRangeRepSignalDefinition(
+          'endRangeMetric',
+          signalMap['endRangeMetric'],
+        ),
+        bottomControlMetric: readRangeRepSignalDefinition(
+          'bottomControlMetric',
+          signalMap['bottomControlMetric'],
+        ),
+      );
+    }
+
     final name = map['name'];
     if (name is! String) {
       throw FormatException('ExerciseConfig.name must be a String.');
@@ -283,6 +514,7 @@ class ExerciseConfig {
     final holdPosture = readHoldPostureOrNull();
     final rangeRepScoreWeights = readRangeRepScoreWeightsOrNull();
     final rangeRepPhaseQuality = readRangeRepPhaseQualityOrNull();
+    final rangeRepSignals = readRangeRepSignalsOrNull();
 
     return ExerciseConfig(
       name: name,
@@ -306,6 +538,41 @@ class ExerciseConfig {
       holdPosture: holdPosture,
       rangeRepScoreWeights: rangeRepScoreWeights,
       rangeRepPhaseQuality: rangeRepPhaseQuality,
+      rangeRepSignals: rangeRepSignals,
     );
   }
+
+  bool get _matchesLegacySquatRangeRepSignals {
+    return primaryJoint == PoseLandmarkType.leftKnee &&
+        joint1 == PoseLandmarkType.leftHip &&
+        joint2 == PoseLandmarkType.leftAnkle;
+  }
 }
+
+const RangeRepSignalExtractionConfig _legacySquatRangeRepSignals =
+    RangeRepSignalExtractionConfig(
+      postureAngle: RangeRepSignalDefinition.angle(
+        RangeRepAngleSignalConfig(
+          first: PoseLandmarkType.leftShoulder,
+          middle: PoseLandmarkType.leftHip,
+          last: PoseLandmarkType.leftKnee,
+        ),
+      ),
+      depthMetric: RangeRepSignalDefinition.source(
+        RangeRepSignalSource.primaryMetric,
+      ),
+      alignmentMetric: RangeRepSignalDefinition.angle(
+        RangeRepAngleSignalConfig(
+          first: PoseLandmarkType.leftShoulder,
+          middle: PoseLandmarkType.leftHip,
+          last: PoseLandmarkType.leftAnkle,
+        ),
+      ),
+      endRangeMetric: RangeRepSignalDefinition.angle(
+        RangeRepAngleSignalConfig(
+          first: PoseLandmarkType.leftHip,
+          middle: PoseLandmarkType.leftKnee,
+          last: PoseLandmarkType.leftAnkle,
+        ),
+      ),
+    );

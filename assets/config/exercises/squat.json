@@ -11,6 +11,26 @@
   "formThreshold": 45.0,
   "targetMinAngle": 70.0,
   "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftKnee"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    },
+    "alignmentMetric": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftAnkle"
+    },
+    "endRangeMetric": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    }
+  },
   "rangeRepScoreWeights": {
     "descentControlWeight": 1.0,
     "ascentControlWeight": 1.0
