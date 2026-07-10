@@ -195,25 +195,35 @@ service cloud.firestore {
         request.resource.data.repIndex >= 1 &&
         request.resource.data.isValid is bool &&
         request.resource.data.createdAt is timestamp &&
-        isNullableScore(request.resource.data.score) &&
-        isNullableString(request.resource.data.validationStatus) &&
-        isNullableString(request.resource.data.invalidReason) &&
+        isNullableScore(request.resource.data.get('score', null)) &&
+        isNullableString(request.resource.data.get('validationStatus', null)) &&
+        isNullableString(request.resource.data.get('invalidReason', null)) &&
         (
-          request.resource.data.validationReasons == null ||
-          request.resource.data.validationReasons is list
+          request.resource.data.get('validationReasons', null) == null ||
+          request.resource.data.get('validationReasons', null) is list
         ) &&
-        isNullableTimestamp(request.resource.data.endedAt) &&
-        isNullableNonNegativeNumber(request.resource.data.durationSeconds) &&
-        isNullableNumber(request.resource.data.minPrimaryMetric) &&
-        isNullableNumber(request.resource.data.worstFormMetric) &&
-        isNullableNonNegativeInt(request.resource.data.descentMillis) &&
-        isNullableNonNegativeInt(request.resource.data.ascentMillis) &&
-        isNullableBool(request.resource.data.hadFormViolation) &&
-        isNullableBool(request.resource.data.hadCoverageDrop) &&
-        isNullableBool(request.resource.data.switchedSideDuringRep) &&
-        isNullableBool(request.resource.data.completedPhaseSequence) &&
-        isNullableString(request.resource.data.selectedSide) &&
-        isNullableString(request.resource.data.feedback);
+        isNullableTimestamp(request.resource.data.get('endedAt', null)) &&
+        isNullableNonNegativeNumber(
+          request.resource.data.get('durationSeconds', null),
+        ) &&
+        isNullableNumber(request.resource.data.get('minPrimaryMetric', null)) &&
+        isNullableNumber(request.resource.data.get('worstFormMetric', null)) &&
+        isNullableNonNegativeInt(
+          request.resource.data.get('descentMillis', null),
+        ) &&
+        isNullableNonNegativeInt(
+          request.resource.data.get('ascentMillis', null),
+        ) &&
+        isNullableBool(request.resource.data.get('hadFormViolation', null)) &&
+        isNullableBool(request.resource.data.get('hadCoverageDrop', null)) &&
+        isNullableBool(
+          request.resource.data.get('switchedSideDuringRep', null),
+        ) &&
+        isNullableBool(
+          request.resource.data.get('completedPhaseSequence', null),
+        ) &&
+        isNullableString(request.resource.data.get('selectedSide', null)) &&
+        isNullableString(request.resource.data.get('feedback', null));
     }
 
     function isValidRepCreate(userId, sessionId, repId) {
