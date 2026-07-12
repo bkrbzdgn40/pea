@@ -28,10 +28,13 @@ class ExerciseCatalog {
       id: ExerciseType.lunge.id,
       title: ExerciseType.lunge.title,
     ),
-    ExerciseDefinition.unsupported(
+    ExerciseDefinition.supported(
       type: ExerciseType.pushUp,
       id: ExerciseType.pushUp.id,
       title: ExerciseType.pushUp.title,
+      engineKind: EngineKind.rangeRep,
+      configAssetPath: 'assets/config/exercises/push_up.json',
+      rangeRepContract: RangeRepContracts.pushUp,
     ),
     ExerciseDefinition.unsupported(
       type: ExerciseType.sitUp,

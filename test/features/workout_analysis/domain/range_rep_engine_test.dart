@@ -142,6 +142,29 @@ void main() {
       },
     );
   });
+
+  group('RangeRepEngine push-up state machine', () {
+    test('counts a completed push-up rep with a sane score', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _pushUpConfig(), now: clock.now);
+
+      _confirmTransition(clock, engine, angle: 130, backAngle: 170);
+      _confirmTransition(clock, engine, angle: 90, backAngle: 170);
+      _confirmTransition(clock, engine, angle: 110, backAngle: 170);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        backAngle: 170,
+        confirmationWindow: const Duration(milliseconds: 101),
+      );
+
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNotNull);
+      expect(engine.lastRepScore, greaterThanOrEqualTo(0.0));
+    });
+  });
 }
 
 class _TestClock {
@@ -202,5 +225,26 @@ ExerciseConfig _squatConfig({RangeRepPhaseQualityConfig? phaseQuality}) {
     targetMinAngle: 70.0,
     tempoPenaltyPerSecond: 20.0,
     rangeRepPhaseQuality: phaseQuality,
+  );
+}
+
+ExerciseConfig _pushUpConfig() {
+  return ExerciseConfig(
+    name: 'Push-Up',
+    primaryJoint: PoseLandmarkType.leftElbow,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftWrist,
+    thresholdNeutral: 165.0,
+    thresholdActive: 135.0,
+    thresholdPeak: 95.0,
+    idealDescentSeconds: 1.2,
+    idealAscentSeconds: 1.0,
+    formThreshold: 150.0,
+    targetMinAngle: 85.0,
+    tempoPenaltyPerSecond: 20.0,
+    rangeRepPhaseQuality: const RangeRepPhaseQualityConfig(
+      minDescendingMillis: 250,
+      minAscendingMillis: 250,
+    ),
   );
 }

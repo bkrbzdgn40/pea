@@ -1,21 +1,21 @@
 {
-  "name": "Squat",
-  "primaryJoint": "leftKnee",
-  "joint1": "leftHip",
-  "joint2": "leftAnkle",
-  "thresholdNeutral": 160.0,
-  "thresholdActive": 150.0,
+  "name": "Push-Up",
+  "primaryJoint": "leftElbow",
+  "joint1": "leftShoulder",
+  "joint2": "leftWrist",
+  "thresholdNeutral": 165.0,
+  "thresholdActive": 135.0,
   "thresholdPeak": 95.0,
-  "idealDescentSeconds": 1.5,
+  "idealDescentSeconds": 1.2,
   "idealAscentSeconds": 1.0,
-  "formThreshold": 45.0,
-  "targetMinAngle": 70.0,
+  "formThreshold": 150.0,
+  "targetMinAngle": 85.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
       "first": "leftShoulder",
       "middle": "leftHip",
-      "last": "leftKnee"
+      "last": "leftAnkle"
     },
     "depthMetric": {
       "source": "primaryMetric"
@@ -26,9 +26,9 @@
       "last": "leftAnkle"
     },
     "endRangeMetric": {
-      "first": "leftHip",
-      "middle": "leftKnee",
-      "last": "leftAnkle"
+      "first": "leftShoulder",
+      "middle": "leftElbow",
+      "last": "leftWrist"
     }
   },
   "rangeRepScoreWeights": {
@@ -36,7 +36,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 300,
+    "minDescendingMillis": 250,
     "minAscendingMillis": 250
   }
 }
