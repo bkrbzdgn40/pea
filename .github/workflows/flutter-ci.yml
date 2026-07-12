@@ -40,8 +40,6 @@ jobs:
       - name: Run static analysis
         run: flutter analyze
 
-      # `test/firestore_rules_test.dart` remains a skipped skeleton until the
-      # Firestore/Auth emulators are wired into CI in a follow-up QA pass.
       - name: Run test suite
         run: flutter test
 
@@ -54,6 +52,62 @@ jobs:
           name: coverage-lcov
           path: coverage/lcov.info
           if-no-files-found: error
+
+  firestore-rules-emulator:
+    name: Firestore/Auth Emulator Rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools@15.17.0
+
+      - name: Print Firebase CLI version
+        run: firebase --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Firestore/Auth rules tests
+        run: >-
+          firebase emulators:exec
+          --project pose-estimation-app-dd06c
+          --only auth,firestore
+          "env REQUIRE_FIREBASE_EMULATORS=true
+          GCLOUD_PROJECT=pose-estimation-app-dd06c
+          flutter test test/firestore_rules_test.dart --reporter expanded"
+
+      - name: Upload emulator failure logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-emulator-logs-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            firebase-debug.log
+            firestore-debug.log
+            ui-debug.log
+          if-no-files-found: ignore
+          retention-days: 3
 
   android-debug-smoke:
     name: Android Debug Smoke Build

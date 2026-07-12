@@ -5,14 +5,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 final String? _firestoreHost = Platform.environment['FIRESTORE_EMULATOR_HOST'];
 final String? _authHost = Platform.environment['FIREBASE_AUTH_EMULATOR_HOST'];
+final bool _requireFirebaseEmulators =
+    Platform.environment['REQUIRE_FIREBASE_EMULATORS'] == 'true';
+final List<String> _missingEmulatorEnvironmentVariables = <String>[
+  if (_firestoreHost == null) 'FIRESTORE_EMULATOR_HOST',
+  if (_authHost == null) 'FIREBASE_AUTH_EMULATOR_HOST',
+];
 final String _projectId =
     Platform.environment['GCLOUD_PROJECT'] ?? 'pose-estimation-app-dd06c';
-final Object _emulatorSkipReason = _firestoreHost == null || _authHost == null
+final Object _emulatorSkipReason =
+    !_requireFirebaseEmulators &&
+        _missingEmulatorEnvironmentVariables.isNotEmpty
     ? 'Run via firebase emulators:exec --project pose-estimation-app-dd06c '
           '--only auth,firestore "flutter test test/firestore_rules_test.dart".'
     : false;
 
 void main() {
+  setUpAll(() {
+    if (_requireFirebaseEmulators &&
+        _missingEmulatorEnvironmentVariables.isNotEmpty) {
+      fail(
+        'REQUIRE_FIREBASE_EMULATORS=true but required emulator environment '
+        'variables are missing: '
+        '${_missingEmulatorEnvironmentVariables.join(', ')}.',
+      );
+    }
+  });
+
   group('Firestore session security rules', skip: _emulatorSkipReason, () {
     late _RulesClient unauthenticatedClient;
     late _RulesClient ownerClient;
