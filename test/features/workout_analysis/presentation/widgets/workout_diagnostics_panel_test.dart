@@ -31,7 +31,7 @@ void main() {
   });
 
   testWidgets(
-    'nullable degerleri yer tutucu olarak gosterir ve unknown commit saklanir',
+    'nullable degerleri yer tutucu olarak gosterir ve unknown commit SHA görünür kalir',
     (tester) async {
       await _pumpPanel(
         tester,
@@ -53,8 +53,8 @@ void main() {
         onReset: () {},
       );
 
-      expect(find.text('Commit SHA'), findsNothing);
-      expect(find.text('unknown'), findsNothing);
+      expect(find.text('Commit SHA'), findsOneWidget);
+      expect(find.text('unknown'), findsOneWidget);
       await tester.drag(find.byType(ListView), const Offset(0, -1200));
       await tester.pumpAndSettle();
       expect(find.text(_missingValue), findsWidgets);

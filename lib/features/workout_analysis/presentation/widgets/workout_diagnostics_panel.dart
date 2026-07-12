@@ -105,11 +105,10 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                 label: 'Build mode',
                                 value: snapshot.buildMode,
                               ),
-                              if (snapshot.appCommitSha != 'unknown')
-                                _DiagnosticsRow(
-                                  label: 'Commit SHA',
-                                  value: snapshot.appCommitSha,
-                                ),
+                              _DiagnosticsRow(
+                                label: 'Commit SHA',
+                                value: snapshot.appCommitSha,
+                              ),
                               _DiagnosticsRow(
                                 label: 'Analysis kind',
                                 value: snapshot.analysisKind,
