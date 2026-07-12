@@ -23,6 +23,7 @@ import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_controller.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/pose_painter.dart';
+import '../widgets/workout_diagnostics_panel.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'workout_summary_screen.dart';
@@ -461,6 +462,22 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
   }
 
+  void _showDiagnosticsPanel() {
+    if (!workoutDiagnosticsUiEnabled) {
+      return;
+    }
+    final controller = ref.read(workoutControllerProvider.notifier);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => WorkoutDiagnosticsPanel(
+        snapshotReader: controller.diagnosticsSnapshot,
+        onReset: controller.resetDiagnostics,
+      ),
+    );
+  }
+
   int _validRepCount() {
     return _completedWorkoutReps.where((rep) => rep.isValidatedAsValid).length;
   }
@@ -593,6 +610,23 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   ),
                 ),
               ),
+              if (workoutDiagnosticsUiEnabled)
+                Positioned(
+                  top: topInset + 12,
+                  left: 14,
+                  child: Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      tooltip: 'Beta Diagnostics',
+                      onPressed: _isFinishingSession
+                          ? null
+                          : _showDiagnosticsPanel,
+                      color: Colors.white,
+                      icon: const Icon(Icons.bug_report_outlined),
+                    ),
+                  ),
+                ),
               Positioned(
                 top: topInset + 72,
                 left: 20,
