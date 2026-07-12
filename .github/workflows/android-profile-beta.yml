@@ -1,0 +1,139 @@
+name: Android Profile Beta Artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-profile-beta:
+    name: Android Profile Beta Artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate main branch dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Profile beta artifact yalnız main branch üzerinden üretilebilir."
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.2'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify commit SHA injection contract
+        run: >-
+          flutter test
+          test/features/workout_analysis/application/workout_diagnostics_build_metadata_test.dart
+          --dart-define=PEA_COMMIT_SHA="${GITHUB_SHA}"
+          --dart-define=REQUIRE_PEA_COMMIT_SHA=true
+          --reporter expanded
+
+      - name: Build Android profile APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk \
+            --profile \
+            --no-pub \
+            --dart-define=PEA_COMMIT_SHA="${GITHUB_SHA}"
+
+      - name: Prepare artifact files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SOURCE_APK="build/app/outputs/flutter-apk/app-profile.apk"
+          if [[ ! -s "${SOURCE_APK}" ]]; then
+            echo "Beklenen profile APK bulunamadı veya boş."
+            exit 1
+          fi
+
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          APK_NAME="pea-profile-${SHORT_SHA}.apk"
+          APP_VERSION="$(sed -n 's/^version: //p' pubspec.yaml | head -n 1)"
+
+          rm -rf dist
+          mkdir -p dist
+          cp "${SOURCE_APK}" "dist/${APK_NAME}"
+
+          ANDROID_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "${ANDROID_ROOT}" ]]; then
+            echo "ANDROID_HOME veya ANDROID_SDK_ROOT bulunamadı."
+            exit 1
+          fi
+
+          APKSIGNER="$(find "${ANDROID_ROOT}/build-tools" \
+            -type f \
+            -name apksigner \
+            | sort -V \
+            | tail -n 1)"
+
+          if [[ -z "${APKSIGNER}" ]]; then
+            echo "apksigner aracı bulunamadı."
+            exit 1
+          fi
+
+          "${APKSIGNER}" verify \
+            --verbose \
+            --print-certs \
+            "dist/${APK_NAME}" \
+            | tee dist/signature-verification.txt
+
+          (
+            cd dist
+            sha256sum "${APK_NAME}" > SHA256SUMS.txt
+          )
+
+          {
+            echo "artifact_type=android_profile_engineering_beta"
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "short_commit_sha=${SHORT_SHA}"
+            echo "git_ref=${GITHUB_REF}"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "flutter_version=3.41.2"
+            echo "java_version=17"
+            echo "build_mode=profile"
+            echo "dart_define_PEA_COMMIT_SHA=${GITHUB_SHA}"
+            echo "apk_filename=${APK_NAME}"
+            echo "app_version=${APP_VERSION}"
+            echo "signing_class=engineering_profile"
+            echo "production_release=false"
+            echo
+            echo "[flutter --version]"
+            flutter --version
+            echo
+            echo "[java -version]"
+            java -version 2>&1
+          } > dist/build-metadata.txt
+
+      - name: Upload Android profile beta artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pea-android-profile-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
