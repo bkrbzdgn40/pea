@@ -162,7 +162,8 @@ void main() {
   );
 
   test(
-    'hold session collector excludes hidden and duplicate time across a brief suspension',
+    'hold session collector excludes hidden and duplicate time across a brief '
+    'suspension',
     () {
       final collector = HoldSessionMetricsCollector();
 
@@ -207,7 +208,8 @@ void main() {
   );
 
   test(
-    'hold session collector resets the old hold after a long gap before a new 2 second hold',
+    'hold session collector resets the old hold after a long gap before a new '
+    '2 second hold',
     () {
       final collector = HoldSessionMetricsCollector();
 

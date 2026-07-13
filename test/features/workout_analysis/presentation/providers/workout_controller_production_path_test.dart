@@ -43,7 +43,8 @@ void main() {
     });
 
     test(
-      'rejected poses do not reach the engine and diagnostics stay in schema v2',
+      'rejected poses do not reach the engine and diagnostics stay in schema '
+      'v2',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -268,7 +269,8 @@ void main() {
     });
 
     test(
-      'range-rep uses the only quality-accepted right side when left is rejected',
+      'range-rep uses the only quality-accepted right side when left is '
+      'rejected',
       () async {
         final pose = _bilateralSquatPose(
           leftAngle: 170,
@@ -291,7 +293,8 @@ void main() {
     );
 
     test(
-      'range-rep uses the only quality-accepted left side when right is rejected',
+      'range-rep uses the only quality-accepted left side when right is '
+      'rejected',
       () async {
         final pose = _bilateralSquatPose(
           leftAngle: 105,
@@ -313,31 +316,35 @@ void main() {
       },
     );
 
-    test('both quality-accepted sides keep the previous side behavior', () async {
-      await _pumpAcceptedPose(
-        controller,
-        detector,
-        clock,
-        _leftOnlyAcceptedSquatPose(angle: 170),
-        count: 2,
-        spacing: const Duration(milliseconds: 100),
-      );
-      clock.advance(const Duration(milliseconds: 100));
-      await _analyzeFrame(
-        controller,
-        detector,
-        <Pose>[_bothAcceptedSquatPose(leftAngle: 150, rightAngle: 95)],
-      );
+    test(
+      'both quality-accepted sides keep the previous side behavior',
+      () async {
+        await _pumpAcceptedPose(
+          controller,
+          detector,
+          clock,
+          _leftOnlyAcceptedSquatPose(angle: 170),
+          count: 2,
+          spacing: const Duration(milliseconds: 100),
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_bothAcceptedSquatPose(leftAngle: 150, rightAngle: 95)],
+        );
 
-      final state = container.read(workoutControllerProvider);
-      final snapshot = controller.diagnosticsSnapshot();
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
 
-      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
-      expect(snapshot.currentSelectedSide, 'left');
-    });
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+        expect(snapshot.currentSelectedSide, 'left');
+      },
+    );
 
     test(
-      'active left rep does not switch to right when only right remains quality-accepted',
+      'active left rep does not switch to right when only right remains '
+      'quality-accepted',
       () async {
         await _establishActiveLeftRepContext(controller, detector, clock);
 
@@ -359,39 +366,43 @@ void main() {
       },
     );
 
-    test('frozen left side recovers when left becomes quality-accepted again', () async {
-      await _establishActiveLeftRepContext(controller, detector, clock);
+    test(
+      'frozen left side recovers when left becomes quality-accepted again',
+      () async {
+        await _establishActiveLeftRepContext(controller, detector, clock);
 
-      await _analyzeFrame(
-        controller,
-        detector,
-        <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-      );
-      clock.advance(const Duration(milliseconds: 100));
-      await _analyzeFrame(
-        controller,
-        detector,
-        <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
-      );
-      clock.advance(const Duration(milliseconds: 100));
-      await _analyzeFrame(
-        controller,
-        detector,
-        <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
-      );
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
+        );
 
-      final state = container.read(workoutControllerProvider);
-      final snapshot = controller.diagnosticsSnapshot();
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
 
-      expect(state.repCount, 0);
-      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
-      expect(snapshot.currentSelectedSide, 'left');
-      expect(snapshot.activeRepSideSwitchCount, 0);
-      expect(snapshot.briefOcclusionRecoveryCount, 1);
-    });
+        expect(state.repCount, 0);
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+        expect(snapshot.currentSelectedSide, 'left');
+        expect(snapshot.activeRepSideSwitchCount, 0);
+        expect(snapshot.briefOcclusionRecoveryCount, 1);
+      },
+    );
 
     test(
-      'frozen left side does not recover or switch when only right is quality-accepted',
+      'frozen left side does not recover or switch when only right is '
+      'quality-accepted',
       () async {
         await _establishActiveLeftRepContext(controller, detector, clock);
 
@@ -606,78 +617,85 @@ void main() {
     },
   );
 
-  test('hold lifecycle interruption ends the active hold and restarts from zero', () async {
-    final detector = _QueuedPoseDetector();
-    final clock = _FakeClock();
-    final harness = _createHarness(
-      exerciseType: ExerciseType.plank,
-      config: _plankConfig(),
-      detector: detector,
-      clock: clock,
-    );
-    addTearDown(harness.dispose);
-    final container = harness.container;
-    final controller = harness.controller;
+  test(
+    'hold lifecycle interruption ends the active hold and restarts from zero',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
 
-    await _establishVisibleHold(controller, detector, clock);
+      await _establishVisibleHold(controller, detector, clock);
 
-    controller.handleLifecycleInterruption(reason: 'paused');
+      controller.handleLifecycleInterruption(reason: 'paused');
 
-    var state = container.read(workoutControllerProvider);
-    expect(state.currentHoldSeconds, 0);
-    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
-    expect(state.isHolding, isFalse);
-    expect(state.isHoldVisibilitySuspended, isFalse);
-    expect(state.currentPhase, 'READY');
-    expect(state.hadHoldFormBreak, isFalse);
+      var state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.isHolding, isFalse);
+      expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.currentPhase, 'READY');
+      expect(state.hadHoldFormBreak, isFalse);
 
-    clock.advance(const Duration(seconds: 10));
-    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
-    state = container.read(workoutControllerProvider);
-    expect(state.isHolding, isFalse);
-    expect(state.currentHoldSeconds, 0);
+      clock.advance(const Duration(seconds: 10));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      state = container.read(workoutControllerProvider);
+      expect(state.isHolding, isFalse);
+      expect(state.currentHoldSeconds, 0);
 
-    clock.advance(const Duration(milliseconds: 100));
-    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
-    state = container.read(workoutControllerProvider);
-    expect(state.isHolding, isTrue);
-    expect(state.currentHoldSeconds, 0);
-    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      state = container.read(workoutControllerProvider);
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
 
-    clock.advance(const Duration(seconds: 1));
-    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
-    state = container.read(workoutControllerProvider);
-    expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
-    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
-    expect(state.hadHoldFormBreak, isFalse);
-  });
-
-  test('hold lifecycle interruption during READY preserves the idle state', () async {
-    final detector = _QueuedPoseDetector();
-    final clock = _FakeClock();
-    final harness = _createHarness(
-      exerciseType: ExerciseType.plank,
-      config: _plankConfig(),
-      detector: detector,
-      clock: clock,
-    );
-    addTearDown(harness.dispose);
-    final container = harness.container;
-    final controller = harness.controller;
-
-    controller.handleLifecycleInterruption(reason: 'paused');
-
-    final state = container.read(workoutControllerProvider);
-    expect(state.currentHoldSeconds, 0);
-    expect(state.bestHoldSeconds, 0);
-    expect(state.isHolding, isFalse);
-    expect(state.isHoldVisibilitySuspended, isFalse);
-    expect(state.currentPhase, 'READY');
-    expect(state.hadHoldFormBreak, isFalse);
-  });
+      clock.advance(const Duration(seconds: 1));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.hadHoldFormBreak, isFalse);
+    },
+  );
 
   test(
-    'hold lifecycle interruption during visibility suspension clears the old hold',
+    'hold lifecycle interruption during READY preserves the idle state',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      controller.handleLifecycleInterruption(reason: 'paused');
+
+      final state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, 0);
+      expect(state.isHolding, isFalse);
+      expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.currentPhase, 'READY');
+      expect(state.hadHoldFormBreak, isFalse);
+    },
+  );
+
+  test(
+    'hold lifecycle interruption during visibility suspension clears the old '
+    'hold',
     () async {
       final detector = _QueuedPoseDetector();
       final clock = _FakeClock();

@@ -1126,7 +1126,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     if (visibilityRunActive && _briefGapFrozenRangeRepSide != null) {
-      return _rangeRepFrozenSideSelection(metrics, _briefGapFrozenRangeRepSide!);
+      return _rangeRepFrozenSideSelection(
+        metrics,
+        _briefGapFrozenRangeRepSide!,
+      );
     }
 
     final selectedRangeRepSide = _selectedRangeRepSide;

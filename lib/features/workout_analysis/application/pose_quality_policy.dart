@@ -158,7 +158,10 @@ class PoseQualityPolicy {
     required PoseQualityAssessment leftAssessment,
     required PoseQualityAssessment rightAssessment,
   }) {
-    final assessments = <PoseQualityAssessment>[leftAssessment, rightAssessment];
+    final assessments = <PoseQualityAssessment>[
+      leftAssessment,
+      rightAssessment,
+    ];
     final acceptedAssessments = assessments
         .where((assessment) => assessment.isAccepted)
         .toList(growable: false);
