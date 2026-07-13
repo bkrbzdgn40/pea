@@ -319,23 +319,25 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
 
-    _SelectedPoseCandidate? selectedCandidate;
-    for (final pose in poses) {
+    final candidates = <_SelectedPoseCandidate>[];
+    for (var index = 0; index < poses.length; index++) {
+      final pose = poses[index];
       final assessment = _poseQualityPolicy.assess(
         pose: pose,
         config: _config,
         engineKind: _engineKind,
         rangeRepContract: _rangeRepContract,
       );
-      final candidate = _SelectedPoseCandidate(
-        pose: pose,
-        assessment: assessment,
+      candidates.add(
+        _SelectedPoseCandidate(
+          detectorIndex: index,
+          pose: pose,
+          assessment: assessment,
+        ),
       );
-      if (selectedCandidate == null ||
-          assessment.qualityScore > selectedCandidate.assessment.qualityScore) {
-        selectedCandidate = candidate;
-      }
     }
+
+    final selectedCandidate = _selectDetectedPoseCandidate(candidates);
 
     if (selectedCandidate == null || !selectedCandidate.assessment.isAccepted) {
       final assessment = selectedCandidate?.assessment;
@@ -389,6 +391,51 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       kind: _PoseFrameKind.accepted,
       didBecomeStableTracking: acceptance.didBecomeStable,
     );
+  }
+
+  _SelectedPoseCandidate? _selectDetectedPoseCandidate(
+    List<_SelectedPoseCandidate> candidates,
+  ) {
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    final acceptedCandidates = candidates
+        .where((candidate) => candidate.assessment.isAccepted)
+        .toList(growable: false);
+    final selectionPool = acceptedCandidates.isNotEmpty
+        ? acceptedCandidates
+        : candidates;
+
+    return selectionPool.reduce(_preferDetectedPoseCandidate);
+  }
+
+  _SelectedPoseCandidate _preferDetectedPoseCandidate(
+    _SelectedPoseCandidate current,
+    _SelectedPoseCandidate candidate,
+  ) {
+    final scoreComparison = candidate.assessment.qualityScore.compareTo(
+      current.assessment.qualityScore,
+    );
+    if (scoreComparison > 0) {
+      return candidate;
+    }
+    if (scoreComparison < 0) {
+      return current;
+    }
+
+    final landmarkComparison = candidate.assessment.acceptedLandmarkCount
+        .compareTo(current.assessment.acceptedLandmarkCount);
+    if (landmarkComparison > 0) {
+      return candidate;
+    }
+    if (landmarkComparison < 0) {
+      return current;
+    }
+
+    return candidate.detectorIndex < current.detectorIndex
+        ? candidate
+        : current;
   }
 
   bool get _isDiagnosticsEnabled => kDebugMode || kProfileMode;
@@ -627,9 +674,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     if (!isEngineEligibleFrame) {
+      if (_engineKind == EngineKind.hold) {
+        _beginHoldVisibilityGap();
+      }
       if (_isDiagnosticsEnabled) {
         _diagnostics.updateVisibilityStatus('invalid_input');
       }
+      final holdDiagnostics = _engineKind == EngineKind.hold
+          ? _holdDiagnosticsSnapshot()
+          : null;
       final formThresholdResolution = _engineKind == EngineKind.rangeRep
           ? _rangeRepThresholdBookkeeper.resolve(
               baseThreshold: _config.formThreshold,
@@ -646,9 +699,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         lastRepScore: state.lastRepScore,
         lastRepROM: state.lastRepROM,
         currentHoldSeconds: 0,
-        bestHoldSeconds: state.bestHoldSeconds,
+        bestHoldSeconds:
+            holdDiagnostics?.bestHoldSeconds ?? state.bestHoldSeconds,
         isHolding: false,
-        hadHoldFormBreak: state.hadHoldFormBreak,
+        hadHoldFormBreak:
+            holdDiagnostics?.hadFormBreak ?? state.hadHoldFormBreak,
         feedbackMessage: mapRangeRepFeedbackCodeToMessage(
           RangeRepFeedbackCode.bodyNotVisible,
         ),
@@ -682,6 +737,47 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       return;
     }
 
+    if (_engineKind == EngineKind.hold) {
+      final holdGapResult = _resumeHoldVisibilityGap();
+      if (holdGapResult.disposition == HoldVisibilityResumeDisposition.ended) {
+        final holdDiagnostics = _holdDiagnosticsSnapshot();
+        if (_isDiagnosticsEnabled) {
+          if (didBecomeStableTracking && _hasAcceptedPoseForAnalysis) {
+            _diagnostics.recordPoseReacquisition();
+          }
+          _diagnostics.recordAcceptedPoseFrame();
+          _diagnostics.updateVisibilityStatus('stable');
+        }
+        state = WorkoutState(
+          landmarks: metrics.landmarks,
+          analysisKind: _engineKind,
+          repCount: _engine.repCount,
+          isFormBad: _engine.isFormBad,
+          currentAngle: metrics.primaryAngle,
+          lastRepScore: _engine.lastRepScore,
+          lastRepROM: _engine.maxRom,
+          currentHoldSeconds: 0,
+          bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+          isHolding: false,
+          hadHoldFormBreak: holdDiagnostics.hadFormBreak,
+          feedbackMessage: _resolvedEngineFeedbackMessage(),
+          currentPhase: _engine.phaseLabel,
+          cameraFps: _cameraFps,
+          analysisFps: _analysisFps,
+          calibrationMetrics: _buildCalibrationMetrics(
+            currentFormMetric: metrics.formMetric,
+            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
+            currentBodyLineAngle: metrics.bodyLineAngle,
+            currentArmSupportAngle: metrics.armSupportAngle,
+            currentLegExtensionAngle: metrics.legExtensionAngle,
+          ),
+        );
+        _hasAcceptedPoseForAnalysis = true;
+        _updateDiagnosticsFromState();
+        return;
+      }
+    }
+
     var rangeRepVisibilityAssessment =
         const RangeRepVisibilityAssessment.stable();
 
@@ -709,33 +805,38 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         analysisFrame,
         formThresholdResolution,
       );
-      if (didBecomeStableTracking &&
-          !_resumeBriefVisibilityGapIfCompatible(engineFrame)) {
-        if (_isDiagnosticsEnabled) {
-          _diagnostics.recordBriefOcclusionAbort();
-          _diagnostics.recordResync();
-          _diagnostics.updateVisibilityStatus('brief_abort');
+      if (didBecomeStableTracking) {
+        final gapResumeResult = _resumeBriefVisibilityGap(engineFrame);
+        if (gapResumeResult.disposition ==
+            VisibilityGapResumeDisposition.incompatible) {
+          if (_isDiagnosticsEnabled) {
+            _diagnostics.recordBriefOcclusionAbort();
+            _diagnostics.recordResync();
+            _diagnostics.updateVisibilityStatus('brief_abort');
+          }
+          _rangeRepVisibilityPolicy.reset();
+          _resetRangeRepVisibilityResyncState(
+            reason: 'brief occlusion incompatible recovery',
+            resetPoseAcceptance: true,
+            resetVisibilityPolicy: false,
+          );
+          state = state.copyWith(
+            repCount: _engine.repCount,
+            isFormBad: _engine.isFormBad,
+            lastRepScore: _engine.lastRepScore,
+            lastRepROM: _engine.maxRom,
+            feedbackMessage: _resolvedEngineFeedbackMessage(),
+            currentPhase: _engine.phaseLabel,
+          );
+          _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
+          _updateDiagnosticsFromState();
+          return;
         }
-        _rangeRepVisibilityPolicy.reset();
-        _resetRangeRepVisibilityResyncState(
-          reason: 'brief occlusion incompatible recovery',
-          resetPoseAcceptance: true,
-          resetVisibilityPolicy: false,
-        );
-        state = state.copyWith(
-          repCount: _engine.repCount,
-          isFormBad: _engine.isFormBad,
-          lastRepScore: _engine.lastRepScore,
-          lastRepROM: _engine.maxRom,
-          feedbackMessage: _resolvedEngineFeedbackMessage(),
-          currentPhase: _engine.phaseLabel,
-        );
-        _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-        _updateDiagnosticsFromState();
-        return;
-      }
-      if (_isDiagnosticsEnabled && didBecomeStableTracking) {
-        _diagnostics.recordBriefOcclusionRecovery();
+        if (_isDiagnosticsEnabled &&
+            gapResumeResult.disposition ==
+                VisibilityGapResumeDisposition.compatible) {
+          _diagnostics.recordBriefOcclusionRecovery();
+        }
       }
       _briefGapFrozenRangeRepSide = null;
     }
@@ -1284,14 +1385,31 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  bool _resumeBriefVisibilityGapIfCompatible(AnalysisFrame frame) {
-    if (_engine is! RangeRepVisibilityGapControl) {
-      return true;
+  void _beginHoldVisibilityGap() {
+    if (_engine is HoldVisibilityGapControl) {
+      (_engine as HoldVisibilityGapControl).beginVisibilityGap();
+    }
+  }
+
+  HoldVisibilityResumeResult _resumeHoldVisibilityGap() {
+    if (_engine is! HoldVisibilityGapControl) {
+      return const HoldVisibilityResumeResult(
+        disposition: HoldVisibilityResumeDisposition.noGap,
+      );
     }
 
-    final result = (_engine as RangeRepVisibilityGapControl)
+    return (_engine as HoldVisibilityGapControl).resumeAfterVisibilityGap();
+  }
+
+  VisibilityGapResumeResult _resumeBriefVisibilityGap(AnalysisFrame frame) {
+    if (_engine is! RangeRepVisibilityGapControl) {
+      return const VisibilityGapResumeResult(
+        disposition: VisibilityGapResumeDisposition.noGap,
+      );
+    }
+
+    return (_engine as RangeRepVisibilityGapControl)
         .resumeAfterBriefVisibilityGap(frame);
-    return result.isCompatible;
   }
 
   void _recordSelectedSideForDiagnostics(
@@ -1386,8 +1504,13 @@ class _DetectedPoseFrame {
 }
 
 class _SelectedPoseCandidate {
-  const _SelectedPoseCandidate({required this.pose, required this.assessment});
+  const _SelectedPoseCandidate({
+    required this.detectorIndex,
+    required this.pose,
+    required this.assessment,
+  });
 
+  final int detectorIndex;
   final Pose pose;
   final PoseQualityAssessment assessment;
 }

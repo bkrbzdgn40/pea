@@ -65,6 +65,103 @@ void main() {
       },
     );
 
+    test(
+      'accepted candidate wins over a higher-scoring rejected candidate',
+      () async {
+        final acceptedPose = _squatPose(angle: 170, defaultLikelihood: 0.66);
+        final rejectedPose = _squatPose(
+          angle: 90,
+          defaultLikelihood: 1.0,
+          likelihoodOverrides: const <PoseLandmarkType, double>{
+            PoseLandmarkType.leftAnkle: 0.49,
+          },
+        );
+
+        await _analyzeFrame(controller, detector, <Pose>[
+          acceptedPose,
+          rejectedPose,
+        ]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[
+          acceptedPose,
+          rejectedPose,
+        ]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(snapshot.detectedPoseFrameCount, 2);
+        expect(snapshot.rejectedPoseFrameCount, 0);
+        expect(snapshot.acceptedPoseFrameCount, 1);
+        expect(snapshot.currentPoseQualityStatus, 'accepted');
+        expect(state.currentAngle, closeTo(170.0, 0.001));
+      },
+    );
+
+    test(
+      'accepted candidate still wins when the rejected pose appears first',
+      () async {
+        final acceptedPose = _squatPose(angle: 170, defaultLikelihood: 0.66);
+        final rejectedPose = _squatPose(
+          angle: 90,
+          defaultLikelihood: 1.0,
+          likelihoodOverrides: const <PoseLandmarkType, double>{
+            PoseLandmarkType.leftAnkle: 0.49,
+          },
+        );
+
+        await _analyzeFrame(controller, detector, <Pose>[
+          rejectedPose,
+          acceptedPose,
+        ]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[
+          rejectedPose,
+          acceptedPose,
+        ]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(snapshot.detectedPoseFrameCount, 2);
+        expect(snapshot.rejectedPoseFrameCount, 0);
+        expect(snapshot.acceptedPoseFrameCount, 1);
+        expect(snapshot.currentPoseQualityStatus, 'accepted');
+        expect(state.currentAngle, closeTo(170.0, 0.001));
+      },
+    );
+
+    test(
+      'all-rejected multi-pose frame uses the best rejected reason once',
+      () async {
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(
+            angle: 90,
+            defaultLikelihood: 1.0,
+            likelihoodOverrides: const <PoseLandmarkType, double>{
+              PoseLandmarkType.leftAnkle: 0.49,
+            },
+          ),
+          _squatPose(
+            angle: 170,
+            defaultLikelihood: 0.95,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.leftAnkle,
+            },
+          ),
+        ]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(snapshot.detectedPoseFrameCount, 1);
+        expect(snapshot.acceptedPoseFrameCount, 0);
+        expect(snapshot.rejectedPoseFrameCount, 1);
+        expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
+        expect(state.currentPhase, 'WAITING');
+      },
+    );
+
     test('one hallucinated accepted frame does not recover tracking', () async {
       await _armAndReachPeak(controller, detector, clock);
 
@@ -122,6 +219,7 @@ void main() {
         expect(state.repCount, 1);
         expect(snapshot.resyncCount, 0);
         expect(snapshot.briefOcclusionRecoveryCount, 1);
+        expect(snapshot.briefOcclusionAbortCount, 0);
       },
     );
 
@@ -142,6 +240,8 @@ void main() {
       expect(state.repCount, 0);
       expect(state.currentPhase, 'AWAITING_NEUTRAL');
       expect(snapshot.briefOcclusionAbortCount, 1);
+      expect(snapshot.briefOcclusionRecoveryCount, 0);
+      expect(snapshot.resyncCount, 1);
     });
 
     test('long occlusion triggers a hard resync exactly once', () async {
@@ -163,6 +263,8 @@ void main() {
       expect(state.repCount, 0);
       expect(state.currentPhase, 'AWAITING_NEUTRAL');
       expect(snapshot.resyncCount, 1);
+      expect(snapshot.briefOcclusionRecoveryCount, 0);
+      expect(snapshot.briefOcclusionAbortCount, 0);
     });
   });
 
@@ -171,22 +273,15 @@ void main() {
     () async {
       final detector = _QueuedPoseDetector();
       final clock = _FakeClock();
-      final container = ProviderContainer(
-        overrides: <Override>[
-          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.plank),
-          exerciseConfigProvider.overrideWith((ref) => _plankConfig()),
-          poseDetectorProvider.overrideWith((ref) => detector),
-          workoutClockProvider.overrideWithValue(clock.now),
-        ],
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
       );
-      addTearDown(container.dispose);
-      final subscription = container.listen<WorkoutState>(
-        workoutControllerProvider,
-        (previous, next) {},
-        fireImmediately: true,
-      );
-      addTearDown(subscription.close);
-      final controller = container.read(workoutControllerProvider.notifier);
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
 
       await _analyzeFrame(controller, detector, <Pose>[
         _plankPose(defaultLikelihood: 0.40),
@@ -202,6 +297,147 @@ void main() {
       expect(state.currentHoldSeconds, 0);
       expect(snapshot.acceptedPoseFrameCount, 0);
       expect(snapshot.rejectedPoseFrameCount, 2);
+    },
+  );
+
+  test('hold short visibility gap excludes hidden hold time', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _establishVisibleHold(controller, detector, clock);
+
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, const <Pose>[]);
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    clock.advance(const Duration(seconds: 1));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+    final state = container.read(workoutControllerProvider);
+
+    expect(state.isHolding, isTrue);
+    expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
+  });
+
+  test(
+    'hold long visibility gap ends the old hold and restarts from zero',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      clock.advance(const Duration(milliseconds: 200));
+      await _analyzeFrame(controller, detector, const <Pose>[]);
+      clock.advance(const Duration(milliseconds: 500));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      clock.advance(const Duration(milliseconds: 500));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      var state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.isHolding, isFalse);
+      expect(state.hadHoldFormBreak, isFalse);
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, 0);
+
+      clock.advance(const Duration(seconds: 1));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.hadHoldFormBreak, isFalse);
+    },
+  );
+
+  test('hold rejected pose behaves like visibility loss', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _establishVisibleHold(controller, detector, clock);
+
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _plankPose(defaultLikelihood: 0.40),
+    ]);
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    clock.advance(const Duration(milliseconds: 50));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    clock.advance(const Duration(seconds: 1));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+    final state = container.read(workoutControllerProvider);
+    final snapshot = controller.diagnosticsSnapshot();
+
+    expect(state.isHolding, isTrue);
+    expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
+    expect(snapshot.rejectedPoseFrameCount, 1);
+  });
+
+  test(
+    'hold one accepted reacquisition frame does not resume the old timer',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, const <Pose>[]);
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      final state = container.read(workoutControllerProvider);
+
+      expect(state.currentHoldSeconds, 0);
+      expect(state.isHolding, isFalse);
+      expect(state.currentPhase, 'WAITING');
     },
   );
 }
@@ -333,6 +569,62 @@ class _FakeClock {
   }
 }
 
+class _ControllerHarness {
+  const _ControllerHarness({
+    required this.container,
+    required this.subscription,
+    required this.controller,
+  });
+
+  final ProviderContainer container;
+  final ProviderSubscription<WorkoutState> subscription;
+  final WorkoutController controller;
+
+  void dispose() {
+    subscription.close();
+    container.dispose();
+  }
+}
+
+_ControllerHarness _createHarness({
+  required ExerciseType exerciseType,
+  required ExerciseConfig config,
+  required _QueuedPoseDetector detector,
+  required _FakeClock clock,
+}) {
+  final container = ProviderContainer(
+    overrides: <Override>[
+      activeAnalysisExerciseProvider.overrideWithValue(exerciseType),
+      exerciseConfigProvider.overrideWith((ref) => config),
+      poseDetectorProvider.overrideWith((ref) => detector),
+      workoutClockProvider.overrideWithValue(clock.now),
+    ],
+  );
+  final subscription = container.listen<WorkoutState>(
+    workoutControllerProvider,
+    (previous, next) {},
+    fireImmediately: true,
+  );
+  final controller = container.read(workoutControllerProvider.notifier);
+  return _ControllerHarness(
+    container: container,
+    subscription: subscription,
+    controller: controller,
+  );
+}
+
+Future<void> _establishVisibleHold(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock,
+) async {
+  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+  clock.advance(const Duration(milliseconds: 100));
+  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+  clock.advance(const Duration(seconds: 5));
+  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+}
+
 ExerciseConfig _squatConfig() {
   return ExerciseConfig(
     name: 'Squat',
@@ -368,38 +660,36 @@ ExerciseConfig _plankConfig() {
   );
 }
 
-Pose _squatPose({required double angle, double defaultLikelihood = 0.95}) {
+Pose _squatPose({
+  required double angle,
+  double defaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
   final radians = angle * (3.1415926535897932 / 180.0);
   final ankleX = math.sin(radians);
   final ankleY = math.cos(radians);
-  return Pose(
-    landmarks: <PoseLandmarkType, PoseLandmark>{
-      PoseLandmarkType.leftShoulder: _landmark(
-        PoseLandmarkType.leftShoulder,
-        -1,
-        1,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftHip: _landmark(
-        PoseLandmarkType.leftHip,
-        0,
-        1,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftKnee: _landmark(
-        PoseLandmarkType.leftKnee,
-        0,
-        0,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftAnkle: _landmark(
-        PoseLandmarkType.leftAnkle,
-        ankleX,
-        ankleY,
-        likelihood: defaultLikelihood,
-      ),
-    },
-  );
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+    landmarks[type] = _landmark(
+      type,
+      x,
+      y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  addLandmark(PoseLandmarkType.leftShoulder, -1, 1);
+  addLandmark(PoseLandmarkType.leftHip, 0, 1);
+  addLandmark(PoseLandmarkType.leftKnee, 0, 0);
+  addLandmark(PoseLandmarkType.leftAnkle, ankleX, ankleY);
+
+  return Pose(landmarks: landmarks);
 }
 
 Pose _plankPose({double defaultLikelihood = 0.95}) {
@@ -407,38 +697,38 @@ Pose _plankPose({double defaultLikelihood = 0.95}) {
     landmarks: <PoseLandmarkType, PoseLandmark>{
       PoseLandmarkType.leftShoulder: _landmark(
         PoseLandmarkType.leftShoulder,
+        -1,
         0,
-        2,
         likelihood: defaultLikelihood,
       ),
       PoseLandmarkType.leftElbow: _landmark(
         PoseLandmarkType.leftElbow,
-        1,
-        2,
+        -0.5,
+        0,
         likelihood: defaultLikelihood,
       ),
       PoseLandmarkType.leftWrist: _landmark(
         PoseLandmarkType.leftWrist,
-        2,
-        2,
+        -0.5,
+        -1,
         likelihood: defaultLikelihood,
       ),
       PoseLandmarkType.leftHip: _landmark(
         PoseLandmarkType.leftHip,
-        2,
-        1,
+        0,
+        0,
         likelihood: defaultLikelihood,
       ),
       PoseLandmarkType.leftKnee: _landmark(
         PoseLandmarkType.leftKnee,
-        3,
-        1,
+        0.2,
+        0,
         likelihood: defaultLikelihood,
       ),
       PoseLandmarkType.leftAnkle: _landmark(
         PoseLandmarkType.leftAnkle,
-        4,
         1,
+        0.2,
         likelihood: defaultLikelihood,
       ),
     },

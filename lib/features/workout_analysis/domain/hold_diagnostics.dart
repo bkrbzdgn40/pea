@@ -16,7 +16,22 @@ class HoldDiagnosticsSnapshot {
   final double bodyLineTargetAngle;
 }
 
+enum HoldVisibilityResumeDisposition { resumed, ended, noGap }
+
+class HoldVisibilityResumeResult {
+  const HoldVisibilityResumeResult({required this.disposition});
+
+  final HoldVisibilityResumeDisposition disposition;
+}
+
 /// Optional diagnostics surface for hold-style engines.
 abstract class HoldDiagnostics {
   HoldDiagnosticsSnapshot get diagnosticsSnapshot;
+}
+
+/// Optional visibility-gap control surface for hold-style engines.
+abstract class HoldVisibilityGapControl {
+  void beginVisibilityGap();
+
+  HoldVisibilityResumeResult resumeAfterVisibilityGap();
 }
