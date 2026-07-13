@@ -16,6 +16,7 @@ class AnalysisEngineFactory {
     required EngineKind engineKind,
     required ExerciseConfig config,
     RangeRepContract? rangeRepContract,
+    DateTime Function()? now,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
@@ -27,9 +28,9 @@ class AnalysisEngineFactory {
           );
         }
         _validateRangeRepEngineContract(requiredRangeRepContract);
-        return RangeRepEngine(config: config);
+        return RangeRepEngine(config: config, now: now);
       case EngineKind.hold:
-        return HoldEngine(config: config);
+        return HoldEngine(config: config, now: now);
       case EngineKind.alternatingRep:
         throw StateError(
           'EngineKind $engineKind is not implemented for analysis engine '

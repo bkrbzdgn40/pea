@@ -8,6 +8,8 @@ String mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
       return 'Hazir!';
     case RangeRepFeedbackCode.waitForBody:
       return 'Vucut Bekleniyor...';
+    case RangeRepFeedbackCode.bodyNotVisible:
+      return 'Vucut net gorunmuyor.';
     case RangeRepFeedbackCode.descend:
       return 'Asagi in...';
     case RangeRepFeedbackCode.ascend:

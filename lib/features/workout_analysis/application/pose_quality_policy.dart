@@ -1,0 +1,446 @@
+import 'dart:math' as math;
+
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+
+import '../domain/models/exercise_config.dart';
+import '../domain/models/range_rep_contract.dart';
+import 'engine_kind.dart';
+import 'exercise_landmark_requirements.dart';
+import 'exercise_metrics.dart';
+
+enum PoseRejectionReason {
+  missingRequiredLandmark,
+  lowLandmarkLikelihood,
+  lowMeanLikelihood,
+  nonFiniteCoordinate,
+  degenerateGeometry,
+}
+
+extension PoseRejectionReasonX on PoseRejectionReason {
+  String get code {
+    switch (this) {
+      case PoseRejectionReason.missingRequiredLandmark:
+        return 'missing_required_landmark';
+      case PoseRejectionReason.lowLandmarkLikelihood:
+        return 'low_landmark_likelihood';
+      case PoseRejectionReason.lowMeanLikelihood:
+        return 'low_mean_likelihood';
+      case PoseRejectionReason.nonFiniteCoordinate:
+        return 'non_finite_coordinate';
+      case PoseRejectionReason.degenerateGeometry:
+        return 'degenerate_geometry';
+    }
+  }
+
+  bool get isLowConfidence {
+    return this == PoseRejectionReason.lowLandmarkLikelihood ||
+        this == PoseRejectionReason.lowMeanLikelihood;
+  }
+
+  bool get isGeometryFailure {
+    return this == PoseRejectionReason.nonFiniteCoordinate ||
+        this == PoseRejectionReason.degenerateGeometry;
+  }
+}
+
+class PoseQualityAssessment {
+  const PoseQualityAssessment({
+    required this.isAccepted,
+    required this.minimumRequiredLikelihood,
+    required this.meanRequiredLikelihood,
+    required this.requiredLandmarkCount,
+    required this.acceptedLandmarkCount,
+    required this.qualityScore,
+    this.rejectionReason,
+    this.acceptedRangeRepSides = const <RangeRepSide>{},
+    this.preferredRangeRepSide,
+  });
+
+  final bool isAccepted;
+  final PoseRejectionReason? rejectionReason;
+  final double? minimumRequiredLikelihood;
+  final double? meanRequiredLikelihood;
+  final int requiredLandmarkCount;
+  final int acceptedLandmarkCount;
+  final Set<RangeRepSide> acceptedRangeRepSides;
+  final RangeRepSide? preferredRangeRepSide;
+  final double qualityScore;
+
+  RangeRepSide? get acceptedSide => preferredRangeRepSide;
+
+  PoseQualityAssessment rejectedWith({
+    required PoseRejectionReason rejectionReason,
+    required int acceptedLandmarkCount,
+    double? minimumRequiredLikelihood,
+    double? meanRequiredLikelihood,
+  }) {
+    return PoseQualityAssessment(
+      isAccepted: false,
+      rejectionReason: rejectionReason,
+      minimumRequiredLikelihood: minimumRequiredLikelihood,
+      meanRequiredLikelihood: meanRequiredLikelihood,
+      requiredLandmarkCount: requiredLandmarkCount,
+      acceptedLandmarkCount: acceptedLandmarkCount,
+      acceptedRangeRepSides: acceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
+      qualityScore: qualityScore,
+    );
+  }
+}
+
+/// Exercise-aware detector pose gate for runtime-safe analysis input.
+class PoseQualityPolicy {
+  const PoseQualityPolicy({
+    ExerciseLandmarkRequirements requirements =
+        const ExerciseLandmarkRequirements(),
+  }) : _requirements = requirements;
+
+  static const double minimumRequiredLandmarkLikelihood = 0.50;
+  static const double minimumMeanRequiredLandmarkLikelihood = 0.65;
+  static const double _degenerateDistanceEpsilon = 1e-3;
+
+  final ExerciseLandmarkRequirements _requirements;
+
+  PoseQualityAssessment assess({
+    required Pose pose,
+    required ExerciseConfig config,
+    required EngineKind engineKind,
+    RangeRepContract? rangeRepContract,
+  }) {
+    switch (engineKind) {
+      case EngineKind.rangeRep:
+        final leftAssessment = _assessRequirementSet(
+          pose: pose,
+          side: RangeRepSide.left,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
+            side: RangeRepSide.left,
+          ),
+        );
+        final rightAssessment = _assessRequirementSet(
+          pose: pose,
+          side: RangeRepSide.right,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
+            side: RangeRepSide.right,
+          ),
+        );
+        return _combineRangeRepAssessments(
+          leftAssessment: leftAssessment,
+          rightAssessment: rightAssessment,
+        );
+      case EngineKind.hold:
+        return _assessRequirementSet(
+          pose: pose,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
+          ),
+        );
+      case EngineKind.alternatingRep:
+        return const PoseQualityAssessment(
+          isAccepted: true,
+          minimumRequiredLikelihood: null,
+          meanRequiredLikelihood: null,
+          requiredLandmarkCount: 0,
+          acceptedLandmarkCount: 0,
+          qualityScore: 0.0,
+        );
+    }
+  }
+
+  PoseQualityAssessment _combineRangeRepAssessments({
+    required PoseQualityAssessment leftAssessment,
+    required PoseQualityAssessment rightAssessment,
+  }) {
+    final assessments = <PoseQualityAssessment>[
+      leftAssessment,
+      rightAssessment,
+    ];
+    final acceptedAssessments = assessments
+        .where((assessment) => assessment.isAccepted)
+        .toList(growable: false);
+
+    if (acceptedAssessments.isNotEmpty) {
+      final preferredAssessment = acceptedAssessments.reduce(
+        _preferHigherQuality,
+      );
+      final acceptedSides = acceptedAssessments
+          .map((assessment) => assessment.acceptedSide)
+          .whereType<RangeRepSide>()
+          .toSet();
+
+      return PoseQualityAssessment(
+        isAccepted: true,
+        minimumRequiredLikelihood:
+            preferredAssessment.minimumRequiredLikelihood,
+        meanRequiredLikelihood: preferredAssessment.meanRequiredLikelihood,
+        requiredLandmarkCount: preferredAssessment.requiredLandmarkCount,
+        acceptedLandmarkCount: preferredAssessment.acceptedLandmarkCount,
+        qualityScore: preferredAssessment.qualityScore,
+        acceptedRangeRepSides: acceptedSides,
+        preferredRangeRepSide: preferredAssessment.acceptedSide,
+      );
+    }
+
+    final bestRejectedAssessment = assessments.reduce(_preferHigherQuality);
+    return PoseQualityAssessment(
+      isAccepted: false,
+      rejectionReason: bestRejectedAssessment.rejectionReason,
+      minimumRequiredLikelihood:
+          bestRejectedAssessment.minimumRequiredLikelihood,
+      meanRequiredLikelihood: bestRejectedAssessment.meanRequiredLikelihood,
+      requiredLandmarkCount: bestRejectedAssessment.requiredLandmarkCount,
+      acceptedLandmarkCount: bestRejectedAssessment.acceptedLandmarkCount,
+      qualityScore: bestRejectedAssessment.qualityScore,
+      preferredRangeRepSide: bestRejectedAssessment.acceptedSide,
+    );
+  }
+
+  PoseQualityAssessment _preferHigherQuality(
+    PoseQualityAssessment current,
+    PoseQualityAssessment candidate,
+  ) {
+    if (candidate.qualityScore > current.qualityScore) {
+      return candidate;
+    }
+    if (candidate.qualityScore < current.qualityScore) {
+      return current;
+    }
+
+    if (candidate.acceptedLandmarkCount > current.acceptedLandmarkCount) {
+      return candidate;
+    }
+    if (candidate.acceptedLandmarkCount < current.acceptedLandmarkCount) {
+      return current;
+    }
+
+    if (current.acceptedSide == RangeRepSide.left &&
+        candidate.acceptedSide == RangeRepSide.right) {
+      return current;
+    }
+    return candidate;
+  }
+
+  PoseQualityAssessment _assessRequirementSet({
+    required Pose pose,
+    required ExerciseLandmarkRequirementSet requirementSet,
+    RangeRepSide? side,
+  }) {
+    final requiredLandmarkCount = requirementSet.requiredLandmarks.length;
+    if (requiredLandmarkCount == 0) {
+      return PoseQualityAssessment(
+        isAccepted: true,
+        minimumRequiredLikelihood: null,
+        meanRequiredLikelihood: null,
+        requiredLandmarkCount: 0,
+        acceptedLandmarkCount: 0,
+        acceptedRangeRepSides: side == null
+            ? const <RangeRepSide>{}
+            : <RangeRepSide>{side},
+        preferredRangeRepSide: side,
+        qualityScore: 0.0,
+      );
+    }
+
+    final observedLandmarks = <PoseLandmark>[];
+    for (final landmarkType in requirementSet.requiredLandmarks) {
+      final landmark = pose.landmarks[landmarkType];
+      if (landmark == null) {
+        return PoseQualityAssessment(
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.missingRequiredLandmark,
+          minimumRequiredLikelihood: null,
+          meanRequiredLikelihood: null,
+          requiredLandmarkCount: requiredLandmarkCount,
+          acceptedLandmarkCount: observedLandmarks.length,
+          acceptedRangeRepSides: const <RangeRepSide>{},
+          preferredRangeRepSide: side,
+          qualityScore: _qualityScore(
+            acceptedLandmarkCount: observedLandmarks.length,
+            requiredLandmarkCount: requiredLandmarkCount,
+          ),
+        );
+      }
+      observedLandmarks.add(landmark);
+    }
+
+    for (final landmark in observedLandmarks) {
+      if (!_hasFiniteCoordinates(landmark)) {
+        return PoseQualityAssessment(
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.nonFiniteCoordinate,
+          minimumRequiredLikelihood: landmark.likelihood,
+          meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
+          requiredLandmarkCount: requiredLandmarkCount,
+          acceptedLandmarkCount: 0,
+          acceptedRangeRepSides: const <RangeRepSide>{},
+          preferredRangeRepSide: side,
+          qualityScore: _qualityScore(
+            acceptedLandmarkCount: 0,
+            requiredLandmarkCount: requiredLandmarkCount,
+          ),
+        );
+      }
+    }
+
+    if (_hasDegenerateGeometry(pose, requirementSet)) {
+      return PoseQualityAssessment(
+        isAccepted: false,
+        rejectionReason: PoseRejectionReason.degenerateGeometry,
+        minimumRequiredLikelihood: _minimumLikelihood(observedLandmarks),
+        meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
+        requiredLandmarkCount: requiredLandmarkCount,
+        acceptedLandmarkCount: requiredLandmarkCount,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
+        qualityScore: _qualityScore(
+          acceptedLandmarkCount: requiredLandmarkCount,
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
+      );
+    }
+
+    final minimumLikelihood = _minimumLikelihood(observedLandmarks);
+    final meanLikelihood = _meanLikelihood(observedLandmarks);
+    final acceptedLandmarkCount = observedLandmarks
+        .where(
+          (landmark) =>
+              landmark.likelihood >= minimumRequiredLandmarkLikelihood,
+        )
+        .length;
+
+    if (minimumLikelihood < minimumRequiredLandmarkLikelihood) {
+      return PoseQualityAssessment(
+        isAccepted: false,
+        rejectionReason: PoseRejectionReason.lowLandmarkLikelihood,
+        minimumRequiredLikelihood: minimumLikelihood,
+        meanRequiredLikelihood: meanLikelihood,
+        requiredLandmarkCount: requiredLandmarkCount,
+        acceptedLandmarkCount: acceptedLandmarkCount,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
+        qualityScore: _qualityScore(
+          acceptedLandmarkCount: acceptedLandmarkCount,
+          requiredLandmarkCount: requiredLandmarkCount,
+          minimumLikelihood: minimumLikelihood,
+          meanLikelihood: meanLikelihood,
+        ),
+      );
+    }
+
+    if (meanLikelihood < minimumMeanRequiredLandmarkLikelihood) {
+      return PoseQualityAssessment(
+        isAccepted: false,
+        rejectionReason: PoseRejectionReason.lowMeanLikelihood,
+        minimumRequiredLikelihood: minimumLikelihood,
+        meanRequiredLikelihood: meanLikelihood,
+        requiredLandmarkCount: requiredLandmarkCount,
+        acceptedLandmarkCount: acceptedLandmarkCount,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
+        qualityScore: _qualityScore(
+          acceptedLandmarkCount: acceptedLandmarkCount,
+          requiredLandmarkCount: requiredLandmarkCount,
+          minimumLikelihood: minimumLikelihood,
+          meanLikelihood: meanLikelihood,
+        ),
+      );
+    }
+
+    return PoseQualityAssessment(
+      isAccepted: true,
+      minimumRequiredLikelihood: minimumLikelihood,
+      meanRequiredLikelihood: meanLikelihood,
+      requiredLandmarkCount: requiredLandmarkCount,
+      acceptedLandmarkCount: requiredLandmarkCount,
+      acceptedRangeRepSides: side == null
+          ? const <RangeRepSide>{}
+          : <RangeRepSide>{side},
+      preferredRangeRepSide: side,
+      qualityScore: _qualityScore(
+        acceptedLandmarkCount: requiredLandmarkCount,
+        requiredLandmarkCount: requiredLandmarkCount,
+        minimumLikelihood: minimumLikelihood,
+        meanLikelihood: meanLikelihood,
+      ),
+    );
+  }
+
+  bool _hasFiniteCoordinates(PoseLandmark landmark) {
+    return landmark.x.isFinite && landmark.y.isFinite && landmark.z.isFinite;
+  }
+
+  bool _hasDegenerateGeometry(
+    Pose pose,
+    ExerciseLandmarkRequirementSet requirementSet,
+  ) {
+    for (final triplet in requirementSet.requiredAngleTriplets) {
+      final first = pose.landmarks[triplet.first];
+      final middle = pose.landmarks[triplet.middle];
+      final last = pose.landmarks[triplet.last];
+      if (first == null || middle == null || last == null) {
+        return true;
+      }
+
+      if (_pointsNearlyCoincident(first, middle) ||
+          _pointsNearlyCoincident(middle, last)) {
+        return true;
+      }
+    }
+
+    for (final segment in requirementSet.requiredSegments) {
+      final first = pose.landmarks[segment.first];
+      final second = pose.landmarks[segment.second];
+      if (first == null || second == null) {
+        return true;
+      }
+      if (_pointsNearlyCoincident(first, second)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool _pointsNearlyCoincident(PoseLandmark first, PoseLandmark second) {
+    final deltaX = first.x - second.x;
+    final deltaY = first.y - second.y;
+    final deltaZ = first.z - second.z;
+    final distance = math.sqrt(
+      deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ,
+    );
+    return distance <= _degenerateDistanceEpsilon;
+  }
+
+  double _minimumLikelihood(List<PoseLandmark> landmarks) {
+    return landmarks.map((landmark) => landmark.likelihood).reduce(math.min);
+  }
+
+  double _meanLikelihood(List<PoseLandmark> landmarks) {
+    final total = landmarks.fold<double>(
+      0.0,
+      (sum, landmark) => sum + landmark.likelihood,
+    );
+    return total / landmarks.length;
+  }
+
+  double _qualityScore({
+    required int acceptedLandmarkCount,
+    required int requiredLandmarkCount,
+    double? minimumLikelihood,
+    double? meanLikelihood,
+  }) {
+    final coverage = requiredLandmarkCount == 0
+        ? 1.0
+        : acceptedLandmarkCount / requiredLandmarkCount;
+    return (coverage * 1000.0) +
+        ((meanLikelihood ?? 0.0) * 10.0) +
+        (minimumLikelihood ?? 0.0);
+  }
+}

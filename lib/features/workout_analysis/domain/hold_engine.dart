@@ -13,7 +13,12 @@ enum HoldPhase { ready, holding, broken }
 /// The shared contract still carries rep-oriented fields, so this engine keeps
 /// those values at safe placeholders while exposing meaningful hold telemetry
 /// through its own diagnostics surface.
-class HoldEngine implements AnalysisEngine, HoldDiagnostics {
+class HoldEngine
+    implements
+        AnalysisEngine,
+        HoldDiagnostics,
+        HoldVisibilityGapControl,
+        HoldInterruptionControl {
   HoldEngine({required this.config, DateTime Function()? now})
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
@@ -31,6 +36,8 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   bool _isArmSupported = false;
   bool _areLegsExtended = false;
   DateTime? _misalignmentStartedAt;
+  DateTime? _lastVisibleFrameAt;
+  DateTime? _visibilityGapStartedAt;
 
   @override
   int get repCount => 0;
@@ -67,6 +74,7 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     currentHoldSeconds: _currentHoldSeconds,
     bestHoldSeconds: _bestHoldSeconds,
     isHolding: _phase == HoldPhase.holding,
+    isVisibilitySuspended: _visibilityGapStartedAt != null,
     hadFormBreak: _hadFormBreak,
     bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
       isHolding: _phase == HoldPhase.holding,
@@ -76,6 +84,7 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   @override
   void update(AnalysisFrame frame) {
     final now = _now();
+    _lastVisibleFrameAt = now;
     final evaluation = _posturePolicy.evaluate(
       bodyLineAngle: frame.bodyLineAngle,
       armSupportAngle: frame.armSupportAngle,
@@ -140,6 +149,18 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _currentHoldSeconds = 0.0;
   }
 
+  void _endHoldForVisibilityLoss() {
+    if (_phase != HoldPhase.holding) {
+      return;
+    }
+
+    _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    _holdStartedAt = null;
+    _currentHoldSeconds = 0.0;
+    _misalignmentStartedAt = null;
+    _phase = HoldPhase.ready;
+  }
+
   String _alignmentFeedback() {
     if (!_isBodyAligned) {
       return 'Kalcayi Hizala';
@@ -154,6 +175,59 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
   }
 
   @override
+  void beginVisibilityGap() {
+    if (_visibilityGapStartedAt != null ||
+        _phase != HoldPhase.holding ||
+        _holdStartedAt == null) {
+      return;
+    }
+
+    _visibilityGapStartedAt = _lastVisibleFrameAt ?? _now();
+    _misalignmentStartedAt = null;
+  }
+
+  @override
+  HoldVisibilityResumeResult resumeAfterVisibilityGap() {
+    if (_visibilityGapStartedAt == null) {
+      return const HoldVisibilityResumeResult(
+        disposition: HoldVisibilityResumeDisposition.noGap,
+      );
+    }
+
+    final gapStartedAt = _visibilityGapStartedAt!;
+    _visibilityGapStartedAt = null;
+    final gapDuration = _now().difference(gapStartedAt);
+
+    if (gapDuration < _posturePolicy.config.breakGraceDuration &&
+        _phase == HoldPhase.holding &&
+        _holdStartedAt != null) {
+      _holdStartedAt = _holdStartedAt!.add(gapDuration);
+      return const HoldVisibilityResumeResult(
+        disposition: HoldVisibilityResumeDisposition.resumed,
+      );
+    }
+
+    _endHoldForVisibilityLoss();
+    return const HoldVisibilityResumeResult(
+      disposition: HoldVisibilityResumeDisposition.ended,
+    );
+  }
+
+  @override
+  void endActiveHoldForInterruption() {
+    if (_phase == HoldPhase.holding) {
+      _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    }
+
+    _holdStartedAt = null;
+    _currentHoldSeconds = 0.0;
+    _misalignmentStartedAt = null;
+    _lastVisibleFrameAt = null;
+    _visibilityGapStartedAt = null;
+    _phase = HoldPhase.ready;
+  }
+
+  @override
   void reset() {
     _phase = HoldPhase.ready;
     _holdStartedAt = null;
@@ -163,6 +237,8 @@ class HoldEngine implements AnalysisEngine, HoldDiagnostics {
     _isBodyAligned = false;
     _isArmSupported = false;
     _areLegsExtended = false;
+    _lastVisibleFrameAt = null;
     _misalignmentStartedAt = null;
+    _visibilityGapStartedAt = null;
   }
 }

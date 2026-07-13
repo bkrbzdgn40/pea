@@ -206,6 +206,7 @@ class WorkoutState {
   final double currentHoldSeconds;
   final double bestHoldSeconds;
   final bool isHolding;
+  final bool isHoldVisibilitySuspended;
   final bool hadHoldFormBreak;
   final String feedbackMessage;
   final String currentPhase;
@@ -224,6 +225,7 @@ class WorkoutState {
     this.currentHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.isHolding = false,
+    this.isHoldVisibilitySuspended = false,
     this.hadHoldFormBreak = false,
     this.feedbackMessage = 'Hazir misin?',
     this.currentPhase = 'NEUTRAL',
@@ -244,6 +246,7 @@ class WorkoutState {
     double? currentHoldSeconds,
     double? bestHoldSeconds,
     bool? isHolding,
+    bool? isHoldVisibilitySuspended,
     bool? hadHoldFormBreak,
     String? feedbackMessage,
     String? currentPhase,
@@ -262,6 +265,8 @@ class WorkoutState {
       currentHoldSeconds: currentHoldSeconds ?? this.currentHoldSeconds,
       bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
       isHolding: isHolding ?? this.isHolding,
+      isHoldVisibilitySuspended:
+          isHoldVisibilitySuspended ?? this.isHoldVisibilitySuspended,
       hadHoldFormBreak: hadHoldFormBreak ?? this.hadHoldFormBreak,
       feedbackMessage: feedbackMessage ?? this.feedbackMessage,
       currentPhase: currentPhase ?? this.currentPhase,

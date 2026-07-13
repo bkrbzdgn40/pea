@@ -13,7 +13,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 1);
+    expect(snapshot.schemaVersion, 2);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -48,9 +48,41 @@ void main() {
       ..recordPoseCount(4);
     final snapshot = subject.snapshot(now: startedAt);
     expect(snapshot.noPoseFrameCount, 1);
+    expect(snapshot.detectedPoseFrameCount, 3);
     expect(snapshot.multiPoseFrameCount, 2);
     expect(snapshot.maxPoseCount, 4);
     expect(() => subject.recordPoseCount(-1), throwsArgumentError);
+  });
+
+  test('records pose quality, rejection, and brief-occlusion telemetry', () {
+    final subject = accumulator()
+      ..recordAcceptedPoseFrame()
+      ..recordRejectedPose(rejectionReasonCode: 'low_landmark_likelihood')
+      ..recordLowConfidencePose()
+      ..recordInvalidPoseGeometry()
+      ..recordPoseReacquisition()
+      ..recordBriefOcclusion()
+      ..recordBriefOcclusionRecovery()
+      ..recordBriefOcclusionAbort()
+      ..updatePoseQualityStatus(
+        status: 'rejected',
+        lastRejectionReason: 'low_landmark_likelihood',
+      )
+      ..updateVisibilityStatus('brief_freeze');
+
+    final snapshot = subject.snapshot(now: startedAt);
+
+    expect(snapshot.acceptedPoseFrameCount, 1);
+    expect(snapshot.rejectedPoseFrameCount, 1);
+    expect(snapshot.lowConfidencePoseFrameCount, 1);
+    expect(snapshot.invalidPoseGeometryFrameCount, 1);
+    expect(snapshot.poseReacquisitionCount, 1);
+    expect(snapshot.briefOcclusionCount, 1);
+    expect(snapshot.briefOcclusionRecoveryCount, 1);
+    expect(snapshot.briefOcclusionAbortCount, 1);
+    expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
+    expect(snapshot.currentPoseQualityStatus, 'rejected');
+    expect(snapshot.currentVisibilityStatus, 'brief_freeze');
   });
 
   test('records exception and resync separately', () {
@@ -157,10 +189,12 @@ void main() {
 
   test('toJson is snake_case and excludes privacy-forbidden fields', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 1);
+    expect(json['schema_version'], 2);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['camera_frame_count'], 0);
+    expect(json['accepted_pose_frame_count'], 0);
+    expect(json['current_pose_quality_status'], 'stable');
     expect(json['is_holding'], isNull);
     expect(
       json.keys,

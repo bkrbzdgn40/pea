@@ -102,4 +102,32 @@ class ExerciseMetrics {
   final double? bodyLineAngle;
   final double? armSupportAngle;
   final double? legExtensionAngle;
+
+  ExerciseMetrics copyWith({
+    double? primaryAngle,
+    double? formMetric,
+    bool? hasPrimaryAngle,
+    bool? hasFormMetric,
+    bool? hasPose,
+    List<PoseLandmark>? landmarks,
+    RangeRepSideMetrics? leftRangeRepMetrics,
+    RangeRepSideMetrics? rightRangeRepMetrics,
+    double? bodyLineAngle,
+    double? armSupportAngle,
+    double? legExtensionAngle,
+  }) {
+    return ExerciseMetrics(
+      primaryAngle: primaryAngle ?? this.primaryAngle,
+      formMetric: formMetric ?? this.formMetric,
+      hasPrimaryAngle: hasPrimaryAngle ?? this.hasPrimaryAngle,
+      hasFormMetric: hasFormMetric ?? this.hasFormMetric,
+      hasPose: hasPose ?? this.hasPose,
+      landmarks: landmarks ?? this.landmarks,
+      leftRangeRepMetrics: leftRangeRepMetrics ?? this.leftRangeRepMetrics,
+      rightRangeRepMetrics: rightRangeRepMetrics ?? this.rightRangeRepMetrics,
+      bodyLineAngle: bodyLineAngle ?? this.bodyLineAngle,
+      armSupportAngle: armSupportAngle ?? this.armSupportAngle,
+      legExtensionAngle: legExtensionAngle ?? this.legExtensionAngle,
+    );
+  }
 }

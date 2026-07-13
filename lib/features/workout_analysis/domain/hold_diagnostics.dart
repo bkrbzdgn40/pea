@@ -5,6 +5,7 @@ class HoldDiagnosticsSnapshot {
     this.currentHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.isHolding = false,
+    this.isVisibilitySuspended = false,
     this.hadFormBreak = false,
     this.bodyLineTargetAngle = 0.0,
   });
@@ -12,11 +13,32 @@ class HoldDiagnosticsSnapshot {
   final double currentHoldSeconds;
   final double bestHoldSeconds;
   final bool isHolding;
+  final bool isVisibilitySuspended;
   final bool hadFormBreak;
   final double bodyLineTargetAngle;
+}
+
+enum HoldVisibilityResumeDisposition { resumed, ended, noGap }
+
+class HoldVisibilityResumeResult {
+  const HoldVisibilityResumeResult({required this.disposition});
+
+  final HoldVisibilityResumeDisposition disposition;
 }
 
 /// Optional diagnostics surface for hold-style engines.
 abstract class HoldDiagnostics {
   HoldDiagnosticsSnapshot get diagnosticsSnapshot;
+}
+
+/// Optional visibility-gap control surface for hold-style engines.
+abstract class HoldVisibilityGapControl {
+  void beginVisibilityGap();
+
+  HoldVisibilityResumeResult resumeAfterVisibilityGap();
+}
+
+/// Optional interruption control surface for hold-style engines.
+abstract class HoldInterruptionControl {
+  void endActiveHoldForInterruption();
 }

@@ -10,6 +10,7 @@ enum RangeRepFeedbackCode {
   awaitNeutral,
   ready,
   waitForBody,
+  bodyNotVisible,
   descend,
   ascend,
   repCompleted,
@@ -32,6 +33,7 @@ extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
       case RangeRepFeedbackCode.awaitNeutral:
       case RangeRepFeedbackCode.ready:
       case RangeRepFeedbackCode.waitForBody:
+      case RangeRepFeedbackCode.bodyNotVisible:
         return RangeRepFeedbackFamily.systemState;
       case RangeRepFeedbackCode.descend:
       case RangeRepFeedbackCode.ascend:
@@ -55,6 +57,8 @@ extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
         return 'ready';
       case RangeRepFeedbackCode.waitForBody:
         return 'wait_for_body';
+      case RangeRepFeedbackCode.bodyNotVisible:
+        return 'body_not_visible';
       case RangeRepFeedbackCode.descend:
         return 'descend';
       case RangeRepFeedbackCode.ascend:
