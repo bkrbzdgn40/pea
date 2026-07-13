@@ -245,6 +245,57 @@ void main() {
       expect(snapshot.resyncCount, 1);
     });
 
+    test(
+      'temporal stabilization crossing the 1500 ms boundary hard-resyncs',
+      () async {
+        await _armAndReachPeak(controller, detector, clock);
+
+        await _analyzeFrame(controller, detector, const <Pose>[]);
+        clock.advance(const Duration(milliseconds: 1490));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 0);
+        expect(state.currentPhase, 'AWAITING_NEUTRAL');
+        expect(snapshot.resyncCount, 1);
+        expect(snapshot.briefOcclusionRecoveryCount, 0);
+        expect(snapshot.briefOcclusionAbortCount, 0);
+      },
+    );
+
+    test(
+      'temporal stabilization completing below the boundary still recovers',
+      () async {
+        await _armAndReachPeak(controller, detector, clock);
+
+        await _analyzeFrame(controller, detector, const <Pose>[]);
+        clock.advance(const Duration(milliseconds: 1200));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.currentPhase, 'PEAK');
+        expect(snapshot.resyncCount, 0);
+        expect(snapshot.briefOcclusionRecoveryCount, 1);
+        expect(snapshot.briefOcclusionAbortCount, 0);
+      },
+    );
+
     test('long occlusion triggers a hard resync exactly once', () async {
       await _armAndReachPeak(controller, detector, clock);
 
@@ -267,6 +318,40 @@ void main() {
       expect(snapshot.briefOcclusionRecoveryCount, 0);
       expect(snapshot.briefOcclusionAbortCount, 0);
     });
+
+    test(
+      'timeouted peak recovery does not update the old rep context',
+      () async {
+        await _armAndReachPeak(controller, detector, clock);
+
+        await _analyzeFrame(controller, detector, const <Pose>[]);
+        clock.advance(const Duration(milliseconds: 2000));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[
+          _squatPose(angle: 90),
+        ]);
+        await _driveUntilPhase(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 170),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 0);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(snapshot.resyncCount, 1);
+        expect(snapshot.briefOcclusionRecoveryCount, 0);
+        expect(snapshot.briefOcclusionAbortCount, 0);
+      },
+    );
 
     test('range-rep uses the only quality-accepted right side when left is '
         'rejected', () async {

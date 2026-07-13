@@ -64,15 +64,58 @@ class RangeRepVisibilityPolicy {
     _invalidStartedAt ??= now;
 
     final invalidDuration = now.difference(_invalidStartedAt!);
-    var shouldResync = false;
-    if (!_hasResyncedCurrentRun) {
-      if (invalidDuration >= briefOcclusionGraceDuration) {
-        _hasResyncedCurrentRun = true;
-        _resyncReason = 'brief occlusion grace exceeded';
-        shouldResync = true;
-      }
+    final shouldResync = _markResyncedIfGraceExceeded(
+      invalidDuration: invalidDuration,
+    );
+
+    return _currentAssessment(
+      invalidDuration: invalidDuration,
+      didStartInvalidRun: didStartInvalidRun,
+      shouldResync: shouldResync,
+    );
+  }
+
+  RangeRepVisibilityAssessment evaluateRecovery({required DateTime now}) {
+    final invalidStartedAt = _invalidStartedAt;
+    if (invalidStartedAt == null) {
+      return const RangeRepVisibilityAssessment.stable();
     }
 
+    final invalidDuration = now.difference(invalidStartedAt);
+    final shouldResync = _markResyncedIfGraceExceeded(
+      invalidDuration: invalidDuration,
+    );
+
+    return _currentAssessment(
+      invalidDuration: invalidDuration,
+      didStartInvalidRun: false,
+      shouldResync: shouldResync,
+    );
+  }
+
+  void reset() {
+    _invalidFrameStreak = 0;
+    _invalidStartedAt = null;
+    _hasResyncedCurrentRun = false;
+    _resyncReason = null;
+  }
+
+  bool _markResyncedIfGraceExceeded({required Duration invalidDuration}) {
+    if (_hasResyncedCurrentRun ||
+        invalidDuration < briefOcclusionGraceDuration) {
+      return false;
+    }
+
+    _hasResyncedCurrentRun = true;
+    _resyncReason = 'brief occlusion grace exceeded';
+    return true;
+  }
+
+  RangeRepVisibilityAssessment _currentAssessment({
+    required Duration invalidDuration,
+    required bool didStartInvalidRun,
+    required bool shouldResync,
+  }) {
     return RangeRepVisibilityAssessment(
       invalidFrameStreak: _invalidFrameStreak,
       invalidDuration: invalidDuration,
@@ -82,12 +125,5 @@ class RangeRepVisibilityPolicy {
       hasResyncedCurrentRun: _hasResyncedCurrentRun,
       resyncReason: _resyncReason,
     );
-  }
-
-  void reset() {
-    _invalidFrameStreak = 0;
-    _invalidStartedAt = null;
-    _hasResyncedCurrentRun = false;
-    _resyncReason = null;
   }
 }
