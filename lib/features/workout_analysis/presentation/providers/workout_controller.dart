@@ -297,8 +297,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       now: frameCapturedAt,
       frameKind: detectedFrame.kind,
       didBecomeStableTracking: detectedFrame.didBecomeStableTracking,
-      qualityAcceptedRangeRepSides:
-          detectedFrame.qualityAcceptedRangeRepSides,
+      qualityAcceptedRangeRepSides: detectedFrame.qualityAcceptedRangeRepSides,
       preferredRangeRepSide: detectedFrame.preferredRangeRepSide,
     );
 
@@ -395,8 +394,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       didBecomeStableTracking: acceptance.didBecomeStable,
       qualityAcceptedRangeRepSides:
           selectedCandidate.assessment.acceptedRangeRepSides,
-      preferredRangeRepSide:
-          selectedCandidate.assessment.preferredRangeRepSide,
+      preferredRangeRepSide: selectedCandidate.assessment.preferredRangeRepSide,
     );
   }
 
@@ -715,8 +713,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentAngle: effectiveMetrics.primaryAngle,
         lastRepScore: state.lastRepScore,
         lastRepROM: state.lastRepROM,
-        currentHoldSeconds:
-            holdDiagnostics?.isVisibilitySuspended == true
+        currentHoldSeconds: holdDiagnostics?.isVisibilitySuspended == true
             ? holdDiagnostics!.currentHoldSeconds
             : 0,
         bestHoldSeconds:

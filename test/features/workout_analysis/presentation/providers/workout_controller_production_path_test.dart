@@ -268,53 +268,47 @@ void main() {
       expect(snapshot.briefOcclusionAbortCount, 0);
     });
 
-    test(
-      'range-rep uses the only quality-accepted right side when left is '
-      'rejected',
-      () async {
-        final pose = _bilateralSquatPose(
-          leftAngle: 170,
-          rightAngle: 95,
-          leftDefaultLikelihood: 0.40,
-          rightDefaultLikelihood: 0.95,
-        );
+    test('range-rep uses the only quality-accepted right side when left is '
+        'rejected', () async {
+      final pose = _bilateralSquatPose(
+        leftAngle: 170,
+        rightAngle: 95,
+        leftDefaultLikelihood: 0.40,
+        rightDefaultLikelihood: 0.95,
+      );
 
-        await _analyzeFrame(controller, detector, <Pose>[pose]);
-        clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(controller, detector, <Pose>[pose]);
+      await _analyzeFrame(controller, detector, <Pose>[pose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[pose]);
 
-        final state = container.read(workoutControllerProvider);
-        final snapshot = controller.diagnosticsSnapshot();
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
 
-        expect(state.calibrationMetrics.selectedRangeRepSide, 'right');
-        expect(snapshot.currentSelectedSide, 'right');
-        expect(state.currentAngle, closeTo(95.0, 0.001));
-      },
-    );
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'right');
+      expect(snapshot.currentSelectedSide, 'right');
+      expect(state.currentAngle, closeTo(95.0, 0.001));
+    });
 
-    test(
-      'range-rep uses the only quality-accepted left side when right is '
-      'rejected',
-      () async {
-        final pose = _bilateralSquatPose(
-          leftAngle: 105,
-          rightAngle: 170,
-          leftDefaultLikelihood: 0.95,
-          rightDefaultLikelihood: 0.40,
-        );
+    test('range-rep uses the only quality-accepted left side when right is '
+        'rejected', () async {
+      final pose = _bilateralSquatPose(
+        leftAngle: 105,
+        rightAngle: 170,
+        leftDefaultLikelihood: 0.95,
+        rightDefaultLikelihood: 0.40,
+      );
 
-        await _analyzeFrame(controller, detector, <Pose>[pose]);
-        clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(controller, detector, <Pose>[pose]);
+      await _analyzeFrame(controller, detector, <Pose>[pose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[pose]);
 
-        final state = container.read(workoutControllerProvider);
-        final snapshot = controller.diagnosticsSnapshot();
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
 
-        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
-        expect(snapshot.currentSelectedSide, 'left');
-        expect(state.currentAngle, closeTo(105.0, 0.001));
-      },
-    );
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+      expect(snapshot.currentSelectedSide, 'left');
+      expect(state.currentAngle, closeTo(105.0, 0.001));
+    });
 
     test(
       'both quality-accepted sides keep the previous side behavior',
@@ -328,11 +322,9 @@ void main() {
           spacing: const Duration(milliseconds: 100),
         );
         clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_bothAcceptedSquatPose(leftAngle: 150, rightAngle: 95)],
-        );
+        await _analyzeFrame(controller, detector, <Pose>[
+          _bothAcceptedSquatPose(leftAngle: 150, rightAngle: 95),
+        ]);
 
         final state = container.read(workoutControllerProvider);
         final snapshot = controller.diagnosticsSnapshot();
@@ -342,52 +334,41 @@ void main() {
       },
     );
 
-    test(
-      'active left rep does not switch to right when only right remains '
-      'quality-accepted',
-      () async {
-        await _establishActiveLeftRepContext(controller, detector, clock);
+    test('active left rep does not switch to right when only right remains '
+        'quality-accepted', () async {
+      await _establishActiveLeftRepContext(controller, detector, clock);
 
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-        );
+      await _analyzeFrame(controller, detector, <Pose>[
+        _rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95),
+      ]);
 
-        final state = container.read(workoutControllerProvider);
-        final snapshot = controller.diagnosticsSnapshot();
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
 
-        expect(state.repCount, 0);
-        expect(state.currentPhase, 'WAITING');
-        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
-        expect(snapshot.currentSelectedSide, 'left');
-        expect(snapshot.activeRepSideSwitchCount, 0);
-        expect(snapshot.currentVisibilityStatus, 'brief_freeze');
-      },
-    );
+      expect(state.repCount, 0);
+      expect(state.currentPhase, 'WAITING');
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+      expect(snapshot.currentSelectedSide, 'left');
+      expect(snapshot.activeRepSideSwitchCount, 0);
+      expect(snapshot.currentVisibilityStatus, 'brief_freeze');
+    });
 
     test(
       'frozen left side recovers when left becomes quality-accepted again',
       () async {
         await _establishActiveLeftRepContext(controller, detector, clock);
 
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-        );
+        await _analyzeFrame(controller, detector, <Pose>[
+          _rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95),
+        ]);
         clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
-        );
+        await _analyzeFrame(controller, detector, <Pose>[
+          _leftOnlyAcceptedSquatPose(angle: 140),
+        ]);
         clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
-        );
+        await _analyzeFrame(controller, detector, <Pose>[
+          _leftOnlyAcceptedSquatPose(angle: 140),
+        ]);
 
         final state = container.read(workoutControllerProvider);
         final snapshot = controller.diagnosticsSnapshot();
@@ -400,42 +381,33 @@ void main() {
       },
     );
 
-    test(
-      'frozen left side does not recover or switch when only right is '
-      'quality-accepted',
-      () async {
-        await _establishActiveLeftRepContext(controller, detector, clock);
+    test('frozen left side does not recover or switch when only right is '
+        'quality-accepted', () async {
+      await _establishActiveLeftRepContext(controller, detector, clock);
 
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-        );
-        clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-        );
-        clock.advance(const Duration(milliseconds: 100));
-        await _analyzeFrame(
-          controller,
-          detector,
-          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
-        );
+      await _analyzeFrame(controller, detector, <Pose>[
+        _rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95),
+      ]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95),
+      ]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95),
+      ]);
 
-        final state = container.read(workoutControllerProvider);
-        final snapshot = controller.diagnosticsSnapshot();
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
 
-        expect(state.repCount, 0);
-        expect(state.currentPhase, 'WAITING');
-        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
-        expect(snapshot.currentSelectedSide, 'left');
-        expect(snapshot.activeRepSideSwitchCount, 0);
-        expect(snapshot.briefOcclusionRecoveryCount, 0);
-        expect(snapshot.currentVisibilityStatus, 'brief_freeze');
-      },
-    );
+      expect(state.repCount, 0);
+      expect(state.currentPhase, 'WAITING');
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+      expect(snapshot.currentSelectedSide, 'left');
+      expect(snapshot.activeRepSideSwitchCount, 0);
+      expect(snapshot.briefOcclusionRecoveryCount, 0);
+      expect(snapshot.currentVisibilityStatus, 'brief_freeze');
+    });
   });
 
   test(

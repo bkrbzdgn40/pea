@@ -136,36 +136,32 @@ void main() {
 
       expect(assessment.isAccepted, isTrue);
       expect(assessment.acceptedSide?.name, 'left');
-      expect(
-        assessment.acceptedRangeRepSides,
-        <RangeRepSide>{RangeRepSide.left},
-      );
+      expect(assessment.acceptedRangeRepSides, <RangeRepSide>{
+        RangeRepSide.left,
+      });
       expect(assessment.preferredRangeRepSide, RangeRepSide.left);
     });
 
-    test(
-      'range-rep quality keeps both accepted sides and prefers the stronger '
-      'one',
-      () {
-        final assessment = policy.assess(
-          pose: _squatPose(
-            defaultLikelihood: 0.80,
-            leftHipLikelihood: 0.70,
-            includeRightSide: true,
-          ),
-          config: _legacySquatConfig(),
-          engineKind: EngineKind.rangeRep,
-          rangeRepContract: RangeRepContracts.squat,
-        );
+    test('range-rep quality keeps both accepted sides and prefers the stronger '
+        'one', () {
+      final assessment = policy.assess(
+        pose: _squatPose(
+          defaultLikelihood: 0.80,
+          leftHipLikelihood: 0.70,
+          includeRightSide: true,
+        ),
+        config: _legacySquatConfig(),
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.squat,
+      );
 
-        expect(assessment.isAccepted, isTrue);
-        expect(
-          assessment.acceptedRangeRepSides,
-          <RangeRepSide>{RangeRepSide.left, RangeRepSide.right},
-        );
-        expect(assessment.preferredRangeRepSide, RangeRepSide.right);
-      },
-    );
+      expect(assessment.isAccepted, isTrue);
+      expect(assessment.acceptedRangeRepSides, <RangeRepSide>{
+        RangeRepSide.left,
+        RangeRepSide.right,
+      });
+      expect(assessment.preferredRangeRepSide, RangeRepSide.right);
+    });
 
     test('push-up required landmark set is accepted', () {
       final assessment = policy.assess(

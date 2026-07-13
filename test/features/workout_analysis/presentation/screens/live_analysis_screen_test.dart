@@ -135,23 +135,17 @@ void main() {
 
       await tester.runAsync(() async {
         harness.clock.advance(const Duration(seconds: 10));
-        await _analyzePoseFrame(
-          harness.controller,
-          harness.detector,
-          <Pose>[_plankPose()],
-        );
+        await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+          _plankPose(),
+        ]);
         harness.clock.advance(const Duration(milliseconds: 100));
-        await _analyzePoseFrame(
-          harness.controller,
-          harness.detector,
-          <Pose>[_plankPose()],
-        );
+        await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+          _plankPose(),
+        ]);
         harness.clock.advance(const Duration(seconds: 1));
-        await _analyzePoseFrame(
-          harness.controller,
-          harness.detector,
-          <Pose>[_plankPose()],
-        );
+        await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+          _plankPose(),
+        ]);
       });
       await tester.pump();
 
