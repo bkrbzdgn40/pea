@@ -14,7 +14,11 @@ enum HoldPhase { ready, holding, broken }
 /// those values at safe placeholders while exposing meaningful hold telemetry
 /// through its own diagnostics surface.
 class HoldEngine
-    implements AnalysisEngine, HoldDiagnostics, HoldVisibilityGapControl {
+    implements
+        AnalysisEngine,
+        HoldDiagnostics,
+        HoldVisibilityGapControl,
+        HoldInterruptionControl {
   HoldEngine({required this.config, DateTime Function()? now})
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
@@ -70,6 +74,7 @@ class HoldEngine
     currentHoldSeconds: _currentHoldSeconds,
     bestHoldSeconds: _bestHoldSeconds,
     isHolding: _phase == HoldPhase.holding,
+    isVisibilitySuspended: _visibilityGapStartedAt != null,
     hadFormBreak: _hadFormBreak,
     bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
       isHolding: _phase == HoldPhase.holding,
@@ -206,6 +211,20 @@ class HoldEngine
     return const HoldVisibilityResumeResult(
       disposition: HoldVisibilityResumeDisposition.ended,
     );
+  }
+
+  @override
+  void endActiveHoldForInterruption() {
+    if (_phase == HoldPhase.holding) {
+      _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    }
+
+    _holdStartedAt = null;
+    _currentHoldSeconds = 0.0;
+    _misalignmentStartedAt = null;
+    _lastVisibleFrameAt = null;
+    _visibilityGapStartedAt = null;
+    _phase = HoldPhase.ready;
   }
 
   @override

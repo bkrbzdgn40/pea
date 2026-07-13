@@ -47,6 +47,7 @@ void main() {
       engine.update(_validHoldFrame());
 
       gapControl.beginVisibilityGap();
+      expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isTrue);
       clock.advance(const Duration(milliseconds: 200));
 
       final result = gapControl.resumeAfterVisibilityGap();
@@ -174,6 +175,48 @@ void main() {
       expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.isHolding, isFalse);
+      expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+    });
+
+    test('lifecycle interruption hard-ends the active hold', () {
+      final clock = _TestClock();
+      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final interruptionControl = engine as HoldInterruptionControl;
+
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(seconds: 5));
+      engine.update(_validHoldFrame());
+
+      interruptionControl.endActiveHoldForInterruption();
+
+      expect(engine.phaseLabel, 'READY');
+      expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
+      expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(engine.diagnosticsSnapshot.isHolding, isFalse);
+      expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isFalse);
+      expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+    });
+
+    test('lifecycle interruption clears an active visibility suspension', () {
+      final clock = _TestClock();
+      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final gapControl = engine as HoldVisibilityGapControl;
+      final interruptionControl = engine as HoldInterruptionControl;
+
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(seconds: 5));
+      engine.update(_validHoldFrame());
+      gapControl.beginVisibilityGap();
+
+      expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isTrue);
+
+      interruptionControl.endActiveHoldForInterruption();
+
+      expect(engine.phaseLabel, 'READY');
+      expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
+      expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(engine.diagnosticsSnapshot.isHolding, isFalse);
+      expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isFalse);
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
     });
   });

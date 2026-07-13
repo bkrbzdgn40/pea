@@ -266,6 +266,165 @@ void main() {
       expect(snapshot.briefOcclusionRecoveryCount, 0);
       expect(snapshot.briefOcclusionAbortCount, 0);
     });
+
+    test(
+      'range-rep uses the only quality-accepted right side when left is rejected',
+      () async {
+        final pose = _bilateralSquatPose(
+          leftAngle: 170,
+          rightAngle: 95,
+          leftDefaultLikelihood: 0.40,
+          rightDefaultLikelihood: 0.95,
+        );
+
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'right');
+        expect(snapshot.currentSelectedSide, 'right');
+        expect(state.currentAngle, closeTo(95.0, 0.001));
+      },
+    );
+
+    test(
+      'range-rep uses the only quality-accepted left side when right is rejected',
+      () async {
+        final pose = _bilateralSquatPose(
+          leftAngle: 105,
+          rightAngle: 170,
+          leftDefaultLikelihood: 0.95,
+          rightDefaultLikelihood: 0.40,
+        );
+
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+        expect(snapshot.currentSelectedSide, 'left');
+        expect(state.currentAngle, closeTo(105.0, 0.001));
+      },
+    );
+
+    test('both quality-accepted sides keep the previous side behavior', () async {
+      await _pumpAcceptedPose(
+        controller,
+        detector,
+        clock,
+        _leftOnlyAcceptedSquatPose(angle: 170),
+        count: 2,
+        spacing: const Duration(milliseconds: 100),
+      );
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(
+        controller,
+        detector,
+        <Pose>[_bothAcceptedSquatPose(leftAngle: 150, rightAngle: 95)],
+      );
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+      expect(snapshot.currentSelectedSide, 'left');
+    });
+
+    test(
+      'active left rep does not switch to right when only right remains quality-accepted',
+      () async {
+        await _establishActiveLeftRepContext(controller, detector, clock);
+
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+        );
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 0);
+        expect(state.currentPhase, 'WAITING');
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+        expect(snapshot.currentSelectedSide, 'left');
+        expect(snapshot.activeRepSideSwitchCount, 0);
+        expect(snapshot.currentVisibilityStatus, 'brief_freeze');
+      },
+    );
+
+    test('frozen left side recovers when left becomes quality-accepted again', () async {
+      await _establishActiveLeftRepContext(controller, detector, clock);
+
+      await _analyzeFrame(
+        controller,
+        detector,
+        <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+      );
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(
+        controller,
+        detector,
+        <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
+      );
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(
+        controller,
+        detector,
+        <Pose>[_leftOnlyAcceptedSquatPose(angle: 140)],
+      );
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+
+      expect(state.repCount, 0);
+      expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+      expect(snapshot.currentSelectedSide, 'left');
+      expect(snapshot.activeRepSideSwitchCount, 0);
+      expect(snapshot.briefOcclusionRecoveryCount, 1);
+    });
+
+    test(
+      'frozen left side does not recover or switch when only right is quality-accepted',
+      () async {
+        await _establishActiveLeftRepContext(controller, detector, clock);
+
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(
+          controller,
+          detector,
+          <Pose>[_rightOnlyAcceptedSquatPose(leftAngle: 140, rightAngle: 95)],
+        );
+
+        final state = container.read(workoutControllerProvider);
+        final snapshot = controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 0);
+        expect(state.currentPhase, 'WAITING');
+        expect(state.calibrationMetrics.selectedRangeRepSide, 'left');
+        expect(snapshot.currentSelectedSide, 'left');
+        expect(snapshot.activeRepSideSwitchCount, 0);
+        expect(snapshot.briefOcclusionRecoveryCount, 0);
+        expect(snapshot.currentVisibilityStatus, 'brief_freeze');
+      },
+    );
   });
 
   test(
@@ -317,6 +476,10 @@ void main() {
 
     clock.advance(const Duration(milliseconds: 50));
     await _analyzeFrame(controller, detector, const <Pose>[]);
+    var state = container.read(workoutControllerProvider);
+    expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+    expect(state.isHolding, isFalse);
+    expect(state.isHoldVisibilitySuspended, isTrue);
     clock.advance(const Duration(milliseconds: 50));
     await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
     clock.advance(const Duration(milliseconds: 50));
@@ -324,9 +487,10 @@ void main() {
     clock.advance(const Duration(seconds: 1));
     await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
 
-    final state = container.read(workoutControllerProvider);
+    state = container.read(workoutControllerProvider);
 
     expect(state.isHolding, isTrue);
+    expect(state.isHoldVisibilitySuspended, isFalse);
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
   });
 
@@ -435,9 +599,129 @@ void main() {
 
       final state = container.read(workoutControllerProvider);
 
-      expect(state.currentHoldSeconds, 0);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isFalse);
+      expect(state.isHoldVisibilitySuspended, isTrue);
       expect(state.currentPhase, 'WAITING');
+    },
+  );
+
+  test('hold lifecycle interruption ends the active hold and restarts from zero', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _establishVisibleHold(controller, detector, clock);
+
+    controller.handleLifecycleInterruption(reason: 'paused');
+
+    var state = container.read(workoutControllerProvider);
+    expect(state.currentHoldSeconds, 0);
+    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+    expect(state.isHolding, isFalse);
+    expect(state.isHoldVisibilitySuspended, isFalse);
+    expect(state.currentPhase, 'READY');
+    expect(state.hadHoldFormBreak, isFalse);
+
+    clock.advance(const Duration(seconds: 10));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    state = container.read(workoutControllerProvider);
+    expect(state.isHolding, isFalse);
+    expect(state.currentHoldSeconds, 0);
+
+    clock.advance(const Duration(milliseconds: 100));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    state = container.read(workoutControllerProvider);
+    expect(state.isHolding, isTrue);
+    expect(state.currentHoldSeconds, 0);
+    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+
+    clock.advance(const Duration(seconds: 1));
+    await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+    state = container.read(workoutControllerProvider);
+    expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
+    expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+    expect(state.hadHoldFormBreak, isFalse);
+  });
+
+  test('hold lifecycle interruption during READY preserves the idle state', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    controller.handleLifecycleInterruption(reason: 'paused');
+
+    final state = container.read(workoutControllerProvider);
+    expect(state.currentHoldSeconds, 0);
+    expect(state.bestHoldSeconds, 0);
+    expect(state.isHolding, isFalse);
+    expect(state.isHoldVisibilitySuspended, isFalse);
+    expect(state.currentPhase, 'READY');
+    expect(state.hadHoldFormBreak, isFalse);
+  });
+
+  test(
+    'hold lifecycle interruption during visibility suspension clears the old hold',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, const <Pose>[]);
+
+      var state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.isHoldVisibilitySuspended, isTrue);
+
+      controller.handleLifecycleInterruption(reason: 'paused');
+
+      state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.isHolding, isFalse);
+      expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.currentPhase, 'READY');
+
+      clock.advance(const Duration(seconds: 10));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      state = container.read(workoutControllerProvider);
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, 0);
+
+      clock.advance(const Duration(seconds: 1));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      state = container.read(workoutControllerProvider);
+      expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
     },
   );
 }
@@ -625,6 +909,29 @@ Future<void> _establishVisibleHold(
   await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
 }
 
+Future<void> _establishActiveLeftRepContext(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock,
+) async {
+  await _pumpAcceptedPose(
+    controller,
+    detector,
+    clock,
+    _leftOnlyAcceptedSquatPose(angle: 170),
+    count: 3,
+    spacing: const Duration(milliseconds: 120),
+  );
+  await _driveUntilPhase(
+    controller,
+    detector,
+    clock,
+    _leftOnlyAcceptedSquatPose(angle: 140),
+    expectedPhase: 'DESCENDING',
+    spacing: const Duration(milliseconds: 90),
+  );
+}
+
 ExerciseConfig _squatConfig() {
   return ExerciseConfig(
     name: 'Squat',
@@ -688,6 +995,103 @@ Pose _squatPose({
   addLandmark(PoseLandmarkType.leftHip, 0, 1);
   addLandmark(PoseLandmarkType.leftKnee, 0, 0);
   addLandmark(PoseLandmarkType.leftAnkle, ankleX, ankleY);
+
+  return Pose(landmarks: landmarks);
+}
+
+Pose _leftOnlyAcceptedSquatPose({required double angle}) {
+  return _bilateralSquatPose(
+    leftAngle: angle,
+    rightAngle: angle,
+    leftDefaultLikelihood: 0.95,
+    rightDefaultLikelihood: 0.40,
+  );
+}
+
+Pose _rightOnlyAcceptedSquatPose({
+  required double leftAngle,
+  required double rightAngle,
+}) {
+  return _bilateralSquatPose(
+    leftAngle: leftAngle,
+    rightAngle: rightAngle,
+    leftDefaultLikelihood: 0.40,
+    rightDefaultLikelihood: 0.95,
+  );
+}
+
+Pose _bothAcceptedSquatPose({
+  required double leftAngle,
+  required double rightAngle,
+  double leftDefaultLikelihood = 0.95,
+  double rightDefaultLikelihood = 0.95,
+}) {
+  return _bilateralSquatPose(
+    leftAngle: leftAngle,
+    rightAngle: rightAngle,
+    leftDefaultLikelihood: leftDefaultLikelihood,
+    rightDefaultLikelihood: rightDefaultLikelihood,
+  );
+}
+
+Pose _bilateralSquatPose({
+  required double leftAngle,
+  required double rightAngle,
+  double leftDefaultLikelihood = 0.95,
+  double rightDefaultLikelihood = 0.95,
+}) {
+  final leftRadians = leftAngle * (3.1415926535897932 / 180.0);
+  final rightRadians = rightAngle * (3.1415926535897932 / 180.0);
+  final landmarks = <PoseLandmarkType, PoseLandmark>{
+    PoseLandmarkType.leftShoulder: _landmark(
+      PoseLandmarkType.leftShoulder,
+      -1,
+      1,
+      likelihood: leftDefaultLikelihood,
+    ),
+    PoseLandmarkType.leftHip: _landmark(
+      PoseLandmarkType.leftHip,
+      0,
+      1,
+      likelihood: leftDefaultLikelihood,
+    ),
+    PoseLandmarkType.leftKnee: _landmark(
+      PoseLandmarkType.leftKnee,
+      0,
+      0,
+      likelihood: leftDefaultLikelihood,
+    ),
+    PoseLandmarkType.leftAnkle: _landmark(
+      PoseLandmarkType.leftAnkle,
+      math.sin(leftRadians),
+      math.cos(leftRadians),
+      likelihood: leftDefaultLikelihood,
+    ),
+    PoseLandmarkType.rightShoulder: _landmark(
+      PoseLandmarkType.rightShoulder,
+      3,
+      1,
+      likelihood: rightDefaultLikelihood,
+    ),
+    PoseLandmarkType.rightHip: _landmark(
+      PoseLandmarkType.rightHip,
+      2,
+      1,
+      likelihood: rightDefaultLikelihood,
+    ),
+    PoseLandmarkType.rightKnee: _landmark(
+      PoseLandmarkType.rightKnee,
+      2,
+      0,
+      likelihood: rightDefaultLikelihood,
+    ),
+    PoseLandmarkType.rightAnkle: _landmark(
+      PoseLandmarkType.rightAnkle,
+      2 - math.sin(rightRadians),
+      math.cos(rightRadians),
+      likelihood: rightDefaultLikelihood,
+    ),
+  };
 
   return Pose(landmarks: landmarks);
 }

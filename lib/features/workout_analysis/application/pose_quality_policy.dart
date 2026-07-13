@@ -52,7 +52,8 @@ class PoseQualityAssessment {
     required this.acceptedLandmarkCount,
     required this.qualityScore,
     this.rejectionReason,
-    this.acceptedSide,
+    this.acceptedRangeRepSides = const <RangeRepSide>{},
+    this.preferredRangeRepSide,
   });
 
   final bool isAccepted;
@@ -61,8 +62,11 @@ class PoseQualityAssessment {
   final double? meanRequiredLikelihood;
   final int requiredLandmarkCount;
   final int acceptedLandmarkCount;
-  final RangeRepSide? acceptedSide;
+  final Set<RangeRepSide> acceptedRangeRepSides;
+  final RangeRepSide? preferredRangeRepSide;
   final double qualityScore;
+
+  RangeRepSide? get acceptedSide => preferredRangeRepSide;
 
   PoseQualityAssessment rejectedWith({
     required PoseRejectionReason rejectionReason,
@@ -77,7 +81,8 @@ class PoseQualityAssessment {
       meanRequiredLikelihood: meanRequiredLikelihood,
       requiredLandmarkCount: requiredLandmarkCount,
       acceptedLandmarkCount: acceptedLandmarkCount,
-      acceptedSide: acceptedSide,
+      acceptedRangeRepSides: acceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
       qualityScore: qualityScore,
     );
   }
@@ -104,28 +109,30 @@ class PoseQualityPolicy {
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
-        return _selectBestAssessment(<PoseQualityAssessment>[
-          _assessRequirementSet(
-            pose: pose,
+        final leftAssessment = _assessRequirementSet(
+          pose: pose,
+          side: RangeRepSide.left,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
             side: RangeRepSide.left,
-            requirementSet: _requirements.resolve(
-              config: config,
-              engineKind: engineKind,
-              rangeRepContract: rangeRepContract,
-              side: RangeRepSide.left,
-            ),
           ),
-          _assessRequirementSet(
-            pose: pose,
+        );
+        final rightAssessment = _assessRequirementSet(
+          pose: pose,
+          side: RangeRepSide.right,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
             side: RangeRepSide.right,
-            requirementSet: _requirements.resolve(
-              config: config,
-              engineKind: engineKind,
-              rangeRepContract: rangeRepContract,
-              side: RangeRepSide.right,
-            ),
           ),
-        ]);
+        );
+        return _combineRangeRepAssessments(
+          leftAssessment: leftAssessment,
+          rightAssessment: rightAssessment,
+        );
       case EngineKind.hold:
         return _assessRequirementSet(
           pose: pose,
@@ -147,14 +154,49 @@ class PoseQualityPolicy {
     }
   }
 
-  PoseQualityAssessment _selectBestAssessment(
-    List<PoseQualityAssessment> assessments,
-  ) {
-    final accepted = assessments.where((assessment) => assessment.isAccepted);
-    if (accepted.isNotEmpty) {
-      return accepted.reduce(_preferHigherQuality);
+  PoseQualityAssessment _combineRangeRepAssessments({
+    required PoseQualityAssessment leftAssessment,
+    required PoseQualityAssessment rightAssessment,
+  }) {
+    final assessments = <PoseQualityAssessment>[leftAssessment, rightAssessment];
+    final acceptedAssessments = assessments
+        .where((assessment) => assessment.isAccepted)
+        .toList(growable: false);
+
+    if (acceptedAssessments.isNotEmpty) {
+      final preferredAssessment = acceptedAssessments.reduce(
+        _preferHigherQuality,
+      );
+      final acceptedSides = acceptedAssessments
+          .map((assessment) => assessment.acceptedSide)
+          .whereType<RangeRepSide>()
+          .toSet();
+
+      return PoseQualityAssessment(
+        isAccepted: true,
+        minimumRequiredLikelihood:
+            preferredAssessment.minimumRequiredLikelihood,
+        meanRequiredLikelihood: preferredAssessment.meanRequiredLikelihood,
+        requiredLandmarkCount: preferredAssessment.requiredLandmarkCount,
+        acceptedLandmarkCount: preferredAssessment.acceptedLandmarkCount,
+        qualityScore: preferredAssessment.qualityScore,
+        acceptedRangeRepSides: acceptedSides,
+        preferredRangeRepSide: preferredAssessment.acceptedSide,
+      );
     }
-    return assessments.reduce(_preferHigherQuality);
+
+    final bestRejectedAssessment = assessments.reduce(_preferHigherQuality);
+    return PoseQualityAssessment(
+      isAccepted: false,
+      rejectionReason: bestRejectedAssessment.rejectionReason,
+      minimumRequiredLikelihood:
+          bestRejectedAssessment.minimumRequiredLikelihood,
+      meanRequiredLikelihood: bestRejectedAssessment.meanRequiredLikelihood,
+      requiredLandmarkCount: bestRejectedAssessment.requiredLandmarkCount,
+      acceptedLandmarkCount: bestRejectedAssessment.acceptedLandmarkCount,
+      qualityScore: bestRejectedAssessment.qualityScore,
+      preferredRangeRepSide: bestRejectedAssessment.acceptedSide,
+    );
   }
 
   PoseQualityAssessment _preferHigherQuality(
@@ -195,7 +237,10 @@ class PoseQualityPolicy {
         meanRequiredLikelihood: null,
         requiredLandmarkCount: 0,
         acceptedLandmarkCount: 0,
-        acceptedSide: side,
+        acceptedRangeRepSides: side == null
+            ? const <RangeRepSide>{}
+            : <RangeRepSide>{side},
+        preferredRangeRepSide: side,
         qualityScore: 0.0,
       );
     }
@@ -211,7 +256,8 @@ class PoseQualityPolicy {
           meanRequiredLikelihood: null,
           requiredLandmarkCount: requiredLandmarkCount,
           acceptedLandmarkCount: observedLandmarks.length,
-          acceptedSide: side,
+          acceptedRangeRepSides: const <RangeRepSide>{},
+          preferredRangeRepSide: side,
           qualityScore: _qualityScore(
             acceptedLandmarkCount: observedLandmarks.length,
             requiredLandmarkCount: requiredLandmarkCount,
@@ -230,7 +276,8 @@ class PoseQualityPolicy {
           meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
           requiredLandmarkCount: requiredLandmarkCount,
           acceptedLandmarkCount: 0,
-          acceptedSide: side,
+          acceptedRangeRepSides: const <RangeRepSide>{},
+          preferredRangeRepSide: side,
           qualityScore: _qualityScore(
             acceptedLandmarkCount: 0,
             requiredLandmarkCount: requiredLandmarkCount,
@@ -247,7 +294,8 @@ class PoseQualityPolicy {
         meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: requiredLandmarkCount,
-        acceptedSide: side,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: requiredLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -272,7 +320,8 @@ class PoseQualityPolicy {
         meanRequiredLikelihood: meanLikelihood,
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: acceptedLandmarkCount,
-        acceptedSide: side,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: acceptedLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -290,7 +339,8 @@ class PoseQualityPolicy {
         meanRequiredLikelihood: meanLikelihood,
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: acceptedLandmarkCount,
-        acceptedSide: side,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: acceptedLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -306,7 +356,10 @@ class PoseQualityPolicy {
       meanRequiredLikelihood: meanLikelihood,
       requiredLandmarkCount: requiredLandmarkCount,
       acceptedLandmarkCount: requiredLandmarkCount,
-      acceptedSide: side,
+      acceptedRangeRepSides: side == null
+          ? const <RangeRepSide>{}
+          : <RangeRepSide>{side},
+      preferredRangeRepSide: side,
       qualityScore: _qualityScore(
         acceptedLandmarkCount: requiredLandmarkCount,
         requiredLandmarkCount: requiredLandmarkCount,

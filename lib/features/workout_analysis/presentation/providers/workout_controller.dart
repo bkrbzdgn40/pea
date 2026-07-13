@@ -297,6 +297,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       now: frameCapturedAt,
       frameKind: detectedFrame.kind,
       didBecomeStableTracking: detectedFrame.didBecomeStableTracking,
+      qualityAcceptedRangeRepSides:
+          detectedFrame.qualityAcceptedRangeRepSides,
+      preferredRangeRepSide: detectedFrame.preferredRangeRepSide,
     );
 
     if (_isDiagnosticsEnabled) {
@@ -390,6 +393,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ),
       kind: _PoseFrameKind.accepted,
       didBecomeStableTracking: acceptance.didBecomeStable,
+      qualityAcceptedRangeRepSides:
+          selectedCandidate.assessment.acceptedRangeRepSides,
+      preferredRangeRepSide:
+          selectedCandidate.assessment.preferredRangeRepSide,
     );
   }
 
@@ -470,22 +477,29 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required DateTime now,
     _PoseFrameKind frameKind = _PoseFrameKind.accepted,
     bool didBecomeStableTracking = false,
+    Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+    RangeRepSide? preferredRangeRepSide,
   }) {
     final hadAcceptedPoseForAnalysis = _hasAcceptedPoseForAnalysis;
+    final preUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
+    final effectiveMetrics = _effectiveMetricsForAnalysis(
+      metrics: metrics,
+      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
+    );
     final visibilityRunActive =
         _engineKind == EngineKind.rangeRep &&
         _rangeRepVisibilityPolicy.hasActiveInvalidRun;
-    final rangeRepSideSelection =
-        _engineKind == EngineKind.rangeRep &&
-            visibilityRunActive &&
-            _briefGapFrozenRangeRepSide != null
-        ? _rangeRepFrozenSideSelection(metrics, _briefGapFrozenRangeRepSide!)
-        : _rangeRepSideSelection(metrics);
+    final rangeRepSideSelection = _selectRangeRepSideForFrame(
+      metrics: effectiveMetrics,
+      diagnostics: preUpdateRangeRepDiagnostics,
+      visibilityRunActive: visibilityRunActive,
+      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+    );
     final rangeRepFrameAssessment = _rangeRepFrameAssessment(
-      metrics,
+      effectiveMetrics,
       rangeRepSideSelection,
     );
-    final preUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
     final isAcceptedPoseFrame = frameKind == _PoseFrameKind.accepted;
     final isEngineEligibleFrame =
         isAcceptedPoseFrame &&
@@ -493,6 +507,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             rangeRepFrameAssessment.shouldUpdateEngine);
 
     if (_engineKind == EngineKind.rangeRep && !isEngineEligibleFrame) {
+      if (isAcceptedPoseFrame) {
+        _poseAcceptanceStabilizer.recordInvalidFrame();
+      }
       final rangeRepVisibilityAssessment = _rangeRepVisibilityAssessment(
         isInvalidFrame: true,
         now: now,
@@ -512,7 +529,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         );
         final selectedRangeRepSide = _rangeRepSideLabel(_selectedRangeRepSide);
         state = _rangeRepBlockedStateBuilder.build(
-          metrics: metrics,
+          metrics: effectiveMetrics,
           assessment: rangeRepFrameAssessment,
           freezeSmoothedPreview: true,
           primaryMetricFilter: _angleFilter,
@@ -594,7 +611,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _briefGapFrozenRangeRepSide ?? _selectedRangeRepSide,
       );
       state = _rangeRepBlockedStateBuilder.build(
-        metrics: metrics,
+        metrics: effectiveMetrics,
         assessment: rangeRepFrameAssessment,
         freezeSmoothedPreview: true,
         primaryMetricFilter: _angleFilter,
@@ -691,17 +708,22 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             )
           : null;
       state = WorkoutState(
-        landmarks: metrics.landmarks,
+        landmarks: effectiveMetrics.landmarks,
         analysisKind: _engineKind,
         repCount: state.repCount,
         isFormBad: false,
-        currentAngle: metrics.primaryAngle,
+        currentAngle: effectiveMetrics.primaryAngle,
         lastRepScore: state.lastRepScore,
         lastRepROM: state.lastRepROM,
-        currentHoldSeconds: 0,
+        currentHoldSeconds:
+            holdDiagnostics?.isVisibilitySuspended == true
+            ? holdDiagnostics!.currentHoldSeconds
+            : 0,
         bestHoldSeconds:
             holdDiagnostics?.bestHoldSeconds ?? state.bestHoldSeconds,
         isHolding: false,
+        isHoldVisibilitySuspended:
+            holdDiagnostics?.isVisibilitySuspended ?? false,
         hadHoldFormBreak:
             holdDiagnostics?.hadFormBreak ?? state.hadHoldFormBreak,
         feedbackMessage: mapRangeRepFeedbackCodeToMessage(
@@ -711,7 +733,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
         calibrationMetrics: _buildCalibrationMetrics(
-          currentFormMetric: metrics.formMetric,
+          currentFormMetric: effectiveMetrics.formMetric,
           thresholdValue: _engineKind == EngineKind.hold
               ? _config.resolvedHoldPosture.bodyLineEntryAngle
               : formThresholdResolution!.effectiveThreshold,
@@ -749,27 +771,28 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           _diagnostics.updateVisibilityStatus('stable');
         }
         state = WorkoutState(
-          landmarks: metrics.landmarks,
+          landmarks: effectiveMetrics.landmarks,
           analysisKind: _engineKind,
           repCount: _engine.repCount,
           isFormBad: _engine.isFormBad,
-          currentAngle: metrics.primaryAngle,
+          currentAngle: effectiveMetrics.primaryAngle,
           lastRepScore: _engine.lastRepScore,
           lastRepROM: _engine.maxRom,
           currentHoldSeconds: 0,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           isHolding: false,
+          isHoldVisibilitySuspended: false,
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
           feedbackMessage: _resolvedEngineFeedbackMessage(),
           currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
           calibrationMetrics: _buildCalibrationMetrics(
-            currentFormMetric: metrics.formMetric,
+            currentFormMetric: effectiveMetrics.formMetric,
             thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: metrics.bodyLineAngle,
-            currentArmSupportAngle: metrics.armSupportAngle,
-            currentLegExtensionAngle: metrics.legExtensionAngle,
+            currentBodyLineAngle: effectiveMetrics.bodyLineAngle,
+            currentArmSupportAngle: effectiveMetrics.armSupportAngle,
+            currentLegExtensionAngle: effectiveMetrics.legExtensionAngle,
           ),
         );
         _hasAcceptedPoseForAnalysis = true;
@@ -788,7 +811,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         rangeRepFrameAssessment.selection.selectedSide,
       );
       final analysisFrame = _analysisFrameBuilder.build(
-        metrics: metrics,
+        metrics: effectiveMetrics,
         rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
         primaryMetricFilter: _angleFilter,
         formMetricFilter: _backFilter,
@@ -860,7 +883,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
 
-    if (metrics.hasPose) {
+    if (effectiveMetrics.hasPose) {
       // Raw range-rep form signals are telemetry only; engine inputs stay legacy.
       final selectedFormSignals =
           rangeRepFrameAssessment.selectedMetrics?.formSignals;
@@ -873,7 +896,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
       // Smooth landmark jitter before feeding the scoring state machine.
       final analysisFrame = _analysisFrameBuilder.build(
-        metrics: metrics,
+        metrics: effectiveMetrics,
         rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
         primaryMetricFilter: _angleFilter,
         formMetricFilter: _backFilter,
@@ -909,7 +932,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       final holdDiagnostics = _holdDiagnosticsSnapshot();
 
       state = WorkoutState(
-        landmarks: metrics.landmarks,
+        landmarks: effectiveMetrics.landmarks,
         analysisKind: _engineKind,
         repCount: _engine.repCount,
         isFormBad: _engine.isFormBad,
@@ -919,6 +942,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
         bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
         isHolding: holdDiagnostics.isHolding,
+        isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
         hadHoldFormBreak: holdDiagnostics.hadFormBreak,
         feedbackMessage: _resolvedEngineFeedbackMessage(),
         currentPhase: _engine.phaseLabel,
@@ -974,9 +998,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               rangeRepVisibilityAssessment.hasResyncedCurrentRun,
           rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
           rangeRepVisibilityStatus: rangeRepVisibilityAssessment.statusLabel,
-          hasBodyLineAngle: metrics.bodyLineAngle != null,
-          hasArmSupportAngle: metrics.armSupportAngle != null,
-          hasLegExtensionAngle: metrics.legExtensionAngle != null,
+          hasBodyLineAngle: effectiveMetrics.bodyLineAngle != null,
+          hasArmSupportAngle: effectiveMetrics.armSupportAngle != null,
+          hasLegExtensionAngle: effectiveMetrics.legExtensionAngle != null,
         ),
       );
       _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
@@ -994,16 +1018,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             )
           : null;
       state = WorkoutState(
-        landmarks: metrics.landmarks,
+        landmarks: effectiveMetrics.landmarks,
         analysisKind: _engineKind,
         repCount: state.repCount,
         isFormBad: false,
-        currentAngle: metrics.primaryAngle,
+        currentAngle: effectiveMetrics.primaryAngle,
         lastRepScore: state.lastRepScore,
         lastRepROM: state.lastRepROM,
         currentHoldSeconds: 0,
         bestHoldSeconds: state.bestHoldSeconds,
         isHolding: false,
+        isHoldVisibilitySuspended: false,
         hadHoldFormBreak: state.hadHoldFormBreak,
         feedbackMessage: mapRangeRepFeedbackCodeToMessage(
           RangeRepFeedbackCode.bodyNotVisible,
@@ -1012,7 +1037,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
         calibrationMetrics: _buildCalibrationMetrics(
-          currentFormMetric: metrics.formMetric,
+          currentFormMetric: effectiveMetrics.formMetric,
           thresholdValue: _engineKind == EngineKind.hold
               ? _config.resolvedHoldPosture.bodyLineEntryAngle
               : formThresholdResolution!.effectiveThreshold,
@@ -1073,7 +1098,107 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
-  RangeRepSideSelection _rangeRepSideSelection(ExerciseMetrics metrics) {
+  ExerciseMetrics _effectiveMetricsForAnalysis({
+    required ExerciseMetrics metrics,
+    Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+    RangeRepSide? preferredRangeRepSide,
+  }) {
+    if (_engineKind != EngineKind.rangeRep ||
+        qualityAcceptedRangeRepSides == null) {
+      return metrics;
+    }
+
+    return _rangeRepQualityFilteredMetrics(
+      metrics: metrics,
+      acceptedSides: qualityAcceptedRangeRepSides,
+      preferredSide: preferredRangeRepSide,
+    );
+  }
+
+  RangeRepSideSelection _selectRangeRepSideForFrame({
+    required ExerciseMetrics metrics,
+    required RangeRepDiagnosticsSnapshot diagnostics,
+    required bool visibilityRunActive,
+    required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+  }) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return _rangeRepSideSelection(metrics, diagnostics: diagnostics);
+    }
+
+    if (visibilityRunActive && _briefGapFrozenRangeRepSide != null) {
+      return _rangeRepFrozenSideSelection(metrics, _briefGapFrozenRangeRepSide!);
+    }
+
+    final selectedRangeRepSide = _selectedRangeRepSide;
+    final shouldLockToCurrentSide =
+        selectedRangeRepSide != null &&
+        qualityAcceptedRangeRepSides != null &&
+        shouldLockRangeRepSideSelection(
+          engineKind: _engineKind,
+          selectedSide: selectedRangeRepSide,
+          diagnostics: diagnostics,
+        ) &&
+        !qualityAcceptedRangeRepSides.contains(selectedRangeRepSide);
+    if (shouldLockToCurrentSide) {
+      return _lockedRangeRepSideSelection(metrics, selectedRangeRepSide);
+    }
+
+    return _rangeRepSideSelection(metrics, diagnostics: diagnostics);
+  }
+
+  ExerciseMetrics _rangeRepQualityFilteredMetrics({
+    required ExerciseMetrics metrics,
+    required Set<RangeRepSide> acceptedSides,
+    RangeRepSide? preferredSide,
+  }) {
+    final leftMetrics = acceptedSides.contains(RangeRepSide.left)
+        ? metrics.leftRangeRepMetrics
+        : const RangeRepSideMetrics.unavailable(RangeRepSide.left);
+    final rightMetrics = acceptedSides.contains(RangeRepSide.right)
+        ? metrics.rightRangeRepMetrics
+        : const RangeRepSideMetrics.unavailable(RangeRepSide.right);
+    final selectedMetrics = _rangeRepMetricsForSide(
+      preferredSide != null && acceptedSides.contains(preferredSide)
+          ? preferredSide
+          : acceptedSides.contains(RangeRepSide.left)
+          ? RangeRepSide.left
+          : acceptedSides.contains(RangeRepSide.right)
+          ? RangeRepSide.right
+          : null,
+      leftMetrics: leftMetrics,
+      rightMetrics: rightMetrics,
+    );
+
+    return metrics.copyWith(
+      primaryAngle: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
+      formMetric: selectedMetrics?.formMetric ?? metrics.formMetric,
+      hasPrimaryAngle:
+          selectedMetrics?.hasPrimaryAngle ?? metrics.hasPrimaryAngle,
+      hasFormMetric: selectedMetrics?.hasFormMetric ?? metrics.hasFormMetric,
+      leftRangeRepMetrics: leftMetrics,
+      rightRangeRepMetrics: rightMetrics,
+    );
+  }
+
+  RangeRepSideMetrics? _rangeRepMetricsForSide(
+    RangeRepSide? side, {
+    required RangeRepSideMetrics leftMetrics,
+    required RangeRepSideMetrics rightMetrics,
+  }) {
+    switch (side) {
+      case RangeRepSide.left:
+        return leftMetrics;
+      case RangeRepSide.right:
+        return rightMetrics;
+      case null:
+        return null;
+    }
+  }
+
+  RangeRepSideSelection _rangeRepSideSelection(
+    ExerciseMetrics metrics, {
+    RangeRepDiagnosticsSnapshot? diagnostics,
+  }) {
     if (_engineKind != EngineKind.rangeRep) {
       return const RangeRepSideSelection(
         selectedSide: null,
@@ -1088,11 +1213,23 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       previousSide: _selectedRangeRepSide,
       lockPreviousSide: false,
     );
-    final diagnostics = _rangeRepDiagnosticsSnapshot();
+    final resolvedDiagnostics = diagnostics ?? _rangeRepDiagnosticsSnapshot();
     return _rangeRepSideStabilizer.stabilizeSelection(
       selection: selection,
       currentSide: _selectedRangeRepSide,
-      hasActiveRepContext: _isRangeRepRepContextActive(diagnostics),
+      hasActiveRepContext: _isRangeRepRepContextActive(resolvedDiagnostics),
+    );
+  }
+
+  RangeRepSideSelection _lockedRangeRepSideSelection(
+    ExerciseMetrics metrics,
+    RangeRepSide side,
+  ) {
+    return RangeRepSideSelection(
+      selectedSide: side,
+      leftMetrics: metrics.leftRangeRepMetrics,
+      rightMetrics: metrics.rightRangeRepMetrics,
+      reason: RangeRepSideSelectionReason.lockedActiveRepSide,
     );
   }
 
@@ -1100,12 +1237,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     ExerciseMetrics metrics,
     RangeRepSide frozenSide,
   ) {
-    return RangeRepSideSelection(
-      selectedSide: frozenSide,
-      leftMetrics: metrics.leftRangeRepMetrics,
-      rightMetrics: metrics.rightRangeRepMetrics,
-      reason: RangeRepSideSelectionReason.lockedActiveRepSide,
-    );
+    return _lockedRangeRepSideSelection(metrics, frozenSide);
   }
 
   RangeRepFrameAssessment _rangeRepFrameAssessment(
@@ -1428,20 +1560,43 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void handleLifecycleInterruption({String? reason}) {
-    if (_engineKind != EngineKind.rangeRep) {
+    if (_engineKind == EngineKind.rangeRep) {
+      _resetRangeRepVisibilityResyncState(
+        reason: reason ?? 'lifecycle interruption',
+        resetPoseAcceptance: true,
+        resetVisibilityPolicy: true,
+      );
+      state = state.copyWith(
+        repCount: _engine.repCount,
+        isFormBad: _engine.isFormBad,
+        lastRepScore: _engine.lastRepScore,
+        lastRepROM: _engine.maxRom,
+        feedbackMessage: _resolvedEngineFeedbackMessage(),
+        currentPhase: _engine.phaseLabel,
+      );
+      _updateDiagnosticsFromState();
       return;
     }
 
-    _resetRangeRepVisibilityResyncState(
-      reason: reason ?? 'lifecycle interruption',
-      resetPoseAcceptance: true,
-      resetVisibilityPolicy: true,
-    );
+    if (_engineKind != EngineKind.hold) {
+      return;
+    }
+
+    if (_engine is HoldInterruptionControl) {
+      (_engine as HoldInterruptionControl).endActiveHoldForInterruption();
+    }
+    _poseAcceptanceStabilizer.reset();
+    _hasAcceptedPoseForAnalysis = false;
+    _bodyLineFilter.reset();
+    _armSupportFilter.reset();
+    _legFilter.reset();
+    final holdDiagnostics = _holdDiagnosticsSnapshot();
     state = state.copyWith(
-      repCount: _engine.repCount,
-      isFormBad: _engine.isFormBad,
-      lastRepScore: _engine.lastRepScore,
-      lastRepROM: _engine.maxRom,
+      currentHoldSeconds: 0,
+      bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+      isHolding: false,
+      isHoldVisibilitySuspended: false,
+      hadHoldFormBreak: holdDiagnostics.hadFormBreak,
       feedbackMessage: _resolvedEngineFeedbackMessage(),
       currentPhase: _engine.phaseLabel,
     );
@@ -1496,11 +1651,15 @@ class _DetectedPoseFrame {
     required this.metrics,
     required this.kind,
     this.didBecomeStableTracking = false,
+    this.qualityAcceptedRangeRepSides,
+    this.preferredRangeRepSide,
   });
 
   final ExerciseMetrics metrics;
   final _PoseFrameKind kind;
   final bool didBecomeStableTracking;
+  final Set<RangeRepSide>? qualityAcceptedRangeRepSides;
+  final RangeRepSide? preferredRangeRepSide;
 }
 
 class _SelectedPoseCandidate {

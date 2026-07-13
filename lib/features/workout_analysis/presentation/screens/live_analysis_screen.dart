@@ -8,6 +8,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/engine_kind.dart';
+import '../../application/hold_session_metrics_collector.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
@@ -48,11 +49,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   double _bestScore = 0;
   int _formWarningCount = 0;
   bool _previousFormBad = false;
-  double _lastObservedHoldSeconds = 0;
-  double _totalHoldSeconds = 0;
-  double _bestHoldSeconds = 0;
-  int _formBreakCount = 0;
-  bool _previousHoldFormBreak = false;
+  final HoldSessionMetricsCollector _holdSessionCollector =
+      HoldSessionMetricsCollector();
   final List<WorkoutRep> _completedWorkoutReps = <WorkoutRep>[];
   bool _isFinishingSession = false;
   bool _isRecoveringCameraRefreshInFlight = false;
@@ -121,11 +119,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _bestScore = 0;
     _formWarningCount = 0;
     _previousFormBad = false;
-    _lastObservedHoldSeconds = 0;
-    _totalHoldSeconds = 0;
-    _bestHoldSeconds = 0;
-    _formBreakCount = 0;
-    _previousHoldFormBreak = false;
+    _holdSessionCollector.reset();
     _completedWorkoutReps.clear();
     _isFinishingSession = false;
     ref.read(completedSessionProvider.notifier).state = null;
@@ -154,25 +148,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       _formWarningCount += 1;
     }
 
-    if (next.isHolding) {
-      final holdDelta = next.currentHoldSeconds - _lastObservedHoldSeconds;
-      if (holdDelta > 0) {
-        _totalHoldSeconds += holdDelta;
-      }
-    }
-
-    if (next.bestHoldSeconds > _bestHoldSeconds) {
-      _bestHoldSeconds = next.bestHoldSeconds;
-    }
-
-    if (!_previousHoldFormBreak && next.hadHoldFormBreak) {
-      _formBreakCount += 1;
-    }
+    _holdSessionCollector.collect(next);
 
     _lastObservedRepCount = next.repCount;
     _previousFormBad = next.isFormBad;
-    _lastObservedHoldSeconds = next.isHolding ? next.currentHoldSeconds : 0;
-    _previousHoldFormBreak = next.hadHoldFormBreak;
   }
 
   WorkoutRep? _collectCompletedWorkoutRep({
@@ -425,9 +404,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       validReps: isHoldAnalysis ? 0 : _validRepCount(),
       invalidReps: isHoldAnalysis ? 0 : _invalidRepCount(),
       formWarningCount: isHoldAnalysis ? 0 : _formWarningCount,
-      totalHoldSeconds: _totalHoldSeconds,
-      bestHoldSeconds: _bestHoldSeconds,
-      formBreakCount: _formBreakCount,
+      totalHoldSeconds: _holdSessionCollector.totalHoldSeconds,
+      bestHoldSeconds: _holdSessionCollector.bestHoldSeconds,
+      formBreakCount: _holdSessionCollector.formBreakCount,
       reps: persistedReps,
     );
 
