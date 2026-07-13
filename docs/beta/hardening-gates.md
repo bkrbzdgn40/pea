@@ -7,7 +7,7 @@ Bu belge guncel kapi durumudur. `hardening-baseline.md` tarihsel snapshot olarak
 | G0 Baseline ve freeze | PASSED | `docs/beta/hardening-baseline.md`, support matrisi ve feature-freeze kontrati | Korunmali |
 | G1 Security CI | PASSED | Merge `45b883bcd2302c68aea65f2b2b3bb7613bfcc88d`; main run `29186161518`; Java 21, Node 22, Firebase CLI 15.17.0; 17 passed, 0 skipped | Her main run'da korunmali |
 | G2 Measurement contract | PASSED | PR #8, merge `2f760e523ffe598817edad932e13e7b731caaa47` | Korunmali |
-| G3 Testable runtime | IN_PROGRESS | WorkoutController metrics-processing seam ve diagnostics controller testleri; range-rep neutral arming/reacquisition gate implementasyonu tamamlandi | Runtime yolunda cihaz yeniden dogrulamasi ve occlusion/lifecycle senaryolari |
+| G3 Testable runtime | IN_PROGRESS | Task 06A merge `da6431a3048278c419c917e527c74fb5ed4216e9`; implementation PASSED; automated tests PASSED; CI PASSED; manual USB device verification PASSED | Task 06B cihaz yeniden dogrulamasi ve occlusion/pose-quality senaryolari |
 | G4 Observability | IN_PROGRESS | Beta Diagnostics v0 accumulator ve controller event entegrasyonu; debug/profile diagnostics paneli, canli snapshot ve privacy-minimized JSON clipboard export; profile artifact commit SHA injection testi ve manuel build workflow kontrati | Main workflow run artifact'inin indirilmesi ve cihazda SHA eslesmesinin dogrulanmasi |
 | G5 Reproducible beta build | IN_PROGRESS | Manuel profile APK workflow'u, Flutter 3.41.2 ve Java 17 pin'i, APK signature verification, SHA-256 ve build metadata | Workflow main uzerinde calistirilmali; artifact indirilmeli; checksum, signature ve diagnostics SHA eslesmesi dogrulanmali |
 | G6 Device baseline | NOT_STARTED | G2-G5 on kosullari acik degil; range-rep neutral arming fix'i icin cihaz yeniden dogrulamasi bekleniyor | On kosullar sonrasi E0 |
@@ -30,7 +30,12 @@ Yalniz `PASSED`, `IN_PROGRESS`, `BLOCKED`, `NOT_STARTED` ve `FAILED` kullanilir.
 
 - Finding: Range-rep session PEAK pozisyonunda baslatildiginda neutral geri donus tek basina rep sayilabiliyordu.
 - Fix: Range-rep neutral arming/reacquisition gate.
-- Durum: implementation complete; device re-verification pending.
+- Durum:
+  - Implementation: PASSED
+  - Automated tests: PASSED
+  - CI: PASSED
+  - Manual USB device verification: PASSED
+  - Kanit: merge `da6431a3048278c419c917e527c74fb5ed4216e9`
 
 Required device verification:
 
@@ -39,6 +44,11 @@ Required device verification:
 - PEAK resync -> rise -> 0 rep
 - pause/resume PEAK -> rise -> 0 rep
 
-Separate follow-up:
+## Device Finding: Task 06B pose-quality ve brief occlusion
 
-- Pose detector confidence ve false-positive pose rejection isi ayri Task 06B kapsaminda kalir.
+- Finding: Low-resolution detector output can contain false-positive poses.
+- Finding: The current 450 ms / 4-frame visibility resync is too aggressive for a roughly 1-second brief occlusion.
+- Durum:
+  - implementation complete
+  - automated verification complete
+  - device verification pending

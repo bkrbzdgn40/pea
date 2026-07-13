@@ -318,6 +318,80 @@ void main() {
       expect(engine.lastRepScore, greaterThanOrEqualTo(0.0));
     });
   });
+
+  group('RangeRepEngine brief visibility gap control', () {
+    test('1000 ms PEAK gap resumes safely and preserves the rep', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
+
+      engine.beginBriefVisibilityGap();
+      clock.advance(const Duration(milliseconds: 1000));
+
+      final resume = engine.resumeAfterBriefVisibilityGap(_frame(90, 60));
+      engine.update(_frame(90, 60));
+
+      _confirmTransition(clock, engine, angle: 110);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(resume.isCompatible, isTrue);
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('1000 ms unseen neutral return is incompatible', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
+
+      engine.beginBriefVisibilityGap();
+      clock.advance(const Duration(milliseconds: 1000));
+
+      final resume = engine.resumeAfterBriefVisibilityGap(_frame(170, 60));
+
+      expect(resume.isCompatible, isFalse);
+    });
+
+    test('beginBriefVisibilityGap clears a pending transition', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      engine.update(_frame(140, 60));
+
+      expect(engine.diagnosticsSnapshot.hasPendingTransition, isTrue);
+
+      engine.beginBriefVisibilityGap();
+
+      expect(engine.diagnosticsSnapshot.hasPendingTransition, isFalse);
+    });
+
+    test('brief gap duration is excluded from active phase timing', () {
+      final gapClock = _TestClock();
+      final gapEngine = RangeRepEngine(
+        config: _squatConfig(),
+        now: gapClock.now,
+      );
+      _completeRepWithBriefDescendingGap(gapClock, gapEngine);
+
+      expect(gapEngine.repCount, 1);
+      expect(
+        gapEngine.lastDescentTime.inMilliseconds,
+        inInclusiveRange(400, 700),
+      );
+    });
+  });
 }
 
 const Duration _transitionConfirmationWindow = Duration(milliseconds: 81);
@@ -355,6 +429,34 @@ void _completeSquatRepAfterArming(
     engine,
     angle: 170,
     backAngle: repBackAngle,
+    confirmationWindow: _neutralConfirmationWindow,
+  );
+}
+
+void _completeRepWithBriefDescendingGap(
+  _TestClock clock,
+  RangeRepEngine engine,
+) {
+  _acquireNeutral(clock, engine);
+  engine.update(_frame(140, 60));
+  clock.advance(_transitionConfirmationWindow);
+  engine.update(_frame(140, 60));
+  clock.advance(const Duration(milliseconds: 200));
+  engine.update(_frame(120, 60));
+  engine.beginBriefVisibilityGap();
+  clock.advance(const Duration(milliseconds: 1000));
+  final resume = engine.resumeAfterBriefVisibilityGap(_frame(120, 60));
+  expect(resume.isCompatible, isTrue);
+  engine.update(_frame(120, 60));
+  clock.advance(const Duration(milliseconds: 200));
+  engine.update(_frame(90, 60));
+  clock.advance(_transitionConfirmationWindow);
+  engine.update(_frame(90, 60));
+  _confirmTransition(clock, engine, angle: 110);
+  _confirmTransition(
+    clock,
+    engine,
+    angle: 170,
     confirmationWindow: _neutralConfirmationWindow,
   );
 }

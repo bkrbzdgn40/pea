@@ -28,10 +28,22 @@ class WorkoutDiagnosticsSnapshot {
     required this.reentrantDropCount,
     required this.converterDropCount,
     required this.noPoseFrameCount,
+    this.detectedPoseFrameCount = 0,
+    this.acceptedPoseFrameCount = 0,
+    this.rejectedPoseFrameCount = 0,
+    this.lowConfidencePoseFrameCount = 0,
+    this.invalidPoseGeometryFrameCount = 0,
     required this.multiPoseFrameCount,
     required this.maxPoseCount,
     required this.analysisExceptionCount,
     required this.resyncCount,
+    this.poseReacquisitionCount = 0,
+    this.briefOcclusionCount = 0,
+    this.briefOcclusionRecoveryCount = 0,
+    this.briefOcclusionAbortCount = 0,
+    this.lastPoseRejectionReason,
+    this.currentPoseQualityStatus = 'stable',
+    this.currentVisibilityStatus = 'stable',
     required this.sideSwitchCount,
     required this.activeRepSideSwitchCount,
     required this.currentSelectedSide,
@@ -62,10 +74,22 @@ class WorkoutDiagnosticsSnapshot {
   final int reentrantDropCount;
   final int converterDropCount;
   final int noPoseFrameCount;
+  final int detectedPoseFrameCount;
+  final int acceptedPoseFrameCount;
+  final int rejectedPoseFrameCount;
+  final int lowConfidencePoseFrameCount;
+  final int invalidPoseGeometryFrameCount;
   final int multiPoseFrameCount;
   final int maxPoseCount;
   final int analysisExceptionCount;
   final int resyncCount;
+  final int poseReacquisitionCount;
+  final int briefOcclusionCount;
+  final int briefOcclusionRecoveryCount;
+  final int briefOcclusionAbortCount;
+  final String? lastPoseRejectionReason;
+  final String currentPoseQualityStatus;
+  final String currentVisibilityStatus;
   final int sideSwitchCount;
   final int activeRepSideSwitchCount;
   final String? currentSelectedSide;
@@ -96,10 +120,22 @@ class WorkoutDiagnosticsSnapshot {
     'reentrant_drop_count': reentrantDropCount,
     'converter_drop_count': converterDropCount,
     'no_pose_frame_count': noPoseFrameCount,
+    'detected_pose_frame_count': detectedPoseFrameCount,
+    'accepted_pose_frame_count': acceptedPoseFrameCount,
+    'rejected_pose_frame_count': rejectedPoseFrameCount,
+    'low_confidence_pose_frame_count': lowConfidencePoseFrameCount,
+    'invalid_pose_geometry_frame_count': invalidPoseGeometryFrameCount,
     'multi_pose_frame_count': multiPoseFrameCount,
     'max_pose_count': maxPoseCount,
     'analysis_exception_count': analysisExceptionCount,
     'resync_count': resyncCount,
+    'pose_reacquisition_count': poseReacquisitionCount,
+    'brief_occlusion_count': briefOcclusionCount,
+    'brief_occlusion_recovery_count': briefOcclusionRecoveryCount,
+    'brief_occlusion_abort_count': briefOcclusionAbortCount,
+    'last_pose_rejection_reason': lastPoseRejectionReason,
+    'current_pose_quality_status': currentPoseQualityStatus,
+    'current_visibility_status': currentVisibilityStatus,
     'side_switch_count': sideSwitchCount,
     'active_rep_side_switch_count': activeRepSideSwitchCount,
     'current_selected_side': currentSelectedSide,
@@ -145,10 +181,22 @@ class WorkoutDiagnosticsAccumulator {
   int _reentrantDropCount = 0;
   int _converterDropCount = 0;
   int _noPoseFrameCount = 0;
+  int _detectedPoseFrameCount = 0;
+  int _acceptedPoseFrameCount = 0;
+  int _rejectedPoseFrameCount = 0;
+  int _lowConfidencePoseFrameCount = 0;
+  int _invalidPoseGeometryFrameCount = 0;
   int _multiPoseFrameCount = 0;
   int _maxPoseCount = 0;
   int _analysisExceptionCount = 0;
   int _resyncCount = 0;
+  int _poseReacquisitionCount = 0;
+  int _briefOcclusionCount = 0;
+  int _briefOcclusionRecoveryCount = 0;
+  int _briefOcclusionAbortCount = 0;
+  String? _lastPoseRejectionReason;
+  String _currentPoseQualityStatus = 'stable';
+  String _currentVisibilityStatus = 'stable';
   int _sideSwitchCount = 0;
   int _activeRepSideSwitchCount = 0;
   String? _currentSelectedSide;
@@ -169,12 +217,41 @@ class WorkoutDiagnosticsAccumulator {
   void recordConverterDrop() => _converterDropCount++;
   void recordAnalysisException() => _analysisExceptionCount++;
   void recordResync() => _resyncCount++;
+  void recordAcceptedPoseFrame() => _acceptedPoseFrameCount++;
+  void recordPoseReacquisition() => _poseReacquisitionCount++;
+  void recordBriefOcclusion() => _briefOcclusionCount++;
+  void recordBriefOcclusionRecovery() => _briefOcclusionRecoveryCount++;
+  void recordBriefOcclusionAbort() => _briefOcclusionAbortCount++;
 
   void recordPoseCount(int poseCount) {
     if (poseCount < 0) throw ArgumentError.value(poseCount, 'poseCount');
     if (poseCount == 0) _noPoseFrameCount++;
+    if (poseCount > 0) _detectedPoseFrameCount++;
     if (poseCount > 1) _multiPoseFrameCount++;
     if (poseCount > _maxPoseCount) _maxPoseCount = poseCount;
+  }
+
+  void recordRejectedPose({required String rejectionReasonCode}) {
+    _rejectedPoseFrameCount++;
+    _lastPoseRejectionReason = rejectionReasonCode;
+  }
+
+  void recordLowConfidencePose() => _lowConfidencePoseFrameCount++;
+
+  void recordInvalidPoseGeometry() => _invalidPoseGeometryFrameCount++;
+
+  void updatePoseQualityStatus({
+    required String status,
+    String? lastRejectionReason,
+  }) {
+    _currentPoseQualityStatus = status;
+    if (lastRejectionReason != null) {
+      _lastPoseRejectionReason = lastRejectionReason;
+    }
+  }
+
+  void updateVisibilityStatus(String status) {
+    _currentVisibilityStatus = status;
   }
 
   /// The first non-null side is an assignment, not a switch. Repeating a side
@@ -233,7 +310,7 @@ class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 1,
+      schemaVersion: 2,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -247,10 +324,22 @@ class WorkoutDiagnosticsAccumulator {
       reentrantDropCount: _reentrantDropCount,
       converterDropCount: _converterDropCount,
       noPoseFrameCount: _noPoseFrameCount,
+      detectedPoseFrameCount: _detectedPoseFrameCount,
+      acceptedPoseFrameCount: _acceptedPoseFrameCount,
+      rejectedPoseFrameCount: _rejectedPoseFrameCount,
+      lowConfidencePoseFrameCount: _lowConfidencePoseFrameCount,
+      invalidPoseGeometryFrameCount: _invalidPoseGeometryFrameCount,
       multiPoseFrameCount: _multiPoseFrameCount,
       maxPoseCount: _maxPoseCount,
       analysisExceptionCount: _analysisExceptionCount,
       resyncCount: _resyncCount,
+      poseReacquisitionCount: _poseReacquisitionCount,
+      briefOcclusionCount: _briefOcclusionCount,
+      briefOcclusionRecoveryCount: _briefOcclusionRecoveryCount,
+      briefOcclusionAbortCount: _briefOcclusionAbortCount,
+      lastPoseRejectionReason: _lastPoseRejectionReason,
+      currentPoseQualityStatus: _currentPoseQualityStatus,
+      currentVisibilityStatus: _currentVisibilityStatus,
       sideSwitchCount: _sideSwitchCount,
       activeRepSideSwitchCount: _activeRepSideSwitchCount,
       currentSelectedSide: _currentSelectedSide,
@@ -281,10 +370,22 @@ class WorkoutDiagnosticsAccumulator {
     _reentrantDropCount = 0;
     _converterDropCount = 0;
     _noPoseFrameCount = 0;
+    _detectedPoseFrameCount = 0;
+    _acceptedPoseFrameCount = 0;
+    _rejectedPoseFrameCount = 0;
+    _lowConfidencePoseFrameCount = 0;
+    _invalidPoseGeometryFrameCount = 0;
     _multiPoseFrameCount = 0;
     _maxPoseCount = 0;
     _analysisExceptionCount = 0;
     _resyncCount = 0;
+    _poseReacquisitionCount = 0;
+    _briefOcclusionCount = 0;
+    _briefOcclusionRecoveryCount = 0;
+    _briefOcclusionAbortCount = 0;
+    _lastPoseRejectionReason = null;
+    _currentPoseQualityStatus = 'stable';
+    _currentVisibilityStatus = 'stable';
     _sideSwitchCount = 0;
     _activeRepSideSwitchCount = 0;
     _currentSelectedSide = null;

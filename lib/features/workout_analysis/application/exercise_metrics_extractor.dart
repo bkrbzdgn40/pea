@@ -6,6 +6,7 @@ import '../../../../core/utils/angle_calculator.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
+import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -16,6 +17,8 @@ class ExerciseMetricsExtractor {
     supportedPhases: const <RangeRepPhase>{},
     supportedSignals: const <RangeRepSignal>{},
   );
+  static const ExerciseLandmarkRequirements _requirements =
+      ExerciseLandmarkRequirements();
 
   ExerciseMetrics extract(
     Pose pose,
@@ -107,38 +110,13 @@ class ExerciseMetricsExtractor {
     final requiresFormMetric = rangeRepContract.supportsSignal(
       RangeRepSignal.formMetric,
     );
-    final requiredLandmarks = <PoseLandmarkType>{};
-    if (requiresPrimaryMetric) {
-      requiredLandmarks.addAll(<PoseLandmarkType>{
-        _landmarkTypeForSide(config.joint1, side),
-        _landmarkTypeForSide(config.primaryJoint, side),
-        _landmarkTypeForSide(config.joint2, side),
-      });
-    }
-    if (requiresFormMetric) {
-      _addRequiredLandmarksForDefinition(
-        requiredLandmarks,
-        _formMetricDefinition(config),
-        config,
-        side: side,
-      );
-    }
-
-    for (final signal in const <RangeRepSignal>[
-      RangeRepSignal.postureAngle,
-      RangeRepSignal.depthMetric,
-      RangeRepSignal.alignmentMetric,
-      RangeRepSignal.stabilityMetric,
-      RangeRepSignal.endRangeMetric,
-      RangeRepSignal.bottomControlMetric,
-    ]) {
-      _addRequiredLandmarksForDefinition(
-        requiredLandmarks,
-        _configuredRangeRepSignalDefinition(config, rangeRepContract, signal),
-        config,
-        side: side,
-      );
-    }
+    final requirementSet = _requirements.resolve(
+      config: config,
+      engineKind: EngineKind.rangeRep,
+      rangeRepContract: rangeRepContract,
+      side: side,
+    );
+    final requiredLandmarks = requirementSet.requiredLandmarks;
     final observedLandmarks = requiredLandmarks
         .where((landmarkType) => pose.landmarks[landmarkType] != null)
         .length;
@@ -342,38 +320,7 @@ class ExerciseMetricsExtractor {
     PoseLandmarkType landmarkType,
     RangeRepSide side,
   ) {
-    if (side == RangeRepSide.left) {
-      return landmarkType;
-    }
-
-    switch (landmarkType) {
-      case PoseLandmarkType.leftShoulder:
-        return PoseLandmarkType.rightShoulder;
-      case PoseLandmarkType.leftElbow:
-        return PoseLandmarkType.rightElbow;
-      case PoseLandmarkType.leftWrist:
-        return PoseLandmarkType.rightWrist;
-      case PoseLandmarkType.leftHip:
-        return PoseLandmarkType.rightHip;
-      case PoseLandmarkType.leftKnee:
-        return PoseLandmarkType.rightKnee;
-      case PoseLandmarkType.leftAnkle:
-        return PoseLandmarkType.rightAnkle;
-      case PoseLandmarkType.rightShoulder:
-        return PoseLandmarkType.leftShoulder;
-      case PoseLandmarkType.rightElbow:
-        return PoseLandmarkType.leftElbow;
-      case PoseLandmarkType.rightWrist:
-        return PoseLandmarkType.leftWrist;
-      case PoseLandmarkType.rightHip:
-        return PoseLandmarkType.leftHip;
-      case PoseLandmarkType.rightKnee:
-        return PoseLandmarkType.leftKnee;
-      case PoseLandmarkType.rightAnkle:
-        return PoseLandmarkType.leftAnkle;
-      default:
-        return landmarkType;
-    }
+    return _requirements.landmarkTypeForSide(landmarkType, side);
   }
 
   bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {
@@ -399,35 +346,6 @@ class ExerciseMetricsExtractor {
 
   RangeRepSignalDefinition? _formMetricDefinition(ExerciseConfig config) {
     return config.resolvedRangeRepSignals?.postureAngle;
-  }
-
-  void _addRequiredLandmarksForDefinition(
-    Set<PoseLandmarkType> requiredLandmarks,
-    RangeRepSignalDefinition? definition,
-    ExerciseConfig config, {
-    required RangeRepSide side,
-  }) {
-    if (definition == null) {
-      return;
-    }
-
-    final angle = definition.angle;
-    if (angle != null) {
-      requiredLandmarks.addAll(<PoseLandmarkType>{
-        _landmarkTypeForSide(angle.first, side),
-        _landmarkTypeForSide(angle.middle, side),
-        _landmarkTypeForSide(angle.last, side),
-      });
-      return;
-    }
-
-    if (definition.source == RangeRepSignalSource.primaryMetric) {
-      requiredLandmarks.addAll(<PoseLandmarkType>{
-        _landmarkTypeForSide(config.joint1, side),
-        _landmarkTypeForSide(config.primaryJoint, side),
-        _landmarkTypeForSide(config.joint2, side),
-      });
-    }
   }
 
   double? _extractConfiguredRangeRepSignalValue(

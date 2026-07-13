@@ -140,6 +140,13 @@ class _MutableRangeRepPhaseQuality {
     _completedDurationMs = durationMs < 0 ? 0 : durationMs;
   }
 
+  void shiftStartedAt(Duration delta) {
+    if (_startedAt == null || delta == Duration.zero) {
+      return;
+    }
+    _startedAt = _startedAt!.add(delta);
+  }
+
   RangeRepPhaseQualitySnapshot snapshot({
     required DateTime now,
     required bool isActive,
@@ -184,6 +191,7 @@ class RangeRepEngine
         RangeRepDiagnostics,
         RangeRepValidationHook,
         RangeRepResyncControl,
+        RangeRepVisibilityGapControl,
         RangeRepFeedbackSource {
   final ExerciseConfig config;
   final DateTime Function() _now;
@@ -209,6 +217,9 @@ class RangeRepEngine
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
   DateTime? _ascentStartTime;
+  DateTime? _briefVisibilityGapStartedAt;
+  MovementPhase? _briefVisibilityGapFrozenPhase;
+  bool _briefVisibilityGapWasArmed = false;
 
   Duration lastDescentTime = Duration.zero;
   Duration lastAscentTime = Duration.zero;
@@ -736,6 +747,8 @@ class RangeRepEngine
         return 'Hazir!';
       case RangeRepFeedbackCode.waitForBody:
         return 'Vucut Bekleniyor...';
+      case RangeRepFeedbackCode.bodyNotVisible:
+        return 'Vucut net gorunmuyor.';
       case RangeRepFeedbackCode.descend:
         return 'Asagi in...';
       case RangeRepFeedbackCode.ascend:
@@ -926,6 +939,54 @@ class RangeRepEngine
   }
 
   @override
+  void beginBriefVisibilityGap() {
+    if (_briefVisibilityGapStartedAt != null) {
+      return;
+    }
+
+    _briefVisibilityGapStartedAt = _now();
+    _briefVisibilityGapFrozenPhase = state;
+    _briefVisibilityGapWasArmed = _isArmed;
+    _clearPendingTransition();
+  }
+
+  @override
+  VisibilityGapResumeResult resumeAfterBriefVisibilityGap(AnalysisFrame frame) {
+    final gapStartedAt = _briefVisibilityGapStartedAt;
+    if (gapStartedAt == null) {
+      return const VisibilityGapResumeResult(
+        disposition: VisibilityGapResumeDisposition.noGap,
+      );
+    }
+
+    final frozenPhase = _briefVisibilityGapFrozenPhase ?? state;
+    final isCompatible = _isFrameCompatibleWithFrozenPhase(
+      frame.primaryMetric,
+      frozenPhase: frozenPhase,
+      wasArmed: _briefVisibilityGapWasArmed,
+    );
+    if (!isCompatible) {
+      _briefVisibilityGapStartedAt = null;
+      _briefVisibilityGapFrozenPhase = null;
+      _briefVisibilityGapWasArmed = false;
+      return const VisibilityGapResumeResult(
+        disposition: VisibilityGapResumeDisposition.incompatible,
+        reason: 'phase incompatible recovery',
+      );
+    }
+
+    final gapDuration = _now().difference(gapStartedAt);
+    _shiftActivePhaseTiming(gapDuration);
+    _briefVisibilityGapStartedAt = null;
+    _briefVisibilityGapFrozenPhase = null;
+    _briefVisibilityGapWasArmed = false;
+
+    return const VisibilityGapResumeResult(
+      disposition: VisibilityGapResumeDisposition.compatible,
+    );
+  }
+
+  @override
   void clearActiveRepContext({String? reason}) {
     _disarm();
   }
@@ -943,6 +1004,9 @@ class RangeRepEngine
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
+    _briefVisibilityGapStartedAt = null;
+    _briefVisibilityGapFrozenPhase = null;
+    _briefVisibilityGapWasArmed = false;
     _lastCompletedPhaseQualityTelemetry = null;
     _disarm();
   }
@@ -955,7 +1019,62 @@ class RangeRepEngine
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
+    _briefVisibilityGapStartedAt = null;
+    _briefVisibilityGapFrozenPhase = null;
+    _briefVisibilityGapWasArmed = false;
     _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
+  }
+
+  bool _isFrameCompatibleWithFrozenPhase(
+    double primaryMetric, {
+    required MovementPhase frozenPhase,
+    required bool wasArmed,
+  }) {
+    if (!wasArmed) {
+      return primaryMetric > _neutralReturnThreshold;
+    }
+
+    switch (frozenPhase) {
+      case MovementPhase.neutral:
+        return primaryMetric > _neutralReturnThreshold;
+      case MovementPhase.descending:
+        return primaryMetric >= _peakEntryThreshold &&
+            primaryMetric < _neutralReturnThreshold;
+      case MovementPhase.peak:
+        return primaryMetric <= _peakExitThreshold;
+      case MovementPhase.ascending:
+        return primaryMetric > _peakExitThreshold &&
+            primaryMetric < _neutralReturnThreshold;
+    }
+  }
+
+  void _shiftActivePhaseTiming(Duration gapDuration) {
+    if (gapDuration <= Duration.zero) {
+      return;
+    }
+
+    switch (state) {
+      case MovementPhase.neutral:
+        break;
+      case MovementPhase.descending:
+        if (_descentStartTime != null) {
+          _descentStartTime = _descentStartTime!.add(gapDuration);
+        }
+        _descendingPhaseQuality.shiftStartedAt(gapDuration);
+        break;
+      case MovementPhase.peak:
+        if (_peakStartTime != null) {
+          _peakStartTime = _peakStartTime!.add(gapDuration);
+        }
+        _peakPhaseQuality.shiftStartedAt(gapDuration);
+        break;
+      case MovementPhase.ascending:
+        if (_ascentStartTime != null) {
+          _ascentStartTime = _ascentStartTime!.add(gapDuration);
+        }
+        _ascendingPhaseQuality.shiftStartedAt(gapDuration);
+        break;
+    }
   }
 }

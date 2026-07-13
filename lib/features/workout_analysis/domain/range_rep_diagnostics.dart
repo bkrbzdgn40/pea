@@ -1,4 +1,5 @@
 import 'models/rep_score_breakdown.dart';
+import 'models/analysis_frame.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
 const String rangeRepAwaitNeutralPendingTransitionLabel = 'await neutral';
@@ -146,6 +147,25 @@ abstract class RangeRepValidationHook {
 /// active repetition context while preserving session-level history.
 abstract class RangeRepResyncControl {
   void clearActiveRepContext({String? reason});
+}
+
+enum VisibilityGapResumeDisposition { compatible, incompatible, noGap }
+
+class VisibilityGapResumeResult {
+  const VisibilityGapResumeResult({required this.disposition, this.reason});
+
+  final VisibilityGapResumeDisposition disposition;
+  final String? reason;
+
+  bool get isCompatible =>
+      disposition == VisibilityGapResumeDisposition.compatible ||
+      disposition == VisibilityGapResumeDisposition.noGap;
+}
+
+abstract class RangeRepVisibilityGapControl {
+  void beginBriefVisibilityGap();
+
+  VisibilityGapResumeResult resumeAfterBriefVisibilityGap(AnalysisFrame frame);
 }
 
 extension RangeRepDiagnosticsSnapshotX on RangeRepDiagnosticsSnapshot {

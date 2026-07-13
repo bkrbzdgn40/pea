@@ -19,6 +19,8 @@ class RangeRepBlockedStateBuilder {
     required double cameraFps,
     required double analysisFps,
     required String? selectedRangeRepSide,
+    String? feedbackMessageOverride,
+    String currentPhase = 'WAITING',
     required WorkoutCalibrationMetrics Function(
       RangeRepBlockedPreviewSnapshot preview,
     )
@@ -56,8 +58,8 @@ class RangeRepBlockedStateBuilder {
       bestHoldSeconds: currentState.bestHoldSeconds,
       isHolding: currentState.isHolding,
       hadHoldFormBreak: currentState.hadHoldFormBreak,
-      feedbackMessage: assessment.feedbackMessage,
-      currentPhase: 'WAITING',
+      feedbackMessage: feedbackMessageOverride ?? assessment.feedbackMessage,
+      currentPhase: currentPhase,
       cameraFps: cameraFps,
       analysisFps: analysisFps,
       calibrationMetrics: calibrationMetricsBuilder(preview),

@@ -84,7 +84,7 @@ void main() {
         now: base.add(Duration(milliseconds: index * 200)),
       );
     }
-    expect(controller.diagnosticsSnapshot().resyncCount, 1);
+    expect(controller.diagnosticsSnapshot().resyncCount, 0);
     final stateBeforeReset = container.read(workoutControllerProvider);
 
     final resetAt = DateTime.utc(2030, 1, 2);
@@ -130,69 +130,70 @@ void main() {
     expect(snapshot.currentPhase, rangeRepAwaitNeutralPhaseLabel);
   });
 
-  testWidgets('visibility resync disarms a PEAK recovery and preserves 0 rep', (
-    tester,
-  ) async {
-    final timeline = _ControllerTimeline();
+  testWidgets(
+    'long visibility gap disarms a PEAK recovery and preserves 0 rep',
+    (tester) async {
+      final timeline = _ControllerTimeline();
 
-    await tester.runAsync(() async {
-      await _driveUntilPhase(
-        container,
-        controller,
-        timeline,
-        primaryAngle: 170,
-        expectedPhase: 'NEUTRAL',
-      );
-      await _driveUntilPhase(
-        container,
-        controller,
-        timeline,
-        primaryAngle: 140,
-        expectedPhase: 'DESCENDING',
-      );
-      await _driveUntilPhase(
-        container,
-        controller,
-        timeline,
-        primaryAngle: 90,
-        expectedPhase: 'PEAK',
-      );
+      await tester.runAsync(() async {
+        await _driveUntilPhase(
+          container,
+          controller,
+          timeline,
+          primaryAngle: 170,
+          expectedPhase: 'NEUTRAL',
+        );
+        await _driveUntilPhase(
+          container,
+          controller,
+          timeline,
+          primaryAngle: 140,
+          expectedPhase: 'DESCENDING',
+        );
+        await _driveUntilPhase(
+          container,
+          controller,
+          timeline,
+          primaryAngle: 90,
+          expectedPhase: 'PEAK',
+        );
 
-      controller.processExerciseMetricsForTesting(
-        metrics: const ExerciseMetrics.noPose(),
-        now: timeline.advance(const Duration(milliseconds: 100)),
-      );
-      controller.processExerciseMetricsForTesting(
-        metrics: const ExerciseMetrics.noPose(),
-        now: timeline.advance(const Duration(milliseconds: 100)),
-      );
-      controller.processExerciseMetricsForTesting(
-        metrics: const ExerciseMetrics.noPose(),
-        now: timeline.advance(const Duration(milliseconds: 100)),
-      );
-      controller.processExerciseMetricsForTesting(
-        metrics: const ExerciseMetrics.noPose(),
-        now: timeline.advance(const Duration(milliseconds: 100)),
-      );
+        controller.processExerciseMetricsForTesting(
+          metrics: const ExerciseMetrics.noPose(),
+          now: timeline.advance(const Duration(milliseconds: 500)),
+        );
+        controller.processExerciseMetricsForTesting(
+          metrics: const ExerciseMetrics.noPose(),
+          now: timeline.advance(const Duration(milliseconds: 500)),
+        );
+        controller.processExerciseMetricsForTesting(
+          metrics: const ExerciseMetrics.noPose(),
+          now: timeline.advance(const Duration(milliseconds: 500)),
+        );
+        controller.processExerciseMetricsForTesting(
+          metrics: const ExerciseMetrics.noPose(),
+          now: timeline.advance(const Duration(milliseconds: 500)),
+        );
 
-      await _pumpFrames(controller, timeline, primaryAngle: 90);
-    });
+        await _pumpFrames(controller, timeline, primaryAngle: 90);
+      });
 
-    final resyncedSnapshot = controller.diagnosticsSnapshot();
-    expect(resyncedSnapshot.resyncCount, 1);
-    expect(resyncedSnapshot.analysisExceptionCount, 0);
+      final resyncedSnapshot = controller.diagnosticsSnapshot();
+      expect(resyncedSnapshot.resyncCount, 1);
+      expect(resyncedSnapshot.analysisExceptionCount, 0);
 
-    var state = container.read(workoutControllerProvider);
-    expect(state.currentPhase, rangeRepAwaitNeutralPhaseLabel);
-    expect(state.repCount, 0);
+      var state = container.read(workoutControllerProvider);
+      expect(state.currentPhase, rangeRepAwaitNeutralPhaseLabel);
+      expect(state.repCount, 0);
 
-    await tester.runAsync(() async {
-      await _pumpFrames(controller, timeline, primaryAngle: 170);
-    });
+      await tester.runAsync(() async {
+        await _pumpFrames(controller, timeline, primaryAngle: 170);
+      });
 
-    state = container.read(workoutControllerProvider);
-    expect(state.repCount, 0);
-  });
+      state = container.read(workoutControllerProvider);
+      expect(state.repCount, 0);
+    },
+  );
 }
 
 ExerciseMetrics _validMetrics({

@@ -161,6 +161,31 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                 value: snapshot.noPoseFrameCount.toString(),
                               ),
                               _DiagnosticsRow(
+                                label: 'Detected pose frames',
+                                value: snapshot.detectedPoseFrameCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Accepted pose frames',
+                                value: snapshot.acceptedPoseFrameCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Rejected pose frames',
+                                value: snapshot.rejectedPoseFrameCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Low-confidence rejects',
+                                value: snapshot.lowConfidencePoseFrameCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Invalid-geometry rejects',
+                                value: snapshot.invalidPoseGeometryFrameCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
                                 label: 'Multi-pose frames',
                                 value: snapshot.multiPoseFrameCount.toString(),
                               ),
@@ -176,6 +201,39 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                               _DiagnosticsRow(
                                 label: 'Resync count',
                                 value: snapshot.resyncCount.toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Pose reacquisition count',
+                                value: snapshot.poseReacquisitionCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Brief occlusion count',
+                                value: snapshot.briefOcclusionCount.toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Brief occlusion recovery count',
+                                value: snapshot.briefOcclusionRecoveryCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Brief occlusion abort count',
+                                value: snapshot.briefOcclusionAbortCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Last pose rejection',
+                                value: _formatOptionalText(
+                                  snapshot.lastPoseRejectionReason,
+                                ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Pose quality status',
+                                value: snapshot.currentPoseQualityStatus,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Visibility status',
+                                value: snapshot.currentVisibilityStatus,
                               ),
                               _DiagnosticsRow(
                                 label: 'Side switch count',
