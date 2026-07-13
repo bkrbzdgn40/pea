@@ -1,5 +1,8 @@
 import 'models/rep_score_breakdown.dart';
 
+const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
+const String rangeRepAwaitNeutralPendingTransitionLabel = 'await neutral';
+
 class RangeRepPhaseQualitySnapshot {
   const RangeRepPhaseQualitySnapshot({
     this.hasData = false,
@@ -143,4 +146,15 @@ abstract class RangeRepValidationHook {
 /// active repetition context while preserving session-level history.
 abstract class RangeRepResyncControl {
   void clearActiveRepContext({String? reason});
+}
+
+extension RangeRepDiagnosticsSnapshotX on RangeRepDiagnosticsSnapshot {
+  bool get hasRepContext =>
+      hasActiveRepPhase ||
+      (hasPendingTransition &&
+          pendingTransitionLabel != rangeRepAwaitNeutralPendingTransitionLabel);
+
+  bool get isAwaitingNeutralConfirmation =>
+      hasPendingTransition &&
+      pendingTransitionLabel == rangeRepAwaitNeutralPendingTransitionLabel;
 }

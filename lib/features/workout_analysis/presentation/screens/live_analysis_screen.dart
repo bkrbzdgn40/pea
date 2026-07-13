@@ -259,6 +259,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      ref
+          .read(workoutControllerProvider.notifier)
+          .handleLifecycleInterruption(reason: 'app lifecycle pause');
       unawaited(_setLiveAnalysisScreenAwake(false));
       // Hide preview before teardown so CameraPreview never builds a disposed controller.
       _markCameraRecovering();

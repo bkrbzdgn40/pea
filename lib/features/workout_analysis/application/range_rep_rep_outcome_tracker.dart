@@ -137,6 +137,6 @@ class RangeRepRepOutcomeTracker {
   }
 
   bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {
-    return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
+    return diagnostics.hasRepContext;
   }
 }
