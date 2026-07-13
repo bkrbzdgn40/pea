@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -12,6 +14,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 void main() {
   late ProviderContainer container;
   late WorkoutController controller;
+  late ProviderSubscription<WorkoutState> controllerSubscription;
 
   setUp(() {
     container = ProviderContainer(
@@ -22,7 +25,12 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    container.read(workoutControllerProvider);
+    controllerSubscription = container.listen<WorkoutState>(
+      workoutControllerProvider,
+      (previous, next) {},
+      fireImmediately: true,
+    );
+    addTearDown(controllerSubscription.close);
     controller = container.read(workoutControllerProvider.notifier);
   });
 
@@ -32,6 +40,7 @@ void main() {
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.analysisAttemptCount, 0);
     expect(snapshot.analysisCompletedCount, 0);
+    expect(snapshot.currentPhase, rangeRepAwaitNeutralPhaseLabel);
   });
 
   test('synthetic metrics use production post-metrics path only', () {
@@ -43,7 +52,7 @@ void main() {
     final state = container.read(workoutControllerProvider);
     final snapshot = controller.diagnosticsSnapshot();
     expect(state.currentAngle, 170);
-    expect(state.currentPhase, 'NEUTRAL');
+    expect(state.currentPhase, rangeRepAwaitNeutralPhaseLabel);
     expect(snapshot.repCount, state.repCount);
     expect(snapshot.currentPhase, state.currentPhase);
     expect(snapshot.cameraFrameCount, 0);
@@ -93,26 +102,120 @@ void main() {
     expect(snapshot.repCount, stateBeforeReset.repCount);
     expect(snapshot.currentPhase, stateBeforeReset.currentPhase);
   });
+
+  test('invalid frames cannot finish neutral arming confirmation', () async {
+    final timeline = _ControllerTimeline();
+
+    controller.processExerciseMetricsForTesting(
+      metrics: _validMetrics(primaryAngle: 170),
+      now: timeline.current,
+    );
+    controller.processExerciseMetricsForTesting(
+      metrics: const ExerciseMetrics.noPose(),
+      now: timeline.advance(const Duration(milliseconds: 10)),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 130));
+
+    controller.processExerciseMetricsForTesting(
+      metrics: _validMetrics(primaryAngle: 170),
+      now: timeline.advance(const Duration(milliseconds: 130)),
+    );
+
+    final state = container.read(workoutControllerProvider);
+    final snapshot = controller.diagnosticsSnapshot();
+
+    expect(state.repCount, 0);
+    expect(state.currentPhase, rangeRepAwaitNeutralPhaseLabel);
+    expect(snapshot.currentPhase, rangeRepAwaitNeutralPhaseLabel);
+  });
+
+  testWidgets('visibility resync disarms a PEAK recovery and preserves 0 rep', (
+    tester,
+  ) async {
+    final timeline = _ControllerTimeline();
+
+    await tester.runAsync(() async {
+      await _driveUntilPhase(
+        container,
+        controller,
+        timeline,
+        primaryAngle: 170,
+        expectedPhase: 'NEUTRAL',
+      );
+      await _driveUntilPhase(
+        container,
+        controller,
+        timeline,
+        primaryAngle: 140,
+        expectedPhase: 'DESCENDING',
+      );
+      await _driveUntilPhase(
+        container,
+        controller,
+        timeline,
+        primaryAngle: 90,
+        expectedPhase: 'PEAK',
+      );
+
+      controller.processExerciseMetricsForTesting(
+        metrics: const ExerciseMetrics.noPose(),
+        now: timeline.advance(const Duration(milliseconds: 100)),
+      );
+      controller.processExerciseMetricsForTesting(
+        metrics: const ExerciseMetrics.noPose(),
+        now: timeline.advance(const Duration(milliseconds: 100)),
+      );
+      controller.processExerciseMetricsForTesting(
+        metrics: const ExerciseMetrics.noPose(),
+        now: timeline.advance(const Duration(milliseconds: 100)),
+      );
+      controller.processExerciseMetricsForTesting(
+        metrics: const ExerciseMetrics.noPose(),
+        now: timeline.advance(const Duration(milliseconds: 100)),
+      );
+
+      await _pumpFrames(controller, timeline, primaryAngle: 90);
+    });
+
+    final resyncedSnapshot = controller.diagnosticsSnapshot();
+    expect(resyncedSnapshot.resyncCount, 1);
+    expect(resyncedSnapshot.analysisExceptionCount, 0);
+
+    var state = container.read(workoutControllerProvider);
+    expect(state.currentPhase, rangeRepAwaitNeutralPhaseLabel);
+    expect(state.repCount, 0);
+
+    await tester.runAsync(() async {
+      await _pumpFrames(controller, timeline, primaryAngle: 170);
+    });
+
+    state = container.read(workoutControllerProvider);
+    expect(state.repCount, 0);
+  });
 }
 
-ExerciseMetrics _validMetrics({required double primaryAngle}) {
+ExerciseMetrics _validMetrics({
+  required double primaryAngle,
+  double formMetric = 170,
+}) {
   final left = RangeRepSideMetrics(
     side: RangeRepSide.left,
     primaryAngle: primaryAngle,
-    formMetric: 170,
+    formMetric: formMetric,
     hasPrimaryAngle: true,
     hasFormMetric: true,
     sideConfidence: 1,
     formSignals: RangeRepFormSignals(
-      torsoAngle: 170,
+      torsoAngle: formMetric,
       depthMetric: primaryAngle,
-      alignmentMetric: 170,
+      alignmentMetric: formMetric,
       lockoutMetric: primaryAngle,
     ),
   );
   return ExerciseMetrics(
     primaryAngle: primaryAngle,
-    formMetric: 170,
+    formMetric: formMetric,
     hasPrimaryAngle: true,
     hasFormMetric: true,
     hasPose: true,
@@ -141,4 +244,71 @@ ExerciseConfig _squatConfig() {
 class _FakePoseDetector implements PoseDetector {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ControllerTimeline {
+  DateTime current = DateTime.utc(2030, 1, 1);
+
+  DateTime advance(Duration duration) {
+    current = current.add(duration);
+    return current;
+  }
+}
+
+Future<void> _driveUntilPhase(
+  ProviderContainer container,
+  WorkoutController controller,
+  _ControllerTimeline timeline, {
+  required double primaryAngle,
+  required String expectedPhase,
+  double formMetric = 170,
+  int maxFrames = 12,
+  Duration frameSpacing = const Duration(milliseconds: 50),
+}) async {
+  for (var index = 0; index < maxFrames; index++) {
+    controller.processExerciseMetricsForTesting(
+      metrics: _validMetrics(
+        primaryAngle: primaryAngle,
+        formMetric: formMetric,
+      ),
+      now: timeline.current,
+    );
+    if (container.read(workoutControllerProvider).currentPhase ==
+        expectedPhase) {
+      return;
+    }
+    if (index == maxFrames - 1) {
+      break;
+    }
+    await Future<void>.delayed(frameSpacing);
+    timeline.advance(frameSpacing);
+  }
+
+  throw TestFailure(
+    'Expected phase $expectedPhase for primaryAngle $primaryAngle',
+  );
+}
+
+Future<void> _pumpFrames(
+  WorkoutController controller,
+  _ControllerTimeline timeline, {
+  required double primaryAngle,
+  double formMetric = 170,
+  int frameCount = 6,
+  Duration frameSpacing = const Duration(milliseconds: 50),
+}) async {
+  for (var index = 0; index < frameCount; index++) {
+    controller.processExerciseMetricsForTesting(
+      metrics: _validMetrics(
+        primaryAngle: primaryAngle,
+        formMetric: formMetric,
+      ),
+      now: timeline.current,
+    );
+    if (index == frameCount - 1) {
+      break;
+    }
+    await Future<void>.delayed(frameSpacing);
+    timeline.advance(frameSpacing);
+  }
 }

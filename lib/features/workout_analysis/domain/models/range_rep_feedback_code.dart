@@ -7,6 +7,7 @@ enum RangeRepFeedbackFamily { systemState, movementCue, correctiveCue }
 /// intentionally separate from UI strings, telemetry text, and persistence
 /// concerns.
 enum RangeRepFeedbackCode {
+  awaitNeutral,
   ready,
   waitForBody,
   descend,
@@ -28,6 +29,7 @@ abstract class RangeRepFeedbackSource {
 extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
   RangeRepFeedbackFamily get family {
     switch (this) {
+      case RangeRepFeedbackCode.awaitNeutral:
       case RangeRepFeedbackCode.ready:
       case RangeRepFeedbackCode.waitForBody:
         return RangeRepFeedbackFamily.systemState;
@@ -47,6 +49,8 @@ extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
 
   String get code {
     switch (this) {
+      case RangeRepFeedbackCode.awaitNeutral:
+        return 'await_neutral';
       case RangeRepFeedbackCode.ready:
         return 'ready';
       case RangeRepFeedbackCode.waitForBody:

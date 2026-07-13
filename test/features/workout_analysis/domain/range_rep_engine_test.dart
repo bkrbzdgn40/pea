@@ -1,41 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 
 void main() {
   group('RangeRepEngine squat state machine', () {
-    test('counts a completed squat rep', () {
-      final clock = _TestClock();
-      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
-
-      _confirmTransition(clock, engine, angle: 140);
-      _confirmTransition(clock, engine, angle: 90);
-      _confirmTransition(clock, engine, angle: 110);
-      _confirmTransition(
-        clock,
-        engine,
-        angle: 170,
-        confirmationWindow: const Duration(milliseconds: 101),
+    test('starts disarmed and awaits a neutral acquisition gate', () {
+      final engine = RangeRepEngine(
+        config: _squatConfig(),
+        now: _TestClock().now,
       );
 
-      expect(engine.repCount, 1);
-      expect(engine.phaseLabel, 'NEUTRAL');
-      expect(engine.lastRepScoreBreakdown, isNotNull);
+      expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
+      expect(engine.repCount, 0);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
+      expect(engine.diagnosticsSnapshot.hasActiveRepPhase, isFalse);
     });
 
-    test('does not count an aborted descent', () {
+    test('starting in PEAK does not count only the rise', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
-      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
       _confirmTransition(
         clock,
         engine,
         angle: 170,
-        confirmationWindow: const Duration(milliseconds: 101),
+        confirmationWindow: _neutralConfirmationWindow,
       );
 
       expect(engine.repCount, 0);
@@ -43,29 +37,52 @@ void main() {
       expect(engine.lastRepScoreBreakdown, isNull);
     });
 
-    test('penalizes the final score when form breaks during the rep', () {
-      final cleanClock = _TestClock();
-      final cleanEngine = RangeRepEngine(
-        config: _squatConfig(),
-        now: cleanClock.now,
-      );
-      _completeSquatRep(cleanClock, cleanEngine);
+    test('starting in DESCENDING does not count the neutral return', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
-      final violatedClock = _TestClock();
-      final violatedEngine = RangeRepEngine(
-        config: _squatConfig(),
-        now: violatedClock.now,
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
       );
-      _completeSquatRep(violatedClock, violatedEngine, repBackAngle: 40);
 
-      expect(cleanEngine.repCount, 1);
-      expect(violatedEngine.repCount, 1);
-      expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
-      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('neutral acquisition then a full rep counts exactly once', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _completeSquatRepAfterArming(clock, engine);
+
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNotNull);
+    });
+
+    test('neutral acquisition does not itself create a rep', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
     });
 
     test(
-      'clearActiveRepContext clears active rep state but keeps session rep history',
+      'clearActiveRepContext clears active rep state, keeps history, and disarms',
       () {
         final clock = _TestClock();
         final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
@@ -73,13 +90,15 @@ void main() {
         _completeSquatRep(clock, engine);
         final completedScore = engine.lastRepScore;
 
+        _acquireNeutral(clock, engine);
         _confirmTransition(clock, engine, angle: 140);
         expect(engine.phaseLabel, 'DESCENDING');
 
         engine.clearActiveRepContext(reason: 'side switch');
 
         expect(engine.repCount, 1);
-        expect(engine.phaseLabel, 'NEUTRAL');
+        expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
+        expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
         expect(engine.lastRepScore, completedScore);
         expect(engine.lastRepScoreBreakdown, isNotNull);
         expect(
@@ -88,6 +107,101 @@ void main() {
         );
       },
     );
+
+    test('resync from PEAK cancels the half rep', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
+
+      engine.clearActiveRepContext(reason: 'visibility resync');
+
+      _confirmTransition(clock, engine, angle: 90);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('a full rep after resync still works', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      _confirmTransition(clock, engine, angle: 140);
+      _confirmTransition(clock, engine, angle: 90);
+
+      engine.clearActiveRepContext(reason: 'visibility resync');
+
+      _confirmTransition(clock, engine, angle: 90);
+      _acquireNeutral(clock, engine);
+      _completeSquatRepAfterArming(clock, engine);
+
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('reset returns to the disarmed start behavior', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _completeSquatRep(clock, engine);
+
+      engine.reset();
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
+
+      _confirmTransition(clock, engine, angle: 90);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('pending neutral arming confirmation resets when neutral is lost', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      engine.update(_frame(170, 60));
+      clock.advance(const Duration(milliseconds: 50));
+      engine.update(_frame(170, 60));
+
+      expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
+      expect(engine.diagnosticsSnapshot.hasPendingTransition, isTrue);
+      expect(
+        engine.diagnosticsSnapshot.pendingTransitionLabel,
+        rangeRepAwaitNeutralPendingTransitionLabel,
+      );
+
+      engine.update(_frame(140, 60));
+      expect(engine.diagnosticsSnapshot.hasPendingTransition, isFalse);
+
+      engine.update(_frame(170, 60));
+      clock.advance(const Duration(milliseconds: 50));
+      engine.update(_frame(170, 60));
+
+      expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
+
+      clock.advance(const Duration(milliseconds: 60));
+      engine.update(_frame(170, 60));
+
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 0);
+    });
 
     test('completed rep exposes core data exactly once', () {
       final clock = _TestClock();
@@ -141,13 +255,52 @@ void main() {
         );
       },
     );
+
+    test('penalizes the final score when form breaks during the rep', () {
+      final cleanClock = _TestClock();
+      final cleanEngine = RangeRepEngine(
+        config: _squatConfig(),
+        now: cleanClock.now,
+      );
+      _completeSquatRep(cleanClock, cleanEngine);
+
+      final violatedClock = _TestClock();
+      final violatedEngine = RangeRepEngine(
+        config: _squatConfig(),
+        now: violatedClock.now,
+      );
+      _completeSquatRep(violatedClock, violatedEngine, repBackAngle: 40);
+
+      expect(cleanEngine.repCount, 1);
+      expect(violatedEngine.repCount, 1);
+      expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
+      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+    });
   });
 
   group('RangeRepEngine push-up state machine', () {
-    test('counts a completed push-up rep with a sane score', () {
+    test('starting at the bottom does not count only the rise', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _pushUpConfig(), now: clock.now);
 
+      _confirmTransition(clock, engine, angle: 90, backAngle: 170);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 170,
+        backAngle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
+    test('neutral acquisition then a full push-up counts once', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _pushUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 170, backAngle: 170);
       _confirmTransition(clock, engine, angle: 130, backAngle: 170);
       _confirmTransition(clock, engine, angle: 90, backAngle: 170);
       _confirmTransition(clock, engine, angle: 110, backAngle: 170);
@@ -156,7 +309,7 @@ void main() {
         engine,
         angle: 170,
         backAngle: 170,
-        confirmationWindow: const Duration(milliseconds: 101),
+        confirmationWindow: _neutralConfirmationWindow,
       );
 
       expect(engine.repCount, 1);
@@ -166,6 +319,9 @@ void main() {
     });
   });
 }
+
+const Duration _transitionConfirmationWindow = Duration(milliseconds: 81);
+const Duration _neutralConfirmationWindow = Duration(milliseconds: 101);
 
 class _TestClock {
   DateTime _current = DateTime(2026, 1, 1, 12);
@@ -182,6 +338,15 @@ void _completeSquatRep(
   RangeRepEngine engine, {
   double repBackAngle = 60,
 }) {
+  _acquireNeutral(clock, engine, backAngle: repBackAngle);
+  _completeSquatRepAfterArming(clock, engine, repBackAngle: repBackAngle);
+}
+
+void _completeSquatRepAfterArming(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  double repBackAngle = 60,
+}) {
   _confirmTransition(clock, engine, angle: 140, backAngle: repBackAngle);
   _confirmTransition(clock, engine, angle: 90, backAngle: repBackAngle);
   _confirmTransition(clock, engine, angle: 110, backAngle: repBackAngle);
@@ -190,7 +355,22 @@ void _completeSquatRep(
     engine,
     angle: 170,
     backAngle: repBackAngle,
-    confirmationWindow: const Duration(milliseconds: 101),
+    confirmationWindow: _neutralConfirmationWindow,
+  );
+}
+
+void _acquireNeutral(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  double angle = 170,
+  double backAngle = 60,
+}) {
+  _confirmTransition(
+    clock,
+    engine,
+    angle: angle,
+    backAngle: backAngle,
+    confirmationWindow: _neutralConfirmationWindow,
   );
 }
 
@@ -199,7 +379,7 @@ void _confirmTransition(
   RangeRepEngine engine, {
   required double angle,
   double backAngle = 60,
-  Duration confirmationWindow = const Duration(milliseconds: 81),
+  Duration confirmationWindow = _transitionConfirmationWindow,
 }) {
   engine.update(_frame(angle, backAngle));
   clock.advance(confirmationWindow);

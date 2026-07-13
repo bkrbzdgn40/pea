@@ -2,6 +2,8 @@ import '../../domain/models/range_rep_feedback_code.dart';
 
 String mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
   switch (code) {
+    case RangeRepFeedbackCode.awaitNeutral:
+      return 'Baslangic pozisyonuna gec.';
     case RangeRepFeedbackCode.ready:
       return 'Hazir!';
     case RangeRepFeedbackCode.waitForBody:

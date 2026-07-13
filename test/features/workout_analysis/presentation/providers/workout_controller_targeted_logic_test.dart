@@ -50,5 +50,18 @@ void main() {
 
       expect(shouldLock, isTrue);
     });
+
+    test('returns false while only neutral acquisition is pending', () {
+      final shouldLock = shouldLockRangeRepSideSelection(
+        engineKind: EngineKind.rangeRep,
+        selectedSide: RangeRepSide.left,
+        diagnostics: const RangeRepDiagnosticsSnapshot(
+          hasPendingTransition: true,
+          pendingTransitionLabel: rangeRepAwaitNeutralPendingTransitionLabel,
+        ),
+      );
+
+      expect(shouldLock, isFalse);
+    });
   });
 }

@@ -54,7 +54,7 @@ bool shouldLockRangeRepSideSelection({
     return false;
   }
 
-  return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
+  return diagnostics.hasRepContext;
 }
 
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
@@ -160,7 +160,19 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       analysisKind: _engineKind.name,
     );
 
-    return WorkoutState(analysisKind: _engineKind);
+    final initialState = WorkoutState(
+      analysisKind: _engineKind,
+      feedbackMessage: _resolvedEngineFeedbackMessage(),
+      currentPhase: _engine.phaseLabel,
+    );
+    _diagnostics.updateWorkoutState(
+      repCount: initialState.repCount,
+      currentHoldSeconds: initialState.currentHoldSeconds.round(),
+      bestHoldSeconds: initialState.bestHoldSeconds.round(),
+      currentPhase: initialState.currentPhase,
+      isHolding: initialState.isHolding,
+    );
+    return initialState;
   }
 
   /// Processes one camera frame and publishes the latest live telemetry.
@@ -306,6 +318,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     if (_engineKind == EngineKind.rangeRep &&
         !rangeRepFrameAssessment.shouldUpdateEngine) {
+      if (preUpdateRangeRepDiagnostics.isAwaitingNeutralConfirmation) {
+        _clearRangeRepActiveContext(
+          reason: 'invalid frame while awaiting neutral',
+        );
+      }
       _trackRangeRepRepContext(
         diagnostics: preUpdateRangeRepDiagnostics,
         selectedSide: rangeRepFrameAssessment.selection.selectedSide,
@@ -868,13 +885,32 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {
-    return diagnostics.hasActiveRepPhase || diagnostics.hasPendingTransition;
+    return diagnostics.hasRepContext;
   }
 
   void _clearRangeRepActiveContext({String? reason}) {
     if (_engine is RangeRepResyncControl) {
       (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
     }
+  }
+
+  void handleLifecycleInterruption({String? reason}) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return;
+    }
+
+    _resetRangeRepVisibilityResyncState(
+      reason: reason ?? 'lifecycle interruption',
+    );
+    state = state.copyWith(
+      repCount: _engine.repCount,
+      isFormBad: _engine.isFormBad,
+      lastRepScore: _engine.lastRepScore,
+      lastRepROM: _engine.maxRom,
+      feedbackMessage: _resolvedEngineFeedbackMessage(),
+      currentPhase: _engine.phaseLabel,
+    );
+    _updateDiagnosticsFromState();
   }
 
   void _resetRangeRepVisibilityResyncState({String? reason}) {

@@ -17,6 +17,7 @@ const double _peakEntryMargin = 3.0;
 const double _peakExitMargin = 8.0;
 
 enum _PhaseTransition {
+  acquireNeutral,
   startDescending,
   reachPeak,
   startAscending,
@@ -27,6 +28,8 @@ enum _PhaseTransition {
 extension _PhaseTransitionX on _PhaseTransition {
   Duration get confirmationDuration {
     switch (this) {
+      case _PhaseTransition.acquireNeutral:
+        return _neutralConfirmationDuration;
       case _PhaseTransition.startDescending:
         return _descentConfirmationDuration;
       case _PhaseTransition.reachPeak:
@@ -41,6 +44,8 @@ extension _PhaseTransitionX on _PhaseTransition {
 
   String get debugLabel {
     switch (this) {
+      case _PhaseTransition.acquireNeutral:
+        return rangeRepAwaitNeutralPendingTransitionLabel;
       case _PhaseTransition.startDescending:
         return 'neutral -> descending';
       case _PhaseTransition.reachPeak:
@@ -184,6 +189,7 @@ class RangeRepEngine
   final DateTime Function() _now;
 
   MovementPhase state = MovementPhase.neutral;
+  bool _isArmed = false;
   @override
   int repCount = 0;
   @override
@@ -223,7 +229,7 @@ class RangeRepEngine
 
   RangeRepEngine({required this.config, DateTime Function()? now})
     : _now = now ?? DateTime.now {
-    _setFeedback(RangeRepFeedbackCode.ready);
+    _disarm();
   }
 
   @override
@@ -240,7 +246,8 @@ class RangeRepEngine
   }
 
   @override
-  String get phaseLabel => state.name.toUpperCase();
+  String get phaseLabel =>
+      _isArmed ? state.name.toUpperCase() : rangeRepAwaitNeutralPhaseLabel;
 
   @override
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot {
@@ -269,7 +276,7 @@ class RangeRepEngine
       currentRepWorstBackAngle: _currentRepWorstBackAngle,
       currentRepHadFormViolation: _currentRepHadFormViolation,
       phaseGateStatus: _phaseGateStatus,
-      hasActiveRepPhase: state != MovementPhase.neutral,
+      hasActiveRepPhase: _isArmed && state != MovementPhase.neutral,
       hasPendingTransition: _pendingTransition != null,
       pendingTransitionLabel: _pendingTransition?.debugLabel,
       lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
@@ -292,12 +299,33 @@ class RangeRepEngine
   /// Updates live form feedback and advances the repetition state machine.
   @override
   void update(AnalysisFrame frame) {
-    _checkForm(frame.formMetric);
+    if (_isArmed) {
+      _checkForm(frame.formMetric);
+    } else {
+      isFormBad = false;
+      _setFeedback(RangeRepFeedbackCode.awaitNeutral);
+    }
     _processState(frame.primaryMetric, frame.formMetric);
   }
 
   void _processState(double angle, double backAngle) {
     final now = _now();
+
+    if (!_isArmed) {
+      final armedAt = _confirmTransition(
+        transition: _PhaseTransition.acquireNeutral,
+        condition: angle > _neutralReturnThreshold,
+        now: now,
+      );
+      if (armedAt != null) {
+        _isArmed = true;
+        state = MovementPhase.neutral;
+        _lastConfirmedTransitionLabel =
+            _PhaseTransition.acquireNeutral.debugLabel;
+        _setFeedback(RangeRepFeedbackCode.ready);
+      }
+      return;
+    }
 
     // Aborted descents reset to neutral without counting a repetition.
     switch (state) {
@@ -702,6 +730,8 @@ class RangeRepEngine
 
   String _feedbackMessageForCode(RangeRepFeedbackCode code) {
     switch (code) {
+      case RangeRepFeedbackCode.awaitNeutral:
+        return 'Baslangic pozisyonuna gec.';
       case RangeRepFeedbackCode.ready:
         return 'Hazir!';
       case RangeRepFeedbackCode.waitForBody:
@@ -849,7 +879,7 @@ class RangeRepEngine
 
   String get _phaseGateStatus {
     if (_pendingTransition == null || _pendingTransitionStartedAt == null) {
-      return 'stable ${state.name}';
+      return _isArmed ? 'stable ${state.name}' : 'stable awaiting neutral';
     }
 
     final elapsedMs = _now()
@@ -897,22 +927,12 @@ class RangeRepEngine
 
   @override
   void clearActiveRepContext({String? reason}) {
-    state = MovementPhase.neutral;
-    isFormBad = false;
-    _setFeedback(RangeRepFeedbackCode.ready);
-    _descentStartTime = null;
-    _peakStartTime = null;
-    _ascentStartTime = null;
-    _lastConfirmedTransitionLabel = null;
-    _resetCurrentRepMetrics();
+    _disarm();
   }
 
   @override
   void reset() {
     repCount = 0;
-    state = MovementPhase.neutral;
-    _setFeedback(RangeRepFeedbackCode.ready);
-    isFormBad = false;
     lastRepScore = 0;
     lastRepScoreBreakdown = null;
     lastCompletedRepCoreData = null;
@@ -924,6 +944,17 @@ class RangeRepEngine
     _peakStartTime = null;
     _ascentStartTime = null;
     _lastCompletedPhaseQualityTelemetry = null;
+    _disarm();
+  }
+
+  void _disarm() {
+    _isArmed = false;
+    state = MovementPhase.neutral;
+    isFormBad = false;
+    _setFeedback(RangeRepFeedbackCode.awaitNeutral);
+    _descentStartTime = null;
+    _peakStartTime = null;
+    _ascentStartTime = null;
     _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
   }
