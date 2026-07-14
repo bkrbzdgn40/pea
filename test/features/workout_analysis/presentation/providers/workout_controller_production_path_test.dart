@@ -527,6 +527,75 @@ void main() {
     },
   );
 
+  test('hold missing required landmark does not start a false hold', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _analyzeFrame(controller, detector, <Pose>[
+      _plankPose(
+        missingLandmarks: const <PoseLandmarkType>{PoseLandmarkType.leftKnee},
+      ),
+    ]);
+    clock.advance(const Duration(milliseconds: 100));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _plankPose(
+        missingLandmarks: const <PoseLandmarkType>{PoseLandmarkType.leftKnee},
+      ),
+    ]);
+
+    final state = container.read(workoutControllerProvider);
+    final snapshot = controller.diagnosticsSnapshot();
+
+    expect(state.isHolding, isFalse);
+    expect(state.currentHoldSeconds, 0);
+    expect(snapshot.acceptedPoseFrameCount, 0);
+    expect(snapshot.rejectedPoseFrameCount, 2);
+    expect(snapshot.lastPoseRejectionReason, 'missing_required_landmark');
+  });
+
+  test(
+    'current left-only controller pipeline does not start hold from a right-only pose',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+
+      expect(state.isHolding, isFalse);
+      expect(state.currentHoldSeconds, 0);
+      expect(snapshot.acceptedPoseFrameCount, 0);
+      expect(snapshot.rejectedPoseFrameCount, 2);
+      expect(snapshot.lastPoseRejectionReason, 'missing_required_landmark');
+    },
+  );
+
   test('hold short visibility gap excludes hidden hold time', () async {
     final detector = _QueuedPoseDetector();
     final clock = _FakeClock();
@@ -1171,47 +1240,37 @@ Pose _bilateralSquatPose({
   return Pose(landmarks: landmarks);
 }
 
-Pose _plankPose({double defaultLikelihood = 0.95}) {
-  return Pose(
-    landmarks: <PoseLandmarkType, PoseLandmark>{
-      PoseLandmarkType.leftShoulder: _landmark(
-        PoseLandmarkType.leftShoulder,
-        -1,
-        0,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftElbow: _landmark(
-        PoseLandmarkType.leftElbow,
-        -0.5,
-        0,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftWrist: _landmark(
-        PoseLandmarkType.leftWrist,
-        -0.5,
-        -1,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftHip: _landmark(
-        PoseLandmarkType.leftHip,
-        0,
-        0,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftKnee: _landmark(
-        PoseLandmarkType.leftKnee,
-        0.2,
-        0,
-        likelihood: defaultLikelihood,
-      ),
-      PoseLandmarkType.leftAnkle: _landmark(
-        PoseLandmarkType.leftAnkle,
-        1,
-        0.2,
-        likelihood: defaultLikelihood,
-      ),
-    },
-  );
+Pose _plankPose({
+  double defaultLikelihood = 0.95,
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+  bool rightOnly = false,
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+    landmarks[type] = _landmark(type, x, y, likelihood: defaultLikelihood);
+  }
+
+  if (rightOnly) {
+    addLandmark(PoseLandmarkType.rightShoulder, 1, 0);
+    addLandmark(PoseLandmarkType.rightElbow, 0.5, 0);
+    addLandmark(PoseLandmarkType.rightWrist, 0.5, -1);
+    addLandmark(PoseLandmarkType.rightHip, 0, 0);
+    addLandmark(PoseLandmarkType.rightKnee, -0.2, 0);
+    addLandmark(PoseLandmarkType.rightAnkle, -1, 0.2);
+  } else {
+    addLandmark(PoseLandmarkType.leftShoulder, -1, 0);
+    addLandmark(PoseLandmarkType.leftElbow, -0.5, 0);
+    addLandmark(PoseLandmarkType.leftWrist, -0.5, -1);
+    addLandmark(PoseLandmarkType.leftHip, 0, 0);
+    addLandmark(PoseLandmarkType.leftKnee, 0.2, 0);
+    addLandmark(PoseLandmarkType.leftAnkle, 1, 0.2);
+  }
+
+  return Pose(landmarks: landmarks);
 }
 
 PoseLandmark _landmark(

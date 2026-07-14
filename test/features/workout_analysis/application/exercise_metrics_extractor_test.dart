@@ -414,6 +414,114 @@ void main() {
         expect(metrics.leftRangeRepMetrics.formSignals?.lockoutMetric, isNull);
       },
     );
+
+    group('hold metrics', () {
+      test(
+        'valid left plank geometry emits expected hold angles and preserves pose metadata',
+        () {
+          final pose = _holdPose();
+          final metrics = extractor.extract(
+            pose,
+            _holdConfig(),
+            engineKind: EngineKind.hold,
+          );
+
+          expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
+          expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
+          expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+          expect(metrics.hasPose, isTrue);
+          expect(metrics.landmarks, hasLength(pose.landmarks.length));
+        },
+      );
+
+      test('hold metrics are only emitted for the hold engine', () {
+        final metrics = extractor.extract(
+          _holdPose(),
+          _holdConfig(),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+        );
+
+        expect(metrics.bodyLineAngle, isNull);
+        expect(metrics.armSupportAngle, isNull);
+        expect(metrics.legExtensionAngle, isNull);
+      });
+
+      for (final scenario
+          in <
+            ({
+              PoseLandmarkType missingLandmark,
+              String name,
+              bool hasBodyLineAngle,
+              bool hasArmSupportAngle,
+              bool hasLegExtensionAngle,
+            })
+          >[
+            (
+              missingLandmark: PoseLandmarkType.leftElbow,
+              name: 'missing left elbow only clears arm support extraction',
+              hasBodyLineAngle: true,
+              hasArmSupportAngle: false,
+              hasLegExtensionAngle: true,
+            ),
+            (
+              missingLandmark: PoseLandmarkType.leftKnee,
+              name: 'missing left knee only clears leg extension extraction',
+              hasBodyLineAngle: true,
+              hasArmSupportAngle: true,
+              hasLegExtensionAngle: false,
+            ),
+            (
+              missingLandmark: PoseLandmarkType.leftAnkle,
+              name:
+                  'missing left ankle clears body line and leg extension extraction',
+              hasBodyLineAngle: false,
+              hasArmSupportAngle: true,
+              hasLegExtensionAngle: false,
+            ),
+            (
+              missingLandmark: PoseLandmarkType.leftShoulder,
+              name:
+                  'missing left shoulder clears body line and arm support extraction',
+              hasBodyLineAngle: false,
+              hasArmSupportAngle: false,
+              hasLegExtensionAngle: true,
+            ),
+          ]) {
+        test(scenario.name, () {
+          final metrics = extractor.extract(
+            _holdPose(
+              missingLandmarks: <PoseLandmarkType>{scenario.missingLandmark},
+            ),
+            _holdConfig(),
+            engineKind: EngineKind.hold,
+          );
+
+          expect(metrics.bodyLineAngle != null, scenario.hasBodyLineAngle);
+          expect(metrics.armSupportAngle != null, scenario.hasArmSupportAngle);
+          expect(
+            metrics.legExtensionAngle != null,
+            scenario.hasLegExtensionAngle,
+          );
+        });
+      }
+
+      test(
+        'current hold extraction does not derive metrics from a right-only pose',
+        () {
+          // Characterizes the current left-only hold extraction before bilateral support.
+          final metrics = extractor.extract(
+            _holdPose(rightOnly: true),
+            _holdConfig(),
+            engineKind: EngineKind.hold,
+          );
+
+          expect(metrics.bodyLineAngle, isNull);
+          expect(metrics.armSupportAngle, isNull);
+          expect(metrics.legExtensionAngle, isNull);
+        },
+      );
+    });
   });
 }
 
@@ -449,6 +557,27 @@ ExerciseConfig _futureTemplateConfig({bool includeAlignmentSignal = true}) {
     'thresholdPeak': 75.0,
     'rangeRepSignals': rangeRepSignals,
   });
+}
+
+ExerciseConfig _holdConfig() {
+  return ExerciseConfig(
+    name: 'Plank',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 160.0,
+    thresholdActive: 168.0,
+    thresholdPeak: 0.0,
+    holdPosture: const HoldPostureConfig(
+      activePostureAngle: 160.0,
+      bodyLineEntryAngle: 168.0,
+      bodyLineSustainAngle: 166.0,
+      armSupportMinAngle: 60.0,
+      armSupportMaxAngle: 120.0,
+      legExtensionMinAngle: 165.0,
+      breakGraceDuration: Duration(milliseconds: 300),
+    ),
+  );
 }
 
 Pose _rangeRepPose({
@@ -527,6 +656,53 @@ Pose _pushUpPose({bool includeLeftWrist = true, bool includeLeftAnkle = true}) {
   };
 
   return Pose(landmarks: landmarks);
+}
+
+Pose _holdPose({
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+  bool rightOnly = false,
+}) {
+  final landmarks = Map<PoseLandmarkType, PoseLandmark>.from(
+    rightOnly ? _rightHoldLandmarks() : _leftHoldLandmarks(),
+  );
+  for (final landmarkType in missingLandmarks) {
+    landmarks.remove(landmarkType);
+  }
+  return Pose(landmarks: landmarks);
+}
+
+Map<PoseLandmarkType, PoseLandmark> _leftHoldLandmarks() {
+  return <PoseLandmarkType, PoseLandmark>{
+    PoseLandmarkType.leftShoulder: _landmark(
+      PoseLandmarkType.leftShoulder,
+      -1,
+      0,
+    ),
+    PoseLandmarkType.leftElbow: _landmark(PoseLandmarkType.leftElbow, -0.5, 0),
+    PoseLandmarkType.leftWrist: _landmark(PoseLandmarkType.leftWrist, -0.5, -1),
+    PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 0, 0),
+    PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 0.5, 0),
+    PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 1, 0),
+  };
+}
+
+Map<PoseLandmarkType, PoseLandmark> _rightHoldLandmarks() {
+  return <PoseLandmarkType, PoseLandmark>{
+    PoseLandmarkType.rightShoulder: _landmark(
+      PoseLandmarkType.rightShoulder,
+      1,
+      0,
+    ),
+    PoseLandmarkType.rightElbow: _landmark(PoseLandmarkType.rightElbow, 0.5, 0),
+    PoseLandmarkType.rightWrist: _landmark(
+      PoseLandmarkType.rightWrist,
+      0.5,
+      -1,
+    ),
+    PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 0, 0),
+    PoseLandmarkType.rightKnee: _landmark(PoseLandmarkType.rightKnee, -0.5, 0),
+    PoseLandmarkType.rightAnkle: _landmark(PoseLandmarkType.rightAnkle, -1, 0),
+  };
 }
 
 PoseLandmark _landmark(PoseLandmarkType type, double x, double y) {
