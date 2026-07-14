@@ -8,6 +8,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -185,6 +186,8 @@ void main() {
 
       expect(assessment.isAccepted, isTrue);
       expect(assessment.acceptedSide, isNull);
+      expect(assessment.acceptedHoldSides, <HoldSide>{HoldSide.left});
+      expect(assessment.preferredHoldSide, HoldSide.left);
     });
 
     group('hold quality', () {
@@ -312,7 +315,7 @@ void main() {
         });
       }
 
-      test('current hold quality rejects a right-only pose', () {
+      test('right-only hold quality is accepted on the right side', () {
         final assessment = policy.assess(
           pose: _plankPose(rightOnly: true),
           config: _plankConfig(),
@@ -320,12 +323,9 @@ void main() {
           holdContract: HoldContracts.plankFamily,
         );
 
-        expect(assessment.isAccepted, isFalse);
-        expect(
-          assessment.rejectionReason,
-          PoseRejectionReason.missingRequiredLandmark,
-        );
-        expect(assessment.acceptedSide, isNull);
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedHoldSides, <HoldSide>{HoldSide.right});
+        expect(assessment.preferredHoldSide, HoldSide.right);
       });
 
       test(
@@ -340,9 +340,69 @@ void main() {
 
           expect(assessment.isAccepted, isTrue);
           expect(assessment.acceptedSide, isNull);
+          expect(assessment.acceptedHoldSides, <HoldSide>{HoldSide.left});
+          expect(assessment.preferredHoldSide, HoldSide.left);
           expect(assessment.requiredLandmarkCount, 7);
         },
       );
+
+      test(
+        'hold quality accepts both sides and prefers the higher-quality side',
+        () {
+          final assessment = policy.assess(
+            pose: _bilateralPlankPose(
+              leftLikelihood: 0.70,
+              rightLikelihood: 0.95,
+            ),
+            config: _plankConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
+          );
+
+          expect(assessment.isAccepted, isTrue);
+          expect(assessment.acceptedHoldSides, <HoldSide>{
+            HoldSide.left,
+            HoldSide.right,
+          });
+          expect(assessment.preferredHoldSide, HoldSide.right);
+        },
+      );
+
+      test('hold quality uses left tie-break when both sides are equal', () {
+        final assessment = policy.assess(
+          pose: _bilateralPlankPose(
+            leftLikelihood: 0.95,
+            rightLikelihood: 0.95,
+          ),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
+        );
+
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedHoldSides, <HoldSide>{
+          HoldSide.left,
+          HoldSide.right,
+        });
+        expect(assessment.preferredHoldSide, HoldSide.left);
+      });
+
+      test('required hold side only accepts the locked side', () {
+        final assessment = policy.assess(
+          pose: _bilateralPlankPose(
+            leftLikelihood: 0.40,
+            rightLikelihood: 0.95,
+          ),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
+          requiredHoldSide: HoldSide.left,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(assessment.preferredHoldSide, HoldSide.left);
+        expect(assessment.acceptedHoldSides, isEmpty);
+      });
     });
   });
 }
@@ -385,6 +445,7 @@ ExerciseConfig _plankConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
@@ -423,6 +484,7 @@ ExerciseConfig _alternateHoldConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
@@ -564,6 +626,48 @@ Pose _plankPose({
     addLandmark(PoseLandmarkType.leftKnee, 0.5, 0);
     addLandmark(PoseLandmarkType.leftAnkle, 1, 0);
   }
+
+  return Pose(landmarks: landmarks);
+}
+
+Pose _bilateralPlankPose({
+  required double leftLikelihood,
+  required double rightLikelihood,
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double likelihood,
+  }) {
+    landmarks[type] = _landmark(type, x, y, likelihood: likelihood);
+  }
+
+  addLandmark(PoseLandmarkType.leftShoulder, -1, 0, likelihood: leftLikelihood);
+  addLandmark(PoseLandmarkType.leftElbow, -0.5, 0, likelihood: leftLikelihood);
+  addLandmark(PoseLandmarkType.leftWrist, -0.5, -1, likelihood: leftLikelihood);
+  addLandmark(PoseLandmarkType.leftHip, 0, 0, likelihood: leftLikelihood);
+  addLandmark(PoseLandmarkType.leftKnee, 0.5, 0, likelihood: leftLikelihood);
+  addLandmark(PoseLandmarkType.leftAnkle, 1, 0, likelihood: leftLikelihood);
+
+  addLandmark(
+    PoseLandmarkType.rightShoulder,
+    1,
+    0,
+    likelihood: rightLikelihood,
+  );
+  addLandmark(PoseLandmarkType.rightElbow, 0.5, 0, likelihood: rightLikelihood);
+  addLandmark(
+    PoseLandmarkType.rightWrist,
+    0.5,
+    -1,
+    likelihood: rightLikelihood,
+  );
+  addLandmark(PoseLandmarkType.rightHip, 0, 0, likelihood: rightLikelihood);
+  addLandmark(PoseLandmarkType.rightKnee, -0.5, 0, likelihood: rightLikelihood);
+  addLandmark(PoseLandmarkType.rightAnkle, -1, 0, likelihood: rightLikelihood);
 
   return Pose(landmarks: landmarks);
 }

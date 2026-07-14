@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -161,6 +162,7 @@ void main() {
 
       expect(config.name, 'Plank');
       expect(config.holdSignals, isNotNull);
+      expect(config.holdSignals?.referenceSide, HoldSide.left);
       expect(
         config.holdSignals?.definitionFor(HoldSignal.alignment)?.middle,
         PoseLandmarkType.leftHip,
@@ -195,6 +197,7 @@ void main() {
           'breakGraceMillis': 300,
         },
         'holdSignals': <String, dynamic>{
+          'referenceSide': 'left',
           'alignment': <String, dynamic>{
             'first': 'leftShoulder',
             'middle': 'leftHip',
@@ -213,6 +216,7 @@ void main() {
         },
       });
 
+      expect(config.holdSignals?.referenceSide, HoldSide.left);
       expect(
         config.holdSignals?.definitionFor(HoldSignal.alignment)?.first,
         PoseLandmarkType.leftShoulder,
@@ -314,6 +318,7 @@ void main() {
           'thresholdActive': 168.0,
           'thresholdPeak': 0.0,
           'holdSignals': <String, dynamic>{
+            'referenceSide': 'left',
             'alignment': <String, dynamic>{
               'first': 'leftWing',
               'middle': 'leftHip',
@@ -342,6 +347,7 @@ void main() {
           'thresholdActive': 168.0,
           'thresholdPeak': 0.0,
           'holdSignals': <String, dynamic>{
+            'referenceSide': 'left',
             'brace': <String, dynamic>{
               'first': 'leftShoulder',
               'middle': 'leftHip',
@@ -370,6 +376,7 @@ void main() {
           'thresholdActive': 168.0,
           'thresholdPeak': 0.0,
           'holdSignals': <String, dynamic>{
+            'referenceSide': 'left',
             'support': <String, dynamic>{
               'first': 'leftShoulder',
               'middle': 'leftElbow',
@@ -399,6 +406,7 @@ void main() {
           'thresholdActive': 168.0,
           'thresholdPeak': 0.0,
           'holdSignals': <String, dynamic>{
+            'referenceSide': 'left',
             'extension': <String, dynamic>{
               'first': 'leftHip',
               'middle': 'leftKnee',
@@ -411,6 +419,63 @@ void main() {
             (error) => error.message.toString(),
             'message',
             contains('ExerciseConfig.holdSignals.extension'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects missing holdSignals referenceSide', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'alignment': <String, dynamic>{
+              'first': 'leftShoulder',
+              'middle': 'leftHip',
+              'last': 'leftAnkle',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.holdSignals.referenceSide'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects invalid holdSignals referenceSide', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'referenceSide': 'front',
+            'alignment': <String, dynamic>{
+              'first': 'leftShoulder',
+              'middle': 'leftHip',
+              'last': 'leftAnkle',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.holdSignals.referenceSide'),
           ),
         ),
       );

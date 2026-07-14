@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -426,11 +427,13 @@ void main() {
             _holdConfig(),
             engineKind: EngineKind.hold,
             holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.left,
           );
 
           expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
           expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
           expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+          expect(metrics.holdSide, HoldSide.left);
           expect(metrics.hasPose, isTrue);
           expect(metrics.landmarks, hasLength(pose.landmarks.length));
         },
@@ -498,6 +501,7 @@ void main() {
             _holdConfig(),
             engineKind: EngineKind.hold,
             holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.left,
           );
 
           expect(metrics.bodyLineAngle != null, scenario.hasBodyLineAngle);
@@ -510,19 +514,20 @@ void main() {
       }
 
       test(
-        'current hold extraction does not derive metrics from a right-only pose',
+        'right-only hold extraction derives metrics from the right side',
         () {
-          // Characterizes the current left-only hold extraction before bilateral support.
           final metrics = extractor.extract(
             _holdPose(rightOnly: true),
             _holdConfig(),
             engineKind: EngineKind.hold,
             holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.right,
           );
 
-          expect(metrics.bodyLineAngle, isNull);
-          expect(metrics.armSupportAngle, isNull);
-          expect(metrics.legExtensionAngle, isNull);
+          expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
+          expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
+          expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+          expect(metrics.holdSide, HoldSide.right);
         },
       );
 
@@ -534,11 +539,30 @@ void main() {
             _alternateHoldConfig(),
             engineKind: EngineKind.hold,
             holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.left,
           );
 
           expect(metrics.bodyLineAngle, closeTo(90.0, 0.001));
           expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
           expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+        },
+      );
+
+      test(
+        'hold metrics mirror mixed-side configured geometry for the right side',
+        () {
+          final metrics = extractor.extract(
+            _alternateHoldPose(rightOnly: true),
+            _alternateHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.right,
+          );
+
+          expect(metrics.bodyLineAngle, closeTo(90.0, 0.001));
+          expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
+          expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+          expect(metrics.holdSide, HoldSide.right);
         },
       );
     });
@@ -598,6 +622,7 @@ ExerciseConfig _holdConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
@@ -636,6 +661,7 @@ ExerciseConfig _alternateHoldConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
@@ -746,21 +772,71 @@ Pose _holdPose({
   return Pose(landmarks: landmarks);
 }
 
-Pose _alternateHoldPose() {
+Pose _alternateHoldPoseForSide(HoldSide side) {
+  final landmarks = side == HoldSide.left
+      ? <PoseLandmarkType, PoseLandmark>{
+          PoseLandmarkType.leftShoulder: _landmark(
+            PoseLandmarkType.leftShoulder,
+            0,
+            1,
+          ),
+          PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 0, 0),
+          PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 1, 0),
+          PoseLandmarkType.leftElbow: _landmark(
+            PoseLandmarkType.leftElbow,
+            1,
+            0,
+          ),
+          PoseLandmarkType.leftWrist: _landmark(
+            PoseLandmarkType.leftWrist,
+            1,
+            1,
+          ),
+          PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 1, 0),
+          PoseLandmarkType.leftAnkle: _landmark(
+            PoseLandmarkType.leftAnkle,
+            2,
+            -1,
+          ),
+        }
+      : <PoseLandmarkType, PoseLandmark>{
+          PoseLandmarkType.rightShoulder: _landmark(
+            PoseLandmarkType.rightShoulder,
+            0,
+            1,
+          ),
+          PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 0, 0),
+          PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, -1, 0),
+          PoseLandmarkType.rightElbow: _landmark(
+            PoseLandmarkType.rightElbow,
+            -1,
+            0,
+          ),
+          PoseLandmarkType.rightWrist: _landmark(
+            PoseLandmarkType.rightWrist,
+            -1,
+            1,
+          ),
+          PoseLandmarkType.rightKnee: _landmark(
+            PoseLandmarkType.rightKnee,
+            -1,
+            0,
+          ),
+          PoseLandmarkType.rightAnkle: _landmark(
+            PoseLandmarkType.rightAnkle,
+            -2,
+            -1,
+          ),
+        };
+
+  return Pose(landmarks: landmarks);
+}
+
+Pose _alternateHoldPose({bool rightOnly = false}) {
   return Pose(
-    landmarks: <PoseLandmarkType, PoseLandmark>{
-      PoseLandmarkType.leftShoulder: _landmark(
-        PoseLandmarkType.leftShoulder,
-        0,
-        1,
-      ),
-      PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 0, 0),
-      PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 1, 0),
-      PoseLandmarkType.leftElbow: _landmark(PoseLandmarkType.leftElbow, 1, 0),
-      PoseLandmarkType.leftWrist: _landmark(PoseLandmarkType.leftWrist, 1, 1),
-      PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 1, 0),
-      PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 2, -1),
-    },
+    landmarks: rightOnly
+        ? _alternateHoldPoseForSide(HoldSide.right).landmarks
+        : _alternateHoldPoseForSide(HoldSide.left).landmarks,
   );
 }
 

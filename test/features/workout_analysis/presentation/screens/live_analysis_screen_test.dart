@@ -15,6 +15,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/reposi
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -401,6 +402,7 @@ ExerciseConfig _plankConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,

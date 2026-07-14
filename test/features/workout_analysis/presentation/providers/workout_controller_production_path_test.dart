@@ -8,6 +8,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -563,7 +564,7 @@ void main() {
   });
 
   test(
-    'current left-only controller pipeline does not start hold from a right-only pose',
+    'right-only controller pipeline starts a hold on the right side',
     () async {
       final detector = _QueuedPoseDetector();
       final clock = _FakeClock();
@@ -584,15 +585,105 @@ void main() {
       await _analyzeFrame(controller, detector, <Pose>[
         _plankPose(rightOnly: true),
       ]);
+      clock.advance(const Duration(seconds: 5));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
 
       final state = container.read(workoutControllerProvider);
       final snapshot = controller.diagnosticsSnapshot();
 
+      expect(state.isHolding, isTrue);
+      expect(state.selectedHoldSide, HoldSide.right);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+      expect(snapshot.acceptedPoseFrameCount, 2);
+    },
+  );
+
+  test(
+    'active hold keeps the locked right side when the left side appears alone',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock, rightOnly: true);
+
+      var state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.right);
+      expect(state.isHolding, isTrue);
+
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.right);
       expect(state.isHolding, isFalse);
-      expect(state.currentHoldSeconds, 0);
-      expect(snapshot.acceptedPoseFrameCount, 0);
-      expect(snapshot.rejectedPoseFrameCount, 2);
-      expect(snapshot.lastPoseRejectionReason, 'missing_required_landmark');
+      expect(state.isHoldVisibilitySuspended, isTrue);
+
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+      clock.advance(const Duration(milliseconds: 50));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.right);
+      expect(state.isHolding, isTrue);
+    },
+  );
+
+  test(
+    'next hold attempt can switch to the left side after a right-side attempt ends',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock, rightOnly: true);
+
+      clock.advance(const Duration(milliseconds: 200));
+      await _analyzeFrame(controller, detector, const <Pose>[]);
+      clock.advance(const Duration(milliseconds: 500));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+      clock.advance(const Duration(milliseconds: 500));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _plankPose(rightOnly: true),
+      ]);
+
+      var state = container.read(workoutControllerProvider);
+      expect(state.isHolding, isFalse);
+      expect(state.selectedHoldSide, isNull);
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.left);
+      expect(state.isHolding, isTrue);
     },
   );
 
@@ -1044,13 +1135,20 @@ _ControllerHarness _createHarness({
 Future<void> _establishVisibleHold(
   WorkoutController controller,
   _QueuedPoseDetector detector,
-  _FakeClock clock,
-) async {
-  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+  _FakeClock clock, {
+  bool rightOnly = false,
+}) async {
+  await _analyzeFrame(controller, detector, <Pose>[
+    _plankPose(rightOnly: rightOnly),
+  ]);
   clock.advance(const Duration(milliseconds: 100));
-  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+  await _analyzeFrame(controller, detector, <Pose>[
+    _plankPose(rightOnly: rightOnly),
+  ]);
   clock.advance(const Duration(seconds: 5));
-  await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
+  await _analyzeFrame(controller, detector, <Pose>[
+    _plankPose(rightOnly: rightOnly),
+  ]);
 }
 
 Future<void> _establishActiveLeftRepContext(
@@ -1109,6 +1207,7 @@ ExerciseConfig _plankConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
