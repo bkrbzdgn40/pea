@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -13,11 +19,15 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 2);
+    expect(snapshot.schemaVersion, 3);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.presentedHoldFeedbackCode, isNull);
+    expect(snapshot.engineHoldFeedbackCode, isNull);
+    expect(snapshot.holdEnginePhase, isNull);
+    expect(snapshot.currentHoldSide, isNull);
   });
 
   test(
@@ -139,7 +149,20 @@ void main() {
     expect(snapshot.frameProcessingMsMax, 10000);
   });
 
-  test('updates live performance and workout state', () {
+  test('updates live performance and workout state with typed hold fields', () {
+    const holdDiagnostics = HoldDiagnosticsSnapshot(
+      phase: HoldPhase.holding,
+      feedbackCode: HoldFeedbackCode.holdPosition,
+      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+        hasCompleteMetrics: true,
+        hasActivePosture: true,
+        isBodyAligned: true,
+        isArmSupported: true,
+        areLegsExtended: true,
+      ),
+      isFormBreakGraceActive: false,
+      isVisibilitySuspended: false,
+    );
     final subject = accumulator()
       ..updateLivePerformance(cameraFps: 30, analysisFps: 8)
       ..updateWorkoutState(
@@ -149,6 +172,9 @@ void main() {
         currentPhase: 'DESCENDING',
         isHolding: true,
         calibrationOffsetDegrees: 2.5,
+        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+        holdDiagnostics: holdDiagnostics,
+        currentHoldSide: HoldSide.right,
       );
     final snapshot = subject.snapshot(now: startedAt);
     expect(snapshot.currentCameraFps, 30);
@@ -159,6 +185,56 @@ void main() {
     expect(snapshot.currentPhase, 'DESCENDING');
     expect(snapshot.isHolding, isTrue);
     expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
+    expect(snapshot.presentedHoldFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+    expect(snapshot.engineHoldFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(snapshot.holdEnginePhase, HoldPhase.holding);
+    expect(snapshot.currentHoldSide, HoldSide.right);
+    expect(snapshot.lastVisibleHoldPosture?.hasCompleteMetrics, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.isBodyAligned, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.isArmSupported, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.areLegsExtended, isTrue);
+    expect(snapshot.isHoldFormBreakGraceActive, isFalse);
+    expect(snapshot.isHoldVisibilitySuspended, isFalse);
+  });
+
+  test('range-rep update clears previously stored hold typed fields', () {
+    const holdDiagnostics = HoldDiagnosticsSnapshot(
+      phase: HoldPhase.holding,
+      feedbackCode: HoldFeedbackCode.holdPosition,
+      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+        hasCompleteMetrics: true,
+      ),
+      isFormBreakGraceActive: true,
+      isVisibilitySuspended: true,
+    );
+    final subject = accumulator()
+      ..updateWorkoutState(
+        repCount: 0,
+        currentHoldSeconds: 5,
+        bestHoldSeconds: 5,
+        currentPhase: 'HOLDING',
+        isHolding: true,
+        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+        holdDiagnostics: holdDiagnostics,
+        currentHoldSide: HoldSide.left,
+      )
+      ..updateWorkoutState(
+        repCount: 1,
+        currentHoldSeconds: 0,
+        bestHoldSeconds: 0,
+        currentPhase: 'NEUTRAL',
+        isHolding: false,
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    expect(snapshot.presentedHoldFeedbackCode, isNull);
+    expect(snapshot.engineHoldFeedbackCode, isNull);
+    expect(snapshot.holdEnginePhase, isNull);
+    expect(snapshot.currentHoldSide, isNull);
+    expect(snapshot.lastVisibleHoldPosture, isNull);
+    expect(snapshot.isHoldFormBreakGraceActive, isNull);
+    expect(snapshot.isHoldVisibilitySuspended, isNull);
   });
 
   test('reset clears diagnostics and starts a new session', () {
@@ -173,6 +249,15 @@ void main() {
         bestHoldSeconds: 0,
         currentPhase: 'PEAK',
         isHolding: false,
+        presentedHoldFeedbackCode: HoldFeedbackCode.preparePosition,
+        holdDiagnostics: const HoldDiagnosticsSnapshot(
+          phase: HoldPhase.ready,
+          feedbackCode: HoldFeedbackCode.preparePosition,
+          lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+            hasCompleteMetrics: true,
+          ),
+        ),
+        currentHoldSide: HoldSide.left,
       )
       ..reset(now: resetAt, analysisKind: 'hold');
     final snapshot = subject.snapshot(
@@ -185,17 +270,34 @@ void main() {
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
     expect(snapshot.repCount, isNull);
+    expect(snapshot.presentedHoldFeedbackCode, isNull);
+    expect(snapshot.engineHoldFeedbackCode, isNull);
+    expect(snapshot.holdEnginePhase, isNull);
+    expect(snapshot.currentHoldSide, isNull);
+    expect(snapshot.lastVisibleHoldPosture, isNull);
   });
 
   test('toJson is snake_case and excludes privacy-forbidden fields', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 2);
+    expect(json['schema_version'], 3);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['camera_frame_count'], 0);
     expect(json['accepted_pose_frame_count'], 0);
     expect(json['current_pose_quality_status'], 'stable');
     expect(json['is_holding'], isNull);
+    expect(json['presented_hold_feedback_code'], isNull);
+    expect(json['engine_hold_feedback_code'], isNull);
+    expect(json['hold_engine_phase'], isNull);
+    expect(json['current_hold_side'], isNull);
+    expect(json['hold_has_complete_metrics'], isNull);
+    expect(json['hold_has_active_posture'], isNull);
+    expect(json['hold_is_body_aligned'], isNull);
+    expect(json['hold_is_arm_supported'], isNull);
+    expect(json['hold_are_legs_extended'], isNull);
+    expect(json['hold_is_form_break_grace_active'], isNull);
+    expect(json['hold_is_visibility_suspended'], isNull);
+    expect(() => jsonEncode(json), returnsNormally);
     expect(
       json.keys,
       isNot(
