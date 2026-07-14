@@ -4,9 +4,27 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagno
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 
 void main() {
   group('HoldEngine', () {
+    test('initial state reports prepare feedback and default diagnostics', () {
+      final engine = HoldEngine(config: _plankConfig());
+
+      expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+      expect(engine.feedback, HoldFeedbackCode.preparePosition.code);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
+      expect(
+        engine.diagnosticsSnapshot.feedbackCode,
+        HoldFeedbackCode.preparePosition,
+      );
+      _expectDefaultPostureSnapshot(
+        engine.diagnosticsSnapshot.lastVisiblePosture,
+      );
+    });
+
     test(
       'starts holding when body line, arm support, and leg extension are valid',
       () {
@@ -16,9 +34,18 @@ void main() {
         engine.update(_validHoldFrame());
 
         expect(engine.phaseLabel, 'HOLDING');
-        expect(engine.feedback, 'Pozisyonu Koru');
+        expect(engine.feedbackCode, HoldFeedbackCode.holdPosition);
+        expect(engine.feedback, HoldFeedbackCode.holdPosition.code);
+        expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
+        expect(
+          engine.diagnosticsSnapshot.feedbackCode,
+          HoldFeedbackCode.holdPosition,
+        );
         expect(engine.diagnosticsSnapshot.isHolding, isTrue);
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
+        _expectValidPostureSnapshot(
+          engine.diagnosticsSnapshot.lastVisiblePosture,
+        );
       },
     );
 
@@ -48,6 +75,7 @@ void main() {
 
       gapControl.beginVisibilityGap();
       expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isTrue);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
       clock.advance(const Duration(milliseconds: 200));
 
       final result = gapControl.resumeAfterVisibilityGap();
@@ -103,6 +131,8 @@ void main() {
 
       expect(result.disposition, HoldVisibilityResumeDisposition.ended);
       expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
       expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(engine.diagnosticsSnapshot.isHolding, isFalse);
@@ -149,34 +179,45 @@ void main() {
       engine.update(_bodyMisalignedFrame());
 
       expect(engine.phaseLabel, 'HOLDING');
+      expect(engine.feedbackCode, HoldFeedbackCode.alignHips);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
+      expect(engine.diagnosticsSnapshot.isFormBreakGraceActive, isTrue);
       expect(engine.diagnosticsSnapshot.isHolding, isTrue);
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      expect(
+        engine.diagnosticsSnapshot.lastVisiblePosture.hasActivePosture,
+        isTrue,
+      );
+      expect(
+        engine.diagnosticsSnapshot.lastVisiblePosture.isBodyAligned,
+        isFalse,
+      );
     });
 
     for (final scenario
         in <
           ({
             int elapsedMillis,
-            String expectedPhase,
+            HoldPhase expectedPhase,
             bool expectedHolding,
             bool expectedFormBreak,
           })
         >[
           (
             elapsedMillis: 299,
-            expectedPhase: 'HOLDING',
+            expectedPhase: HoldPhase.holding,
             expectedHolding: true,
             expectedFormBreak: false,
           ),
           (
             elapsedMillis: 300,
-            expectedPhase: 'BROKEN',
+            expectedPhase: HoldPhase.broken,
             expectedHolding: false,
             expectedFormBreak: true,
           ),
           (
             elapsedMillis: 301,
-            expectedPhase: 'BROKEN',
+            expectedPhase: HoldPhase.broken,
             expectedHolding: false,
             expectedFormBreak: true,
           ),
@@ -191,11 +232,17 @@ void main() {
         clock.advance(Duration(milliseconds: scenario.elapsedMillis));
         engine.update(_bodyMisalignedFrame());
 
-        expect(engine.phaseLabel, scenario.expectedPhase);
+        expect(engine.phaseLabel, scenario.expectedPhase.legacyLabel);
+        expect(engine.feedbackCode, HoldFeedbackCode.alignHips);
+        expect(engine.diagnosticsSnapshot.phase, scenario.expectedPhase);
         expect(engine.diagnosticsSnapshot.isHolding, scenario.expectedHolding);
         expect(
           engine.diagnosticsSnapshot.hadFormBreak,
           scenario.expectedFormBreak,
+        );
+        expect(
+          engine.diagnosticsSnapshot.isFormBreakGraceActive,
+          scenario.elapsedMillis < 300,
         );
       });
     }
@@ -211,9 +258,12 @@ void main() {
 
         expect(engine.phaseLabel, 'BROKEN');
         expect(engine.isFormBad, isTrue);
-        expect(engine.feedback, 'Kalcayi Hizala');
+        expect(engine.feedbackCode, HoldFeedbackCode.alignHips);
+        expect(engine.feedback, HoldFeedbackCode.alignHips.code);
+        expect(engine.diagnosticsSnapshot.phase, HoldPhase.broken);
         expect(engine.diagnosticsSnapshot.isHolding, isFalse);
         expect(engine.diagnosticsSnapshot.hadFormBreak, isTrue);
+        expect(engine.diagnosticsSnapshot.isFormBreakGraceActive, isFalse);
       },
     );
 
@@ -228,36 +278,52 @@ void main() {
         engine.update(_missingBodyMetricFrame());
 
         expect(engine.phaseLabel, 'READY');
-        expect(engine.feedback, 'Pozisyonu Hazirla');
+        expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+        expect(engine.feedback, HoldFeedbackCode.preparePosition.code);
+        expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
         expect(engine.diagnosticsSnapshot.isHolding, isFalse);
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
         expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+        expect(
+          engine.diagnosticsSnapshot.lastVisiblePosture.hasCompleteMetrics,
+          isFalse,
+        );
+        expect(
+          engine.diagnosticsSnapshot.lastVisiblePosture.hasActivePosture,
+          isFalse,
+        );
       },
     );
 
     for (final scenario
-        in <({String name, AnalysisFrame frame, String expectedFeedback})>[
+        in <
+          ({
+            String name,
+            AnalysisFrame frame,
+            HoldFeedbackCode expectedFeedbackCode,
+          })
+        >[
           (
             name:
                 'missing arm-support metric immediately breaks and reports body feedback',
             frame: _missingArmMetricFrame(),
-            expectedFeedback: 'Kalcayi Hizala',
+            expectedFeedbackCode: HoldFeedbackCode.alignHips,
           ),
           (
             name:
                 'missing leg-extension metric immediately breaks and reports body feedback',
             frame: _missingLegMetricFrame(),
-            expectedFeedback: 'Kalcayi Hizala',
+            expectedFeedbackCode: HoldFeedbackCode.alignHips,
           ),
           (
             name: 'arm support failure breaks with arm-priority feedback',
             frame: _armUnsupportedFrame(),
-            expectedFeedback: 'Dirsek Destegini Duzelt',
+            expectedFeedbackCode: HoldFeedbackCode.adjustElbowSupport,
           ),
           (
             name: 'leg extension failure breaks with leg-priority feedback',
             frame: _legsNotExtendedFrame(),
-            expectedFeedback: 'Dizleri Kaldir',
+            expectedFeedbackCode: HoldFeedbackCode.extendLegs,
           ),
         ]) {
       test(scenario.name, () {
@@ -269,7 +335,9 @@ void main() {
         engine.update(scenario.frame);
 
         expect(engine.phaseLabel, 'BROKEN');
-        expect(engine.feedback, scenario.expectedFeedback);
+        expect(engine.feedbackCode, scenario.expectedFeedbackCode);
+        expect(engine.feedback, scenario.expectedFeedbackCode.code);
+        expect(engine.diagnosticsSnapshot.phase, HoldPhase.broken);
         expect(engine.diagnosticsSnapshot.isHolding, isFalse);
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
         expect(engine.diagnosticsSnapshot.hadFormBreak, isTrue);
@@ -285,6 +353,7 @@ void main() {
       engine.update(_validHoldFrame());
 
       expect(engine.phaseLabel, 'HOLDING');
+      expect(engine.feedbackCode, HoldFeedbackCode.holdPosition);
       expect(engine.diagnosticsSnapshot.isHolding, isTrue);
       expect(
         engine.diagnosticsSnapshot.currentHoldSeconds,
@@ -305,11 +374,16 @@ void main() {
 
       expect(engine.phaseLabel, 'READY');
       expect(engine.isFormBad, isFalse);
-      expect(engine.feedback, 'Pozisyonu Hazirla');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+      expect(engine.feedback, HoldFeedbackCode.preparePosition.code);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
       expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.isHolding, isFalse);
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      _expectDefaultPostureSnapshot(
+        engine.diagnosticsSnapshot.lastVisiblePosture,
+      );
     });
 
     test('lifecycle interruption hard-ends the active hold', () {
@@ -324,11 +398,16 @@ void main() {
       interruptionControl.endActiveHoldForInterruption();
 
       expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
       expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(engine.diagnosticsSnapshot.isHolding, isFalse);
       expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isFalse);
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      _expectDefaultPostureSnapshot(
+        engine.diagnosticsSnapshot.lastVisiblePosture,
+      );
     });
 
     test('lifecycle interruption clears an active visibility suspension', () {
@@ -347,11 +426,16 @@ void main() {
       interruptionControl.endActiveHoldForInterruption();
 
       expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);
       expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(engine.diagnosticsSnapshot.isHolding, isFalse);
       expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isFalse);
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      _expectDefaultPostureSnapshot(
+        engine.diagnosticsSnapshot.lastVisiblePosture,
+      );
     });
 
     test(
@@ -397,6 +481,7 @@ void main() {
 
       expect(result.disposition, HoldVisibilityResumeDisposition.ended);
       expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
       expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
     });
@@ -410,6 +495,7 @@ void main() {
 
       expect(result.disposition, HoldVisibilityResumeDisposition.noGap);
       expect(engine.phaseLabel, 'READY');
+      expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
       expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isFalse);
     });
 
@@ -445,6 +531,7 @@ void main() {
 
         expect(result.disposition, HoldVisibilityResumeDisposition.noGap);
         expect(engine.phaseLabel, 'HOLDING');
+        expect(engine.feedbackCode, HoldFeedbackCode.holdPosition);
         expect(engine.diagnosticsSnapshot.isHolding, isTrue);
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
       },
@@ -467,6 +554,7 @@ void main() {
         engine.update(_validHoldFrame());
 
         expect(engine.phaseLabel, 'HOLDING');
+        expect(engine.feedbackCode, HoldFeedbackCode.holdPosition);
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
         expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
         expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(2.0, 0.001));
@@ -552,4 +640,20 @@ ExerciseConfig _plankConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
   );
+}
+
+void _expectDefaultPostureSnapshot(HoldPostureDiagnosticsSnapshot snapshot) {
+  expect(snapshot.hasCompleteMetrics, isFalse);
+  expect(snapshot.hasActivePosture, isFalse);
+  expect(snapshot.isBodyAligned, isFalse);
+  expect(snapshot.isArmSupported, isFalse);
+  expect(snapshot.areLegsExtended, isFalse);
+}
+
+void _expectValidPostureSnapshot(HoldPostureDiagnosticsSnapshot snapshot) {
+  expect(snapshot.hasCompleteMetrics, isTrue);
+  expect(snapshot.hasActivePosture, isTrue);
+  expect(snapshot.isBodyAligned, isTrue);
+  expect(snapshot.isArmSupported, isTrue);
+  expect(snapshot.areLegsExtended, isTrue);
 }

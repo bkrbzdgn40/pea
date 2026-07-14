@@ -32,6 +32,7 @@ import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_side.dart';
 import '../../domain/models/range_rep_contract.dart';
@@ -40,6 +41,7 @@ import '../../domain/models/session_calibration_baseline.dart';
 import '../../domain/range_rep_diagnostics.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
+import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
@@ -191,12 +193,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       sessionStartedAt: _clock(),
       analysisKind: _engineKind.name,
     );
+    final initialHoldDiagnostics = _engineKind == EngineKind.hold
+        ? _holdDiagnosticsSnapshot()
+        : null;
 
     final initialState = WorkoutState(
       analysisKind: _engineKind,
       feedbackMessage: _resolvedEngineFeedbackMessage(),
       currentPhase: _engine.phaseLabel,
       selectedHoldSide: null,
+      holdFeedbackCode: _currentHoldFeedbackCode(),
+      holdEnginePhase: initialHoldDiagnostics?.phase,
     );
     _diagnostics.updateWorkoutState(
       repCount: initialState.repCount,
@@ -204,6 +211,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       bestHoldSeconds: initialState.bestHoldSeconds.round(),
       currentPhase: initialState.currentPhase,
       isHolding: initialState.isHolding,
+      presentedHoldFeedbackCode: initialState.holdFeedbackCode,
+      holdDiagnostics: initialHoldDiagnostics,
+      currentHoldSide: initialState.selectedHoldSide,
     );
     return initialState;
   }
@@ -755,9 +765,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             holdDiagnostics?.isVisibilitySuspended ?? false,
         hadHoldFormBreak:
             holdDiagnostics?.hadFormBreak ?? state.hadHoldFormBreak,
-        feedbackMessage: mapRangeRepFeedbackCodeToMessage(
-          RangeRepFeedbackCode.bodyNotVisible,
-        ),
+        holdFeedbackCode: _engineKind == EngineKind.hold
+            ? HoldFeedbackCode.bodyNotVisible
+            : null,
+        holdEnginePhase: holdDiagnostics?.phase,
+        feedbackMessage: _engineKind == EngineKind.hold
+            ? mapHoldFeedbackCodeToMessage(HoldFeedbackCode.bodyNotVisible)
+            : mapRangeRepFeedbackCodeToMessage(
+                RangeRepFeedbackCode.bodyNotVisible,
+              ),
         currentPhase: "WAITING",
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
@@ -814,6 +830,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           isHolding: false,
           isHoldVisibilitySuspended: false,
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
+          holdFeedbackCode: _currentHoldFeedbackCode(),
+          holdEnginePhase: holdDiagnostics.phase,
           feedbackMessage: _resolvedEngineFeedbackMessage(),
           currentPhase: _engine.phaseLabel,
           cameraFps: _cameraFps,
@@ -1087,6 +1105,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
         bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
+        holdFeedbackCode: _currentHoldFeedbackCode(),
+        holdEnginePhase: _engineKind == EngineKind.hold
+            ? holdDiagnostics.phase
+            : null,
         isHolding: holdDiagnostics.isHolding,
         isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
         hadHoldFormBreak: holdDiagnostics.hadFormBreak,
@@ -1174,12 +1196,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentHoldSeconds: 0,
         bestHoldSeconds: state.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
+        holdFeedbackCode: _engineKind == EngineKind.hold
+            ? HoldFeedbackCode.bodyNotVisible
+            : null,
+        holdEnginePhase: _engineKind == EngineKind.hold
+            ? _holdDiagnosticsSnapshot().phase
+            : null,
         isHolding: false,
         isHoldVisibilitySuspended: false,
         hadHoldFormBreak: state.hadHoldFormBreak,
-        feedbackMessage: mapRangeRepFeedbackCodeToMessage(
-          RangeRepFeedbackCode.bodyNotVisible,
-        ),
+        feedbackMessage: _engineKind == EngineKind.hold
+            ? mapHoldFeedbackCodeToMessage(HoldFeedbackCode.bodyNotVisible)
+            : mapRangeRepFeedbackCodeToMessage(
+                RangeRepFeedbackCode.bodyNotVisible,
+              ),
         currentPhase: "WAITING",
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
@@ -1225,6 +1255,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       calibrationOffsetDegrees:
           state.calibrationMetrics.calibrationThresholdOffsetApplied
           ? state.calibrationMetrics.calibrationThresholdOffsetCandidate
+          : null,
+      presentedHoldFeedbackCode: state.holdFeedbackCode,
+      holdDiagnostics: _engineKind == EngineKind.hold
+          ? _holdDiagnosticsSnapshot()
+          : null,
+      currentHoldSide: _engineKind == EngineKind.hold
+          ? state.selectedHoldSide
           : null,
     );
   }
@@ -1282,6 +1319,19 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     return selectedHoldSide;
+  }
+
+  HoldFeedbackCode? _currentHoldFeedbackCode() {
+    if (_engineKind != EngineKind.hold) {
+      return null;
+    }
+    if (_engine is! HoldFeedbackSource) {
+      throw StateError(
+        'Hold analysis engine must implement HoldFeedbackSource.',
+      );
+    }
+
+    return (_engine as HoldFeedbackSource).feedbackCode;
   }
 
   HoldSide _selectHoldSideForAcceptedPose(PoseQualityAssessment assessment) {
@@ -1526,6 +1576,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       if (feedbackCode != null) {
         return mapRangeRepFeedbackCodeToMessage(feedbackCode);
       }
+    }
+    if (_engineKind == EngineKind.hold && _engine is HoldFeedbackSource) {
+      return mapHoldFeedbackCodeToMessage(
+        (_engine as HoldFeedbackSource).feedbackCode,
+      );
     }
 
     return _engine.feedback;
@@ -1843,6 +1898,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       currentHoldSeconds: 0,
       bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
       selectedHoldSide: null,
+      holdFeedbackCode: _currentHoldFeedbackCode(),
+      holdEnginePhase: holdDiagnostics.phase,
       isHolding: false,
       isHoldVisibilitySuspended: false,
       hadHoldFormBreak: holdDiagnostics.hadFormBreak,

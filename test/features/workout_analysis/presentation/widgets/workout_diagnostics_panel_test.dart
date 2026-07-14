@@ -3,6 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -30,6 +34,51 @@ void main() {
     expect(find.text('5 sn'), findsOneWidget);
   });
 
+  testWidgets('hold typed state alanlarini gosterir', (tester) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(
+        analysisKind: 'hold',
+        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+        engineHoldFeedbackCode: HoldFeedbackCode.holdPosition,
+        holdEnginePhase: HoldPhase.holding,
+        currentHoldSide: HoldSide.right,
+        lastVisibleHoldPosture: const HoldPostureDiagnosticsSnapshot(
+          hasCompleteMetrics: true,
+          hasActivePosture: true,
+          isBodyAligned: true,
+          isArmSupported: false,
+          areLegsExtended: true,
+        ),
+        isHoldFormBreakGraceActive: true,
+        isHoldVisibilitySuspended: false,
+      ),
+      onReset: () {},
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hold typed state'), findsOneWidget);
+    expect(find.text('Presented feedback code'), findsOneWidget);
+    expect(find.text('body_not_visible'), findsOneWidget);
+    expect(find.text('Engine feedback code'), findsOneWidget);
+    expect(find.text('hold_position'), findsOneWidget);
+    expect(find.text('Feedback family'), findsOneWidget);
+    expect(find.text('systemState'), findsOneWidget);
+    expect(find.text('Engine phase'), findsOneWidget);
+    expect(find.text('holding'), findsOneWidget);
+    expect(find.text('Selected hold side'), findsOneWidget);
+    expect(find.text('right'), findsOneWidget);
+    expect(find.text('Metrics complete'), findsOneWidget);
+    expect(find.text('Active posture'), findsOneWidget);
+    expect(find.text('Body aligned'), findsOneWidget);
+    expect(find.text('Arm supported'), findsOneWidget);
+    expect(find.text('Legs extended'), findsOneWidget);
+    expect(find.text('Form-break grace active'), findsOneWidget);
+    expect(find.text('Visibility suspended'), findsOneWidget);
+  });
+
   testWidgets(
     'nullable degerleri yer tutucu olarak gosterir ve unknown commit SHA görünür kalir',
     (tester) async {
@@ -49,6 +98,13 @@ void main() {
           bestHoldSeconds: null,
           currentPhase: null,
           isHolding: null,
+          presentedHoldFeedbackCode: null,
+          engineHoldFeedbackCode: null,
+          holdEnginePhase: null,
+          currentHoldSide: null,
+          lastVisibleHoldPosture: null,
+          isHoldFormBreakGraceActive: null,
+          isHoldVisibilitySuspended: null,
         ),
         onReset: () {},
       );
@@ -98,6 +154,8 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
+    expect(decoded['schema_version'], 3);
+    expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
 
@@ -251,7 +309,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 2,
+  int schemaVersion = 3,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -281,6 +339,13 @@ WorkoutDiagnosticsSnapshot _snapshot({
   int? bestHoldSeconds = 34,
   String? currentPhase = 'ASCENDING',
   bool? isHolding = false,
+  HoldFeedbackCode? presentedHoldFeedbackCode,
+  HoldFeedbackCode? engineHoldFeedbackCode,
+  HoldPhase? holdEnginePhase,
+  HoldSide? currentHoldSide,
+  HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture,
+  bool? isHoldFormBreakGraceActive,
+  bool? isHoldVisibilitySuspended,
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -319,5 +384,12 @@ WorkoutDiagnosticsSnapshot _snapshot({
     bestHoldSeconds: bestHoldSeconds,
     currentPhase: currentPhase,
     isHolding: isHolding,
+    presentedHoldFeedbackCode: presentedHoldFeedbackCode,
+    engineHoldFeedbackCode: engineHoldFeedbackCode,
+    holdEnginePhase: holdEnginePhase,
+    currentHoldSide: currentHoldSide,
+    lastVisibleHoldPosture: lastVisibleHoldPosture,
+    isHoldFormBreakGraceActive: isHoldFormBreakGraceActive,
+    isHoldVisibilitySuspended: isHoldVisibilitySuspended,
   );
 }

@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
@@ -45,7 +47,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v2',
+      'v3',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -58,12 +60,12 @@ void main() {
         final snapshot = controller.diagnosticsSnapshot();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 2);
+        expect(snapshot.schemaVersion, 3);
         expect(snapshot.acceptedPoseFrameCount, 0);
         expect(snapshot.rejectedPoseFrameCount, 2);
         expect(snapshot.lowConfidencePoseFrameCount, 2);
         expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
-        expect(snapshot.toJson()['schema_version'], 2);
+        expect(snapshot.toJson()['schema_version'], 3);
       },
     );
 
@@ -132,6 +134,45 @@ void main() {
         expect(state.currentAngle, closeTo(170.0, 0.001));
       },
     );
+
+    test('accepted range-rep frames keep typed hold state null', () async {
+      final acceptedPose = _squatPose(angle: 170, defaultLikelihood: 0.66);
+
+      await _analyzeFrame(controller, detector, <Pose>[acceptedPose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[acceptedPose]);
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+      final json = snapshot.toJson();
+
+      expect(snapshot.acceptedPoseFrameCount, 1);
+      expect(state.currentAngle, closeTo(170.0, 0.001));
+
+      expect(state.holdFeedbackCode, isNull);
+      expect(state.holdEnginePhase, isNull);
+      expect(state.selectedHoldSide, isNull);
+
+      expect(snapshot.presentedHoldFeedbackCode, isNull);
+      expect(snapshot.engineHoldFeedbackCode, isNull);
+      expect(snapshot.holdEnginePhase, isNull);
+      expect(snapshot.currentHoldSide, isNull);
+      expect(snapshot.lastVisibleHoldPosture, isNull);
+      expect(snapshot.isHoldFormBreakGraceActive, isNull);
+      expect(snapshot.isHoldVisibilitySuspended, isNull);
+
+      expect(json['presented_hold_feedback_code'], isNull);
+      expect(json['engine_hold_feedback_code'], isNull);
+      expect(json['hold_engine_phase'], isNull);
+      expect(json['current_hold_side'], isNull);
+      expect(json['hold_has_complete_metrics'], isNull);
+      expect(json['hold_has_active_posture'], isNull);
+      expect(json['hold_is_body_aligned'], isNull);
+      expect(json['hold_is_arm_supported'], isNull);
+      expect(json['hold_are_legs_extended'], isNull);
+      expect(json['hold_is_form_break_grace_active'], isNull);
+      expect(json['hold_is_visibility_suspended'], isNull);
+    });
 
     test(
       'all-rejected multi-pose frame uses the best rejected reason once',
@@ -523,6 +564,10 @@ void main() {
 
       expect(state.isHolding, isFalse);
       expect(state.currentHoldSeconds, 0);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+      expect(state.currentPhase, 'WAITING');
       expect(snapshot.acceptedPoseFrameCount, 0);
       expect(snapshot.rejectedPoseFrameCount, 2);
     },
@@ -558,10 +603,42 @@ void main() {
 
     expect(state.isHolding, isFalse);
     expect(state.currentHoldSeconds, 0);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+    expect(state.holdEnginePhase, HoldPhase.ready);
+    expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+    expect(state.currentPhase, 'WAITING');
     expect(snapshot.acceptedPoseFrameCount, 0);
     expect(snapshot.rejectedPoseFrameCount, 2);
     expect(snapshot.lastPoseRejectionReason, 'missing_required_landmark');
   });
+
+  test(
+    'valid left hold exposes typed feedback, phase, and UI message',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      final state = container.read(workoutControllerProvider);
+
+      expect(state.selectedHoldSide, HoldSide.left);
+      expect(state.isHolding, isTrue);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Pozisyonu Koru');
+      expect(state.currentPhase, 'HOLDING');
+    },
+  );
 
   test(
     'right-only controller pipeline starts a hold on the right side',
@@ -595,10 +672,125 @@ void main() {
 
       expect(state.isHolding, isTrue);
       expect(state.selectedHoldSide, HoldSide.right);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Pozisyonu Koru');
+      expect(state.currentPhase, 'HOLDING');
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(snapshot.acceptedPoseFrameCount, 2);
     },
   );
+
+  test('hold body failure exposes typed broken-state feedback', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftBodyLineAngle: 162,
+      ),
+    ]);
+    clock.advance(const Duration(milliseconds: 100));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftBodyLineAngle: 162,
+      ),
+    ]);
+
+    final state = container.read(workoutControllerProvider);
+    expect(state.isHolding, isFalse);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
+    expect(state.holdEnginePhase, HoldPhase.broken);
+    expect(state.feedbackMessage, 'Kalcayi Hizala');
+    expect(state.currentPhase, 'BROKEN');
+  });
+
+  test('hold arm failure exposes typed broken-state feedback', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftArmSupportAngle: 0,
+      ),
+    ]);
+    clock.advance(const Duration(milliseconds: 100));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftArmSupportAngle: 0,
+      ),
+    ]);
+
+    final state = container.read(workoutControllerProvider);
+    expect(state.isHolding, isFalse);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.adjustElbowSupport);
+    expect(state.holdEnginePhase, HoldPhase.broken);
+    expect(state.feedbackMessage, 'Dirsek Destegini Duzelt');
+    expect(state.currentPhase, 'BROKEN');
+  });
+
+  test('hold leg failure exposes typed broken-state feedback', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftLegExtensionAngle: 120,
+      ),
+    ]);
+    clock.advance(const Duration(milliseconds: 100));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(
+        leftLikelihood: 0.99,
+        rightLikelihood: 0.40,
+        leftLegExtensionAngle: 120,
+      ),
+    ]);
+
+    final state = container.read(workoutControllerProvider);
+    expect(state.isHolding, isFalse);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.extendLegs);
+    expect(state.holdEnginePhase, HoldPhase.broken);
+    expect(state.feedbackMessage, 'Dizleri Kaldir');
+    expect(state.currentPhase, 'BROKEN');
+  });
 
   test(
     'confirmed side switch resets hold metric smoothing before the new side is processed',
@@ -653,6 +845,8 @@ void main() {
       expect(state.selectedHoldSide, HoldSide.right);
       expect(state.isHolding, isFalse);
       expect(state.currentHoldSeconds, 0);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
+      expect(state.holdEnginePhase, HoldPhase.broken);
     },
   );
 
@@ -684,6 +878,10 @@ void main() {
       expect(state.selectedHoldSide, HoldSide.right);
       expect(state.isHolding, isFalse);
       expect(state.isHoldVisibilitySuspended, isTrue);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+      expect(state.currentPhase, 'WAITING');
 
       clock.advance(const Duration(milliseconds: 50));
       await _analyzeFrame(controller, detector, <Pose>[
@@ -725,6 +923,9 @@ void main() {
     expect(state.isHolding, isTrue);
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
     expect(state.isHoldVisibilitySuspended, isFalse);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(state.holdEnginePhase, HoldPhase.holding);
+    expect(state.feedbackMessage, 'Pozisyonu Koru');
   });
 
   test(
@@ -758,6 +959,8 @@ void main() {
       var state = container.read(workoutControllerProvider);
       expect(state.isHolding, isFalse);
       expect(state.selectedHoldSide, isNull);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
 
       clock.advance(const Duration(milliseconds: 100));
       await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
@@ -791,6 +994,9 @@ void main() {
     expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
     expect(state.isHolding, isFalse);
     expect(state.isHoldVisibilitySuspended, isTrue);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+    expect(state.holdEnginePhase, HoldPhase.holding);
+    expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
     clock.advance(const Duration(milliseconds: 50));
     await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
     clock.advance(const Duration(milliseconds: 50));
@@ -803,6 +1009,8 @@ void main() {
     expect(state.isHolding, isTrue);
     expect(state.isHoldVisibilitySuspended, isFalse);
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
+    expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(state.holdEnginePhase, HoldPhase.holding);
   });
 
   test(
@@ -834,6 +1042,10 @@ void main() {
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isFalse);
       expect(state.hadHoldFormBreak, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.currentPhase, 'READY');
 
       clock.advance(const Duration(milliseconds: 100));
       await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
@@ -883,6 +1095,8 @@ void main() {
 
     expect(state.isHolding, isTrue);
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
+    expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(state.holdEnginePhase, HoldPhase.holding);
     expect(snapshot.rejectedPoseFrameCount, 1);
   });
 
@@ -913,6 +1127,9 @@ void main() {
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isFalse);
       expect(state.isHoldVisibilitySuspended, isTrue);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
       expect(state.currentPhase, 'WAITING');
     },
   );
@@ -941,6 +1158,9 @@ void main() {
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isFalse);
       expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
       expect(state.currentPhase, 'READY');
       expect(state.hadHoldFormBreak, isFalse);
 
@@ -988,6 +1208,9 @@ void main() {
       expect(state.bestHoldSeconds, 0);
       expect(state.isHolding, isFalse);
       expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
       expect(state.currentPhase, 'READY');
       expect(state.hadHoldFormBreak, isFalse);
     },
@@ -1025,6 +1248,9 @@ void main() {
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isFalse);
       expect(state.isHoldVisibilitySuspended, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
       expect(state.currentPhase, 'READY');
 
       clock.advance(const Duration(seconds: 10));
@@ -1477,8 +1703,10 @@ Pose _bilateralPlankPose({
   required double rightLikelihood,
   double leftBodyLineAngle = 180,
   double leftArmSupportAngle = 90,
+  double leftLegExtensionAngle = 180,
   double rightBodyLineAngle = 180,
   double rightArmSupportAngle = 90,
+  double rightLegExtensionAngle = 180,
 }) {
   final landmarks = <PoseLandmarkType, PoseLandmark>{};
 
@@ -1499,6 +1727,7 @@ Pose _bilateralPlankPose({
     elbow: const _Point(-0.5, 0),
     bodyLineAngle: leftBodyLineAngle,
     armSupportAngle: leftArmSupportAngle,
+    legExtensionAngle: leftLegExtensionAngle,
     likelihood: leftLikelihood,
   );
   _addHoldSideLandmarks(
@@ -1509,6 +1738,7 @@ Pose _bilateralPlankPose({
     elbow: const _Point(0.5, 0),
     bodyLineAngle: rightBodyLineAngle,
     armSupportAngle: rightArmSupportAngle,
+    legExtensionAngle: rightLegExtensionAngle,
     likelihood: rightLikelihood,
   );
 
@@ -1529,6 +1759,7 @@ void _addHoldSideLandmarks({
   required _Point elbow,
   required double bodyLineAngle,
   required double armSupportAngle,
+  required double legExtensionAngle,
   required double likelihood,
 }) {
   final bodyLineRadians = _bodyLineRadians(side, bodyLineAngle);
@@ -1536,7 +1767,11 @@ void _addHoldSideLandmarks({
     hip.x + math.cos(bodyLineRadians),
     hip.y + math.sin(bodyLineRadians),
   );
-  final knee = _Point((hip.x + ankle.x) / 2, (hip.y + ankle.y) / 2);
+  final knee = _kneePoint(
+    hip: hip,
+    ankle: ankle,
+    legExtensionAngle: legExtensionAngle,
+  );
   final armSupportRadians = _armSupportRadians(side, armSupportAngle);
   final wrist = _Point(
     elbow.x + math.cos(armSupportRadians),
@@ -1621,6 +1856,34 @@ double _armSupportRadians(HoldSide side, double armSupportAngle) {
       ? 180.0 + armSupportAngle
       : 360.0 - armSupportAngle;
   return degrees * (math.pi / 180.0);
+}
+
+_Point _kneePoint({
+  required _Point hip,
+  required _Point ankle,
+  required double legExtensionAngle,
+}) {
+  final midpoint = _Point((hip.x + ankle.x) / 2, (hip.y + ankle.y) / 2);
+  final normalizedAngle = legExtensionAngle.clamp(0.0, 180.0);
+  if (normalizedAngle >= 179.999) {
+    return midpoint;
+  }
+
+  final dx = ankle.x - hip.x;
+  final dy = ankle.y - hip.y;
+  final chordLength = math.sqrt(dx * dx + dy * dy);
+  if (chordLength == 0) {
+    return midpoint;
+  }
+
+  final halfChord = chordLength / 2;
+  final angleRadians = normalizedAngle * (math.pi / 180.0);
+  final offset = halfChord / math.tan(angleRadians / 2);
+  final perpendicular = _Point(-dy / chordLength, dx / chordLength);
+  return _Point(
+    midpoint.x + perpendicular.x * offset,
+    midpoint.y + perpendicular.y * offset,
+  );
 }
 
 PoseLandmark _landmark(
