@@ -217,6 +217,9 @@ Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 * `HoldContract`, hold motorunun beklediği semantik signal setini; `holdSignals` ise bu signal'ların referans landmark üçlülerini tanımlar
 * hold pipeline aynı config'ten left ve right requirement setleri üretir; right-only plank pose'ları kabul edilip hold başlatabilir
 * aktif hold attempt sırasında seçilen side lock edilir ve kısa visibility gap boyunca korunur
+* hold engine kullanıcı mesajı yerine typed feedback code üretir; Türkçe kullanıcı mesajı presentation mapper'da kalır
+* hold diagnostics artık typed phase, feedback ve last-visible posture state taşır; Beta Diagnostics JSON schema version `3` üzerinden bunları additive alanlarla gösterir
+* missing body/arm/leg metric semantics'i bugün hâlâ mevcut production davranışını korur; bu debt yalnız görünür hâle getirilmiştir, düzeltilmemiştir
 * `hold` ailesi henüz bütün statik egzersizler için kolayca genellenmiş, ikinci fixture ile kanıtlanmış bir şablon değildir
 * kısa visibility gap sonrası hold devam edebilse de gizli süre hold toplamına eklenmez
 * otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez
@@ -259,7 +262,7 @@ flutter run
 | Öncelik | Başlık | Not |
 | ------- | ------ | --- |
 | Yüksek | Yeni egzersiz enablement | Yeni hareketler ancak engine, test ve cihaz kanıtı ile aktif edilmeli |
-| Yüksek | İkinci hold-family fixture ve typed diagnostics | Hold ailesini plank dışına güvenli biçimde genişletmek için |
+| Yüksek | İkinci hold-family fixture | Hold ailesini plank dışına güvenli biçimde genişletmek için |
 | Orta | Daha güçlü skor açıklaması | Neden bu skor üretildiğini daha anlaşılır göstermek için |
 | Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek için |
 | Orta | Gerçek cihaz kabul kanıtlarını genişletme | Profile build ve saha ölçümlerini daha sistematik hale getirmek için |

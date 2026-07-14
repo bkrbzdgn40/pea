@@ -405,6 +405,11 @@ Bu yüzden:
 - mixed-side triplet'lerde bütün paired landmark'lar swap edilir; yalnız `left*` alanlarını sağa çevirmek yeterli değildir
 - pose quality left ve right requirement setlerini ayrı değerlendirir, daha yüksek quality tarafını seçer ve exact tie durumunda left tarafını tercih eder
 - controller seçilen hold side'ı stabilize eder, aktif attempt boyunca lock eder ve kısa visibility gap süresince korur
+- hold engine typed feedback code üretir; kullanıcıya gösterilen metin `hold_feedback_ui_mapper.dart` içinde map edilir
+- controller hold session sırasında presented feedback code ile engine phase gerçeğini ayrı taşıyabilir; visibility gap sırasında `WAITING` UI etiketi korunurken engine phase `holding` kalabilir
+- hold diagnostics `lastVisiblePosture` alanını son görünür analiz frame'i için taşır; bu alanı anlık kamera gerçeği gibi yorumlama
+- domain logic kullanıcı metnini karşılaştırmamalı; JSON config kullanıcı mesajı taşımamalı; yeni hold code gerekiyorsa enum, stable code, family, mapper ve test birlikte eklenmeli
+- missing-metric semantics bu adımda düzeltilmedi; missing body bugün `preparePosition`, missing arm/leg ise production karakterizasyonunu koruyarak `alignHips` surface'ine düşebilir
 - yeni hareket bu üç signal'in anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme
 - yeni hold hareketi yalnız JSON eklenince otomatik desteklenmiş sayılmaz
 - yeni hold hareketi, mevcut üç signal'in aynı biyomekanik anlamı taşıdığını ayrıca kanıtlamalıdır
@@ -434,7 +439,6 @@ Hold motoru tekrar üretmez; `repCount` güvenli biçimde `0` kalır ve sonuç h
 Aşağıdakiler bugünün implementasyonu değil, sonraki mimari adımlardır:
 
 - ikinci hold-family fixture ile template doğrulaması
-- typed diagnostics/feedback where applicable
 - real-device right-side acceptance kanıtını genişletme
 
 Bu hedefler gelmeden `hold` ailesini bütün statik egzersizler için tam genellenmiş gibi belgeleme.
@@ -678,6 +682,8 @@ Commit SHA veya build kimliği yoksa sonuç geçersizdir.
 **Beta Diagnostics paneli** şu soruyu cevaplar:
 
 > Oturum boyunca kaç frame işlendi, kaç pose kayboldu, side kaç kez değişti ve performans nasıldı?
+
+Hold session'larında bu panel artık presented hold feedback code, engine hold feedback code, engine phase, selected side ve `lastVisiblePosture` booleans yüzeyini de gösterir.
 
 Yeni egzersiz kalibrasyonunda ikisi birlikte kullanılmalıdır. Biri anlık geometriyi, diğeri oturum sağlığını gösterir.
 
