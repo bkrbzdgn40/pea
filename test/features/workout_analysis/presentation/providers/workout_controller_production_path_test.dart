@@ -135,6 +135,45 @@ void main() {
       },
     );
 
+    test('accepted range-rep frames keep typed hold state null', () async {
+      final acceptedPose = _squatPose(angle: 170, defaultLikelihood: 0.66);
+
+      await _analyzeFrame(controller, detector, <Pose>[acceptedPose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[acceptedPose]);
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+      final json = snapshot.toJson();
+
+      expect(snapshot.acceptedPoseFrameCount, 1);
+      expect(state.currentAngle, closeTo(170.0, 0.001));
+
+      expect(state.holdFeedbackCode, isNull);
+      expect(state.holdEnginePhase, isNull);
+      expect(state.selectedHoldSide, isNull);
+
+      expect(snapshot.presentedHoldFeedbackCode, isNull);
+      expect(snapshot.engineHoldFeedbackCode, isNull);
+      expect(snapshot.holdEnginePhase, isNull);
+      expect(snapshot.currentHoldSide, isNull);
+      expect(snapshot.lastVisibleHoldPosture, isNull);
+      expect(snapshot.isHoldFormBreakGraceActive, isNull);
+      expect(snapshot.isHoldVisibilitySuspended, isNull);
+
+      expect(json['presented_hold_feedback_code'], isNull);
+      expect(json['engine_hold_feedback_code'], isNull);
+      expect(json['hold_engine_phase'], isNull);
+      expect(json['current_hold_side'], isNull);
+      expect(json['hold_has_complete_metrics'], isNull);
+      expect(json['hold_has_active_posture'], isNull);
+      expect(json['hold_is_body_aligned'], isNull);
+      expect(json['hold_is_arm_supported'], isNull);
+      expect(json['hold_are_legs_extended'], isNull);
+      expect(json['hold_is_form_break_grace_active'], isNull);
+      expect(json['hold_is_visibility_suspended'], isNull);
+    });
+
     test(
       'all-rejected multi-pose frame uses the best rejected reason once',
       () async {

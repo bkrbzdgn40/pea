@@ -1106,7 +1106,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
         holdFeedbackCode: _currentHoldFeedbackCode(),
-        holdEnginePhase: holdDiagnostics.phase,
+        holdEnginePhase: _engineKind == EngineKind.hold
+            ? holdDiagnostics.phase
+            : null,
         isHolding: holdDiagnostics.isHolding,
         isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
         hadHoldFormBreak: holdDiagnostics.hadFormBreak,
