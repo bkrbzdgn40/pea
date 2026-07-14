@@ -1108,6 +1108,23 @@ ExerciseConfig _plankConfig() {
       legExtensionMinAngle: 165,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
+    holdSignals: const HoldSignalExtractionConfig(
+      alignment: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      support: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftElbow,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      extension: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+    ),
   );
 }
 

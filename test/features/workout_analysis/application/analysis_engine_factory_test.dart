@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -27,6 +28,7 @@ void main() {
     thresholdActive: 135.0,
     thresholdPeak: 95.0,
   );
+  final plankConfig = _holdConfig();
 
   group('AnalysisEngineFactory', () {
     test('rejects range-rep creation without a contract', () {
@@ -65,13 +67,127 @@ void main() {
       expect(engine, isA<RangeRepEngine>());
     });
 
-    test('hold engine creation remains unaffected', () {
+    test('rejects hold creation without a contract', () {
+      expect(
+        () => factory.create(engineKind: EngineKind.hold, config: plankConfig),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('holdContract'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects hold creation without holdSignals config', () {
+      expect(
+        () => factory.create(
+          engineKind: EngineKind.hold,
+          config: _holdConfig(includeHoldSignals: false),
+          holdContract: HoldContracts.plankFamily,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('holdSignals'),
+          ),
+        ),
+      );
+    });
+
+    for (final scenario in <({HoldSignal signal, ExerciseConfig config})>[
+      (
+        signal: HoldSignal.alignment,
+        config: _holdConfig(missingSignals: <HoldSignal>{HoldSignal.alignment}),
+      ),
+      (
+        signal: HoldSignal.support,
+        config: _holdConfig(missingSignals: <HoldSignal>{HoldSignal.support}),
+      ),
+      (
+        signal: HoldSignal.extension,
+        config: _holdConfig(missingSignals: <HoldSignal>{HoldSignal.extension}),
+      ),
+    ]) {
+      test('rejects hold creation when ${scenario.signal.name} is missing', () {
+        expect(
+          () => factory.create(
+            engineKind: EngineKind.hold,
+            config: scenario.config,
+            holdContract: HoldContracts.plankFamily,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains(scenario.signal.name),
+            ),
+          ),
+        );
+      });
+    }
+
+    test('creates a hold engine for a valid plank contract and config', () {
       final engine = factory.create(
         engineKind: EngineKind.hold,
-        config: squatConfig,
+        config: plankConfig,
+        holdContract: HoldContracts.plankFamily,
       );
 
       expect(engine, isA<HoldEngine>());
     });
   });
+}
+
+ExerciseConfig _holdConfig({
+  bool includeHoldSignals = true,
+  Set<HoldSignal> missingSignals = const <HoldSignal>{},
+}) {
+  final holdSignals = includeHoldSignals
+      ? HoldSignalExtractionConfig(
+          alignment: missingSignals.contains(HoldSignal.alignment)
+              ? null
+              : const HoldAngleSignalConfig(
+                  first: PoseLandmarkType.leftShoulder,
+                  middle: PoseLandmarkType.leftHip,
+                  last: PoseLandmarkType.leftAnkle,
+                ),
+          support: missingSignals.contains(HoldSignal.support)
+              ? null
+              : const HoldAngleSignalConfig(
+                  first: PoseLandmarkType.leftShoulder,
+                  middle: PoseLandmarkType.leftElbow,
+                  last: PoseLandmarkType.leftWrist,
+                ),
+          extension: missingSignals.contains(HoldSignal.extension)
+              ? null
+              : const HoldAngleSignalConfig(
+                  first: PoseLandmarkType.leftHip,
+                  middle: PoseLandmarkType.leftKnee,
+                  last: PoseLandmarkType.leftAnkle,
+                ),
+        )
+      : null;
+
+  return ExerciseConfig(
+    name: 'Plank',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 160.0,
+    thresholdActive: 168.0,
+    thresholdPeak: 0.0,
+    holdPosture: const HoldPostureConfig(
+      activePostureAngle: 160.0,
+      bodyLineEntryAngle: 168.0,
+      bodyLineSustainAngle: 166.0,
+      armSupportMinAngle: 60.0,
+      armSupportMaxAngle: 120.0,
+      legExtensionMinAngle: 165.0,
+      breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: holdSignals,
+  );
 }

@@ -6,6 +6,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -424,6 +425,7 @@ void main() {
             pose,
             _holdConfig(),
             engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
           );
 
           expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
@@ -495,6 +497,7 @@ void main() {
             ),
             _holdConfig(),
             engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
           );
 
           expect(metrics.bodyLineAngle != null, scenario.hasBodyLineAngle);
@@ -514,11 +517,28 @@ void main() {
             _holdPose(rightOnly: true),
             _holdConfig(),
             engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
           );
 
           expect(metrics.bodyLineAngle, isNull);
           expect(metrics.armSupportAngle, isNull);
           expect(metrics.legExtensionAngle, isNull);
+        },
+      );
+
+      test(
+        'hold metrics follow test-only configured signal geometry instead of hardcoded plank triplets',
+        () {
+          final metrics = extractor.extract(
+            _alternateHoldPose(),
+            _alternateHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
+          );
+
+          expect(metrics.bodyLineAngle, closeTo(90.0, 0.001));
+          expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
+          expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
         },
       );
     });
@@ -576,6 +596,61 @@ ExerciseConfig _holdConfig() {
       armSupportMaxAngle: 120.0,
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: const HoldSignalExtractionConfig(
+      alignment: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      support: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftElbow,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      extension: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+    ),
+  );
+}
+
+ExerciseConfig _alternateHoldConfig() {
+  return ExerciseConfig(
+    name: 'Plank',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 160.0,
+    thresholdActive: 168.0,
+    thresholdPeak: 0.0,
+    holdPosture: const HoldPostureConfig(
+      activePostureAngle: 160.0,
+      bodyLineEntryAngle: 168.0,
+      bodyLineSustainAngle: 166.0,
+      armSupportMinAngle: 60.0,
+      armSupportMaxAngle: 120.0,
+      legExtensionMinAngle: 165.0,
+      breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: const HoldSignalExtractionConfig(
+      alignment: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.rightHip,
+      ),
+      support: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftElbow,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      extension: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
     ),
   );
 }
@@ -669,6 +744,24 @@ Pose _holdPose({
     landmarks.remove(landmarkType);
   }
   return Pose(landmarks: landmarks);
+}
+
+Pose _alternateHoldPose() {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        0,
+        1,
+      ),
+      PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 0, 0),
+      PoseLandmarkType.rightHip: _landmark(PoseLandmarkType.rightHip, 1, 0),
+      PoseLandmarkType.leftElbow: _landmark(PoseLandmarkType.leftElbow, 1, 0),
+      PoseLandmarkType.leftWrist: _landmark(PoseLandmarkType.leftWrist, 1, 1),
+      PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 1, 0),
+      PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 2, -1),
+    },
+  );
 }
 
 Map<PoseLandmarkType, PoseLandmark> _leftHoldLandmarks() {
