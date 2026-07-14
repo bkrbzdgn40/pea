@@ -1,8 +1,9 @@
 import '../domain/analysis_engine.dart';
-import '../domain/range_rep_engine.dart';
 import '../domain/hold_engine.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/range_rep_engine.dart';
 import 'engine_kind.dart';
 
 /// Creates the engine used by today's analysis pipeline.
@@ -16,6 +17,7 @@ class AnalysisEngineFactory {
     required EngineKind engineKind,
     required ExerciseConfig config,
     RangeRepContract? rangeRepContract,
+    HoldContract? holdContract,
     DateTime Function()? now,
   }) {
     switch (engineKind) {
@@ -30,6 +32,13 @@ class AnalysisEngineFactory {
         _validateRangeRepEngineContract(requiredRangeRepContract);
         return RangeRepEngine(config: config, now: now);
       case EngineKind.hold:
+        final requiredHoldContract = holdContract;
+        if (requiredHoldContract == null) {
+          throw StateError(
+            'Hold engine creation requires a non-null holdContract.',
+          );
+        }
+        _validateHoldEngineContract(requiredHoldContract, config);
         return HoldEngine(config: config, now: now);
       case EngineKind.alternatingRep:
         throw StateError(
@@ -55,6 +64,43 @@ class AnalysisEngineFactory {
         'Current range-rep engine requires primaryMetric and formMetric '
         'signals in the range-rep contract.',
       );
+    }
+  }
+
+  void _validateHoldEngineContract(
+    HoldContract contract,
+    ExerciseConfig config,
+  ) {
+    for (final signal in const <HoldSignal>[
+      HoldSignal.alignment,
+      HoldSignal.support,
+      HoldSignal.extension,
+    ]) {
+      if (!contract.supportsSignal(signal)) {
+        throw StateError(
+          'Current hold engine requires ${signal.name} in the hold contract.',
+        );
+      }
+    }
+
+    final holdSignals = config.holdSignals;
+    if (holdSignals == null) {
+      throw StateError(
+        'Current hold engine requires holdSignals config for hold analysis.',
+      );
+    }
+
+    for (final signal in const <HoldSignal>[
+      HoldSignal.alignment,
+      HoldSignal.support,
+      HoldSignal.extension,
+    ]) {
+      if (holdSignals.definitionFor(signal) == null) {
+        throw StateError(
+          'Current hold engine missing ${signal.name} definition in '
+          'holdSignals config.',
+        );
+      }
     }
   }
 }

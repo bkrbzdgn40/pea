@@ -30,6 +30,7 @@ import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/hold_contract.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/session_calibration_baseline.dart';
@@ -91,6 +92,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final MovingAverageFilter _legFilter;
   late final ExerciseConfig _config;
   late final RangeRepContract? _rangeRepContract;
+  late final HoldContract? _holdContract;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder =
       const CalibrationSnapshotBuilder();
@@ -135,11 +137,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _rangeRepContract = _engineKind == EngineKind.rangeRep
         ? definition.analysisRangeRepContract
         : null;
+    _holdContract = _engineKind == EngineKind.hold
+        ? definition.analysisHoldContract
+        : null;
     _config = ref.watch(exerciseConfigProvider).requireValue;
     _engine = _engineFactory.create(
       engineKind: _engineKind,
       config: _config,
       rangeRepContract: _rangeRepContract,
+      holdContract: _holdContract,
       now: _clock,
     );
 
@@ -329,6 +335,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         config: _config,
         engineKind: _engineKind,
         rangeRepContract: _rangeRepContract,
+        holdContract: _holdContract,
       );
       candidates.add(
         _SelectedPoseCandidate(
@@ -389,6 +396,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _config,
         engineKind: _engineKind,
         rangeRepContract: _rangeRepContract,
+        holdContract: _holdContract,
       ),
       kind: _PoseFrameKind.accepted,
       didBecomeStableTracking: acceptance.didBecomeStable,

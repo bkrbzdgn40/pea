@@ -4,6 +4,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/angle_calculator.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
@@ -25,10 +26,14 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config, {
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
+    HoldContract? holdContract,
   }) {
     final effectiveRangeRepContract = engineKind == EngineKind.rangeRep
         ? (rangeRepContract ?? RangeRepContracts.squat)
         : _emptyRangeRepContract;
+    final effectiveHoldContract = engineKind == EngineKind.hold
+        ? _requireHoldContract(holdContract)
+        : null;
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
@@ -41,9 +46,24 @@ class ExerciseMetricsExtractor {
       RangeRepSide.right,
       rangeRepContract: effectiveRangeRepContract,
     );
-    final bodyLineAngle = _calculateBodyLineAngle(pose, engineKind);
-    final armSupportAngle = _calculateArmSupportAngle(pose, engineKind);
-    final legExtensionAngle = _calculateLegExtensionAngle(pose, engineKind);
+    final bodyLineAngle = _extractHoldSignalValue(
+      pose,
+      config,
+      holdContract: effectiveHoldContract,
+      signal: HoldSignal.alignment,
+    );
+    final armSupportAngle = _extractHoldSignalValue(
+      pose,
+      config,
+      holdContract: effectiveHoldContract,
+      signal: HoldSignal.support,
+    );
+    final legExtensionAngle = _extractHoldSignalValue(
+      pose,
+      config,
+      holdContract: effectiveHoldContract,
+      signal: HoldSignal.extension,
+    );
 
     return ExerciseMetrics(
       primaryAngle: leftRangeRepMetrics.primaryAngle,
@@ -58,6 +78,16 @@ class ExerciseMetricsExtractor {
       leftRangeRepMetrics: leftRangeRepMetrics,
       rightRangeRepMetrics: rightRangeRepMetrics,
     );
+  }
+
+  HoldContract _requireHoldContract(HoldContract? holdContract) {
+    if (holdContract == null) {
+      throw StateError(
+        'Hold metrics extraction requires a non-null holdContract.',
+      );
+    }
+
+    return holdContract;
   }
 
   RangeRepSideMetrics _extractRangeRepSideMetrics(
@@ -254,42 +284,37 @@ class ExerciseMetricsExtractor {
     );
   }
 
-  double? _calculateBodyLineAngle(Pose pose, EngineKind engineKind) {
-    if (!_supportsHoldAlignmentMetrics(engineKind)) {
+  double? _extractHoldSignalValue(
+    Pose pose,
+    ExerciseConfig config, {
+    required HoldContract? holdContract,
+    required HoldSignal signal,
+  }) {
+    if (holdContract == null) {
       return null;
+    }
+
+    if (!holdContract.supportsSignal(signal)) {
+      return null;
+    }
+
+    final holdSignals = config.holdSignals;
+    if (holdSignals == null) {
+      throw StateError('Hold metrics extraction requires holdSignals config.');
+    }
+
+    final definition = holdSignals.definitionFor(signal);
+    if (definition == null) {
+      throw StateError(
+        'Hold metrics extraction missing ${signal.name} definition.',
+      );
     }
 
     return _tryCalculateAngle(
       pose,
-      PoseLandmarkType.leftShoulder,
-      PoseLandmarkType.leftHip,
-      PoseLandmarkType.leftAnkle,
-    );
-  }
-
-  double? _calculateArmSupportAngle(Pose pose, EngineKind engineKind) {
-    if (!_supportsHoldAlignmentMetrics(engineKind)) {
-      return null;
-    }
-
-    return _tryCalculateAngle(
-      pose,
-      PoseLandmarkType.leftShoulder,
-      PoseLandmarkType.leftElbow,
-      PoseLandmarkType.leftWrist,
-    );
-  }
-
-  double? _calculateLegExtensionAngle(Pose pose, EngineKind engineKind) {
-    if (!_supportsHoldAlignmentMetrics(engineKind)) {
-      return null;
-    }
-
-    return _tryCalculateAngle(
-      pose,
-      PoseLandmarkType.leftHip,
-      PoseLandmarkType.leftKnee,
-      PoseLandmarkType.leftAnkle,
+      definition.first,
+      definition.middle,
+      definition.last,
     );
   }
 
@@ -321,10 +346,6 @@ class ExerciseMetricsExtractor {
     RangeRepSide side,
   ) {
     return _requirements.landmarkTypeForSide(landmarkType, side);
-  }
-
-  bool _supportsHoldAlignmentMetrics(EngineKind engineKind) {
-    return engineKind == EngineKind.hold;
   }
 
   RangeRepSignalDefinition? _configuredRangeRepSignalDefinition(

@@ -1,4 +1,5 @@
 import 'engine_kind.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
 
@@ -11,8 +12,13 @@ class ExerciseDefinition {
     required this.engineKind,
     required this.configAssetPath,
     this.rangeRepContract,
+    this.holdContract,
   }) : isAnalysisSupported = true,
-       activeAnalysisExercise = type;
+       activeAnalysisExercise = type,
+       assert(engineKind != EngineKind.rangeRep || rangeRepContract != null),
+       assert(engineKind != EngineKind.hold || holdContract != null),
+       assert(engineKind != EngineKind.rangeRep || holdContract == null),
+       assert(engineKind != EngineKind.hold || rangeRepContract == null);
 
   const ExerciseDefinition.unsupported({
     required this.type,
@@ -22,7 +28,8 @@ class ExerciseDefinition {
        activeAnalysisExercise = null,
        engineKind = null,
        configAssetPath = null,
-       rangeRepContract = null;
+       rangeRepContract = null,
+       holdContract = null;
 
   final ExerciseType type;
   final String id;
@@ -32,8 +39,10 @@ class ExerciseDefinition {
   final EngineKind? engineKind;
   final String? configAssetPath;
   final RangeRepContract? rangeRepContract;
+  final HoldContract? holdContract;
 
   ExerciseType get analysisExercise {
+    _ensureAnalysisDefinitionConsistency();
     final activeAnalysisExercise = this.activeAnalysisExercise;
     if (activeAnalysisExercise == null) {
       throw StateError('No analysis exercise registered for $type.');
@@ -43,6 +52,7 @@ class ExerciseDefinition {
   }
 
   EngineKind get analysisEngineKind {
+    _ensureAnalysisDefinitionConsistency();
     final engineKind = this.engineKind;
     if (engineKind == null) {
       throw StateError('No analysis engine kind registered for $type.');
@@ -52,6 +62,7 @@ class ExerciseDefinition {
   }
 
   String get analysisConfigAssetPath {
+    _ensureAnalysisDefinitionConsistency();
     final configAssetPath = this.configAssetPath;
     if (configAssetPath == null) {
       throw StateError('No analysis config asset path registered for $type.');
@@ -61,6 +72,7 @@ class ExerciseDefinition {
   }
 
   RangeRepContract get analysisRangeRepContract {
+    _ensureAnalysisDefinitionConsistency();
     if (engineKind != EngineKind.rangeRep) {
       throw StateError('No range-rep contract registered for $type.');
     }
@@ -71,5 +83,65 @@ class ExerciseDefinition {
     }
 
     return rangeRepContract;
+  }
+
+  HoldContract get analysisHoldContract {
+    _ensureAnalysisDefinitionConsistency();
+    if (engineKind != EngineKind.hold) {
+      throw StateError('No hold contract registered for $type.');
+    }
+
+    final holdContract = this.holdContract;
+    if (holdContract == null) {
+      throw StateError('No hold contract registered for $type.');
+    }
+
+    return holdContract;
+  }
+
+  void _ensureAnalysisDefinitionConsistency() {
+    if (!isAnalysisSupported) {
+      return;
+    }
+
+    final engineKind = this.engineKind;
+    if (engineKind == null ||
+        activeAnalysisExercise == null ||
+        configAssetPath == null) {
+      throw StateError('Incomplete analysis definition registered for $type.');
+    }
+
+    switch (engineKind) {
+      case EngineKind.rangeRep:
+        if (rangeRepContract == null) {
+          throw StateError('No range-rep contract registered for $type.');
+        }
+        if (holdContract != null) {
+          throw StateError(
+            'Range-rep definition for $type cannot also declare a hold '
+            'contract.',
+          );
+        }
+        return;
+      case EngineKind.hold:
+        if (holdContract == null) {
+          throw StateError('No hold contract registered for $type.');
+        }
+        if (rangeRepContract != null) {
+          throw StateError(
+            'Hold definition for $type cannot also declare a range-rep '
+            'contract.',
+          );
+        }
+        return;
+      case EngineKind.alternatingRep:
+        if (rangeRepContract != null || holdContract != null) {
+          throw StateError(
+            'Alternating-rep definition for $type cannot declare analysis '
+            'contracts.',
+          );
+        }
+        return;
+    }
   }
 }

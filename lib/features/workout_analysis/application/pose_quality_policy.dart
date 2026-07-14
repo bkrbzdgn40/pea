@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
@@ -106,6 +107,7 @@ class PoseQualityPolicy {
     required ExerciseConfig config,
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
+    HoldContract? holdContract,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
@@ -140,6 +142,7 @@ class PoseQualityPolicy {
             config: config,
             engineKind: engineKind,
             rangeRepContract: rangeRepContract,
+            holdContract: holdContract,
           ),
         );
       case EngineKind.alternatingRep:

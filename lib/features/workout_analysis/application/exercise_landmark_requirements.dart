@@ -1,6 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
@@ -49,6 +50,7 @@ class ExerciseLandmarkRequirements {
     required ExerciseConfig config,
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
+    HoldContract? holdContract,
     RangeRepSide? side,
   }) {
     switch (engineKind) {
@@ -67,7 +69,13 @@ class ExerciseLandmarkRequirements {
           rangeRepContract ?? _emptyRangeRepContract,
         );
       case EngineKind.hold:
-        return _resolveHold();
+        final requiredHoldContract = holdContract;
+        if (requiredHoldContract == null) {
+          throw StateError(
+            'Hold landmark resolution requires a non-null holdContract.',
+          );
+        }
+        return _resolveHold(config, requiredHoldContract);
       case EngineKind.alternatingRep:
         return const ExerciseLandmarkRequirementSet(
           requiredLandmarks: <PoseLandmarkType>{},
@@ -200,61 +208,69 @@ class ExerciseLandmarkRequirements {
     );
   }
 
-  ExerciseLandmarkRequirementSet _resolveHold() {
-    const triplets = <PoseAngleTriplet>[
-      PoseAngleTriplet(
-        first: PoseLandmarkType.leftShoulder,
-        middle: PoseLandmarkType.leftHip,
-        last: PoseLandmarkType.leftAnkle,
-      ),
-      PoseAngleTriplet(
-        first: PoseLandmarkType.leftShoulder,
-        middle: PoseLandmarkType.leftElbow,
-        last: PoseLandmarkType.leftWrist,
-      ),
-      PoseAngleTriplet(
-        first: PoseLandmarkType.leftHip,
-        middle: PoseLandmarkType.leftKnee,
-        last: PoseLandmarkType.leftAnkle,
-      ),
-    ];
+  ExerciseLandmarkRequirementSet _resolveHold(
+    ExerciseConfig config,
+    HoldContract contract,
+  ) {
+    final holdSignals = config.holdSignals;
+    if (holdSignals == null) {
+      throw StateError('Hold landmark resolution requires holdSignals config.');
+    }
 
-    return const ExerciseLandmarkRequirementSet(
-      requiredLandmarks: <PoseLandmarkType>{
-        PoseLandmarkType.leftShoulder,
-        PoseLandmarkType.leftElbow,
-        PoseLandmarkType.leftWrist,
-        PoseLandmarkType.leftHip,
-        PoseLandmarkType.leftKnee,
-        PoseLandmarkType.leftAnkle,
-      },
-      requiredAngleTriplets: triplets,
-      requiredSegments: <PoseLandmarkSegment>[
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftShoulder,
-          second: PoseLandmarkType.leftHip,
-        ),
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftHip,
-          second: PoseLandmarkType.leftAnkle,
-        ),
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftShoulder,
-          second: PoseLandmarkType.leftElbow,
-        ),
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftElbow,
-          second: PoseLandmarkType.leftWrist,
-        ),
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftHip,
-          second: PoseLandmarkType.leftKnee,
-        ),
-        PoseLandmarkSegment(
-          first: PoseLandmarkType.leftKnee,
-          second: PoseLandmarkType.leftAnkle,
-        ),
-      ],
+    final requiredLandmarks = <PoseLandmarkType>{};
+    final requiredTriplets = <PoseAngleTriplet>[];
+    final segmentKeys = <String>{};
+    final requiredSegments = <PoseLandmarkSegment>[];
+
+    void addTriplet(
+      PoseLandmarkType first,
+      PoseLandmarkType middle,
+      PoseLandmarkType last,
+    ) {
+      final triplet = PoseAngleTriplet(
+        first: first,
+        middle: middle,
+        last: last,
+      );
+      requiredTriplets.add(triplet);
+      requiredLandmarks.addAll(<PoseLandmarkType>{first, middle, last});
+
+      void addSegment(PoseLandmarkType start, PoseLandmarkType end) {
+        final key = '${start.name}:${end.name}';
+        if (segmentKeys.add(key)) {
+          requiredSegments.add(PoseLandmarkSegment(first: start, second: end));
+        }
+      }
+
+      addSegment(first, middle);
+      addSegment(middle, last);
+    }
+
+    for (final signal in const <HoldSignal>[
+      HoldSignal.alignment,
+      HoldSignal.support,
+      HoldSignal.extension,
+    ]) {
+      if (!contract.supportsSignal(signal)) {
+        continue;
+      }
+      final definition = holdSignals.definitionFor(signal);
+      if (definition == null) {
+        throw StateError(
+          'Hold landmark resolution missing ${signal.name} definition.',
+        );
+      }
+      addTriplet(definition.first, definition.middle, definition.last);
+    }
+
+    return ExerciseLandmarkRequirementSet(
+      requiredLandmarks: Set<PoseLandmarkType>.unmodifiable(requiredLandmarks),
+      requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
+        requiredTriplets,
+      ),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
+        requiredSegments,
+      ),
     );
   }
 
