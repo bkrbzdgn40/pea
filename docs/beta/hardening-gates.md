@@ -11,9 +11,9 @@ Bu belge guncel kapi durumudur. `hardening-baseline.md` tarihsel snapshot olarak
 | G4 Observability | PASSED | Beta Diagnostics v0, debug/profile diagnostics paneli, privacy-minimized JSON export ve profile artifact commit SHA injection dogrulandi; cihaz diagnostics SHA degeri build metadata ile eslesti | E0 cihaz kayitlarinda kanit standardi korunmali |
 | G5 Reproducible beta build | PASSED | Android profile artifact workflow'u `main` uzerinde basarili; artifact indirildi; SHA-256 checksum, APK signature, cihaz kurulumu ve diagnostics/build metadata SHA eslesmesi dogrulandi | Ayni workflow ve metadata kontratiyla korunmali |
 | G6 Device baseline | PASSED | Tek cihazda Squat, Push-up ve Plank icin pozitif, negatif, occlusion, lifecycle/form-break ve persistence davranislari dogrulandi; diagnostics performans sinirlari gecti; issue #19 completed | Coklu cihaz kapsami beta iddiasi icin ertelenmis risk olarak tutulmali |
-| G7 Data evaluation | IN_PROGRESS | Tek cihaz E0 diagnostics dataset'i mevcut; count, hold, performance ve dayanıklilik sonuclari degerlendirilebilir | Mevcut dataset icin ozet degerlendirme ve risk kaydi |
-| G8 Runtime regression | BLOCKED | Dataset temelli yeni degisiklik karari yok | G7 sonrasi yalniz kanitli runtime degisikligi |
-| G9 Final beta release | BLOCKED | Coklu cihaz kapsami ve son release karari tamamlanmadi | En son release karari |
+| G7 Data evaluation | PASSED | Tek cihaz E0 diagnostics dataset'inde count/hold sonuclari, statik negatifler, occlusion/lifecycle davranislari, analysis FPS ve p95 sinirlari degerlendirildi; genel runtime veya persistence red-line bulunmadi | Kanitli bulgular disinda runtime degisikligi yapilmamali |
+| G8 Runtime regression | PASSED | Plank visibility loss posture grace'den ayrildi; 1200 ms freeze penceresi eklendi; PR #22 merge `1800ae63df45fa7abe16477ac9857c2f6bdcd261`; Flutter CI run #50 ve real-device 1 saniyelik visibility-gap smoke check PASSED | G9 final beta karari |
+| G9 Final beta release | IN_PROGRESS | G0-G8 mevcut tek cihaz muhendislik beta kapsami icin tamamlandi; coklu cihaz genellemesi ertelenmis risk | Son beta kapsam, paketleme ve release karari |
 
 ## Durum Sozlesmesi
 
@@ -26,9 +26,9 @@ Yalniz `PASSED`, `IN_PROGRESS`, `BLOCKED`, `NOT_STARTED` ve `FAILED` kullanilir.
 - Controller production-path testleri, neutral arming, pose-quality, brief occlusion ve hold lifecycle hardening tamamlanmistir.
 - Kamera analiz guvenilirligi mevcut beta kapsami icin tamamlanmis kabul edilir.
 - Telemetry artifact dogrulamasi ve tekrarlanabilir beta build kaniti tamamlanmistir.
-- Tek cihaz muhendislik baseline'i tamamlanmistir.
+- Tek cihaz muhendislik baseline'i ve dataset degerlendirmesi tamamlanmistir.
 - Low/Mid/High coklu cihaz kapsami dogrulanmamistir ve beta genellemesi icin ertelenmis risk olarak kalir.
-- Hold visibility gap yalniz `breakGraceMillis` siniri icinde dondurulur; Plank config'inde bu sure 300 ms'dir. Daha uzun gorunurluk kaybi aktif hold'u sonlandirir ve `bestHoldSeconds` degerini korur.
+- Plank posture break grace'i 300 ms olarak kalir; visibility loss icin ayri 1200 ms freeze penceresi vardir. Gizli sure hold toplamına eklenmez; 1200 ms ve uzeri kayip aktif hold'u sonlandirir ve `bestHoldSeconds` degerini korur.
 
 ## Device Finding: Range-rep neutral arming / reacquisition gate
 
