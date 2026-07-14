@@ -23,9 +23,7 @@ class HoldEngine
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
 
-  static const Duration _visibilityGapGraceDuration = Duration(
-    milliseconds: 1200,
-  );
+  static const Duration _visibilityGapGraceDuration = Duration(milliseconds: 1200);
 
   final ExerciseConfig config;
   final DateTime Function() _now;
@@ -203,7 +201,7 @@ class HoldEngine
     final gapDuration = _now().difference(gapStartedAt);
 
     // Visibility loss and posture drift are different events. A brief camera
-    // gap gets a slightly longer freeze window while hidden time stays excluded.
+    // gap gets a longer freeze window while hidden time stays excluded.
     if (gapDuration < _visibilityGapGraceDuration &&
         _phase == HoldPhase.holding &&
         _holdStartedAt != null) {
