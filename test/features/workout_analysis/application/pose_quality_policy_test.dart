@@ -184,6 +184,142 @@ void main() {
       expect(assessment.isAccepted, isTrue);
       expect(assessment.acceptedSide, isNull);
     });
+
+    group('hold quality', () {
+      for (final scenario in <({PoseLandmarkType landmark, String name})>[
+        (landmark: PoseLandmarkType.leftShoulder, name: 'left shoulder'),
+        (landmark: PoseLandmarkType.leftElbow, name: 'left elbow'),
+        (landmark: PoseLandmarkType.leftWrist, name: 'left wrist'),
+        (landmark: PoseLandmarkType.leftHip, name: 'left hip'),
+        (landmark: PoseLandmarkType.leftKnee, name: 'left knee'),
+        (landmark: PoseLandmarkType.leftAnkle, name: 'left ankle'),
+      ]) {
+        test('missing required hold landmark ${scenario.name} is rejected', () {
+          final assessment = policy.assess(
+            pose: _plankPose(
+              missingLandmarks: <PoseLandmarkType>{scenario.landmark},
+            ),
+            config: _plankConfig(),
+            engineKind: EngineKind.hold,
+          );
+
+          expect(assessment.isAccepted, isFalse);
+          expect(
+            assessment.rejectionReason,
+            PoseRejectionReason.missingRequiredLandmark,
+          );
+        });
+      }
+
+      test('required hold landmark below 0.50 likelihood is rejected', () {
+        final assessment = policy.assess(
+          pose: _plankPose(
+            likelihoodOverrides: const <PoseLandmarkType, double>{
+              PoseLandmarkType.leftHip: 0.49,
+            },
+          ),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.lowLandmarkLikelihood,
+        );
+      });
+
+      test('mean required hold likelihood below 0.65 is rejected', () {
+        final assessment = policy.assess(
+          pose: _plankPose(defaultLikelihood: 0.60),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.lowMeanLikelihood,
+        );
+      });
+
+      test('non-finite required hold coordinate is rejected', () {
+        final assessment = policy.assess(
+          pose: _plankPose(
+            coordinateOverrides: <PoseLandmarkType, _CoordinateOverride>{
+              PoseLandmarkType.leftHip: const _CoordinateOverride(
+                double.nan,
+                0,
+              ),
+            },
+          ),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.nonFiniteCoordinate,
+        );
+      });
+
+      for (final scenario
+          in <
+            ({
+              String name,
+              Map<PoseLandmarkType, _CoordinateOverride> overrides,
+            })
+          >[
+            (
+              name: 'degenerate body-line triplet is rejected',
+              overrides: <PoseLandmarkType, _CoordinateOverride>{
+                PoseLandmarkType.leftHip: const _CoordinateOverride(-1, 0),
+              },
+            ),
+            (
+              name: 'degenerate arm-support triplet is rejected',
+              overrides: <PoseLandmarkType, _CoordinateOverride>{
+                PoseLandmarkType.leftElbow: const _CoordinateOverride(-1, 0),
+              },
+            ),
+            (
+              name: 'degenerate leg-extension triplet is rejected',
+              overrides: <PoseLandmarkType, _CoordinateOverride>{
+                PoseLandmarkType.leftKnee: const _CoordinateOverride(0, 0),
+              },
+            ),
+          ]) {
+        test(scenario.name, () {
+          final assessment = policy.assess(
+            pose: _plankPose(coordinateOverrides: scenario.overrides),
+            config: _plankConfig(),
+            engineKind: EngineKind.hold,
+          );
+
+          expect(assessment.isAccepted, isFalse);
+          expect(
+            assessment.rejectionReason,
+            PoseRejectionReason.degenerateGeometry,
+          );
+        });
+      }
+
+      test('current hold quality rejects a right-only pose', () {
+        final assessment = policy.assess(
+          pose: _plankPose(rightOnly: true),
+          config: _plankConfig(),
+          engineKind: EngineKind.hold,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.missingRequiredLandmark,
+        );
+        expect(assessment.acceptedSide, isNull);
+      });
+    });
   });
 }
 
@@ -310,21 +446,47 @@ Pose _pushUpPose() {
   );
 }
 
-Pose _plankPose() {
-  return Pose(
-    landmarks: <PoseLandmarkType, PoseLandmark>{
-      PoseLandmarkType.leftShoulder: _landmark(
-        PoseLandmarkType.leftShoulder,
-        0,
-        2,
-      ),
-      PoseLandmarkType.leftElbow: _landmark(PoseLandmarkType.leftElbow, 1, 2),
-      PoseLandmarkType.leftWrist: _landmark(PoseLandmarkType.leftWrist, 2, 2),
-      PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 2, 1),
-      PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 3, 1),
-      PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 4, 1),
-    },
-  );
+Pose _plankPose({
+  double defaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Map<PoseLandmarkType, _CoordinateOverride> coordinateOverrides =
+      const <PoseLandmarkType, _CoordinateOverride>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+  bool rightOnly = false,
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+    final override = coordinateOverrides[type];
+    landmarks[type] = _landmark(
+      type,
+      override?.x ?? x,
+      override?.y ?? y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  if (rightOnly) {
+    addLandmark(PoseLandmarkType.rightShoulder, 1, 0);
+    addLandmark(PoseLandmarkType.rightElbow, 0.5, 0);
+    addLandmark(PoseLandmarkType.rightWrist, 0.5, -1);
+    addLandmark(PoseLandmarkType.rightHip, 0, 0);
+    addLandmark(PoseLandmarkType.rightKnee, -0.5, 0);
+    addLandmark(PoseLandmarkType.rightAnkle, -1, 0);
+  } else {
+    addLandmark(PoseLandmarkType.leftShoulder, -1, 0);
+    addLandmark(PoseLandmarkType.leftElbow, -0.5, 0);
+    addLandmark(PoseLandmarkType.leftWrist, -0.5, -1);
+    addLandmark(PoseLandmarkType.leftHip, 0, 0);
+    addLandmark(PoseLandmarkType.leftKnee, 0.5, 0);
+    addLandmark(PoseLandmarkType.leftAnkle, 1, 0);
+  }
+
+  return Pose(landmarks: landmarks);
 }
 
 PoseLandmark _landmark(
@@ -334,4 +496,11 @@ PoseLandmark _landmark(
   double likelihood = 0.95,
 }) {
   return PoseLandmark(type: type, x: x, y: y, z: 0, likelihood: likelihood);
+}
+
+class _CoordinateOverride {
+  const _CoordinateOverride(this.x, this.y);
+
+  final double x;
+  final double y;
 }
