@@ -1,0 +1,1 @@
+enum HoldSide { left, right }

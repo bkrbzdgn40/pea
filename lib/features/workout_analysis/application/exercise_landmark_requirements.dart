@@ -2,9 +2,11 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
+import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
+import 'pose_landmark_mirror.dart';
 
 class PoseAngleTriplet {
   const PoseAngleTriplet({
@@ -52,6 +54,7 @@ class ExerciseLandmarkRequirements {
     RangeRepContract? rangeRepContract,
     HoldContract? holdContract,
     RangeRepSide? side,
+    HoldSide? holdSide,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
@@ -75,7 +78,13 @@ class ExerciseLandmarkRequirements {
             'Hold landmark resolution requires a non-null holdContract.',
           );
         }
-        return _resolveHold(config, requiredHoldContract);
+        final requiredHoldSide = holdSide;
+        if (requiredHoldSide == null) {
+          throw StateError(
+            'Hold landmark resolution requires a non-null holdSide.',
+          );
+        }
+        return _resolveHold(config, requiredHoldContract, requiredHoldSide);
       case EngineKind.alternatingRep:
         return const ExerciseLandmarkRequirementSet(
           requiredLandmarks: <PoseLandmarkType>{},
@@ -89,38 +98,7 @@ class ExerciseLandmarkRequirements {
     PoseLandmarkType landmarkType,
     RangeRepSide side,
   ) {
-    if (side == RangeRepSide.left) {
-      return landmarkType;
-    }
-
-    switch (landmarkType) {
-      case PoseLandmarkType.leftShoulder:
-        return PoseLandmarkType.rightShoulder;
-      case PoseLandmarkType.leftElbow:
-        return PoseLandmarkType.rightElbow;
-      case PoseLandmarkType.leftWrist:
-        return PoseLandmarkType.rightWrist;
-      case PoseLandmarkType.leftHip:
-        return PoseLandmarkType.rightHip;
-      case PoseLandmarkType.leftKnee:
-        return PoseLandmarkType.rightKnee;
-      case PoseLandmarkType.leftAnkle:
-        return PoseLandmarkType.rightAnkle;
-      case PoseLandmarkType.rightShoulder:
-        return PoseLandmarkType.leftShoulder;
-      case PoseLandmarkType.rightElbow:
-        return PoseLandmarkType.leftElbow;
-      case PoseLandmarkType.rightWrist:
-        return PoseLandmarkType.leftWrist;
-      case PoseLandmarkType.rightHip:
-        return PoseLandmarkType.leftHip;
-      case PoseLandmarkType.rightKnee:
-        return PoseLandmarkType.leftKnee;
-      case PoseLandmarkType.rightAnkle:
-        return PoseLandmarkType.leftAnkle;
-      default:
-        return landmarkType;
-    }
+    return resolveRangeRepLandmarkForSide(landmarkType, side);
   }
 
   ExerciseLandmarkRequirementSet _resolveRangeRep(
@@ -211,6 +189,7 @@ class ExerciseLandmarkRequirements {
   ExerciseLandmarkRequirementSet _resolveHold(
     ExerciseConfig config,
     HoldContract contract,
+    HoldSide holdSide,
   ) {
     final holdSignals = config.holdSignals;
     if (holdSignals == null) {
@@ -260,7 +239,23 @@ class ExerciseLandmarkRequirements {
           'Hold landmark resolution missing ${signal.name} definition.',
         );
       }
-      addTriplet(definition.first, definition.middle, definition.last);
+      addTriplet(
+        resolveHoldLandmarkForSide(
+          configuredLandmark: definition.first,
+          referenceSide: holdSignals.referenceSide,
+          targetSide: holdSide,
+        ),
+        resolveHoldLandmarkForSide(
+          configuredLandmark: definition.middle,
+          referenceSide: holdSignals.referenceSide,
+          targetSide: holdSide,
+        ),
+        resolveHoldLandmarkForSide(
+          configuredLandmark: definition.last,
+          referenceSide: holdSignals.referenceSide,
+          targetSide: holdSide,
+        ),
+      );
     }
 
     return ExerciseLandmarkRequirementSet(

@@ -1,6 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'hold_contract.dart';
+import 'hold_side.dart';
 import 'range_rep_contract.dart';
 
 class RangeRepScoreWeightsConfig {
@@ -161,11 +162,13 @@ class HoldAngleSignalConfig {
 
 class HoldSignalExtractionConfig {
   const HoldSignalExtractionConfig({
+    required this.referenceSide,
     this.alignment,
     this.support,
     this.extension,
   });
 
+  final HoldSide referenceSide;
   final HoldAngleSignalConfig? alignment;
   final HoldAngleSignalConfig? support;
   final HoldAngleSignalConfig? extension;
@@ -408,6 +411,30 @@ class ExerciseConfig {
       return HoldAngleSignalConfig(first: first, middle: middle, last: last);
     }
 
+    HoldSide readHoldReferenceSide(Map<String, dynamic> signalMap) {
+      if (!signalMap.containsKey('referenceSide')) {
+        throw FormatException(
+          'ExerciseConfig.holdSignals.referenceSide must be provided.',
+        );
+      }
+
+      final value = signalMap['referenceSide'];
+      if (value is! String) {
+        throw FormatException(
+          'ExerciseConfig.holdSignals.referenceSide must be a String.',
+        );
+      }
+
+      try {
+        return HoldSide.values.byName(value);
+      } on ArgumentError {
+        throw FormatException(
+          'Unsupported HoldSide for '
+          'ExerciseConfig.holdSignals.referenceSide: $value',
+        );
+      }
+    }
+
     RangeRepScoreWeightsConfig? readRangeRepScoreWeightsOrNull() {
       final value = map['rangeRepScoreWeights'];
       if (value == null) {
@@ -605,7 +632,12 @@ class ExerciseConfig {
       }
 
       final signalMap = Map<String, dynamic>.from(value);
-      final allowedKeys = <String>{'alignment', 'support', 'extension'};
+      final allowedKeys = <String>{
+        'referenceSide',
+        'alignment',
+        'support',
+        'extension',
+      };
       final unexpectedKeys = signalMap.keys
           .where((key) => !allowedKeys.contains(key))
           .toList(growable: false);
@@ -616,6 +648,7 @@ class ExerciseConfig {
       }
 
       return HoldSignalExtractionConfig(
+        referenceSide: readHoldReferenceSide(signalMap),
         alignment: signalMap.containsKey('alignment')
             ? readHoldSignalDefinition('alignment', signalMap['alignment'])
             : null,

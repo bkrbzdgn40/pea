@@ -1,5 +1,6 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/calibration_snapshot.dart';
+import '../domain/models/hold_side.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import 'engine_kind.dart';
 
@@ -196,6 +197,8 @@ class WorkoutCalibrationMetrics {
 }
 
 class WorkoutState {
+  static const Object _selectedHoldSideUnset = Object();
+
   final List<PoseLandmark>? landmarks;
   final EngineKind analysisKind;
   final int repCount;
@@ -205,6 +208,7 @@ class WorkoutState {
   final double lastRepROM;
   final double currentHoldSeconds;
   final double bestHoldSeconds;
+  final HoldSide? selectedHoldSide;
   final bool isHolding;
   final bool isHoldVisibilitySuspended;
   final bool hadHoldFormBreak;
@@ -224,6 +228,7 @@ class WorkoutState {
     this.lastRepROM = 0.0,
     this.currentHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
+    this.selectedHoldSide,
     this.isHolding = false,
     this.isHoldVisibilitySuspended = false,
     this.hadHoldFormBreak = false,
@@ -245,6 +250,7 @@ class WorkoutState {
     double? lastRepROM,
     double? currentHoldSeconds,
     double? bestHoldSeconds,
+    Object? selectedHoldSide = _selectedHoldSideUnset,
     bool? isHolding,
     bool? isHoldVisibilitySuspended,
     bool? hadHoldFormBreak,
@@ -264,6 +270,9 @@ class WorkoutState {
       lastRepROM: lastRepROM ?? this.lastRepROM,
       currentHoldSeconds: currentHoldSeconds ?? this.currentHoldSeconds,
       bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
+      selectedHoldSide: selectedHoldSide == _selectedHoldSideUnset
+          ? this.selectedHoldSide
+          : selectedHoldSide as HoldSide?,
       isHolding: isHolding ?? this.isHolding,
       isHoldVisibilitySuspended:
           isHoldVisibilitySuspended ?? this.isHoldVisibilitySuspended,
