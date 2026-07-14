@@ -106,7 +106,10 @@ void main() {
         expect(result.disposition, HoldVisibilityResumeDisposition.ended);
         expect(engine.phaseLabel, 'READY');
         expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
-        expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
+        expect(
+          engine.diagnosticsSnapshot.bestHoldSeconds,
+          closeTo(5.0, 0.001),
+        );
         expect(engine.diagnosticsSnapshot.isHolding, isFalse);
         expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
 
