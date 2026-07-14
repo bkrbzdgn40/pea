@@ -10,10 +10,10 @@ Bu belge guncel kapi durumudur. `hardening-baseline.md` tarihsel snapshot olarak
 | G3 Testable runtime | PASSED | Task 06A merge `da6431a3048278c419c917e527c74fb5ed4216e9`; Task 06B PR #15 merge `98b56a6b55badb797f3e0becd52341e973171145`; implementation, automated tests, CI ve real-device verification PASSED; issue #16 completed | Regression testleriyle korunmali |
 | G4 Observability | PASSED | Beta Diagnostics v0, debug/profile diagnostics paneli, privacy-minimized JSON export ve profile artifact commit SHA injection dogrulandi; cihaz diagnostics SHA degeri build metadata ile eslesti | E0 cihaz kayitlarinda kanit standardi korunmali |
 | G5 Reproducible beta build | PASSED | Android profile artifact workflow'u `main` uzerinde basarili; artifact indirildi; SHA-256 checksum, APK signature, cihaz kurulumu ve diagnostics/build metadata SHA eslesmesi dogrulandi | Ayni workflow ve metadata kontratiyla korunmali |
-| G6 Device baseline | IN_PROGRESS | Kamera analiz hardening tamamlandi ve ilk E0 diagnostics kayitlari toplandi; tam Low/Mid/High cihaz matrisi henuz tamamlanmadi | Eksik cihaz siniflari ve E0 senaryolari tamamlanmali |
-| G7 Data evaluation | BLOCKED | Tam gercek cihaz dataset'i yok | G6 sonrasi E1 degerlendirmesi |
-| G8 Runtime regression | BLOCKED | Dataset temelli yeni degisiklik yok | G7 sonrasi ayri runtime PR'i |
-| G9 Final beta release | BLOCKED | Onceki kapilar acik degil | En son release karari |
+| G6 Device baseline | PASSED | Tek cihazda Squat, Push-up ve Plank icin pozitif, negatif, occlusion, lifecycle/form-break ve persistence davranislari dogrulandi; diagnostics performans sinirlari gecti; issue #19 completed | Coklu cihaz kapsami beta iddiasi icin ertelenmis risk olarak tutulmali |
+| G7 Data evaluation | IN_PROGRESS | Tek cihaz E0 diagnostics dataset'i mevcut; count, hold, performance ve dayanıklilik sonuclari degerlendirilebilir | Mevcut dataset icin ozet degerlendirme ve risk kaydi |
+| G8 Runtime regression | BLOCKED | Dataset temelli yeni degisiklik karari yok | G7 sonrasi yalniz kanitli runtime degisikligi |
+| G9 Final beta release | BLOCKED | Coklu cihaz kapsami ve son release karari tamamlanmadi | En son release karari |
 
 ## Durum Sozlesmesi
 
@@ -26,7 +26,9 @@ Yalniz `PASSED`, `IN_PROGRESS`, `BLOCKED`, `NOT_STARTED` ve `FAILED` kullanilir.
 - Controller production-path testleri, neutral arming, pose-quality, brief occlusion ve hold lifecycle hardening tamamlanmistir.
 - Kamera analiz guvenilirligi mevcut beta kapsami icin tamamlanmis kabul edilir.
 - Telemetry artifact dogrulamasi ve tekrarlanabilir beta build kaniti tamamlanmistir.
-- Tam Low/Mid/High cihaz baseline'i ve dataset degerlendirmesi tamamlanmamistir.
+- Tek cihaz muhendislik baseline'i tamamlanmistir.
+- Low/Mid/High coklu cihaz kapsami dogrulanmamistir ve beta genellemesi icin ertelenmis risk olarak kalir.
+- Hold visibility gap yalniz `breakGraceMillis` siniri icinde dondurulur; Plank config'inde bu sure 300 ms'dir. Daha uzun gorunurluk kaybi aktif hold'u sonlandirir ve `bestHoldSeconds` degerini korur.
 
 ## Device Finding: Range-rep neutral arming / reacquisition gate
 
