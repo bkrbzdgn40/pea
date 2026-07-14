@@ -2,9 +2,9 @@
 
 # PEA
 
-### AI Destekli Mobil Spor Hareket Analizi Uygulaması
+### Kamera tabanlı gerçek zamanlı egzersiz analizi uygulaması
 
-Mobil cihaz kamerası üzerinden egzersiz formunu gerçek zamanlı izlemeyi, tekrar saymayı, temel skor üretmeyi ve oturum geçmişi sunmayı hedefleyen Flutter tabanlı bir hareket analizi uygulaması.
+Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum özeti ve egzersiz rehberi sunan Flutter tabanlı bir hareket analizi uygulaması.
 
 <br/>
 
@@ -40,53 +40,36 @@ Mobil cihaz kamerası üzerinden egzersiz formunu gerçek zamanlı izlemeyi, tek
 
 ## Proje Özeti
 
-PEA, egzersiz sırasında kullanıcının hareketini kamera üzerinden izleyerek daha akıllı bir mobil antrenman deneyimi üretmeyi amaçlar.
+PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Kaynak kod bugün üç aktif analiz hareketi sunar: squat, plank ve push-up. Lunge ile sit-up uygulamada rehber içeriği olarak bulunur, ancak canlı analiz katalogunda aktif değildir.
 
-Uygulama temel olarak şunları yapar:
+## Aktif Analiz Desteği
 
-* kamera akışından pose landmark çıkarır
-* hareket fazını takip eder
-* tekrarları otomatik sayar
-* temel skor ve kısa geri bildirim üretir
-* oturumları kaydedip geçmiş görünümü sunar
-* rehber ve yardımcı içeriklerle kullanıcıyı destekler
+| Egzersiz | Engine ailesi | Analiz | Temel çıktı |
+| -------- | ------------- | ------ | ----------- |
+| Squat | Range-rep | Aktif | Tekrar, skor, form sinyalleri |
+| Plank | Hold | Aktif | Anlık süre, en iyi süre, form-break |
+| Push-up | Range-rep | Aktif | Tekrar, skor, form sinyalleri |
+| Lunge | Belirlenmedi | Kapalı | Rehber içeriği |
+| Sit-up | Belirlenmedi | Kapalı | Rehber içeriği |
 
-> Bu repo yalnızca fikir gösterimi yapan bir arayüz değil, çalışan bir analiz çekirdeği üzerine kurulu gelişen bir ürün prototipidir.
+## Engine Aileleri
 
----
+- `rangeRep`: `neutral -> descending -> peak -> ascending -> neutral`
+- `hold`: `ready -> holding -> broken`
+- `alternatingRep` enum olarak tanımlıdır, ancak `AnalysisEngineFactory` içinde henüz uygulanmamıştır.
 
-## Öne Çıkanlar
+Bugünkü katalogda squat ve push-up `rangeRep`, plank ise `hold` ailesini kullanır. README içindeki "analiz aktif" ifadesi, yalnızca katalog ve canlı analiz akışının bu hareketi açabildiği anlamına gelir.
 
-| Alan                   | Durum | Açıklama                                                       |
-| ---------------------- | ----: | -------------------------------------------------------------- |
-| Canlı analiz           |     ✅ | Kamera akışı üzerinden pose detection ve hareket takibi        |
-| Tekrar sayımı          |     ✅ | Hareket fazına göre tekrar sayımı                              |
-| Temel skor üretimi     |     ✅ | ROM, tempo ve form tabanlı temel skor yaklaşımı                |
-| Session geçmişi        |     ✅ | Kaydedilen oturumları listeleme ve detay görüntüleme           |
-| Hareket rehberi        |     ✅ | Zorluk filtresi, kısa rehber içerikleri ve video yönlendirmesi |
-| Nasıl Kullanılır       |     ✅ | Uygulama içinde kısa kullanım yardımı                          |
-| Çoklu egzersiz analizi |    ⚠️ | Gelişiyor                                                      |
-| Sesli geri bildirim    |     ⏳ | Planlanıyor                                                    |
-| Gelişmiş AI Coach      |     ⏳ | Planlanıyor                                                    |
+## Destek Seviyeleri ve Doğrulama
 
----
+| Katman | Ne anlama gelir | Ne anlama gelmez |
+| ------ | ---------------- | ---------------- |
+| Rehber içeriği | Hareket kartı, açıklama ve video yönlendirmesi vardır | Canlı analiz otomatik olarak aktiftir |
+| Catalog desteği | `ExerciseCatalog` hareketi analiz için destekli işaretler | Hareketin her cihazda biyomekanik olarak kabul edildiği |
+| Otomatik doğrulama | `flutter analyze`, `flutter test` ve PR CI kod yolunu doğrular | Gerçek cihaz kabulü veya saha doğrulaması |
+| Cihaz doğrulaması | Profile build ve ayrı cihaz denemeleriyle ölçüm yapılır | Otomatik testlerin yerine geçen tek doğrulama katmanı |
 
-## Projenin Amacı
-
-PEA’in hedefi, kullanıcıya yalnızca tekrar sayan bir sayaç değil, hareket kalitesine dokunan daha akıllı bir yardımcı sunmaktır.
-
-Beklenen deneyim:
-
-* hareketi kamera ile takip etmek
-* temel eklem noktalarını çıkarmak
-* açı ve faz değişimlerinden hareket kalitesi üretmek
-* tekrarları otomatik saymak
-* kısa ve anlaşılır geri bildirim vermek
-* oturumları kaydedip gelişimi görünür hale getirmek
-
-Bu yaklaşım, özellikle evde veya bireysel antrenman yapan kullanıcılar için daha erişilebilir bir form takip deneyimi üretmeyi hedefler.
-
----
+Repository ayrıca `main` branch üzerinde elle tetiklenen `Android Profile Beta Artifact` workflow'una sahiptir. Bu yol profile APK ve commit SHA metadata'sı üretir; PR CI ile aynı şey değildir ve tek başına gerçek cihaz kabulü yerine geçmez.
 
 ## Uygulama Deneyimi
 
@@ -96,7 +79,7 @@ Kullanıcıyı zaman bazlı greeting card ve hızlı aksiyon grid’i ile karş�
 
 ### Live Analysis
 
-Kamera akışı üzerinden pose detection çalışır. Hareket fazı, tekrar sayısı, temel skor ve kısa geri bildirim üretilir.
+Kamera akışı üzerinden pose detection çalışır. Squat ve push-up için `rangeRep` faz takibi ile tekrar sayısı, skor ve form sinyalleri; plank için `hold` akışı ile anlık süre, en iyi süre ve form-break telemetrisi üretilir.
 
 ### Workout Summary & History
 
@@ -139,22 +122,20 @@ Uygulamanın ne yaptığını ve nasıl kullanılması gerektiğini kısa, sade 
 * fl_chart
 * url_launcher
 
----
-
 ## Mimari Yaklaşım
 
 Proje, feature odaklı ve katmanlı bir yapıyla ilerler.
 
 ```text
 lib/
-├── app/
-├── core/
-├── features/
-│   ├── auth/
-│   ├── workout_analysis/
-│   ├── goals/
-│   ├── achievements/
-│   └── chat/
+|-- app/
+|-- core/
+`-- features/
+    |-- auth/
+    |-- workout_analysis/
+    |-- goals/
+    |-- achievements/
+    `-- chat/
 ```
 
 ### Temel prensipler
@@ -170,63 +151,17 @@ lib/
 ## Analiz Akışı
 
 ```text
-Camera Stream
-   ↓
-InputImage dönüşümü
-   ↓
-ML Kit Pose Detection
-   ↓
-Landmark çıkarımı
-   ↓
-Açı hesaplama
-   ↓
-Hareket fazı / tekrar takibi
-   ↓
-Skor ve feedback üretimi
-   ↓
-Session kaydı (Firestore)
+Camera stream
+  -> InputImage dönüşümü
+  -> ML Kit Pose Detection
+  -> Landmark çıkarımı
+  -> Açı / hold sinyali hesaplama
+  -> Range-rep faz takibi veya hold durumu
+  -> Skor / feedback / hold telemetrisi
+  -> Session özeti kaydı (Firestore)
 ```
 
 Bu akış, canlı analiz ekranının temel omurgasını oluşturur.
-
----
-
-## Mevcut Durum
-
-Bu repo aktif geliştirme altındadır. Bazı alanlar çalışır durumdadır, bazı yüzeyler ise kontrollü biçimde gelişmektedir.
-
-### Şu anda çalışan ana akışlar
-
-* Firebase bootstrap
-* anonim kullanıcı oturumu
-* kamera izin akışı
-* hazırlık ekranı
-* canlı analiz akışı
-* pose detection
-* tekrar sayımı
-* temel skor üretimi
-* canlı geri bildirim
-* session kaydı
-* oturum özeti
-* geçmiş oturum listesi
-* geçmiş oturum detayı
-* ayarlar ekranı
-* nasıl kullanılır ekranı
-* hareket rehberi
-* rehberde zorluk filtresi
-* rehberde güvenilir dış video yönlendirmesi
-
-### Şu anda gelişen alanlar
-
-* çoklu egzersiz analizi
-* daha derin skor açıklaması
-* sesli geri bildirim
-* hedef ve başarı mantığının derinleşmesi
-* gerçek AI Coach entegrasyonu
-* rep-level veri saklama
-* daha güçlü test kapsamı
-
----
 
 ## Rehber Yaklaşımı
 
@@ -259,13 +194,31 @@ users/{uid}/sessions/{sessionId}
 Kaydedilen temel alanlar şunları içerir:
 
 * egzersiz tipi
+* `analysisKind`
 * başlangıç zamanı
 * bitiş zamanı
 * süre
-* toplam tekrar
-* ortalama skor
-* en iyi skor
-* form uyarısı sayısı
+* toplam tekrar, ortalama skor, en iyi skor ve form uyarısı sayısı
+* hold oturumları için toplam geçerli hold süresi
+* hold oturumları için en iyi hold süresi
+* hold oturumları için form-break sayısı
+
+Mevcut Firestore session sözleşmesi özet seviyesindedir. Rep-level detaylar domain modelinde taşınabilse de bugünkü session dokümanı bu alanları persist etmez.
+
+---
+
+## Mevcut Sınırlamalar
+
+Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
+
+* aktif analiz desteği bugün squat, plank ve push-up ile sınırlıdır
+* plank, `hold` ailesinin ilk aktif örneğidir
+* plank hold extraction bugün `leftShoulder-leftHip-leftAnkle`, `leftShoulder-leftElbow-leftWrist` ve `leftHip-leftKnee-leftAnkle` geometrisine bağlıdır
+* `hold` ailesi henüz bütün statik egzersizler için config-only, genel amaçlı bir şablon değildir
+* bilateral ve contract-driven hold extraction sonraki geliştirme adımlarındadır
+* kısa visibility gap sonrası hold devam edebilse de gizli süre hold toplamına eklenmez
+* otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez
+* session persistence bugün summary-level sözleşmeye dayanır
 
 ---
 
@@ -299,44 +252,16 @@ Projeyi çalıştırmadan önce Firebase tarafında gerekli yapılandırmayı ta
 flutter run
 ```
 
----
-
-## Güçlü Yanlar
-
-* Çalışan bir canlı analiz çekirdeği var
-* Mobil ürün akışı yalnızca demo arayüzden ibaret değil
-* Firebase ve session yapısı ürünleşmeye uygun bir temel sunuyor
-* Rehber ekranı gerçekten kullanışlı hale getirildi
-* Home, canlı analiz, özet ve geçmiş arasında anlamlı bir kullanıcı akışı bulunuyor
-* Koyu tema içinde daha düzenli ve modern bir mobil deneyim hedefleniyor
-
----
-
-## Mevcut Sınırlamalar
-
-Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
-
-* analiz motoru henüz tam çoklu egzersiz ürününe dönüşmüş değildir
-* session verisi özet seviyesindedir
-* rep-level detaylar persist edilmez
-* sesli geri bildirim henüz yoktur
-* AI Coach gerçek servis entegrasyonuna bağlı değildir
-* bazı ürün yüzeyleri hâlâ gelişim aşamasındadır
-* test ve emulator tabanlı doğrulamalar daha da güçlendirilebilir
-
----
-
 ## Yol Haritası
 
-| Öncelik   | Başlık                                 | Not                                                       |
-| --------- | -------------------------------------- | --------------------------------------------------------- |
-| Yüksek    | Çoklu egzersiz desteği                 | Egzersiz seçimi ile analiz motorunun daha sıkı bağlanması |
-| Yüksek    | Daha güçlü skor açıklaması             | Neden bu skor üretildiğini daha anlaşılır göstermek       |
-| Orta      | Sesli geri bildirim                    | Anlık koçluk deneyimini güçlendirmek                      |
-| Orta      | Hedef / başarı mantığını derinleştirme | Daha gerçek ürün hissi için                               |
-| Orta      | Rehber içeriğini genişletme            | Daha fazla hareket ve daha iyi içerik                     |
-| Orta      | Test kapsamını artırma                 | Daha güvenli geliştirme süreci için                       |
-| Uzun vade | Daha zengin AI Coach deneyimi          | Gerçek servis ve kişiselleştirme ile                      |
+| Öncelik | Başlık | Not |
+| ------- | ------ | --- |
+| Yüksek | Yeni egzersiz enablement | Yeni hareketler ancak engine, test ve cihaz kanıtı ile aktif edilmeli |
+| Yüksek | Bilateral ve contract-driven hold extraction | Hold ailesini plank dışına güvenli biçimde genişletmek için |
+| Orta | Daha güçlü skor açıklaması | Neden bu skor üretildiğini daha anlaşılır göstermek için |
+| Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek için |
+| Orta | Gerçek cihaz kabul kanıtlarını genişletme | Profile build ve saha ölçümlerini daha sistematik hale getirmek için |
+| Orta | Test kapsamını artırma | Yeni enablement işlerini daha güvenli hale getirmek için |
 
 ---
 
@@ -347,6 +272,7 @@ Bu repo aktif geliştirme altındadır. Katkı verirken özellikle şu prensiple
 * analiz çekirdeği ile UI düzenlemelerini karıştırmamak
 * kullanıcıya gerçek olmayan veri göstermemek
 * kısa ve açık ürün dili kullanmak
+* bir hareketi kanıt tamamlanmadan `supported` yapmamak
 * küçük ekran düzenlerini bozmamak
 * feature bazlı yapının bütünlüğünü korumak
 
@@ -360,6 +286,6 @@ Bu repo için lisans bilgisi henüz eklenmemiştir. Lisans tercihi netleştiğin
 
 <div align="center">
 
-**PEA, daha akıllı ve daha erişilebilir bir mobil egzersiz analizi deneyimi oluşturmak için geliştiriliyor.**
+**PEA, bugün doğrulanan analiz yüzeylerini koruyarak kapsamını adım adım genişletiyor.**
 
 </div>
