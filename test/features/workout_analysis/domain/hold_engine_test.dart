@@ -62,7 +62,7 @@ void main() {
       );
     });
 
-    test('long visibility gap ends the hold without a form-break penalty', () {
+    test('one-second visibility gap resumes without counting hidden time', () {
       final clock = _TestClock();
       final engine = HoldEngine(config: _plankConfig(), now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
@@ -73,6 +73,31 @@ void main() {
 
       gapControl.beginVisibilityGap();
       clock.advance(const Duration(seconds: 1));
+
+      final result = gapControl.resumeAfterVisibilityGap();
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(seconds: 1));
+      engine.update(_validHoldFrame());
+
+      expect(result.disposition, HoldVisibilityResumeDisposition.resumed);
+      expect(
+        engine.diagnosticsSnapshot.currentHoldSeconds,
+        closeTo(6.0, 0.001),
+      );
+    });
+
+    test('visibility gap at the freeze boundary ends the hold without a '
+        'form-break penalty', () {
+      final clock = _TestClock();
+      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final gapControl = engine as HoldVisibilityGapControl;
+
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(seconds: 5));
+      engine.update(_validHoldFrame());
+
+      gapControl.beginVisibilityGap();
+      clock.advance(const Duration(milliseconds: 1200));
 
       final result = gapControl.resumeAfterVisibilityGap();
 
