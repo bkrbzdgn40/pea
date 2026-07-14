@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -159,10 +160,71 @@ void main() {
       );
 
       expect(config.name, 'Plank');
+      expect(config.holdSignals, isNotNull);
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.alignment)?.middle,
+        PoseLandmarkType.leftHip,
+      );
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.support)?.middle,
+        PoseLandmarkType.leftElbow,
+      );
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.extension)?.last,
+        PoseLandmarkType.leftAnkle,
+      );
       expect(config.rangeRepSignals, isNull);
       expect(config.resolvedRangeRepSignals, isNull);
       expect(config.thresholdNeutral, 160.0);
       expect(config.thresholdActive, 168.0);
+    });
+
+    test('parses explicit hold signals from inline plank config', () {
+      final config = ExerciseConfig.fromMap(<String, dynamic>{
+        'name': 'Plank',
+        'primaryJoint': 'leftHip',
+        'joint1': 'leftShoulder',
+        'joint2': 'leftAnkle',
+        'holdPosture': <String, dynamic>{
+          'activePostureAngle': 160.0,
+          'bodyLineEntryAngle': 168.0,
+          'bodyLineSustainAngle': 166.0,
+          'armSupportMinAngle': 60.0,
+          'armSupportMaxAngle': 120.0,
+          'legExtensionMinAngle': 165.0,
+          'breakGraceMillis': 300,
+        },
+        'holdSignals': <String, dynamic>{
+          'alignment': <String, dynamic>{
+            'first': 'leftShoulder',
+            'middle': 'leftHip',
+            'last': 'leftAnkle',
+          },
+          'support': <String, dynamic>{
+            'first': 'leftShoulder',
+            'middle': 'leftElbow',
+            'last': 'leftWrist',
+          },
+          'extension': <String, dynamic>{
+            'first': 'leftHip',
+            'middle': 'leftKnee',
+            'last': 'leftAnkle',
+          },
+        },
+      });
+
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.alignment)?.first,
+        PoseLandmarkType.leftShoulder,
+      );
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.support)?.last,
+        PoseLandmarkType.leftWrist,
+      );
+      expect(
+        config.holdSignals?.definitionFor(HoldSignal.extension)?.middle,
+        PoseLandmarkType.leftKnee,
+      );
     });
 
     test('rejects invalid landmark names inside rangeRepSignals', () {
@@ -236,6 +298,119 @@ void main() {
             (error) => error.message.toString(),
             'message',
             contains('Unsupported ExerciseConfig.rangeRepSignals key'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects invalid landmark names inside holdSignals', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'alignment': <String, dynamic>{
+              'first': 'leftWing',
+              'middle': 'leftHip',
+              'last': 'leftAnkle',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.holdSignals.alignment.first'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects unknown keys inside holdSignals', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'brace': <String, dynamic>{
+              'first': 'leftShoulder',
+              'middle': 'leftHip',
+              'last': 'leftAnkle',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('Unsupported ExerciseConfig.holdSignals key'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects hold signal definitions with extra keys', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'support': <String, dynamic>{
+              'first': 'leftShoulder',
+              'middle': 'leftElbow',
+              'last': 'leftWrist',
+              'source': 'primaryMetric',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.holdSignals.support'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects duplicate landmarks inside a hold signal definition', () {
+      expect(
+        () => ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Plank',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'thresholdNeutral': 160.0,
+          'thresholdActive': 168.0,
+          'thresholdPeak': 0.0,
+          'holdSignals': <String, dynamic>{
+            'extension': <String, dynamic>{
+              'first': 'leftHip',
+              'middle': 'leftKnee',
+              'last': 'leftKnee',
+            },
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message.toString(),
+            'message',
+            contains('ExerciseConfig.holdSignals.extension'),
           ),
         ),
       );

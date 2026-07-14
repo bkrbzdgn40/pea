@@ -1,3 +1,4 @@
+import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
@@ -22,6 +23,7 @@ class ExerciseCatalog {
       title: ExerciseType.plank.title,
       engineKind: EngineKind.hold,
       configAssetPath: 'assets/config/exercises/plank.json',
+      holdContract: HoldContracts.plankFamily,
     ),
     ExerciseDefinition.unsupported(
       type: ExerciseType.lunge,

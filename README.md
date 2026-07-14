@@ -213,9 +213,10 @@ Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 
 * aktif analiz desteği bugün squat, plank ve push-up ile sınırlıdır
 * plank, `hold` ailesinin ilk aktif örneğidir
-* plank hold extraction bugün `leftShoulder-leftHip-leftAnkle`, `leftShoulder-leftElbow-leftWrist` ve `leftHip-leftKnee-leftAnkle` geometrisine bağlıdır
-* `hold` ailesi henüz bütün statik egzersizler için config-only, genel amaçlı bir şablon değildir
-* bilateral ve contract-driven hold extraction sonraki geliştirme adımlarındadır
+* plank hold sinyal geometrisi bugün `plank.json` içindeki `holdSignals` tanımından okunur
+* `HoldContract`, hold motorunun beklediği semantik signal setini; `holdSignals` ise bu signal'ların landmark üçlülerini tanımlar
+* mevcut plank asset'i hâlâ sol landmark geometrisi kullanır; otomatik bilateral hold extraction yoktur
+* `hold` ailesi henüz bütün statik egzersizler için kolayca genellenmiş, ikinci fixture ile kanıtlanmış bir şablon değildir
 * kısa visibility gap sonrası hold devam edebilse de gizli süre hold toplamına eklenmez
 * otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez
 * session persistence bugün summary-level sözleşmeye dayanır

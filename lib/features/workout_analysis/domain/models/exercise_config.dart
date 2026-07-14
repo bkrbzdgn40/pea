@@ -1,5 +1,6 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import 'hold_contract.dart';
 import 'range_rep_contract.dart';
 
 class RangeRepScoreWeightsConfig {
@@ -146,6 +147,41 @@ class RangeRepSignalExtractionConfig {
   }
 }
 
+class HoldAngleSignalConfig {
+  const HoldAngleSignalConfig({
+    required this.first,
+    required this.middle,
+    required this.last,
+  });
+
+  final PoseLandmarkType first;
+  final PoseLandmarkType middle;
+  final PoseLandmarkType last;
+}
+
+class HoldSignalExtractionConfig {
+  const HoldSignalExtractionConfig({
+    this.alignment,
+    this.support,
+    this.extension,
+  });
+
+  final HoldAngleSignalConfig? alignment;
+  final HoldAngleSignalConfig? support;
+  final HoldAngleSignalConfig? extension;
+
+  HoldAngleSignalConfig? definitionFor(HoldSignal signal) {
+    switch (signal) {
+      case HoldSignal.alignment:
+        return alignment;
+      case HoldSignal.support:
+        return support;
+      case HoldSignal.extension:
+        return extension;
+    }
+  }
+}
+
 class HoldPostureConfig {
   const HoldPostureConfig({
     required this.activePostureAngle,
@@ -233,6 +269,7 @@ class ExerciseConfig {
   final double targetMinAngle;
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
+  final HoldSignalExtractionConfig? holdSignals;
   final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
   final RangeRepPhaseQualityConfig? rangeRepPhaseQuality;
   final RangeRepSignalExtractionConfig? rangeRepSignals;
@@ -251,6 +288,7 @@ class ExerciseConfig {
     this.targetMinAngle = 70.0,
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
+    this.holdSignals,
     this.rangeRepScoreWeights,
     this.rangeRepPhaseQuality,
     this.rangeRepSignals,
@@ -317,6 +355,57 @@ class ExerciseConfig {
       }
 
       return HoldPostureConfig.fromMap(Map<String, dynamic>.from(value));
+    }
+
+    HoldAngleSignalConfig readHoldSignalDefinition(
+      String signalName,
+      Object? rawValue,
+    ) {
+      if (rawValue is! Map) {
+        throw FormatException(
+          'ExerciseConfig.holdSignals.$signalName must be an object.',
+        );
+      }
+
+      final map = Map<String, dynamic>.from(rawValue);
+      final keys = map.keys.toSet();
+      final expectedAngleKeys = <String>{'first', 'middle', 'last'};
+      if (!keys.containsAll(expectedAngleKeys) || keys.length != 3) {
+        throw FormatException(
+          'ExerciseConfig.holdSignals.$signalName must define exactly '
+          '"first", "middle", and "last".',
+        );
+      }
+
+      PoseLandmarkType readHoldSignalLandmark(String partKey) {
+        final value = map[partKey];
+        if (value is! String) {
+          throw FormatException(
+            'ExerciseConfig.holdSignals.$signalName.$partKey must be a String.',
+          );
+        }
+
+        try {
+          return PoseLandmarkType.values.byName(value);
+        } on ArgumentError {
+          throw FormatException(
+            'Unsupported PoseLandmarkType for '
+            'ExerciseConfig.holdSignals.$signalName.$partKey: $value',
+          );
+        }
+      }
+
+      final first = readHoldSignalLandmark('first');
+      final middle = readHoldSignalLandmark('middle');
+      final last = readHoldSignalLandmark('last');
+      if (first == middle || middle == last || first == last) {
+        throw FormatException(
+          'ExerciseConfig.holdSignals.$signalName must define three distinct '
+          'landmarks.',
+        );
+      }
+
+      return HoldAngleSignalConfig(first: first, middle: middle, last: last);
     }
 
     RangeRepScoreWeightsConfig? readRangeRepScoreWeightsOrNull() {
@@ -506,12 +595,46 @@ class ExerciseConfig {
       );
     }
 
+    HoldSignalExtractionConfig? readHoldSignalsOrNull() {
+      final value = map['holdSignals'];
+      if (value == null) {
+        return null;
+      }
+      if (value is! Map) {
+        throw FormatException('ExerciseConfig.holdSignals must be an object.');
+      }
+
+      final signalMap = Map<String, dynamic>.from(value);
+      final allowedKeys = <String>{'alignment', 'support', 'extension'};
+      final unexpectedKeys = signalMap.keys
+          .where((key) => !allowedKeys.contains(key))
+          .toList(growable: false);
+      if (unexpectedKeys.isNotEmpty) {
+        throw FormatException(
+          'Unsupported ExerciseConfig.holdSignals key: ${unexpectedKeys.first}',
+        );
+      }
+
+      return HoldSignalExtractionConfig(
+        alignment: signalMap.containsKey('alignment')
+            ? readHoldSignalDefinition('alignment', signalMap['alignment'])
+            : null,
+        support: signalMap.containsKey('support')
+            ? readHoldSignalDefinition('support', signalMap['support'])
+            : null,
+        extension: signalMap.containsKey('extension')
+            ? readHoldSignalDefinition('extension', signalMap['extension'])
+            : null,
+      );
+    }
+
     final name = map['name'];
     if (name is! String) {
       throw FormatException('ExerciseConfig.name must be a String.');
     }
 
     final holdPosture = readHoldPostureOrNull();
+    final holdSignals = readHoldSignalsOrNull();
     final rangeRepScoreWeights = readRangeRepScoreWeightsOrNull();
     final rangeRepPhaseQuality = readRangeRepPhaseQualityOrNull();
     final rangeRepSignals = readRangeRepSignalsOrNull();
@@ -536,6 +659,7 @@ class ExerciseConfig {
       targetMinAngle: readDouble('targetMinAngle', fallback: 0.0),
       tempoPenaltyPerSecond: readDouble('tempoPenaltyPerSecond', fallback: 0.0),
       holdPosture: holdPosture,
+      holdSignals: holdSignals,
       rangeRepScoreWeights: rangeRepScoreWeights,
       rangeRepPhaseQuality: rangeRepPhaseQuality,
       rangeRepSignals: rangeRepSignals,

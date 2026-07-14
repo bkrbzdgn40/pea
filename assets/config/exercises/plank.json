@@ -11,5 +11,22 @@
     "armSupportMaxAngle": 120.0,
     "legExtensionMinAngle": 165.0,
     "breakGraceMillis": 300
+  },
+  "holdSignals": {
+    "alignment": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftAnkle"
+    },
+    "support": {
+      "first": "leftShoulder",
+      "middle": "leftElbow",
+      "last": "leftWrist"
+    },
+    "extension": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    }
   }
 }

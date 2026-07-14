@@ -359,32 +359,49 @@ assets/config/exercises/plank.json
 
 ### Mevcut implementasyon
 
-Bugünün aktif hold örneği `plank`tir. `ExerciseCatalog` içinde `EngineKind.hold` ile desteklenir; ancak bu, hold ailesinin tüm statik egzersizler için config-only bir şablona dönüştüğü anlamına gelmez.
+Bugünün aktif hold örneği `plank`tir. `ExerciseCatalog` içinde `EngineKind.hold` ile desteklenir ve `HoldContracts.plankFamily` contract'ını taşır; ancak bu, hold ailesinin tüm statik egzersizler için otomatik genellenmiş bir şablona dönüştüğü anlamına gelmez.
 
-### Mevcut extractor geometrisi
-
-Hold sinyalleri bugün sabit olarak şu açılardan üretilir:
+`HoldContract`, motorun beklediği semantik signal setini tanımlar:
 
 ```text
-bodyLineAngle:
-leftShoulder → leftHip → leftAnkle
-
-armSupportAngle:
-leftShoulder → leftElbow → leftWrist
-
-legExtensionAngle:
-leftHip → leftKnee → leftAnkle
+alignment
+support
+extension
 ```
 
-Mevcut landmark requirement seti de aynı nedenle sol taraf ağırlıklıdır.
+`holdSignals` ise her semantik signal için angle triple tanımlar. Metrics extractor ile pose quality aynı landmark requirement kaynağını bu contract + config kombinasyonundan türetir.
+
+Mevcut plank config örneği:
+
+```json
+"holdSignals": {
+  "alignment": {
+    "first": "leftShoulder",
+    "middle": "leftHip",
+    "last": "leftAnkle"
+  },
+  "support": {
+    "first": "leftShoulder",
+    "middle": "leftElbow",
+    "last": "leftWrist"
+  },
+  "extension": {
+    "first": "leftHip",
+    "middle": "leftKnee",
+    "last": "leftAnkle"
+  }
+}
+```
 
 Bu yüzden:
 
 - plank aktif hold örneğidir
 - `EngineKind.hold`, her statik egzersiz için genel amaçlı bir motor değildir
-- yeni hareket bu üç sinyalin anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme
+- hold signal geometry artık production Dart içindeki sabit landmark listelerinden değil, config'teki `holdSignals` tanımından gelir
+- yeni hareket bu üç signal'in anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme
 - yeni hold hareketi yalnız JSON eklenince otomatik desteklenmiş sayılmaz
-- yeni hold hareketi, mevcut üç sinyalin aynı biyomekanik anlamı taşıdığını ayrıca kanıtlamalıdır
+- yeni hold hareketi, mevcut üç signal'in aynı biyomekanik anlamı taşıdığını ayrıca kanıtlamalıdır
+- mevcut plank asset'i hâlâ sol landmark tanımları kullanır; automatic bilateral extraction veya hold side selection yoktur
 
 ### Hold config alanları
 
@@ -402,17 +419,16 @@ Entry ve sustain değerlerinin ayrı olması hysteresis sağlar. Çok büyük gr
 
 Hold motoru tekrar üretmez; `repCount` güvenli biçimde `0` kalır ve sonuç hold diagnostics üzerinden taşınır.
 
-> Mevcut hold extractor sol landmark'lara bağlıdır. Sağ taraftan görünüm ayrıca gerçek cihazda doğrulanmadan bilateral destek iddia etme.
+> Mevcut plank config'i sol landmark'lara bağlıdır. Sağ taraftan görünüm ayrıca gerçek cihazda doğrulanmadan bilateral destek iddia etme.
 
 ### Hedef hold-family şablonu
 
 Aşağıdakiler bugünün implementasyonu değil, sonraki mimari adımlardır:
 
-- config/contract-driven hold signal definitions
 - bilateral extraction
 - hold side selection
-- shared landmark requirement generation
 - ikinci hold-family fixture ile template doğrulaması
+- typed diagnostics/feedback where applicable
 
 Bu hedefler gelmeden `hold` ailesini bütün statik egzersizler için tam genellenmiş gibi belgeleme.
 

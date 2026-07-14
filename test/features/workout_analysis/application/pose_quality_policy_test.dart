@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -179,6 +180,7 @@ void main() {
         pose: _plankPose(),
         config: _plankConfig(),
         engineKind: EngineKind.hold,
+        holdContract: HoldContracts.plankFamily,
       );
 
       expect(assessment.isAccepted, isTrue);
@@ -201,6 +203,7 @@ void main() {
             ),
             config: _plankConfig(),
             engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
           );
 
           expect(assessment.isAccepted, isFalse);
@@ -220,6 +223,7 @@ void main() {
           ),
           config: _plankConfig(),
           engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
         );
 
         expect(assessment.isAccepted, isFalse);
@@ -234,6 +238,7 @@ void main() {
           pose: _plankPose(defaultLikelihood: 0.60),
           config: _plankConfig(),
           engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
         );
 
         expect(assessment.isAccepted, isFalse);
@@ -255,6 +260,7 @@ void main() {
           ),
           config: _plankConfig(),
           engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
         );
 
         expect(assessment.isAccepted, isFalse);
@@ -295,6 +301,7 @@ void main() {
             pose: _plankPose(coordinateOverrides: scenario.overrides),
             config: _plankConfig(),
             engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
           );
 
           expect(assessment.isAccepted, isFalse);
@@ -310,6 +317,7 @@ void main() {
           pose: _plankPose(rightOnly: true),
           config: _plankConfig(),
           engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
         );
 
         expect(assessment.isAccepted, isFalse);
@@ -319,6 +327,22 @@ void main() {
         );
         expect(assessment.acceptedSide, isNull);
       });
+
+      test(
+        'hold quality uses config-driven requirements for test-only signal geometry',
+        () {
+          final assessment = policy.assess(
+            pose: _alternateHoldPose(),
+            config: _alternateHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
+          );
+
+          expect(assessment.isAccepted, isTrue);
+          expect(assessment.acceptedSide, isNull);
+          expect(assessment.requiredLandmarkCount, 7);
+        },
+      );
     });
   });
 }
@@ -359,6 +383,61 @@ ExerciseConfig _plankConfig() {
       armSupportMaxAngle: 120,
       legExtensionMinAngle: 165,
       breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: const HoldSignalExtractionConfig(
+      alignment: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      support: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftElbow,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      extension: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+    ),
+  );
+}
+
+ExerciseConfig _alternateHoldConfig() {
+  return ExerciseConfig(
+    name: 'Plank',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 160,
+    thresholdActive: 168,
+    thresholdPeak: 0,
+    holdPosture: const HoldPostureConfig(
+      activePostureAngle: 160,
+      bodyLineEntryAngle: 168,
+      bodyLineSustainAngle: 166,
+      armSupportMinAngle: 60,
+      armSupportMaxAngle: 120,
+      legExtensionMinAngle: 165,
+      breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: const HoldSignalExtractionConfig(
+      alignment: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.rightHip,
+      ),
+      support: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftElbow,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      extension: HoldAngleSignalConfig(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
     ),
   );
 }
@@ -487,6 +566,55 @@ Pose _plankPose({
   }
 
   return Pose(landmarks: landmarks);
+}
+
+Pose _alternateHoldPose({double defaultLikelihood = 0.95}) {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        0,
+        1,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftHip: _landmark(
+        PoseLandmarkType.leftHip,
+        0,
+        0,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.rightHip: _landmark(
+        PoseLandmarkType.rightHip,
+        1,
+        0,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftElbow: _landmark(
+        PoseLandmarkType.leftElbow,
+        1,
+        0,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftWrist: _landmark(
+        PoseLandmarkType.leftWrist,
+        1,
+        1,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftKnee: _landmark(
+        PoseLandmarkType.leftKnee,
+        1,
+        0,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftAnkle: _landmark(
+        PoseLandmarkType.leftAnkle,
+        2,
+        -1,
+        likelihood: defaultLikelihood,
+      ),
+    },
+  );
 }
 
 PoseLandmark _landmark(
