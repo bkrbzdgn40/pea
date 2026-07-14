@@ -4,6 +4,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
+import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
@@ -45,7 +46,7 @@ extension PoseRejectionReasonX on PoseRejectionReason {
 }
 
 class PoseQualityAssessment {
-  const PoseQualityAssessment({
+  PoseQualityAssessment({
     required this.isAccepted,
     required this.minimumRequiredLikelihood,
     required this.meanRequiredLikelihood,
@@ -53,9 +54,14 @@ class PoseQualityAssessment {
     required this.acceptedLandmarkCount,
     required this.qualityScore,
     this.rejectionReason,
-    this.acceptedRangeRepSides = const <RangeRepSide>{},
+    Set<RangeRepSide> acceptedRangeRepSides = const <RangeRepSide>{},
     this.preferredRangeRepSide,
-  });
+    Set<HoldSide> acceptedHoldSides = const <HoldSide>{},
+    this.preferredHoldSide,
+  }) : acceptedRangeRepSides = Set<RangeRepSide>.unmodifiable(
+         acceptedRangeRepSides,
+       ),
+       acceptedHoldSides = Set<HoldSide>.unmodifiable(acceptedHoldSides);
 
   final bool isAccepted;
   final PoseRejectionReason? rejectionReason;
@@ -65,6 +71,8 @@ class PoseQualityAssessment {
   final int acceptedLandmarkCount;
   final Set<RangeRepSide> acceptedRangeRepSides;
   final RangeRepSide? preferredRangeRepSide;
+  final Set<HoldSide> acceptedHoldSides;
+  final HoldSide? preferredHoldSide;
   final double qualityScore;
 
   RangeRepSide? get acceptedSide => preferredRangeRepSide;
@@ -84,6 +92,8 @@ class PoseQualityAssessment {
       acceptedLandmarkCount: acceptedLandmarkCount,
       acceptedRangeRepSides: acceptedRangeRepSides,
       preferredRangeRepSide: preferredRangeRepSide,
+      acceptedHoldSides: acceptedHoldSides,
+      preferredHoldSide: preferredHoldSide,
       qualityScore: qualityScore,
     );
   }
@@ -108,9 +118,15 @@ class PoseQualityPolicy {
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
     HoldContract? holdContract,
+    HoldSide? requiredHoldSide,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
+        if (requiredHoldSide != null) {
+          throw StateError(
+            'requiredHoldSide is only valid for hold pose-quality assessment.',
+          );
+        }
         final leftAssessment = _assessRequirementSet(
           pose: pose,
           side: RangeRepSide.left,
@@ -136,17 +152,48 @@ class PoseQualityPolicy {
           rightAssessment: rightAssessment,
         );
       case EngineKind.hold:
-        return _assessRequirementSet(
+        if (requiredHoldSide != null) {
+          return _assessRequirementSet(
+            pose: pose,
+            holdSide: requiredHoldSide,
+            requirementSet: _requirements.resolve(
+              config: config,
+              engineKind: engineKind,
+              rangeRepContract: rangeRepContract,
+              holdContract: holdContract,
+              holdSide: requiredHoldSide,
+            ),
+          );
+        }
+
+        final leftAssessment = _assessRequirementSet(
           pose: pose,
+          holdSide: HoldSide.left,
           requirementSet: _requirements.resolve(
             config: config,
             engineKind: engineKind,
             rangeRepContract: rangeRepContract,
             holdContract: holdContract,
+            holdSide: HoldSide.left,
           ),
         );
+        final rightAssessment = _assessRequirementSet(
+          pose: pose,
+          holdSide: HoldSide.right,
+          requirementSet: _requirements.resolve(
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
+            holdContract: holdContract,
+            holdSide: HoldSide.right,
+          ),
+        );
+        return _combineHoldAssessments(
+          leftAssessment: leftAssessment,
+          rightAssessment: rightAssessment,
+        );
       case EngineKind.alternatingRep:
-        return const PoseQualityAssessment(
+        return PoseQualityAssessment(
           isAccepted: true,
           minimumRequiredLikelihood: null,
           meanRequiredLikelihood: null,
@@ -230,10 +277,84 @@ class PoseQualityPolicy {
     return candidate;
   }
 
+  PoseQualityAssessment _combineHoldAssessments({
+    required PoseQualityAssessment leftAssessment,
+    required PoseQualityAssessment rightAssessment,
+  }) {
+    final assessments = <PoseQualityAssessment>[
+      leftAssessment,
+      rightAssessment,
+    ];
+    final acceptedAssessments = assessments
+        .where((assessment) => assessment.isAccepted)
+        .toList(growable: false);
+
+    if (acceptedAssessments.isNotEmpty) {
+      final preferredAssessment = acceptedAssessments.reduce(
+        _preferHigherQualityHold,
+      );
+      final acceptedSides = acceptedAssessments
+          .map((assessment) => assessment.preferredHoldSide)
+          .whereType<HoldSide>()
+          .toSet();
+
+      return PoseQualityAssessment(
+        isAccepted: true,
+        minimumRequiredLikelihood:
+            preferredAssessment.minimumRequiredLikelihood,
+        meanRequiredLikelihood: preferredAssessment.meanRequiredLikelihood,
+        requiredLandmarkCount: preferredAssessment.requiredLandmarkCount,
+        acceptedLandmarkCount: preferredAssessment.acceptedLandmarkCount,
+        qualityScore: preferredAssessment.qualityScore,
+        acceptedHoldSides: acceptedSides,
+        preferredHoldSide: preferredAssessment.preferredHoldSide,
+      );
+    }
+
+    final bestRejectedAssessment = assessments.reduce(_preferHigherQualityHold);
+    return PoseQualityAssessment(
+      isAccepted: false,
+      rejectionReason: bestRejectedAssessment.rejectionReason,
+      minimumRequiredLikelihood:
+          bestRejectedAssessment.minimumRequiredLikelihood,
+      meanRequiredLikelihood: bestRejectedAssessment.meanRequiredLikelihood,
+      requiredLandmarkCount: bestRejectedAssessment.requiredLandmarkCount,
+      acceptedLandmarkCount: bestRejectedAssessment.acceptedLandmarkCount,
+      qualityScore: bestRejectedAssessment.qualityScore,
+      preferredHoldSide: bestRejectedAssessment.preferredHoldSide,
+    );
+  }
+
+  PoseQualityAssessment _preferHigherQualityHold(
+    PoseQualityAssessment current,
+    PoseQualityAssessment candidate,
+  ) {
+    if (candidate.qualityScore > current.qualityScore) {
+      return candidate;
+    }
+    if (candidate.qualityScore < current.qualityScore) {
+      return current;
+    }
+
+    if (candidate.acceptedLandmarkCount > current.acceptedLandmarkCount) {
+      return candidate;
+    }
+    if (candidate.acceptedLandmarkCount < current.acceptedLandmarkCount) {
+      return current;
+    }
+
+    if (current.preferredHoldSide == HoldSide.left &&
+        candidate.preferredHoldSide == HoldSide.right) {
+      return current;
+    }
+    return candidate;
+  }
+
   PoseQualityAssessment _assessRequirementSet({
     required Pose pose,
     required ExerciseLandmarkRequirementSet requirementSet,
     RangeRepSide? side,
+    HoldSide? holdSide,
   }) {
     final requiredLandmarkCount = requirementSet.requiredLandmarks.length;
     if (requiredLandmarkCount == 0) {
@@ -247,6 +368,10 @@ class PoseQualityPolicy {
             ? const <RangeRepSide>{}
             : <RangeRepSide>{side},
         preferredRangeRepSide: side,
+        acceptedHoldSides: holdSide == null
+            ? const <HoldSide>{}
+            : <HoldSide>{holdSide},
+        preferredHoldSide: holdSide,
         qualityScore: 0.0,
       );
     }
@@ -264,6 +389,8 @@ class PoseQualityPolicy {
           acceptedLandmarkCount: observedLandmarks.length,
           acceptedRangeRepSides: const <RangeRepSide>{},
           preferredRangeRepSide: side,
+          acceptedHoldSides: const <HoldSide>{},
+          preferredHoldSide: holdSide,
           qualityScore: _qualityScore(
             acceptedLandmarkCount: observedLandmarks.length,
             requiredLandmarkCount: requiredLandmarkCount,
@@ -284,6 +411,8 @@ class PoseQualityPolicy {
           acceptedLandmarkCount: 0,
           acceptedRangeRepSides: const <RangeRepSide>{},
           preferredRangeRepSide: side,
+          acceptedHoldSides: const <HoldSide>{},
+          preferredHoldSide: holdSide,
           qualityScore: _qualityScore(
             acceptedLandmarkCount: 0,
             requiredLandmarkCount: requiredLandmarkCount,
@@ -302,6 +431,8 @@ class PoseQualityPolicy {
         acceptedLandmarkCount: requiredLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
         preferredRangeRepSide: side,
+        acceptedHoldSides: const <HoldSide>{},
+        preferredHoldSide: holdSide,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: requiredLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -328,6 +459,8 @@ class PoseQualityPolicy {
         acceptedLandmarkCount: acceptedLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
         preferredRangeRepSide: side,
+        acceptedHoldSides: const <HoldSide>{},
+        preferredHoldSide: holdSide,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: acceptedLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -347,6 +480,8 @@ class PoseQualityPolicy {
         acceptedLandmarkCount: acceptedLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
         preferredRangeRepSide: side,
+        acceptedHoldSides: const <HoldSide>{},
+        preferredHoldSide: holdSide,
         qualityScore: _qualityScore(
           acceptedLandmarkCount: acceptedLandmarkCount,
           requiredLandmarkCount: requiredLandmarkCount,
@@ -366,6 +501,10 @@ class PoseQualityPolicy {
           ? const <RangeRepSide>{}
           : <RangeRepSide>{side},
       preferredRangeRepSide: side,
+      acceptedHoldSides: holdSide == null
+          ? const <HoldSide>{}
+          : <HoldSide>{holdSide},
+      preferredHoldSide: holdSide,
       qualityScore: _qualityScore(
         acceptedLandmarkCount: requiredLandmarkCount,
         requiredLandmarkCount: requiredLandmarkCount,

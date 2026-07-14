@@ -5,10 +5,12 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../../../../core/utils/angle_calculator.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
+import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
+import 'pose_landmark_mirror.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
 class ExerciseMetricsExtractor {
@@ -27,12 +29,16 @@ class ExerciseMetricsExtractor {
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
     HoldContract? holdContract,
+    HoldSide? holdSide,
   }) {
     final effectiveRangeRepContract = engineKind == EngineKind.rangeRep
         ? (rangeRepContract ?? RangeRepContracts.squat)
         : _emptyRangeRepContract;
     final effectiveHoldContract = engineKind == EngineKind.hold
         ? _requireHoldContract(holdContract)
+        : null;
+    final effectiveHoldSide = engineKind == EngineKind.hold
+        ? _requireHoldSide(holdSide)
         : null;
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
@@ -50,18 +56,21 @@ class ExerciseMetricsExtractor {
       pose,
       config,
       holdContract: effectiveHoldContract,
+      holdSide: effectiveHoldSide,
       signal: HoldSignal.alignment,
     );
     final armSupportAngle = _extractHoldSignalValue(
       pose,
       config,
       holdContract: effectiveHoldContract,
+      holdSide: effectiveHoldSide,
       signal: HoldSignal.support,
     );
     final legExtensionAngle = _extractHoldSignalValue(
       pose,
       config,
       holdContract: effectiveHoldContract,
+      holdSide: effectiveHoldSide,
       signal: HoldSignal.extension,
     );
 
@@ -73,6 +82,7 @@ class ExerciseMetricsExtractor {
       bodyLineAngle: bodyLineAngle,
       armSupportAngle: armSupportAngle,
       legExtensionAngle: legExtensionAngle,
+      holdSide: effectiveHoldSide,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
       leftRangeRepMetrics: leftRangeRepMetrics,
@@ -88,6 +98,14 @@ class ExerciseMetricsExtractor {
     }
 
     return holdContract;
+  }
+
+  HoldSide _requireHoldSide(HoldSide? holdSide) {
+    if (holdSide == null) {
+      throw StateError('Hold metrics extraction requires a non-null holdSide.');
+    }
+
+    return holdSide;
   }
 
   RangeRepSideMetrics _extractRangeRepSideMetrics(
@@ -288,6 +306,7 @@ class ExerciseMetricsExtractor {
     Pose pose,
     ExerciseConfig config, {
     required HoldContract? holdContract,
+    required HoldSide? holdSide,
     required HoldSignal signal,
   }) {
     if (holdContract == null) {
@@ -310,11 +329,28 @@ class ExerciseMetricsExtractor {
       );
     }
 
+    final requiredHoldSide = holdSide;
+    if (requiredHoldSide == null) {
+      throw StateError('Hold metrics extraction requires a non-null holdSide.');
+    }
+
     return _tryCalculateAngle(
       pose,
-      definition.first,
-      definition.middle,
-      definition.last,
+      resolveHoldLandmarkForSide(
+        configuredLandmark: definition.first,
+        referenceSide: holdSignals.referenceSide,
+        targetSide: requiredHoldSide,
+      ),
+      resolveHoldLandmarkForSide(
+        configuredLandmark: definition.middle,
+        referenceSide: holdSignals.referenceSide,
+        targetSide: requiredHoldSide,
+      ),
+      resolveHoldLandmarkForSide(
+        configuredLandmark: definition.last,
+        referenceSide: holdSignals.referenceSide,
+        targetSide: requiredHoldSide,
+      ),
     );
   }
 
@@ -345,7 +381,7 @@ class ExerciseMetricsExtractor {
     PoseLandmarkType landmarkType,
     RangeRepSide side,
   ) {
-    return _requirements.landmarkTypeForSide(landmarkType, side);
+    return resolveRangeRepLandmarkForSide(landmarkType, side);
   }
 
   RangeRepSignalDefinition? _configuredRangeRepSignalDefinition(

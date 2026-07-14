@@ -13,6 +13,7 @@
     "breakGraceMillis": 300
   },
   "holdSignals": {
+    "referenceSide": "left",
     "alignment": {
       "first": "leftShoulder",
       "middle": "leftHip",

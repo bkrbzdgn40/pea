@@ -1,5 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import '../domain/models/hold_side.dart';
+
 enum RangeRepSide { left, right }
 
 /// Raw range-rep support signals kept separate from the legacy engine inputs.
@@ -60,6 +62,8 @@ class RangeRepSideMetrics {
 }
 
 class ExerciseMetrics {
+  static const Object _holdSideUnset = Object();
+
   const ExerciseMetrics({
     required this.primaryAngle,
     required this.formMetric,
@@ -72,6 +76,7 @@ class ExerciseMetrics {
     this.bodyLineAngle,
     this.armSupportAngle,
     this.legExtensionAngle,
+    this.holdSide,
   });
 
   const ExerciseMetrics.noPose()
@@ -89,7 +94,8 @@ class ExerciseMetrics {
       ),
       bodyLineAngle = null,
       armSupportAngle = null,
-      legExtensionAngle = null;
+      legExtensionAngle = null,
+      holdSide = null;
 
   final double primaryAngle;
   final double formMetric;
@@ -102,6 +108,7 @@ class ExerciseMetrics {
   final double? bodyLineAngle;
   final double? armSupportAngle;
   final double? legExtensionAngle;
+  final HoldSide? holdSide;
 
   ExerciseMetrics copyWith({
     double? primaryAngle,
@@ -115,6 +122,7 @@ class ExerciseMetrics {
     double? bodyLineAngle,
     double? armSupportAngle,
     double? legExtensionAngle,
+    Object? holdSide = _holdSideUnset,
   }) {
     return ExerciseMetrics(
       primaryAngle: primaryAngle ?? this.primaryAngle,
@@ -128,6 +136,9 @@ class ExerciseMetrics {
       bodyLineAngle: bodyLineAngle ?? this.bodyLineAngle,
       armSupportAngle: armSupportAngle ?? this.armSupportAngle,
       legExtensionAngle: legExtensionAngle ?? this.legExtensionAngle,
+      holdSide: holdSide == _holdSideUnset
+          ? this.holdSide
+          : holdSide as HoldSide?,
     );
   }
 }

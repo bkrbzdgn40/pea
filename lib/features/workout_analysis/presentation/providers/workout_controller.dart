@@ -11,6 +11,8 @@ import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
+import '../../application/hold_side_policy.dart';
+import '../../application/hold_side_stabilizer.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
 import '../../application/pose_quality_policy.dart';
 import '../../application/range_rep_blocked_state_builder.dart';
@@ -31,6 +33,7 @@ import '../../domain/models/analysis_frame.dart';
 import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/hold_contract.dart';
+import '../../domain/models/hold_side.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/session_calibration_baseline.dart';
@@ -112,8 +115,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final InputImageConverter _inputImageConverter = const InputImageConverter();
   RangeRepSide? _selectedRangeRepSide;
   RangeRepSide? _briefGapFrozenRangeRepSide;
+  HoldSide? _selectedHoldSide;
+  HoldSide? _briefGapFrozenHoldSide;
   bool _hasAcceptedPoseForAnalysis = false;
   late RangeRepSideStabilizer _rangeRepSideStabilizer;
+  late HoldSideStabilizer _holdSideStabilizer;
   late RangeRepRepOutcomeTracker _rangeRepRepOutcomeTracker;
   CalibrationSnapshot? _lastCalibrationSnapshot;
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
@@ -163,8 +169,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _lastAnalysisStartedAt = null;
     _selectedRangeRepSide = null;
     _briefGapFrozenRangeRepSide = null;
+    _selectedHoldSide = null;
+    _briefGapFrozenHoldSide = null;
     _hasAcceptedPoseForAnalysis = false;
     _rangeRepSideStabilizer = RangeRepSideStabilizer();
+    _holdSideStabilizer = HoldSideStabilizer();
     _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
     _poseAcceptanceStabilizer = PoseAcceptanceStabilizer();
     _rangeRepRepOutcomeTracker = RangeRepRepOutcomeTracker(
@@ -187,6 +196,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       analysisKind: _engineKind,
       feedbackMessage: _resolvedEngineFeedbackMessage(),
       currentPhase: _engine.phaseLabel,
+      selectedHoldSide: null,
     );
     _diagnostics.updateWorkoutState(
       repCount: initialState.repCount,
@@ -328,6 +338,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
 
     final candidates = <_SelectedPoseCandidate>[];
+    final requiredHoldSide = _requiredHoldSideForAssessment();
     for (var index = 0; index < poses.length; index++) {
       final pose = poses[index];
       final assessment = _poseQualityPolicy.assess(
@@ -336,6 +347,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         engineKind: _engineKind,
         rangeRepContract: _rangeRepContract,
         holdContract: _holdContract,
+        requiredHoldSide: requiredHoldSide,
       );
       candidates.add(
         _SelectedPoseCandidate(
@@ -397,6 +409,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         engineKind: _engineKind,
         rangeRepContract: _rangeRepContract,
         holdContract: _holdContract,
+        holdSide: _engineKind == EngineKind.hold
+            ? _selectHoldSideForAcceptedPose(selectedCandidate.assessment)
+            : null,
       ),
       kind: _PoseFrameKind.accepted,
       didBecomeStableTracking: acceptance.didBecomeStable,
@@ -488,6 +503,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }) {
     final hadAcceptedPoseForAnalysis = _hasAcceptedPoseForAnalysis;
     final preUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
+    final preUpdateHoldDiagnostics = _engineKind == EngineKind.hold
+        ? _holdDiagnosticsSnapshot()
+        : null;
     final effectiveMetrics = _effectiveMetricsForAnalysis(
       metrics: metrics,
       qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
@@ -698,7 +716,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     if (!isEngineEligibleFrame) {
       if (_engineKind == EngineKind.hold) {
-        _beginHoldVisibilityGap();
+        final lockedHoldSide = _requiredHoldSideForAssessment();
+        if (lockedHoldSide != null) {
+          _beginHoldVisibilityGap();
+        } else {
+          _resetHoldSideSelection();
+        }
       }
       if (_isDiagnosticsEnabled) {
         _diagnostics.updateVisibilityStatus('invalid_input');
@@ -726,6 +749,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             : 0,
         bestHoldSeconds:
             holdDiagnostics?.bestHoldSeconds ?? state.bestHoldSeconds,
+        selectedHoldSide: _currentHoldSideForState(),
         isHolding: false,
         isHoldVisibilitySuspended:
             holdDiagnostics?.isVisibilitySuspended ?? false,
@@ -768,6 +792,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       final holdGapResult = _resumeHoldVisibilityGap();
       if (holdGapResult.disposition == HoldVisibilityResumeDisposition.ended) {
         final holdDiagnostics = _holdDiagnosticsSnapshot();
+        _resetHoldSideSelection();
         if (_isDiagnosticsEnabled) {
           if (didBecomeStableTracking && _hasAcceptedPoseForAnalysis) {
             _diagnostics.recordPoseReacquisition();
@@ -785,6 +810,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           lastRepROM: _engine.maxRom,
           currentHoldSeconds: 0,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+          selectedHoldSide: null,
           isHolding: false,
           isHoldVisibilitySuspended: false,
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
@@ -803,6 +829,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _hasAcceptedPoseForAnalysis = true;
         _updateDiagnosticsFromState();
         return;
+      }
+
+      if (holdGapResult.disposition ==
+              HoldVisibilityResumeDisposition.resumed ||
+          holdGapResult.disposition == HoldVisibilityResumeDisposition.noGap) {
+        _briefGapFrozenHoldSide = null;
       }
     }
 
@@ -1036,6 +1068,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         didCompleteRep: didCompleteRep,
       );
       final holdDiagnostics = _holdDiagnosticsSnapshot();
+      if (_engineKind == EngineKind.hold &&
+          _didHoldAttemptEndAfterUpdate(
+            before: preUpdateHoldDiagnostics,
+            after: holdDiagnostics,
+          )) {
+        _resetHoldSideSelection();
+      }
 
       state = WorkoutState(
         landmarks: effectiveMetrics.landmarks,
@@ -1047,6 +1086,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         lastRepROM: _engine.maxRom,
         currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
         bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+        selectedHoldSide: _currentHoldSideForState(),
         isHolding: holdDiagnostics.isHolding,
         isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
         hadHoldFormBreak: holdDiagnostics.hadFormBreak,
@@ -1133,6 +1173,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         lastRepROM: state.lastRepROM,
         currentHoldSeconds: 0,
         bestHoldSeconds: state.bestHoldSeconds,
+        selectedHoldSide: _currentHoldSideForState(),
         isHolding: false,
         isHoldVisibilitySuspended: false,
         hadHoldFormBreak: state.hadHoldFormBreak,
@@ -1219,6 +1260,92 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       acceptedSides: qualityAcceptedRangeRepSides,
       preferredSide: preferredRangeRepSide,
     );
+  }
+
+  HoldSide? _requiredHoldSideForAssessment() {
+    if (_engineKind != EngineKind.hold) {
+      return null;
+    }
+
+    final selectedHoldSide = _briefGapFrozenHoldSide ?? _selectedHoldSide;
+    if (selectedHoldSide == null) {
+      return null;
+    }
+
+    final diagnostics = _holdDiagnosticsSnapshot();
+    if (!shouldLockHoldSideSelection(
+      engineKind: _engineKind,
+      selectedSide: selectedHoldSide,
+      diagnostics: diagnostics,
+    )) {
+      return null;
+    }
+
+    return selectedHoldSide;
+  }
+
+  HoldSide _selectHoldSideForAcceptedPose(PoseQualityAssessment assessment) {
+    if (_engineKind != EngineKind.hold) {
+      throw StateError('Hold side selection is only valid for hold analysis.');
+    }
+
+    final lockedHoldSide = _requiredHoldSideForAssessment();
+    if (lockedHoldSide != null) {
+      _selectedHoldSide = lockedHoldSide;
+      return lockedHoldSide;
+    }
+
+    final preferredHoldSide = assessment.preferredHoldSide;
+    if (preferredHoldSide == null) {
+      throw StateError(
+        'Accepted hold pose-quality assessment requires a preferredHoldSide.',
+      );
+    }
+
+    final previousHoldSide = _selectedHoldSide;
+    final selection = _holdSideStabilizer.stabilizeSelection(
+      preferredSide: preferredHoldSide,
+      acceptedSides: assessment.acceptedHoldSides,
+      currentSide: _selectedHoldSide,
+    );
+    if (previousHoldSide != null &&
+        previousHoldSide != selection.selectedSide) {
+      _resetHoldMetricFilters();
+    }
+    _selectedHoldSide = selection.selectedSide;
+    return selection.selectedSide;
+  }
+
+  HoldSide? _currentHoldSideForState() {
+    if (_engineKind != EngineKind.hold) {
+      return null;
+    }
+
+    return _briefGapFrozenHoldSide ?? _selectedHoldSide;
+  }
+
+  bool _didHoldAttemptEndAfterUpdate({
+    required HoldDiagnosticsSnapshot? before,
+    required HoldDiagnosticsSnapshot after,
+  }) {
+    if (before == null) {
+      return false;
+    }
+
+    final hadActiveAttempt = before.isHolding || before.isVisibilitySuspended;
+    final hasActiveAttempt = after.isHolding || after.isVisibilitySuspended;
+    return hadActiveAttempt && !hasActiveAttempt;
+  }
+
+  void _resetHoldSideSelection() {
+    final hadHoldSideSelection =
+        _selectedHoldSide != null || _briefGapFrozenHoldSide != null;
+    _selectedHoldSide = null;
+    _briefGapFrozenHoldSide = null;
+    _holdSideStabilizer.reset();
+    if (hadHoldSideSelection) {
+      _resetHoldMetricFilters();
+    }
   }
 
   RangeRepSideSelection _selectRangeRepSideForFrame({
@@ -1637,6 +1764,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _beginHoldVisibilityGap() {
+    if (_selectedHoldSide != null) {
+      _briefGapFrozenHoldSide ??= _selectedHoldSide;
+    }
     if (_engine is HoldVisibilityGapControl) {
       (_engine as HoldVisibilityGapControl).beginVisibilityGap();
     }
@@ -1706,13 +1836,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
     _poseAcceptanceStabilizer.reset();
     _hasAcceptedPoseForAnalysis = false;
-    _bodyLineFilter.reset();
-    _armSupportFilter.reset();
-    _legFilter.reset();
+    _resetHoldMetricFilters();
+    _resetHoldSideSelection();
     final holdDiagnostics = _holdDiagnosticsSnapshot();
     state = state.copyWith(
       currentHoldSeconds: 0,
       bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+      selectedHoldSide: null,
       isHolding: false,
       isHoldVisibilitySuspended: false,
       hadHoldFormBreak: holdDiagnostics.hadFormBreak,
@@ -1720,6 +1850,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       currentPhase: _engine.phaseLabel,
     );
     _updateDiagnosticsFromState();
+  }
+
+  void _resetHoldMetricFilters() {
+    _bodyLineFilter.reset();
+    _armSupportFilter.reset();
+    _legFilter.reset();
   }
 
   void _resetRangeRepVisibilityResyncState({

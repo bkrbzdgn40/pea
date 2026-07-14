@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_landmark_requirements.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 
 void main() {
   const requirements = ExerciseLandmarkRequirements();
@@ -15,6 +15,7 @@ void main() {
         config: _holdConfig(),
         engineKind: EngineKind.hold,
         holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
       );
 
       expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
@@ -32,6 +33,7 @@ void main() {
         config: _holdConfig(),
         engineKind: EngineKind.hold,
         holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
       );
 
       expect(
@@ -49,6 +51,7 @@ void main() {
         config: _holdConfig(),
         engineKind: EngineKind.hold,
         holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
       );
 
       expect(
@@ -64,26 +67,31 @@ void main() {
       );
     });
 
-    test(
-      'current hold requirements remain left-only when a right side is supplied',
-      () {
-        final requirementSet = requirements.resolve(
-          config: _holdConfig(),
-          engineKind: EngineKind.hold,
-          holdContract: HoldContracts.plankFamily,
-          side: RangeRepSide.right,
-        );
+    test('hold resolves the mirrored right-side landmark set', () {
+      final requirementSet = requirements.resolve(
+        config: _holdConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.right,
+      );
 
-        expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
-          PoseLandmarkType.leftShoulder,
-          PoseLandmarkType.leftElbow,
-          PoseLandmarkType.leftWrist,
-          PoseLandmarkType.leftHip,
-          PoseLandmarkType.leftKnee,
-          PoseLandmarkType.leftAnkle,
-        });
-      },
-    );
+      expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+        PoseLandmarkType.rightShoulder,
+        PoseLandmarkType.rightElbow,
+        PoseLandmarkType.rightWrist,
+        PoseLandmarkType.rightHip,
+        PoseLandmarkType.rightKnee,
+        PoseLandmarkType.rightAnkle,
+      });
+      expect(
+        requirementSet.requiredAngleTriplets.map(_tripletKey),
+        unorderedEquals(<String>{
+          'rightShoulder->rightHip->rightAnkle',
+          'rightShoulder->rightElbow->rightWrist',
+          'rightHip->rightKnee->rightAnkle',
+        }),
+      );
+    });
 
     test(
       'hold requirements follow configured signal geometry instead of hardcoded plank triplets',
@@ -92,6 +100,7 @@ void main() {
           config: _alternateHoldConfig(),
           engineKind: EngineKind.hold,
           holdContract: HoldContracts.plankFamily,
+          holdSide: HoldSide.left,
         );
 
         expect(
@@ -111,6 +120,27 @@ void main() {
           PoseLandmarkType.leftKnee,
           PoseLandmarkType.leftAnkle,
         });
+      },
+    );
+
+    test(
+      'hold requirements mirror mixed-side configured geometry for the opposite target side',
+      () {
+        final requirementSet = requirements.resolve(
+          config: _alternateHoldConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
+          holdSide: HoldSide.right,
+        );
+
+        expect(
+          requirementSet.requiredAngleTriplets.map(_tripletKey),
+          unorderedEquals(<String>{
+            'rightShoulder->rightHip->leftHip',
+            'rightHip->rightElbow->rightWrist',
+            'rightShoulder->rightKnee->rightAnkle',
+          }),
+        );
       },
     );
   });
@@ -135,6 +165,7 @@ ExerciseConfig _holdConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
@@ -173,6 +204,7 @@ ExerciseConfig _alternateHoldConfig() {
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: const HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
       alignment: HoldAngleSignalConfig(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
