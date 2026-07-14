@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../application/workout_diagnostics.dart';
+import '../../domain/models/hold_feedback_code.dart';
+import '../../domain/models/hold_phase.dart';
 
 bool get workoutDiagnosticsUiEnabled => kDebugMode || kProfileMode;
 
@@ -59,6 +61,14 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
     }
 
     final snapshot = _snapshot;
+    final hasHoldTypedState =
+        snapshot?.presentedHoldFeedbackCode != null ||
+        snapshot?.engineHoldFeedbackCode != null ||
+        snapshot?.holdEnginePhase != null ||
+        snapshot?.currentHoldSide != null ||
+        snapshot?.lastVisibleHoldPosture != null ||
+        snapshot?.isHoldFormBreakGraceActive != null ||
+        snapshot?.isHoldVisibilitySuspended != null;
     return SafeArea(
       top: false,
       child: FractionallySizedBox(
@@ -327,6 +337,94 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                               ),
                             ],
                           ),
+                          if (hasHoldTypedState)
+                            _DiagnosticsSection(
+                              title: 'Hold typed state',
+                              children: [
+                                _DiagnosticsRow(
+                                  label: 'Presented feedback code',
+                                  value: _formatHoldFeedbackCode(
+                                    snapshot.presentedHoldFeedbackCode,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Engine feedback code',
+                                  value: _formatHoldFeedbackCode(
+                                    snapshot.engineHoldFeedbackCode,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Feedback family',
+                                  value: _formatHoldFeedbackFamily(
+                                    snapshot.presentedHoldFeedbackCode,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Engine phase',
+                                  value: _formatHoldPhase(
+                                    snapshot.holdEnginePhase,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Selected hold side',
+                                  value: _formatOptionalText(
+                                    snapshot.currentHoldSide?.name,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Metrics complete',
+                                  value: _formatBool(
+                                    snapshot
+                                        .lastVisibleHoldPosture
+                                        ?.hasCompleteMetrics,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Active posture',
+                                  value: _formatBool(
+                                    snapshot
+                                        .lastVisibleHoldPosture
+                                        ?.hasActivePosture,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Body aligned',
+                                  value: _formatBool(
+                                    snapshot
+                                        .lastVisibleHoldPosture
+                                        ?.isBodyAligned,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Arm supported',
+                                  value: _formatBool(
+                                    snapshot
+                                        .lastVisibleHoldPosture
+                                        ?.isArmSupported,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Legs extended',
+                                  value: _formatBool(
+                                    snapshot
+                                        .lastVisibleHoldPosture
+                                        ?.areLegsExtended,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Form-break grace active',
+                                  value: _formatBool(
+                                    snapshot.isHoldFormBreakGraceActive,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Visibility suspended',
+                                  value: _formatBool(
+                                    snapshot.isHoldVisibilitySuspended,
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
               ),
@@ -480,6 +578,15 @@ class _DiagnosticsRow extends StatelessWidget {
 
 String _formatOptionalText(String? value) =>
     value == null || value.isEmpty ? _missingDiagnosticsValue : value;
+
+String _formatHoldFeedbackCode(HoldFeedbackCode? code) =>
+    code == null ? _missingDiagnosticsValue : code.code;
+
+String _formatHoldFeedbackFamily(HoldFeedbackCode? code) =>
+    code == null ? _missingDiagnosticsValue : code.family.name;
+
+String _formatHoldPhase(HoldPhase? phase) =>
+    phase == null ? _missingDiagnosticsValue : phase.code;
 
 String _formatInt(int? value) => value?.toString() ?? _missingDiagnosticsValue;
 

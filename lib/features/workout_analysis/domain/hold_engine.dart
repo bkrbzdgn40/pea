@@ -5,8 +5,8 @@ import 'hold_diagnostics.dart';
 import 'hold_posture_policy.dart';
 import 'models/analysis_frame.dart';
 import 'models/exercise_config.dart';
-
-enum HoldPhase { ready, holding, broken }
+import 'models/hold_feedback_code.dart';
+import 'models/hold_phase.dart';
 
 /// First real non-repetition engine family.
 ///
@@ -16,6 +16,7 @@ enum HoldPhase { ready, holding, broken }
 class HoldEngine
     implements
         AnalysisEngine,
+        HoldFeedbackSource,
         HoldDiagnostics,
         HoldVisibilityGapControl,
         HoldInterruptionControl {
@@ -36,12 +37,11 @@ class HoldEngine
   double _currentHoldSeconds = 0.0;
   double _bestHoldSeconds = 0.0;
   bool _hadFormBreak = false;
-  bool _isBodyAligned = false;
-  bool _isArmSupported = false;
-  bool _areLegsExtended = false;
   DateTime? _misalignmentStartedAt;
   DateTime? _lastVisibleFrameAt;
   DateTime? _visibilityGapStartedAt;
+  HoldPostureDiagnosticsSnapshot _lastVisiblePosture =
+      const HoldPostureDiagnosticsSnapshot();
 
   @override
   int get repCount => 0;
@@ -56,22 +56,25 @@ class HoldEngine
   double get maxRom => 0.0;
 
   @override
-  String get feedback {
+  HoldFeedbackCode get feedbackCode {
     switch (_phase) {
       case HoldPhase.ready:
-        return 'Pozisyonu Hazirla';
+        return HoldFeedbackCode.preparePosition;
       case HoldPhase.holding:
         if (_misalignmentStartedAt != null) {
-          return _alignmentFeedback();
+          return _alignmentFeedbackCode();
         }
-        return 'Pozisyonu Koru';
+        return HoldFeedbackCode.holdPosition;
       case HoldPhase.broken:
-        return _alignmentFeedback();
+        return _alignmentFeedbackCode();
     }
   }
 
   @override
-  String get phaseLabel => _phase.name.toUpperCase();
+  String get feedback => feedbackCode.code;
+
+  @override
+  String get phaseLabel => _phase.legacyLabel;
 
   @override
   HoldDiagnosticsSnapshot get diagnosticsSnapshot => HoldDiagnosticsSnapshot(
@@ -83,6 +86,10 @@ class HoldEngine
     bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
       isHolding: _phase == HoldPhase.holding,
     ),
+    phase: _phase,
+    feedbackCode: feedbackCode,
+    lastVisiblePosture: _lastVisiblePosture,
+    isFormBreakGraceActive: _misalignmentStartedAt != null,
   );
 
   @override
@@ -95,10 +102,13 @@ class HoldEngine
       legExtensionAngle: frame.legExtensionAngle,
       isHolding: _phase == HoldPhase.holding,
     );
-
-    _isBodyAligned = evaluation.isBodyAligned;
-    _isArmSupported = evaluation.isArmSupported;
-    _areLegsExtended = evaluation.areLegsExtended;
+    _lastVisiblePosture = HoldPostureDiagnosticsSnapshot(
+      hasCompleteMetrics: evaluation.hasCompleteMetrics,
+      hasActivePosture: evaluation.hasActivePosture,
+      isBodyAligned: evaluation.isBodyAligned,
+      isArmSupported: evaluation.isArmSupported,
+      areLegsExtended: evaluation.areLegsExtended,
+    );
 
     if (evaluation.isValidHoldPosture) {
       _misalignmentStartedAt = null;
@@ -165,17 +175,17 @@ class HoldEngine
     _phase = HoldPhase.ready;
   }
 
-  String _alignmentFeedback() {
-    if (!_isBodyAligned) {
-      return 'Kalcayi Hizala';
+  HoldFeedbackCode _alignmentFeedbackCode() {
+    if (!_lastVisiblePosture.isBodyAligned) {
+      return HoldFeedbackCode.alignHips;
     }
-    if (!_isArmSupported) {
-      return 'Dirsek Destegini Duzelt';
+    if (!_lastVisiblePosture.isArmSupported) {
+      return HoldFeedbackCode.adjustElbowSupport;
     }
-    if (!_areLegsExtended) {
-      return 'Dizleri Kaldir';
+    if (!_lastVisiblePosture.areLegsExtended) {
+      return HoldFeedbackCode.extendLegs;
     }
-    return 'Formu Duzelt';
+    return HoldFeedbackCode.correctForm;
   }
 
   @override
@@ -230,6 +240,7 @@ class HoldEngine
     _misalignmentStartedAt = null;
     _lastVisibleFrameAt = null;
     _visibilityGapStartedAt = null;
+    _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
     _phase = HoldPhase.ready;
   }
 
@@ -240,9 +251,7 @@ class HoldEngine
     _currentHoldSeconds = 0.0;
     _bestHoldSeconds = 0.0;
     _hadFormBreak = false;
-    _isBodyAligned = false;
-    _isArmSupported = false;
-    _areLegsExtended = false;
+    _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
     _lastVisibleFrameAt = null;
     _misalignmentStartedAt = null;
     _visibilityGapStartedAt = null;

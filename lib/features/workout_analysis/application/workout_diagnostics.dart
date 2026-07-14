@@ -1,5 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+import '../domain/hold_diagnostics.dart';
+import '../domain/models/hold_feedback_code.dart';
+import '../domain/models/hold_phase.dart';
+import '../domain/models/hold_side.dart';
+
 const String _defaultAppCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
   defaultValue: 'unknown',
@@ -58,6 +63,13 @@ class WorkoutDiagnosticsSnapshot {
     required this.bestHoldSeconds,
     required this.currentPhase,
     required this.isHolding,
+    this.presentedHoldFeedbackCode,
+    this.engineHoldFeedbackCode,
+    this.holdEnginePhase,
+    this.currentHoldSide,
+    this.lastVisibleHoldPosture,
+    this.isHoldFormBreakGraceActive,
+    this.isHoldVisibilitySuspended,
   });
 
   final int schemaVersion;
@@ -104,6 +116,13 @@ class WorkoutDiagnosticsSnapshot {
   final int? bestHoldSeconds;
   final String? currentPhase;
   final bool? isHolding;
+  final HoldFeedbackCode? presentedHoldFeedbackCode;
+  final HoldFeedbackCode? engineHoldFeedbackCode;
+  final HoldPhase? holdEnginePhase;
+  final HoldSide? currentHoldSide;
+  final HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture;
+  final bool? isHoldFormBreakGraceActive;
+  final bool? isHoldVisibilitySuspended;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'schema_version': schemaVersion,
@@ -150,6 +169,17 @@ class WorkoutDiagnosticsSnapshot {
     'best_hold_seconds': bestHoldSeconds,
     'current_phase': currentPhase,
     'is_holding': isHolding,
+    'presented_hold_feedback_code': presentedHoldFeedbackCode?.code,
+    'engine_hold_feedback_code': engineHoldFeedbackCode?.code,
+    'hold_engine_phase': holdEnginePhase?.code,
+    'current_hold_side': currentHoldSide?.name,
+    'hold_has_complete_metrics': lastVisibleHoldPosture?.hasCompleteMetrics,
+    'hold_has_active_posture': lastVisibleHoldPosture?.hasActivePosture,
+    'hold_is_body_aligned': lastVisibleHoldPosture?.isBodyAligned,
+    'hold_is_arm_supported': lastVisibleHoldPosture?.isArmSupported,
+    'hold_are_legs_extended': lastVisibleHoldPosture?.areLegsExtended,
+    'hold_is_form_break_grace_active': isHoldFormBreakGraceActive,
+    'hold_is_visibility_suspended': isHoldVisibilitySuspended,
   };
 }
 
@@ -208,6 +238,13 @@ class WorkoutDiagnosticsAccumulator {
   int? _bestHoldSeconds;
   String? _currentPhase;
   bool? _isHolding;
+  HoldFeedbackCode? _presentedHoldFeedbackCode;
+  HoldFeedbackCode? _engineHoldFeedbackCode;
+  HoldPhase? _holdEnginePhase;
+  HoldSide? _currentHoldSide;
+  HoldPostureDiagnosticsSnapshot? _lastVisibleHoldPosture;
+  bool? _isHoldFormBreakGraceActive;
+  bool? _isHoldVisibilitySuspended;
 
   void recordCameraFrame() => _cameraFrameCount++;
   void recordAnalysisAttempt() => _analysisAttemptCount++;
@@ -298,6 +335,9 @@ class WorkoutDiagnosticsAccumulator {
     required String currentPhase,
     required bool isHolding,
     double? calibrationOffsetDegrees,
+    HoldFeedbackCode? presentedHoldFeedbackCode,
+    HoldDiagnosticsSnapshot? holdDiagnostics,
+    HoldSide? currentHoldSide,
   }) {
     _repCount = repCount;
     _currentHoldSeconds = currentHoldSeconds;
@@ -305,12 +345,19 @@ class WorkoutDiagnosticsAccumulator {
     _currentPhase = currentPhase;
     _isHolding = isHolding;
     _lastCalibrationOffsetDegrees = calibrationOffsetDegrees;
+    _presentedHoldFeedbackCode = presentedHoldFeedbackCode;
+    _engineHoldFeedbackCode = holdDiagnostics?.feedbackCode;
+    _holdEnginePhase = holdDiagnostics?.phase;
+    _currentHoldSide = currentHoldSide;
+    _lastVisibleHoldPosture = holdDiagnostics?.lastVisiblePosture;
+    _isHoldFormBreakGraceActive = holdDiagnostics?.isFormBreakGraceActive;
+    _isHoldVisibilitySuspended = holdDiagnostics?.isVisibilitySuspended;
   }
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 2,
+      schemaVersion: 3,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -356,6 +403,13 @@ class WorkoutDiagnosticsAccumulator {
       bestHoldSeconds: _bestHoldSeconds,
       currentPhase: _currentPhase,
       isHolding: _isHolding,
+      presentedHoldFeedbackCode: _presentedHoldFeedbackCode,
+      engineHoldFeedbackCode: _engineHoldFeedbackCode,
+      holdEnginePhase: _holdEnginePhase,
+      currentHoldSide: _currentHoldSide,
+      lastVisibleHoldPosture: _lastVisibleHoldPosture,
+      isHoldFormBreakGraceActive: _isHoldFormBreakGraceActive,
+      isHoldVisibilitySuspended: _isHoldVisibilitySuspended,
     );
   }
 
@@ -397,6 +451,13 @@ class WorkoutDiagnosticsAccumulator {
     _bestHoldSeconds = null;
     _currentPhase = null;
     _isHolding = null;
+    _presentedHoldFeedbackCode = null;
+    _engineHoldFeedbackCode = null;
+    _holdEnginePhase = null;
+    _currentHoldSide = null;
+    _lastVisibleHoldPosture = null;
+    _isHoldFormBreakGraceActive = null;
+    _isHoldVisibilitySuspended = null;
   }
 
   int? _nearestRank(List<int> sortedValues, double percentile) {

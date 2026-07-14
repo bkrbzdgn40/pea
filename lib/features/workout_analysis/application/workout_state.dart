@@ -1,5 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/calibration_snapshot.dart';
+import '../domain/models/hold_feedback_code.dart';
+import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import 'engine_kind.dart';
@@ -198,6 +200,8 @@ class WorkoutCalibrationMetrics {
 
 class WorkoutState {
   static const Object _selectedHoldSideUnset = Object();
+  static const Object _holdFeedbackCodeUnset = Object();
+  static const Object _holdEnginePhaseUnset = Object();
 
   final List<PoseLandmark>? landmarks;
   final EngineKind analysisKind;
@@ -209,6 +213,8 @@ class WorkoutState {
   final double currentHoldSeconds;
   final double bestHoldSeconds;
   final HoldSide? selectedHoldSide;
+  final HoldFeedbackCode? holdFeedbackCode;
+  final HoldPhase? holdEnginePhase;
   final bool isHolding;
   final bool isHoldVisibilitySuspended;
   final bool hadHoldFormBreak;
@@ -229,6 +235,8 @@ class WorkoutState {
     this.currentHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.selectedHoldSide,
+    this.holdFeedbackCode,
+    this.holdEnginePhase,
     this.isHolding = false,
     this.isHoldVisibilitySuspended = false,
     this.hadHoldFormBreak = false,
@@ -251,6 +259,8 @@ class WorkoutState {
     double? currentHoldSeconds,
     double? bestHoldSeconds,
     Object? selectedHoldSide = _selectedHoldSideUnset,
+    Object? holdFeedbackCode = _holdFeedbackCodeUnset,
+    Object? holdEnginePhase = _holdEnginePhaseUnset,
     bool? isHolding,
     bool? isHoldVisibilitySuspended,
     bool? hadHoldFormBreak,
@@ -273,6 +283,12 @@ class WorkoutState {
       selectedHoldSide: selectedHoldSide == _selectedHoldSideUnset
           ? this.selectedHoldSide
           : selectedHoldSide as HoldSide?,
+      holdFeedbackCode: holdFeedbackCode == _holdFeedbackCodeUnset
+          ? this.holdFeedbackCode
+          : holdFeedbackCode as HoldFeedbackCode?,
+      holdEnginePhase: holdEnginePhase == _holdEnginePhaseUnset
+          ? this.holdEnginePhase
+          : holdEnginePhase as HoldPhase?,
       isHolding: isHolding ?? this.isHolding,
       isHoldVisibilitySuspended:
           isHoldVisibilitySuspended ?? this.isHoldVisibilitySuspended,
