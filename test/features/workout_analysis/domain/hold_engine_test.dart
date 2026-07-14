@@ -86,45 +86,39 @@ void main() {
       );
     });
 
-    test(
-      'visibility gap at the freeze boundary ends the hold without a '
-      'form-break penalty',
-      () {
-        final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
-        final gapControl = engine as HoldVisibilityGapControl;
+    test('visibility gap at the freeze boundary ends the hold without a '
+        'form-break penalty', () {
+      final clock = _TestClock();
+      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final gapControl = engine as HoldVisibilityGapControl;
 
-        engine.update(_validHoldFrame());
-        clock.advance(const Duration(seconds: 5));
-        engine.update(_validHoldFrame());
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(seconds: 5));
+      engine.update(_validHoldFrame());
 
-        gapControl.beginVisibilityGap();
-        clock.advance(const Duration(milliseconds: 1200));
+      gapControl.beginVisibilityGap();
+      clock.advance(const Duration(milliseconds: 1200));
 
-        final result = gapControl.resumeAfterVisibilityGap();
+      final result = gapControl.resumeAfterVisibilityGap();
 
-        expect(result.disposition, HoldVisibilityResumeDisposition.ended);
-        expect(engine.phaseLabel, 'READY');
-        expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
-        expect(
-          engine.diagnosticsSnapshot.bestHoldSeconds,
-          closeTo(5.0, 0.001),
-        );
-        expect(engine.diagnosticsSnapshot.isHolding, isFalse);
-        expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      expect(result.disposition, HoldVisibilityResumeDisposition.ended);
+      expect(engine.phaseLabel, 'READY');
+      expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
+      expect(engine.diagnosticsSnapshot.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(engine.diagnosticsSnapshot.isHolding, isFalse);
+      expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
 
-        engine.update(_validHoldFrame());
-        expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
-        expect(engine.diagnosticsSnapshot.isHolding, isTrue);
+      engine.update(_validHoldFrame());
+      expect(engine.diagnosticsSnapshot.currentHoldSeconds, 0.0);
+      expect(engine.diagnosticsSnapshot.isHolding, isTrue);
 
-        clock.advance(const Duration(seconds: 1));
-        engine.update(_validHoldFrame());
-        expect(
-          engine.diagnosticsSnapshot.currentHoldSeconds,
-          closeTo(1.0, 0.001),
-        );
-      },
-    );
+      clock.advance(const Duration(seconds: 1));
+      engine.update(_validHoldFrame());
+      expect(
+        engine.diagnosticsSnapshot.currentHoldSeconds,
+        closeTo(1.0, 0.001),
+      );
+    });
 
     test('updates best hold seconds across multiple hold attempts', () {
       final clock = _TestClock();
