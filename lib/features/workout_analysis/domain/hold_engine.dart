@@ -23,7 +23,9 @@ class HoldEngine
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
 
-  static const Duration _visibilityGapGraceDuration = Duration(milliseconds: 1200);
+  static const Duration _visibilityGapGraceDuration = Duration(
+    milliseconds: 1200,
+  );
 
   final ExerciseConfig config;
   final DateTime Function() _now;
