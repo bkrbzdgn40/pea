@@ -213,9 +213,10 @@ Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 
 * aktif analiz desteği bugün squat, plank ve push-up ile sınırlıdır
 * plank, `hold` ailesinin ilk aktif örneğidir
-* plank hold sinyal geometrisi bugün `plank.json` içindeki `holdSignals` tanımından okunur
-* `HoldContract`, hold motorunun beklediği semantik signal setini; `holdSignals` ise bu signal'ların landmark üçlülerini tanımlar
-* mevcut plank asset'i hâlâ sol landmark geometrisi kullanır; otomatik bilateral hold extraction yoktur
+* plank hold sinyal geometrisi bugün `plank.json` içindeki `holdSignals` ve `referenceSide` tanımından okunur
+* `HoldContract`, hold motorunun beklediği semantik signal setini; `holdSignals` ise bu signal'ların referans landmark üçlülerini tanımlar
+* hold pipeline aynı config'ten left ve right requirement setleri üretir; right-only plank pose'ları kabul edilip hold başlatabilir
+* aktif hold attempt sırasında seçilen side lock edilir ve kısa visibility gap boyunca korunur
 * `hold` ailesi henüz bütün statik egzersizler için kolayca genellenmiş, ikinci fixture ile kanıtlanmış bir şablon değildir
 * kısa visibility gap sonrası hold devam edebilse de gizli süre hold toplamına eklenmez
 * otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez
@@ -258,7 +259,7 @@ flutter run
 | Öncelik | Başlık | Not |
 | ------- | ------ | --- |
 | Yüksek | Yeni egzersiz enablement | Yeni hareketler ancak engine, test ve cihaz kanıtı ile aktif edilmeli |
-| Yüksek | Bilateral ve contract-driven hold extraction | Hold ailesini plank dışına güvenli biçimde genişletmek için |
+| Yüksek | İkinci hold-family fixture ve typed diagnostics | Hold ailesini plank dışına güvenli biçimde genişletmek için |
 | Orta | Daha güçlü skor açıklaması | Neden bu skor üretildiğini daha anlaşılır göstermek için |
 | Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek için |
 | Orta | Gerçek cihaz kabul kanıtlarını genişletme | Profile build ve saha ölçümlerini daha sistematik hale getirmek için |

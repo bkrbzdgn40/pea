@@ -369,12 +369,13 @@ support
 extension
 ```
 
-`holdSignals` ise her semantik signal için angle triple tanımlar. Metrics extractor ile pose quality aynı landmark requirement kaynağını bu contract + config kombinasyonundan türetir.
+`holdSignals` ise her semantik signal için reference geometry angle triple tanımlar. Metrics extractor ile pose quality aynı landmark requirement kaynağını bu contract + config kombinasyonundan türetir.
 
 Mevcut plank config örneği:
 
 ```json
 "holdSignals": {
+  "referenceSide": "left",
   "alignment": {
     "first": "leftShoulder",
     "middle": "leftHip",
@@ -398,10 +399,16 @@ Bu yüzden:
 - plank aktif hold örneğidir
 - `EngineKind.hold`, her statik egzersiz için genel amaçlı bir motor değildir
 - hold signal geometry artık production Dart içindeki sabit landmark listelerinden değil, config'teki `holdSignals` tanımından gelir
+- config, tek bir `referenceSide` üzerinden canonical geometriyi tanımlar
+- karşı taraf requirement ve extraction landmark'ları paired landmark mirroring ile türetilir
+- center landmark'lar, örneğin `nose`, mirroring sırasında değişmeden kalır
+- mixed-side triplet'lerde bütün paired landmark'lar swap edilir; yalnız `left*` alanlarını sağa çevirmek yeterli değildir
+- pose quality left ve right requirement setlerini ayrı değerlendirir, daha yüksek quality tarafını seçer ve exact tie durumunda left tarafını tercih eder
+- controller seçilen hold side'ı stabilize eder, aktif attempt boyunca lock eder ve kısa visibility gap süresince korur
 - yeni hareket bu üç signal'in anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme
 - yeni hold hareketi yalnız JSON eklenince otomatik desteklenmiş sayılmaz
 - yeni hold hareketi, mevcut üç signal'in aynı biyomekanik anlamı taşıdığını ayrıca kanıtlamalıdır
-- mevcut plank asset'i hâlâ sol landmark tanımları kullanır; automatic bilateral extraction veya hold side selection yoktur
+- ikinci production hold fixture hâlâ yoktur
 
 ### Hold config alanları
 
@@ -414,21 +421,21 @@ Bu yüzden:
 | `armSupportMaxAngle` | Maksimum kol destek açısı |
 | `legExtensionMinAngle` | Minimum bacak uzatma açısı |
 | `breakGraceMillis` | Kısa landmark/form bozulmasına tolerans |
+| `referenceSide` | Config triplet'lerinin tanımlandığı canonical taraf |
 
 Entry ve sustain değerlerinin ayrı olması hysteresis sağlar. Çok büyük grace süresi gerçek form break'i sırasında hold süresini şişirebilir.
 
 Hold motoru tekrar üretmez; `repCount` güvenli biçimde `0` kalır ve sonuç hold diagnostics üzerinden taşınır.
 
-> Mevcut plank config'i sol landmark'lara bağlıdır. Sağ taraftan görünüm ayrıca gerçek cihazda doğrulanmadan bilateral destek iddia etme.
+> Bilateral hold extraction ve side locking artık mevcuttur; yine de sağ taraftan görünüm gerçek cihazda ayrıca doğrulanmadan production kabulü tamamlandı sayma.
 
-### Hedef hold-family şablonu
+### Hold roadmap
 
 Aşağıdakiler bugünün implementasyonu değil, sonraki mimari adımlardır:
 
-- bilateral extraction
-- hold side selection
 - ikinci hold-family fixture ile template doğrulaması
 - typed diagnostics/feedback where applicable
+- real-device right-side acceptance kanıtını genişletme
 
 Bu hedefler gelmeden `hold` ailesini bütün statik egzersizler için tam genellenmiş gibi belgeleme.
 
@@ -539,6 +546,9 @@ Hold:
 - body line,
 - arm support,
 - leg extension,
+- `referenceSide` parsing ve paired landmark mirroring,
+- right-only extraction,
+- mixed-side triplet mirroring,
 - eksik landmark davranışı.
 
 ### 13.5 Engine
