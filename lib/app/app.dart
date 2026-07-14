@@ -12,7 +12,7 @@ class PoseAnalysisApp extends StatelessWidget {
     // TODO: Move shared app configuration here as the architecture migration progresses.
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Pose Analysis',
+      title: 'PEA',
       theme: ThemeData.dark(),
       home: const AuthBootstrapGate(),
     );
