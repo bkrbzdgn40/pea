@@ -357,6 +357,10 @@ Yeni egzersiz threshold'ları squat veya push-up değerleri kopyalanarak belirle
 assets/config/exercises/plank.json
 ```
 
+### Mevcut implementasyon
+
+Bugünün aktif hold örneği `plank`tir. `ExerciseCatalog` içinde `EngineKind.hold` ile desteklenir; ancak bu, hold ailesinin tüm statik egzersizler için config-only bir şablona dönüştüğü anlamına gelmez.
+
 ### Mevcut extractor geometrisi
 
 Hold sinyalleri bugün sabit olarak şu açılardan üretilir:
@@ -372,15 +376,15 @@ legExtensionAngle:
 leftHip → leftKnee → leftAnkle
 ```
 
-Bu yüzden `EngineKind.hold`, her statik egzersiz için genel amaçlı bir motor değildir. Yeni hareket bu üç sinyalin anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme.
+Mevcut landmark requirement seti de aynı nedenle sol taraf ağırlıklıdır.
 
-Bu durumda ayrı tasarım gerekir:
+Bu yüzden:
 
-- hold signal contract,
-- config-driven landmark tanımları,
-- sağ/sol veya bilateral extraction,
-- yeni diagnostics alanları,
-- deterministic engine testleri.
+- plank aktif hold örneğidir
+- `EngineKind.hold`, her statik egzersiz için genel amaçlı bir motor değildir
+- yeni hareket bu üç sinyalin anlamlı olduğu plank benzeri geometriye uymuyorsa yalnız JSON config ekleme
+- yeni hold hareketi yalnız JSON eklenince otomatik desteklenmiş sayılmaz
+- yeni hold hareketi, mevcut üç sinyalin aynı biyomekanik anlamı taşıdığını ayrıca kanıtlamalıdır
 
 ### Hold config alanları
 
@@ -399,6 +403,18 @@ Entry ve sustain değerlerinin ayrı olması hysteresis sağlar. Çok büyük gr
 Hold motoru tekrar üretmez; `repCount` güvenli biçimde `0` kalır ve sonuç hold diagnostics üzerinden taşınır.
 
 > Mevcut hold extractor sol landmark'lara bağlıdır. Sağ taraftan görünüm ayrıca gerçek cihazda doğrulanmadan bilateral destek iddia etme.
+
+### Hedef hold-family şablonu
+
+Aşağıdakiler bugünün implementasyonu değil, sonraki mimari adımlardır:
+
+- config/contract-driven hold signal definitions
+- bilateral extraction
+- hold side selection
+- shared landmark requirement generation
+- ikinci hold-family fixture ile template doğrulaması
+
+Bu hedefler gelmeden `hold` ailesini bütün statik egzersizler için tam genellenmiş gibi belgeleme.
 
 ## 10. Yeni engine ailesi ne zaman gerekir?
 
@@ -461,7 +477,11 @@ Kurallar:
 
 Kalıcı ID'yi sonradan değiştirmek migration gerektirebilir. Bir enum başlığını güzelleştirmek ile persisted ID değiştirmek aynı şey değildir.
 
-## 13. Zorunlu test matrisi
+## 13. Hedef Definition of Done test matrisi
+
+Bu bölüm, yeni veya yeniden etkinleştirilen bir hareketi `supported` yapmadan önce tamamlanması hedeflenen doğrulama listesidir. Repository'de bu listedeki her maddenin bugün her hareket için zaten kanıtlandığı varsayılmaz.
+
+Özellikle sağ taraf testi, bilateral hold kapsamı veya ikinci hold-family fixture; ilgili test ve kanıt eklenmeden "mevcut" diye yazılmamalıdır. Mevcut hareketler de bu checklist'e göre ayrıca doğrulanmalıdır.
 
 ### 13.1 Catalog
 
