@@ -1302,11 +1302,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       );
     }
 
+    final previousHoldSide = _selectedHoldSide;
     final selection = _holdSideStabilizer.stabilizeSelection(
       preferredSide: preferredHoldSide,
       acceptedSides: assessment.acceptedHoldSides,
       currentSide: _selectedHoldSide,
     );
+    if (previousHoldSide != null &&
+        previousHoldSide != selection.selectedSide) {
+      _resetHoldMetricFilters();
+    }
     _selectedHoldSide = selection.selectedSide;
     return selection.selectedSide;
   }
@@ -1333,9 +1338,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _resetHoldSideSelection() {
+    final hadHoldSideSelection =
+        _selectedHoldSide != null || _briefGapFrozenHoldSide != null;
     _selectedHoldSide = null;
     _briefGapFrozenHoldSide = null;
     _holdSideStabilizer.reset();
+    if (hadHoldSideSelection) {
+      _resetHoldMetricFilters();
+    }
   }
 
   RangeRepSideSelection _selectRangeRepSideForFrame({
@@ -1826,9 +1836,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
     _poseAcceptanceStabilizer.reset();
     _hasAcceptedPoseForAnalysis = false;
-    _bodyLineFilter.reset();
-    _armSupportFilter.reset();
-    _legFilter.reset();
+    _resetHoldMetricFilters();
     _resetHoldSideSelection();
     final holdDiagnostics = _holdDiagnosticsSnapshot();
     state = state.copyWith(
@@ -1842,6 +1850,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       currentPhase: _engine.phaseLabel,
     );
     _updateDiagnosticsFromState();
+  }
+
+  void _resetHoldMetricFilters() {
+    _bodyLineFilter.reset();
+    _armSupportFilter.reset();
+    _legFilter.reset();
   }
 
   void _resetRangeRepVisibilityResyncState({

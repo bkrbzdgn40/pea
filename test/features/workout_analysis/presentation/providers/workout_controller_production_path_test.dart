@@ -601,6 +601,62 @@ void main() {
   );
 
   test(
+    'confirmed side switch resets hold metric smoothing before the new side is processed',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+      final leftPreferredPose = _bilateralPlankPose(
+        leftLikelihood: 0.96,
+        rightLikelihood: 0.40,
+        leftBodyLineAngle: 180,
+        leftArmSupportAngle: 150,
+        rightBodyLineAngle: 165,
+        rightArmSupportAngle: 60,
+      );
+      final rightPreferredPose = _bilateralPlankPose(
+        leftLikelihood: 0.72,
+        rightLikelihood: 0.96,
+        leftBodyLineAngle: 180,
+        leftArmSupportAngle: 150,
+        rightBodyLineAngle: 165,
+        rightArmSupportAngle: 60,
+      );
+
+      await _analyzeFrame(controller, detector, <Pose>[leftPreferredPose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[leftPreferredPose]);
+
+      var state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.left);
+      expect(state.isHolding, isFalse);
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[rightPreferredPose]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.left);
+      expect(state.isHolding, isFalse);
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[rightPreferredPose]);
+
+      state = container.read(workoutControllerProvider);
+      expect(state.selectedHoldSide, HoldSide.right);
+      expect(state.isHolding, isFalse);
+      expect(state.currentHoldSeconds, 0);
+    },
+  );
+
+  test(
     'active hold keeps the locked right side when the left side appears alone',
     () async {
       final detector = _QueuedPoseDetector();
@@ -643,6 +699,33 @@ void main() {
       expect(state.isHolding, isTrue);
     },
   );
+
+  test('active hold ignores a higher-quality alternate side', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+    final container = harness.container;
+    final controller = harness.controller;
+
+    await _establishVisibleHold(controller, detector, clock, rightOnly: true);
+
+    clock.advance(const Duration(seconds: 1));
+    await _analyzeFrame(controller, detector, <Pose>[
+      _bilateralPlankPose(leftLikelihood: 0.99, rightLikelihood: 0.70),
+    ]);
+
+    final state = container.read(workoutControllerProvider);
+    expect(state.selectedHoldSide, HoldSide.right);
+    expect(state.isHolding, isTrue);
+    expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
+    expect(state.isHoldVisibilitySuspended, isFalse);
+  });
 
   test(
     'next hold attempt can switch to the left side after a right-side attempt ends',
@@ -1389,6 +1472,157 @@ Pose _plankPose({
   return Pose(landmarks: landmarks);
 }
 
+Pose _bilateralPlankPose({
+  required double leftLikelihood,
+  required double rightLikelihood,
+  double leftBodyLineAngle = 180,
+  double leftArmSupportAngle = 90,
+  double rightBodyLineAngle = 180,
+  double rightArmSupportAngle = 90,
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double likelihood,
+  }) {
+    landmarks[type] = _landmark(type, x, y, likelihood: likelihood);
+  }
+
+  _addHoldSideLandmarks(
+    addLandmark: addLandmark,
+    side: HoldSide.left,
+    shoulder: const _Point(-1, 0),
+    hip: const _Point(0, 0),
+    elbow: const _Point(-0.5, 0),
+    bodyLineAngle: leftBodyLineAngle,
+    armSupportAngle: leftArmSupportAngle,
+    likelihood: leftLikelihood,
+  );
+  _addHoldSideLandmarks(
+    addLandmark: addLandmark,
+    side: HoldSide.right,
+    shoulder: const _Point(1, 0),
+    hip: const _Point(0, 0),
+    elbow: const _Point(0.5, 0),
+    bodyLineAngle: rightBodyLineAngle,
+    armSupportAngle: rightArmSupportAngle,
+    likelihood: rightLikelihood,
+  );
+
+  return Pose(landmarks: landmarks);
+}
+
+void _addHoldSideLandmarks({
+  required void Function(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double likelihood,
+  })
+  addLandmark,
+  required HoldSide side,
+  required _Point shoulder,
+  required _Point hip,
+  required _Point elbow,
+  required double bodyLineAngle,
+  required double armSupportAngle,
+  required double likelihood,
+}) {
+  final bodyLineRadians = _bodyLineRadians(side, bodyLineAngle);
+  final ankle = _Point(
+    hip.x + math.cos(bodyLineRadians),
+    hip.y + math.sin(bodyLineRadians),
+  );
+  final knee = _Point((hip.x + ankle.x) / 2, (hip.y + ankle.y) / 2);
+  final armSupportRadians = _armSupportRadians(side, armSupportAngle);
+  final wrist = _Point(
+    elbow.x + math.cos(armSupportRadians),
+    elbow.y + math.sin(armSupportRadians),
+  );
+
+  if (side == HoldSide.left) {
+    addLandmark(
+      PoseLandmarkType.leftShoulder,
+      shoulder.x,
+      shoulder.y,
+      likelihood: likelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftElbow,
+      elbow.x,
+      elbow.y,
+      likelihood: likelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftWrist,
+      wrist.x,
+      wrist.y,
+      likelihood: likelihood,
+    );
+    addLandmark(PoseLandmarkType.leftHip, hip.x, hip.y, likelihood: likelihood);
+    addLandmark(
+      PoseLandmarkType.leftKnee,
+      knee.x,
+      knee.y,
+      likelihood: likelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftAnkle,
+      ankle.x,
+      ankle.y,
+      likelihood: likelihood,
+    );
+    return;
+  }
+
+  addLandmark(
+    PoseLandmarkType.rightShoulder,
+    shoulder.x,
+    shoulder.y,
+    likelihood: likelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightElbow,
+    elbow.x,
+    elbow.y,
+    likelihood: likelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightWrist,
+    wrist.x,
+    wrist.y,
+    likelihood: likelihood,
+  );
+  addLandmark(PoseLandmarkType.rightHip, hip.x, hip.y, likelihood: likelihood);
+  addLandmark(
+    PoseLandmarkType.rightKnee,
+    knee.x,
+    knee.y,
+    likelihood: likelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightAnkle,
+    ankle.x,
+    ankle.y,
+    likelihood: likelihood,
+  );
+}
+
+double _bodyLineRadians(HoldSide side, double bodyLineAngle) {
+  final degrees = side == HoldSide.left ? 180.0 - bodyLineAngle : bodyLineAngle;
+  return degrees * (math.pi / 180.0);
+}
+
+double _armSupportRadians(HoldSide side, double armSupportAngle) {
+  final degrees = side == HoldSide.left
+      ? 180.0 + armSupportAngle
+      : 360.0 - armSupportAngle;
+  return degrees * (math.pi / 180.0);
+}
+
 PoseLandmark _landmark(
   PoseLandmarkType type,
   double x,
@@ -1396,4 +1630,11 @@ PoseLandmark _landmark(
   double likelihood = 0.95,
 }) {
   return PoseLandmark(type: type, x: x, y: y, z: 0, likelihood: likelihood);
+}
+
+class _Point {
+  const _Point(this.x, this.y);
+
+  final double x;
+  final double y;
 }

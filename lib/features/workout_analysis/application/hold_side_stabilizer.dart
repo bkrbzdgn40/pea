@@ -2,6 +2,7 @@ import '../domain/models/hold_side.dart';
 
 enum HoldSideSelectionReason {
   selectedPreferredSide,
+  replacedUnavailableCurrentSide,
   keptPreviousSide,
   confirmedSwitch,
 }
@@ -21,6 +22,8 @@ class HoldSideSelectionResult {
     switch (reason) {
       case HoldSideSelectionReason.selectedPreferredSide:
         return 'selected preferred side';
+      case HoldSideSelectionReason.replacedUnavailableCurrentSide:
+        return 'replaced unavailable current side';
       case HoldSideSelectionReason.keptPreviousSide:
         return 'kept previous side';
       case HoldSideSelectionReason.confirmedSwitch:
@@ -61,6 +64,16 @@ class HoldSideStabilizer {
         selectedSide: preferredSide,
         acceptedSides: immutableAcceptedSides,
         reason: HoldSideSelectionReason.selectedPreferredSide,
+      );
+    }
+
+    if (!acceptedSides.contains(currentSide)) {
+      _resetPendingSwitch(keepStatus: true);
+      _status = 'replace:${preferredSide.name}';
+      return HoldSideSelectionResult(
+        selectedSide: preferredSide,
+        acceptedSides: immutableAcceptedSides,
+        reason: HoldSideSelectionReason.replacedUnavailableCurrentSide,
       );
     }
 
