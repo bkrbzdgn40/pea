@@ -48,6 +48,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    tester.takeException();
 
     expect(
       find.text('Hedefler yüklenemedi. Lütfen daha sonra tekrar dene.'),

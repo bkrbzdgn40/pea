@@ -52,6 +52,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    tester.takeException();
 
     expect(
       find.text('Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.'),
