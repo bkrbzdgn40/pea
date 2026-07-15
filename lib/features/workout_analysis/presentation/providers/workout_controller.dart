@@ -205,41 +205,31 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         : null;
 
     final initialState = _engineKind == EngineKind.hold
-        ? WorkoutState(
-            analysisKind: _engineKind,
-            currentAngle: initialHoldSnapshot!.currentAngle,
-            lastRepScore: initialHoldSnapshot.lastRepScore,
-            lastRepROM: initialHoldSnapshot.lastRepRom,
-            currentHoldSeconds: initialHoldSnapshot.currentHoldSeconds,
-            bestHoldSeconds: initialHoldSnapshot.bestHoldSeconds,
-            selectedHoldSide: initialHoldSnapshot.selectedHoldSide,
-            holdFeedbackCode: initialHoldSnapshot.holdFeedbackCode,
-            holdEnginePhase: initialHoldSnapshot.holdEnginePhase,
-            isHolding: initialHoldSnapshot.isHolding,
-            isHoldVisibilitySuspended:
-                initialHoldSnapshot.isHoldVisibilitySuspended,
-            hadHoldFormBreak: initialHoldSnapshot.hadHoldFormBreak,
-            feedbackMessage: _resolveHoldFeedbackMessage(initialHoldSnapshot),
-            currentPhase: initialHoldSnapshot.currentPhase,
-            calibrationMetrics: initialHoldSnapshot.calibrationMetrics,
+        ? WorkoutState.hold(
+            feedbackMessage: _resolveHoldFeedbackMessage(initialHoldSnapshot!),
+            analysis: HoldWorkoutAnalysisState(
+              isFormBad: initialHoldSnapshot.isFormBad,
+              currentAngle: initialHoldSnapshot.currentAngle,
+              currentHoldSeconds: initialHoldSnapshot.currentHoldSeconds,
+              bestHoldSeconds: initialHoldSnapshot.bestHoldSeconds,
+              selectedHoldSide: initialHoldSnapshot.selectedHoldSide,
+              holdFeedbackCode: initialHoldSnapshot.holdFeedbackCode,
+              holdEnginePhase: initialHoldSnapshot.holdEnginePhase,
+              isHolding: initialHoldSnapshot.isHolding,
+              isHoldVisibilitySuspended:
+                  initialHoldSnapshot.isHoldVisibilitySuspended,
+              hadHoldFormBreak: initialHoldSnapshot.hadHoldFormBreak,
+              currentPhase: initialHoldSnapshot.currentPhase,
+              calibrationMetrics: initialHoldSnapshot.calibrationMetrics,
+            ),
           )
-        : WorkoutState(
-            analysisKind: _engineKind,
+        : WorkoutState.rangeRep(
             feedbackMessage: _resolvedRangeRepFeedbackMessage(),
-            currentPhase: _rangeRepEngineOrThrow().phaseLabel,
+            analysis: RangeRepWorkoutAnalysisState(
+              currentPhase: _rangeRepEngineOrThrow().phaseLabel,
+            ),
           );
-    _diagnostics.updateWorkoutState(
-      repCount: initialState.repCount,
-      currentHoldSeconds: initialState.currentHoldSeconds.round(),
-      bestHoldSeconds: initialState.bestHoldSeconds.round(),
-      currentPhase: initialState.currentPhase,
-      isHolding: initialState.isHolding,
-      presentedHoldFeedbackCode: initialState.holdFeedbackCode,
-      holdDiagnostics: _engineKind == EngineKind.hold
-          ? _holdCoordinatorOrThrow().diagnosticsSnapshot()
-          : null,
-      currentHoldSide: initialState.selectedHoldSide,
-    );
+    _updateDiagnosticsFromPublishedState(initialState);
     return initialState;
   }
 
@@ -482,16 +472,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void resetDiagnostics({DateTime? now}) {
     _diagnostics.reset(now: now ?? _clock(), analysisKind: _engineKind.name);
     if (_isDiagnosticsEnabled) {
-      final rangeRepDiagnosticsState = _engineKind == EngineKind.rangeRep
-          ? _rangeRepCoordinatorOrThrow().diagnosticsState()
-          : const RangeRepCoordinatorDiagnosticsState(
-              selectedSideLabel: null,
-              hasActiveRepContext: false,
-            );
-      _diagnostics.recordSelectedSide(
-        selectedSide: rangeRepDiagnosticsState.selectedSideLabel,
-        hasActiveRepContext: rangeRepDiagnosticsState.hasActiveRepContext,
-      );
+      if (_engineKind == EngineKind.rangeRep) {
+        final rangeRepDiagnosticsState = _rangeRepCoordinatorOrThrow()
+            .diagnosticsState();
+        _diagnostics.recordSelectedSide(
+          selectedSide: rangeRepDiagnosticsState.selectedSideLabel,
+          hasActiveRepContext: rangeRepDiagnosticsState.hasActiveRepContext,
+        );
+      }
       _updateDiagnosticsFromState();
     }
   }
@@ -577,47 +565,46 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _publishRangeRepState(RangeRepCoordinatorStateSnapshot snapshot) {
-    state = WorkoutState(
+    state = WorkoutState.rangeRep(
       landmarks: snapshot.landmarks,
-      analysisKind: _engineKind,
-      repCount: snapshot.repCount,
-      isFormBad: snapshot.isFormBad,
-      currentAngle: snapshot.currentAngle,
-      lastRepScore: snapshot.lastRepScore,
-      lastRepROM: snapshot.lastRepRom,
       feedbackMessage: snapshot.feedbackDirective.resolve(
         mapFeedbackCode: mapRangeRepFeedbackCodeToMessage,
         fallbackMessage: snapshot.feedbackFallbackMessage,
       ),
-      currentPhase: snapshot.currentPhase,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
-      calibrationMetrics: snapshot.calibrationMetrics,
+      analysis: RangeRepWorkoutAnalysisState(
+        repCount: snapshot.repCount,
+        isFormBad: snapshot.isFormBad,
+        currentAngle: snapshot.currentAngle,
+        lastRepScore: snapshot.lastRepScore,
+        lastRepRom: snapshot.lastRepRom,
+        currentPhase: snapshot.currentPhase,
+        calibrationMetrics: snapshot.calibrationMetrics,
+      ),
     );
   }
 
   void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
-    state = WorkoutState(
+    state = WorkoutState.hold(
       landmarks: snapshot.landmarks,
-      analysisKind: _engineKind,
-      repCount: snapshot.repCount,
-      isFormBad: snapshot.isFormBad,
-      currentAngle: snapshot.currentAngle,
-      lastRepScore: snapshot.lastRepScore,
-      lastRepROM: snapshot.lastRepRom,
-      currentHoldSeconds: snapshot.currentHoldSeconds,
-      bestHoldSeconds: snapshot.bestHoldSeconds,
-      selectedHoldSide: snapshot.selectedHoldSide,
-      holdFeedbackCode: snapshot.holdFeedbackCode,
-      holdEnginePhase: snapshot.holdEnginePhase,
-      isHolding: snapshot.isHolding,
-      isHoldVisibilitySuspended: snapshot.isHoldVisibilitySuspended,
-      hadHoldFormBreak: snapshot.hadHoldFormBreak,
       feedbackMessage: _resolveHoldFeedbackMessage(snapshot),
-      currentPhase: snapshot.currentPhase,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
-      calibrationMetrics: snapshot.calibrationMetrics,
+      analysis: HoldWorkoutAnalysisState(
+        isFormBad: snapshot.isFormBad,
+        currentAngle: snapshot.currentAngle,
+        currentHoldSeconds: snapshot.currentHoldSeconds,
+        bestHoldSeconds: snapshot.bestHoldSeconds,
+        selectedHoldSide: snapshot.selectedHoldSide,
+        holdFeedbackCode: snapshot.holdFeedbackCode,
+        holdEnginePhase: snapshot.holdEnginePhase,
+        isHolding: snapshot.isHolding,
+        isHoldVisibilitySuspended: snapshot.isHoldVisibilitySuspended,
+        hadHoldFormBreak: snapshot.hadHoldFormBreak,
+        currentPhase: snapshot.currentPhase,
+        calibrationMetrics: snapshot.calibrationMetrics,
+      ),
     );
   }
 
@@ -668,28 +655,37 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _updateDiagnosticsFromState() {
+    _updateDiagnosticsFromPublishedState(state);
+  }
+
+  void _updateDiagnosticsFromPublishedState(WorkoutState publishedState) {
     if (!_isDiagnosticsEnabled) return;
     _diagnostics.updateLivePerformance(
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
     );
-    _diagnostics.updateWorkoutState(
-      repCount: state.repCount,
-      currentHoldSeconds: state.currentHoldSeconds.round(),
-      bestHoldSeconds: state.bestHoldSeconds.round(),
-      currentPhase: state.currentPhase,
-      isHolding: state.isHolding,
-      calibrationOffsetDegrees:
-          state.calibrationMetrics.calibrationThresholdOffsetApplied
-          ? state.calibrationMetrics.calibrationThresholdOffsetCandidate
-          : null,
-      presentedHoldFeedbackCode: state.holdFeedbackCode,
-      holdDiagnostics: _engineKind == EngineKind.hold
-          ? _holdCoordinatorOrThrow().diagnosticsSnapshot()
-          : null,
-      currentHoldSide: _engineKind == EngineKind.hold
-          ? state.selectedHoldSide
-          : null,
+    if (_engineKind == EngineKind.rangeRep) {
+      _diagnostics.updateRangeRepState(
+        repCount: publishedState.repCount,
+        currentPhase: publishedState.currentPhase,
+        calibrationOffsetDegrees:
+            publishedState.calibrationMetrics.calibrationThresholdOffsetApplied
+            ? publishedState
+                  .calibrationMetrics
+                  .calibrationThresholdOffsetCandidate
+            : null,
+      );
+      return;
+    }
+
+    _diagnostics.updateHoldState(
+      currentHoldSeconds: publishedState.currentHoldSeconds.round(),
+      bestHoldSeconds: publishedState.bestHoldSeconds.round(),
+      currentPhase: publishedState.currentPhase,
+      isHolding: publishedState.isHolding,
+      presentedHoldFeedbackCode: publishedState.holdFeedbackCode,
+      holdDiagnostics: _holdCoordinatorOrThrow().diagnosticsSnapshot(),
+      currentHoldSide: publishedState.selectedHoldSide,
     );
   }
 

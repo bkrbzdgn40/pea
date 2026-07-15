@@ -21,24 +21,33 @@ class HoldSessionMetricsCollector {
   }
 
   void collect(WorkoutState next) {
-    if (next.isHolding) {
-      final holdDelta = next.currentHoldSeconds - _lastObservedHoldSeconds;
+    final holdAnalysis = next.holdAnalysis;
+    if (holdAnalysis == null) {
+      _lastObservedHoldSeconds = 0.0;
+      _previousHoldFormBreak = false;
+      return;
+    }
+
+    if (holdAnalysis.isHolding) {
+      final holdDelta =
+          holdAnalysis.currentHoldSeconds - _lastObservedHoldSeconds;
       if (holdDelta > 0) {
         _totalHoldSeconds += holdDelta;
       }
     }
 
-    if (next.bestHoldSeconds > _bestHoldSeconds) {
-      _bestHoldSeconds = next.bestHoldSeconds;
+    if (holdAnalysis.bestHoldSeconds > _bestHoldSeconds) {
+      _bestHoldSeconds = holdAnalysis.bestHoldSeconds;
     }
 
-    if (!_previousHoldFormBreak && next.hadHoldFormBreak) {
+    if (!_previousHoldFormBreak && holdAnalysis.hadHoldFormBreak) {
       _formBreakCount += 1;
     }
 
-    _lastObservedHoldSeconds = next.isHolding || next.isHoldVisibilitySuspended
-        ? next.currentHoldSeconds
+    _lastObservedHoldSeconds =
+        holdAnalysis.isHolding || holdAnalysis.isHoldVisibilitySuspended
+        ? holdAnalysis.currentHoldSeconds
         : 0.0;
-    _previousHoldFormBreak = next.hadHoldFormBreak;
+    _previousHoldFormBreak = holdAnalysis.hadHoldFormBreak;
   }
 }

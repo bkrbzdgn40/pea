@@ -69,6 +69,10 @@ void main() {
         completedResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
         'left',
       );
+      expect(
+        completedResult.stateSnapshot.calibrationMetrics.analysisKind.name,
+        'rangeRep',
+      );
       expect(completedResult.diagnosticsUpdate.recordAcceptedPoseFrame, isTrue);
     });
 

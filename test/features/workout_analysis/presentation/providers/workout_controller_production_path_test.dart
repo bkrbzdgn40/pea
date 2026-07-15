@@ -358,6 +358,8 @@ void main() {
         spyCoordinator.lastProcessFrameResult?.stateSnapshot.repCount,
         equals(1),
       );
+      expect(state.rangeRepAnalysis, isNotNull);
+      expect(state.holdAnalysis, isNull);
       expect(state.repCount, 1);
       expect(
         state.calibrationMetrics.lastRangeRepValidationStatus,
@@ -395,6 +397,8 @@ void main() {
         final diagnostics = harness.controller.diagnosticsSnapshot();
 
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+        expect(state.rangeRepAnalysis, isNotNull);
+        expect(state.holdAnalysis, isNull);
         expect(state.currentAngle, closeTo(90.0, 0.001));
         expect(state.currentPhase, 'AWAITING_NEUTRAL');
         expect(state.repCount, 0);
@@ -929,6 +933,8 @@ void main() {
       spyCoordinator.lastProcessFrameResult?.stateSnapshot.currentHoldSeconds,
       closeTo(5.0, 0.001),
     );
+    expect(state.holdAnalysis, isNotNull);
+    expect(state.rangeRepAnalysis, isNull);
     expect(state.selectedHoldSide, HoldSide.left);
     expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
     expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
@@ -1030,6 +1036,8 @@ void main() {
       final state = container.read(workoutControllerProvider);
       final snapshot = controller.diagnosticsSnapshot();
 
+      expect(state.holdAnalysis, isNotNull);
+      expect(state.rangeRepAnalysis, isNull);
       expect(state.selectedHoldSide, HoldSide.left);
       expect(state.isHolding, isTrue);
       expect(state.repCount, 0);

@@ -8,7 +8,6 @@ import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
-import '../domain/range_rep_diagnostics.dart';
 import 'analysis_frame_builder.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
@@ -18,18 +17,11 @@ import 'pose_quality_policy.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
 
-const int _holdCompatibilityRepCount = 0;
-const double _holdCompatibilityLastRepScore = 0.0;
-const double _holdCompatibilityLastRepRom = 0.0;
-
 class HoldCoordinatorStateSnapshot {
   const HoldCoordinatorStateSnapshot({
     required this.landmarks,
-    required this.repCount,
     required this.isFormBad,
     required this.currentAngle,
-    required this.lastRepScore,
-    required this.lastRepRom,
     required this.currentHoldSeconds,
     required this.bestHoldSeconds,
     required this.selectedHoldSide,
@@ -44,11 +36,8 @@ class HoldCoordinatorStateSnapshot {
   });
 
   final List<PoseLandmark>? landmarks;
-  final int repCount;
   final bool isFormBad;
   final double currentAngle;
-  final double lastRepScore;
-  final double lastRepRom;
   final double currentHoldSeconds;
   final double bestHoldSeconds;
   final HoldSide? selectedHoldSide;
@@ -152,11 +141,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     final diagnostics = _holdDiagnosticsSnapshot();
     return _rememberStateSnapshot(
       landmarks: null,
-      repCount: _holdCompatibilityRepCount,
       isFormBad: diagnostics.phase == HoldPhase.broken,
       currentAngle: 0.0,
-      lastRepScore: _holdCompatibilityLastRepScore,
-      lastRepRom: _holdCompatibilityLastRepRom,
       currentHoldSeconds: diagnostics.currentHoldSeconds,
       bestHoldSeconds: diagnostics.bestHoldSeconds,
       selectedHoldSide: _currentHoldSideForState(),
@@ -166,7 +152,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       holdFeedbackCode: _currentHoldFeedbackCode(),
       holdEnginePhase: diagnostics.phase,
       currentPhase: diagnostics.phase.legacyLabel,
-      calibrationMetrics: const WorkoutCalibrationMetrics(),
+      calibrationMetrics: const WorkoutCalibrationMetrics.hold(),
     );
   }
 
@@ -250,11 +236,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     final holdDiagnostics = _holdDiagnosticsSnapshot();
     return _rememberStateSnapshot(
       landmarks: publishedState.landmarks,
-      repCount: publishedState.repCount,
       isFormBad: publishedState.isFormBad,
       currentAngle: publishedState.currentAngle,
-      lastRepScore: publishedState.lastRepScore,
-      lastRepRom: publishedState.lastRepRom,
       currentHoldSeconds: 0,
       bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
       selectedHoldSide: null,
@@ -271,7 +254,6 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   HoldCoordinatorFrameResult _processInvalidFrame({
     required ExerciseMetrics metrics,
   }) {
-    final publishedState = currentStateSnapshot();
     final lockedHoldSide = requiredHoldSideForAssessment();
     if (lockedHoldSide != null) {
       _beginHoldVisibilityGap();
@@ -283,11 +265,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     return HoldCoordinatorFrameResult(
       stateSnapshot: _rememberStateSnapshot(
         landmarks: metrics.landmarks,
-        repCount: publishedState.repCount,
         isFormBad: false,
         currentAngle: metrics.primaryAngle,
-        lastRepScore: publishedState.lastRepScore,
-        lastRepRom: publishedState.lastRepRom,
         currentHoldSeconds: holdDiagnostics.isVisibilitySuspended
             ? holdDiagnostics.currentHoldSeconds
             : 0,
@@ -326,11 +305,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       final result = HoldCoordinatorFrameResult(
         stateSnapshot: _rememberStateSnapshot(
           landmarks: metrics.landmarks,
-          repCount: _holdCompatibilityRepCount,
           isFormBad: holdDiagnostics.phase == HoldPhase.broken,
           currentAngle: metrics.primaryAngle,
-          lastRepScore: _holdCompatibilityLastRepScore,
-          lastRepRom: _holdCompatibilityLastRepRom,
           currentHoldSeconds: 0,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           selectedHoldSide: null,
@@ -384,11 +360,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       final result = HoldCoordinatorFrameResult(
         stateSnapshot: _rememberStateSnapshot(
           landmarks: metrics.landmarks,
-          repCount: _holdCompatibilityRepCount,
           isFormBad: holdDiagnostics.phase == HoldPhase.broken,
           currentAngle: _currentAngleForState(analysisFrame),
-          lastRepScore: _holdCompatibilityLastRepScore,
-          lastRepRom: _holdCompatibilityLastRepRom,
           currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           selectedHoldSide: _currentHoldSideForState(),
@@ -419,11 +392,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     final result = HoldCoordinatorFrameResult(
       stateSnapshot: _rememberStateSnapshot(
         landmarks: metrics.landmarks,
-        repCount: publishedState.repCount,
         isFormBad: false,
         currentAngle: metrics.primaryAngle,
-        lastRepScore: publishedState.lastRepScore,
-        lastRepRom: publishedState.lastRepRom,
         currentHoldSeconds: 0,
         bestHoldSeconds: publishedState.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
@@ -508,44 +478,19 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
   }) {
-    return _calibrationMetricsBuilder.build(
+    return _calibrationMetricsBuilder.buildHold(
       currentFormMetric: currentFormMetric,
       thresholdValue: thresholdValue,
-      diagnostics: const RangeRepDiagnosticsSnapshot(),
-      lastBreakdown: null,
-      lastValidationResult: null,
-      lastSummaryCandidate: null,
-      rangeRepSideHysteresisStatus: null,
-      rangeRepSideConsistencyStatus: null,
-      calibrationSnapshot: null,
-      calibrationThresholdDecisionCount: 0,
-      calibrationThresholdAppliedCount: 0,
-      calibrationThresholdNoBaselineCount: 0,
-      calibrationThresholdInsufficientSamplesCount: 0,
-      calibrationThresholdMissingFormBaselineCount: 0,
-      calibrationThresholdSideMismatchCount: 0,
-      calibrationThresholdOffsetTooSmallCount: 0,
-      sessionCalibrationBaselineCandidate: null,
-      lastRangeRepValidatedRepIndex: null,
-      rangeRepValidatedCount: 0,
-      rangeRepLowConfidenceCount: 0,
-      rangeRepInvalidCount: 0,
       currentBodyLineAngle: currentBodyLineAngle,
       currentArmSupportAngle: currentArmSupportAngle,
       currentLegExtensionAngle: currentLegExtensionAngle,
-      hasBodyLineAngle: currentBodyLineAngle != null,
-      hasArmSupportAngle: currentArmSupportAngle != null,
-      hasLegExtensionAngle: currentLegExtensionAngle != null,
     );
   }
 
   HoldCoordinatorStateSnapshot _rememberStateSnapshot({
     required List<PoseLandmark>? landmarks,
-    required int repCount,
     required bool isFormBad,
     required double currentAngle,
-    required double lastRepScore,
-    required double lastRepRom,
     required double currentHoldSeconds,
     required double bestHoldSeconds,
     required HoldSide? selectedHoldSide,
@@ -559,11 +504,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   }) {
     final snapshot = HoldCoordinatorStateSnapshot(
       landmarks: landmarks,
-      repCount: repCount,
       isFormBad: isFormBad,
       currentAngle: currentAngle,
-      lastRepScore: lastRepScore,
-      lastRepRom: lastRepRom,
       currentHoldSeconds: currentHoldSeconds,
       bestHoldSeconds: bestHoldSeconds,
       selectedHoldSide: selectedHoldSide,

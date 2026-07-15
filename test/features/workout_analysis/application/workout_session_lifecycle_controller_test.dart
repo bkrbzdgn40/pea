@@ -576,27 +576,30 @@ WorkoutState _rangeRepState({
   bool completedPhaseSequence = true,
   String selectedSideLabel = 'left',
 }) {
-  return WorkoutState(
-    analysisKind: EngineKind.rangeRep,
-    repCount: repCount,
-    isFormBad: isFormBad,
-    lastRepScore: lastRepScore,
+  return WorkoutState.rangeRep(
     feedbackMessage: feedbackMessage,
-    calibrationMetrics: WorkoutCalibrationMetrics(
-      hasLastRangeRepValidation: true,
-      lastRangeRepValidationStatus: validationStatus,
-      lastRangeRepValidationReasons: validationReasons,
-      lastRangeRepValidatedRepIndex: validatedRepIndex,
-      hasLastRangeRepSummary: true,
-      lastRangeRepSummaryMinAngle: minPrimaryMetric,
-      lastRangeRepSummaryWorstFormMetric: worstFormMetric,
-      lastRangeRepSummaryDescentMillis: descentMillis,
-      lastRangeRepSummaryAscentMillis: ascentMillis,
-      lastRangeRepSummaryHadFormViolation: hadFormViolation,
-      lastRangeRepSummaryHadCoverageDrop: hadCoverageDrop,
-      lastRangeRepSummarySwitchedSideDuringRep: switchedSideDuringRep,
-      lastRangeRepSummaryCompletedPhaseSequence: completedPhaseSequence,
-      lastRangeRepSummarySelectedSideLabel: selectedSideLabel,
+    analysis: RangeRepWorkoutAnalysisState(
+      repCount: repCount,
+      isFormBad: isFormBad,
+      lastRepScore: lastRepScore,
+      calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
+        payload: RangeRepWorkoutCalibrationMetrics(
+          hasLastRangeRepValidation: true,
+          lastRangeRepValidationStatus: validationStatus,
+          lastRangeRepValidationReasons: validationReasons,
+          lastRangeRepValidatedRepIndex: validatedRepIndex,
+          hasLastRangeRepSummary: true,
+          lastRangeRepSummaryMinAngle: minPrimaryMetric,
+          lastRangeRepSummaryWorstFormMetric: worstFormMetric,
+          lastRangeRepSummaryDescentMillis: descentMillis,
+          lastRangeRepSummaryAscentMillis: ascentMillis,
+          lastRangeRepSummaryHadFormViolation: hadFormViolation,
+          lastRangeRepSummaryHadCoverageDrop: hadCoverageDrop,
+          lastRangeRepSummarySwitchedSideDuringRep: switchedSideDuringRep,
+          lastRangeRepSummaryCompletedPhaseSequence: completedPhaseSequence,
+          lastRangeRepSummarySelectedSideLabel: selectedSideLabel,
+        ),
+      ),
     ),
   );
 }
@@ -608,13 +611,14 @@ WorkoutState _holdState({
   bool isHoldVisibilitySuspended = false,
   bool hadHoldFormBreak = false,
 }) {
-  return WorkoutState(
-    analysisKind: EngineKind.hold,
-    currentHoldSeconds: currentHoldSeconds,
-    bestHoldSeconds: bestHoldSeconds,
-    isHolding: isHolding,
-    isHoldVisibilitySuspended: isHoldVisibilitySuspended,
-    hadHoldFormBreak: hadHoldFormBreak,
+  return WorkoutState.hold(
+    analysis: HoldWorkoutAnalysisState(
+      currentHoldSeconds: currentHoldSeconds,
+      bestHoldSeconds: bestHoldSeconds,
+      isHolding: isHolding,
+      isHoldVisibilitySuspended: isHoldVisibilitySuspended,
+      hadHoldFormBreak: hadHoldFormBreak,
+    ),
   );
 }
 

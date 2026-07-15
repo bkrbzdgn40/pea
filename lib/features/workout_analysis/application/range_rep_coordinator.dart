@@ -244,7 +244,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   List<PoseLandmark>? _lastPublishedLandmarks;
   double _lastPublishedCurrentAngle = 0.0;
   WorkoutCalibrationMetrics _lastPublishedCalibrationMetrics =
-      const WorkoutCalibrationMetrics();
+      const WorkoutCalibrationMetrics.rangeRep();
 
   @override
   RangeRepCoordinatorFrameResult processFrame({
@@ -888,7 +888,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       }
     }
 
-    return _calibrationMetricsBuilder.build(
+    return _calibrationMetricsBuilder.buildRangeRep(
       currentFormMetric: currentFormMetric,
       thresholdValue: thresholdValue,
       diagnostics: diagnostics,
