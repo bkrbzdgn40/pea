@@ -3,19 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/common_frame_pose_pipeline.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_acceptance_stabilizer.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart'
+    show PoseQualityAssessment;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -146,13 +144,60 @@ void main() {
         final snapshot = harness.controller.diagnosticsSnapshot();
 
         expect(spyPipeline.processInputImageCallCount, 1);
-        expect(spyPipeline.lastEngineKind, EngineKind.rangeRep);
-        expect(spyPipeline.lastRequiredHoldSide, isNull);
-        expect(spyPipeline.lastRangeRepContract, isNotNull);
         expect(spyPipeline.lastPoseAcceptanceStabilizer, isNotNull);
+        expect(spyPipeline.lastAssessPose, isNotNull);
+        expect(spyPipeline.lastAssessedPose, same(acceptedPose));
+        expect(spyPipeline.lastAssessedPoseQuality?.isAccepted, isTrue);
+        expect(
+          spyPipeline.lastAssessedPoseQuality?.acceptedRangeRepSides,
+          const <RangeRepSide>{RangeRepSide.left},
+        );
+        expect(
+          spyPipeline.lastAssessedPoseQuality?.preferredRangeRepSide,
+          RangeRepSide.left,
+        );
         expect(state.currentAngle, closeTo(170.0, 0.001));
         expect(state.holdFeedbackCode, isNull);
         expect(snapshot.acceptedPoseFrameCount, 1);
+      },
+    );
+
+    test(
+      'converter-drop diagnostics keep wall-clock timing semantics',
+      () async {
+        final converterDropClock = _FakeClock()
+          ..advance(const Duration(days: -2500));
+        final spyPipeline = _SpyWorkoutFramePosePipeline(
+          result: const FramePosePipelineResult.converterDrop(),
+        );
+        final harness = _createHarness(
+          exerciseType: ExerciseType.squat,
+          config: _squatConfig(),
+          detector: _QueuedPoseDetector(),
+          clock: converterDropClock,
+          extraOverrides: <Override>[
+            workoutFramePosePipelineFactoryProvider.overrideWithValue(({
+              required PoseAcceptanceStabilizer poseAcceptanceStabilizer,
+            }) {
+              spyPipeline.lastPoseAcceptanceStabilizer =
+                  poseAcceptanceStabilizer;
+              return spyPipeline;
+            }),
+          ],
+        );
+        addTearDown(harness.dispose);
+
+        await harness.controller.processInputImageForAnalysis(
+          dummyInputImage(),
+        );
+
+        final snapshot = harness.controller.diagnosticsSnapshot();
+
+        expect(spyPipeline.processInputImageCallCount, 1);
+        expect(snapshot.converterDropCount, 1);
+        expect(snapshot.analysisCompletedCount, 0);
+        expect(snapshot.frameProcessingMsMax, isNotNull);
+        expect(snapshot.frameProcessingMsMax, greaterThan(0));
       },
     );
 
@@ -1567,28 +1612,24 @@ class _SpyWorkoutFramePosePipeline extends WorkoutFramePosePipeline {
 
   int processInputImageCallCount = 0;
   InputImage? lastInputImage;
-  EngineKind? lastEngineKind;
-  RangeRepContract? lastRangeRepContract;
-  HoldContract? lastHoldContract;
-  HoldSide? lastRequiredHoldSide;
   PoseAcceptanceStabilizer? lastPoseAcceptanceStabilizer;
+  PoseQualityAssessor? lastAssessPose;
+  Pose? lastAssessedPose;
+  PoseQualityAssessment? lastAssessedPoseQuality;
 
   @override
   Future<FramePosePipelineResult> processInputImage({
     required InputImage inputImage,
     required PoseDetector detector,
-    required ExerciseConfig config,
-    required EngineKind engineKind,
-    RangeRepContract? rangeRepContract,
-    HoldContract? holdContract,
-    HoldSide? requiredHoldSide,
+    required PoseQualityAssessor assessPose,
   }) async {
     processInputImageCallCount += 1;
     lastInputImage = inputImage;
-    lastEngineKind = engineKind;
-    lastRangeRepContract = rangeRepContract;
-    lastHoldContract = holdContract;
-    lastRequiredHoldSide = requiredHoldSide;
+    lastAssessPose = assessPose;
+    if (result.selectedPose != null) {
+      lastAssessedPose = result.selectedPose;
+      lastAssessedPoseQuality = assessPose(result.selectedPose!);
+    }
     return result;
   }
 }

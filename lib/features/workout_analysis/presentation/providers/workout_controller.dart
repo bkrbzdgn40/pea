@@ -115,6 +115,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
+  final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
   final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
   final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
   late RangeRepThresholdBookkeeper _rangeRepThresholdBookkeeper;
@@ -260,15 +261,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     try {
       final detector = ref.read(poseDetectorProvider);
+      final assessPose = _poseQualityAssessor();
       final result = await _framePosePipeline.processCameraFrame(
         image: image,
         sensorOrientation: sensorOrientation,
         detector: detector,
-        config: _config,
-        engineKind: _engineKind,
-        rangeRepContract: _rangeRepContract,
-        holdContract: _holdContract,
-        requiredHoldSide: _requiredHoldSideForAssessment(),
+        assessPose: assessPose,
       );
       _consumeFramePosePipelineResult(
         result,
@@ -302,14 +300,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     try {
       final detector = ref.read(poseDetectorProvider);
+      final assessPose = _poseQualityAssessor();
       final result = await _framePosePipeline.processInputImage(
         inputImage: inputImage,
         detector: detector,
-        config: _config,
-        engineKind: _engineKind,
-        rangeRepContract: _rangeRepContract,
-        holdContract: _holdContract,
-        requiredHoldSide: _requiredHoldSideForAssessment(),
+        assessPose: assessPose,
       );
       _consumeFramePosePipelineResult(
         result,
@@ -340,7 +335,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       if (_isDiagnosticsEnabled) {
         _diagnostics.recordConverterDrop();
         _diagnostics.recordProcessingDuration(
-          _clock().difference(processingStartedAt),
+          DateTime.now().difference(processingStartedAt),
         );
       }
       return;
@@ -1285,6 +1280,18 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       metrics: metrics,
       acceptedSides: qualityAcceptedRangeRepSides,
       preferredSide: preferredRangeRepSide,
+    );
+  }
+
+  PoseQualityAssessor _poseQualityAssessor() {
+    final requiredHoldSide = _requiredHoldSideForAssessment();
+    return (pose) => _poseQualityPolicy.assess(
+      pose: pose,
+      config: _config,
+      engineKind: _engineKind,
+      rangeRepContract: _rangeRepContract,
+      holdContract: _holdContract,
+      requiredHoldSide: requiredHoldSide,
     );
   }
 

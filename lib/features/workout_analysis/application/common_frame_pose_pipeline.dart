@@ -1,13 +1,8 @@
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../domain/models/exercise_config.dart';
-import '../domain/models/hold_contract.dart';
-import '../domain/models/hold_side.dart';
-import '../domain/models/range_rep_contract.dart';
-import 'engine_kind.dart';
+import 'pose_quality_policy.dart' show PoseQualityAssessment;
 import 'pose_acceptance_stabilizer.dart';
-import 'pose_quality_policy.dart';
 import '../infrastructure/converters/input_image_converter.dart';
 
 enum FrameProcessingGateDecision { proceed, reentrantDrop, throttledDrop }
@@ -19,6 +14,8 @@ enum FramePosePipelineResultKind {
   pendingAcceptance,
   accepted,
 }
+
+typedef PoseQualityAssessor = PoseQualityAssessment Function(Pose pose);
 
 class FramePosePipelineResult {
   const FramePosePipelineResult._({
@@ -79,16 +76,13 @@ class FramePosePipelineResult {
 class WorkoutFramePosePipeline {
   WorkoutFramePosePipeline({
     InputImageConverter inputImageConverter = const InputImageConverter(),
-    PoseQualityPolicy poseQualityPolicy = const PoseQualityPolicy(),
     PoseAcceptanceStabilizer? poseAcceptanceStabilizer,
     this.analysisFrameInterval = const Duration(milliseconds: 100),
   }) : _inputImageConverter = inputImageConverter,
-       _poseQualityPolicy = poseQualityPolicy,
        _poseAcceptanceStabilizer =
            poseAcceptanceStabilizer ?? PoseAcceptanceStabilizer();
 
   final InputImageConverter _inputImageConverter;
-  final PoseQualityPolicy _poseQualityPolicy;
   final PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   final Duration analysisFrameInterval;
 
@@ -118,11 +112,7 @@ class WorkoutFramePosePipeline {
     required CameraImage image,
     required int sensorOrientation,
     required PoseDetector detector,
-    required ExerciseConfig config,
-    required EngineKind engineKind,
-    RangeRepContract? rangeRepContract,
-    HoldContract? holdContract,
-    HoldSide? requiredHoldSide,
+    required PoseQualityAssessor assessPose,
   }) async {
     final inputImage = _inputImageConverter.convert(image, sensorOrientation);
     if (inputImage == null) {
@@ -132,41 +122,22 @@ class WorkoutFramePosePipeline {
     return processInputImage(
       inputImage: inputImage,
       detector: detector,
-      config: config,
-      engineKind: engineKind,
-      rangeRepContract: rangeRepContract,
-      holdContract: holdContract,
-      requiredHoldSide: requiredHoldSide,
+      assessPose: assessPose,
     );
   }
 
   Future<FramePosePipelineResult> processInputImage({
     required InputImage inputImage,
     required PoseDetector detector,
-    required ExerciseConfig config,
-    required EngineKind engineKind,
-    RangeRepContract? rangeRepContract,
-    HoldContract? holdContract,
-    HoldSide? requiredHoldSide,
+    required PoseQualityAssessor assessPose,
   }) async {
     final poses = await detector.processImage(inputImage);
-    return _evaluateDetectedPoses(
-      poses,
-      config: config,
-      engineKind: engineKind,
-      rangeRepContract: rangeRepContract,
-      holdContract: holdContract,
-      requiredHoldSide: requiredHoldSide,
-    );
+    return _evaluateDetectedPoses(poses, assessPose: assessPose);
   }
 
   FramePosePipelineResult _evaluateDetectedPoses(
     List<Pose> poses, {
-    required ExerciseConfig config,
-    required EngineKind engineKind,
-    RangeRepContract? rangeRepContract,
-    HoldContract? holdContract,
-    HoldSide? requiredHoldSide,
+    required PoseQualityAssessor assessPose,
   }) {
     if (poses.isEmpty) {
       _poseAcceptanceStabilizer.recordInvalidFrame();
@@ -176,14 +147,7 @@ class WorkoutFramePosePipeline {
     final candidates = <_SelectedPoseCandidate>[];
     for (var index = 0; index < poses.length; index++) {
       final pose = poses[index];
-      final assessment = _poseQualityPolicy.assess(
-        pose: pose,
-        config: config,
-        engineKind: engineKind,
-        rangeRepContract: rangeRepContract,
-        holdContract: holdContract,
-        requiredHoldSide: requiredHoldSide,
-      );
+      final assessment = assessPose(pose);
       candidates.add(
         _SelectedPoseCandidate(
           detectorIndex: index,
