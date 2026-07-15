@@ -162,27 +162,30 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
-      leading: Icon(
-        icon,
-        color: isSelected ? AppColors.accent : Colors.white70,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? AppColors.accent : Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        selected: isSelected,
+        selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
+        leading: Icon(
+          icon,
+          color: isSelected ? AppColors.accent : Colors.white70,
         ),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.accent : Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        iconColor: AppColors.accent,
+        textColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.compact),
+        ),
+        onTap: onTap,
       ),
-      iconColor: AppColors.accent,
-      textColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.compact),
-      ),
-      onTap: onTap,
     );
   }
 }
