@@ -6,22 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/engine_kind.dart';
-import '../../application/hold_session_metrics_collector.dart';
+import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
-import '../../domain/models/exercise_type.dart';
-import '../../domain/models/workout_rep.dart';
-import '../../domain/models/workout_session.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
-import '../providers/completed_session_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/selected_exercise_provider.dart';
-import '../providers/session_repository_provider.dart';
-import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_controller.dart';
+import '../providers/workout_session_lifecycle_controller_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/pose_painter.dart';
 import '../widgets/workout_diagnostics_panel.dart';
@@ -41,20 +35,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
   bool _isRecoveringCamera = false;
-  ExerciseType? _activeSessionExercise;
-  DateTime? _sessionStartedAt;
-  int _lastObservedRepCount = 0;
-  double _repScoreSum = 0;
-  int _scoredRepCount = 0;
-  double _bestScore = 0;
-  int _formWarningCount = 0;
-  bool _previousFormBad = false;
-  final HoldSessionMetricsCollector _holdSessionCollector =
-      HoldSessionMetricsCollector();
-  final List<WorkoutRep> _completedWorkoutReps = <WorkoutRep>[];
-  bool _isFinishingSession = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
+  WorkoutSessionLifecycleOwner? _sessionLifecycle;
+  ProviderSubscription<WorkoutSessionLifecycleOwner>?
+  _sessionLifecycleSubscription;
   Timer? _recoveryTimer;
   ProviderSubscription<AsyncValue<ExerciseConfig>>? _exerciseConfigSubscription;
   ProviderSubscription<WorkoutState>? _workoutStateSubscription;
@@ -64,6 +49,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (_hasAnalysisSelection()) {
+      _sessionLifecycleSubscription = ref
+          .listenManual<WorkoutSessionLifecycleOwner>(
+            workoutSessionLifecycleControllerProvider,
+            (previous, next) {
+              _sessionLifecycle = next;
+            },
+            fireImmediately: true,
+          );
+      _sessionLifecycle = ref.read(workoutSessionLifecycleControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
       _startSessionLifecycle();
       if (ref.read(exerciseConfigProvider).hasValue) {
@@ -85,6 +79,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   void dispose() {
     unawaited(_setLiveAnalysisScreenAwake(false));
     _recoveryTimer?.cancel();
+    _sessionLifecycleSubscription?.close();
     _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
@@ -92,9 +87,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   void _attachWorkoutStateSubscription() {
+    final sessionLifecycle = _sessionLifecycle;
+    if (sessionLifecycle == null) {
+      return;
+    }
+
     _workoutStateSubscription ??= ref.listenManual<WorkoutState>(
       workoutControllerProvider,
-      _collectSessionMetrics,
+      (_, next) => sessionLifecycle.collect(next),
     );
   }
 
@@ -107,120 +107,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   void _startSessionLifecycle() {
     final activeExercise = ref.read(activeAnalysisExerciseProvider);
-    if (activeExercise == null) {
+    final sessionLifecycle = _sessionLifecycle;
+    if (activeExercise == null || sessionLifecycle == null) {
       return;
     }
 
-    _activeSessionExercise = activeExercise;
-    _sessionStartedAt = DateTime.now();
-    _lastObservedRepCount = 0;
-    _repScoreSum = 0;
-    _scoredRepCount = 0;
-    _bestScore = 0;
-    _formWarningCount = 0;
-    _previousFormBad = false;
-    _holdSessionCollector.reset();
-    _completedWorkoutReps.clear();
-    _isFinishingSession = false;
-    ref.read(completedSessionProvider.notifier).state = null;
-  }
-
-  void _collectSessionMetrics(WorkoutState? _, WorkoutState next) {
-    // Collect from state transitions so save/summary does not depend on the final frame.
-    final repDelta = next.repCount - _lastObservedRepCount;
-    if (repDelta > 0) {
-      final collectedRep = _collectCompletedWorkoutRep(
-        next: next,
-        repDelta: repDelta,
-      );
-      final collectedScore = collectedRep?.score;
-      if (collectedScore != null) {
-        _repScoreSum += collectedScore;
-        _scoredRepCount += 1;
-
-        if (collectedScore > _bestScore) {
-          _bestScore = collectedScore;
-        }
-      }
-    }
-
-    if (!_previousFormBad && next.isFormBad) {
-      _formWarningCount += 1;
-    }
-
-    _holdSessionCollector.collect(next);
-
-    _lastObservedRepCount = next.repCount;
-    _previousFormBad = next.isFormBad;
-  }
-
-  WorkoutRep? _collectCompletedWorkoutRep({
-    required WorkoutState next,
-    required int repDelta,
-  }) {
-    final candidate = _buildCompletedWorkoutRep(next: next, repDelta: repDelta);
-    if (candidate == null) {
-      return null;
-    }
-
-    final alreadyCollected = _completedWorkoutReps.any(
-      (rep) => rep.repIndex == candidate.repIndex,
-    );
-    if (alreadyCollected) {
-      return null;
-    }
-
-    _completedWorkoutReps.add(candidate);
-    return candidate;
-  }
-
-  WorkoutRep? _buildCompletedWorkoutRep({
-    required WorkoutState next,
-    required int repDelta,
-  }) {
-    if (next.analysisKind != EngineKind.rangeRep) {
-      return null;
-    }
-
-    final activeSessionExercise = _activeSessionExercise;
-    if (activeSessionExercise == null) {
-      return null;
-    }
-
-    final metrics = next.calibrationMetrics;
-    if (!metrics.hasLastRangeRepSummary) {
-      return null;
-    }
-
-    final explicitRepIndex = metrics.lastRangeRepValidatedRepIndex;
-    final repIndex = explicitRepIndex ?? (repDelta == 1 ? next.repCount : null);
-    if (repIndex == null || repIndex < 1 || repIndex > next.repCount) {
-      return null;
-    }
-
-    return WorkoutRep(
-      repIndex: repIndex,
-      exerciseType: activeSessionExercise.id,
-      analysisKind: next.analysisKind.name,
-      recordedAt: DateTime.now(),
-      validationStatus: metrics.hasLastRangeRepValidation
-          ? metrics.lastRangeRepValidationStatus
-          : 'unknown',
-      validationReasons: metrics.hasLastRangeRepValidation
-          ? List<String>.from(metrics.lastRangeRepValidationReasons)
-          : const <String>[],
-      score: next.lastRepScore,
-      minPrimaryMetric: metrics.lastRangeRepSummaryMinAngle,
-      worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
-      descentMillis: metrics.lastRangeRepSummaryDescentMillis,
-      ascentMillis: metrics.lastRangeRepSummaryAscentMillis,
-      feedback: next.feedbackMessage,
-      hadFormViolation: metrics.lastRangeRepSummaryHadFormViolation,
-      hadCoverageDrop: metrics.lastRangeRepSummaryHadCoverageDrop,
-      switchedSideDuringRep: metrics.lastRangeRepSummarySwitchedSideDuringRep,
-      completedPhaseSequence: metrics.lastRangeRepSummaryCompletedPhaseSequence,
-      selectedSideLabel: metrics.lastRangeRepSummarySelectedSideLabel,
-    );
+    sessionLifecycle.startSession(exercise: activeExercise);
   }
 
   Future<void> _setLiveAnalysisScreenAwake(bool enable) async {
@@ -233,7 +125,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isFinishingSession) return;
+    if (_sessionLifecycle?.isFinishing ?? false) {
+      return;
+    }
 
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
@@ -279,7 +173,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   Future<void> _recoverCameraIfAllowed() async {
-    if (_isFinishingSession || _isRecoveringCameraRefreshInFlight) return;
+    final sessionLifecycle = _sessionLifecycle;
+    if ((sessionLifecycle?.isFinishing ?? false) ||
+        _isRecoveringCameraRefreshInFlight) {
+      return;
+    }
     if (_isRecoveringCamera && ref.read(cameraProvider).isLoading) return;
     if (!_hasAnalysisSelection()) {
       return;
@@ -290,11 +188,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     try {
       final status = await Permission.camera.status;
-      if (!mounted || _isFinishingSession) return;
+      if (!mounted || (sessionLifecycle?.isFinishing ?? false)) {
+        return;
+      }
 
       if (!status.isGranted) {
         await _stopImageStreamIfNeeded();
-        if (!mounted || _isFinishingSession) return;
+        if (!mounted || (sessionLifecycle?.isFinishing ?? false)) {
+          return;
+        }
 
         ref.invalidate(cameraProvider);
         _goToPermissionScreen();
@@ -342,92 +244,53 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   Future<void> _finishSession(WorkoutState workoutState) async {
-    if (_isFinishingSession || !mounted) return;
-
-    setState(() => _isFinishingSession = true);
-
-    final repositoryUserId = ref.read(authRepositoryProvider).currentUserId;
-    final providerUserId = ref.read(currentUserIdProvider);
-    final ownerId = repositoryUserId ?? providerUserId;
-    if (ownerId == null) {
-      if (!mounted) return;
-
-      setState(() => _isFinishingSession = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Analiz oturumu hazırlanamadı. Lütfen tekrar dene.'),
-        ),
-      );
+    final sessionLifecycle = _sessionLifecycle;
+    if (!mounted ||
+        sessionLifecycle == null ||
+        !sessionLifecycle.beginFinish()) {
       return;
     }
+
+    setState(() {});
 
     await _stopImageStreamIfNeeded();
     if (!mounted) return;
 
-    _collectSessionMetrics(null, workoutState);
-
-    final activeSessionExercise = _activeSessionExercise;
-    if (activeSessionExercise == null) {
-      setState(() => _isFinishingSession = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Analiz icin once gecerli bir hareket secmelisin.'),
-        ),
-      );
-      return;
-    }
-
-    final endedAt = DateTime.now();
-    final startedAt = _sessionStartedAt ?? endedAt;
-    final durationSec = endedAt.difference(startedAt).inSeconds;
-    final isHoldAnalysis = workoutState.analysisKind == EngineKind.hold;
-    final persistedReps = _completedWorkoutReps.isEmpty
-        ? null
-        : List<WorkoutRep>.unmodifiable(
-            _completedWorkoutReps.toList()
-              ..sort((left, right) => left.repIndex.compareTo(right.repIndex)),
-          );
-    final session = WorkoutSession(
-      id: 'session_${endedAt.microsecondsSinceEpoch}',
-      ownerId: ownerId,
-      exerciseType: activeSessionExercise.id,
-      analysisKind: workoutState.analysisKind.name,
-      startedAt: startedAt,
-      endedAt: endedAt,
-      durationSec: durationSec < 0 ? 0 : durationSec,
-      totalReps: workoutState.repCount,
-      averageScore: isHoldAnalysis
-          ? 0
-          : (_scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount),
-      bestScore: isHoldAnalysis ? 0 : _bestScore,
-      worstScore: isHoldAnalysis ? 0 : _worstRepScore(),
-      validReps: isHoldAnalysis ? 0 : _validRepCount(),
-      invalidReps: isHoldAnalysis ? 0 : _invalidRepCount(),
-      formWarningCount: isHoldAnalysis ? 0 : _formWarningCount,
-      totalHoldSeconds: _holdSessionCollector.totalHoldSeconds,
-      bestHoldSeconds: _holdSessionCollector.bestHoldSeconds,
-      formBreakCount: _holdSessionCollector.formBreakCount,
-      reps: persistedReps,
+    final result = await sessionLifecycle.finishSession(
+      finalState: workoutState,
     );
-
-    try {
-      await ref.read(sessionRepositoryProvider).saveSession(session);
-      // Shared Home/Goals/Achievements data is one-shot cached and must refetch.
-      ref.invalidate(userSessionsSnapshotProvider);
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() => _isFinishingSession = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Oturum kaydedilemedi. Lütfen tekrar dene.'),
-        ),
-      );
-      return;
-    }
-
-    ref.read(completedSessionProvider.notifier).state = session;
     if (!mounted) return;
+
+    setState(() {});
+
+    switch (result.failure) {
+      case FinishWorkoutSessionFailure.missingOwner:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Analiz oturumu hazırlanamadı. Lütfen tekrar dene.'),
+          ),
+        );
+        return;
+      case FinishWorkoutSessionFailure.missingExercise:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Analiz icin once gecerli bir hareket secmelisin.'),
+          ),
+        );
+        return;
+      case FinishWorkoutSessionFailure.persistenceFailure:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Oturum kaydedilemedi. Lütfen tekrar dene.'),
+          ),
+        );
+        return;
+      case FinishWorkoutSessionFailure.alreadyFinishing:
+      case FinishWorkoutSessionFailure.alreadySaved:
+        return;
+      case null:
+        break;
+    }
 
     await _setLiveAnalysisScreenAwake(false);
     if (!mounted) return;
@@ -436,11 +299,13 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
     );
 
-    if (mounted) {
-      if (_hasAnalysisSelection()) {
-        unawaited(_setLiveAnalysisScreenAwake(true));
-      }
-      setState(() => _isFinishingSession = false);
+    if (!mounted) return;
+
+    sessionLifecycle.completeFinishFlow();
+    setState(() {});
+
+    if (_hasAnalysisSelection()) {
+      unawaited(_setLiveAnalysisScreenAwake(true));
     }
   }
 
@@ -460,28 +325,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
-  int _validRepCount() {
-    return _completedWorkoutReps.where((rep) => rep.isValidatedAsValid).length;
-  }
-
-  int _invalidRepCount() {
-    return _completedWorkoutReps
-        .where((rep) => rep.isValidatedAsInvalid)
-        .length;
-  }
-
-  double _worstRepScore() {
-    final scoredReps = _completedWorkoutReps
-        .map((rep) => rep.score)
-        .whereType<double>()
-        .toList(growable: false);
-    if (scoredReps.isEmpty) {
-      return 0;
-    }
-
-    return scoredReps.reduce((value, next) => value < next ? value : next);
-  }
-
   @override
   Widget build(BuildContext context) {
     final selectedExercise = ref.watch(selectedExerciseProvider);
@@ -499,7 +342,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       );
     }
 
-    if (_isFinishingSession) {
+    final sessionLifecycle = _sessionLifecycle;
+    if (sessionLifecycle == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: _CameraRecoveryView(),
+      );
+    }
+
+    if (sessionLifecycle.isFinishing) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: _CameraRecoveryView(),
@@ -547,7 +398,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          if (!_isFinishingSession && !controllerValue.isStreamingImages) {
+          if (!sessionLifecycle.isFinishing &&
+              !controllerValue.isStreamingImages) {
             _startImageStream(controller);
           }
 
@@ -574,7 +426,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 top: topInset + 12,
                 right: 14,
                 child: TextButton.icon(
-                  onPressed: _isFinishingSession
+                  onPressed: sessionLifecycle.isFinishing
                       ? null
                       : () => unawaited(_finishSession(workoutState)),
                   icon: const Icon(Icons.stop_circle_outlined, size: 18),
@@ -601,7 +453,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     shape: const CircleBorder(),
                     child: IconButton(
                       tooltip: 'Beta Diagnostics',
-                      onPressed: _isFinishingSession
+                      onPressed: sessionLifecycle.isFinishing
                           ? null
                           : _showDiagnosticsPanel,
                       color: Colors.white,
