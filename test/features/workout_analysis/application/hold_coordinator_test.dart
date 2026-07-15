@@ -259,17 +259,17 @@ ExerciseConfig _plankConfig() {
     ),
     holdSignals: const HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
-      alignment: HoldAngleSignalConfig(
+      alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftHip,
         last: PoseLandmarkType.leftAnkle,
       ),
-      support: HoldAngleSignalConfig(
+      support: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
         middle: PoseLandmarkType.leftElbow,
         last: PoseLandmarkType.leftWrist,
       ),
-      extension: HoldAngleSignalConfig(
+      extension: PoseAngleLandmarks(
         first: PoseLandmarkType.leftHip,
         middle: PoseLandmarkType.leftKnee,
         last: PoseLandmarkType.leftAnkle,

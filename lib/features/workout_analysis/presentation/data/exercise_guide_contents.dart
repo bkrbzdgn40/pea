@@ -1,10 +1,10 @@
 import '../models/exercise_guide_content.dart';
+import '../../domain/models/exercise_type.dart';
 
 /// Static product copy for the guide; analysis support policy lives in ExerciseCatalog.
 const exerciseGuideContents = [
   ExerciseGuideContent(
-    id: 'squat',
-    title: 'Squat',
+    type: ExerciseType.squat,
     subtitle: 'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
     purpose:
         'Bacak, kalça ve gövde stabilitesini birlikte çalıştırır. Kontrollü derinlik ve düzgün hat önceliklidir.',
@@ -31,8 +31,7 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'Bowflex',
   ),
   ExerciseGuideContent(
-    id: 'plank',
-    title: 'Plank',
+    type: ExerciseType.plank,
     subtitle: 'Core dayanıklılığı ve gövde stabilitesi için izometrik hareket.',
     purpose:
         'Gövdenin sabit kalma becerisini geliştirir. Süreden çok pozisyon kalitesi önemlidir.',
@@ -59,8 +58,7 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'ScottHermanFitness',
   ),
   ExerciseGuideContent(
-    id: 'lunge',
-    title: 'Lunge',
+    type: ExerciseType.lunge,
     subtitle:
         'Tek bacak kontrolü, denge ve alt vücut kuvveti için dinamik hareket.',
     purpose:
@@ -88,8 +86,7 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'Bowflex',
   ),
   ExerciseGuideContent(
-    id: 'push_up',
-    title: 'Push-up',
+    type: ExerciseType.pushUp,
     subtitle:
         'Üst vücut kuvveti, core kontrolü ve omuz stabilitesi için temel hareket.',
     purpose:
@@ -117,8 +114,7 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'Calisthenicmovement',
   ),
   ExerciseGuideContent(
-    id: 'sit_up',
-    title: 'Sit-up',
+    type: ExerciseType.sitUp,
     subtitle: 'Gövde fleksiyonu için kontrollü core hareketi.',
     purpose:
         'Karın kaslarını dinamik olarak çalıştırır. Kontrol ve rahatlık, tekrar sayısından önemlidir.',
