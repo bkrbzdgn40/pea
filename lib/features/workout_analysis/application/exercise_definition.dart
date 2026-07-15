@@ -36,6 +36,10 @@ class ExerciseDefinition {
   String get title => type.title;
 
   ExerciseType get analysisExercise {
+    if (!isAnalysisSupported) {
+      throw StateError('No analysis exercise registered for $type.');
+    }
+
     _ensureAnalysisDefinitionConsistency();
     return type;
   }
