@@ -82,19 +82,6 @@ final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
   },
 );
 
-@visibleForTesting
-bool shouldLockRangeRepSideSelection({
-  required EngineKind engineKind,
-  required RangeRepSide? selectedSide,
-  required RangeRepDiagnosticsSnapshot diagnostics,
-}) {
-  if (engineKind != EngineKind.rangeRep || selectedSide == null) {
-    return false;
-  }
-
-  return diagnostics.hasRepContext;
-}
-
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   DateTime _lastFpsCalculationTime = DateTime.now();

@@ -26,14 +26,10 @@ import 'session_calibration_baseline_accumulator.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
 
-enum RangeRepFeedbackDirectiveKind { engine, code, text }
+enum RangeRepFeedbackDirectiveKind { engine, code }
 
 class RangeRepFeedbackDirective {
-  const RangeRepFeedbackDirective._({
-    required this.kind,
-    this.feedbackCode,
-    this.message,
-  });
+  const RangeRepFeedbackDirective._({required this.kind, this.feedbackCode});
 
   const RangeRepFeedbackDirective.engine({RangeRepFeedbackCode? feedbackCode})
     : this._(
@@ -47,12 +43,8 @@ class RangeRepFeedbackDirective {
         feedbackCode: feedbackCode,
       );
 
-  const RangeRepFeedbackDirective.text(String message)
-    : this._(kind: RangeRepFeedbackDirectiveKind.text, message: message);
-
   final RangeRepFeedbackDirectiveKind kind;
   final RangeRepFeedbackCode? feedbackCode;
-  final String? message;
 
   String resolve({
     required String Function(RangeRepFeedbackCode code) mapFeedbackCode,
@@ -73,12 +65,6 @@ class RangeRepFeedbackDirective {
           );
         }
         return mapFeedbackCode(resolvedCode);
-      case RangeRepFeedbackDirectiveKind.text:
-        final resolvedMessage = message;
-        if (resolvedMessage == null) {
-          throw StateError('RangeRepFeedbackDirective.text requires message.');
-        }
-        return resolvedMessage;
     }
   }
 }

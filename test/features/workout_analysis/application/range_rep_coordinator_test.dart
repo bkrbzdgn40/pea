@@ -113,6 +113,89 @@ void main() {
         expect(postInterruptionResult.stateSnapshot.repCount, 0);
       },
     );
+
+    test(
+      'locks the previously selected side while an active rep context is in progress',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 140,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final lockedResult = coordinator.processFrame(
+          metrics: _sideFilteredMetrics(
+            leftAngle: 140,
+            rightAngle: 95,
+            leftAvailable: false,
+            rightAvailable: true,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          lockedResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'left',
+        );
+        expect(lockedResult.stateSnapshot.currentPhase, 'WAITING');
+        expect(lockedResult.diagnosticsUpdate.selectedSideLabel, 'left');
+      },
+    );
+
+    test(
+      'does not keep the previous side locked while only neutral acquisition is pending',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          count: 2,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final switchedResult = coordinator.processFrame(
+          metrics: _sideFilteredMetrics(
+            leftAngle: 170,
+            rightAngle: 95,
+            leftAvailable: false,
+            rightAvailable: true,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          switchedResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'right',
+        );
+        expect(switchedResult.diagnosticsUpdate.selectedSideLabel, 'right');
+      },
+    );
   });
 }
 
@@ -196,24 +279,52 @@ ExerciseMetrics _leftRangeRepMetrics({
   required double angle,
   required double formMetric,
 }) {
-  return ExerciseMetrics(
-    primaryAngle: angle,
+  return _sideFilteredMetrics(
+    leftAngle: angle,
+    rightAngle: 180.0,
+    leftAvailable: true,
+    rightAvailable: false,
     formMetric: formMetric,
-    hasPrimaryAngle: true,
-    hasFormMetric: true,
+  );
+}
+
+ExerciseMetrics _sideFilteredMetrics({
+  required double leftAngle,
+  required double rightAngle,
+  required bool leftAvailable,
+  required bool rightAvailable,
+  double formMetric = 60.0,
+}) {
+  final leftMetrics = leftAvailable
+      ? RangeRepSideMetrics(
+          side: RangeRepSide.left,
+          primaryAngle: leftAngle,
+          formMetric: formMetric,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          sideConfidence: 1.0,
+        )
+      : const RangeRepSideMetrics.unavailable(RangeRepSide.left);
+  final rightMetrics = rightAvailable
+      ? RangeRepSideMetrics(
+          side: RangeRepSide.right,
+          primaryAngle: rightAngle,
+          formMetric: formMetric,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          sideConfidence: 1.0,
+        )
+      : const RangeRepSideMetrics.unavailable(RangeRepSide.right);
+
+  return ExerciseMetrics(
+    primaryAngle: leftAvailable ? leftAngle : rightAngle,
+    formMetric: formMetric,
+    hasPrimaryAngle: leftAvailable || rightAvailable,
+    hasFormMetric: leftAvailable || rightAvailable,
     hasPose: true,
     landmarks: const [],
-    leftRangeRepMetrics: RangeRepSideMetrics(
-      side: RangeRepSide.left,
-      primaryAngle: angle,
-      formMetric: formMetric,
-      hasPrimaryAngle: true,
-      hasFormMetric: true,
-      sideConfidence: 1.0,
-    ),
-    rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
-      RangeRepSide.right,
-    ),
+    leftRangeRepMetrics: leftMetrics,
+    rightRangeRepMetrics: rightMetrics,
   );
 }
 
