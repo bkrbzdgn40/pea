@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/common_frame_pose_pipeline.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/hold_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_acceptance_stabilizer.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart'
     show PoseQualityAssessment;
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
@@ -842,6 +844,58 @@ void main() {
       expect(state.repCount, 0);
       expect(state.currentPhase, 'AWAITING_NEUTRAL');
     });
+  });
+
+  test('hold production path delegates through HoldCoordinator and keeps the '
+      'real engine outcome', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    late _SpyHoldCoordinator spyCoordinator;
+    final harness = _createHarness(
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      detector: detector,
+      clock: clock,
+      extraOverrides: <Override>[
+        holdCoordinatorFactoryProvider.overrideWithValue(({
+          required engine,
+          required config,
+        }) {
+          spyCoordinator = _SpyHoldCoordinator(
+            inner: DefaultHoldCoordinator(engine: engine, config: config),
+          );
+          return spyCoordinator;
+        }),
+      ],
+    );
+    addTearDown(harness.dispose);
+
+    await _establishVisibleHold(harness.controller, detector, clock);
+
+    final state = harness.container.read(workoutControllerProvider);
+
+    expect(
+      spyCoordinator.selectHoldSideForAcceptedPoseCallCount,
+      greaterThan(0),
+    );
+    expect(
+      spyCoordinator.requiredHoldSideForAssessmentCallCount,
+      greaterThan(0),
+    );
+    expect(spyCoordinator.processFrameCallCount, greaterThan(0));
+    expect(spyCoordinator.lastSelectedHoldSide, HoldSide.left);
+    expect(
+      spyCoordinator.lastProcessFrameResult?.stateSnapshot.isHolding,
+      isTrue,
+    );
+    expect(
+      spyCoordinator.lastProcessFrameResult?.stateSnapshot.currentHoldSeconds,
+      closeTo(5.0, 0.001),
+    );
+    expect(state.selectedHoldSide, HoldSide.left);
+    expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+    expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(state.holdEnginePhase, HoldPhase.holding);
   });
 
   test(
@@ -1825,6 +1879,67 @@ class _SpyRangeRepCoordinator implements RangeRepCoordinator {
       preferredRangeRepSide: preferredRangeRepSide,
     );
     return lastProcessFrameResult!;
+  }
+}
+
+class _SpyHoldCoordinator implements HoldCoordinator {
+  _SpyHoldCoordinator({required this.inner});
+
+  final HoldCoordinator inner;
+
+  int requiredHoldSideForAssessmentCallCount = 0;
+  int selectHoldSideForAcceptedPoseCallCount = 0;
+  int processFrameCallCount = 0;
+  int handleLifecycleInterruptionCallCount = 0;
+  HoldSide? lastSelectedHoldSide;
+  HoldCoordinatorFrameResult? lastProcessFrameResult;
+  HoldCoordinatorStateSnapshot? lastLifecycleSnapshot;
+
+  @override
+  HoldCoordinatorStateSnapshot currentStateSnapshot() {
+    return inner.currentStateSnapshot();
+  }
+
+  @override
+  HoldDiagnosticsSnapshot diagnosticsSnapshot() {
+    return inner.diagnosticsSnapshot();
+  }
+
+  @override
+  HoldCoordinatorStateSnapshot handleLifecycleInterruption({String? reason}) {
+    handleLifecycleInterruptionCallCount += 1;
+    lastLifecycleSnapshot = inner.handleLifecycleInterruption(reason: reason);
+    return lastLifecycleSnapshot!;
+  }
+
+  @override
+  HoldCoordinatorFrameResult processFrame({
+    required ExerciseMetrics metrics,
+    required DateTime now,
+    required bool isAcceptedPoseFrame,
+    required bool didBecomeStableTracking,
+  }) {
+    processFrameCallCount += 1;
+    lastProcessFrameResult = inner.processFrame(
+      metrics: metrics,
+      now: now,
+      isAcceptedPoseFrame: isAcceptedPoseFrame,
+      didBecomeStableTracking: didBecomeStableTracking,
+    );
+    return lastProcessFrameResult!;
+  }
+
+  @override
+  HoldSide? requiredHoldSideForAssessment() {
+    requiredHoldSideForAssessmentCallCount += 1;
+    return inner.requiredHoldSideForAssessment();
+  }
+
+  @override
+  HoldSide selectHoldSideForAcceptedPose(PoseQualityAssessment assessment) {
+    selectHoldSideForAcceptedPoseCallCount += 1;
+    lastSelectedHoldSide = inner.selectHoldSideForAcceptedPose(assessment);
+    return lastSelectedHoldSide!;
   }
 }
 
