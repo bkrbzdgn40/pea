@@ -8,6 +8,37 @@ import 'workout_state.dart';
 class RangeRepBlockedStateBuilder {
   const RangeRepBlockedStateBuilder();
 
+  RangeRepBlockedPreviewSnapshot buildPreview({
+    required ExerciseMetrics metrics,
+    required RangeRepFrameAssessment assessment,
+    required bool freezeSmoothedPreview,
+    required MovingAverageFilter primaryMetricFilter,
+    required MovingAverageFilter formMetricFilter,
+    required double fallbackAngle,
+    required double fallbackBackAngle,
+    required String? selectedRangeRepSide,
+  }) {
+    final selectedMetrics = assessment.selectedMetrics;
+    return RangeRepBlockedPreviewSnapshot(
+      previewAngle: _previewRangeRepMetric(
+        hasSignal: assessment.hasPrimaryAngle,
+        value: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
+        filter: primaryMetricFilter,
+        fallback: fallbackAngle,
+        freezePreview: freezeSmoothedPreview,
+      ),
+      previewBackAngle: _previewRangeRepMetric(
+        hasSignal: assessment.hasFormMetric,
+        value: selectedMetrics?.formMetric ?? metrics.formMetric,
+        filter: formMetricFilter,
+        fallback: fallbackBackAngle,
+        freezePreview: freezeSmoothedPreview,
+      ),
+      formSignals: selectedMetrics?.formSignals,
+      selectedRangeRepSide: selectedRangeRepSide,
+    );
+  }
+
   WorkoutState build({
     required ExerciseMetrics metrics,
     required RangeRepFrameAssessment assessment,
@@ -26,23 +57,14 @@ class RangeRepBlockedStateBuilder {
     )
     calibrationMetricsBuilder,
   }) {
-    final selectedMetrics = assessment.selectedMetrics;
-    final preview = RangeRepBlockedPreviewSnapshot(
-      previewAngle: _previewRangeRepMetric(
-        hasSignal: assessment.hasPrimaryAngle,
-        value: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
-        filter: primaryMetricFilter,
-        fallback: currentState.currentAngle,
-        freezePreview: freezeSmoothedPreview,
-      ),
-      previewBackAngle: _previewRangeRepMetric(
-        hasSignal: assessment.hasFormMetric,
-        value: selectedMetrics?.formMetric ?? metrics.formMetric,
-        filter: formMetricFilter,
-        fallback: currentState.calibrationMetrics.currentBackAngle,
-        freezePreview: freezeSmoothedPreview,
-      ),
-      formSignals: selectedMetrics?.formSignals,
+    final preview = buildPreview(
+      metrics: metrics,
+      assessment: assessment,
+      freezeSmoothedPreview: freezeSmoothedPreview,
+      primaryMetricFilter: primaryMetricFilter,
+      formMetricFilter: formMetricFilter,
+      fallbackAngle: currentState.currentAngle,
+      fallbackBackAngle: currentState.calibrationMetrics.currentBackAngle,
       selectedRangeRepSide: selectedRangeRepSide,
     );
 

@@ -6,7 +6,6 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../../../../core/utils/moving_average.dart';
 import '../../application/analysis_frame_builder.dart';
 import '../../application/analysis_engine_factory.dart';
-import '../../application/calibration_snapshot_builder.dart';
 import '../../application/common_frame_pose_pipeline.dart';
 import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
@@ -16,31 +15,20 @@ import '../../application/hold_side_policy.dart';
 import '../../application/hold_side_stabilizer.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
 import '../../application/pose_quality_policy.dart';
-import '../../application/range_rep_blocked_state_builder.dart';
-import '../../application/range_rep_frame_policy.dart';
-import '../../application/range_rep_rep_outcome_tracker.dart';
-import '../../application/range_rep_side_policy.dart';
-import '../../application/range_rep_side_stabilizer.dart';
-import '../../application/range_rep_threshold_bookkeeper.dart';
-import '../../application/range_rep_threshold_resolver.dart';
-import '../../application/range_rep_visibility_policy.dart';
-import '../../application/session_calibration_baseline_accumulator.dart';
+import '../../application/range_rep_coordinator.dart';
 import '../../application/workout_calibration_metrics_builder.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../domain/analysis_engine.dart';
 import '../../domain/hold_diagnostics.dart';
 import '../../domain/models/analysis_frame.dart';
-import '../../domain/models/calibration_snapshot.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_side.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
-import '../../domain/models/session_calibration_baseline.dart';
 import '../../domain/range_rep_diagnostics.dart';
-import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
@@ -71,6 +59,29 @@ final workoutFramePosePipelineFactoryProvider =
       };
     });
 
+typedef RangeRepCoordinatorFactory =
+    RangeRepCoordinator Function({
+      required AnalysisEngine engine,
+      required ExerciseConfig config,
+      required RangeRepContract rangeRepContract,
+    });
+
+final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
+  (ref) {
+    return ({
+      required AnalysisEngine engine,
+      required ExerciseConfig config,
+      required RangeRepContract rangeRepContract,
+    }) {
+      return DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: rangeRepContract,
+      );
+    };
+  },
+);
+
 @visibleForTesting
 bool shouldLockRangeRepSideSelection({
   required EngineKind engineKind,
@@ -97,8 +108,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final DateTime Function() _clock;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder =
       const WorkoutAnalysisFrameBuilder();
-  final RangeRepBlockedStateBuilder _rangeRepBlockedStateBuilder =
-      const RangeRepBlockedStateBuilder();
   late final MovingAverageFilter _angleFilter;
   late final MovingAverageFilter _backFilter;
   late final MovingAverageFilter _bodyLineFilter;
@@ -108,34 +117,19 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late final RangeRepContract? _rangeRepContract;
   late final HoldContract? _holdContract;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
-  final CalibrationSnapshotBuilder _calibrationSnapshotBuilder =
-      const CalibrationSnapshotBuilder();
   final WorkoutCalibrationMetricsBuilder _workoutCalibrationMetricsBuilder =
       const WorkoutCalibrationMetricsBuilder();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
   final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
-  final RangeRepFramePolicy _rangeRepFramePolicy = const RangeRepFramePolicy();
-  final RangeRepSidePolicy _rangeRepSidePolicy = const RangeRepSidePolicy();
-  late RangeRepThresholdBookkeeper _rangeRepThresholdBookkeeper;
-  late final RangeRepVisibilityPolicy _rangeRepVisibilityPolicy;
+  RangeRepCoordinator? _rangeRepCoordinator;
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
-  final RangeRepValidationPolicy _rangeRepValidationPolicy =
-      const RangeRepValidationPolicy();
-  RangeRepSide? _selectedRangeRepSide;
-  RangeRepSide? _briefGapFrozenRangeRepSide;
   HoldSide? _selectedHoldSide;
   HoldSide? _briefGapFrozenHoldSide;
-  bool _hasAcceptedPoseForAnalysis = false;
-  late RangeRepSideStabilizer _rangeRepSideStabilizer;
+  bool _hasAcceptedHoldPoseForAnalysis = false;
   late HoldSideStabilizer _holdSideStabilizer;
-  late RangeRepRepOutcomeTracker _rangeRepRepOutcomeTracker;
-  CalibrationSnapshot? _lastCalibrationSnapshot;
-  SessionCalibrationBaseline? _sessionCalibrationBaseline;
-  late SessionCalibrationBaselineAccumulator
-  _sessionCalibrationBaselineAccumulator;
   late WorkoutDiagnosticsAccumulator _diagnostics;
 
   @override
@@ -145,6 +139,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _clock = ref.watch(workoutClockProvider);
     final framePosePipelineFactory = ref.watch(
       workoutFramePosePipelineFactoryProvider,
+    );
+    final rangeRepCoordinatorFactory = ref.watch(
+      rangeRepCoordinatorFactoryProvider,
     );
 
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
@@ -180,29 +177,25 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _analysisFrameCount = 0;
     _cameraFps = 0.0;
     _analysisFps = 0.0;
-    _selectedRangeRepSide = null;
-    _briefGapFrozenRangeRepSide = null;
     _selectedHoldSide = null;
     _briefGapFrozenHoldSide = null;
-    _hasAcceptedPoseForAnalysis = false;
-    _rangeRepSideStabilizer = RangeRepSideStabilizer();
+    _hasAcceptedHoldPoseForAnalysis = false;
     _holdSideStabilizer = HoldSideStabilizer();
-    _rangeRepVisibilityPolicy = RangeRepVisibilityPolicy();
     _poseAcceptanceStabilizer = PoseAcceptanceStabilizer();
     _framePosePipeline = framePosePipelineFactory(
       poseAcceptanceStabilizer: _poseAcceptanceStabilizer,
     );
-    _rangeRepRepOutcomeTracker = RangeRepRepOutcomeTracker(
-      validationPolicy: _rangeRepValidationPolicy,
-    );
-    _rangeRepThresholdBookkeeper = RangeRepThresholdBookkeeper(
-      analysisKind: _engineKind.name,
-      config: _config,
-    );
-    _lastCalibrationSnapshot = null;
-    _sessionCalibrationBaseline = null;
-    _sessionCalibrationBaselineAccumulator =
-        SessionCalibrationBaselineAccumulator();
+    _rangeRepCoordinator = _engineKind == EngineKind.rangeRep
+        ? rangeRepCoordinatorFactory(
+            engine: _engine,
+            config: _config,
+            rangeRepContract:
+                _rangeRepContract ??
+                (throw StateError(
+                  'Range-rep analysis requires a RangeRepContract.',
+                )),
+          )
+        : null;
     _diagnostics = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: _clock(),
       analysisKind: _engineKind.name,
@@ -469,11 +462,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void resetDiagnostics({DateTime? now}) {
     _diagnostics.reset(now: now ?? _clock(), analysisKind: _engineKind.name);
     if (_isDiagnosticsEnabled) {
+      final rangeRepDiagnosticsState = _engineKind == EngineKind.rangeRep
+          ? _rangeRepCoordinatorOrThrow().diagnosticsState()
+          : const RangeRepCoordinatorDiagnosticsState(
+              selectedSideLabel: null,
+              hasActiveRepContext: false,
+            );
       _diagnostics.recordSelectedSide(
-        selectedSide: _rangeRepSideLabel(_selectedRangeRepSide),
-        hasActiveRepContext: _isRangeRepRepContextActive(
-          _rangeRepDiagnosticsSnapshot(),
-        ),
+        selectedSide: rangeRepDiagnosticsState.selectedSideLabel,
+        hasActiveRepContext: rangeRepDiagnosticsState.hasActiveRepContext,
       );
       _updateDiagnosticsFromState();
     }
@@ -495,591 +492,142 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     RangeRepSide? preferredRangeRepSide,
   }) {
-    final hadAcceptedPoseForAnalysis = _hasAcceptedPoseForAnalysis;
-    final preUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
-    final preUpdateHoldDiagnostics = _engineKind == EngineKind.hold
-        ? _holdDiagnosticsSnapshot()
-        : null;
-    final effectiveMetrics = _effectiveMetricsForAnalysis(
-      metrics: metrics,
-      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
-      preferredRangeRepSide: preferredRangeRepSide,
-    );
-    final visibilityRunActive =
-        _engineKind == EngineKind.rangeRep &&
-        _rangeRepVisibilityPolicy.hasActiveInvalidRun;
-    final rangeRepSideSelection = _selectRangeRepSideForFrame(
-      metrics: effectiveMetrics,
-      diagnostics: preUpdateRangeRepDiagnostics,
-      visibilityRunActive: visibilityRunActive,
-      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
-    );
-    final rangeRepFrameAssessment = _rangeRepFrameAssessment(
-      effectiveMetrics,
-      rangeRepSideSelection,
-    );
-    final isAcceptedPoseFrame = frameKind == _PoseFrameKind.accepted;
-    final isEngineEligibleFrame =
-        isAcceptedPoseFrame &&
-        (_engineKind != EngineKind.rangeRep ||
-            rangeRepFrameAssessment.shouldUpdateEngine);
-
-    if (_engineKind == EngineKind.rangeRep && !isEngineEligibleFrame) {
-      if (isAcceptedPoseFrame) {
-        _poseAcceptanceStabilizer.recordInvalidFrame();
-      }
-      final rangeRepVisibilityAssessment = _rangeRepVisibilityAssessment(
-        isInvalidFrame: true,
+    if (_engineKind == EngineKind.rangeRep) {
+      _processRangeRepMetrics(
+        metrics: metrics,
         now: now,
+        frameKind: frameKind,
+        didBecomeStableTracking: didBecomeStableTracking,
+        qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+        preferredRangeRepSide: preferredRangeRepSide,
       );
-      if (rangeRepVisibilityAssessment.didStartInvalidRun) {
-        _beginBriefVisibilityGap(preUpdateRangeRepDiagnostics);
-      }
-      _trackRangeRepRepContext(
-        diagnostics: preUpdateRangeRepDiagnostics,
-        selectedSide: _briefGapFrozenRangeRepSide,
-        markCoverageDrop: true,
-      );
-      if (rangeRepVisibilityAssessment.shouldResync) {
-        if (_isDiagnosticsEnabled) _diagnostics.recordResync();
-        _resetRangeRepVisibilityResyncState(
-          reason: rangeRepVisibilityAssessment.resyncReason,
-        );
-        final selectedRangeRepSide = _rangeRepSideLabel(_selectedRangeRepSide);
-        state = _rangeRepBlockedStateBuilder.build(
-          metrics: effectiveMetrics,
-          assessment: rangeRepFrameAssessment,
-          freezeSmoothedPreview: true,
-          primaryMetricFilter: _angleFilter,
-          formMetricFilter: _backFilter,
-          currentState: state,
-          analysisKind: _engineKind,
-          cameraFps: _cameraFps,
-          analysisFps: _analysisFps,
-          selectedRangeRepSide: selectedRangeRepSide,
-          feedbackMessageOverride: _resolvedEngineFeedbackMessage(),
-          currentPhase: _engine.phaseLabel,
-          calibrationMetricsBuilder: (preview) {
-            final formThresholdResolution = _rangeRepThresholdBookkeeper
-                .resolve(
-                  baseThreshold: _config.formThreshold,
-                  sessionCalibrationBaseline: _sessionCalibrationBaseline,
-                  selectedRangeRepSide: preview.selectedRangeRepSide,
-                );
-
-            return _buildCalibrationMetrics(
-              currentFormMetric: preview.previewBackAngle,
-              currentPrimaryMetric: preview.previewAngle,
-              thresholdValue: formThresholdResolution.effectiveThreshold,
-              currentTorsoAngle: preview.formSignals?.torsoAngle,
-              currentDepthMetric: preview.formSignals?.depthMetric,
-              currentAlignmentMetric: preview.formSignals?.alignmentMetric,
-              currentStabilityMetric: preview.formSignals?.stabilityMetric,
-              currentLockoutMetric: preview.formSignals?.lockoutMetric,
-              currentBottomControlMetric:
-                  preview.formSignals?.bottomControlMetric,
-              baseFormThreshold: formThresholdResolution.baseThreshold,
-              effectiveFormThreshold:
-                  formThresholdResolution.effectiveThreshold,
-              calibrationThresholdOffsetCandidate:
-                  formThresholdResolution.offsetCandidate,
-              calibrationThresholdOffsetApplied:
-                  formThresholdResolution.isApplied,
-              calibrationThresholdOffsetFallbackReason:
-                  formThresholdResolution.decisionReason,
-              calibrationThresholdOffsetSampleCount:
-                  formThresholdResolution.sampleCount,
-              calibrationThresholdOffsetBaselineSideLabel:
-                  formThresholdResolution.baselineSideLabel,
-              isRangeRepFrameValid: false,
-              hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
-              hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
-              rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
-              selectedRangeRepSide: preview.selectedRangeRepSide,
-              rangeRepSideSelectionReason:
-                  rangeRepFrameAssessment.selection.debugLabel,
-              leftRangeRepCoverage:
-                  rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
-              rightRangeRepCoverage:
-                  rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
-              leftRangeRepSideConfidence:
-                  rangeRepFrameAssessment.selection.leftMetrics.sideConfidence,
-              rightRangeRepSideConfidence:
-                  rangeRepFrameAssessment.selection.rightMetrics.sideConfidence,
-              rangeRepInvalidFrameStreak:
-                  rangeRepVisibilityAssessment.invalidFrameStreak,
-              rangeRepInvalidDurationMs:
-                  rangeRepVisibilityAssessment.invalidDuration.inMilliseconds,
-              rangeRepResyncTriggered:
-                  rangeRepVisibilityAssessment.hasResyncedCurrentRun,
-              rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
-              rangeRepVisibilityStatus:
-                  rangeRepVisibilityAssessment.statusLabel,
-            );
-          },
-        );
-        _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-        if (_isDiagnosticsEnabled) {
-          _diagnostics.updateVisibilityStatus('hard_resync');
-        }
-        _updateDiagnosticsFromState();
-        return;
-      }
-      final selectedRangeRepSide = _rangeRepSideLabel(
-        _briefGapFrozenRangeRepSide ?? _selectedRangeRepSide,
-      );
-      state = _rangeRepBlockedStateBuilder.build(
-        metrics: effectiveMetrics,
-        assessment: rangeRepFrameAssessment,
-        freezeSmoothedPreview: true,
-        primaryMetricFilter: _angleFilter,
-        formMetricFilter: _backFilter,
-        currentState: state,
-        analysisKind: _engineKind,
-        cameraFps: _cameraFps,
-        analysisFps: _analysisFps,
-        selectedRangeRepSide: selectedRangeRepSide,
-        feedbackMessageOverride: mapRangeRepFeedbackCodeToMessage(
-          RangeRepFeedbackCode.bodyNotVisible,
-        ),
-        calibrationMetricsBuilder: (preview) {
-          final formThresholdResolution = _rangeRepThresholdBookkeeper.resolve(
-            baseThreshold: _config.formThreshold,
-            sessionCalibrationBaseline: _sessionCalibrationBaseline,
-            selectedRangeRepSide: preview.selectedRangeRepSide,
-          );
-
-          return _buildCalibrationMetrics(
-            currentFormMetric: preview.previewBackAngle,
-            currentPrimaryMetric: preview.previewAngle,
-            thresholdValue: formThresholdResolution.effectiveThreshold,
-            currentTorsoAngle: preview.formSignals?.torsoAngle,
-            currentDepthMetric: preview.formSignals?.depthMetric,
-            currentAlignmentMetric: preview.formSignals?.alignmentMetric,
-            currentStabilityMetric: preview.formSignals?.stabilityMetric,
-            currentLockoutMetric: preview.formSignals?.lockoutMetric,
-            currentBottomControlMetric:
-                preview.formSignals?.bottomControlMetric,
-            baseFormThreshold: formThresholdResolution.baseThreshold,
-            effectiveFormThreshold: formThresholdResolution.effectiveThreshold,
-            calibrationThresholdOffsetCandidate:
-                formThresholdResolution.offsetCandidate,
-            calibrationThresholdOffsetApplied:
-                formThresholdResolution.isApplied,
-            calibrationThresholdOffsetFallbackReason:
-                formThresholdResolution.decisionReason,
-            calibrationThresholdOffsetSampleCount:
-                formThresholdResolution.sampleCount,
-            calibrationThresholdOffsetBaselineSideLabel:
-                formThresholdResolution.baselineSideLabel,
-            isRangeRepFrameValid: false,
-            hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
-            hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
-            rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
-            selectedRangeRepSide: preview.selectedRangeRepSide,
-            rangeRepSideSelectionReason:
-                rangeRepFrameAssessment.selection.debugLabel,
-            leftRangeRepCoverage:
-                rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
-            rightRangeRepCoverage:
-                rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
-            leftRangeRepSideConfidence:
-                rangeRepFrameAssessment.selection.leftMetrics.sideConfidence,
-            rightRangeRepSideConfidence:
-                rangeRepFrameAssessment.selection.rightMetrics.sideConfidence,
-            rangeRepInvalidFrameStreak:
-                rangeRepVisibilityAssessment.invalidFrameStreak,
-            rangeRepInvalidDurationMs:
-                rangeRepVisibilityAssessment.invalidDuration.inMilliseconds,
-            rangeRepResyncTriggered:
-                rangeRepVisibilityAssessment.hasResyncedCurrentRun,
-            rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
-            rangeRepVisibilityStatus: rangeRepVisibilityAssessment.statusLabel,
-          );
-        },
-      );
-      _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.updateVisibilityStatus(
-          rangeRepVisibilityAssessment.statusLabel,
-        );
-      }
-      _updateDiagnosticsFromState();
       return;
     }
 
-    if (!isEngineEligibleFrame) {
-      if (_engineKind == EngineKind.hold) {
-        final lockedHoldSide = _requiredHoldSideForAssessment();
-        if (lockedHoldSide != null) {
-          _beginHoldVisibilityGap();
-        } else {
-          _resetHoldSideSelection();
-        }
+    final preUpdateHoldDiagnostics = _holdDiagnosticsSnapshot();
+    final isAcceptedPoseFrame = frameKind == _PoseFrameKind.accepted;
+
+    if (!isAcceptedPoseFrame) {
+      final lockedHoldSide = _requiredHoldSideForAssessment();
+      if (lockedHoldSide != null) {
+        _beginHoldVisibilityGap();
+      } else {
+        _resetHoldSideSelection();
       }
       if (_isDiagnosticsEnabled) {
         _diagnostics.updateVisibilityStatus('invalid_input');
       }
-      final holdDiagnostics = _engineKind == EngineKind.hold
-          ? _holdDiagnosticsSnapshot()
-          : null;
-      final formThresholdResolution = _engineKind == EngineKind.rangeRep
-          ? _rangeRepThresholdBookkeeper.resolve(
-              baseThreshold: _config.formThreshold,
-              sessionCalibrationBaseline: _sessionCalibrationBaseline,
-              selectedRangeRepSide: null,
-            )
-          : null;
+      final holdDiagnostics = _holdDiagnosticsSnapshot();
       state = WorkoutState(
-        landmarks: effectiveMetrics.landmarks,
+        landmarks: metrics.landmarks,
         analysisKind: _engineKind,
         repCount: state.repCount,
         isFormBad: false,
-        currentAngle: effectiveMetrics.primaryAngle,
+        currentAngle: metrics.primaryAngle,
         lastRepScore: state.lastRepScore,
         lastRepROM: state.lastRepROM,
-        currentHoldSeconds: holdDiagnostics?.isVisibilitySuspended == true
-            ? holdDiagnostics!.currentHoldSeconds
+        currentHoldSeconds: holdDiagnostics.isVisibilitySuspended
+            ? holdDiagnostics.currentHoldSeconds
             : 0,
-        bestHoldSeconds:
-            holdDiagnostics?.bestHoldSeconds ?? state.bestHoldSeconds,
+        bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
         isHolding: false,
-        isHoldVisibilitySuspended:
-            holdDiagnostics?.isVisibilitySuspended ?? false,
-        hadHoldFormBreak:
-            holdDiagnostics?.hadFormBreak ?? state.hadHoldFormBreak,
-        holdFeedbackCode: _engineKind == EngineKind.hold
-            ? HoldFeedbackCode.bodyNotVisible
-            : null,
-        holdEnginePhase: holdDiagnostics?.phase,
-        feedbackMessage: _engineKind == EngineKind.hold
-            ? mapHoldFeedbackCodeToMessage(HoldFeedbackCode.bodyNotVisible)
-            : mapRangeRepFeedbackCodeToMessage(
-                RangeRepFeedbackCode.bodyNotVisible,
-              ),
-        currentPhase: "WAITING",
+        isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
+        hadHoldFormBreak: holdDiagnostics.hadFormBreak,
+        holdFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+        holdEnginePhase: holdDiagnostics.phase,
+        feedbackMessage: mapHoldFeedbackCodeToMessage(
+          HoldFeedbackCode.bodyNotVisible,
+        ),
+        currentPhase: 'WAITING',
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
-        calibrationMetrics: _buildCalibrationMetrics(
-          currentFormMetric: effectiveMetrics.formMetric,
-          thresholdValue: _engineKind == EngineKind.hold
-              ? _config.resolvedHoldPosture.bodyLineEntryAngle
-              : formThresholdResolution!.effectiveThreshold,
-          baseFormThreshold: _engineKind == EngineKind.rangeRep
-              ? formThresholdResolution?.baseThreshold
-              : null,
-          effectiveFormThreshold: _engineKind == EngineKind.rangeRep
-              ? formThresholdResolution?.effectiveThreshold
-              : null,
-          calibrationThresholdOffsetCandidate:
-              formThresholdResolution?.offsetCandidate,
-          calibrationThresholdOffsetApplied:
-              formThresholdResolution?.isApplied ?? false,
-          calibrationThresholdOffsetFallbackReason:
-              formThresholdResolution?.decisionReason,
-          calibrationThresholdOffsetSampleCount:
-              formThresholdResolution?.sampleCount,
-          calibrationThresholdOffsetBaselineSideLabel:
-              formThresholdResolution?.baselineSideLabel,
+        calibrationMetrics: _buildHoldCalibrationMetrics(
+          currentFormMetric: metrics.formMetric,
+          thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
         ),
       );
       _updateDiagnosticsFromState();
       return;
     }
 
-    if (_engineKind == EngineKind.hold) {
-      final holdGapResult = _resumeHoldVisibilityGap();
-      if (holdGapResult.disposition == HoldVisibilityResumeDisposition.ended) {
-        final holdDiagnostics = _holdDiagnosticsSnapshot();
-        _resetHoldSideSelection();
-        if (_isDiagnosticsEnabled) {
-          if (didBecomeStableTracking && _hasAcceptedPoseForAnalysis) {
-            _diagnostics.recordPoseReacquisition();
-          }
-          _diagnostics.recordAcceptedPoseFrame();
-          _diagnostics.updateVisibilityStatus('stable');
+    final holdGapResult = _resumeHoldVisibilityGap();
+    if (holdGapResult.disposition == HoldVisibilityResumeDisposition.ended) {
+      final holdDiagnostics = _holdDiagnosticsSnapshot();
+      _resetHoldSideSelection();
+      if (_isDiagnosticsEnabled) {
+        if (didBecomeStableTracking && _hasAcceptedHoldPoseForAnalysis) {
+          _diagnostics.recordPoseReacquisition();
         }
-        state = WorkoutState(
-          landmarks: effectiveMetrics.landmarks,
-          analysisKind: _engineKind,
-          repCount: _engine.repCount,
-          isFormBad: _engine.isFormBad,
-          currentAngle: effectiveMetrics.primaryAngle,
-          lastRepScore: _engine.lastRepScore,
-          lastRepROM: _engine.maxRom,
-          currentHoldSeconds: 0,
-          bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
-          selectedHoldSide: null,
-          isHolding: false,
-          isHoldVisibilitySuspended: false,
-          hadHoldFormBreak: holdDiagnostics.hadFormBreak,
-          holdFeedbackCode: _currentHoldFeedbackCode(),
-          holdEnginePhase: holdDiagnostics.phase,
-          feedbackMessage: _resolvedEngineFeedbackMessage(),
-          currentPhase: _engine.phaseLabel,
-          cameraFps: _cameraFps,
-          analysisFps: _analysisFps,
-          calibrationMetrics: _buildCalibrationMetrics(
-            currentFormMetric: effectiveMetrics.formMetric,
-            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: effectiveMetrics.bodyLineAngle,
-            currentArmSupportAngle: effectiveMetrics.armSupportAngle,
-            currentLegExtensionAngle: effectiveMetrics.legExtensionAngle,
-          ),
-        );
-        _hasAcceptedPoseForAnalysis = true;
-        _updateDiagnosticsFromState();
-        return;
+        _diagnostics.recordAcceptedPoseFrame();
+        _diagnostics.updateVisibilityStatus('stable');
       }
-
-      if (holdGapResult.disposition ==
-              HoldVisibilityResumeDisposition.resumed ||
-          holdGapResult.disposition == HoldVisibilityResumeDisposition.noGap) {
-        _briefGapFrozenHoldSide = null;
-      }
+      state = WorkoutState(
+        landmarks: metrics.landmarks,
+        analysisKind: _engineKind,
+        repCount: _engine.repCount,
+        isFormBad: _engine.isFormBad,
+        currentAngle: metrics.primaryAngle,
+        lastRepScore: _engine.lastRepScore,
+        lastRepROM: _engine.maxRom,
+        currentHoldSeconds: 0,
+        bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
+        selectedHoldSide: null,
+        isHolding: false,
+        isHoldVisibilitySuspended: false,
+        hadHoldFormBreak: holdDiagnostics.hadFormBreak,
+        holdFeedbackCode: _currentHoldFeedbackCode(),
+        holdEnginePhase: holdDiagnostics.phase,
+        feedbackMessage: _resolvedEngineFeedbackMessage(),
+        currentPhase: _engine.phaseLabel,
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
+        calibrationMetrics: _buildHoldCalibrationMetrics(
+          currentFormMetric: metrics.formMetric,
+          thresholdValue: holdDiagnostics.bodyLineTargetAngle,
+          currentBodyLineAngle: metrics.bodyLineAngle,
+          currentArmSupportAngle: metrics.armSupportAngle,
+          currentLegExtensionAngle: metrics.legExtensionAngle,
+        ),
+      );
+      _hasAcceptedHoldPoseForAnalysis = true;
+      _updateDiagnosticsFromState();
+      return;
     }
 
-    var rangeRepVisibilityAssessment =
-        const RangeRepVisibilityAssessment.stable();
-
-    if (_engineKind == EngineKind.rangeRep &&
-        visibilityRunActive &&
-        hadAcceptedPoseForAnalysis) {
-      if (didBecomeStableTracking) {
-        final recoveryVisibilityAssessment =
-            _rangeRepRecoveryVisibilityAssessment(now: now);
-        if (recoveryVisibilityAssessment.shouldResync) {
-          if (_isDiagnosticsEnabled) {
-            _diagnostics.recordResync();
-            _diagnostics.updateVisibilityStatus('hard_resync');
-          }
-          final selectedRangeRepSide = _rangeRepSideLabel(
-            _briefGapFrozenRangeRepSide ?? _selectedRangeRepSide,
-          );
-          _rangeRepVisibilityPolicy.reset();
-          _resetRangeRepVisibilityResyncState(
-            reason: recoveryVisibilityAssessment.resyncReason,
-            resetPoseAcceptance: true,
-            resetVisibilityPolicy: false,
-          );
-          state = _rangeRepBlockedStateBuilder.build(
-            metrics: effectiveMetrics,
-            assessment: rangeRepFrameAssessment,
-            freezeSmoothedPreview: true,
-            primaryMetricFilter: _angleFilter,
-            formMetricFilter: _backFilter,
-            currentState: state,
-            analysisKind: _engineKind,
-            cameraFps: _cameraFps,
-            analysisFps: _analysisFps,
-            selectedRangeRepSide: selectedRangeRepSide,
-            feedbackMessageOverride: _resolvedEngineFeedbackMessage(),
-            currentPhase: _engine.phaseLabel,
-            calibrationMetricsBuilder: (preview) {
-              final formThresholdResolution = _rangeRepThresholdBookkeeper
-                  .resolve(
-                    baseThreshold: _config.formThreshold,
-                    sessionCalibrationBaseline: _sessionCalibrationBaseline,
-                    selectedRangeRepSide: preview.selectedRangeRepSide,
-                  );
-
-              return _buildCalibrationMetrics(
-                currentFormMetric: preview.previewBackAngle,
-                currentPrimaryMetric: preview.previewAngle,
-                thresholdValue: formThresholdResolution.effectiveThreshold,
-                currentTorsoAngle: preview.formSignals?.torsoAngle,
-                currentDepthMetric: preview.formSignals?.depthMetric,
-                currentAlignmentMetric: preview.formSignals?.alignmentMetric,
-                currentStabilityMetric: preview.formSignals?.stabilityMetric,
-                currentLockoutMetric: preview.formSignals?.lockoutMetric,
-                currentBottomControlMetric:
-                    preview.formSignals?.bottomControlMetric,
-                baseFormThreshold: formThresholdResolution.baseThreshold,
-                effectiveFormThreshold:
-                    formThresholdResolution.effectiveThreshold,
-                calibrationThresholdOffsetCandidate:
-                    formThresholdResolution.offsetCandidate,
-                calibrationThresholdOffsetApplied:
-                    formThresholdResolution.isApplied,
-                calibrationThresholdOffsetFallbackReason:
-                    formThresholdResolution.decisionReason,
-                calibrationThresholdOffsetSampleCount:
-                    formThresholdResolution.sampleCount,
-                calibrationThresholdOffsetBaselineSideLabel:
-                    formThresholdResolution.baselineSideLabel,
-                isRangeRepFrameValid: false,
-                hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
-                hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
-                rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
-                selectedRangeRepSide: preview.selectedRangeRepSide,
-                rangeRepSideSelectionReason:
-                    rangeRepFrameAssessment.selection.debugLabel,
-                leftRangeRepCoverage:
-                    rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
-                rightRangeRepCoverage: rangeRepFrameAssessment
-                    .selection
-                    .rightMetrics
-                    .coverageScore,
-                leftRangeRepSideConfidence: rangeRepFrameAssessment
-                    .selection
-                    .leftMetrics
-                    .sideConfidence,
-                rightRangeRepSideConfidence: rangeRepFrameAssessment
-                    .selection
-                    .rightMetrics
-                    .sideConfidence,
-                rangeRepInvalidFrameStreak:
-                    recoveryVisibilityAssessment.invalidFrameStreak,
-                rangeRepInvalidDurationMs:
-                    recoveryVisibilityAssessment.invalidDuration.inMilliseconds,
-                rangeRepResyncTriggered:
-                    recoveryVisibilityAssessment.hasResyncedCurrentRun,
-                rangeRepResyncReason: recoveryVisibilityAssessment.resyncReason,
-                rangeRepVisibilityStatus:
-                    recoveryVisibilityAssessment.statusLabel,
-              );
-            },
-          );
-          _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-          _updateDiagnosticsFromState();
-          return;
-        }
-      }
-
-      final selectedRangeRepSide = _rangeRepSideLabel(
-        rangeRepFrameAssessment.selection.selectedSide,
-      );
-      final analysisFrame = _analysisFrameBuilder.build(
-        metrics: effectiveMetrics,
-        rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
-        primaryMetricFilter: _angleFilter,
-        formMetricFilter: _backFilter,
-        bodyLineFilter: _bodyLineFilter,
-        armSupportFilter: _armSupportFilter,
-        legFilter: _legFilter,
-      );
-      final formThresholdResolution = _rangeRepThresholdBookkeeper.resolve(
-        baseThreshold: _config.formThreshold,
-        sessionCalibrationBaseline: _sessionCalibrationBaseline,
-        selectedRangeRepSide: selectedRangeRepSide,
-      );
-      final engineFrame = _applyFormThresholdResolution(
-        analysisFrame,
-        formThresholdResolution,
-      );
-      if (didBecomeStableTracking) {
-        final gapResumeResult = _resumeBriefVisibilityGap(engineFrame);
-        if (gapResumeResult.disposition ==
-            VisibilityGapResumeDisposition.incompatible) {
-          if (_isDiagnosticsEnabled) {
-            _diagnostics.recordBriefOcclusionAbort();
-            _diagnostics.recordResync();
-            _diagnostics.updateVisibilityStatus('brief_abort');
-          }
-          _rangeRepVisibilityPolicy.reset();
-          _resetRangeRepVisibilityResyncState(
-            reason: 'brief occlusion incompatible recovery',
-            resetPoseAcceptance: true,
-            resetVisibilityPolicy: false,
-          );
-          state = state.copyWith(
-            repCount: _engine.repCount,
-            isFormBad: _engine.isFormBad,
-            lastRepScore: _engine.lastRepScore,
-            lastRepROM: _engine.maxRom,
-            feedbackMessage: _resolvedEngineFeedbackMessage(),
-            currentPhase: _engine.phaseLabel,
-          );
-          _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-          _updateDiagnosticsFromState();
-          return;
-        }
-        if (_isDiagnosticsEnabled &&
-            gapResumeResult.disposition ==
-                VisibilityGapResumeDisposition.compatible) {
-          _diagnostics.recordBriefOcclusionRecovery();
-        }
-      }
-      _briefGapFrozenRangeRepSide = null;
+    if (holdGapResult.disposition == HoldVisibilityResumeDisposition.resumed ||
+        holdGapResult.disposition == HoldVisibilityResumeDisposition.noGap) {
+      _briefGapFrozenHoldSide = null;
     }
 
-    rangeRepVisibilityAssessment = _rangeRepVisibilityAssessment(
-      isInvalidFrame: false,
-      now: now,
-    );
-
-    if (rangeRepSideSelection.selectedSide != null &&
-        !(visibilityRunActive && _briefGapFrozenRangeRepSide != null)) {
-      _selectedRangeRepSide = rangeRepSideSelection.selectedSide;
-    }
     if (_isDiagnosticsEnabled) {
-      if (didBecomeStableTracking && _hasAcceptedPoseForAnalysis) {
+      if (didBecomeStableTracking && _hasAcceptedHoldPoseForAnalysis) {
         _diagnostics.recordPoseReacquisition();
       }
       _diagnostics.recordAcceptedPoseFrame();
-      _diagnostics.updateVisibilityStatus(
-        rangeRepVisibilityAssessment.statusLabel,
-      );
+      _diagnostics.updateVisibilityStatus('stable');
     }
 
-    if (effectiveMetrics.hasPose) {
-      // Raw range-rep form signals are telemetry only; engine inputs stay legacy.
-      final selectedFormSignals =
-          rangeRepFrameAssessment.selectedMetrics?.formSignals;
-      final selectedRangeRepSide = _rangeRepSideLabel(
-        rangeRepFrameAssessment.selection.selectedSide,
-      );
-      _trackRangeRepRepContext(
-        diagnostics: preUpdateRangeRepDiagnostics,
-        selectedSide: rangeRepFrameAssessment.selection.selectedSide,
-      );
-      // Smooth landmark jitter before feeding the scoring state machine.
+    if (metrics.hasPose) {
       final analysisFrame = _analysisFrameBuilder.build(
-        metrics: effectiveMetrics,
-        rangeRepMetrics: rangeRepFrameAssessment.selectedMetrics,
+        metrics: metrics,
         primaryMetricFilter: _angleFilter,
         formMetricFilter: _backFilter,
         bodyLineFilter: _bodyLineFilter,
         armSupportFilter: _armSupportFilter,
         legFilter: _legFilter,
       );
-      final formThresholdResolution = _engineKind == EngineKind.rangeRep
-          ? _rangeRepThresholdBookkeeper.resolve(
-              baseThreshold: _config.formThreshold,
-              sessionCalibrationBaseline: _sessionCalibrationBaseline,
-              selectedRangeRepSide: selectedRangeRepSide,
-            )
-          : null;
-      final engineFrame = _applyFormThresholdResolution(
-        analysisFrame,
-        formThresholdResolution,
-      );
-      _engine.update(engineFrame);
-      final completedRepCoreData = _consumeCompletedRepCoreData();
-      final postUpdateRangeRepDiagnostics = _rangeRepDiagnosticsSnapshot();
-      final didCompleteRep = completedRepCoreData != null;
-      _rangeRepRepOutcomeTracker.activateCompletedRepOutcomeIfAny(
-        engineKind: _engineKind,
-        analysisKindLabel: _engineKind.name,
-        completedRepCoreData: completedRepCoreData,
-      );
-      _rangeRepRepOutcomeTracker.resetRepContextIfCycleEnded(
-        previousDiagnostics: preUpdateRangeRepDiagnostics,
-        currentDiagnostics: postUpdateRangeRepDiagnostics,
-        didCompleteRep: didCompleteRep,
-      );
+      _engine.update(analysisFrame);
       final holdDiagnostics = _holdDiagnosticsSnapshot();
-      if (_engineKind == EngineKind.hold &&
-          _didHoldAttemptEndAfterUpdate(
-            before: preUpdateHoldDiagnostics,
-            after: holdDiagnostics,
-          )) {
+      if (_didHoldAttemptEndAfterUpdate(
+        before: preUpdateHoldDiagnostics,
+        after: holdDiagnostics,
+      )) {
         _resetHoldSideSelection();
       }
 
       state = WorkoutState(
-        landmarks: effectiveMetrics.landmarks,
+        landmarks: metrics.landmarks,
         analysisKind: _engineKind,
         repCount: _engine.repCount,
         isFormBad: _engine.isFormBad,
@@ -1090,9 +638,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
         selectedHoldSide: _currentHoldSideForState(),
         holdFeedbackCode: _currentHoldFeedbackCode(),
-        holdEnginePhase: _engineKind == EngineKind.hold
-            ? holdDiagnostics.phase
-            : null,
+        holdEnginePhase: holdDiagnostics.phase,
         isHolding: holdDiagnostics.isHolding,
         isHoldVisibilitySuspended: holdDiagnostics.isVisibilitySuspended,
         hadHoldFormBreak: holdDiagnostics.hadFormBreak,
@@ -1100,128 +646,129 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentPhase: _engine.phaseLabel,
         cameraFps: _cameraFps,
         analysisFps: _analysisFps,
-        calibrationMetrics: _buildCalibrationMetrics(
+        calibrationMetrics: _buildHoldCalibrationMetrics(
           currentFormMetric: analysisFrame.formMetric,
-          currentPrimaryMetric: analysisFrame.primaryMetric,
-          thresholdValue: _engineKind == EngineKind.hold
-              ? holdDiagnostics.bodyLineTargetAngle
-              : formThresholdResolution!.effectiveThreshold,
+          thresholdValue: holdDiagnostics.bodyLineTargetAngle,
           currentBodyLineAngle: analysisFrame.bodyLineAngle,
           currentArmSupportAngle: analysisFrame.armSupportAngle,
           currentLegExtensionAngle: analysisFrame.legExtensionAngle,
-          currentTorsoAngle: selectedFormSignals?.torsoAngle,
-          currentDepthMetric: selectedFormSignals?.depthMetric,
-          currentAlignmentMetric: selectedFormSignals?.alignmentMetric,
-          currentStabilityMetric: selectedFormSignals?.stabilityMetric,
-          currentLockoutMetric: selectedFormSignals?.lockoutMetric,
-          currentBottomControlMetric: selectedFormSignals?.bottomControlMetric,
-          baseFormThreshold: formThresholdResolution?.baseThreshold,
-          effectiveFormThreshold: formThresholdResolution?.effectiveThreshold,
-          calibrationThresholdOffsetCandidate:
-              formThresholdResolution?.offsetCandidate,
-          calibrationThresholdOffsetApplied:
-              formThresholdResolution?.isApplied ?? false,
-          calibrationThresholdOffsetFallbackReason:
-              formThresholdResolution?.decisionReason,
-          calibrationThresholdOffsetSampleCount:
-              formThresholdResolution?.sampleCount,
-          calibrationThresholdOffsetBaselineSideLabel:
-              formThresholdResolution?.baselineSideLabel,
-          isRangeRepFrameValid: rangeRepFrameAssessment.isValid,
-          hasPrimaryAngle: rangeRepFrameAssessment.hasPrimaryAngle,
-          hasFormMetric: rangeRepFrameAssessment.hasFormMetric,
-          rangeRepInvalidReason: rangeRepFrameAssessment.invalidReason,
-          selectedRangeRepSide: selectedRangeRepSide,
-          rangeRepSideSelectionReason:
-              rangeRepFrameAssessment.selection.debugLabel,
-          leftRangeRepCoverage:
-              rangeRepFrameAssessment.selection.leftMetrics.coverageScore,
-          rightRangeRepCoverage:
-              rangeRepFrameAssessment.selection.rightMetrics.coverageScore,
-          leftRangeRepSideConfidence:
-              rangeRepFrameAssessment.selection.leftMetrics.sideConfidence,
-          rightRangeRepSideConfidence:
-              rangeRepFrameAssessment.selection.rightMetrics.sideConfidence,
-          rangeRepInvalidFrameStreak:
-              rangeRepVisibilityAssessment.invalidFrameStreak,
-          rangeRepInvalidDurationMs:
-              rangeRepVisibilityAssessment.invalidDuration.inMilliseconds,
-          rangeRepResyncTriggered:
-              rangeRepVisibilityAssessment.hasResyncedCurrentRun,
-          rangeRepResyncReason: rangeRepVisibilityAssessment.resyncReason,
-          rangeRepVisibilityStatus: rangeRepVisibilityAssessment.statusLabel,
-          hasBodyLineAngle: effectiveMetrics.bodyLineAngle != null,
-          hasArmSupportAngle: effectiveMetrics.armSupportAngle != null,
-          hasLegExtensionAngle: effectiveMetrics.legExtensionAngle != null,
         ),
       );
-      _recordSelectedSideForDiagnostics(preUpdateRangeRepDiagnostics);
-      _hasAcceptedPoseForAnalysis = true;
-    } else {
-      // No-pose frames should not reset session counters or last rep results.
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.updateVisibilityStatus('invalid_input');
-      }
-      final formThresholdResolution = _engineKind == EngineKind.rangeRep
-          ? _rangeRepThresholdBookkeeper.resolve(
-              baseThreshold: _config.formThreshold,
-              sessionCalibrationBaseline: _sessionCalibrationBaseline,
-              selectedRangeRepSide: null,
-            )
-          : null;
-      state = WorkoutState(
-        landmarks: effectiveMetrics.landmarks,
-        analysisKind: _engineKind,
-        repCount: state.repCount,
-        isFormBad: false,
-        currentAngle: effectiveMetrics.primaryAngle,
-        lastRepScore: state.lastRepScore,
-        lastRepROM: state.lastRepROM,
-        currentHoldSeconds: 0,
-        bestHoldSeconds: state.bestHoldSeconds,
-        selectedHoldSide: _currentHoldSideForState(),
-        holdFeedbackCode: _engineKind == EngineKind.hold
-            ? HoldFeedbackCode.bodyNotVisible
-            : null,
-        holdEnginePhase: _engineKind == EngineKind.hold
-            ? _holdDiagnosticsSnapshot().phase
-            : null,
-        isHolding: false,
-        isHoldVisibilitySuspended: false,
-        hadHoldFormBreak: state.hadHoldFormBreak,
-        feedbackMessage: _engineKind == EngineKind.hold
-            ? mapHoldFeedbackCodeToMessage(HoldFeedbackCode.bodyNotVisible)
-            : mapRangeRepFeedbackCodeToMessage(
-                RangeRepFeedbackCode.bodyNotVisible,
-              ),
-        currentPhase: "WAITING",
-        cameraFps: _cameraFps,
-        analysisFps: _analysisFps,
-        calibrationMetrics: _buildCalibrationMetrics(
-          currentFormMetric: effectiveMetrics.formMetric,
-          thresholdValue: _engineKind == EngineKind.hold
-              ? _config.resolvedHoldPosture.bodyLineEntryAngle
-              : formThresholdResolution!.effectiveThreshold,
-          baseFormThreshold: _engineKind == EngineKind.rangeRep
-              ? formThresholdResolution?.baseThreshold
-              : null,
-          effectiveFormThreshold: _engineKind == EngineKind.rangeRep
-              ? formThresholdResolution?.effectiveThreshold
-              : null,
-          calibrationThresholdOffsetCandidate:
-              formThresholdResolution?.offsetCandidate,
-          calibrationThresholdOffsetApplied:
-              formThresholdResolution?.isApplied ?? false,
-          calibrationThresholdOffsetFallbackReason:
-              formThresholdResolution?.decisionReason,
-          calibrationThresholdOffsetSampleCount:
-              formThresholdResolution?.sampleCount,
-          calibrationThresholdOffsetBaselineSideLabel:
-              formThresholdResolution?.baselineSideLabel,
-        ),
-      );
+      _hasAcceptedHoldPoseForAnalysis = true;
+      _updateDiagnosticsFromState();
+      return;
     }
+
+    if (_isDiagnosticsEnabled) {
+      _diagnostics.updateVisibilityStatus('invalid_input');
+    }
+    state = WorkoutState(
+      landmarks: metrics.landmarks,
+      analysisKind: _engineKind,
+      repCount: state.repCount,
+      isFormBad: false,
+      currentAngle: metrics.primaryAngle,
+      lastRepScore: state.lastRepScore,
+      lastRepROM: state.lastRepROM,
+      currentHoldSeconds: 0,
+      bestHoldSeconds: state.bestHoldSeconds,
+      selectedHoldSide: _currentHoldSideForState(),
+      holdFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+      holdEnginePhase: _holdDiagnosticsSnapshot().phase,
+      isHolding: false,
+      isHoldVisibilitySuspended: false,
+      hadHoldFormBreak: state.hadHoldFormBreak,
+      feedbackMessage: mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.bodyNotVisible,
+      ),
+      currentPhase: 'WAITING',
+      cameraFps: _cameraFps,
+      analysisFps: _analysisFps,
+      calibrationMetrics: _buildHoldCalibrationMetrics(
+        currentFormMetric: metrics.formMetric,
+        thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
+      ),
+    );
     _updateDiagnosticsFromState();
+  }
+
+  void _processRangeRepMetrics({
+    required ExerciseMetrics metrics,
+    required DateTime now,
+    required _PoseFrameKind frameKind,
+    required bool didBecomeStableTracking,
+    required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+    required RangeRepSide? preferredRangeRepSide,
+  }) {
+    final result = _rangeRepCoordinatorOrThrow().processFrame(
+      metrics: metrics,
+      now: now,
+      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+      didBecomeStableTracking: didBecomeStableTracking,
+      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
+    );
+    if (result.shouldRecordInvalidPoseAcceptance) {
+      _poseAcceptanceStabilizer.recordInvalidFrame();
+    }
+    if (result.shouldResetPoseAcceptance) {
+      _poseAcceptanceStabilizer.reset();
+    }
+    _publishRangeRepState(result.stateSnapshot);
+    _applyRangeRepDiagnosticsUpdate(result.diagnosticsUpdate);
+    _updateDiagnosticsFromState();
+  }
+
+  void _publishRangeRepState(RangeRepCoordinatorStateSnapshot snapshot) {
+    state = WorkoutState(
+      landmarks: snapshot.landmarks,
+      analysisKind: _engineKind,
+      repCount: snapshot.repCount,
+      isFormBad: snapshot.isFormBad,
+      currentAngle: snapshot.currentAngle,
+      lastRepScore: snapshot.lastRepScore,
+      lastRepROM: snapshot.lastRepRom,
+      feedbackMessage: snapshot.feedbackDirective.resolve(
+        mapFeedbackCode: mapRangeRepFeedbackCodeToMessage,
+        fallbackMessage: snapshot.feedbackFallbackMessage,
+      ),
+      currentPhase: snapshot.currentPhase,
+      cameraFps: _cameraFps,
+      analysisFps: _analysisFps,
+      calibrationMetrics: snapshot.calibrationMetrics,
+    );
+  }
+
+  void _applyRangeRepDiagnosticsUpdate(
+    RangeRepCoordinatorDiagnosticsUpdate update,
+  ) {
+    if (!_isDiagnosticsEnabled) {
+      return;
+    }
+
+    if (update.recordBriefOcclusion) {
+      _diagnostics.recordBriefOcclusion();
+    }
+    if (update.recordBriefOcclusionRecovery) {
+      _diagnostics.recordBriefOcclusionRecovery();
+    }
+    if (update.recordBriefOcclusionAbort) {
+      _diagnostics.recordBriefOcclusionAbort();
+    }
+    if (update.recordResync) {
+      _diagnostics.recordResync();
+    }
+    if (update.recordPoseReacquisition) {
+      _diagnostics.recordPoseReacquisition();
+    }
+    if (update.recordAcceptedPoseFrame) {
+      _diagnostics.recordAcceptedPoseFrame();
+    }
+    _diagnostics.updateVisibilityStatus(update.visibilityStatus);
+    _diagnostics.recordSelectedSide(
+      selectedSide: update.selectedSideLabel,
+      hasActiveRepContext: update.hasActiveRepContext,
+    );
   }
 
   void _updateDiagnosticsFromState() {
@@ -1266,21 +813,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = state.copyWith(cameraFps: _cameraFps, analysisFps: _analysisFps);
   }
 
-  ExerciseMetrics _effectiveMetricsForAnalysis({
-    required ExerciseMetrics metrics,
-    Set<RangeRepSide>? qualityAcceptedRangeRepSides,
-    RangeRepSide? preferredRangeRepSide,
-  }) {
-    if (_engineKind != EngineKind.rangeRep ||
-        qualityAcceptedRangeRepSides == null) {
-      return metrics;
+  RangeRepCoordinator _rangeRepCoordinatorOrThrow() {
+    final coordinator = _rangeRepCoordinator;
+    if (coordinator == null) {
+      throw StateError(
+        'RangeRepCoordinator is only available during range-rep analysis.',
+      );
     }
 
-    return _rangeRepQualityFilteredMetrics(
-      metrics: metrics,
-      acceptedSides: qualityAcceptedRangeRepSides,
-      preferredSide: preferredRangeRepSide,
-    );
+    return coordinator;
   }
 
   PoseQualityAssessor _poseQualityAssessor() {
@@ -1394,177 +935,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  RangeRepSideSelection _selectRangeRepSideForFrame({
-    required ExerciseMetrics metrics,
-    required RangeRepDiagnosticsSnapshot diagnostics,
-    required bool visibilityRunActive,
-    required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return _rangeRepSideSelection(metrics, diagnostics: diagnostics);
-    }
-
-    if (visibilityRunActive && _briefGapFrozenRangeRepSide != null) {
-      return _rangeRepFrozenSideSelection(
-        metrics,
-        _briefGapFrozenRangeRepSide!,
-      );
-    }
-
-    final selectedRangeRepSide = _selectedRangeRepSide;
-    final shouldLockToCurrentSide =
-        selectedRangeRepSide != null &&
-        qualityAcceptedRangeRepSides != null &&
-        shouldLockRangeRepSideSelection(
-          engineKind: _engineKind,
-          selectedSide: selectedRangeRepSide,
-          diagnostics: diagnostics,
-        ) &&
-        !qualityAcceptedRangeRepSides.contains(selectedRangeRepSide);
-    if (shouldLockToCurrentSide) {
-      return _lockedRangeRepSideSelection(metrics, selectedRangeRepSide);
-    }
-
-    return _rangeRepSideSelection(metrics, diagnostics: diagnostics);
-  }
-
-  ExerciseMetrics _rangeRepQualityFilteredMetrics({
-    required ExerciseMetrics metrics,
-    required Set<RangeRepSide> acceptedSides,
-    RangeRepSide? preferredSide,
-  }) {
-    final leftMetrics = acceptedSides.contains(RangeRepSide.left)
-        ? metrics.leftRangeRepMetrics
-        : const RangeRepSideMetrics.unavailable(RangeRepSide.left);
-    final rightMetrics = acceptedSides.contains(RangeRepSide.right)
-        ? metrics.rightRangeRepMetrics
-        : const RangeRepSideMetrics.unavailable(RangeRepSide.right);
-    final selectedMetrics = _rangeRepMetricsForSide(
-      preferredSide != null && acceptedSides.contains(preferredSide)
-          ? preferredSide
-          : acceptedSides.contains(RangeRepSide.left)
-          ? RangeRepSide.left
-          : acceptedSides.contains(RangeRepSide.right)
-          ? RangeRepSide.right
-          : null,
-      leftMetrics: leftMetrics,
-      rightMetrics: rightMetrics,
-    );
-
-    return metrics.copyWith(
-      primaryAngle: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
-      formMetric: selectedMetrics?.formMetric ?? metrics.formMetric,
-      hasPrimaryAngle:
-          selectedMetrics?.hasPrimaryAngle ?? metrics.hasPrimaryAngle,
-      hasFormMetric: selectedMetrics?.hasFormMetric ?? metrics.hasFormMetric,
-      leftRangeRepMetrics: leftMetrics,
-      rightRangeRepMetrics: rightMetrics,
-    );
-  }
-
-  RangeRepSideMetrics? _rangeRepMetricsForSide(
-    RangeRepSide? side, {
-    required RangeRepSideMetrics leftMetrics,
-    required RangeRepSideMetrics rightMetrics,
-  }) {
-    switch (side) {
-      case RangeRepSide.left:
-        return leftMetrics;
-      case RangeRepSide.right:
-        return rightMetrics;
-      case null:
-        return null;
-    }
-  }
-
-  RangeRepSideSelection _rangeRepSideSelection(
-    ExerciseMetrics metrics, {
-    RangeRepDiagnosticsSnapshot? diagnostics,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return const RangeRepSideSelection(
-        selectedSide: null,
-        leftMetrics: RangeRepSideMetrics.unavailable(RangeRepSide.left),
-        rightMetrics: RangeRepSideMetrics.unavailable(RangeRepSide.right),
-        reason: RangeRepSideSelectionReason.noAvailableSide,
-      );
-    }
-
-    final selection = _rangeRepSidePolicy.select(
-      metrics: metrics,
-      previousSide: _selectedRangeRepSide,
-      lockPreviousSide: false,
-    );
-    final resolvedDiagnostics = diagnostics ?? _rangeRepDiagnosticsSnapshot();
-    return _rangeRepSideStabilizer.stabilizeSelection(
-      selection: selection,
-      currentSide: _selectedRangeRepSide,
-      hasActiveRepContext: _isRangeRepRepContextActive(resolvedDiagnostics),
-    );
-  }
-
-  RangeRepSideSelection _lockedRangeRepSideSelection(
-    ExerciseMetrics metrics,
-    RangeRepSide side,
-  ) {
-    return RangeRepSideSelection(
-      selectedSide: side,
-      leftMetrics: metrics.leftRangeRepMetrics,
-      rightMetrics: metrics.rightRangeRepMetrics,
-      reason: RangeRepSideSelectionReason.lockedActiveRepSide,
-    );
-  }
-
-  RangeRepSideSelection _rangeRepFrozenSideSelection(
-    ExerciseMetrics metrics,
-    RangeRepSide frozenSide,
-  ) {
-    return _lockedRangeRepSideSelection(metrics, frozenSide);
-  }
-
-  RangeRepFrameAssessment _rangeRepFrameAssessment(
-    ExerciseMetrics metrics,
-    RangeRepSideSelection selection,
-  ) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return RangeRepFrameAssessment.valid(
-        selection: selection,
-        hasPrimaryAngle: metrics.hasPrimaryAngle,
-        hasFormMetric: metrics.hasFormMetric,
-      );
-    }
-
-    return _rangeRepFramePolicy.assessWithContract(
-      metrics: metrics,
-      selection: selection,
-      contract: _rangeRepContract ?? RangeRepContracts.squat,
-    );
-  }
-
-  RangeRepVisibilityAssessment _rangeRepVisibilityAssessment({
-    required bool isInvalidFrame,
-    required DateTime now,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return const RangeRepVisibilityAssessment.stable();
-    }
-
-    return _rangeRepVisibilityPolicy.evaluate(
-      isInvalidFrame: isInvalidFrame,
-      now: now,
-    );
-  }
-
-  RangeRepVisibilityAssessment _rangeRepRecoveryVisibilityAssessment({
-    required DateTime now,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return const RangeRepVisibilityAssessment.stable();
-    }
-
-    return _rangeRepVisibilityPolicy.evaluateRecovery(now: now);
-  }
-
   String _resolvedEngineFeedbackMessage() {
     if (_engineKind == EngineKind.rangeRep &&
         _engine is RangeRepFeedbackSource) {
@@ -1586,232 +956,42 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return frame.bodyLineAngle ?? frame.primaryMetric;
   }
 
-  WorkoutCalibrationMetrics _buildCalibrationMetrics({
+  WorkoutCalibrationMetrics _buildHoldCalibrationMetrics({
     required double currentFormMetric,
     required double thresholdValue,
-    double? currentPrimaryMetric,
-    double? baseFormThreshold,
-    double? effectiveFormThreshold,
-    double? calibrationThresholdOffsetCandidate,
-    bool calibrationThresholdOffsetApplied = false,
-    String? calibrationThresholdOffsetFallbackReason,
-    int? calibrationThresholdOffsetSampleCount,
-    String? calibrationThresholdOffsetBaselineSideLabel,
-    bool isRangeRepFrameValid = true,
-    bool hasPrimaryAngle = false,
-    bool hasFormMetric = false,
-    RangeRepFrameInvalidReason? rangeRepInvalidReason,
-    String? selectedRangeRepSide,
-    String? rangeRepSideSelectionReason,
-    int leftRangeRepCoverage = 0,
-    int rightRangeRepCoverage = 0,
-    double? leftRangeRepSideConfidence,
-    double? rightRangeRepSideConfidence,
-    int rangeRepInvalidFrameStreak = 0,
-    int rangeRepInvalidDurationMs = 0,
-    bool rangeRepResyncTriggered = false,
-    String? rangeRepResyncReason,
-    String rangeRepVisibilityStatus = 'stable',
     double? currentBodyLineAngle,
     double? currentArmSupportAngle,
     double? currentLegExtensionAngle,
-    double? currentTorsoAngle,
-    double? currentDepthMetric,
-    double? currentAlignmentMetric,
-    double? currentStabilityMetric,
-    double? currentLockoutMetric,
-    double? currentBottomControlMetric,
-    bool hasBodyLineAngle = false,
-    bool hasArmSupportAngle = false,
-    bool hasLegExtensionAngle = false,
   }) {
-    final diagnostics = _rangeRepDiagnosticsSnapshot();
-    final lastBreakdown = diagnostics.lastRepScoreBreakdown;
-    final lastValidationResult =
-        _rangeRepRepOutcomeTracker.lastRangeRepValidationResult;
-    final lastSummaryCandidate =
-        _rangeRepRepOutcomeTracker.lastRangeRepRepSummaryCandidate;
-    final calibrationSnapshotCandidate = _calibrationSnapshotBuilder
-        .buildCandidate(
-          engineKind: _engineKind,
-          diagnostics: diagnostics,
-          currentPrimaryMetric: currentPrimaryMetric,
-          currentFormMetric: currentFormMetric,
-          hasPrimaryAngle: hasPrimaryAngle,
-          hasFormMetric: hasFormMetric,
-          isRangeRepFrameValid: isRangeRepFrameValid,
-          selectedRangeRepSide: selectedRangeRepSide,
-          currentTorsoAngle: currentTorsoAngle,
-          currentDepthMetric: currentDepthMetric,
-          currentAlignmentMetric: currentAlignmentMetric,
-          currentStabilityMetric: currentStabilityMetric,
-          currentLockoutMetric: currentLockoutMetric,
-          currentBottomControlMetric: currentBottomControlMetric,
-        );
-
-    if (calibrationSnapshotCandidate != null) {
-      _lastCalibrationSnapshot = calibrationSnapshotCandidate;
-      _updateSessionCalibrationBaseline(calibrationSnapshotCandidate);
-    }
-
-    // Calibration telemetry surfaces the active engine's current secondary metric.
     return _workoutCalibrationMetricsBuilder.build(
       currentFormMetric: currentFormMetric,
       thresholdValue: thresholdValue,
-      diagnostics: diagnostics,
-      lastBreakdown: lastBreakdown,
-      lastValidationResult: lastValidationResult,
-      lastSummaryCandidate: lastSummaryCandidate,
-      rangeRepSideHysteresisStatus: _rangeRepSideStabilizer.hysteresisStatus,
-      rangeRepSideConsistencyStatus: _rangeRepSideStabilizer.consistencyStatus,
-      calibrationSnapshot: _lastCalibrationSnapshot,
-      calibrationThresholdDecisionCount:
-          _rangeRepThresholdBookkeeper.decisionCount,
-      calibrationThresholdAppliedCount:
-          _rangeRepThresholdBookkeeper.appliedCount,
-      calibrationThresholdNoBaselineCount:
-          _rangeRepThresholdBookkeeper.noBaselineCount,
-      calibrationThresholdInsufficientSamplesCount:
-          _rangeRepThresholdBookkeeper.insufficientSamplesCount,
-      calibrationThresholdMissingFormBaselineCount:
-          _rangeRepThresholdBookkeeper.missingFormBaselineCount,
-      calibrationThresholdSideMismatchCount:
-          _rangeRepThresholdBookkeeper.sideMismatchCount,
-      calibrationThresholdOffsetTooSmallCount:
-          _rangeRepThresholdBookkeeper.offsetTooSmallCount,
-      sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
-      lastRangeRepValidatedRepIndex:
-          _rangeRepRepOutcomeTracker.lastRangeRepValidatedRepIndex,
-      rangeRepValidatedCount: _rangeRepRepOutcomeTracker.rangeRepValidatedCount,
-      rangeRepLowConfidenceCount:
-          _rangeRepRepOutcomeTracker.rangeRepLowConfidenceCount,
-      rangeRepInvalidCount: _rangeRepRepOutcomeTracker.rangeRepInvalidCount,
-      baseFormThreshold: baseFormThreshold,
-      effectiveFormThreshold: effectiveFormThreshold,
-      calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
-      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
-      calibrationThresholdOffsetFallbackReason:
-          calibrationThresholdOffsetFallbackReason,
-      calibrationThresholdOffsetSampleCount:
-          calibrationThresholdOffsetSampleCount,
-      calibrationThresholdOffsetBaselineSideLabel:
-          calibrationThresholdOffsetBaselineSideLabel,
-      isRangeRepFrameValid: isRangeRepFrameValid,
-      hasPrimaryAngle: hasPrimaryAngle,
-      hasFormMetric: hasFormMetric,
-      rangeRepInvalidReason: rangeRepInvalidReason,
-      selectedRangeRepSide: selectedRangeRepSide,
-      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
-      leftRangeRepCoverage: leftRangeRepCoverage,
-      rightRangeRepCoverage: rightRangeRepCoverage,
-      leftRangeRepSideConfidence: leftRangeRepSideConfidence,
-      rightRangeRepSideConfidence: rightRangeRepSideConfidence,
-      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
-      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
-      rangeRepResyncTriggered: rangeRepResyncTriggered,
-      rangeRepResyncReason: rangeRepResyncReason,
-      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+      diagnostics: const RangeRepDiagnosticsSnapshot(),
+      lastBreakdown: null,
+      lastValidationResult: null,
+      lastSummaryCandidate: null,
+      rangeRepSideHysteresisStatus: null,
+      rangeRepSideConsistencyStatus: null,
+      calibrationSnapshot: null,
+      calibrationThresholdDecisionCount: 0,
+      calibrationThresholdAppliedCount: 0,
+      calibrationThresholdNoBaselineCount: 0,
+      calibrationThresholdInsufficientSamplesCount: 0,
+      calibrationThresholdMissingFormBaselineCount: 0,
+      calibrationThresholdSideMismatchCount: 0,
+      calibrationThresholdOffsetTooSmallCount: 0,
+      sessionCalibrationBaselineCandidate: null,
+      lastRangeRepValidatedRepIndex: null,
+      rangeRepValidatedCount: 0,
+      rangeRepLowConfidenceCount: 0,
+      rangeRepInvalidCount: 0,
       currentBodyLineAngle: currentBodyLineAngle,
       currentArmSupportAngle: currentArmSupportAngle,
       currentLegExtensionAngle: currentLegExtensionAngle,
-      currentTorsoAngle: currentTorsoAngle,
-      currentDepthMetric: currentDepthMetric,
-      currentAlignmentMetric: currentAlignmentMetric,
-      currentStabilityMetric: currentStabilityMetric,
-      currentLockoutMetric: currentLockoutMetric,
-      currentBottomControlMetric: currentBottomControlMetric,
-      hasBodyLineAngle: hasBodyLineAngle,
-      hasArmSupportAngle: hasArmSupportAngle,
-      hasLegExtensionAngle: hasLegExtensionAngle,
+      hasBodyLineAngle: currentBodyLineAngle != null,
+      hasArmSupportAngle: currentArmSupportAngle != null,
+      hasLegExtensionAngle: currentLegExtensionAngle != null,
     );
-  }
-
-  AnalysisFrame _applyFormThresholdResolution(
-    AnalysisFrame frame,
-    RangeRepThresholdResolution? resolution,
-  ) {
-    final offsetCandidate = resolution?.offsetCandidate;
-    if (resolution == null ||
-        !resolution.isApplied ||
-        offsetCandidate == null) {
-      return frame;
-    }
-
-    return AnalysisFrame(
-      primaryMetric: frame.primaryMetric,
-      formMetric: frame.formMetric - offsetCandidate,
-      bodyLineAngle: frame.bodyLineAngle,
-      armSupportAngle: frame.armSupportAngle,
-      legExtensionAngle: frame.legExtensionAngle,
-    );
-  }
-
-  void _updateSessionCalibrationBaseline(CalibrationSnapshot snapshot) {
-    if (!_sessionCalibrationBaselineAccumulator.addIfAccepted(snapshot)) {
-      return;
-    }
-
-    _sessionCalibrationBaseline =
-        _sessionCalibrationBaselineAccumulator.baseline;
-  }
-
-  RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
-    if (_engine is RangeRepDiagnostics) {
-      return (_engine as RangeRepDiagnostics).diagnosticsSnapshot;
-    }
-
-    return const RangeRepDiagnosticsSnapshot();
-  }
-
-  void _trackRangeRepRepContext({
-    required RangeRepDiagnosticsSnapshot diagnostics,
-    required RangeRepSide? selectedSide,
-    bool markCoverageDrop = false,
-  }) {
-    _rangeRepRepOutcomeTracker.trackRepContext(
-      engineKind: _engineKind,
-      diagnostics: diagnostics,
-      selectedSideLabel: _rangeRepSideLabel(selectedSide),
-      markCoverageDrop: markCoverageDrop,
-    );
-  }
-
-  RangeRepCompletedRepCoreData? _consumeCompletedRepCoreData() {
-    if (_engine is! RangeRepValidationHook) {
-      return null;
-    }
-
-    return (_engine as RangeRepValidationHook).consumeCompletedRepCoreData();
-  }
-
-  bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {
-    return diagnostics.hasRepContext;
-  }
-
-  void _clearRangeRepActiveContext({String? reason}) {
-    if (_engine is RangeRepResyncControl) {
-      (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
-    }
-  }
-
-  void _beginBriefVisibilityGap(RangeRepDiagnosticsSnapshot diagnostics) {
-    final shouldTrackBriefGap =
-        _hasAcceptedPoseForAnalysis ||
-        diagnostics.hasRepContext ||
-        _selectedRangeRepSide != null;
-    if (shouldTrackBriefGap) {
-      _briefGapFrozenRangeRepSide = _selectedRangeRepSide;
-      if (_engine is RangeRepVisibilityGapControl) {
-        (_engine as RangeRepVisibilityGapControl).beginBriefVisibilityGap();
-      }
-    } else if (diagnostics.isAwaitingNeutralConfirmation) {
-      _clearRangeRepActiveContext(
-        reason: 'invalid frame while awaiting neutral',
-      );
-    }
-    if (_isDiagnosticsEnabled && shouldTrackBriefGap) {
-      _diagnostics.recordBriefOcclusion();
-    }
   }
 
   void _beginHoldVisibilityGap() {
@@ -1833,46 +1013,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return (_engine as HoldVisibilityGapControl).resumeAfterVisibilityGap();
   }
 
-  VisibilityGapResumeResult _resumeBriefVisibilityGap(AnalysisFrame frame) {
-    if (_engine is! RangeRepVisibilityGapControl) {
-      return const VisibilityGapResumeResult(
-        disposition: VisibilityGapResumeDisposition.noGap,
-      );
-    }
-
-    return (_engine as RangeRepVisibilityGapControl)
-        .resumeAfterBriefVisibilityGap(frame);
-  }
-
-  void _recordSelectedSideForDiagnostics(
-    RangeRepDiagnosticsSnapshot diagnostics,
-  ) {
-    if (!_isDiagnosticsEnabled) {
-      return;
-    }
-
-    _diagnostics.recordSelectedSide(
-      selectedSide: _rangeRepSideLabel(
-        _briefGapFrozenRangeRepSide ?? _selectedRangeRepSide,
-      ),
-      hasActiveRepContext: _isRangeRepRepContextActive(diagnostics),
-    );
-  }
-
   void handleLifecycleInterruption({String? reason}) {
     if (_engineKind == EngineKind.rangeRep) {
-      _resetRangeRepVisibilityResyncState(
-        reason: reason ?? 'lifecycle interruption',
-        resetPoseAcceptance: true,
-        resetVisibilityPolicy: true,
-      );
-      state = state.copyWith(
-        repCount: _engine.repCount,
-        isFormBad: _engine.isFormBad,
-        lastRepScore: _engine.lastRepScore,
-        lastRepROM: _engine.maxRom,
-        feedbackMessage: _resolvedEngineFeedbackMessage(),
-        currentPhase: _engine.phaseLabel,
+      _poseAcceptanceStabilizer.reset();
+      _publishRangeRepState(
+        _rangeRepCoordinatorOrThrow().handleLifecycleInterruption(
+          reason: reason ?? 'lifecycle interruption',
+        ),
       );
       _updateDiagnosticsFromState();
       return;
@@ -1886,7 +1033,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       (_engine as HoldInterruptionControl).endActiveHoldForInterruption();
     }
     _poseAcceptanceStabilizer.reset();
-    _hasAcceptedPoseForAnalysis = false;
+    _hasAcceptedHoldPoseForAnalysis = false;
     _resetHoldMetricFilters();
     _resetHoldSideSelection();
     final holdDiagnostics = _holdDiagnosticsSnapshot();
@@ -1911,44 +1058,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _legFilter.reset();
   }
 
-  void _resetRangeRepVisibilityResyncState({
-    String? reason,
-    bool resetPoseAcceptance = false,
-    bool resetVisibilityPolicy = false,
-  }) {
-    _clearRangeRepActiveContext(reason: reason);
-    _angleFilter.reset();
-    _backFilter.reset();
-    // Force side selection to be reacquired from fresh post-resync coverage.
-    _selectedRangeRepSide = null;
-    _briefGapFrozenRangeRepSide = null;
-    _rangeRepSideStabilizer.reset();
-    _rangeRepRepOutcomeTracker.resetRepContext();
-    if (resetPoseAcceptance) {
-      _poseAcceptanceStabilizer.reset();
-    }
-    if (resetVisibilityPolicy) {
-      _rangeRepVisibilityPolicy.reset();
-    }
-  }
-
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
     if (_engine is HoldDiagnostics) {
       return (_engine as HoldDiagnostics).diagnosticsSnapshot;
     }
 
     return const HoldDiagnosticsSnapshot();
-  }
-
-  String? _rangeRepSideLabel(RangeRepSide? side) {
-    switch (side) {
-      case RangeRepSide.left:
-        return 'left';
-      case RangeRepSide.right:
-        return 'right';
-      case null:
-        return null;
-    }
   }
 }
 

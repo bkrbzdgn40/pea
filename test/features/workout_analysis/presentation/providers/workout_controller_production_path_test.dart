@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_acceptance_stabilizer.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart'
     show PoseQualityAssessment;
+import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -271,6 +272,94 @@ void main() {
       expect(json['hold_are_legs_extended'], isNull);
       expect(json['hold_is_form_break_grace_active'], isNull);
       expect(json['hold_is_visibility_suspended'], isNull);
+    });
+
+    test('range-rep production path delegates through RangeRepCoordinator and '
+        'keeps the real engine outcome', () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      late _SpyRangeRepCoordinator spyCoordinator;
+      final harness = _createHarness(
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        detector: detector,
+        clock: clock,
+        extraOverrides: <Override>[
+          rangeRepCoordinatorFactoryProvider.overrideWithValue(({
+            required engine,
+            required config,
+            required rangeRepContract,
+          }) {
+            spyCoordinator = _SpyRangeRepCoordinator(
+              inner: DefaultRangeRepCoordinator(
+                engine: engine,
+                config: config,
+                rangeRepContract: rangeRepContract,
+              ),
+            );
+            return spyCoordinator;
+          }),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await _pumpAcceptedPose(
+        harness.controller,
+        detector,
+        clock,
+        _squatPose(angle: 170),
+        count: 3,
+        spacing: const Duration(milliseconds: 120),
+      );
+      await _driveUntilPhase(
+        harness.controller,
+        detector,
+        clock,
+        _squatPose(angle: 140),
+        expectedPhase: 'DESCENDING',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        harness.controller,
+        detector,
+        clock,
+        _squatPose(angle: 90),
+        expectedPhase: 'PEAK',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        harness.controller,
+        detector,
+        clock,
+        _squatPose(angle: 110),
+        expectedPhase: 'ASCENDING',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        harness.controller,
+        detector,
+        clock,
+        _squatPose(angle: 170),
+        expectedPhase: 'NEUTRAL',
+        spacing: const Duration(milliseconds: 120),
+      );
+
+      final state = harness.container.read(workoutControllerProvider);
+
+      expect(spyCoordinator.processFrameCallCount, greaterThan(0));
+      expect(
+        spyCoordinator.lastProcessFrameResult?.stateSnapshot.repCount,
+        equals(1),
+      );
+      expect(state.repCount, 1);
+      expect(
+        state.calibrationMetrics.lastRangeRepValidationStatus,
+        equals('valid'),
+      );
+      expect(
+        state.calibrationMetrics.lastRangeRepSummaryCompletedPhaseSequence,
+        isTrue,
+      );
     });
 
     test(
@@ -693,6 +782,65 @@ void main() {
       expect(snapshot.activeRepSideSwitchCount, 0);
       expect(snapshot.briefOcclusionRecoveryCount, 0);
       expect(snapshot.currentVisibilityStatus, 'brief_freeze');
+    });
+
+    test('range-rep lifecycle interruption delegates to the coordinator and '
+        'forces fresh neutral reacquisition', () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      late _SpyRangeRepCoordinator spyCoordinator;
+      final harness = _createHarness(
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        detector: detector,
+        clock: clock,
+        extraOverrides: <Override>[
+          rangeRepCoordinatorFactoryProvider.overrideWithValue(({
+            required engine,
+            required config,
+            required rangeRepContract,
+          }) {
+            spyCoordinator = _SpyRangeRepCoordinator(
+              inner: DefaultRangeRepCoordinator(
+                engine: engine,
+                config: config,
+                rangeRepContract: rangeRepContract,
+              ),
+            );
+            return spyCoordinator;
+          }),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await _establishActiveLeftRepContext(harness.controller, detector, clock);
+
+      harness.controller.handleLifecycleInterruption(reason: 'paused');
+
+      var state = harness.container.read(workoutControllerProvider);
+
+      expect(spyCoordinator.handleLifecycleInterruptionCallCount, 1);
+      expect(spyCoordinator.diagnosticsState().selectedSideLabel, isNull);
+      expect(spyCoordinator.diagnosticsState().hasActiveRepContext, isFalse);
+      expect(state.repCount, 0);
+      expect(state.currentPhase, 'AWAITING_NEUTRAL');
+
+      await _analyzeFrame(harness.controller, detector, <Pose>[
+        _squatPose(angle: 90),
+      ]);
+      state = harness.container.read(workoutControllerProvider);
+
+      expect(state.repCount, 0);
+      expect(state.currentPhase, 'WAITING');
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(harness.controller, detector, <Pose>[
+        _squatPose(angle: 90),
+      ]);
+      state = harness.container.read(workoutControllerProvider);
+
+      expect(state.repCount, 0);
+      expect(state.currentPhase, 'AWAITING_NEUTRAL');
     });
   });
 
@@ -1631,6 +1779,52 @@ class _SpyWorkoutFramePosePipeline extends WorkoutFramePosePipeline {
       lastAssessedPoseQuality = assessPose(result.selectedPose!);
     }
     return result;
+  }
+}
+
+class _SpyRangeRepCoordinator implements RangeRepCoordinator {
+  _SpyRangeRepCoordinator({required this.inner});
+
+  final RangeRepCoordinator inner;
+
+  int processFrameCallCount = 0;
+  int handleLifecycleInterruptionCallCount = 0;
+  RangeRepCoordinatorFrameResult? lastProcessFrameResult;
+  RangeRepCoordinatorStateSnapshot? lastLifecycleSnapshot;
+
+  @override
+  RangeRepCoordinatorStateSnapshot handleLifecycleInterruption({
+    String? reason,
+  }) {
+    handleLifecycleInterruptionCallCount += 1;
+    lastLifecycleSnapshot = inner.handleLifecycleInterruption(reason: reason);
+    return lastLifecycleSnapshot!;
+  }
+
+  @override
+  RangeRepCoordinatorDiagnosticsState diagnosticsState() {
+    return inner.diagnosticsState();
+  }
+
+  @override
+  RangeRepCoordinatorFrameResult processFrame({
+    required ExerciseMetrics metrics,
+    required DateTime now,
+    required bool isAcceptedPoseFrame,
+    required bool didBecomeStableTracking,
+    required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+    required RangeRepSide? preferredRangeRepSide,
+  }) {
+    processFrameCallCount += 1;
+    lastProcessFrameResult = inner.processFrame(
+      metrics: metrics,
+      now: now,
+      isAcceptedPoseFrame: isAcceptedPoseFrame,
+      didBecomeStableTracking: didBecomeStableTracking,
+      qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
+    );
+    return lastProcessFrameResult!;
   }
 }
 
