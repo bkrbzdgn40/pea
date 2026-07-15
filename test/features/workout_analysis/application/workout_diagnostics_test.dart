@@ -27,6 +27,9 @@ void main() {
     expect(snapshot.rangeRepDiagnostics, isNull);
     expect(snapshot.holdDiagnostics, isNull);
     expect(snapshot.repCount, isNull);
+    expect(snapshot.currentHoldSeconds, isNull);
+    expect(snapshot.bestHoldSeconds, isNull);
+    expect(snapshot.isHolding, isNull);
     expect(snapshot.presentedHoldFeedbackCode, isNull);
     expect(snapshot.engineHoldFeedbackCode, isNull);
     expect(snapshot.holdEnginePhase, isNull);
@@ -129,15 +132,21 @@ void main() {
       expect(snapshot.activeRepSideSwitchCount, 1);
       expect(snapshot.currentSelectedSide, 'left');
       expect(snapshot.repCount, 3);
+      expect(snapshot.currentHoldSeconds, 0);
+      expect(snapshot.bestHoldSeconds, 0);
       expect(snapshot.currentPhase, 'ASCENDING');
+      expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
       expect(json['schema_version'], 3);
       expect(json['rep_count'], 3);
+      expect(json['current_hold_seconds'], 0);
+      expect(json['best_hold_seconds'], 0);
+      expect(json['is_holding'], isFalse);
       expect(json['current_phase'], 'ASCENDING');
       expect(json['current_selected_side'], 'left');
       expect(json['last_calibration_offset_degrees'], 2.5);
-      expect(json['current_hold_seconds'], isNull);
+      expect(json['presented_hold_feedback_code'], isNull);
       expect(json['engine_hold_feedback_code'], isNull);
     },
   );
@@ -176,7 +185,7 @@ void main() {
     expect(snapshot.holdDiagnostics, isNotNull);
     expect(snapshot.sideSwitchCount, 0);
     expect(snapshot.currentSelectedSide, isNull);
-    expect(snapshot.repCount, isNull);
+    expect(snapshot.repCount, 0);
     expect(snapshot.currentHoldSeconds, 4);
     expect(snapshot.bestHoldSeconds, 7);
     expect(snapshot.currentPhase, 'HOLDING');
@@ -194,7 +203,7 @@ void main() {
     expect(snapshot.isHoldVisibilitySuspended, isFalse);
     final json = snapshot.toJson();
     expect(json['schema_version'], 3);
-    expect(json['rep_count'], isNull);
+    expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
     expect(json['current_phase'], 'HOLDING');
@@ -290,6 +299,8 @@ void main() {
     expect(json['side_switch_count'], 0);
     expect(json['active_rep_side_switch_count'], 0);
     expect(json['rep_count'], isNull);
+    expect(json['current_hold_seconds'], isNull);
+    expect(json['best_hold_seconds'], isNull);
     expect(json['is_holding'], isNull);
     expect(json['presented_hold_feedback_code'], isNull);
     expect(json['engine_hold_feedback_code'], isNull);

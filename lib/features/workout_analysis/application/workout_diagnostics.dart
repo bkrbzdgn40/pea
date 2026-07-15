@@ -179,16 +179,48 @@ class WorkoutDiagnosticsSnapshot {
   double? get lastCalibrationOffsetDegrees =>
       rangeRepDiagnostics?.lastCalibrationOffsetDegrees;
 
-  int? get repCount => rangeRepDiagnostics?.repCount;
+  int? get repCount {
+    if (rangeRepDiagnostics != null) {
+      return rangeRepDiagnostics!.repCount;
+    }
+    if (holdDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
 
-  int? get currentHoldSeconds => holdDiagnostics?.currentHoldSeconds;
+  int? get currentHoldSeconds {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.currentHoldSeconds;
+    }
+    if (rangeRepDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
 
-  int? get bestHoldSeconds => holdDiagnostics?.bestHoldSeconds;
+  int? get bestHoldSeconds {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.bestHoldSeconds;
+    }
+    if (rangeRepDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
 
   String? get currentPhase =>
       rangeRepDiagnostics?.currentPhase ?? holdDiagnostics?.currentPhase;
 
-  bool? get isHolding => holdDiagnostics?.isHolding;
+  bool? get isHolding {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.isHolding;
+    }
+    if (rangeRepDiagnostics != null) {
+      return false;
+    }
+    return null;
+  }
 
   HoldFeedbackCode? get presentedHoldFeedbackCode =>
       holdDiagnostics?.presentedHoldFeedbackCode;
