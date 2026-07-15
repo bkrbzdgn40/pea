@@ -13,6 +13,16 @@ void main() {
     WidgetTester tester,
   ) async {
     final completer = Completer<GoalsState>();
+    addTearDown(() {
+      if (!completer.isCompleted) {
+        completer.complete(
+          const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        );
+      }
+    });
 
     await pumpTestApp(
       tester,
@@ -32,7 +42,7 @@ void main() {
       home: const GoalsScreen(),
       overrides: [
         goalsProvider.overrideWith(
-          (ref) => Future<GoalsState>.error(Exception('boom')),
+          (ref) => Future<GoalsState>.sync(() => throw Exception('boom')),
         ),
       ],
     );

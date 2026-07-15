@@ -13,6 +13,16 @@ void main() {
     'shows the shared loading state while achievements are unresolved',
     (WidgetTester tester) async {
       final completer = Completer<AchievementsState>();
+      addTearDown(() {
+        if (!completer.isCompleted) {
+          completer.complete(
+            const AchievementsState(
+              source: AchievementsDataSource.real,
+              achievements: <Achievement>[],
+            ),
+          );
+        }
+      });
 
       await pumpTestApp(
         tester,
@@ -35,7 +45,8 @@ void main() {
       home: const AchievementsScreen(),
       overrides: [
         achievementsProvider.overrideWith(
-          (ref) => Future<AchievementsState>.error(Exception('boom')),
+          (ref) =>
+              Future<AchievementsState>.sync(() => throw Exception('boom')),
         ),
       ],
     );
