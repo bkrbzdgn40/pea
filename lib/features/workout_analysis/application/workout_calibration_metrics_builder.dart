@@ -11,7 +11,7 @@ import 'workout_state.dart';
 class WorkoutCalibrationMetricsBuilder {
   const WorkoutCalibrationMetricsBuilder();
 
-  WorkoutCalibrationMetrics build({
+  WorkoutCalibrationMetrics buildRangeRep({
     required double currentFormMetric,
     required double thresholdValue,
     required RangeRepDiagnosticsSnapshot diagnostics,
@@ -68,145 +68,175 @@ class WorkoutCalibrationMetricsBuilder {
     bool hasArmSupportAngle = false,
     bool hasLegExtensionAngle = false,
   }) {
-    return WorkoutCalibrationMetrics(
-      currentBackAngle: currentFormMetric,
-      formThreshold: thresholdValue,
-      isRangeRepFrameValid: isRangeRepFrameValid,
-      hasPrimaryAngle: hasPrimaryAngle,
-      hasFormMetric: hasFormMetric,
-      rangeRepInvalidReason: rangeRepInvalidReason?.debugLabel,
-      selectedRangeRepSide: selectedRangeRepSide,
-      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
-      rangeRepSideHysteresisStatus: rangeRepSideHysteresisStatus,
-      rangeRepSideConsistencyStatus: rangeRepSideConsistencyStatus,
-      leftRangeRepCoverage: leftRangeRepCoverage,
-      rightRangeRepCoverage: rightRangeRepCoverage,
-      leftRangeRepSideConfidence: leftRangeRepSideConfidence,
-      rightRangeRepSideConfidence: rightRangeRepSideConfidence,
-      currentBodyLineAngle: currentBodyLineAngle,
-      currentArmSupportAngle: currentArmSupportAngle,
-      currentLegExtensionAngle: currentLegExtensionAngle,
-      currentTorsoAngle: currentTorsoAngle,
-      currentDepthMetric: currentDepthMetric,
-      currentAlignmentMetric: currentAlignmentMetric,
-      currentStabilityMetric: currentStabilityMetric,
-      currentLockoutMetric: currentLockoutMetric,
-      currentBottomControlMetric: currentBottomControlMetric,
-      hasBodyLineAngle: hasBodyLineAngle,
-      hasArmSupportAngle: hasArmSupportAngle,
-      hasLegExtensionAngle: hasLegExtensionAngle,
-      currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
-      currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
-      rangeRepPhaseGateStatus: diagnostics.phaseGateStatus,
-      rangeRepPendingTransition: diagnostics.pendingTransitionLabel,
-      rangeRepLastConfirmedTransition: diagnostics.lastConfirmedTransitionLabel,
-      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
-      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
-      rangeRepResyncTriggered: rangeRepResyncTriggered,
-      rangeRepResyncReason: rangeRepResyncReason,
-      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
-      descendingPhaseDurationMs: diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.durationMs
-          : null,
-      peakPhaseDurationMs: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.durationMs
-          : null,
-      ascendingPhaseDurationMs: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.durationMs
-          : null,
-      descendingPhaseWorstFormMetric: diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.worstFormMetric
-          : null,
-      peakPhaseWorstFormMetric: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.worstFormMetric
-          : null,
-      ascendingPhaseWorstFormMetric: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.worstFormMetric
-          : null,
-      descendingPhaseHadFormViolation:
-          diagnostics.descendingPhaseQuality.hasData
-          ? diagnostics.descendingPhaseQuality.hadFormViolation
-          : false,
-      peakPhaseHadFormViolation: diagnostics.peakPhaseQuality.hasData
-          ? diagnostics.peakPhaseQuality.hadFormViolation
-          : false,
-      ascendingPhaseHadFormViolation: diagnostics.ascendingPhaseQuality.hasData
-          ? diagnostics.ascendingPhaseQuality.hadFormViolation
-          : false,
-      descendingPhaseStatus:
-          diagnostics.descendingPhaseAssessment.status.debugLabel,
-      peakPhaseStatus: diagnostics.peakPhaseAssessment.status.debugLabel,
-      ascendingPhaseStatus:
-          diagnostics.ascendingPhaseAssessment.status.debugLabel,
-      descendingPhaseIssues: diagnostics.descendingPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      peakPhaseIssues: diagnostics.peakPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      ascendingPhaseIssues: diagnostics.ascendingPhaseAssessment.issues
-          .map((issue) => issue.debugLabel)
-          .toList(growable: false),
-      phaseQualityPenalty: lastBreakdown?.phaseQualityPenalty,
-      phaseAdjustedScore: lastBreakdown?.phaseAdjustedScore,
-      phaseFeedbackCandidate: diagnostics.phaseFeedbackCandidate,
-      hasLastRangeRepValidation: lastValidationResult != null,
-      lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
-      lastRangeRepValidationReasons: lastValidationResult == null
-          ? const <String>[]
-          : lastValidationResult.reasons
-                .map((reason) => reason.debugLabel)
-                .toList(growable: false),
-      lastRangeRepValidatedRepIndex: lastRangeRepValidatedRepIndex,
-      rangeRepValidatedCount: rangeRepValidatedCount,
-      rangeRepLowConfidenceCount: rangeRepLowConfidenceCount,
-      rangeRepInvalidCount: rangeRepInvalidCount,
-      hasLastRangeRepSummary: lastSummaryCandidate != null,
-      lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
-      lastRangeRepSummaryWorstFormMetric: lastSummaryCandidate?.worstFormMetric,
-      lastRangeRepSummaryDescentMillis:
-          lastSummaryCandidate?.descentDuration.inMilliseconds,
-      lastRangeRepSummaryAscentMillis:
-          lastSummaryCandidate?.ascentDuration.inMilliseconds,
-      lastRangeRepSummaryHadFormViolation:
-          lastSummaryCandidate?.hadFormViolation ?? false,
-      lastRangeRepSummaryHadCoverageDrop:
-          lastSummaryCandidate?.hadCoverageDrop ?? false,
-      lastRangeRepSummarySwitchedSideDuringRep:
-          lastSummaryCandidate?.switchedSideDuringRep ?? false,
-      lastRangeRepSummaryCompletedPhaseSequence:
-          lastSummaryCandidate?.completedPhaseSequence ?? false,
-      lastRangeRepSummarySelectedSideLabel:
-          lastSummaryCandidate?.selectedSideLabel,
-      hasLastRepBreakdown: lastBreakdown != null,
-      lastRepRomScore: lastBreakdown?.romScore ?? 0,
-      lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
-      lastRepAscentScore: lastBreakdown?.ascentScore ?? 0,
-      lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
-      lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
-      calibrationSnapshot: calibrationSnapshot,
-      baseFormThreshold: baseFormThreshold,
-      effectiveFormThreshold: effectiveFormThreshold ?? thresholdValue,
-      calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
-      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
-      calibrationThresholdOffsetFallbackReason:
-          calibrationThresholdOffsetFallbackReason,
-      calibrationThresholdOffsetSampleCount:
-          calibrationThresholdOffsetSampleCount,
-      calibrationThresholdOffsetBaselineSideLabel:
-          calibrationThresholdOffsetBaselineSideLabel,
-      calibrationThresholdDecisionCount: calibrationThresholdDecisionCount,
-      calibrationThresholdAppliedCount: calibrationThresholdAppliedCount,
-      calibrationThresholdNoBaselineCount: calibrationThresholdNoBaselineCount,
-      calibrationThresholdInsufficientSamplesCount:
-          calibrationThresholdInsufficientSamplesCount,
-      calibrationThresholdMissingFormBaselineCount:
-          calibrationThresholdMissingFormBaselineCount,
-      calibrationThresholdSideMismatchCount:
-          calibrationThresholdSideMismatchCount,
-      calibrationThresholdOffsetTooSmallCount:
-          calibrationThresholdOffsetTooSmallCount,
-      sessionCalibrationBaselineCandidate: sessionCalibrationBaselineCandidate,
+    return WorkoutCalibrationMetrics.rangeRep(
+      payload: RangeRepWorkoutCalibrationMetrics(
+        currentBackAngle: currentFormMetric,
+        formThreshold: thresholdValue,
+        isRangeRepFrameValid: isRangeRepFrameValid,
+        hasPrimaryAngle: hasPrimaryAngle,
+        hasFormMetric: hasFormMetric,
+        rangeRepInvalidReason: rangeRepInvalidReason?.debugLabel,
+        selectedRangeRepSide: selectedRangeRepSide,
+        rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+        rangeRepSideHysteresisStatus: rangeRepSideHysteresisStatus,
+        rangeRepSideConsistencyStatus: rangeRepSideConsistencyStatus,
+        leftRangeRepCoverage: leftRangeRepCoverage,
+        rightRangeRepCoverage: rightRangeRepCoverage,
+        leftRangeRepSideConfidence: leftRangeRepSideConfidence,
+        rightRangeRepSideConfidence: rightRangeRepSideConfidence,
+        currentBodyLineAngle: currentBodyLineAngle,
+        currentArmSupportAngle: currentArmSupportAngle,
+        currentLegExtensionAngle: currentLegExtensionAngle,
+        currentTorsoAngle: currentTorsoAngle,
+        currentDepthMetric: currentDepthMetric,
+        currentAlignmentMetric: currentAlignmentMetric,
+        currentStabilityMetric: currentStabilityMetric,
+        currentLockoutMetric: currentLockoutMetric,
+        currentBottomControlMetric: currentBottomControlMetric,
+        hasBodyLineAngle: hasBodyLineAngle,
+        hasArmSupportAngle: hasArmSupportAngle,
+        hasLegExtensionAngle: hasLegExtensionAngle,
+        currentRepWorstBackAngle: diagnostics.currentRepWorstBackAngle,
+        currentRepHadFormViolation: diagnostics.currentRepHadFormViolation,
+        rangeRepPhaseGateStatus: diagnostics.phaseGateStatus,
+        rangeRepPendingTransition: diagnostics.pendingTransitionLabel,
+        rangeRepLastConfirmedTransition:
+            diagnostics.lastConfirmedTransitionLabel,
+        rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
+        rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
+        rangeRepResyncTriggered: rangeRepResyncTriggered,
+        rangeRepResyncReason: rangeRepResyncReason,
+        rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+        descendingPhaseDurationMs: diagnostics.descendingPhaseQuality.hasData
+            ? diagnostics.descendingPhaseQuality.durationMs
+            : null,
+        peakPhaseDurationMs: diagnostics.peakPhaseQuality.hasData
+            ? diagnostics.peakPhaseQuality.durationMs
+            : null,
+        ascendingPhaseDurationMs: diagnostics.ascendingPhaseQuality.hasData
+            ? diagnostics.ascendingPhaseQuality.durationMs
+            : null,
+        descendingPhaseWorstFormMetric:
+            diagnostics.descendingPhaseQuality.hasData
+            ? diagnostics.descendingPhaseQuality.worstFormMetric
+            : null,
+        peakPhaseWorstFormMetric: diagnostics.peakPhaseQuality.hasData
+            ? diagnostics.peakPhaseQuality.worstFormMetric
+            : null,
+        ascendingPhaseWorstFormMetric: diagnostics.ascendingPhaseQuality.hasData
+            ? diagnostics.ascendingPhaseQuality.worstFormMetric
+            : null,
+        descendingPhaseHadFormViolation:
+            diagnostics.descendingPhaseQuality.hasData
+            ? diagnostics.descendingPhaseQuality.hadFormViolation
+            : false,
+        peakPhaseHadFormViolation: diagnostics.peakPhaseQuality.hasData
+            ? diagnostics.peakPhaseQuality.hadFormViolation
+            : false,
+        ascendingPhaseHadFormViolation:
+            diagnostics.ascendingPhaseQuality.hasData
+            ? diagnostics.ascendingPhaseQuality.hadFormViolation
+            : false,
+        descendingPhaseStatus:
+            diagnostics.descendingPhaseAssessment.status.debugLabel,
+        peakPhaseStatus: diagnostics.peakPhaseAssessment.status.debugLabel,
+        ascendingPhaseStatus:
+            diagnostics.ascendingPhaseAssessment.status.debugLabel,
+        descendingPhaseIssues: diagnostics.descendingPhaseAssessment.issues
+            .map((issue) => issue.debugLabel)
+            .toList(growable: false),
+        peakPhaseIssues: diagnostics.peakPhaseAssessment.issues
+            .map((issue) => issue.debugLabel)
+            .toList(growable: false),
+        ascendingPhaseIssues: diagnostics.ascendingPhaseAssessment.issues
+            .map((issue) => issue.debugLabel)
+            .toList(growable: false),
+        phaseQualityPenalty: lastBreakdown?.phaseQualityPenalty,
+        phaseAdjustedScore: lastBreakdown?.phaseAdjustedScore,
+        phaseFeedbackCandidate: diagnostics.phaseFeedbackCandidate,
+        hasLastRangeRepValidation: lastValidationResult != null,
+        lastRangeRepValidationStatus: lastValidationResult?.status.debugLabel,
+        lastRangeRepValidationReasons: lastValidationResult == null
+            ? const <String>[]
+            : lastValidationResult.reasons
+                  .map((reason) => reason.debugLabel)
+                  .toList(growable: false),
+        lastRangeRepValidatedRepIndex: lastRangeRepValidatedRepIndex,
+        rangeRepValidatedCount: rangeRepValidatedCount,
+        rangeRepLowConfidenceCount: rangeRepLowConfidenceCount,
+        rangeRepInvalidCount: rangeRepInvalidCount,
+        hasLastRangeRepSummary: lastSummaryCandidate != null,
+        lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
+        lastRangeRepSummaryWorstFormMetric:
+            lastSummaryCandidate?.worstFormMetric,
+        lastRangeRepSummaryDescentMillis:
+            lastSummaryCandidate?.descentDuration.inMilliseconds,
+        lastRangeRepSummaryAscentMillis:
+            lastSummaryCandidate?.ascentDuration.inMilliseconds,
+        lastRangeRepSummaryHadFormViolation:
+            lastSummaryCandidate?.hadFormViolation ?? false,
+        lastRangeRepSummaryHadCoverageDrop:
+            lastSummaryCandidate?.hadCoverageDrop ?? false,
+        lastRangeRepSummarySwitchedSideDuringRep:
+            lastSummaryCandidate?.switchedSideDuringRep ?? false,
+        lastRangeRepSummaryCompletedPhaseSequence:
+            lastSummaryCandidate?.completedPhaseSequence ?? false,
+        lastRangeRepSummarySelectedSideLabel:
+            lastSummaryCandidate?.selectedSideLabel,
+        hasLastRepBreakdown: lastBreakdown != null,
+        lastRepRomScore: lastBreakdown?.romScore ?? 0,
+        lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
+        lastRepAscentScore: lastBreakdown?.ascentScore ?? 0,
+        lastRepWorstBackAngle: lastBreakdown?.worstBackAngle ?? 0,
+        lastRepHadFormViolation: lastBreakdown?.hadFormViolation ?? false,
+        calibrationSnapshot: calibrationSnapshot,
+        baseFormThreshold: baseFormThreshold,
+        effectiveFormThreshold: effectiveFormThreshold ?? thresholdValue,
+        calibrationThresholdOffsetCandidate:
+            calibrationThresholdOffsetCandidate,
+        calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
+        calibrationThresholdOffsetFallbackReason:
+            calibrationThresholdOffsetFallbackReason,
+        calibrationThresholdOffsetSampleCount:
+            calibrationThresholdOffsetSampleCount,
+        calibrationThresholdOffsetBaselineSideLabel:
+            calibrationThresholdOffsetBaselineSideLabel,
+        calibrationThresholdDecisionCount: calibrationThresholdDecisionCount,
+        calibrationThresholdAppliedCount: calibrationThresholdAppliedCount,
+        calibrationThresholdNoBaselineCount:
+            calibrationThresholdNoBaselineCount,
+        calibrationThresholdInsufficientSamplesCount:
+            calibrationThresholdInsufficientSamplesCount,
+        calibrationThresholdMissingFormBaselineCount:
+            calibrationThresholdMissingFormBaselineCount,
+        calibrationThresholdSideMismatchCount:
+            calibrationThresholdSideMismatchCount,
+        calibrationThresholdOffsetTooSmallCount:
+            calibrationThresholdOffsetTooSmallCount,
+        sessionCalibrationBaselineCandidate:
+            sessionCalibrationBaselineCandidate,
+      ),
+    );
+  }
+
+  WorkoutCalibrationMetrics buildHold({
+    required double currentFormMetric,
+    required double thresholdValue,
+    double? currentBodyLineAngle,
+    double? currentArmSupportAngle,
+    double? currentLegExtensionAngle,
+  }) {
+    return WorkoutCalibrationMetrics.hold(
+      payload: HoldWorkoutCalibrationMetrics(
+        currentBackAngle: currentFormMetric,
+        formThreshold: thresholdValue,
+        currentBodyLineAngle: currentBodyLineAngle,
+        currentArmSupportAngle: currentArmSupportAngle,
+        currentLegExtensionAngle: currentLegExtensionAngle,
+        hasBodyLineAngle: currentBodyLineAngle != null,
+        hasArmSupportAngle: currentArmSupportAngle != null,
+        hasLegExtensionAngle: currentLegExtensionAngle != null,
+      ),
     );
   }
 }

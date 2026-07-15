@@ -68,23 +68,20 @@ class RangeRepBlockedStateBuilder {
       selectedRangeRepSide: selectedRangeRepSide,
     );
 
-    return WorkoutState(
+    return WorkoutState.rangeRep(
       landmarks: metrics.landmarks,
-      analysisKind: analysisKind,
-      repCount: currentState.repCount,
-      isFormBad: false,
-      currentAngle: preview.previewAngle,
-      lastRepScore: currentState.lastRepScore,
-      lastRepROM: currentState.lastRepROM,
-      currentHoldSeconds: currentState.currentHoldSeconds,
-      bestHoldSeconds: currentState.bestHoldSeconds,
-      isHolding: currentState.isHolding,
-      hadHoldFormBreak: currentState.hadHoldFormBreak,
       feedbackMessage: feedbackMessageOverride ?? assessment.feedbackMessage,
-      currentPhase: currentPhase,
       cameraFps: cameraFps,
       analysisFps: analysisFps,
-      calibrationMetrics: calibrationMetricsBuilder(preview),
+      analysis: RangeRepWorkoutAnalysisState(
+        repCount: currentState.repCount,
+        isFormBad: false,
+        currentAngle: preview.previewAngle,
+        lastRepScore: currentState.lastRepScore,
+        lastRepRom: currentState.lastRepROM,
+        currentPhase: currentPhase,
+        calibrationMetrics: calibrationMetricsBuilder(preview),
+      ),
     );
   }
 

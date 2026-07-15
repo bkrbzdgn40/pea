@@ -171,31 +171,34 @@ class WorkoutSessionLifecycleController
 
   @override
   void collect(WorkoutState next) {
-    final repDelta = next.repCount - _lastObservedRepCount;
-    if (repDelta > 0) {
-      final collectedRep = _collectCompletedWorkoutRep(
-        next: next,
-        repDelta: repDelta,
-      );
-      final collectedScore = collectedRep?.score;
-      if (collectedScore != null) {
-        _repScoreSum += collectedScore;
-        _scoredRepCount += 1;
+    final rangeRepAnalysis = next.rangeRepAnalysis;
+    if (rangeRepAnalysis != null) {
+      final repDelta = next.repCount - _lastObservedRepCount;
+      if (repDelta > 0) {
+        final collectedRep = _collectCompletedWorkoutRep(
+          next: next,
+          repDelta: repDelta,
+        );
+        final collectedScore = collectedRep?.score;
+        if (collectedScore != null) {
+          _repScoreSum += collectedScore;
+          _scoredRepCount += 1;
 
-        if (collectedScore > _bestScore) {
-          _bestScore = collectedScore;
+          if (collectedScore > _bestScore) {
+            _bestScore = collectedScore;
+          }
         }
       }
-    }
 
-    if (!_previousFormBad && next.isFormBad) {
-      _formWarningCount += 1;
+      if (!_previousFormBad && rangeRepAnalysis.isFormBad) {
+        _formWarningCount += 1;
+      }
     }
 
     _holdSessionCollector.collect(next);
 
-    _lastObservedRepCount = next.repCount;
-    _previousFormBad = next.isFormBad;
+    _lastObservedRepCount = rangeRepAnalysis?.repCount ?? 0;
+    _previousFormBad = rangeRepAnalysis?.isFormBad ?? false;
   }
 
   @override
@@ -306,7 +309,8 @@ class WorkoutSessionLifecycleController
     required WorkoutState next,
     required int repDelta,
   }) {
-    if (next.analysisKind != EngineKind.rangeRep) {
+    final rangeRepAnalysis = next.rangeRepAnalysis;
+    if (rangeRepAnalysis == null) {
       return null;
     }
 
@@ -321,8 +325,11 @@ class WorkoutSessionLifecycleController
     }
 
     final explicitRepIndex = metrics.lastRangeRepValidatedRepIndex;
-    final repIndex = explicitRepIndex ?? (repDelta == 1 ? next.repCount : null);
-    if (repIndex == null || repIndex < 1 || repIndex > next.repCount) {
+    final repIndex =
+        explicitRepIndex ?? (repDelta == 1 ? rangeRepAnalysis.repCount : null);
+    if (repIndex == null ||
+        repIndex < 1 ||
+        repIndex > rangeRepAnalysis.repCount) {
       return null;
     }
 
@@ -337,7 +344,7 @@ class WorkoutSessionLifecycleController
       validationReasons: metrics.hasLastRangeRepValidation
           ? List<String>.from(metrics.lastRangeRepValidationReasons)
           : const <String>[],
-      score: next.lastRepScore,
+      score: rangeRepAnalysis.lastRepScore,
       minPrimaryMetric: metrics.lastRangeRepSummaryMinAngle,
       worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
       descentMillis: metrics.lastRangeRepSummaryDescentMillis,

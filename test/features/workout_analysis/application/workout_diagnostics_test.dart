@@ -24,6 +24,12 @@ void main() {
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.rangeRepDiagnostics, isNull);
+    expect(snapshot.holdDiagnostics, isNull);
+    expect(snapshot.repCount, isNull);
+    expect(snapshot.currentHoldSeconds, isNull);
+    expect(snapshot.bestHoldSeconds, isNull);
+    expect(snapshot.isHolding, isNull);
     expect(snapshot.presentedHoldFeedbackCode, isNull);
     expect(snapshot.engineHoldFeedbackCode, isNull);
     expect(snapshot.holdEnginePhase, isNull);
@@ -104,23 +110,115 @@ void main() {
     expect(snapshot.resyncCount, 1);
   });
 
-  test('side assignment, repeat, null and real switches are distinguished', () {
-    final subject = accumulator()
-      ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: false)
-      ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true)
-      ..recordSelectedSide(selectedSide: null, hasActiveRepContext: true);
-    expect(subject.snapshot(now: startedAt).sideSwitchCount, 0);
-    expect(subject.snapshot(now: startedAt).currentSelectedSide, isNull);
+  test(
+    'range-rep diagnostics keep side assignment semantics inside range-rep payload',
+    () {
+      final subject = accumulator()
+        ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: false)
+        ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true)
+        ..recordSelectedSide(selectedSide: null, hasActiveRepContext: true)
+        ..recordSelectedSide(selectedSide: 'right', hasActiveRepContext: false)
+        ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true)
+        ..updateRangeRepState(
+          repCount: 3,
+          currentPhase: 'ASCENDING',
+          calibrationOffsetDegrees: 2.5,
+        );
 
-    subject.recordSelectedSide(
-      selectedSide: 'right',
-      hasActiveRepContext: false,
+      final snapshot = subject.snapshot(now: startedAt);
+      expect(snapshot.rangeRepDiagnostics, isNotNull);
+      expect(snapshot.holdDiagnostics, isNull);
+      expect(snapshot.sideSwitchCount, 1);
+      expect(snapshot.activeRepSideSwitchCount, 1);
+      expect(snapshot.currentSelectedSide, 'left');
+      expect(snapshot.repCount, 3);
+      expect(snapshot.currentHoldSeconds, 0);
+      expect(snapshot.bestHoldSeconds, 0);
+      expect(snapshot.currentPhase, 'ASCENDING');
+      expect(snapshot.isHolding, isFalse);
+      expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
+      final json = snapshot.toJson();
+      expect(json['schema_version'], 3);
+      expect(json['rep_count'], 3);
+      expect(json['current_hold_seconds'], 0);
+      expect(json['best_hold_seconds'], 0);
+      expect(json['is_holding'], isFalse);
+      expect(json['current_phase'], 'ASCENDING');
+      expect(json['current_selected_side'], 'left');
+      expect(json['last_calibration_offset_degrees'], 2.5);
+      expect(json['presented_hold_feedback_code'], isNull);
+      expect(json['engine_hold_feedback_code'], isNull);
+    },
+  );
+
+  test('hold diagnostics stay hold-owned and clear range-rep live payload', () {
+    const holdDiagnostics = HoldDiagnosticsSnapshot(
+      phase: HoldPhase.holding,
+      feedbackCode: HoldFeedbackCode.holdPosition,
+      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+        hasCompleteMetrics: true,
+        hasActivePosture: true,
+        isBodyAligned: true,
+        isArmSupported: true,
+        areLegsExtended: true,
+      ),
+      isFormBreakGraceActive: false,
+      isVisibilitySuspended: false,
     );
-    subject.recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true);
+    final subject = accumulator()
+      ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true)
+      ..updateRangeRepState(repCount: 2, currentPhase: 'PEAK')
+      ..updateLivePerformance(cameraFps: 30, analysisFps: 8)
+      ..updateHoldState(
+        currentHoldSeconds: 4,
+        bestHoldSeconds: 7,
+        currentPhase: 'HOLDING',
+        isHolding: true,
+        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
+        holdDiagnostics: holdDiagnostics,
+        currentHoldSide: HoldSide.right,
+      );
     final snapshot = subject.snapshot(now: startedAt);
-    expect(snapshot.sideSwitchCount, 1);
-    expect(snapshot.activeRepSideSwitchCount, 1);
-    expect(snapshot.currentSelectedSide, 'left');
+    expect(snapshot.currentCameraFps, 30);
+    expect(snapshot.currentAnalysisFps, 8);
+    expect(snapshot.rangeRepDiagnostics, isNull);
+    expect(snapshot.holdDiagnostics, isNotNull);
+    expect(snapshot.sideSwitchCount, 0);
+    expect(snapshot.currentSelectedSide, isNull);
+    expect(snapshot.repCount, 0);
+    expect(snapshot.currentHoldSeconds, 4);
+    expect(snapshot.bestHoldSeconds, 7);
+    expect(snapshot.currentPhase, 'HOLDING');
+    expect(snapshot.isHolding, isTrue);
+    expect(snapshot.presentedHoldFeedbackCode, HoldFeedbackCode.bodyNotVisible);
+    expect(snapshot.engineHoldFeedbackCode, HoldFeedbackCode.holdPosition);
+    expect(snapshot.holdEnginePhase, HoldPhase.holding);
+    expect(snapshot.currentHoldSide, HoldSide.right);
+    expect(snapshot.lastVisibleHoldPosture?.hasCompleteMetrics, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.isBodyAligned, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.isArmSupported, isTrue);
+    expect(snapshot.lastVisibleHoldPosture?.areLegsExtended, isTrue);
+    expect(snapshot.isHoldFormBreakGraceActive, isFalse);
+    expect(snapshot.isHoldVisibilitySuspended, isFalse);
+    final json = snapshot.toJson();
+    expect(json['schema_version'], 3);
+    expect(json['rep_count'], 0);
+    expect(json['current_hold_seconds'], 4);
+    expect(json['best_hold_seconds'], 7);
+    expect(json['current_phase'], 'HOLDING');
+    expect(json['is_holding'], isTrue);
+    expect(
+      json['presented_hold_feedback_code'],
+      HoldFeedbackCode.bodyNotVisible.code,
+    );
+    expect(
+      json['engine_hold_feedback_code'],
+      HoldFeedbackCode.holdPosition.code,
+    );
+    expect(json['hold_engine_phase'], HoldPhase.holding.code);
+    expect(json['current_hold_side'], 'right');
+    expect(json['current_selected_side'], isNull);
   });
 
   test('processing duration uses deterministic nearest-rank percentiles', () {
@@ -149,106 +247,17 @@ void main() {
     expect(snapshot.frameProcessingMsMax, 10000);
   });
 
-  test('updates live performance and workout state with typed hold fields', () {
-    const holdDiagnostics = HoldDiagnosticsSnapshot(
-      phase: HoldPhase.holding,
-      feedbackCode: HoldFeedbackCode.holdPosition,
-      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
-        hasCompleteMetrics: true,
-        hasActivePosture: true,
-        isBodyAligned: true,
-        isArmSupported: true,
-        areLegsExtended: true,
-      ),
-      isFormBreakGraceActive: false,
-      isVisibilitySuspended: false,
-    );
-    final subject = accumulator()
-      ..updateLivePerformance(cameraFps: 30, analysisFps: 8)
-      ..updateWorkoutState(
-        repCount: 3,
-        currentHoldSeconds: 4,
-        bestHoldSeconds: 7,
-        currentPhase: 'DESCENDING',
-        isHolding: true,
-        calibrationOffsetDegrees: 2.5,
-        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
-        holdDiagnostics: holdDiagnostics,
-        currentHoldSide: HoldSide.right,
-      );
-    final snapshot = subject.snapshot(now: startedAt);
-    expect(snapshot.currentCameraFps, 30);
-    expect(snapshot.currentAnalysisFps, 8);
-    expect(snapshot.repCount, 3);
-    expect(snapshot.currentHoldSeconds, 4);
-    expect(snapshot.bestHoldSeconds, 7);
-    expect(snapshot.currentPhase, 'DESCENDING');
-    expect(snapshot.isHolding, isTrue);
-    expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
-    expect(snapshot.presentedHoldFeedbackCode, HoldFeedbackCode.bodyNotVisible);
-    expect(snapshot.engineHoldFeedbackCode, HoldFeedbackCode.holdPosition);
-    expect(snapshot.holdEnginePhase, HoldPhase.holding);
-    expect(snapshot.currentHoldSide, HoldSide.right);
-    expect(snapshot.lastVisibleHoldPosture?.hasCompleteMetrics, isTrue);
-    expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isTrue);
-    expect(snapshot.lastVisibleHoldPosture?.isBodyAligned, isTrue);
-    expect(snapshot.lastVisibleHoldPosture?.isArmSupported, isTrue);
-    expect(snapshot.lastVisibleHoldPosture?.areLegsExtended, isTrue);
-    expect(snapshot.isHoldFormBreakGraceActive, isFalse);
-    expect(snapshot.isHoldVisibilitySuspended, isFalse);
-  });
-
-  test('range-rep update clears previously stored hold typed fields', () {
-    const holdDiagnostics = HoldDiagnosticsSnapshot(
-      phase: HoldPhase.holding,
-      feedbackCode: HoldFeedbackCode.holdPosition,
-      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
-        hasCompleteMetrics: true,
-      ),
-      isFormBreakGraceActive: true,
-      isVisibilitySuspended: true,
-    );
-    final subject = accumulator()
-      ..updateWorkoutState(
-        repCount: 0,
-        currentHoldSeconds: 5,
-        bestHoldSeconds: 5,
-        currentPhase: 'HOLDING',
-        isHolding: true,
-        presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
-        holdDiagnostics: holdDiagnostics,
-        currentHoldSide: HoldSide.left,
-      )
-      ..updateWorkoutState(
-        repCount: 1,
-        currentHoldSeconds: 0,
-        bestHoldSeconds: 0,
-        currentPhase: 'NEUTRAL',
-        isHolding: false,
-      );
-
-    final snapshot = subject.snapshot(now: startedAt);
-    expect(snapshot.presentedHoldFeedbackCode, isNull);
-    expect(snapshot.engineHoldFeedbackCode, isNull);
-    expect(snapshot.holdEnginePhase, isNull);
-    expect(snapshot.currentHoldSide, isNull);
-    expect(snapshot.lastVisibleHoldPosture, isNull);
-    expect(snapshot.isHoldFormBreakGraceActive, isNull);
-    expect(snapshot.isHoldVisibilitySuspended, isNull);
-  });
-
   test('reset clears diagnostics and starts a new session', () {
     final resetAt = startedAt.add(const Duration(minutes: 1));
     final subject = accumulator()
       ..recordCameraFrame()
       ..recordPoseCount(3)
       ..recordProcessingDuration(const Duration(milliseconds: 20))
-      ..updateWorkoutState(
-        repCount: 2,
-        currentHoldSeconds: 0,
-        bestHoldSeconds: 0,
-        currentPhase: 'PEAK',
-        isHolding: false,
+      ..updateHoldState(
+        currentHoldSeconds: 5,
+        bestHoldSeconds: 5,
+        currentPhase: 'HOLDING',
+        isHolding: true,
         presentedHoldFeedbackCode: HoldFeedbackCode.preparePosition,
         holdDiagnostics: const HoldDiagnosticsSnapshot(
           phase: HoldPhase.ready,
@@ -269,6 +278,8 @@ void main() {
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.rangeRepDiagnostics, isNull);
+    expect(snapshot.holdDiagnostics, isNull);
     expect(snapshot.repCount, isNull);
     expect(snapshot.presentedHoldFeedbackCode, isNull);
     expect(snapshot.engineHoldFeedbackCode, isNull);
@@ -277,7 +288,7 @@ void main() {
     expect(snapshot.lastVisibleHoldPosture, isNull);
   });
 
-  test('toJson is snake_case and excludes privacy-forbidden fields', () {
+  test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
     expect(json['schema_version'], 3);
     expect(json['app_commit_sha'], 'abc123');
@@ -285,6 +296,11 @@ void main() {
     expect(json['camera_frame_count'], 0);
     expect(json['accepted_pose_frame_count'], 0);
     expect(json['current_pose_quality_status'], 'stable');
+    expect(json['side_switch_count'], 0);
+    expect(json['active_rep_side_switch_count'], 0);
+    expect(json['rep_count'], isNull);
+    expect(json['current_hold_seconds'], isNull);
+    expect(json['best_hold_seconds'], isNull);
     expect(json['is_holding'], isNull);
     expect(json['presented_hold_feedback_code'], isNull);
     expect(json['engine_hold_feedback_code'], isNull);

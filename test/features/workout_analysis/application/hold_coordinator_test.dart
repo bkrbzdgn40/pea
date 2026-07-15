@@ -39,6 +39,48 @@ void main() {
       expect(holdingResult.diagnosticsUpdate.recordAcceptedPoseFrame, isTrue);
     });
 
+    test('publishes hold-only state and hold-only calibration metrics', () {
+      final clock = _TestClock();
+      final coordinator = _buildCoordinator(clock);
+
+      final firstResult = _processAcceptedHoldFrame(
+        coordinator,
+        clock,
+        side: HoldSide.left,
+      );
+
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.analysisKind.name,
+        'hold',
+      );
+      expect(firstResult.stateSnapshot.calibrationMetrics.rangeRep, isNull);
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.currentBodyLineAngle,
+        closeTo(170.0, 0.001),
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.currentArmSupportAngle,
+        closeTo(90.0, 0.001),
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.currentLegExtensionAngle,
+        closeTo(170.0, 0.001),
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+        isNull,
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.hasLastRangeRepValidation,
+        isFalse,
+      );
+
+      final dynamic dynamicSnapshot = firstResult.stateSnapshot;
+      expect(() => dynamicSnapshot.repCount, throwsNoSuchMethodError);
+      expect(() => dynamicSnapshot.lastRepScore, throwsNoSuchMethodError);
+      expect(() => dynamicSnapshot.lastRepRom, throwsNoSuchMethodError);
+    });
+
     test(
       'brief visibility suspension preserves the frozen side on recovery',
       () {

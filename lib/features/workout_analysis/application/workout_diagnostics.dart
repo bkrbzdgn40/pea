@@ -16,6 +16,79 @@ String get workoutDiagnosticsBuildMode {
   return 'debug';
 }
 
+class RangeRepWorkoutDiagnostics {
+  const RangeRepWorkoutDiagnostics({
+    this.repCount,
+    this.currentPhase,
+    this.sideSwitchCount = 0,
+    this.activeRepSideSwitchCount = 0,
+    this.currentSelectedSide,
+    this.lastCalibrationOffsetDegrees,
+  });
+
+  final int? repCount;
+  final String? currentPhase;
+  final int sideSwitchCount;
+  final int activeRepSideSwitchCount;
+  final String? currentSelectedSide;
+  final double? lastCalibrationOffsetDegrees;
+
+  RangeRepWorkoutDiagnostics copyWith({
+    Object? repCount = _unsetValue,
+    Object? currentPhase = _unsetValue,
+    int? sideSwitchCount,
+    int? activeRepSideSwitchCount,
+    Object? currentSelectedSide = _unsetValue,
+    Object? lastCalibrationOffsetDegrees = _unsetValue,
+  }) {
+    return RangeRepWorkoutDiagnostics(
+      repCount: repCount == _unsetValue ? this.repCount : repCount as int?,
+      currentPhase: currentPhase == _unsetValue
+          ? this.currentPhase
+          : currentPhase as String?,
+      sideSwitchCount: sideSwitchCount ?? this.sideSwitchCount,
+      activeRepSideSwitchCount:
+          activeRepSideSwitchCount ?? this.activeRepSideSwitchCount,
+      currentSelectedSide: currentSelectedSide == _unsetValue
+          ? this.currentSelectedSide
+          : currentSelectedSide as String?,
+      lastCalibrationOffsetDegrees: lastCalibrationOffsetDegrees == _unsetValue
+          ? this.lastCalibrationOffsetDegrees
+          : lastCalibrationOffsetDegrees as double?,
+    );
+  }
+}
+
+class HoldWorkoutDiagnostics {
+  const HoldWorkoutDiagnostics({
+    this.currentHoldSeconds,
+    this.bestHoldSeconds,
+    this.currentPhase,
+    this.isHolding,
+    this.presentedHoldFeedbackCode,
+    this.engineHoldFeedbackCode,
+    this.holdEnginePhase,
+    this.currentHoldSide,
+    this.lastVisibleHoldPosture,
+    this.isHoldFormBreakGraceActive,
+    this.isHoldVisibilitySuspended,
+  });
+
+  final int? currentHoldSeconds;
+  final int? bestHoldSeconds;
+  final String? currentPhase;
+  final bool? isHolding;
+  final HoldFeedbackCode? presentedHoldFeedbackCode;
+  final HoldFeedbackCode? engineHoldFeedbackCode;
+  final HoldPhase? holdEnginePhase;
+  final HoldSide? currentHoldSide;
+  final HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture;
+  final bool? isHoldFormBreakGraceActive;
+  final bool? isHoldVisibilitySuspended;
+}
+
+const Object _unsetValue = Object();
+
 /// Immutable, privacy-minimized diagnostics for one analysis session.
 class WorkoutDiagnosticsSnapshot {
   const WorkoutDiagnosticsSnapshot({
@@ -49,27 +122,13 @@ class WorkoutDiagnosticsSnapshot {
     this.lastPoseRejectionReason,
     this.currentPoseQualityStatus = 'stable',
     this.currentVisibilityStatus = 'stable',
-    required this.sideSwitchCount,
-    required this.activeRepSideSwitchCount,
-    required this.currentSelectedSide,
-    required this.lastCalibrationOffsetDegrees,
+    this.rangeRepDiagnostics,
+    this.holdDiagnostics,
     required this.currentCameraFps,
     required this.currentAnalysisFps,
     required this.frameProcessingMsP50,
     required this.frameProcessingMsP95,
     required this.frameProcessingMsMax,
-    required this.repCount,
-    required this.currentHoldSeconds,
-    required this.bestHoldSeconds,
-    required this.currentPhase,
-    required this.isHolding,
-    this.presentedHoldFeedbackCode,
-    this.engineHoldFeedbackCode,
-    this.holdEnginePhase,
-    this.currentHoldSide,
-    this.lastVisibleHoldPosture,
-    this.isHoldFormBreakGraceActive,
-    this.isHoldVisibilitySuspended,
   });
 
   final int schemaVersion;
@@ -102,27 +161,85 @@ class WorkoutDiagnosticsSnapshot {
   final String? lastPoseRejectionReason;
   final String currentPoseQualityStatus;
   final String currentVisibilityStatus;
-  final int sideSwitchCount;
-  final int activeRepSideSwitchCount;
-  final String? currentSelectedSide;
-  final double? lastCalibrationOffsetDegrees;
+  final RangeRepWorkoutDiagnostics? rangeRepDiagnostics;
+  final HoldWorkoutDiagnostics? holdDiagnostics;
   final double? currentCameraFps;
   final double? currentAnalysisFps;
   final int? frameProcessingMsP50;
   final int? frameProcessingMsP95;
   final int? frameProcessingMsMax;
-  final int? repCount;
-  final int? currentHoldSeconds;
-  final int? bestHoldSeconds;
-  final String? currentPhase;
-  final bool? isHolding;
-  final HoldFeedbackCode? presentedHoldFeedbackCode;
-  final HoldFeedbackCode? engineHoldFeedbackCode;
-  final HoldPhase? holdEnginePhase;
-  final HoldSide? currentHoldSide;
-  final HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture;
-  final bool? isHoldFormBreakGraceActive;
-  final bool? isHoldVisibilitySuspended;
+
+  int get sideSwitchCount => rangeRepDiagnostics?.sideSwitchCount ?? 0;
+
+  int get activeRepSideSwitchCount =>
+      rangeRepDiagnostics?.activeRepSideSwitchCount ?? 0;
+
+  String? get currentSelectedSide => rangeRepDiagnostics?.currentSelectedSide;
+
+  double? get lastCalibrationOffsetDegrees =>
+      rangeRepDiagnostics?.lastCalibrationOffsetDegrees;
+
+  int? get repCount {
+    if (rangeRepDiagnostics != null) {
+      return rangeRepDiagnostics!.repCount;
+    }
+    if (holdDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
+
+  int? get currentHoldSeconds {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.currentHoldSeconds;
+    }
+    if (rangeRepDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
+
+  int? get bestHoldSeconds {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.bestHoldSeconds;
+    }
+    if (rangeRepDiagnostics != null) {
+      return 0;
+    }
+    return null;
+  }
+
+  String? get currentPhase =>
+      rangeRepDiagnostics?.currentPhase ?? holdDiagnostics?.currentPhase;
+
+  bool? get isHolding {
+    if (holdDiagnostics != null) {
+      return holdDiagnostics!.isHolding;
+    }
+    if (rangeRepDiagnostics != null) {
+      return false;
+    }
+    return null;
+  }
+
+  HoldFeedbackCode? get presentedHoldFeedbackCode =>
+      holdDiagnostics?.presentedHoldFeedbackCode;
+
+  HoldFeedbackCode? get engineHoldFeedbackCode =>
+      holdDiagnostics?.engineHoldFeedbackCode;
+
+  HoldPhase? get holdEnginePhase => holdDiagnostics?.holdEnginePhase;
+
+  HoldSide? get currentHoldSide => holdDiagnostics?.currentHoldSide;
+
+  HoldPostureDiagnosticsSnapshot? get lastVisibleHoldPosture =>
+      holdDiagnostics?.lastVisibleHoldPosture;
+
+  bool? get isHoldFormBreakGraceActive =>
+      holdDiagnostics?.isHoldFormBreakGraceActive;
+
+  bool? get isHoldVisibilitySuspended =>
+      holdDiagnostics?.isHoldVisibilitySuspended;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'schema_version': schemaVersion,
@@ -227,24 +344,10 @@ class WorkoutDiagnosticsAccumulator {
   String? _lastPoseRejectionReason;
   String _currentPoseQualityStatus = 'stable';
   String _currentVisibilityStatus = 'stable';
-  int _sideSwitchCount = 0;
-  int _activeRepSideSwitchCount = 0;
-  String? _currentSelectedSide;
-  double? _lastCalibrationOffsetDegrees;
   double? _currentCameraFps;
   double? _currentAnalysisFps;
-  int? _repCount;
-  int? _currentHoldSeconds;
-  int? _bestHoldSeconds;
-  String? _currentPhase;
-  bool? _isHolding;
-  HoldFeedbackCode? _presentedHoldFeedbackCode;
-  HoldFeedbackCode? _engineHoldFeedbackCode;
-  HoldPhase? _holdEnginePhase;
-  HoldSide? _currentHoldSide;
-  HoldPostureDiagnosticsSnapshot? _lastVisibleHoldPosture;
-  bool? _isHoldFormBreakGraceActive;
-  bool? _isHoldVisibilitySuspended;
+  RangeRepWorkoutDiagnostics? _rangeRepDiagnostics;
+  HoldWorkoutDiagnostics? _holdDiagnostics;
 
   void recordCameraFrame() => _cameraFrameCount++;
   void recordAnalysisAttempt() => _analysisAttemptCount++;
@@ -298,16 +401,28 @@ class WorkoutDiagnosticsAccumulator {
     required String? selectedSide,
     required bool hasActiveRepContext,
   }) {
+    final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
     if (selectedSide == null) {
-      _currentSelectedSide = null;
+      _rangeRepDiagnostics = previous.copyWith(currentSelectedSide: null);
+      _holdDiagnostics = null;
       return;
     }
-    final previousSide = _currentSelectedSide;
+
+    final previousSide = previous.currentSelectedSide;
+    var sideSwitchCount = previous.sideSwitchCount;
+    var activeRepSideSwitchCount = previous.activeRepSideSwitchCount;
     if (previousSide != null && previousSide != selectedSide) {
-      _sideSwitchCount++;
-      if (hasActiveRepContext) _activeRepSideSwitchCount++;
+      sideSwitchCount++;
+      if (hasActiveRepContext) {
+        activeRepSideSwitchCount++;
+      }
     }
-    _currentSelectedSide = selectedSide;
+    _rangeRepDiagnostics = previous.copyWith(
+      currentSelectedSide: selectedSide,
+      sideSwitchCount: sideSwitchCount,
+      activeRepSideSwitchCount: activeRepSideSwitchCount,
+    );
+    _holdDiagnostics = null;
   }
 
   void recordProcessingDuration(Duration duration) {
@@ -328,30 +443,43 @@ class WorkoutDiagnosticsAccumulator {
     _currentAnalysisFps = analysisFps;
   }
 
-  void updateWorkoutState({
+  void updateRangeRepState({
     required int repCount,
+    required String currentPhase,
+    double? calibrationOffsetDegrees,
+  }) {
+    final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
+    _rangeRepDiagnostics = previous.copyWith(
+      repCount: repCount,
+      currentPhase: currentPhase,
+      lastCalibrationOffsetDegrees: calibrationOffsetDegrees,
+    );
+    _holdDiagnostics = null;
+  }
+
+  void updateHoldState({
     required int currentHoldSeconds,
     required int bestHoldSeconds,
     required String currentPhase,
     required bool isHolding,
-    double? calibrationOffsetDegrees,
     HoldFeedbackCode? presentedHoldFeedbackCode,
     HoldDiagnosticsSnapshot? holdDiagnostics,
     HoldSide? currentHoldSide,
   }) {
-    _repCount = repCount;
-    _currentHoldSeconds = currentHoldSeconds;
-    _bestHoldSeconds = bestHoldSeconds;
-    _currentPhase = currentPhase;
-    _isHolding = isHolding;
-    _lastCalibrationOffsetDegrees = calibrationOffsetDegrees;
-    _presentedHoldFeedbackCode = presentedHoldFeedbackCode;
-    _engineHoldFeedbackCode = holdDiagnostics?.feedbackCode;
-    _holdEnginePhase = holdDiagnostics?.phase;
-    _currentHoldSide = currentHoldSide;
-    _lastVisibleHoldPosture = holdDiagnostics?.lastVisiblePosture;
-    _isHoldFormBreakGraceActive = holdDiagnostics?.isFormBreakGraceActive;
-    _isHoldVisibilitySuspended = holdDiagnostics?.isVisibilitySuspended;
+    _holdDiagnostics = HoldWorkoutDiagnostics(
+      currentHoldSeconds: currentHoldSeconds,
+      bestHoldSeconds: bestHoldSeconds,
+      currentPhase: currentPhase,
+      isHolding: isHolding,
+      presentedHoldFeedbackCode: presentedHoldFeedbackCode,
+      engineHoldFeedbackCode: holdDiagnostics?.feedbackCode,
+      holdEnginePhase: holdDiagnostics?.phase,
+      currentHoldSide: currentHoldSide,
+      lastVisibleHoldPosture: holdDiagnostics?.lastVisiblePosture,
+      isHoldFormBreakGraceActive: holdDiagnostics?.isFormBreakGraceActive,
+      isHoldVisibilitySuspended: holdDiagnostics?.isVisibilitySuspended,
+    );
+    _rangeRepDiagnostics = null;
   }
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
@@ -387,10 +515,8 @@ class WorkoutDiagnosticsAccumulator {
       lastPoseRejectionReason: _lastPoseRejectionReason,
       currentPoseQualityStatus: _currentPoseQualityStatus,
       currentVisibilityStatus: _currentVisibilityStatus,
-      sideSwitchCount: _sideSwitchCount,
-      activeRepSideSwitchCount: _activeRepSideSwitchCount,
-      currentSelectedSide: _currentSelectedSide,
-      lastCalibrationOffsetDegrees: _lastCalibrationOffsetDegrees,
+      rangeRepDiagnostics: _rangeRepDiagnostics,
+      holdDiagnostics: _holdDiagnostics,
       currentCameraFps: _currentCameraFps,
       currentAnalysisFps: _currentAnalysisFps,
       frameProcessingMsP50: _nearestRank(sortedDurations, 0.50),
@@ -398,18 +524,6 @@ class WorkoutDiagnosticsAccumulator {
       frameProcessingMsMax: sortedDurations.isEmpty
           ? null
           : sortedDurations.last,
-      repCount: _repCount,
-      currentHoldSeconds: _currentHoldSeconds,
-      bestHoldSeconds: _bestHoldSeconds,
-      currentPhase: _currentPhase,
-      isHolding: _isHolding,
-      presentedHoldFeedbackCode: _presentedHoldFeedbackCode,
-      engineHoldFeedbackCode: _engineHoldFeedbackCode,
-      holdEnginePhase: _holdEnginePhase,
-      currentHoldSide: _currentHoldSide,
-      lastVisibleHoldPosture: _lastVisibleHoldPosture,
-      isHoldFormBreakGraceActive: _isHoldFormBreakGraceActive,
-      isHoldVisibilitySuspended: _isHoldVisibilitySuspended,
     );
   }
 
@@ -440,24 +554,10 @@ class WorkoutDiagnosticsAccumulator {
     _lastPoseRejectionReason = null;
     _currentPoseQualityStatus = 'stable';
     _currentVisibilityStatus = 'stable';
-    _sideSwitchCount = 0;
-    _activeRepSideSwitchCount = 0;
-    _currentSelectedSide = null;
-    _lastCalibrationOffsetDegrees = null;
     _currentCameraFps = null;
     _currentAnalysisFps = null;
-    _repCount = null;
-    _currentHoldSeconds = null;
-    _bestHoldSeconds = null;
-    _currentPhase = null;
-    _isHolding = null;
-    _presentedHoldFeedbackCode = null;
-    _engineHoldFeedbackCode = null;
-    _holdEnginePhase = null;
-    _currentHoldSide = null;
-    _lastVisibleHoldPosture = null;
-    _isHoldFormBreakGraceActive = null;
-    _isHoldVisibilitySuspended = null;
+    _rangeRepDiagnostics = null;
+    _holdDiagnostics = null;
   }
 
   int? _nearestRank(List<int> sortedValues, double percentile) {
