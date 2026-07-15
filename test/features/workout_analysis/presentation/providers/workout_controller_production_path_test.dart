@@ -1,6 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +13,8 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
+
+import '../../../../support/workout_analysis_test_support.dart';
 
 void main() {
   group('WorkoutController production pose pipeline', () {
@@ -172,6 +172,63 @@ void main() {
       expect(json['hold_are_legs_extended'], isNull);
       expect(json['hold_is_form_break_grace_active'], isNull);
       expect(json['hold_is_visibility_suspended'], isNull);
+    });
+
+    test('completed clean rep records a valid production validation outcome', () async {
+      await _pumpAcceptedPose(
+        controller,
+        detector,
+        clock,
+        _squatPose(angle: 170),
+        count: 3,
+        spacing: const Duration(milliseconds: 120),
+      );
+      await _driveUntilPhase(
+        controller,
+        detector,
+        clock,
+        _squatPose(angle: 140),
+        expectedPhase: 'DESCENDING',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        controller,
+        detector,
+        clock,
+        _squatPose(angle: 90),
+        expectedPhase: 'PEAK',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        controller,
+        detector,
+        clock,
+        _squatPose(angle: 110),
+        expectedPhase: 'ASCENDING',
+        spacing: const Duration(milliseconds: 90),
+      );
+      await _driveUntilPhase(
+        controller,
+        detector,
+        clock,
+        _squatPose(angle: 170),
+        expectedPhase: 'NEUTRAL',
+        spacing: const Duration(milliseconds: 120),
+      );
+
+      final state = container.read(workoutControllerProvider);
+      final metrics = state.calibrationMetrics;
+
+      expect(state.repCount, 1);
+      expect(metrics.lastRangeRepValidationStatus, 'valid');
+      expect(metrics.lastRangeRepValidationReasons, isEmpty);
+      expect(metrics.lastRangeRepValidatedRepIndex, 1);
+      expect(metrics.rangeRepValidatedCount, 1);
+      expect(metrics.rangeRepLowConfidenceCount, 0);
+      expect(metrics.rangeRepInvalidCount, 0);
+      expect(metrics.hasLastRangeRepSummary, isTrue);
+      expect(metrics.lastRangeRepSummaryCompletedPhaseSequence, isTrue);
+      expect(metrics.lastRangeRepSummarySelectedSideLabel, 'left');
     });
 
     test(
@@ -630,13 +687,22 @@ void main() {
       await _establishVisibleHold(controller, detector, clock);
 
       final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
 
       expect(state.selectedHoldSide, HoldSide.left);
       expect(state.isHolding, isTrue);
+      expect(state.repCount, 0);
+      expect(state.lastRepScore, 0);
+      expect(state.lastRepROM, 0);
       expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
       expect(state.holdEnginePhase, HoldPhase.holding);
       expect(state.feedbackMessage, 'Pozisyonu Koru');
       expect(state.currentPhase, 'HOLDING');
+      expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
+      expect(state.calibrationMetrics.lastRangeRepValidationStatus, isNull);
+      expect(state.calibrationMetrics.lastRangeRepValidatedRepIndex, isNull);
+      expect(state.calibrationMetrics.hasLastRangeRepSummary, isFalse);
+      expect(snapshot.currentSelectedSide, isNull);
     },
   );
 
@@ -678,6 +744,74 @@ void main() {
       expect(state.currentPhase, 'HOLDING');
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(snapshot.acceptedPoseFrameCount, 2);
+    },
+  );
+
+  test(
+    'hold body misalignment keeps the active hold during the grace window',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      clock.advance(const Duration(milliseconds: 150));
+      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+
+      expect(state.currentHoldSeconds, closeTo(5.15, 0.001));
+      expect(state.isHolding, isTrue);
+      expect(state.hadHoldFormBreak, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Kalcayi Hizala');
+      expect(state.currentPhase, 'HOLDING');
+      expect(snapshot.isHoldFormBreakGraceActive, isTrue);
+    },
+  );
+
+  test(
+    'hold body misalignment at the 300 ms grace boundary breaks the hold',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = _createHarness(
+        exerciseType: ExerciseType.plank,
+        config: _plankConfig(),
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+      final container = harness.container;
+      final controller = harness.controller;
+
+      await _establishVisibleHold(controller, detector, clock);
+
+      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+      clock.advance(const Duration(milliseconds: 300));
+      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+
+      final state = container.read(workoutControllerProvider);
+      final snapshot = controller.diagnosticsSnapshot();
+
+      expect(state.isHolding, isFalse);
+      expect(state.hadHoldFormBreak, isTrue);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
+      expect(state.holdEnginePhase, HoldPhase.broken);
+      expect(state.feedbackMessage, 'Kalcayi Hizala');
+      expect(state.currentPhase, 'BROKEN');
+      expect(snapshot.isHoldFormBreakGraceActive, isFalse);
     },
   );
 
@@ -1349,53 +1483,12 @@ Future<void> _analyzeFrame(
   _QueuedPoseDetector detector,
   List<Pose> poses,
 ) async {
-  detector.enqueue(poses);
-  await controller.processInputImageForAnalysis(_dummyInputImage());
+  await analyzeFrame(controller, detector, poses);
 }
 
-InputImage _dummyInputImage() {
-  return InputImage.fromBytes(
-    bytes: Uint8List.fromList(<int>[0, 0, 0, 0]),
-    metadata: InputImageMetadata(
-      size: Size(1, 1),
-      rotation: InputImageRotation.rotation0deg,
-      format: InputImageFormat.nv21,
-      bytesPerRow: 1,
-    ),
-  );
-}
+class _QueuedPoseDetector extends TestQueuedPoseDetector {}
 
-class _QueuedPoseDetector implements PoseDetector {
-  final List<List<Pose>> _queuedPoses = <List<Pose>>[];
-
-  void enqueue(List<Pose> poses) {
-    _queuedPoses.add(poses);
-  }
-
-  @override
-  Future<List<Pose>> processImage(InputImage inputImage) async {
-    if (_queuedPoses.isEmpty) {
-      throw StateError('No queued pose result for test detector.');
-    }
-    return _queuedPoses.removeAt(0);
-  }
-
-  @override
-  Future<void> close() async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeClock {
-  DateTime _current = DateTime.utc(2030, 1, 1, 12);
-
-  DateTime now() => _current;
-
-  void advance(Duration duration) {
-    _current = _current.add(duration);
-  }
-}
+class _FakeClock extends TestFakeClock {}
 
 class _ControllerHarness {
   const _ControllerHarness({
@@ -1484,56 +1577,11 @@ Future<void> _establishActiveLeftRepContext(
 }
 
 ExerciseConfig _squatConfig() {
-  return ExerciseConfig(
-    name: 'Squat',
-    primaryJoint: PoseLandmarkType.leftKnee,
-    joint1: PoseLandmarkType.leftHip,
-    joint2: PoseLandmarkType.leftAnkle,
-    thresholdNeutral: 160,
-    thresholdActive: 150,
-    thresholdPeak: 95,
-    formThreshold: 45,
-    targetMinAngle: 70,
-  );
+  return buildSquatConfig();
 }
 
 ExerciseConfig _plankConfig() {
-  return ExerciseConfig(
-    name: 'Plank',
-    primaryJoint: PoseLandmarkType.leftHip,
-    joint1: PoseLandmarkType.leftShoulder,
-    joint2: PoseLandmarkType.leftAnkle,
-    thresholdNeutral: 160,
-    thresholdActive: 168,
-    thresholdPeak: 0,
-    holdPosture: const HoldPostureConfig(
-      activePostureAngle: 160,
-      bodyLineEntryAngle: 168,
-      bodyLineSustainAngle: 166,
-      armSupportMinAngle: 60,
-      armSupportMaxAngle: 120,
-      legExtensionMinAngle: 165,
-      breakGraceDuration: Duration(milliseconds: 300),
-    ),
-    holdSignals: const HoldSignalExtractionConfig(
-      referenceSide: HoldSide.left,
-      alignment: HoldAngleSignalConfig(
-        first: PoseLandmarkType.leftShoulder,
-        middle: PoseLandmarkType.leftHip,
-        last: PoseLandmarkType.leftAnkle,
-      ),
-      support: HoldAngleSignalConfig(
-        first: PoseLandmarkType.leftShoulder,
-        middle: PoseLandmarkType.leftElbow,
-        last: PoseLandmarkType.leftWrist,
-      ),
-      extension: HoldAngleSignalConfig(
-        first: PoseLandmarkType.leftHip,
-        middle: PoseLandmarkType.leftKnee,
-        last: PoseLandmarkType.leftAnkle,
-      ),
-    ),
-  );
+  return buildPlankConfig();
 }
 
 Pose _squatPose({
@@ -1543,29 +1591,12 @@ Pose _squatPose({
       const <PoseLandmarkType, double>{},
   Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
 }) {
-  final radians = angle * (3.1415926535897932 / 180.0);
-  final ankleX = math.sin(radians);
-  final ankleY = math.cos(radians);
-  final landmarks = <PoseLandmarkType, PoseLandmark>{};
-
-  void addLandmark(PoseLandmarkType type, double x, double y) {
-    if (missingLandmarks.contains(type)) {
-      return;
-    }
-    landmarks[type] = _landmark(
-      type,
-      x,
-      y,
-      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
-    );
-  }
-
-  addLandmark(PoseLandmarkType.leftShoulder, -1, 1);
-  addLandmark(PoseLandmarkType.leftHip, 0, 1);
-  addLandmark(PoseLandmarkType.leftKnee, 0, 0);
-  addLandmark(PoseLandmarkType.leftAnkle, ankleX, ankleY);
-
-  return Pose(landmarks: landmarks);
+  return buildSquatPose(
+    angle: angle,
+    defaultLikelihood: defaultLikelihood,
+    likelihoodOverrides: likelihoodOverrides,
+    missingLandmarks: missingLandmarks,
+  );
 }
 
 Pose _leftOnlyAcceptedSquatPose({required double angle}) {
@@ -1670,32 +1701,19 @@ Pose _plankPose({
   Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
   bool rightOnly = false,
 }) {
-  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+  return buildPlankPose(
+    defaultLikelihood: defaultLikelihood,
+    missingLandmarks: missingLandmarks,
+    rightOnly: rightOnly,
+  );
+}
 
-  void addLandmark(PoseLandmarkType type, double x, double y) {
-    if (missingLandmarks.contains(type)) {
-      return;
-    }
-    landmarks[type] = _landmark(type, x, y, likelihood: defaultLikelihood);
-  }
-
-  if (rightOnly) {
-    addLandmark(PoseLandmarkType.rightShoulder, 1, 0);
-    addLandmark(PoseLandmarkType.rightElbow, 0.5, 0);
-    addLandmark(PoseLandmarkType.rightWrist, 0.5, -1);
-    addLandmark(PoseLandmarkType.rightHip, 0, 0);
-    addLandmark(PoseLandmarkType.rightKnee, -0.2, 0);
-    addLandmark(PoseLandmarkType.rightAnkle, -1, 0.2);
-  } else {
-    addLandmark(PoseLandmarkType.leftShoulder, -1, 0);
-    addLandmark(PoseLandmarkType.leftElbow, -0.5, 0);
-    addLandmark(PoseLandmarkType.leftWrist, -0.5, -1);
-    addLandmark(PoseLandmarkType.leftHip, 0, 0);
-    addLandmark(PoseLandmarkType.leftKnee, 0.2, 0);
-    addLandmark(PoseLandmarkType.leftAnkle, 1, 0.2);
-  }
-
-  return Pose(landmarks: landmarks);
+Pose _bodyMisalignedLeftPose() {
+  return _bilateralPlankPose(
+    leftLikelihood: 0.99,
+    rightLikelihood: 0.40,
+    leftBodyLineAngle: 150,
+  );
 }
 
 Pose _bilateralPlankPose({
@@ -1892,7 +1910,7 @@ PoseLandmark _landmark(
   double y, {
   double likelihood = 0.95,
 }) {
-  return PoseLandmark(type: type, x: x, y: y, z: 0, likelihood: likelihood);
+  return buildLandmark(type, x, y, likelihood: likelihood);
 }
 
 class _Point {
