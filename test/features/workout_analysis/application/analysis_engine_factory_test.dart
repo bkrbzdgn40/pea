@@ -2,8 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/analysis_engine_factory.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
@@ -49,8 +51,7 @@ void main() {
     });
 
     test('accepts the squat range-rep contract', () {
-      final engine = factory.create(
-        engineKind: EngineKind.rangeRep,
+      final RangeRepAnalysisEngine engine = factory.createRangeRep(
         config: squatConfig,
         rangeRepContract: RangeRepContracts.squat,
       );
@@ -59,8 +60,7 @@ void main() {
     });
 
     test('accepts the push-up range-rep contract', () {
-      final engine = factory.create(
-        engineKind: EngineKind.rangeRep,
+      final RangeRepAnalysisEngine engine = factory.createRangeRep(
         config: pushUpConfig,
         rangeRepContract: RangeRepContracts.pushUp,
       );
@@ -131,13 +131,28 @@ void main() {
     }
 
     test('creates a hold engine for a valid plank contract and config', () {
-      final engine = factory.create(
-        engineKind: EngineKind.hold,
+      final HoldAnalysisEngine engine = factory.createHold(
         config: plankConfig,
         holdContract: HoldContracts.plankFamily,
       );
 
       expect(engine, isA<HoldEngine>());
+    });
+
+    test('keeps alternating-rep unimplemented', () {
+      expect(
+        () => factory.create(
+          engineKind: EngineKind.alternatingRep,
+          config: squatConfig,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('alternatingRep'),
+          ),
+        ),
+      );
     });
   });
 }

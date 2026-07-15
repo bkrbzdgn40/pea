@@ -1,7 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/moving_average.dart';
-import '../domain/analysis_engine.dart';
+import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_diagnostics.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/exercise_config.dart';
@@ -17,6 +17,10 @@ import 'hold_side_stabilizer.dart';
 import 'pose_quality_policy.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
+
+const int _holdCompatibilityRepCount = 0;
+const double _holdCompatibilityLastRepScore = 0.0;
+const double _holdCompatibilityLastRepRom = 0.0;
 
 class HoldCoordinatorStateSnapshot {
   const HoldCoordinatorStateSnapshot({
@@ -101,7 +105,7 @@ abstract class HoldCoordinator {
 
 class DefaultHoldCoordinator implements HoldCoordinator {
   DefaultHoldCoordinator({
-    required AnalysisEngine engine,
+    required HoldAnalysisEngine engine,
     required ExerciseConfig config,
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
         const WorkoutAnalysisFrameBuilder(),
@@ -114,7 +118,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
        _holdSideStabilizer = holdSideStabilizer ?? HoldSideStabilizer();
 
-  final AnalysisEngine _engine;
+  final HoldAnalysisEngine _engine;
   final ExerciseConfig _config;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
@@ -148,11 +152,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     final diagnostics = _holdDiagnosticsSnapshot();
     return _rememberStateSnapshot(
       landmarks: null,
-      repCount: _engine.repCount,
-      isFormBad: _engine.isFormBad,
+      repCount: _holdCompatibilityRepCount,
+      isFormBad: diagnostics.phase == HoldPhase.broken,
       currentAngle: 0.0,
-      lastRepScore: _engine.lastRepScore,
-      lastRepRom: _engine.maxRom,
+      lastRepScore: _holdCompatibilityLastRepScore,
+      lastRepRom: _holdCompatibilityLastRepRom,
       currentHoldSeconds: diagnostics.currentHoldSeconds,
       bestHoldSeconds: diagnostics.bestHoldSeconds,
       selectedHoldSide: _currentHoldSideForState(),
@@ -161,7 +165,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       hadHoldFormBreak: diagnostics.hadFormBreak,
       holdFeedbackCode: _currentHoldFeedbackCode(),
       holdEnginePhase: diagnostics.phase,
-      currentPhase: _engine.phaseLabel,
+      currentPhase: diagnostics.phase.legacyLabel,
       calibrationMetrics: const WorkoutCalibrationMetrics(),
     );
   }
@@ -239,9 +243,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   @override
   HoldCoordinatorStateSnapshot handleLifecycleInterruption({String? reason}) {
     final publishedState = currentStateSnapshot();
-    if (_engine is HoldInterruptionControl) {
-      (_engine as HoldInterruptionControl).endActiveHoldForInterruption();
-    }
+    _engine.endActiveHoldForInterruption();
     _hasAcceptedPoseForAnalysis = false;
     _resetHoldMetricFilters();
     _resetHoldSideSelection();
@@ -261,7 +263,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       hadHoldFormBreak: holdDiagnostics.hadFormBreak,
       holdFeedbackCode: _currentHoldFeedbackCode(),
       holdEnginePhase: holdDiagnostics.phase,
-      currentPhase: _engine.phaseLabel,
+      currentPhase: holdDiagnostics.phase.legacyLabel,
       calibrationMetrics: publishedState.calibrationMetrics,
     );
   }
@@ -324,11 +326,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       final result = HoldCoordinatorFrameResult(
         stateSnapshot: _rememberStateSnapshot(
           landmarks: metrics.landmarks,
-          repCount: _engine.repCount,
-          isFormBad: _engine.isFormBad,
+          repCount: _holdCompatibilityRepCount,
+          isFormBad: holdDiagnostics.phase == HoldPhase.broken,
           currentAngle: metrics.primaryAngle,
-          lastRepScore: _engine.lastRepScore,
-          lastRepRom: _engine.maxRom,
+          lastRepScore: _holdCompatibilityLastRepScore,
+          lastRepRom: _holdCompatibilityLastRepRom,
           currentHoldSeconds: 0,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           selectedHoldSide: null,
@@ -337,7 +339,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
           holdFeedbackCode: _currentHoldFeedbackCode(),
           holdEnginePhase: holdDiagnostics.phase,
-          currentPhase: _engine.phaseLabel,
+          currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: metrics.formMetric,
             thresholdValue: holdDiagnostics.bodyLineTargetAngle,
@@ -382,11 +384,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       final result = HoldCoordinatorFrameResult(
         stateSnapshot: _rememberStateSnapshot(
           landmarks: metrics.landmarks,
-          repCount: _engine.repCount,
-          isFormBad: _engine.isFormBad,
+          repCount: _holdCompatibilityRepCount,
+          isFormBad: holdDiagnostics.phase == HoldPhase.broken,
           currentAngle: _currentAngleForState(analysisFrame),
-          lastRepScore: _engine.lastRepScore,
-          lastRepRom: _engine.maxRom,
+          lastRepScore: _holdCompatibilityLastRepScore,
+          lastRepRom: _holdCompatibilityLastRepRom,
           currentHoldSeconds: holdDiagnostics.currentHoldSeconds,
           bestHoldSeconds: holdDiagnostics.bestHoldSeconds,
           selectedHoldSide: _currentHoldSideForState(),
@@ -395,7 +397,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           hadHoldFormBreak: holdDiagnostics.hadFormBreak,
           holdFeedbackCode: _currentHoldFeedbackCode(),
           holdEnginePhase: holdDiagnostics.phase,
-          currentPhase: _engine.phaseLabel,
+          currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: analysisFrame.formMetric,
             thresholdValue: holdDiagnostics.bodyLineTargetAngle,
@@ -447,21 +449,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
-    if (_engine is HoldDiagnostics) {
-      return (_engine as HoldDiagnostics).diagnosticsSnapshot;
-    }
-
-    return const HoldDiagnosticsSnapshot();
+    return _engine.diagnosticsSnapshot;
   }
 
-  HoldFeedbackCode? _currentHoldFeedbackCode() {
-    if (_engine is! HoldFeedbackSource) {
-      throw StateError(
-        'Hold analysis engine must implement HoldFeedbackSource.',
-      );
-    }
-
-    return (_engine as HoldFeedbackSource).feedbackCode;
+  HoldFeedbackCode _currentHoldFeedbackCode() {
+    return _engine.feedbackCode;
   }
 
   HoldSide? _currentHoldSideForState() {
@@ -498,19 +490,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     if (_selectedHoldSide != null) {
       _briefGapFrozenHoldSide ??= _selectedHoldSide;
     }
-    if (_engine is HoldVisibilityGapControl) {
-      (_engine as HoldVisibilityGapControl).beginVisibilityGap();
-    }
+    _engine.beginVisibilityGap();
   }
 
   HoldVisibilityResumeResult _resumeHoldVisibilityGap() {
-    if (_engine is! HoldVisibilityGapControl) {
-      return const HoldVisibilityResumeResult(
-        disposition: HoldVisibilityResumeDisposition.noGap,
-      );
-    }
-
-    return (_engine as HoldVisibilityGapControl).resumeAfterVisibilityGap();
+    return _engine.resumeAfterVisibilityGap();
   }
 
   double _currentAngleForState(AnalysisFrame frame) {
@@ -590,7 +574,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       holdEnginePhase: holdEnginePhase,
       currentPhase: currentPhase,
       calibrationMetrics: calibrationMetrics,
-      feedbackFallbackMessage: _engine.feedback,
+      feedbackFallbackMessage:
+          (holdFeedbackCode ?? HoldFeedbackCode.preparePosition).code,
     );
     _lastPublishedStateSnapshot = snapshot;
     return snapshot;

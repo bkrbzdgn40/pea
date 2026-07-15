@@ -15,11 +15,11 @@ import '../../application/pose_quality_policy.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
-import '../../domain/analysis_engine.dart';
+import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/range_rep_contract.dart';
-import '../../domain/models/range_rep_feedback_code.dart';
+import '../../domain/range_rep_analysis_engine.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
@@ -52,7 +52,7 @@ final workoutFramePosePipelineFactoryProvider =
 
 typedef RangeRepCoordinatorFactory =
     RangeRepCoordinator Function({
-      required AnalysisEngine engine,
+      required RangeRepAnalysisEngine engine,
       required ExerciseConfig config,
       required RangeRepContract rangeRepContract,
     });
@@ -60,7 +60,7 @@ typedef RangeRepCoordinatorFactory =
 final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
   (ref) {
     return ({
-      required AnalysisEngine engine,
+      required RangeRepAnalysisEngine engine,
       required ExerciseConfig config,
       required RangeRepContract rangeRepContract,
     }) {
@@ -75,12 +75,15 @@ final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
 
 typedef HoldCoordinatorFactory =
     HoldCoordinator Function({
-      required AnalysisEngine engine,
+      required HoldAnalysisEngine engine,
       required ExerciseConfig config,
     });
 
 final holdCoordinatorFactoryProvider = Provider<HoldCoordinatorFactory>((ref) {
-  return ({required AnalysisEngine engine, required ExerciseConfig config}) {
+  return ({
+    required HoldAnalysisEngine engine,
+    required ExerciseConfig config,
+  }) {
     return DefaultHoldCoordinator(engine: engine, config: config);
   };
 });
@@ -93,7 +96,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   double _cameraFps = 0.0;
   double _analysisFps = 0.0;
 
-  late final AnalysisEngine _engine;
   late final EngineKind _engineKind;
   late final DateTime Function() _clock;
   late final ExerciseConfig _config;
@@ -104,6 +106,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final ExerciseMetricsExtractor _metricsExtractor =
       const ExerciseMetricsExtractor();
   final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
+  RangeRepAnalysisEngine? _rangeRepEngine;
   RangeRepCoordinator? _rangeRepCoordinator;
   HoldCoordinator? _holdCoordinator;
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
@@ -137,13 +140,52 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         ? definition.analysisHoldContract
         : null;
     _config = ref.watch(exerciseConfigProvider).requireValue;
-    _engine = _engineFactory.create(
-      engineKind: _engineKind,
-      config: _config,
-      rangeRepContract: _rangeRepContract,
-      holdContract: _holdContract,
-      now: _clock,
-    );
+    switch (_engineKind) {
+      case EngineKind.rangeRep:
+        final rangeRepContract =
+            _rangeRepContract ??
+            (throw StateError(
+              'Range-rep analysis requires a RangeRepContract.',
+            ));
+        final rangeRepEngine = _engineFactory.createRangeRep(
+          config: _config,
+          rangeRepContract: rangeRepContract,
+          now: _clock,
+        );
+        _rangeRepEngine = rangeRepEngine;
+        _rangeRepCoordinator = rangeRepCoordinatorFactory(
+          engine: rangeRepEngine,
+          config: _config,
+          rangeRepContract: rangeRepContract,
+        );
+        _holdCoordinator = null;
+        break;
+      case EngineKind.hold:
+        final holdContract =
+            _holdContract ??
+            (throw StateError('Hold analysis requires a HoldContract.'));
+        final holdEngine = _engineFactory.createHold(
+          config: _config,
+          holdContract: holdContract,
+          now: _clock,
+        );
+        _rangeRepEngine = null;
+        _rangeRepCoordinator = null;
+        _holdCoordinator = holdCoordinatorFactory(
+          engine: holdEngine,
+          config: _config,
+        );
+        break;
+      case EngineKind.alternatingRep:
+        _engineFactory.create(
+          engineKind: _engineKind,
+          config: _config,
+          rangeRepContract: _rangeRepContract,
+          holdContract: _holdContract,
+          now: _clock,
+        );
+        throw StateError('Unreachable alternatingRep analysis wiring path.');
+    }
 
     _lastFpsCalculationTime = _clock();
     _cameraFrameCount = 0;
@@ -154,20 +196,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _framePosePipeline = framePosePipelineFactory(
       poseAcceptanceStabilizer: _poseAcceptanceStabilizer,
     );
-    _rangeRepCoordinator = _engineKind == EngineKind.rangeRep
-        ? rangeRepCoordinatorFactory(
-            engine: _engine,
-            config: _config,
-            rangeRepContract:
-                _rangeRepContract ??
-                (throw StateError(
-                  'Range-rep analysis requires a RangeRepContract.',
-                )),
-          )
-        : null;
-    _holdCoordinator = _engineKind == EngineKind.hold
-        ? holdCoordinatorFactory(engine: _engine, config: _config)
-        : null;
     _diagnostics = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: _clock(),
       analysisKind: _engineKind.name,
@@ -197,8 +225,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           )
         : WorkoutState(
             analysisKind: _engineKind,
-            feedbackMessage: _resolvedEngineFeedbackMessage(),
-            currentPhase: _engine.phaseLabel,
+            feedbackMessage: _resolvedRangeRepFeedbackMessage(),
+            currentPhase: _rangeRepEngineOrThrow().phaseLabel,
           );
     _diagnostics.updateWorkoutState(
       repCount: initialState.repCount,
@@ -692,6 +720,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return coordinator;
   }
 
+  RangeRepAnalysisEngine _rangeRepEngineOrThrow() {
+    final engine = _rangeRepEngine;
+    if (engine == null) {
+      throw StateError(
+        'RangeRepAnalysisEngine is only available during range-rep analysis.',
+      );
+    }
+
+    return engine;
+  }
+
   HoldCoordinator _holdCoordinatorOrThrow() {
     final coordinator = _holdCoordinator;
     if (coordinator == null) {
@@ -717,15 +756,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
-  String _resolvedEngineFeedbackMessage() {
-    if (_engineKind == EngineKind.rangeRep &&
-        _engine is RangeRepFeedbackSource) {
-      final feedbackCode = (_engine as RangeRepFeedbackSource).feedbackCode;
-      if (feedbackCode != null) {
-        return mapRangeRepFeedbackCodeToMessage(feedbackCode);
-      }
+  String _resolvedRangeRepFeedbackMessage() {
+    final feedbackCode = _rangeRepEngineOrThrow().feedbackCode;
+    if (feedbackCode != null) {
+      return mapRangeRepFeedbackCodeToMessage(feedbackCode);
     }
-    return _engine.feedback;
+
+    return _rangeRepEngineOrThrow().feedback;
   }
 
   void handleLifecycleInterruption({String? reason}) {

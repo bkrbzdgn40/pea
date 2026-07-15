@@ -1,12 +1,12 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/moving_average.dart';
-import '../domain/analysis_engine.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_feedback_code.dart';
+import '../domain/range_rep_analysis_engine.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/range_rep_diagnostics.dart';
 import '../domain/range_rep_validation_policy.dart';
@@ -162,7 +162,7 @@ abstract class RangeRepCoordinator {
 
 class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   DefaultRangeRepCoordinator({
-    required AnalysisEngine engine,
+    required RangeRepAnalysisEngine engine,
     required ExerciseConfig config,
     required RangeRepContract rangeRepContract,
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
@@ -207,7 +207,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
            sessionCalibrationBaselineAccumulator ??
            SessionCalibrationBaselineAccumulator();
 
-  final AnalysisEngine _engine;
+  final RangeRepAnalysisEngine _engine;
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
@@ -356,7 +356,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
               isFormBad: _engine.isFormBad,
               currentAngle: _lastPublishedCurrentAngle,
               lastRepScore: _engine.lastRepScore,
-              lastRepRom: _engine.maxRom,
+              lastRepRom: _engine.lastRepRom,
               currentPhase: _engine.phaseLabel,
               calibrationMetrics: _lastPublishedCalibrationMetrics,
               feedbackDirective: _engineFeedbackDirective(),
@@ -430,7 +430,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       isFormBad: _engine.isFormBad,
       currentAngle: _lastPublishedCurrentAngle,
       lastRepScore: _engine.lastRepScore,
-      lastRepRom: _engine.maxRom,
+      lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: _lastPublishedCalibrationMetrics,
       feedbackDirective: _engineFeedbackDirective(),
@@ -612,7 +612,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       isFormBad: _engine.isFormBad,
       currentAngle: _currentAngleForState(analysisFrame),
       lastRepScore: _engine.lastRepScore,
-      lastRepRom: _engine.maxRom,
+      lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: calibrationMetrics,
       feedbackDirective: _engineFeedbackDirective(),
@@ -956,11 +956,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
-    if (_engine is RangeRepDiagnostics) {
-      return (_engine as RangeRepDiagnostics).diagnosticsSnapshot;
-    }
-
-    return const RangeRepDiagnosticsSnapshot();
+    return _engine.diagnosticsSnapshot;
   }
 
   void _trackRepContext({
@@ -977,17 +973,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   RangeRepCompletedRepCoreData? _consumeCompletedRepCoreData() {
-    if (_engine is! RangeRepValidationHook) {
-      return null;
-    }
-
-    return (_engine as RangeRepValidationHook).consumeCompletedRepCoreData();
+    return _engine.consumeCompletedRepCoreData();
   }
 
   void _clearActiveRepContext({String? reason}) {
-    if (_engine is RangeRepResyncControl) {
-      (_engine as RangeRepResyncControl).clearActiveRepContext(reason: reason);
-    }
+    _engine.clearActiveRepContext(reason: reason);
   }
 
   bool _beginBriefVisibilityGap(RangeRepDiagnosticsSnapshot diagnostics) {
@@ -997,9 +987,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         _selectedRangeRepSide != null;
     if (shouldTrackBriefGap) {
       _briefGapFrozenRangeRepSide = _selectedRangeRepSide;
-      if (_engine is RangeRepVisibilityGapControl) {
-        (_engine as RangeRepVisibilityGapControl).beginBriefVisibilityGap();
-      }
+      _engine.beginBriefVisibilityGap();
     } else if (diagnostics.isAwaitingNeutralConfirmation) {
       _clearActiveRepContext(reason: 'invalid frame while awaiting neutral');
     }
@@ -1008,14 +996,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   VisibilityGapResumeResult _resumeBriefVisibilityGap(AnalysisFrame frame) {
-    if (_engine is! RangeRepVisibilityGapControl) {
-      return const VisibilityGapResumeResult(
-        disposition: VisibilityGapResumeDisposition.noGap,
-      );
-    }
-
-    return (_engine as RangeRepVisibilityGapControl)
-        .resumeAfterBriefVisibilityGap(frame);
+    return _engine.resumeAfterBriefVisibilityGap(frame);
   }
 
   void _resetVisibilityResyncState({
@@ -1106,7 +1087,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       isFormBad: false,
       currentAngle: preview.previewAngle,
       lastRepScore: _engine.lastRepScore,
-      lastRepRom: _engine.maxRom,
+      lastRepRom: _engine.lastRepRom,
       currentPhase: currentPhase,
       calibrationMetrics: calibrationMetrics,
       feedbackDirective: feedbackDirective,
@@ -1149,11 +1130,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   RangeRepFeedbackCode? _currentFeedbackCode() {
-    if (_engine is! RangeRepFeedbackSource) {
-      return null;
-    }
-
-    return (_engine as RangeRepFeedbackSource).feedbackCode;
+    return _engine.feedbackCode;
   }
 
   double _currentAngleForState(AnalysisFrame frame) {

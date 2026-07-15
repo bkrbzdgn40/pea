@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/analysis_engine_factory.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/hold_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
@@ -163,8 +162,7 @@ void main() {
 
 DefaultHoldCoordinator _buildCoordinator(_TestClock clock) {
   final config = _plankConfig();
-  final engine = const AnalysisEngineFactory().create(
-    engineKind: EngineKind.hold,
+  final engine = const AnalysisEngineFactory().createHold(
     config: config,
     holdContract: HoldContracts.plankFamily,
     now: clock.now,
