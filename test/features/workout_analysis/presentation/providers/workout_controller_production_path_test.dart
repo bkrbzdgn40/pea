@@ -2,6 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/common_frame_pose_pipeline.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/pose_acceptance_stabilizer.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart'
+    show PoseQualityAssessment;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -99,6 +104,100 @@ void main() {
         expect(snapshot.acceptedPoseFrameCount, 1);
         expect(snapshot.currentPoseQualityStatus, 'accepted');
         expect(state.currentAngle, closeTo(170.0, 0.001));
+      },
+    );
+
+    test(
+      'direct input production path delegates to the extracted common pipeline',
+      () async {
+        final acceptedPose = _squatPose(angle: 170, defaultLikelihood: 0.66);
+        final spyPipeline = _SpyWorkoutFramePosePipeline(
+          result: FramePosePipelineResult.accepted(
+            poseCount: 1,
+            selectedPose: acceptedPose,
+            selectedAssessment: _acceptedRangeRepAssessment(),
+            didBecomeStableTracking: false,
+          ),
+        );
+        final harness = _createHarness(
+          exerciseType: ExerciseType.squat,
+          config: _squatConfig(),
+          detector: _QueuedPoseDetector(),
+          clock: _FakeClock(),
+          extraOverrides: <Override>[
+            workoutFramePosePipelineFactoryProvider.overrideWithValue(({
+              required PoseAcceptanceStabilizer poseAcceptanceStabilizer,
+            }) {
+              spyPipeline.lastPoseAcceptanceStabilizer =
+                  poseAcceptanceStabilizer;
+              return spyPipeline;
+            }),
+          ],
+        );
+        addTearDown(harness.dispose);
+
+        await harness.controller.processInputImageForAnalysis(
+          dummyInputImage(),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final snapshot = harness.controller.diagnosticsSnapshot();
+
+        expect(spyPipeline.processInputImageCallCount, 1);
+        expect(spyPipeline.lastPoseAcceptanceStabilizer, isNotNull);
+        expect(spyPipeline.lastAssessPose, isNotNull);
+        expect(spyPipeline.lastAssessedPose, same(acceptedPose));
+        expect(spyPipeline.lastAssessedPoseQuality?.isAccepted, isTrue);
+        expect(
+          spyPipeline.lastAssessedPoseQuality?.acceptedRangeRepSides,
+          const <RangeRepSide>{RangeRepSide.left},
+        );
+        expect(
+          spyPipeline.lastAssessedPoseQuality?.preferredRangeRepSide,
+          RangeRepSide.left,
+        );
+        expect(state.currentAngle, closeTo(170.0, 0.001));
+        expect(state.holdFeedbackCode, isNull);
+        expect(snapshot.acceptedPoseFrameCount, 1);
+      },
+    );
+
+    test(
+      'converter-drop diagnostics keep wall-clock timing semantics',
+      () async {
+        final converterDropClock = _FakeClock()
+          ..advance(const Duration(days: -2500));
+        final spyPipeline = _SpyWorkoutFramePosePipeline(
+          result: const FramePosePipelineResult.converterDrop(),
+        );
+        final harness = _createHarness(
+          exerciseType: ExerciseType.squat,
+          config: _squatConfig(),
+          detector: _QueuedPoseDetector(),
+          clock: converterDropClock,
+          extraOverrides: <Override>[
+            workoutFramePosePipelineFactoryProvider.overrideWithValue(({
+              required PoseAcceptanceStabilizer poseAcceptanceStabilizer,
+            }) {
+              spyPipeline.lastPoseAcceptanceStabilizer =
+                  poseAcceptanceStabilizer;
+              return spyPipeline;
+            }),
+          ],
+        );
+        addTearDown(harness.dispose);
+
+        await harness.controller.processInputImageForAnalysis(
+          dummyInputImage(),
+        );
+
+        final snapshot = harness.controller.diagnosticsSnapshot();
+
+        expect(spyPipeline.processInputImageCallCount, 1);
+        expect(snapshot.converterDropCount, 1);
+        expect(snapshot.analysisCompletedCount, 0);
+        expect(snapshot.frameProcessingMsMax, isNotNull);
+        expect(snapshot.frameProcessingMsMax, greaterThan(0));
       },
     );
 
@@ -1506,6 +1605,35 @@ class _QueuedPoseDetector extends TestQueuedPoseDetector {}
 
 class _FakeClock extends TestFakeClock {}
 
+class _SpyWorkoutFramePosePipeline extends WorkoutFramePosePipeline {
+  _SpyWorkoutFramePosePipeline({required this.result});
+
+  final FramePosePipelineResult result;
+
+  int processInputImageCallCount = 0;
+  InputImage? lastInputImage;
+  PoseAcceptanceStabilizer? lastPoseAcceptanceStabilizer;
+  PoseQualityAssessor? lastAssessPose;
+  Pose? lastAssessedPose;
+  PoseQualityAssessment? lastAssessedPoseQuality;
+
+  @override
+  Future<FramePosePipelineResult> processInputImage({
+    required InputImage inputImage,
+    required PoseDetector detector,
+    required PoseQualityAssessor assessPose,
+  }) async {
+    processInputImageCallCount += 1;
+    lastInputImage = inputImage;
+    lastAssessPose = assessPose;
+    if (result.selectedPose != null) {
+      lastAssessedPose = result.selectedPose;
+      lastAssessedPoseQuality = assessPose(result.selectedPose!);
+    }
+    return result;
+  }
+}
+
 class _ControllerHarness {
   const _ControllerHarness({
     required this.container,
@@ -1528,6 +1656,7 @@ _ControllerHarness _createHarness({
   required ExerciseConfig config,
   required _QueuedPoseDetector detector,
   required _FakeClock clock,
+  List<Override> extraOverrides = const <Override>[],
 }) {
   final container = ProviderContainer(
     overrides: <Override>[
@@ -1535,6 +1664,7 @@ _ControllerHarness _createHarness({
       exerciseConfigProvider.overrideWith((ref) => config),
       poseDetectorProvider.overrideWith((ref) => detector),
       workoutClockProvider.overrideWithValue(clock.now),
+      ...extraOverrides,
     ],
   );
   final subscription = container.listen<WorkoutState>(
@@ -1729,6 +1859,19 @@ Pose _bodyMisalignedLeftPose({required double leftBodyLineAngle}) {
     leftLikelihood: 0.99,
     rightLikelihood: 0.40,
     leftBodyLineAngle: leftBodyLineAngle,
+  );
+}
+
+PoseQualityAssessment _acceptedRangeRepAssessment() {
+  return PoseQualityAssessment(
+    isAccepted: true,
+    minimumRequiredLikelihood: 0.66,
+    meanRequiredLikelihood: 0.66,
+    requiredLandmarkCount: 4,
+    acceptedLandmarkCount: 4,
+    acceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.left},
+    preferredRangeRepSide: RangeRepSide.left,
+    qualityScore: 1006.66,
   );
 }
 
