@@ -224,10 +224,12 @@ void main() {
 
       final snapshot = controller.currentStateSnapshot();
       expect(snapshot.hasSavedSession, isTrue);
-      expect(snapshot.isFinishing, isFalse);
+      expect(snapshot.isFinishing, isTrue);
       expect(snapshot.formWarningCount, 2);
       expect(snapshot.completedWorkoutReps, hasLength(3));
 
+      controller.completeFinishFlow();
+      expect(controller.currentStateSnapshot().isFinishing, isFalse);
       expect(controller.beginFinish(), isFalse);
       final duplicateResult = await controller.finishSession(
         finalState: finalState,
@@ -376,6 +378,12 @@ void main() {
       expect(session.bestHoldSeconds, closeTo(6.0, 0.001));
       expect(session.formBreakCount, 1);
       expect(session.reps, isNull);
+
+      final snapshot = controller.currentStateSnapshot();
+      expect(snapshot.hasSavedSession, isTrue);
+      expect(snapshot.isFinishing, isTrue);
+      controller.completeFinishFlow();
+      expect(controller.currentStateSnapshot().isFinishing, isFalse);
     },
   );
 
@@ -426,6 +434,10 @@ void main() {
       expect(repository.savedSessions, hasLength(1));
       expect(invalidationCount, 1);
       expect(publications, hasLength(2));
+      expect(controller.currentStateSnapshot().hasSavedSession, isTrue);
+      expect(controller.currentStateSnapshot().isFinishing, isTrue);
+      controller.completeFinishFlow();
+      expect(controller.currentStateSnapshot().isFinishing, isFalse);
     },
   );
 
@@ -478,6 +490,10 @@ void main() {
       expect(repository.savedSessions, hasLength(1));
       expect(invalidationCount, 1);
       expect(publications, hasLength(2));
+      expect(controller.currentStateSnapshot().hasSavedSession, isTrue);
+      expect(controller.currentStateSnapshot().isFinishing, isTrue);
+      controller.completeFinishFlow();
+      expect(controller.currentStateSnapshot().isFinishing, isFalse);
     },
   );
 

@@ -25,6 +25,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_session_lifecycle_controller_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/live_analysis_screen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:wakelock_plus_platform_interface/wakelock_plus_platform_interface.dart';
@@ -176,6 +177,126 @@ void main() {
       state = harness.container.read(workoutControllerProvider);
       expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+    },
+  );
+
+  testWidgets(
+    'screen keeps the same autoDispose lifecycle owner across rebuilds and '
+    'save flow',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        showFinishButton: true,
+      );
+      addTearDown(harness.dispose);
+
+      final initialOwner = harness.container.read(
+        workoutSessionLifecycleControllerProvider,
+      );
+      expect(initialOwner.currentStateSnapshot().hasSavedSession, isFalse);
+
+      await tester.longPress(find.text('FPS'));
+      await tester.pump();
+      await tester.longPress(find.text('FPS'));
+      await tester.pump();
+
+      final rebuiltOwner = harness.container.read(
+        workoutSessionLifecycleControllerProvider,
+      );
+      expect(rebuiltOwner, same(initialOwner));
+
+      await tester.runAsync(() async {
+        await _completeCleanRangeRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      final snapshotSubscription = harness.container
+          .listen<AsyncValue<UserSessionsSnapshot>>(
+            userSessionsSnapshotProvider,
+            (previous, next) {},
+            fireImmediately: true,
+          );
+      addTearDown(snapshotSubscription.close);
+      await tester.pump();
+      expect(harness.sessionRepository.listSessionsCallCount, 1);
+
+      final initialPushCount = harness.navigationObserver.pushCount;
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
+
+      final persistedOwner = harness.container.read(
+        workoutSessionLifecycleControllerProvider,
+      );
+      final session = harness.sessionRepository.savedSessions.single;
+      expect(persistedOwner, same(initialOwner));
+      expect(persistedOwner.currentStateSnapshot().hasSavedSession, isTrue);
+      expect(persistedOwner.currentStateSnapshot().isFinishing, isTrue);
+      expect(session.ownerId, 'test-user');
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      expect(harness.sessionRepository.listSessionsCallCount, 2);
+      expect(harness.container.read(completedSessionProvider), same(session));
+    },
+  );
+
+  testWidgets(
+    'successful finish keeps finishing true and camera stopped until summary '
+    'is dismissed',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        showFinishButton: true,
+      );
+      addTearDown(harness.dispose);
+
+      await tester.runAsync(() async {
+        await _completeCleanRangeRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      final sessionLifecycle = harness.container.read(
+        workoutSessionLifecycleControllerProvider,
+      );
+      final initialPushCount = harness.navigationObserver.pushCount;
+
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(sessionLifecycle.currentStateSnapshot().isFinishing, isTrue);
+      expect(sessionLifecycle.currentStateSnapshot().hasSavedSession, isTrue);
+      expect(harness.cameraController!.stopImageStreamCallCount, 1);
+      expect(harness.cameraController!.startImageStreamCallCount, 0);
+      expect(harness.cameraController!.value.isStreamingImages, isFalse);
+
+      harness.navigationObserver.lastPushedRoute!.navigator!.pop();
+      await tester.pumpAndSettle();
+
+      expect(sessionLifecycle.currentStateSnapshot().isFinishing, isFalse);
+      expect(sessionLifecycle.currentStateSnapshot().hasSavedSession, isTrue);
+      expect(harness.cameraController!.startImageStreamCallCount, 1);
+      expect(harness.cameraController!.value.isStreamingImages, isTrue);
     },
   );
 
@@ -639,11 +760,23 @@ class _FakeCameraController extends CameraController {
     );
   }
 
+  int startImageStreamCallCount = 0;
+  int stopImageStreamCallCount = 0;
+
   @override
   Widget buildPreview() => const SizedBox.expand();
 
   @override
+  Future<void> startImageStream(
+    void Function(CameraImage image) onLatestImageAvailable,
+  ) async {
+    startImageStreamCallCount += 1;
+    value = value.copyWith(isStreamingImages: true);
+  }
+
+  @override
   Future<void> stopImageStream() async {
+    stopImageStreamCallCount += 1;
     value = value.copyWith(isStreamingImages: false);
   }
 
@@ -724,10 +857,12 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _TestNavigatorObserver extends NavigatorObserver {
   var pushCount = 0;
+  Route<dynamic>? lastPushedRoute;
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     pushCount += 1;
+    lastPushedRoute = route;
     super.didPush(route, previousRoute);
   }
 }

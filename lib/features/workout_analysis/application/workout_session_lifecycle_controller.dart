@@ -82,6 +82,8 @@ abstract class WorkoutSessionLifecycleOwner {
   Future<FinishWorkoutSessionResult> finishSession({
     required WorkoutState finalState,
   });
+
+  void completeFinishFlow();
 }
 
 class WorkoutSessionLifecycleController
@@ -261,7 +263,6 @@ class WorkoutSessionLifecycleController
       _invalidateUserSessionsSnapshot();
       _publishCompletedSession(session);
       _hasSavedSession = true;
-      _isFinishing = false;
       return FinishWorkoutSessionResult.success(session);
     } catch (_) {
       _isFinishing = false;
@@ -269,6 +270,16 @@ class WorkoutSessionLifecycleController
         FinishWorkoutSessionFailure.persistenceFailure,
       );
     }
+  }
+
+  @override
+  void completeFinishFlow() {
+    if (!_hasSavedSession) {
+      return;
+    }
+
+    _isFinishing = false;
+    _finishArmed = false;
   }
 
   WorkoutRep? _collectCompletedWorkoutRep({

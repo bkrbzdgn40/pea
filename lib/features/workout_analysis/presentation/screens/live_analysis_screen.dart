@@ -38,6 +38,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
   WorkoutSessionLifecycleOwner? _sessionLifecycle;
+  ProviderSubscription<WorkoutSessionLifecycleOwner>?
+  _sessionLifecycleSubscription;
   Timer? _recoveryTimer;
   ProviderSubscription<AsyncValue<ExerciseConfig>>? _exerciseConfigSubscription;
   ProviderSubscription<WorkoutState>? _workoutStateSubscription;
@@ -47,6 +49,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (_hasAnalysisSelection()) {
+      _sessionLifecycleSubscription = ref
+          .listenManual<WorkoutSessionLifecycleOwner>(
+            workoutSessionLifecycleControllerProvider,
+            (previous, next) {
+              _sessionLifecycle = next;
+            },
+            fireImmediately: true,
+          );
       _sessionLifecycle = ref.read(workoutSessionLifecycleControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
       _startSessionLifecycle();
@@ -69,6 +79,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   void dispose() {
     unawaited(_setLiveAnalysisScreenAwake(false));
     _recoveryTimer?.cancel();
+    _sessionLifecycleSubscription?.close();
     _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
@@ -256,7 +267,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       case FinishWorkoutSessionFailure.missingOwner:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Analiz oturumu hazirlanamadi. Lutfen tekrar dene.'),
+            content: Text('Analiz oturumu hazırlanamadı. Lütfen tekrar dene.'),
           ),
         );
         return;
@@ -270,7 +281,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       case FinishWorkoutSessionFailure.persistenceFailure:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Oturum kaydedilemedi. Lutfen tekrar dene.'),
+            content: Text('Oturum kaydedilemedi. Lütfen tekrar dene.'),
           ),
         );
         return;
@@ -288,7 +299,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
     );
 
-    if (mounted && _hasAnalysisSelection()) {
+    if (!mounted) return;
+
+    sessionLifecycle.completeFinishFlow();
+    setState(() {});
+
+    if (_hasAnalysisSelection()) {
       unawaited(_setLiveAnalysisScreenAwake(true));
     }
   }
@@ -326,9 +342,13 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       );
     }
 
-    final sessionLifecycle = (_sessionLifecycle ??= ref.watch(
-      workoutSessionLifecycleControllerProvider,
-    ))!;
+    final sessionLifecycle = _sessionLifecycle;
+    if (sessionLifecycle == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: _CameraRecoveryView(),
+      );
+    }
 
     if (sessionLifecycle.isFinishing) {
       return const Scaffold(
