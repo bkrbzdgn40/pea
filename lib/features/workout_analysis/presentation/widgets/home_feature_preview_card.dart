@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+
 /// Shared Home preview card for secondary surfaces such as goals and coach.
 class HomeFeaturePreviewCard extends StatelessWidget {
   const HomeFeaturePreviewCard({
@@ -28,13 +30,7 @@ class HomeFeaturePreviewCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
+      child: AppSurfaceCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -15,7 +15,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return AppScaffoldShell(
       title: 'Ayarlar',
-      currentPage: AppDrawerPage.settings,
+      currentPage: AppDestination.settings,
       padding: EdgeInsets.zero,
       body: settingsState.when(
         data: (settings) {

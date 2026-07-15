@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/presentation/widgets/app_drawer.dart';
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/theme/app_design_tokens.dart';
 import '../../../achievements/presentation/models/achievement.dart';
 import '../../../achievements/presentation/providers/achievements_provider.dart';
 import '../../../achievements/presentation/screens/achievements_screen.dart';
@@ -39,189 +41,183 @@ class HomeScreen extends ConsumerWidget {
     final achievementPreview = _trustedAchievementPreview(achievementsState);
     final selectedExercise = ref.watch(selectedExerciseProvider);
 
-    return Scaffold(
-      drawer: const AppDrawer(currentPage: AppDrawerPage.home),
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Workout Analysis'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => SettingsScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _HomeGreetingCard(),
-              const SizedBox(height: 14),
-              _HomeActionGrid(
-                selectedExercise: selectedExercise,
-                onStartAnalysis: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => selectedExercise != null
-                          ? const CameraPermissionScreen()
-                          : ExerciseSelectionScreen(),
-                    ),
-                  );
-                },
-                onSelectExercise: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ExerciseSelectionScreen(),
-                    ),
-                  );
-                },
-                onOpenGuide: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => GuideScreen()),
-                  );
-                },
-                onOpenHistory: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => SessionHistoryScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              if (hasDashboardData)
-                _DashboardStats(data: dashboardData)
-              else
-                const _HomeProgressEmptyCard(),
-              const SizedBox(height: 14),
-              if (goalPreview == null)
-                HomeFeaturePreviewCard(
-                  title: 'Haftalık Hedef',
-                  subtitle:
-                      'İlk analizinden sonra hedeflerin burada şekillenir.',
-                  icon: Icons.flag_rounded,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const GoalsScreen()),
-                    );
-                  },
-                )
-              else
-                HomeFeaturePreviewCard(
-                  title: 'Haftalık Hedef',
-                  subtitle: goalPreview.title,
-                  icon: Icons.flag_rounded,
-                  progress: goalPreview.progress,
-                  trailingText:
-                      '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const GoalsScreen()),
-                    );
-                  },
-                ),
-              const SizedBox(height: 14),
-              if (achievementPreview == null)
-                HomeFeaturePreviewCard(
-                  title: 'Başarılar',
-                  subtitle: 'Rozetlerin analizlerin tamamlandıkça açılır.',
-                  icon: Icons.emoji_events_rounded,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AchievementsScreen(),
-                      ),
-                    );
-                  },
-                )
-              else
-                HomeFeaturePreviewCard(
-                  title: 'Başarılar',
-                  subtitle: achievementPreview.title,
-                  icon: Icons.emoji_events_rounded,
-                  badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
-                  progress: achievementPreview.normalizedProgress,
-                  trailingText: achievementPreview.requirementText,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AchievementsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              const SizedBox(height: 14),
-              if (hasDashboardData)
-                ScoreTrendCard(
-                  points: dashboardData.scoreTrend,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ScoreTrendDetailScreen(),
-                      ),
-                    );
-                  },
-                )
-              else
-                _HomeInsightPlaceholderCard(
-                  title: 'Skor Trendi',
-                  subtitle:
-                      'Birkaç analiz tamamlandığında skor değişimin burada görünür.',
-                  icon: Icons.show_chart_rounded,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ScoreTrendDetailScreen(),
-                      ),
-                    );
-                  },
-                ),
-              const SizedBox(height: 14),
-              if (hasDashboardData)
-                ExerciseDistributionCard(
-                  items: dashboardData.exerciseDistribution,
-                )
-              else
-                const _HomeInsightPlaceholderCard(
-                  title: 'Egzersiz Dağılımı',
-                  subtitle:
-                      'Kaydedilen oturumların hareket dağılımı burada toplanır.',
-                  icon: Icons.pie_chart_rounded,
-                ),
-              const SizedBox(height: 14),
+    return AppScaffoldShell(
+      title: 'Workout Analysis',
+      currentPage: AppDestination.home,
+      padding: EdgeInsets.zero,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_rounded),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SettingsScreen()),
+            );
+          },
+        ),
+      ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _HomeGreetingCard(),
+            const SizedBox(height: 14),
+            _HomeActionGrid(
+              selectedExercise: selectedExercise,
+              onStartAnalysis: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => selectedExercise != null
+                        ? const CameraPermissionScreen()
+                        : const ExerciseSelectionScreen(),
+                  ),
+                );
+              },
+              onSelectExercise: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ExerciseSelectionScreen(),
+                  ),
+                );
+              },
+              onOpenGuide: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GuideScreen()),
+                );
+              },
+              onOpenHistory: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SessionHistoryScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            if (hasDashboardData)
+              _DashboardStats(data: dashboardData)
+            else
+              const _HomeProgressEmptyCard(),
+            const SizedBox(height: 14),
+            if (goalPreview == null)
               HomeFeaturePreviewCard(
-                title: 'AI Coach',
-                subtitle:
-                    'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
-                icon: Icons.auto_awesome_rounded,
-                badgeText: 'Yakında',
+                title: 'Haftalık Hedef',
+                subtitle: 'İlk analizinden sonra hedeflerin burada şekillenir.',
+                icon: Icons.flag_rounded,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                  );
+                },
+              )
+            else
+              HomeFeaturePreviewCard(
+                title: 'Haftalık Hedef',
+                subtitle: goalPreview.title,
+                icon: Icons.flag_rounded,
+                progress: goalPreview.progress,
+                trailingText:
+                    '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GoalsScreen()),
                   );
                 },
               ),
-            ],
-          ),
+            const SizedBox(height: 14),
+            if (achievementPreview == null)
+              HomeFeaturePreviewCard(
+                title: 'Başarılar',
+                subtitle: 'Rozetlerin analizlerin tamamlandıkça açılır.',
+                icon: Icons.emoji_events_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AchievementsScreen(),
+                    ),
+                  );
+                },
+              )
+            else
+              HomeFeaturePreviewCard(
+                title: 'Başarılar',
+                subtitle: achievementPreview.title,
+                icon: Icons.emoji_events_rounded,
+                badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
+                progress: achievementPreview.normalizedProgress,
+                trailingText: achievementPreview.requirementText,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AchievementsScreen(),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 14),
+            if (hasDashboardData)
+              ScoreTrendCard(
+                points: dashboardData.scoreTrend,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ScoreTrendDetailScreen(),
+                    ),
+                  );
+                },
+              )
+            else
+              _HomeInsightPlaceholderCard(
+                title: 'Skor Trendi',
+                subtitle:
+                    'Birkaç analiz tamamlandığında skor değişimin burada görünür.',
+                icon: Icons.show_chart_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ScoreTrendDetailScreen(),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 14),
+            if (hasDashboardData)
+              ExerciseDistributionCard(
+                items: dashboardData.exerciseDistribution,
+              )
+            else
+              const _HomeInsightPlaceholderCard(
+                title: 'Egzersiz Dağılımı',
+                subtitle:
+                    'Kaydedilen oturumların hareket dağılımı burada toplanır.',
+                icon: Icons.pie_chart_rounded,
+              ),
+            const SizedBox(height: 14),
+            HomeFeaturePreviewCard(
+              title: 'AI Coach',
+              subtitle:
+                  'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
+              icon: Icons.auto_awesome_rounded,
+              badgeText: 'Yakında',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatScreen()),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -235,13 +231,10 @@ class _HomeGreetingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final greeting = _HomeGreetingData.current();
 
-    return Container(
+    return AppSurfaceCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: greeting.accentColor.withValues(alpha: 0.35)),
-      ),
+      radius: 18,
+      borderColor: greeting.accentColor.withValues(alpha: 0.35),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -432,17 +425,11 @@ class _SelectedExerciseSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasSelection = selectedExercise != null;
 
-    return Container(
+    return AppSurfaceCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasSelection
-              ? Colors.greenAccent.withValues(alpha: 0.35)
-              : Colors.white12,
-        ),
-      ),
+      borderColor: hasSelection
+          ? Colors.greenAccent.withValues(alpha: 0.35)
+          : AppColors.surfaceBorder,
       child: Row(
         children: [
           Container(
@@ -521,21 +508,21 @@ class _HomeActionCard extends StatelessWidget {
     final accentColor = isPrimary ? Colors.greenAccent : Colors.white70;
     final backgroundColor = isPrimary
         ? Colors.greenAccent.withValues(alpha: 0.13)
-        : const Color(0xFF151515);
+        : AppColors.primarySurface;
     final borderColor = isPrimary
         ? Colors.greenAccent.withValues(alpha: 0.5)
-        : Colors.white12;
+        : AppColors.surfaceBorder;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadii.surface),
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadii.surface),
             border: Border.all(color: borderColor),
           ),
           child: ConstrainedBox(
@@ -550,7 +537,7 @@ class _HomeActionCard extends StatelessWidget {
                   height: 38,
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadii.compact),
                   ),
                   child: Icon(icon, color: accentColor, size: 22),
                 ),
@@ -597,14 +584,9 @@ class _HomeProgressEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: const Row(
+    return const AppSurfaceCard(
+      padding: AppSpacing.headerSurfacePadding,
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.insights_rounded, color: Colors.greenAccent, size: 28),
@@ -654,13 +636,7 @@ class _HomeInsightPlaceholderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
+    final content = AppSurfaceCard(
       child: Row(
         children: [
           Container(
@@ -765,13 +741,9 @@ class _DashboardStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppSurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
-      ),
+      radius: 14,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

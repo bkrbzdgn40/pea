@@ -28,7 +28,7 @@ class _GuideScreenState extends State<GuideScreen> {
 
     return AppScaffoldShell(
       title: 'Hareket Rehberi',
-      currentPage: AppDrawerPage.guide,
+      currentPage: AppDestination.guide,
       padding: EdgeInsets.zero,
       body: Column(
         children: [

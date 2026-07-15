@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/workout_presentation_formatter.dart';
 import '../providers/session_repository_provider.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
@@ -139,24 +141,22 @@ class _SessionSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final chips = <MapEntry<String, String>>[
       MapEntry('Analiz', _analysisKindLabel(session.analysisKind)),
-      MapEntry('Süre', _formatDuration(session.duration)),
+      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
       MapEntry(
         report.isHoldSession ? 'Toplam Hold' : 'Toplam Tekrar',
         report.isHoldSession
-            ? _formatHoldSeconds(report.totalHoldSeconds)
+            ? WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds)
             : report.totalReps.toString(),
       ),
       if (!report.isHoldSession && report.hasScoreData)
-        MapEntry('Ortalama Skor', _formatScore(report.averageScore)),
+        MapEntry(
+          'Ortalama Skor',
+          WorkoutPresentationFormatter.score(report.averageScore),
+        ),
     ];
 
-    return Container(
+    return AppSurfaceCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -179,7 +179,9 @@ class _SessionSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _exerciseTitle(session.exerciseType),
+                      WorkoutPresentationFormatter.exerciseTitle(
+                        session.exerciseType,
+                      ),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -188,7 +190,7 @@ class _SessionSummaryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      _formatDateTime(session.startedAt),
+                      WorkoutPresentationFormatter.dateTime(session.startedAt),
                       style: const TextStyle(
                         color: Colors.white60,
                         fontSize: 13,
@@ -492,13 +494,7 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
+    return AppSurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -690,9 +686,15 @@ List<MapEntry<String, String>> _overviewMetrics({
 }) {
   if (report.isHoldSession) {
     return <MapEntry<String, String>>[
-      MapEntry('Süre', _formatDuration(session.duration)),
-      MapEntry('Toplam Hold', _formatHoldSeconds(report.totalHoldSeconds)),
-      MapEntry('En İyi Hold', _formatHoldSeconds(report.bestHoldSeconds)),
+      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
+      MapEntry(
+        'Toplam Hold',
+        WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds),
+      ),
+      MapEntry(
+        'En İyi Hold',
+        WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds),
+      ),
       MapEntry('Form Kesintisi', report.formBreakCount.toString()),
     ];
   }
@@ -705,15 +707,21 @@ List<MapEntry<String, String>> _overviewMetrics({
       MapEntry('Belirsiz', report.unknownReps.toString()),
     MapEntry(
       'Ortalama Skor',
-      report.hasScoreData ? _formatScore(report.averageScore) : '--',
+      report.hasScoreData
+          ? WorkoutPresentationFormatter.score(report.averageScore)
+          : '--',
     ),
     MapEntry(
       'En İyi Skor',
-      report.hasScoreData ? _formatScore(report.bestScore) : '--',
+      report.hasScoreData
+          ? WorkoutPresentationFormatter.score(report.bestScore)
+          : '--',
     ),
     MapEntry(
       'En Düşük Skor',
-      report.hasScoreData ? _formatScore(report.worstScore) : '--',
+      report.hasScoreData
+          ? WorkoutPresentationFormatter.score(report.worstScore)
+          : '--',
     ),
     MapEntry('Form Uyarısı', report.formWarningCount.toString()),
   ];
@@ -759,40 +767,12 @@ String _analysisKindLabel(String analysisKind) {
   };
 }
 
-String _exerciseTitle(String exerciseType) {
-  return switch (exerciseType) {
-    'squat' => 'Squat',
-    'plank' => 'Plank',
-    _ =>
-      exerciseType
-          .split('_')
-          .where((part) => part.isNotEmpty)
-          .map((part) => part[0].toUpperCase() + part.substring(1))
-          .join(' '),
-  };
-}
-
-String _formatDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-
-  return '$minutes:$seconds';
-}
-
-String _formatHoldSeconds(double seconds) {
-  return _formatDuration(Duration(seconds: seconds.round()));
-}
-
-String _formatScore(double score) {
-  return score.toStringAsFixed(score.truncateToDouble() == score ? 0 : 1);
-}
-
 String _formatOptionalScore(double? score) {
   if (score == null) {
     return '--';
   }
 
-  return _formatScore(score);
+  return WorkoutPresentationFormatter.score(score);
 }
 
 String _formatOptionalMetric(double? value) {
@@ -809,7 +789,7 @@ String _formatRepDuration(WorkoutRep rep) {
     return '--';
   }
 
-  return _formatDuration(duration);
+  return WorkoutPresentationFormatter.duration(duration);
 }
 
 String _formatRepTempo(WorkoutRep rep) {
@@ -847,15 +827,4 @@ String _formatIssueLabel(String value) {
     default:
       return value;
   }
-}
-
-String _formatDateTime(DateTime dateTime) {
-  final local = dateTime.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final year = local.year.toString();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-
-  return '$day.$month.$year $hour:$minute';
 }

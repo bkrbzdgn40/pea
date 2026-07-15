@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/workout_presentation_formatter.dart';
 import '../providers/session_repository_provider.dart';
 import 'session_detail_screen.dart';
 
@@ -160,20 +163,18 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   Widget build(BuildContext context) {
     return AppScaffoldShell(
       title: 'Gecmis Oturumlar',
-      currentPage: AppDrawerPage.sessionHistory,
+      currentPage: AppDestination.sessionHistory,
       body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isInitialLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.greenAccent),
-      );
+      return const AppLoadingView();
     }
 
     if (_errorMessage != null && _sessions.isEmpty) {
-      return _HistoryMessage(
+      return AppErrorView(
         icon: Icons.history_toggle_off_rounded,
         title: 'Gecmis yuklenemedi',
         message: _errorMessage!,
@@ -183,7 +184,8 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     }
 
     if (_sessions.isEmpty) {
-      return _HistoryMessage(
+      return AppEmptyView(
+        centered: true,
         icon: Icons.history_rounded,
         title: 'Henuz oturum yok',
         message:
@@ -255,73 +257,6 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   }
 }
 
-class _HistoryMessage extends StatelessWidget {
-  const _HistoryMessage({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.greenAccent, size: 42),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 15,
-                height: 1.35,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 18),
-              ElevatedButton(
-                onPressed: onAction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent,
-                  foregroundColor: Colors.black,
-                ),
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SessionCard extends StatelessWidget {
   const _SessionCard({required this.session});
 
@@ -331,32 +266,42 @@ class _SessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = session.isHoldSession
         ? <MapEntry<String, String>>[
-            MapEntry('Sure', _formatDuration(session.duration)),
+            MapEntry(
+              'Sure',
+              WorkoutPresentationFormatter.duration(session.duration),
+            ),
             MapEntry(
               'Toplam Hold',
-              _formatHoldSeconds(session.totalHoldSeconds),
+              WorkoutPresentationFormatter.holdDuration(
+                session.totalHoldSeconds,
+              ),
             ),
             MapEntry(
               'En Iyi Hold',
-              _formatHoldSeconds(session.bestHoldSeconds),
+              WorkoutPresentationFormatter.holdDuration(
+                session.bestHoldSeconds,
+              ),
             ),
             MapEntry('Kesinti', session.formBreakCount.toString()),
           ]
         : <MapEntry<String, String>>[
-            MapEntry('Sure', _formatDuration(session.duration)),
+            MapEntry(
+              'Sure',
+              WorkoutPresentationFormatter.duration(session.duration),
+            ),
             MapEntry('Tekrar', session.totalReps.toString()),
-            MapEntry('Ort. Skor', _formatScore(session.averageScore)),
-            MapEntry('En Iyi', _formatScore(session.bestScore)),
+            MapEntry(
+              'Ort. Skor',
+              WorkoutPresentationFormatter.score(session.averageScore),
+            ),
+            MapEntry(
+              'En Iyi',
+              WorkoutPresentationFormatter.score(session.bestScore),
+            ),
             MapEntry('Uyari', session.formWarningCount.toString()),
           ];
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
+    return AppSurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -366,7 +311,9 @@ class _SessionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _exerciseTitle(session.exerciseType),
+                  WorkoutPresentationFormatter.exerciseTitle(
+                    session.exerciseType,
+                  ),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -376,7 +323,7 @@ class _SessionCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                _formatDateTime(session.startedAt),
+                WorkoutPresentationFormatter.dateTime(session.startedAt),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.62),
                   fontSize: 13,
@@ -441,42 +388,4 @@ class _SessionMetric extends StatelessWidget {
       ),
     );
   }
-}
-
-String _exerciseTitle(String exerciseType) {
-  return switch (exerciseType) {
-    'squat' => 'Squat',
-    _ =>
-      exerciseType
-          .split('_')
-          .where((part) => part.isNotEmpty)
-          .map((part) => part[0].toUpperCase() + part.substring(1))
-          .join(' '),
-  };
-}
-
-String _formatDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-
-  return '$minutes:$seconds';
-}
-
-String _formatHoldSeconds(double seconds) {
-  return _formatDuration(Duration(seconds: seconds.round()));
-}
-
-String _formatScore(double score) {
-  return score.round().toString();
-}
-
-String _formatDateTime(DateTime dateTime) {
-  final local = dateTime.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final year = local.year.toString();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-
-  return '$day.$month.$year $hour:$minute';
 }

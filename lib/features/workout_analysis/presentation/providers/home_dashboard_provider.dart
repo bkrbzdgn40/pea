@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/workout_statistics.dart';
 import '../../application/workout_statistics_calculator.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/workout_presentation_formatter.dart';
 import '../models/home_dashboard_data.dart';
 import 'user_sessions_snapshot_provider.dart';
 
@@ -61,7 +62,7 @@ List<ExerciseDistributionItem> _buildExerciseDistribution(
   return [
     for (final item in items.take(4))
       ExerciseDistributionItem(
-        label: _exerciseTitle(item.key),
+        label: WorkoutPresentationFormatter.exerciseTitle(item.key),
         value: item.value * 100 / totalSessionCount,
       ),
   ];
@@ -70,16 +71,4 @@ List<ExerciseDistributionItem> _buildExerciseDistribution(
 String _weekdayLabel(DateTime dateTime) {
   const labels = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
   return labels[dateTime.weekday - 1];
-}
-
-String _exerciseTitle(String exerciseType) {
-  return switch (exerciseType) {
-    'squat' => 'Squat',
-    _ =>
-      exerciseType
-          .split('_')
-          .where((part) => part.isNotEmpty)
-          .map((part) => part[0].toUpperCase() + part.substring(1))
-          .join(' '),
-  };
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_design_tokens.dart';
 import 'app_drawer.dart';
 
-export 'app_drawer.dart' show AppDrawerPage;
+export 'app_drawer.dart' show AppDestination;
 
 class AppScaffoldShell extends StatelessWidget {
   const AppScaffoldShell({
@@ -11,13 +12,13 @@ class AppScaffoldShell extends StatelessWidget {
     required this.body,
     this.currentPage,
     this.actions,
-    this.padding = const EdgeInsets.fromLTRB(20, 12, 20, 24),
+    this.padding = AppSpacing.pagePadding,
     this.showDrawer = true,
   });
 
   final String title;
   final Widget body;
-  final AppDrawerPage? currentPage;
+  final AppDestination? currentPage;
   final List<Widget>? actions;
   final EdgeInsetsGeometry padding;
   final bool showDrawer;
@@ -26,14 +27,7 @@ class AppScaffoldShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: showDrawer ? AppDrawer(currentPage: currentPage) : null,
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: actions,
-      ),
+      appBar: AppBar(title: Text(title), actions: actions),
       body: SafeArea(
         child: Padding(padding: padding, child: body),
       ),
