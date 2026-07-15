@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/analysis_engine_factory.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -201,8 +200,7 @@ void main() {
 
 DefaultRangeRepCoordinator _buildCoordinator(_TestClock clock) {
   final config = _squatConfig();
-  final engine = const AnalysisEngineFactory().create(
-    engineKind: EngineKind.rangeRep,
+  final engine = const AnalysisEngineFactory().createRangeRep(
     config: config,
     rangeRepContract: RangeRepContracts.squat,
     now: clock.now,

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +14,14 @@ import 'package:pose_estimation_app/features/workout_analysis/application/range_
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -288,9 +293,9 @@ void main() {
         clock: clock,
         extraOverrides: <Override>[
           rangeRepCoordinatorFactoryProvider.overrideWithValue(({
-            required engine,
-            required config,
-            required rangeRepContract,
+            required RangeRepAnalysisEngine engine,
+            required ExerciseConfig config,
+            required RangeRepContract rangeRepContract,
           }) {
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
@@ -363,6 +368,38 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'push-up production path reaches the real range-rep engine path',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = _createHarness(
+          exerciseType: ExerciseType.pushUp,
+          config: _pushUpConfig(),
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _pushUpPose(),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        var state = harness.container.read(workoutControllerProvider);
+        final diagnostics = harness.controller.diagnosticsSnapshot();
+
+        expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+        expect(state.currentAngle, closeTo(90.0, 0.001));
+        expect(state.currentPhase, 'AWAITING_NEUTRAL');
+        expect(state.repCount, 0);
+      },
+    );
 
     test(
       'completed clean rep records a valid production validation outcome',
@@ -798,9 +835,9 @@ void main() {
         clock: clock,
         extraOverrides: <Override>[
           rangeRepCoordinatorFactoryProvider.overrideWithValue(({
-            required engine,
-            required config,
-            required rangeRepContract,
+            required RangeRepAnalysisEngine engine,
+            required ExerciseConfig config,
+            required RangeRepContract rangeRepContract,
           }) {
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
@@ -858,8 +895,8 @@ void main() {
       clock: clock,
       extraOverrides: <Override>[
         holdCoordinatorFactoryProvider.overrideWithValue(({
-          required engine,
-          required config,
+          required HoldAnalysisEngine engine,
+          required ExerciseConfig config,
         }) {
           spyCoordinator = _SpyHoldCoordinator(
             inner: DefaultHoldCoordinator(engine: engine, config: config),
@@ -2039,6 +2076,13 @@ ExerciseConfig _plankConfig() {
   return buildPlankConfig();
 }
 
+ExerciseConfig _pushUpConfig() {
+  final rawJson = File(
+    'assets/config/exercises/push_up.json',
+  ).readAsStringSync();
+  return ExerciseConfig.fromMap(jsonDecode(rawJson) as Map<String, dynamic>);
+}
+
 Pose _squatPose({
   required double angle,
   double defaultLikelihood = 0.95,
@@ -2149,6 +2193,43 @@ Pose _bilateralSquatPose({
   };
 
   return Pose(landmarks: landmarks);
+}
+
+Pose _pushUpPose({double defaultLikelihood = 0.95}) {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        0,
+        2,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftElbow: _landmark(
+        PoseLandmarkType.leftElbow,
+        1,
+        2,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftWrist: _landmark(
+        PoseLandmarkType.leftWrist,
+        1,
+        1,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftHip: _landmark(
+        PoseLandmarkType.leftHip,
+        2,
+        2,
+        likelihood: defaultLikelihood,
+      ),
+      PoseLandmarkType.leftAnkle: _landmark(
+        PoseLandmarkType.leftAnkle,
+        4,
+        2,
+        likelihood: defaultLikelihood,
+      ),
+    },
+  );
 }
 
 Pose _plankPose({

@@ -1,8 +1,10 @@
 import '../domain/analysis_engine.dart';
+import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_engine.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_engine.dart';
 import 'engine_kind.dart';
 
@@ -12,6 +14,24 @@ import 'engine_kind.dart';
 /// explicit until that family is implemented for real.
 class AnalysisEngineFactory {
   const AnalysisEngineFactory();
+
+  RangeRepAnalysisEngine createRangeRep({
+    required ExerciseConfig config,
+    required RangeRepContract rangeRepContract,
+    DateTime Function()? now,
+  }) {
+    _validateRangeRepEngineContract(rangeRepContract);
+    return RangeRepEngine(config: config, now: now);
+  }
+
+  HoldAnalysisEngine createHold({
+    required ExerciseConfig config,
+    required HoldContract holdContract,
+    DateTime Function()? now,
+  }) {
+    _validateHoldEngineContract(holdContract, config);
+    return HoldEngine(config: config, now: now);
+  }
 
   AnalysisEngine create({
     required EngineKind engineKind,
@@ -29,8 +49,11 @@ class AnalysisEngineFactory {
             'rangeRepContract.',
           );
         }
-        _validateRangeRepEngineContract(requiredRangeRepContract);
-        return RangeRepEngine(config: config, now: now);
+        return createRangeRep(
+          config: config,
+          rangeRepContract: requiredRangeRepContract,
+          now: now,
+        );
       case EngineKind.hold:
         final requiredHoldContract = holdContract;
         if (requiredHoldContract == null) {
@@ -38,8 +61,11 @@ class AnalysisEngineFactory {
             'Hold engine creation requires a non-null holdContract.',
           );
         }
-        _validateHoldEngineContract(requiredHoldContract, config);
-        return HoldEngine(config: config, now: now);
+        return createHold(
+          config: config,
+          holdContract: requiredHoldContract,
+          now: now,
+        );
       case EngineKind.alternatingRep:
         throw StateError(
           'EngineKind $engineKind is not implemented for analysis engine '

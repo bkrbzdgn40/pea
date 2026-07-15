@@ -1,8 +1,8 @@
-import 'analysis_engine.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
 import 'models/range_rep_feedback_code.dart';
 import 'models/rep_score_breakdown.dart';
+import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
@@ -185,14 +185,7 @@ class _MutableRangeRepPhaseQuality {
 }
 
 /// Current range-rep engine backing the workout analysis flow.
-class RangeRepEngine
-    implements
-        AnalysisEngine,
-        RangeRepDiagnostics,
-        RangeRepValidationHook,
-        RangeRepResyncControl,
-        RangeRepVisibilityGapControl,
-        RangeRepFeedbackSource {
+class RangeRepEngine implements RangeRepAnalysisEngine {
   final ExerciseConfig config;
   final DateTime Function() _now;
 
@@ -203,8 +196,8 @@ class RangeRepEngine
   @override
   bool isFormBad = false;
 
-  // Kept for WorkoutController compatibility; this is the last rep's min angle.
-  double maxROM = 180.0;
+  // Compatibility ROM value for the most recently completed repetition.
+  double _lastRepRom = 180.0;
   @override
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
@@ -244,7 +237,7 @@ class RangeRepEngine
   }
 
   @override
-  double get maxRom => maxROM;
+  double get lastRepRom => _lastRepRom;
 
   @override
   RangeRepFeedbackCode? get feedbackCode => _feedbackCode;
@@ -461,13 +454,13 @@ class RangeRepEngine
   void _finishRep() {
     // Score is finalized only after descent, peak, and ascent return to neutral.
     repCount++;
-    maxROM = _currentRepMinAngle;
+    _lastRepRom = _currentRepMinAngle;
     final completedPhaseSequence =
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
 
-    final romScore = _calculateRomScore(maxROM);
+    final romScore = _calculateRomScore(_lastRepRom);
     final descentSeconds = lastDescentTime.inMilliseconds / 1000.0;
     final descentScore = _calculateTempoScore(
       actualSeconds: descentSeconds,
@@ -546,7 +539,7 @@ class RangeRepEngine
       phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
     );
     lastRepScoreBreakdown = RepScoreBreakdown(
-      minAngle: maxROM,
+      minAngle: _lastRepRom,
       romScore: romScore,
       descentSeconds: descentSeconds,
       descentScore: descentScore,
@@ -565,7 +558,7 @@ class RangeRepEngine
     );
     lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
       repIndex: repCount,
-      minAngle: maxROM,
+      minAngle: _lastRepRom,
       worstFormMetric: _currentRepWorstBackAngle,
       descentDuration: lastDescentTime,
       ascentDuration: lastAscentTime,
@@ -998,7 +991,7 @@ class RangeRepEngine
     lastRepScoreBreakdown = null;
     lastCompletedRepCoreData = null;
     _pendingCompletedRepCoreData = null;
-    maxROM = 180;
+    _lastRepRom = 180;
     lastDescentTime = Duration.zero;
     lastAscentTime = Duration.zero;
     _descentStartTime = null;

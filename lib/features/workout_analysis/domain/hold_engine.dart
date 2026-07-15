@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'analysis_engine.dart';
+import 'hold_analysis_engine.dart';
 import 'hold_diagnostics.dart';
 import 'hold_posture_policy.dart';
 import 'models/analysis_frame.dart';
@@ -8,18 +8,8 @@ import 'models/exercise_config.dart';
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
 
-/// First real non-repetition engine family.
-///
-/// The shared contract still carries rep-oriented fields, so this engine keeps
-/// those values at safe placeholders while exposing meaningful hold telemetry
-/// through its own diagnostics surface.
-class HoldEngine
-    implements
-        AnalysisEngine,
-        HoldFeedbackSource,
-        HoldDiagnostics,
-        HoldVisibilityGapControl,
-        HoldInterruptionControl {
+/// First real non-repetition engine family backed by typed hold diagnostics.
+class HoldEngine implements HoldAnalysisEngine {
   HoldEngine({required this.config, DateTime Function()? now})
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
@@ -44,18 +34,6 @@ class HoldEngine
       const HoldPostureDiagnosticsSnapshot();
 
   @override
-  int get repCount => 0;
-
-  @override
-  bool get isFormBad => _phase == HoldPhase.broken;
-
-  @override
-  double get lastRepScore => 0.0;
-
-  @override
-  double get maxRom => 0.0;
-
-  @override
   HoldFeedbackCode get feedbackCode {
     switch (_phase) {
       case HoldPhase.ready:
@@ -70,10 +48,10 @@ class HoldEngine
     }
   }
 
-  @override
+  bool get isFormBad => _phase == HoldPhase.broken;
+
   String get feedback => feedbackCode.code;
 
-  @override
   String get phaseLabel => _phase.legacyLabel;
 
   @override
