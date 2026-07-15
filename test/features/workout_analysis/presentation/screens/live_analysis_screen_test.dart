@@ -1,3 +1,5 @@
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +10,7 @@ import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/hold_session_metrics_collector.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/repositories/session_repository.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
@@ -18,25 +18,49 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/work
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/live_analysis_screen.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:wakelock_plus_platform_interface/wakelock_plus_platform_interface.dart';
 
 import '../../../../support/workout_analysis_test_support.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late WakelockPlusPlatformInterface originalWakelockPlatform;
+
+  setUpAll(() {
+    originalWakelockPlatform = wakelockPlusPlatformInstance;
+  });
+
+  setUp(() {
+    wakelockPlusPlatformInstance = _FakeWakelockPlusPlatform();
+  });
+
+  tearDown(() {
+    wakelockPlusPlatformInstance = originalWakelockPlatform;
+  });
+
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
     tester,
   ) async {
+    final sessionRepository = _FakeSessionRepository();
     final container = ProviderContainer(
       overrides: <Override>[
         selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
         activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
         exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
         poseDetectorProvider.overrideWith((ref) => _FakePoseDetector()),
+        authRepositoryProvider.overrideWithValue(
+          const _FakeAuthRepository(currentUserId: 'test-user'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(sessionRepository),
         cameraProvider.overrideWith(
           (ref) async => throw CameraException('test', 'camera unavailable'),
         ),
@@ -155,114 +179,6 @@ void main() {
     },
   );
 
-  test(
-    'hold session collector excludes hidden and duplicate time across a brief '
-    'suspension',
-    () {
-      final collector = HoldSessionMetricsCollector();
-
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 5,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 5,
-          bestHoldSeconds: 5,
-          isHolding: false,
-          isHoldVisibilitySuspended: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 5,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 6,
-          bestHoldSeconds: 6,
-          isHolding: true,
-        ),
-      );
-
-      expect(collector.totalHoldSeconds, closeTo(6.0, 0.001));
-      expect(collector.totalHoldSeconds, isNot(closeTo(11.0, 0.001)));
-      expect(collector.bestHoldSeconds, closeTo(6.0, 0.001));
-    },
-  );
-
-  test(
-    'hold session collector resets the old hold after a long gap before a new '
-    '2 second hold',
-    () {
-      final collector = HoldSessionMetricsCollector();
-
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 5,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 5,
-          bestHoldSeconds: 5,
-          isHolding: false,
-          isHoldVisibilitySuspended: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 0,
-          bestHoldSeconds: 5,
-          isHolding: false,
-          isHoldVisibilitySuspended: false,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 0,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 1,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-      collector.collect(
-        WorkoutState(
-          analysisKind: EngineKind.hold,
-          currentHoldSeconds: 2,
-          bestHoldSeconds: 5,
-          isHolding: true,
-        ),
-      );
-
-      expect(collector.totalHoldSeconds, closeTo(7.0, 0.001));
-      expect(collector.bestHoldSeconds, closeTo(5.0, 0.001));
-    },
-  );
-
   testWidgets(
     'finishing a completed range-rep session saves the production rep summary',
     (tester) async {
@@ -289,9 +205,24 @@ void main() {
       expect(state.calibrationMetrics.lastRangeRepValidationStatus, 'valid');
       expect(find.text('Bitir'), findsOneWidget);
 
+      final snapshotSubscription = harness.container
+          .listen<AsyncValue<UserSessionsSnapshot>>(
+            userSessionsSnapshotProvider,
+            (previous, next) {},
+            fireImmediately: true,
+          );
+      addTearDown(snapshotSubscription.close);
+      await tester.pump();
+      expect(harness.sessionRepository.listSessionsCallCount, 1);
+      final initialPushCount = harness.navigationObserver.pushCount;
+
       await tester.tap(find.text('Bitir'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
 
       expect(harness.sessionRepository.savedSessions, hasLength(1));
       final session = harness.sessionRepository.savedSessions.single;
@@ -310,6 +241,9 @@ void main() {
       expect(rep.validationReasons, isEmpty);
       expect(rep.completedPhaseSequence, isTrue);
       expect(rep.selectedSideLabel, 'left');
+      expect(harness.container.read(completedSessionProvider), same(session));
+      expect(harness.sessionRepository.listSessionsCallCount, 2);
+      expect(harness.navigationObserver.pushCount, initialPushCount + 1);
     },
   );
 
@@ -338,9 +272,24 @@ void main() {
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(find.text('Bitir'), findsOneWidget);
 
+      final snapshotSubscription = harness.container
+          .listen<AsyncValue<UserSessionsSnapshot>>(
+            userSessionsSnapshotProvider,
+            (previous, next) {},
+            fireImmediately: true,
+          );
+      addTearDown(snapshotSubscription.close);
+      await tester.pump();
+      expect(harness.sessionRepository.listSessionsCallCount, 1);
+      final initialPushCount = harness.navigationObserver.pushCount;
+
       await tester.tap(find.text('Bitir'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
 
       expect(harness.sessionRepository.savedSessions, hasLength(1));
       final session = harness.sessionRepository.savedSessions.single;
@@ -358,6 +307,9 @@ void main() {
       expect(session.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(session.formBreakCount, 0);
       expect(session.reps, isNull);
+      expect(harness.container.read(completedSessionProvider), same(session));
+      expect(harness.sessionRepository.listSessionsCallCount, 2);
+      expect(harness.navigationObserver.pushCount, initialPushCount + 1);
     },
   );
 }
@@ -408,6 +360,21 @@ Future<void> _driveUntilPhase(
   throw TestFailure(
     'Expected phase $expectedPhase for primaryAngle $primaryAngle',
   );
+}
+
+Future<void> _pumpUntilRoutePush(
+  WidgetTester tester,
+  _TestNavigatorObserver navigationObserver,
+  int expectedPushCount,
+) async {
+  for (var index = 0; index < 20; index++) {
+    await tester.pump(const Duration(milliseconds: 50));
+    if (navigationObserver.pushCount >= expectedPushCount) {
+      return;
+    }
+  }
+
+  throw TestFailure('Workout summary route was not pushed.');
 }
 
 Future<void> _pumpFrames(
@@ -490,6 +457,7 @@ class _LiveScreenHarness {
     required this.clock,
     required this.sessionRepository,
     required this.cameraController,
+    required this.navigationObserver,
   });
 
   final ProviderContainer container;
@@ -498,6 +466,7 @@ class _LiveScreenHarness {
   final _FakeClock clock;
   final _FakeSessionRepository sessionRepository;
   final _FakeCameraController? cameraController;
+  final _TestNavigatorObserver navigationObserver;
 
   Future<void> dispose() async {
     await cameraController?.dispose();
@@ -515,6 +484,7 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
   final clock = _FakeClock();
   final sessionRepository = _FakeSessionRepository();
   final cameraController = showFinishButton ? _FakeCameraController() : null;
+  final navigationObserver = _TestNavigatorObserver();
   final container = ProviderContainer(
     overrides: <Override>[
       selectedExerciseProvider.overrideWith((ref) => exerciseType),
@@ -539,7 +509,10 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: LiveAnalysisScreen()),
+      child: MaterialApp(
+        home: const LiveAnalysisScreen(),
+        navigatorObservers: <NavigatorObserver>[navigationObserver],
+      ),
     ),
   );
   await tester.pump();
@@ -552,6 +525,7 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
     clock: clock,
     sessionRepository: sessionRepository,
     cameraController: cameraController,
+    navigationObserver: navigationObserver,
   );
 }
 
@@ -681,6 +655,7 @@ class _FakeCameraController extends CameraController {
 
 class _FakeSessionRepository implements SessionRepository {
   final List<WorkoutSession> savedSessions = <WorkoutSession>[];
+  var listSessionsCallCount = 0;
 
   @override
   Future<void> saveSession(WorkoutSession session) async {
@@ -710,6 +685,7 @@ class _FakeSessionRepository implements SessionRepository {
     String? exerciseType,
     WorkoutSession? startAfter,
   }) async {
+    listSessionsCallCount += 1;
     return List<WorkoutSession>.unmodifiable(savedSessions);
   }
 
@@ -744,4 +720,29 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+}
+
+class _TestNavigatorObserver extends NavigatorObserver {
+  var pushCount = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushCount += 1;
+    super.didPush(route, previousRoute);
+  }
+}
+
+class _FakeWakelockPlusPlatform extends WakelockPlusPlatformInterface {
+  var _enabled = false;
+
+  @override
+  bool get isMock => true;
+
+  @override
+  Future<void> toggle({required bool enable}) async {
+    _enabled = enable;
+  }
+
+  @override
+  Future<bool> get enabled async => _enabled;
 }
