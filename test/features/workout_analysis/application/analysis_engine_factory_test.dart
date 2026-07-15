@@ -151,21 +151,21 @@ ExerciseConfig _holdConfig({
           referenceSide: HoldSide.left,
           alignment: missingSignals.contains(HoldSignal.alignment)
               ? null
-              : const HoldAngleSignalConfig(
+              : const PoseAngleLandmarks(
                   first: PoseLandmarkType.leftShoulder,
                   middle: PoseLandmarkType.leftHip,
                   last: PoseLandmarkType.leftAnkle,
                 ),
           support: missingSignals.contains(HoldSignal.support)
               ? null
-              : const HoldAngleSignalConfig(
+              : const PoseAngleLandmarks(
                   first: PoseLandmarkType.leftShoulder,
                   middle: PoseLandmarkType.leftElbow,
                   last: PoseLandmarkType.leftWrist,
                 ),
           extension: missingSignals.contains(HoldSignal.extension)
               ? null
-              : const HoldAngleSignalConfig(
+              : const PoseAngleLandmarks(
                   first: PoseLandmarkType.leftHip,
                   middle: PoseLandmarkType.leftKnee,
                   last: PoseLandmarkType.leftAnkle,

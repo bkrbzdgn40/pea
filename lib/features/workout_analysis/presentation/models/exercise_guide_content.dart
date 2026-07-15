@@ -1,3 +1,5 @@
+import '../../domain/models/exercise_type.dart';
+
 enum ExerciseDifficulty { beginner, intermediate, advanced }
 
 extension ExerciseDifficultyLabel on ExerciseDifficulty {
@@ -13,8 +15,7 @@ extension ExerciseDifficultyLabel on ExerciseDifficulty {
 /// Local guide entry for rich presentation copy; analysis policy lives in ExerciseCatalog.
 class ExerciseGuideContent {
   const ExerciseGuideContent({
-    required this.id,
-    required this.title,
+    required this.type,
     required this.subtitle,
     required this.purpose,
     required this.difficulty,
@@ -25,8 +26,7 @@ class ExerciseGuideContent {
     required this.youtubeSourceLabel,
   });
 
-  final String id;
-  final String title;
+  final ExerciseType type;
   final String subtitle;
   final String purpose;
   final ExerciseDifficulty difficulty;
@@ -35,4 +35,8 @@ class ExerciseGuideContent {
   final List<String> commonMistakes;
   final String youtubeUrl;
   final String youtubeSourceLabel;
+
+  String get id => type.id;
+
+  String get title => type.title;
 }

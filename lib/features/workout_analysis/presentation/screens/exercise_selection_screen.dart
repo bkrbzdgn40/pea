@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_definition.dart';
-import '../data/exercise_guide_contents.dart';
+import '../data/exercise_guide_catalog.dart';
 import '../models/exercise_guide_content.dart';
 import '../providers/selected_exercise_provider.dart';
 import 'camera_permission_screen.dart';
@@ -14,6 +14,7 @@ class ExerciseSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const catalog = ExerciseCatalog();
+    const guideCatalog = ExerciseGuideCatalog();
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -26,14 +27,14 @@ class ExerciseSelectionScreen extends ConsumerWidget {
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          itemCount: exerciseGuideContents.length,
+          itemCount: guideCatalog.contents.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final content = exerciseGuideContents[index];
-            final definition = catalog.definitionForIdOrNull(content.id);
+            final content = guideCatalog.contents[index];
+            final definition = catalog.definitionFor(content.type);
             return _ExerciseSelectionCard(
               content: content,
-              isAnalysisSupported: definition?.isAnalysisSupported ?? false,
+              isAnalysisSupported: definition.isAnalysisSupported,
               onTap: () => _handleExerciseTap(context, ref, definition),
             );
           },
@@ -45,9 +46,9 @@ class ExerciseSelectionScreen extends ConsumerWidget {
   void _handleExerciseTap(
     BuildContext context,
     WidgetRef ref,
-    ExerciseDefinition? definition,
+    ExerciseDefinition definition,
   ) {
-    if (definition == null || !definition.isAnalysisSupported) {
+    if (!definition.isAnalysisSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(

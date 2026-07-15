@@ -7,48 +7,37 @@ import '../domain/models/range_rep_contract.dart';
 class ExerciseDefinition {
   const ExerciseDefinition.supported({
     required this.type,
-    required this.id,
-    required this.title,
     required this.engineKind,
     required this.configAssetPath,
     this.rangeRepContract,
     this.holdContract,
   }) : isAnalysisSupported = true,
-       activeAnalysisExercise = type,
        assert(engineKind != EngineKind.rangeRep || rangeRepContract != null),
        assert(engineKind != EngineKind.hold || holdContract != null),
        assert(engineKind != EngineKind.rangeRep || holdContract == null),
        assert(engineKind != EngineKind.hold || rangeRepContract == null);
 
-  const ExerciseDefinition.unsupported({
-    required this.type,
-    required this.id,
-    required this.title,
-  }) : isAnalysisSupported = false,
-       activeAnalysisExercise = null,
-       engineKind = null,
-       configAssetPath = null,
-       rangeRepContract = null,
-       holdContract = null;
+  const ExerciseDefinition.unsupported({required this.type})
+    : isAnalysisSupported = false,
+      engineKind = null,
+      configAssetPath = null,
+      rangeRepContract = null,
+      holdContract = null;
 
   final ExerciseType type;
-  final String id;
-  final String title;
   final bool isAnalysisSupported;
-  final ExerciseType? activeAnalysisExercise;
   final EngineKind? engineKind;
   final String? configAssetPath;
   final RangeRepContract? rangeRepContract;
   final HoldContract? holdContract;
 
+  String get id => type.id;
+
+  String get title => type.title;
+
   ExerciseType get analysisExercise {
     _ensureAnalysisDefinitionConsistency();
-    final activeAnalysisExercise = this.activeAnalysisExercise;
-    if (activeAnalysisExercise == null) {
-      throw StateError('No analysis exercise registered for $type.');
-    }
-
-    return activeAnalysisExercise;
+    return type;
   }
 
   EngineKind get analysisEngineKind {
@@ -105,9 +94,7 @@ class ExerciseDefinition {
     }
 
     final engineKind = this.engineKind;
-    if (engineKind == null ||
-        activeAnalysisExercise == null ||
-        configAssetPath == null) {
+    if (engineKind == null || configAssetPath == null) {
       throw StateError('Incomplete analysis definition registered for $type.');
     }
 

@@ -6,21 +6,19 @@ void main() {
   const resolver = ExerciseAnalysisResolver();
 
   group('ExerciseAnalysisResolver', () {
-    test('keeps squat as the active analysis exercise', () {
+    test('returns null for a null selection', () {
+      expect(resolver.resolveActiveExercise(null), isNull);
+    });
+
+    test('keeps supported selections on their canonical exercise type', () {
       expect(
         resolver.resolveActiveExercise(ExerciseType.squat),
         ExerciseType.squat,
       );
-    });
-
-    test('keeps plank as the active analysis exercise', () {
       expect(
         resolver.resolveActiveExercise(ExerciseType.plank),
         ExerciseType.plank,
       );
-    });
-
-    test('keeps push-up as the active analysis exercise', () {
       expect(
         resolver.resolveActiveExercise(ExerciseType.pushUp),
         ExerciseType.pushUp,
@@ -28,8 +26,11 @@ void main() {
     });
 
     test('returns null for unsupported selections', () {
-      for (final exercise in const [ExerciseType.lunge, ExerciseType.sitUp]) {
-        expect(resolver.resolveActiveExercise(exercise), isNull);
+      for (final type in const <ExerciseType>[
+        ExerciseType.lunge,
+        ExerciseType.sitUp,
+      ]) {
+        expect(resolver.resolveActiveExercise(type), isNull);
       }
     });
   });

@@ -8,63 +8,78 @@ import 'exercise_definition.dart';
 class ExerciseCatalog {
   const ExerciseCatalog();
 
-  static final List<ExerciseDefinition> _definitions = [
-    ExerciseDefinition.supported(
-      type: ExerciseType.squat,
-      id: ExerciseType.squat.id,
-      title: ExerciseType.squat.title,
-      engineKind: EngineKind.rangeRep,
-      configAssetPath: 'assets/config/exercises/squat.json',
-      rangeRepContract: RangeRepContracts.squat,
-    ),
-    ExerciseDefinition.supported(
-      type: ExerciseType.plank,
-      id: ExerciseType.plank.id,
-      title: ExerciseType.plank.title,
-      engineKind: EngineKind.hold,
-      configAssetPath: 'assets/config/exercises/plank.json',
-      holdContract: HoldContracts.plankFamily,
-    ),
-    ExerciseDefinition.unsupported(
-      type: ExerciseType.lunge,
-      id: ExerciseType.lunge.id,
-      title: ExerciseType.lunge.title,
-    ),
-    ExerciseDefinition.supported(
-      type: ExerciseType.pushUp,
-      id: ExerciseType.pushUp.id,
-      title: ExerciseType.pushUp.title,
-      engineKind: EngineKind.rangeRep,
-      configAssetPath: 'assets/config/exercises/push_up.json',
-      rangeRepContract: RangeRepContracts.pushUp,
-    ),
-    ExerciseDefinition.unsupported(
-      type: ExerciseType.sitUp,
-      id: ExerciseType.sitUp.id,
-      title: ExerciseType.sitUp.title,
-    ),
-  ];
+  static final List<ExerciseDefinition> _definitions =
+      List.unmodifiable(<ExerciseDefinition>[
+        ExerciseDefinition.supported(
+          type: ExerciseType.squat,
+          engineKind: EngineKind.rangeRep,
+          configAssetPath: 'assets/config/exercises/squat.json',
+          rangeRepContract: RangeRepContracts.squat,
+        ),
+        ExerciseDefinition.supported(
+          type: ExerciseType.plank,
+          engineKind: EngineKind.hold,
+          configAssetPath: 'assets/config/exercises/plank.json',
+          holdContract: HoldContracts.plankFamily,
+        ),
+        ExerciseDefinition.unsupported(type: ExerciseType.lunge),
+        ExerciseDefinition.supported(
+          type: ExerciseType.pushUp,
+          engineKind: EngineKind.rangeRep,
+          configAssetPath: 'assets/config/exercises/push_up.json',
+          rangeRepContract: RangeRepContracts.pushUp,
+        ),
+        ExerciseDefinition.unsupported(type: ExerciseType.sitUp),
+      ]);
+
+  static final Map<ExerciseType, ExerciseDefinition> _definitionsByType =
+      _buildDefinitionsByType(_definitions);
 
   List<ExerciseDefinition> get definitions => _definitions;
 
   ExerciseDefinition definitionFor(ExerciseType type) {
-    for (final definition in _definitions) {
-      if (definition.type == type) {
-        return definition;
-      }
+    final definition = _definitionsByType[type];
+    if (definition != null) {
+      return definition;
     }
 
     throw StateError('Missing exercise definition for: $type');
   }
 
   ExerciseDefinition? definitionForIdOrNull(String id) {
-    for (final definition in _definitions) {
-      if (definition.id == id) {
-        return definition;
-      }
+    final type = ExerciseType.fromIdOrNull(id);
+    if (type == null) {
+      assert(false, 'Missing exercise definition for id: $id');
+      return null;
     }
 
-    assert(false, 'Missing exercise definition for id: $id');
-    return null;
+    return _definitionsByType[type];
+  }
+
+  static Map<ExerciseType, ExerciseDefinition> _buildDefinitionsByType(
+    List<ExerciseDefinition> definitions,
+  ) {
+    final definitionsByType = <ExerciseType, ExerciseDefinition>{};
+    for (final definition in definitions) {
+      final previous = definitionsByType[definition.type];
+      if (previous != null) {
+        throw StateError(
+          'Duplicate exercise definition registered for ${definition.type}.',
+        );
+      }
+      definitionsByType[definition.type] = definition;
+    }
+
+    final missingTypes = ExerciseType.values
+        .where((type) => !definitionsByType.containsKey(type))
+        .map((type) => type.name)
+        .toList(growable: false);
+    if (missingTypes.isNotEmpty) {
+      throw StateError(
+        'Missing exercise definitions for: ${missingTypes.join(', ')}.',
+      );
+    }
+
+    return Map.unmodifiable(definitionsByType);
   }
 }
