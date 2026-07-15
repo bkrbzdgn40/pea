@@ -38,6 +38,7 @@ void main() {
 
       expect(statistics.averageScore, closeTo(90, 0.001));
       expect(statistics.bestScore, 100);
+      expect(statistics.bestAverageScore, 100);
       expect(
         statistics.chronologicalScoreSamples
             .map((sample) => sample.score)
@@ -50,6 +51,36 @@ void main() {
             .toList(growable: false),
         <DateTime>[DateTime(2024, 1, 1, 9), DateTime(2024, 1, 3, 9)],
       );
+    },
+  );
+
+  test(
+    'bestAverageScore stays tied to eligible average-score samples not session bestScore',
+    () {
+      final calculator = WorkoutStatisticsCalculator(
+        clock: () => DateTime(2024, 1, 10, 12),
+      );
+      final sessions = [
+        buildWorkoutSession(
+          id: 'range-1',
+          startedAt: DateTime(2024, 1, 1, 9),
+          totalReps: 10,
+          averageScore: 60,
+          bestScore: 95,
+        ),
+        buildWorkoutSession(
+          id: 'range-2',
+          startedAt: DateTime(2024, 1, 2, 9),
+          totalReps: 12,
+          averageScore: 70,
+          bestScore: 100,
+        ),
+      ];
+
+      final statistics = calculator.calculate(sessions);
+
+      expect(statistics.bestScore, 100);
+      expect(statistics.bestAverageScore, 70);
     },
   );
 

@@ -31,6 +31,13 @@ class WorkoutStatistics {
   final double bestScore;
   final Map<String, int> exerciseSessionCounts;
 
+  double get bestAverageScore {
+    return chronologicalScoreSamples.fold<double>(
+      0,
+      (best, sample) => sample.score > best ? sample.score : best,
+    );
+  }
+
   List<WorkoutScoreSample> latestScoreSamples({int limit = 7}) {
     if (limit <= 0 || chronologicalScoreSamples.isEmpty) {
       return const <WorkoutScoreSample>[];

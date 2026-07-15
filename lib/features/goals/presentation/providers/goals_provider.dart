@@ -73,7 +73,7 @@ List<WorkoutGoal> _buildGoalsFromSessions(List<WorkoutSession> sessions) {
     ),
     WorkoutGoal(
       id: 'total_reps_200',
-      title: 'Toplam 200 tekrar',
+      title: 'Haftalık 200 tekrar',
       targetValue: 200,
       currentValue: statistics.currentWeekRepCount.toDouble(),
       unit: 'tekrar',

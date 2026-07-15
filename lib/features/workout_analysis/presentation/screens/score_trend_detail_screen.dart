@@ -48,7 +48,7 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
 
           return _ScoreTrendDetailContent(
             points: points,
-            bestScore: statistics.bestScore,
+            bestScore: statistics.bestAverageScore,
           );
         },
       ),

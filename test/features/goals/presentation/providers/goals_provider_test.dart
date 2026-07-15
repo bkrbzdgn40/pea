@@ -59,6 +59,7 @@ void main() {
 
       expect(state.source, GoalsDataSource.real);
       expect(weeklyRepGoal.currentValue, 70);
+      expect(weeklyRepGoal.title, 'Haftalık 200 tekrar');
       expect(state.goals.any((goal) => goal.id == 'three_day_streak'), isFalse);
     },
   );
