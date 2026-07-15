@@ -174,62 +174,65 @@ void main() {
       expect(json['hold_is_visibility_suspended'], isNull);
     });
 
-    test('completed clean rep records a valid production validation outcome', () async {
-      await _pumpAcceptedPose(
-        controller,
-        detector,
-        clock,
-        _squatPose(angle: 170),
-        count: 3,
-        spacing: const Duration(milliseconds: 120),
-      );
-      await _driveUntilPhase(
-        controller,
-        detector,
-        clock,
-        _squatPose(angle: 140),
-        expectedPhase: 'DESCENDING',
-        spacing: const Duration(milliseconds: 90),
-      );
-      await _driveUntilPhase(
-        controller,
-        detector,
-        clock,
-        _squatPose(angle: 90),
-        expectedPhase: 'PEAK',
-        spacing: const Duration(milliseconds: 90),
-      );
-      await _driveUntilPhase(
-        controller,
-        detector,
-        clock,
-        _squatPose(angle: 110),
-        expectedPhase: 'ASCENDING',
-        spacing: const Duration(milliseconds: 90),
-      );
-      await _driveUntilPhase(
-        controller,
-        detector,
-        clock,
-        _squatPose(angle: 170),
-        expectedPhase: 'NEUTRAL',
-        spacing: const Duration(milliseconds: 120),
-      );
+    test(
+      'completed clean rep records a valid production validation outcome',
+      () async {
+        await _pumpAcceptedPose(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 170),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 140),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 90),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 110),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          controller,
+          detector,
+          clock,
+          _squatPose(angle: 170),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
 
-      final state = container.read(workoutControllerProvider);
-      final metrics = state.calibrationMetrics;
+        final state = container.read(workoutControllerProvider);
+        final metrics = state.calibrationMetrics;
 
-      expect(state.repCount, 1);
-      expect(metrics.lastRangeRepValidationStatus, 'valid');
-      expect(metrics.lastRangeRepValidationReasons, isEmpty);
-      expect(metrics.lastRangeRepValidatedRepIndex, 1);
-      expect(metrics.rangeRepValidatedCount, 1);
-      expect(metrics.rangeRepLowConfidenceCount, 0);
-      expect(metrics.rangeRepInvalidCount, 0);
-      expect(metrics.hasLastRangeRepSummary, isTrue);
-      expect(metrics.lastRangeRepSummaryCompletedPhaseSequence, isTrue);
-      expect(metrics.lastRangeRepSummarySelectedSideLabel, 'left');
-    });
+        expect(state.repCount, 1);
+        expect(metrics.lastRangeRepValidationStatus, 'valid');
+        expect(metrics.lastRangeRepValidationReasons, isEmpty);
+        expect(metrics.lastRangeRepValidatedRepIndex, 1);
+        expect(metrics.rangeRepValidatedCount, 1);
+        expect(metrics.rangeRepLowConfidenceCount, 0);
+        expect(metrics.rangeRepInvalidCount, 0);
+        expect(metrics.hasLastRangeRepSummary, isTrue);
+        expect(metrics.lastRangeRepSummaryCompletedPhaseSequence, isTrue);
+        expect(metrics.lastRangeRepSummarySelectedSideLabel, 'left');
+      },
+    );
 
     test(
       'all-rejected multi-pose frame uses the best rejected reason once',
@@ -765,24 +768,29 @@ void main() {
       await _establishVisibleHold(controller, detector, clock);
 
       clock.advance(const Duration(milliseconds: 150));
-      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+      await _analyzeFrame(controller, detector, <Pose>[
+        _bodyMisalignedLeftPose(leftBodyLineAngle: 120),
+      ]);
 
       final state = container.read(workoutControllerProvider);
       final snapshot = controller.diagnosticsSnapshot();
 
-      expect(state.currentHoldSeconds, closeTo(5.15, 0.001));
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(state.isHolding, isTrue);
       expect(state.hadHoldFormBreak, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
       expect(state.holdEnginePhase, HoldPhase.holding);
       expect(state.feedbackMessage, 'Kalcayi Hizala');
       expect(state.currentPhase, 'HOLDING');
+      expect(snapshot.lastVisibleHoldPosture, isNotNull);
+      expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isFalse);
+      expect(snapshot.lastVisibleHoldPosture?.isBodyAligned, isFalse);
       expect(snapshot.isHoldFormBreakGraceActive, isTrue);
     },
   );
 
   test(
-    'hold body misalignment at the 300 ms grace boundary breaks the hold',
+    'hold body misalignment at the 300 ms grace boundary returns to READY when posture is no longer active',
     () async {
       final detector = _QueuedPoseDetector();
       final clock = _FakeClock();
@@ -798,19 +806,27 @@ void main() {
 
       await _establishVisibleHold(controller, detector, clock);
 
-      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+      await _analyzeFrame(controller, detector, <Pose>[
+        _bodyMisalignedLeftPose(leftBodyLineAngle: 120),
+      ]);
       clock.advance(const Duration(milliseconds: 300));
-      await _analyzeFrame(controller, detector, <Pose>[_bodyMisalignedLeftPose()]);
+      await _analyzeFrame(controller, detector, <Pose>[
+        _bodyMisalignedLeftPose(leftBodyLineAngle: 180),
+      ]);
 
       final state = container.read(workoutControllerProvider);
       final snapshot = controller.diagnosticsSnapshot();
 
       expect(state.isHolding, isFalse);
-      expect(state.hadHoldFormBreak, isTrue);
-      expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
-      expect(state.holdEnginePhase, HoldPhase.broken);
-      expect(state.feedbackMessage, 'Kalcayi Hizala');
-      expect(state.currentPhase, 'BROKEN');
+      expect(state.currentHoldSeconds, 0);
+      expect(state.hadHoldFormBreak, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+      expect(state.holdEnginePhase, HoldPhase.ready);
+      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.currentPhase, 'READY');
+      expect(snapshot.lastVisibleHoldPosture, isNotNull);
+      expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isFalse);
+      expect(snapshot.lastVisibleHoldPosture?.isBodyAligned, isFalse);
       expect(snapshot.isHoldFormBreakGraceActive, isFalse);
     },
   );
@@ -1708,11 +1724,11 @@ Pose _plankPose({
   );
 }
 
-Pose _bodyMisalignedLeftPose() {
+Pose _bodyMisalignedLeftPose({required double leftBodyLineAngle}) {
   return _bilateralPlankPose(
     leftLikelihood: 0.99,
     rightLikelihood: 0.40,
-    leftBodyLineAngle: 150,
+    leftBodyLineAngle: leftBodyLineAngle,
   );
 }
 

@@ -291,7 +291,7 @@ void main() {
 
       await tester.tap(find.text('Bitir'));
       await tester.pump();
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 350));
 
       expect(harness.sessionRepository.savedSessions, hasLength(1));
       final session = harness.sessionRepository.savedSessions.single;
@@ -340,7 +340,7 @@ void main() {
 
       await tester.tap(find.text('Bitir'));
       await tester.pump();
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 350));
 
       expect(harness.sessionRepository.savedSessions, hasLength(1));
       final session = harness.sessionRepository.savedSessions.single;
@@ -479,10 +479,7 @@ Pose _plankPose({double defaultLikelihood = 0.95}) {
 }
 
 Pose _squatPose({required double angle, double defaultLikelihood = 0.95}) {
-  return buildSquatPose(
-    angle: angle,
-    defaultLikelihood: defaultLikelihood,
-  );
+  return buildSquatPose(angle: angle, defaultLikelihood: defaultLikelihood);
 }
 
 class _LiveScreenHarness {
@@ -677,7 +674,9 @@ class _FakeCameraController extends CameraController {
   }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    await super.dispose();
+  }
 }
 
 class _FakeSessionRepository implements SessionRepository {

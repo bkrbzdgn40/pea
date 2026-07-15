@@ -52,7 +52,7 @@ Future<void> analyzeFrame(
 InputImage dummyInputImage() {
   return InputImage.fromBytes(
     bytes: Uint8List.fromList(<int>[0, 0, 0, 0]),
-    metadata: const InputImageMetadata(
+    metadata: InputImageMetadata(
       size: Size(1, 1),
       rotation: InputImageRotation.rotation0deg,
       format: InputImageFormat.nv21,
