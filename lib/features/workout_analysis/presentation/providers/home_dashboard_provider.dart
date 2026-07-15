@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/workout_statistics.dart';
+import '../../application/workout_statistics_calculator.dart';
 import '../../domain/models/workout_session.dart';
 import '../models/home_dashboard_data.dart';
 import 'user_sessions_snapshot_provider.dart';
@@ -23,72 +25,44 @@ final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
 });
 
 HomeDashboardData _buildDashboardData(List<WorkoutSession> sessions) {
-  final averageScore =
-      sessions.fold<double>(
-        0,
-        (total, session) => total + session.averageScore,
-      ) /
-      sessions.length;
-  final bestScore = sessions.fold<double>(
-    0,
-    (best, session) => session.bestScore > best ? session.bestScore : best,
-  );
+  final statistics = WorkoutStatisticsCalculator().calculate(sessions);
 
   return HomeDashboardData(
-    totalAnalyses: sessions.length,
-    averageScore: averageScore.round(),
-    thisWeekCount: _countThisWeek(sessions),
-    bestScore: bestScore.round(),
-    scoreTrend: _buildScoreTrend(sessions),
-    exerciseDistribution: _buildExerciseDistribution(sessions),
+    totalAnalyses: statistics.snapshotSessionCount,
+    averageScore: statistics.averageScore.round(),
+    thisWeekCount: statistics.currentWeekAnalysisCount,
+    bestScore: statistics.bestScore.round(),
+    scoreTrend: _buildScoreTrend(statistics.latestScoreSamples()),
+    exerciseDistribution: _buildExerciseDistribution(
+      statistics.exerciseSessionCounts,
+      statistics.snapshotSessionCount,
+    ),
     source: HomeDashboardSource.real,
   );
 }
 
-int _countThisWeek(List<WorkoutSession> sessions) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final weekStart = today.subtract(Duration(days: now.weekday - 1));
-
-  return sessions.where((session) {
-    final startedAt = session.startedAt.toLocal();
-    return !startedAt.isBefore(weekStart);
-  }).length;
-}
-
-List<ScoreTrendPoint> _buildScoreTrend(List<WorkoutSession> sessions) {
-  final sortedSessions = [...sessions]
-    ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
-  final recentSessions = sortedSessions.length > 7
-      ? sortedSessions.sublist(sortedSessions.length - 7)
-      : sortedSessions;
-
+List<ScoreTrendPoint> _buildScoreTrend(List<WorkoutScoreSample> samples) {
   return [
-    for (final session in recentSessions)
+    for (final sample in samples)
       ScoreTrendPoint(
-        label: _weekdayLabel(session.startedAt.toLocal()),
-        score: session.averageScore,
+        label: _weekdayLabel(sample.startedAt.toLocal()),
+        score: sample.score,
       ),
   ];
 }
 
 List<ExerciseDistributionItem> _buildExerciseDistribution(
-  List<WorkoutSession> sessions,
+  Map<String, int> exerciseSessionCounts,
+  int totalSessionCount,
 ) {
-  final counts = <String, int>{};
-  for (final session in sessions) {
-    final title = _exerciseTitle(session.exerciseType);
-    counts[title] = (counts[title] ?? 0) + 1;
-  }
-
-  final items = counts.entries.toList()
+  final items = exerciseSessionCounts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
 
   return [
     for (final item in items.take(4))
       ExerciseDistributionItem(
-        label: item.key,
-        value: item.value * 100 / sessions.length,
+        label: _exerciseTitle(item.key),
+        value: item.value * 100 / totalSessionCount,
       ),
   ];
 }

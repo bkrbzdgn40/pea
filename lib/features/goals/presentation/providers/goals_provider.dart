@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../workout_analysis/application/workout_statistics_calculator.dart';
 import '../../../workout_analysis/domain/models/workout_session.dart';
 import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import '../data/demo_workout_goals.dart';
@@ -49,57 +50,35 @@ class GoalsState {
 enum GoalsDataSource { real, demoNoUser, demoEmpty, demoError }
 
 List<WorkoutGoal> _buildGoalsFromSessions(List<WorkoutSession> sessions) {
-  final weeklyAnalysisCount = _countThisWeek(sessions);
-  final totalReps = sessions.fold<int>(
-    0,
-    (total, session) => total + session.totalReps,
-  );
-  final averageScore =
-      sessions.fold<double>(
-        0,
-        (total, session) => total + session.averageScore,
-      ) /
-      sessions.length;
+  final statistics = WorkoutStatisticsCalculator().calculate(sessions);
 
   return [
     WorkoutGoal(
       id: 'weekly_analysis_count',
       title: 'Haftalık 5 analiz',
       targetValue: 5,
-      currentValue: weeklyAnalysisCount.toDouble(),
+      currentValue: statistics.currentWeekAnalysisCount.toDouble(),
       unit: 'analiz',
       description: 'Bu hafta en az 5 canlı analiz tamamla.',
-      isCompleted: weeklyAnalysisCount >= 5,
+      isCompleted: statistics.currentWeekAnalysisCount >= 5,
     ),
     WorkoutGoal(
       id: 'average_score_85',
       title: 'Ortalama skoru 85 üstüne çıkar',
       targetValue: 85,
-      currentValue: averageScore,
+      currentValue: statistics.averageScore,
       unit: 'skor',
       description: 'Form kalitesini koruyarak ortalama skorunu yükselt.',
-      isCompleted: averageScore >= 85,
+      isCompleted: statistics.averageScore >= 85,
     ),
     WorkoutGoal(
       id: 'total_reps_200',
-      title: 'Toplam 200 tekrar',
+      title: 'Haftalık 200 tekrar',
       targetValue: 200,
-      currentValue: totalReps.toDouble(),
+      currentValue: statistics.currentWeekRepCount.toDouble(),
       unit: 'tekrar',
       description: 'Haftalık toplam tekrar hacmini kontrollü şekilde artır.',
-      isCompleted: totalReps >= 200,
+      isCompleted: statistics.currentWeekRepCount >= 200,
     ),
-    demoWorkoutGoals[3],
   ];
-}
-
-int _countThisWeek(List<WorkoutSession> sessions) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final weekStart = today.subtract(Duration(days: now.weekday - 1));
-
-  return sessions.where((session) {
-    final startedAt = session.startedAt.toLocal();
-    return !startedAt.isBefore(weekStart);
-  }).length;
 }

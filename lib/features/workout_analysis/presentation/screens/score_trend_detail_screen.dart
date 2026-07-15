@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
-import '../../domain/models/workout_session.dart';
+import '../../application/workout_statistics.dart';
+import '../../application/workout_statistics_calculator.dart';
 import '../providers/user_sessions_snapshot_provider.dart';
 
 class ScoreTrendDetailScreen extends ConsumerWidget {
@@ -25,7 +26,12 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
           detail: 'Biraz sonra tekrar deneyebilirsin.',
         ),
         data: (snapshot) {
-          final points = _buildDetailPoints(snapshot.sessions);
+          final statistics = WorkoutStatisticsCalculator().calculate(
+            snapshot.sessions,
+          );
+          final points = _buildDetailPoints(
+            statistics.chronologicalScoreSamples,
+          );
 
           if (points.isEmpty) {
             final didFail = snapshot.source == UserSessionsSnapshotSource.error;
@@ -40,7 +46,10 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
             );
           }
 
-          return _ScoreTrendDetailContent(points: points);
+          return _ScoreTrendDetailContent(
+            points: points,
+            bestScore: statistics.bestAverageScore,
+          );
         },
       ),
     );
@@ -48,18 +57,18 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
 }
 
 class _ScoreTrendDetailContent extends StatelessWidget {
-  const _ScoreTrendDetailContent({required this.points});
+  const _ScoreTrendDetailContent({
+    required this.points,
+    required this.bestScore,
+  });
 
   final List<_ScoreTrendDetailPoint> points;
+  final double bestScore;
 
   @override
   Widget build(BuildContext context) {
     final bounds = _DetailScoreBounds.fromPoints(points);
     final lastPoint = points.last;
-    final bestScore = points.fold<double>(
-      0,
-      (best, point) => point.score > best ? point.score : best,
-    );
 
     return SingleChildScrollView(
       child: Column(
@@ -317,17 +326,15 @@ class _ScoreTrendEmptyState extends StatelessWidget {
   }
 }
 
-List<_ScoreTrendDetailPoint> _buildDetailPoints(List<WorkoutSession> sessions) {
-  final sortedSessions = [...sessions]
-    ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
-
+List<_ScoreTrendDetailPoint> _buildDetailPoints(
+  List<WorkoutScoreSample> samples,
+) {
   return [
-    for (final session in sortedSessions)
-      if (session.averageScore > 0)
-        _ScoreTrendDetailPoint(
-          label: _dateLabel(session.startedAt.toLocal()),
-          score: session.averageScore,
-        ),
+    for (final sample in samples)
+      _ScoreTrendDetailPoint(
+        label: _dateLabel(sample.startedAt.toLocal()),
+        score: sample.score,
+      ),
   ];
 }
 
