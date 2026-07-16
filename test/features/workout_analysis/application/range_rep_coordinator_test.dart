@@ -233,7 +233,14 @@ void main() {
         _driveUntilPhase(
           coordinator,
           clock,
-          angle: 82,
+          angle: 90,
+          formMetric: 90,
+          expectedPhase: 'PEAK',
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 92,
           formMetric: 90,
           expectedPhase: 'ASCENDING',
         );

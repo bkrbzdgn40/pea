@@ -453,7 +453,15 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 82, formAngle: 90),
+          _sitUpPose(primaryAngle: 90, formAngle: 90),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 92, formAngle: 90),
           expectedPhase: 'ASCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -612,7 +620,20 @@ void main() {
           detector,
           clock,
           _sitUpPose(
-            primaryAngle: 82,
+            primaryAngle: 90,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 92,
             formAngle: 90,
             includeRightSide: false,
             likelihoodOverrides: ankleLowLikelihood,
