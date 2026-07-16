@@ -433,6 +433,53 @@ void main() {
       expect(harness.navigationObserver.pushCount, initialPushCount + 1);
     },
   );
+
+  testWidgets(
+    'finishing a completed sit-up session preserves sit_up and rangeRep persistence',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.sitUp,
+        config: _sitUpConfig(),
+        showFinishButton: true,
+      );
+      addTearDown(harness.dispose);
+
+      await tester.runAsync(() async {
+        await _completeCleanSitUpRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      final state = harness.container.read(workoutControllerProvider);
+      expect(state.repCount, 1);
+      expect(state.rangeRepAnalysis, isNotNull);
+      expect(find.text('Bitir'), findsOneWidget);
+
+      final initialPushCount = harness.navigationObserver.pushCount;
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
+
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      final session = harness.sessionRepository.savedSessions.single;
+      final rep = session.reps!.single;
+
+      expect(session.exerciseType, ExerciseType.sitUp.id);
+      expect(session.analysisKind, EngineKind.rangeRep.name);
+      expect(session.totalReps, 1);
+      expect(rep.validationStatus, 'valid');
+      expect(rep.completedPhaseSequence, isTrue);
+      expect(rep.score, inInclusiveRange(0, 100));
+    },
+  );
 }
 
 class _FakePoseDetector implements PoseDetector {
@@ -562,12 +609,20 @@ ExerciseConfig _plankConfig() {
   return buildPlankConfig();
 }
 
+ExerciseConfig _sitUpConfig() {
+  return loadExerciseConfig('assets/config/exercises/sit_up.json');
+}
+
 Pose _plankPose({double defaultLikelihood = 0.95}) {
   return buildPlankPose(defaultLikelihood: defaultLikelihood);
 }
 
 Pose _squatPose({required double angle, double defaultLikelihood = 0.95}) {
   return buildSquatPose(angle: angle, defaultLikelihood: defaultLikelihood);
+}
+
+Pose _sitUpPose({required double primaryAngle, double formAngle = 120}) {
+  return buildSitUpPose(primaryAngle: primaryAngle, formAngle: formAngle);
 }
 
 class _LiveScreenHarness {
@@ -709,6 +764,56 @@ Future<void> _completeCleanRangeRepOnScreen(
     detector,
     clock,
     pose: _squatPose(angle: 170),
+    expectedPhase: 'NEUTRAL',
+    spacing: const Duration(milliseconds: 120),
+  );
+}
+
+Future<void> _completeCleanSitUpRepOnScreen(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock,
+) async {
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _sitUpPose(primaryAngle: 170, formAngle: 120),
+  ]);
+  clock.advance(const Duration(milliseconds: 120));
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _sitUpPose(primaryAngle: 170, formAngle: 120),
+  ]);
+  clock.advance(const Duration(milliseconds: 120));
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _sitUpPose(primaryAngle: 170, formAngle: 120),
+  ]);
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _sitUpPose(primaryAngle: 125, formAngle: 120),
+    expectedPhase: 'DESCENDING',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _sitUpPose(primaryAngle: 85, formAngle: 120),
+    expectedPhase: 'PEAK',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _sitUpPose(primaryAngle: 110, formAngle: 120),
+    expectedPhase: 'ASCENDING',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _sitUpPose(primaryAngle: 170, formAngle: 120),
     expectedPhase: 'NEUTRAL',
     spacing: const Duration(milliseconds: 120),
   );

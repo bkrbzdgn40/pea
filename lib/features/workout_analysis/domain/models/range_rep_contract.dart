@@ -70,4 +70,18 @@ abstract final class RangeRepContracts {
       RangeRepSignal.endRangeMetric,
     },
   );
+
+  static final RangeRepContract sitUp = RangeRepContract(
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+  );
 }

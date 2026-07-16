@@ -7,6 +7,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 
+import '../../../support/workout_analysis_test_support.dart';
+
 void main() {
   group('DefaultRangeRepCoordinator', () {
     test('drives the real range-rep engine through a validated clean rep', () {
@@ -199,21 +201,201 @@ void main() {
         expect(switchedResult.diagnosticsUpdate.selectedSideLabel, 'right');
       },
     );
+
+    test(
+      'drives the real sit-up engine/config path through a validated clean rep',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildSitUpCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          formMetric: 120,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 125,
+          formMetric: 120,
+          expectedPhase: 'DESCENDING',
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 85,
+          formMetric: 120,
+          expectedPhase: 'PEAK',
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 110,
+          formMetric: 120,
+          expectedPhase: 'ASCENDING',
+        );
+        final completedResult = _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 170,
+          formMetric: 120,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        expect(completedResult.stateSnapshot.repCount, 1);
+        expect(completedResult.stateSnapshot.currentPhase, 'NEUTRAL');
+        expect(
+          completedResult
+              .stateSnapshot
+              .calibrationMetrics
+              .lastRangeRepValidationStatus,
+          'valid',
+        );
+        expect(
+          completedResult.stateSnapshot.calibrationMetrics.analysisKind.name,
+          'rangeRep',
+        );
+      },
+    );
+
+    test('sit-up active rep keeps the previous side lock', () {
+      final clock = _TestClock();
+      final coordinator = _buildSitUpCoordinator(clock);
+
+      _pumpAcceptedFrames(
+        coordinator,
+        clock,
+        angle: 170,
+        formMetric: 120,
+        count: 3,
+        spacing: const Duration(milliseconds: 120),
+      );
+      _driveUntilPhase(
+        coordinator,
+        clock,
+        angle: 125,
+        formMetric: 120,
+        expectedPhase: 'DESCENDING',
+      );
+
+      final lockedResult = coordinator.processFrame(
+        metrics: _sideFilteredMetrics(
+          leftAngle: 125,
+          rightAngle: 85,
+          leftAvailable: false,
+          rightAvailable: true,
+          formMetric: 120,
+        ),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: false,
+        qualityAcceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.right},
+        preferredRangeRepSide: RangeRepSide.right,
+      );
+
+      expect(
+        lockedResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+        'left',
+      );
+      expect(lockedResult.stateSnapshot.currentPhase, 'WAITING');
+      expect(lockedResult.diagnosticsUpdate.selectedSideLabel, 'left');
+      expect(lockedResult.diagnosticsUpdate.visibilityStatus, 'brief_freeze');
+    });
+
+    test('sit-up brief occlusion recovery resumes the same rep safely', () {
+      final clock = _TestClock();
+      final coordinator = _buildSitUpCoordinator(clock);
+
+      _pumpAcceptedFrames(
+        coordinator,
+        clock,
+        angle: 170,
+        formMetric: 120,
+        count: 3,
+        spacing: const Duration(milliseconds: 120),
+      );
+      _driveUntilPhase(
+        coordinator,
+        clock,
+        angle: 125,
+        formMetric: 120,
+        expectedPhase: 'DESCENDING',
+      );
+
+      coordinator.processFrame(
+        metrics: _sideFilteredMetrics(
+          leftAngle: 125,
+          rightAngle: 85,
+          leftAvailable: false,
+          rightAvailable: true,
+          formMetric: 120,
+        ),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: false,
+        qualityAcceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.right},
+        preferredRangeRepSide: RangeRepSide.right,
+      );
+
+      clock.advance(const Duration(milliseconds: 100));
+      final recoveredResult = coordinator.processFrame(
+        metrics: _leftRangeRepMetrics(angle: 125, formMetric: 120),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: true,
+        qualityAcceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.left},
+        preferredRangeRepSide: RangeRepSide.left,
+      );
+
+      expect(recoveredResult.stateSnapshot.currentPhase, 'DESCENDING');
+      expect(
+        recoveredResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+        'left',
+      );
+      expect(
+        recoveredResult.diagnosticsUpdate.recordBriefOcclusionRecovery,
+        isTrue,
+      );
+      expect(recoveredResult.diagnosticsUpdate.visibilityStatus, 'stable');
+    });
   });
 }
 
 DefaultRangeRepCoordinator _buildCoordinator(_TestClock clock) {
-  final config = _squatConfig();
+  return _buildCoordinatorWith(
+    clock,
+    config: _squatConfig(),
+    contract: RangeRepContracts.squat,
+  );
+}
+
+DefaultRangeRepCoordinator _buildSitUpCoordinator(_TestClock clock) {
+  return _buildCoordinatorWith(
+    clock,
+    config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
+    contract: RangeRepContracts.sitUp,
+  );
+}
+
+DefaultRangeRepCoordinator _buildCoordinatorWith(
+  _TestClock clock, {
+  required ExerciseConfig config,
+  required RangeRepContract contract,
+}) {
   final engine = const AnalysisEngineFactory().createRangeRep(
     config: config,
-    rangeRepContract: RangeRepContracts.squat,
+    rangeRepContract: contract,
     now: clock.now,
   );
 
   return DefaultRangeRepCoordinator(
     engine: engine,
     config: config,
-    rangeRepContract: RangeRepContracts.squat,
+    rangeRepContract: contract,
   );
 }
 
@@ -221,12 +403,18 @@ RangeRepCoordinatorFrameResult _driveUntilPhase(
   DefaultRangeRepCoordinator coordinator,
   _TestClock clock, {
   required double angle,
+  double formMetric = 60.0,
   required String expectedPhase,
   Duration spacing = const Duration(milliseconds: 90),
   int maxFrames = 12,
 }) {
   for (var index = 0; index < maxFrames; index++) {
-    final result = _processAcceptedFrame(coordinator, clock, angle: angle);
+    final result = _processAcceptedFrame(
+      coordinator,
+      clock,
+      angle: angle,
+      formMetric: formMetric,
+    );
     if (result.stateSnapshot.currentPhase == expectedPhase) {
       return result;
     }
@@ -239,6 +427,7 @@ RangeRepCoordinatorFrameResult _driveUntilPhase(
     coordinator,
     clock,
     angle: angle,
+    formMetric: formMetric,
   );
   throw TestFailure(
     'Expected phase $expectedPhase, got '
@@ -250,11 +439,17 @@ void _pumpAcceptedFrames(
   DefaultRangeRepCoordinator coordinator,
   _TestClock clock, {
   required double angle,
+  double formMetric = 60.0,
   required int count,
   required Duration spacing,
 }) {
   for (var index = 0; index < count; index++) {
-    _processAcceptedFrame(coordinator, clock, angle: angle);
+    _processAcceptedFrame(
+      coordinator,
+      clock,
+      angle: angle,
+      formMetric: formMetric,
+    );
     if (index < count - 1) {
       clock.advance(spacing);
     }

@@ -1,6 +1,12 @@
+import '../../domain/models/exercise_type.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 
-String mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
+String mapRangeRepFeedbackCodeToMessage(
+  RangeRepFeedbackCode code, {
+  ExerciseType? exerciseType,
+}) {
+  final copy = _rangeRepFeedbackCopyFor(exerciseType);
+
   switch (code) {
     case RangeRepFeedbackCode.awaitNeutral:
       return 'Baslangic pozisyonuna gec.';
@@ -11,22 +17,66 @@ String mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
     case RangeRepFeedbackCode.bodyNotVisible:
       return 'Vucut net gorunmuyor.';
     case RangeRepFeedbackCode.descend:
-      return 'Asagi in...';
+      return copy.descend;
     case RangeRepFeedbackCode.ascend:
-      return 'Yukari...';
+      return copy.ascend;
     case RangeRepFeedbackCode.repCompleted:
       return 'Basarili!';
     case RangeRepFeedbackCode.repIncomplete:
       return 'Hareketi tamamlamadin.';
     case RangeRepFeedbackCode.keepBodyUpright:
-      return 'Sirtini Dik Tut!';
+      return copy.formViolation;
     case RangeRepFeedbackCode.controlDescent:
-      return 'Inisi kontrollu yap.';
+      return copy.controlDescent;
     case RangeRepFeedbackCode.controlAscent:
-      return 'Yukselisi kontrollu yap.';
+      return copy.controlAscent;
     case RangeRepFeedbackCode.stabilizeTransition:
-      return 'Dipte gecisi sabitle.';
+      return copy.stabilizeTransition;
     case RangeRepFeedbackCode.maintainForm:
-      return 'Formunu koru.';
+      return copy.maintainForm;
   }
+}
+
+_RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(ExerciseType? exerciseType) {
+  if (exerciseType == ExerciseType.sitUp) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Yukari kalk...',
+      ascend: 'Kontrollu geri in...',
+      formViolation: 'Bacak acini koru.',
+      controlDescent: 'Yukari kalkisi kontrollu yap.',
+      controlAscent: 'Geri inisi kontrollu yap.',
+      stabilizeTransition: 'Ustte gecisi sabitle.',
+      maintainForm: 'Bacak pozisyonunu koru.',
+    );
+  }
+
+  return const _RangeRepFeedbackCopy(
+    descend: 'Asagi in...',
+    ascend: 'Yukari...',
+    formViolation: 'Sirtini Dik Tut!',
+    controlDescent: 'Inisi kontrollu yap.',
+    controlAscent: 'Yukselisi kontrollu yap.',
+    stabilizeTransition: 'Dipte gecisi sabitle.',
+    maintainForm: 'Formunu koru.',
+  );
+}
+
+class _RangeRepFeedbackCopy {
+  const _RangeRepFeedbackCopy({
+    required this.descend,
+    required this.ascend,
+    required this.formViolation,
+    required this.controlDescent,
+    required this.controlAscent,
+    required this.stabilizeTransition,
+    required this.maintainForm,
+  });
+
+  final String descend;
+  final String ascend;
+  final String formViolation;
+  final String controlDescent;
+  final String controlAscent;
+  final String stabilizeTransition;
+  final String maintainForm;
 }

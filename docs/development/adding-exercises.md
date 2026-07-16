@@ -29,7 +29,7 @@ Bu belge iki farklı işi kapsar:
 | Plank | `plank` | Var | Aktif | `hold` |
 | Lunge | `lunge` | Var | Kapalı | Belirlenmeli |
 | Push-up | `push_up` | Var | Aktif | `rangeRep` |
-| Sit-up | `sit_up` | Var | Kapalı | Belirlenmeli |
+| Sit-up | `sit_up` | Var | Aktif (device calibration pending) | `rangeRep` |
 
 `lunge` ve `sit_up` için `ExerciseType` ve rehber içeriği zaten vardır. Bunları etkinleştirirken yeniden enum veya rehber kaydı eklenmez; önce engine uyumluluğu kanıtlanır.
 

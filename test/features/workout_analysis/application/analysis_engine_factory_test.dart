@@ -31,6 +31,15 @@ void main() {
     thresholdActive: 135.0,
     thresholdPeak: 95.0,
   );
+  final sitUpConfig = ExerciseConfig(
+    name: 'Sit-up',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftKnee,
+    thresholdNeutral: 160.0,
+    thresholdActive: 130.0,
+    thresholdPeak: 90.0,
+  );
   final plankConfig = _holdConfig();
 
   group('AnalysisEngineFactory', () {
@@ -63,6 +72,15 @@ void main() {
       final RangeRepAnalysisEngine engine = factory.createRangeRep(
         config: pushUpConfig,
         rangeRepContract: RangeRepContracts.pushUp,
+      );
+
+      expect(engine, isA<RangeRepEngine>());
+    });
+
+    test('accepts the sit-up range-rep contract', () {
+      final RangeRepAnalysisEngine engine = factory.createRangeRep(
+        config: sitUpConfig,
+        rangeRepContract: RangeRepContracts.sitUp,
       );
 
       expect(engine, isA<RangeRepEngine>());

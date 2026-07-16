@@ -41,17 +41,19 @@ void main() {
     });
 
     test('guide content stays independent from analysis support policy', () {
-      for (final type in const <ExerciseType>[
-        ExerciseType.lunge,
-        ExerciseType.sitUp,
-      ]) {
-        final definition = analysisCatalog.definitionFor(type);
-        final content = guideCatalog.contentFor(type);
+      final lungeDefinition = analysisCatalog.definitionFor(ExerciseType.lunge);
+      final lungeContent = guideCatalog.contentFor(ExerciseType.lunge);
+      final sitUpDefinition = analysisCatalog.definitionFor(ExerciseType.sitUp);
+      final sitUpContent = guideCatalog.contentFor(ExerciseType.sitUp);
 
-        expect(definition.isAnalysisSupported, isFalse);
-        expect(content.type, type);
-        expect(content.subtitle, isNotEmpty);
-      }
+      expect(lungeDefinition.isAnalysisSupported, isFalse);
+      expect(lungeContent.type, ExerciseType.lunge);
+      expect(lungeContent.subtitle, isNotEmpty);
+
+      expect(sitUpDefinition.isAnalysisSupported, isTrue);
+      expect(sitUpDefinition.analysisEngineKind.name, 'rangeRep');
+      expect(sitUpContent.type, ExerciseType.sitUp);
+      expect(sitUpContent.subtitle, isNotEmpty);
     });
   });
 }

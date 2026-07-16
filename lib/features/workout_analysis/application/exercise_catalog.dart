@@ -29,7 +29,12 @@ class ExerciseCatalog {
           configAssetPath: 'assets/config/exercises/push_up.json',
           rangeRepContract: RangeRepContracts.pushUp,
         ),
-        ExerciseDefinition.unsupported(type: ExerciseType.sitUp),
+        ExerciseDefinition.supported(
+          type: ExerciseType.sitUp,
+          engineKind: EngineKind.rangeRep,
+          configAssetPath: 'assets/config/exercises/sit_up.json',
+          rangeRepContract: RangeRepContracts.sitUp,
+        ),
       ]);
 
   static final Map<ExerciseType, ExerciseDefinition> _definitionsByType =

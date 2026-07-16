@@ -11,6 +11,7 @@ void main() {
         ExerciseType.squat,
         ExerciseType.plank,
         ExerciseType.pushUp,
+        ExerciseType.sitUp,
       ]) {
         final definition = catalog.definitionFor(type);
 
@@ -19,10 +20,7 @@ void main() {
     });
 
     test('throws StateError for unsupported definitions', () {
-      for (final type in const <ExerciseType>[
-        ExerciseType.lunge,
-        ExerciseType.sitUp,
-      ]) {
+      for (final type in const <ExerciseType>[ExerciseType.lunge]) {
         final definition = catalog.definitionFor(type);
 
         expect(() => definition.analysisExercise, throwsA(isA<StateError>()));

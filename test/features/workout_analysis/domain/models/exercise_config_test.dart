@@ -85,6 +85,49 @@ void main() {
       },
     );
 
+    test('parses the sit-up asset config as a strict range-rep definition', () {
+      final config = _loadConfig('assets/config/exercises/sit_up.json');
+
+      expect(config.name, 'Sit-up');
+      expect(config.primaryJoint, PoseLandmarkType.leftHip);
+      expect(config.joint1, PoseLandmarkType.leftShoulder);
+      expect(config.joint2, PoseLandmarkType.leftKnee);
+      expect(config.thresholdNeutral, 160.0);
+      expect(config.thresholdActive, 130.0);
+      expect(config.thresholdPeak, 90.0);
+      expect(config.formThreshold, 95.0);
+      expect(config.targetMinAngle, 85.0);
+      expect(config.rangeRepSignals, isNotNull);
+      expect(config.usesLegacyRangeRepSignalFallback, isFalse);
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.first,
+        PoseLandmarkType.leftHip,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.middle,
+        PoseLandmarkType.leftKnee,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.angle
+            ?.last,
+        PoseLandmarkType.leftAnkle,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.depthMetric)
+            ?.source,
+        RangeRepSignalSource.primaryMetric,
+      );
+    });
+
     test('parses the plank asset config without changing hold semantics', () {
       final config = _loadConfig('assets/config/exercises/plank.json');
 

@@ -23,13 +23,14 @@ void main() {
         resolver.resolveActiveExercise(ExerciseType.pushUp),
         ExerciseType.pushUp,
       );
+      expect(
+        resolver.resolveActiveExercise(ExerciseType.sitUp),
+        ExerciseType.sitUp,
+      );
     });
 
     test('returns null for unsupported selections', () {
-      for (final type in const <ExerciseType>[
-        ExerciseType.lunge,
-        ExerciseType.sitUp,
-      ]) {
+      for (final type in const <ExerciseType>[ExerciseType.lunge]) {
         expect(resolver.resolveActiveExercise(type), isNull);
       }
     });

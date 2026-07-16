@@ -11,6 +11,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
+import '../../../support/workout_analysis_test_support.dart';
+
 void main() {
   const policy = PoseQualityPolicy();
 
@@ -174,6 +176,87 @@ void main() {
       );
 
       expect(assessment.isAccepted, isTrue);
+    });
+
+    test('sit-up complete left-side geometry is accepted', () {
+      final assessment = policy.assess(
+        pose: buildSitUpPose(
+          primaryAngle: 90,
+          formAngle: 120,
+          includeRightSide: false,
+        ),
+        config: _loadConfig('assets/config/exercises/sit_up.json'),
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.sitUp,
+      );
+
+      expect(assessment.isAccepted, isTrue);
+      expect(assessment.acceptedRangeRepSides, <RangeRepSide>{
+        RangeRepSide.left,
+      });
+      expect(assessment.preferredRangeRepSide, RangeRepSide.left);
+    });
+
+    test('sit-up rejects the side when a primary landmark is missing', () {
+      final assessment = policy.assess(
+        pose: buildSitUpPose(
+          primaryAngle: 90,
+          formAngle: 120,
+          includeRightSide: false,
+          missingLandmarks: const <PoseLandmarkType>{
+            PoseLandmarkType.leftShoulder,
+          },
+        ),
+        config: _loadConfig('assets/config/exercises/sit_up.json'),
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.sitUp,
+      );
+
+      expect(assessment.isAccepted, isFalse);
+      expect(
+        assessment.rejectionReason,
+        PoseRejectionReason.missingRequiredLandmark,
+      );
+    });
+
+    test(
+      'sit-up rejects the side when the mandatory form metric landmark is missing',
+      () {
+        final assessment = policy.assess(
+          pose: buildSitUpPose(
+            primaryAngle: 90,
+            formAngle: 120,
+            includeRightSide: false,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.leftAnkle,
+            },
+          ),
+          config: _loadConfig('assets/config/exercises/sit_up.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.missingRequiredLandmark,
+        );
+      },
+    );
+
+    test('sit-up valid bilateral landmarks accept both sides', () {
+      final assessment = policy.assess(
+        pose: buildSitUpPose(primaryAngle: 85, formAngle: 125),
+        config: _loadConfig('assets/config/exercises/sit_up.json'),
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.sitUp,
+      );
+
+      expect(assessment.isAccepted, isTrue);
+      expect(
+        assessment.acceptedRangeRepSides,
+        containsAll(<RangeRepSide>[RangeRepSide.left, RangeRepSide.right]),
+      );
     });
 
     test('plank valid required landmarks are accepted', () {
