@@ -29,8 +29,11 @@ class AnalysisEngineFactory {
     required HoldContract holdContract,
     DateTime Function()? now,
   }) {
-    _validateHoldEngineContract(holdContract, config);
-    return HoldEngine(config: config, now: now);
+    switch (holdContract.family) {
+      case HoldAnalysisFamily.plank:
+        _validatePlankHoldEngineContract(holdContract, config);
+        return HoldEngine(config: config, now: now);
+    }
   }
 
   AnalysisEngine create({
@@ -93,7 +96,7 @@ class AnalysisEngineFactory {
     }
   }
 
-  void _validateHoldEngineContract(
+  void _validatePlankHoldEngineContract(
     HoldContract contract,
     ExerciseConfig config,
   ) {

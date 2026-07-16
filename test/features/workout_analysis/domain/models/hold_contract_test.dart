@@ -5,12 +5,14 @@ void main() {
   group('HoldContract', () {
     test('stores an unmodifiable required signal set', () {
       final contract = HoldContract(
+        family: HoldAnalysisFamily.plank,
         requiredSignals: const <HoldSignal>{
           HoldSignal.alignment,
           HoldSignal.support,
         },
       );
 
+      expect(contract.family, HoldAnalysisFamily.plank);
       expect(contract.requiredSignals, <HoldSignal>{
         HoldSignal.alignment,
         HoldSignal.support,
@@ -21,17 +23,21 @@ void main() {
       );
     });
 
-    test('plankFamily exposes the current hold signals', () {
-      final contract = HoldContracts.plankFamily;
+    test(
+      'plankFamily exposes the typed plank family and current hold signals',
+      () {
+        final contract = HoldContracts.plankFamily;
 
-      expect(contract.supportsSignal(HoldSignal.alignment), isTrue);
-      expect(contract.supportsSignal(HoldSignal.support), isTrue);
-      expect(contract.supportsSignal(HoldSignal.extension), isTrue);
-      expect(contract.requiredSignals, const <HoldSignal>{
-        HoldSignal.alignment,
-        HoldSignal.support,
-        HoldSignal.extension,
-      });
-    });
+        expect(contract.family, HoldAnalysisFamily.plank);
+        expect(contract.supportsSignal(HoldSignal.alignment), isTrue);
+        expect(contract.supportsSignal(HoldSignal.support), isTrue);
+        expect(contract.supportsSignal(HoldSignal.extension), isTrue);
+        expect(contract.requiredSignals, const <HoldSignal>{
+          HoldSignal.alignment,
+          HoldSignal.support,
+          HoldSignal.extension,
+        });
+      },
+    );
   });
 }
