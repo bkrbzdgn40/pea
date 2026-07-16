@@ -52,6 +52,7 @@ class ExerciseLandmarkRequirements {
     required ExerciseConfig config,
     required EngineKind engineKind,
     RangeRepContract? rangeRepContract,
+    RangeRepSignalSet rangeRepSignalSet = RangeRepSignalSet.supportedAnalysis,
     HoldContract? holdContract,
     RangeRepSide? side,
     HoldSide? holdSide,
@@ -70,6 +71,7 @@ class ExerciseLandmarkRequirements {
           config,
           resolvedSide,
           rangeRepContract ?? _emptyRangeRepContract,
+          rangeRepSignalSet,
         );
       case EngineKind.hold:
         final requiredHoldContract = holdContract;
@@ -105,6 +107,7 @@ class ExerciseLandmarkRequirements {
     ExerciseConfig config,
     RangeRepSide side,
     RangeRepContract rangeRepContract,
+    RangeRepSignalSet rangeRepSignalSet,
   ) {
     final requiredLandmarks = <PoseLandmarkType>{};
     final requiredTriplets = <PoseAngleTriplet>[];
@@ -139,7 +142,11 @@ class ExerciseLandmarkRequirements {
       return landmarkTypeForSide(type, side);
     }
 
-    if (rangeRepContract.supportsSignal(RangeRepSignal.primaryMetric)) {
+    bool includesSignal(RangeRepSignal signal) {
+      return rangeRepContract.signalsFor(rangeRepSignalSet).contains(signal);
+    }
+
+    if (includesSignal(RangeRepSignal.primaryMetric)) {
       addTriplet(
         sideLandmark(config.joint1),
         sideLandmark(config.primaryJoint),
@@ -147,7 +154,7 @@ class ExerciseLandmarkRequirements {
       );
     }
 
-    if (rangeRepContract.supportsSignal(RangeRepSignal.formMetric)) {
+    if (includesSignal(RangeRepSignal.formMetric)) {
       _addConfiguredDefinition(
         addTriplet: addTriplet,
         definition: config.resolvedRangeRepSignals?.postureAngle,
@@ -164,7 +171,7 @@ class ExerciseLandmarkRequirements {
       RangeRepSignal.endRangeMetric,
       RangeRepSignal.bottomControlMetric,
     ]) {
-      if (!rangeRepContract.supportsSignal(signal)) {
+      if (!includesSignal(signal)) {
         continue;
       }
       _addConfiguredDefinition(

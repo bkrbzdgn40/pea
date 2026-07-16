@@ -501,6 +501,35 @@ void main() {
       },
     );
 
+    test(
+      'sit-up still keeps the primary metric when the advisory ankle removes only the form metric',
+      () {
+        final config = _loadConfig('assets/config/exercises/sit_up.json');
+        final metrics = extractor.extract(
+          buildSitUpPose(
+            primaryAngle: 82,
+            formAngle: 130,
+            includeRightSide: false,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.leftAnkle,
+            },
+          ),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+        );
+
+        expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
+        expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(82.0, 0.001));
+        expect(metrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+        expect(metrics.leftRangeRepMetrics.formSignals?.torsoAngle, isNull);
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+          closeTo(82.0, 0.001),
+        );
+      },
+    );
+
     group('hold metrics', () {
       test(
         'valid left plank geometry emits expected hold angles and preserves pose metadata',

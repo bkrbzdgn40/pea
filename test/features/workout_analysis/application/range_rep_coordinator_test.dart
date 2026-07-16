@@ -211,37 +211,37 @@ void main() {
         _pumpAcceptedFrames(
           coordinator,
           clock,
-          angle: 170,
-          formMetric: 120,
+          angle: 125,
+          formMetric: 90,
           count: 3,
           spacing: const Duration(milliseconds: 120),
         );
         _driveUntilPhase(
           coordinator,
           clock,
-          angle: 125,
-          formMetric: 120,
+          angle: 108,
+          formMetric: 90,
           expectedPhase: 'DESCENDING',
         );
         _driveUntilPhase(
           coordinator,
           clock,
-          angle: 85,
-          formMetric: 120,
+          angle: 68,
+          formMetric: 90,
           expectedPhase: 'PEAK',
         );
         _driveUntilPhase(
           coordinator,
           clock,
-          angle: 110,
-          formMetric: 120,
+          angle: 82,
+          formMetric: 90,
           expectedPhase: 'ASCENDING',
         );
         final completedResult = _driveUntilPhase(
           coordinator,
           clock,
-          angle: 170,
-          formMetric: 120,
+          angle: 121,
+          formMetric: 90,
           expectedPhase: 'NEUTRAL',
           spacing: const Duration(milliseconds: 120),
         );
@@ -269,26 +269,26 @@ void main() {
       _pumpAcceptedFrames(
         coordinator,
         clock,
-        angle: 170,
-        formMetric: 120,
+        angle: 125,
+        formMetric: 90,
         count: 3,
         spacing: const Duration(milliseconds: 120),
       );
       _driveUntilPhase(
         coordinator,
         clock,
-        angle: 125,
-        formMetric: 120,
+        angle: 108,
+        formMetric: 90,
         expectedPhase: 'DESCENDING',
       );
 
       final lockedResult = coordinator.processFrame(
         metrics: _sideFilteredMetrics(
-          leftAngle: 125,
-          rightAngle: 85,
+          leftAngle: 108,
+          rightAngle: 68,
           leftAvailable: false,
           rightAvailable: true,
-          formMetric: 120,
+          formMetric: 90,
         ),
         now: clock.now(),
         isAcceptedPoseFrame: true,
@@ -313,26 +313,26 @@ void main() {
       _pumpAcceptedFrames(
         coordinator,
         clock,
-        angle: 170,
-        formMetric: 120,
+        angle: 125,
+        formMetric: 90,
         count: 3,
         spacing: const Duration(milliseconds: 120),
       );
       _driveUntilPhase(
         coordinator,
         clock,
-        angle: 125,
-        formMetric: 120,
+        angle: 108,
+        formMetric: 90,
         expectedPhase: 'DESCENDING',
       );
 
       coordinator.processFrame(
         metrics: _sideFilteredMetrics(
-          leftAngle: 125,
-          rightAngle: 85,
+          leftAngle: 108,
+          rightAngle: 68,
           leftAvailable: false,
           rightAvailable: true,
-          formMetric: 120,
+          formMetric: 90,
         ),
         now: clock.now(),
         isAcceptedPoseFrame: true,
@@ -343,7 +343,7 @@ void main() {
 
       clock.advance(const Duration(milliseconds: 100));
       final recoveredResult = coordinator.processFrame(
-        metrics: _leftRangeRepMetrics(angle: 125, formMetric: 120),
+        metrics: _leftRangeRepMetrics(angle: 108, formMetric: 90),
         now: clock.now(),
         isAcceptedPoseFrame: true,
         didBecomeStableTracking: true,

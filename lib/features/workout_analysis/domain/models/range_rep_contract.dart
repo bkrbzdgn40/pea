@@ -16,17 +16,34 @@ enum RangeRepSignal {
   bottomControlMetric,
 }
 
+enum RangeRepSignalSet { supportedAnalysis, poseAcceptanceRequired }
+
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
 class RangeRepContract {
   RangeRepContract({
     required Iterable<RangeRepPhase> supportedPhases,
     required Iterable<RangeRepSignal> supportedSignals,
+    Iterable<RangeRepSignal>? poseAcceptanceRequiredSignals,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
-       supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals);
+       supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
+       poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
+         poseAcceptanceRequiredSignals ?? supportedSignals,
+       ) {
+    final unsupportedPoseAcceptanceSignals = this.poseAcceptanceRequiredSignals
+        .difference(this.supportedSignals);
+    if (unsupportedPoseAcceptanceSignals.isNotEmpty) {
+      throw ArgumentError.value(
+        unsupportedPoseAcceptanceSignals,
+        'poseAcceptanceRequiredSignals',
+        'Pose-acceptance signals must be a subset of supportedSignals.',
+      );
+    }
+  }
 
   final Set<RangeRepPhase> supportedPhases;
   final Set<RangeRepSignal> supportedSignals;
+  final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
 
   bool supportsPhase(RangeRepPhase phase) {
     return supportedPhases.contains(phase);
@@ -34,6 +51,19 @@ class RangeRepContract {
 
   bool supportsSignal(RangeRepSignal signal) {
     return supportedSignals.contains(signal);
+  }
+
+  bool requiresPoseAcceptanceSignal(RangeRepSignal signal) {
+    return poseAcceptanceRequiredSignals.contains(signal);
+  }
+
+  Set<RangeRepSignal> signalsFor(RangeRepSignalSet signalSet) {
+    switch (signalSet) {
+      case RangeRepSignalSet.supportedAnalysis:
+        return supportedSignals;
+      case RangeRepSignalSet.poseAcceptanceRequired:
+        return poseAcceptanceRequiredSignals;
+    }
   }
 }
 
@@ -82,6 +112,9 @@ abstract final class RangeRepContracts {
       RangeRepSignal.formMetric,
       RangeRepSignal.postureAngle,
       RangeRepSignal.depthMetric,
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
     },
   );
 }

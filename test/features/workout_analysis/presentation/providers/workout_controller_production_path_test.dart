@@ -429,7 +429,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 170, formAngle: 120),
+          _sitUpPose(primaryAngle: 125, formAngle: 90),
           count: 3,
           spacing: const Duration(milliseconds: 120),
         );
@@ -437,7 +437,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 125, formAngle: 120),
+          _sitUpPose(primaryAngle: 108, formAngle: 90),
           expectedPhase: 'DESCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -445,7 +445,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 85, formAngle: 120),
+          _sitUpPose(primaryAngle: 68, formAngle: 90),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );
@@ -453,7 +453,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 110, formAngle: 120),
+          _sitUpPose(primaryAngle: 82, formAngle: 90),
           expectedPhase: 'ASCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -461,7 +461,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 170, formAngle: 120),
+          _sitUpPose(primaryAngle: 121, formAngle: 90),
           expectedPhase: 'NEUTRAL',
           spacing: const Duration(milliseconds: 120),
         );
@@ -473,7 +473,7 @@ void main() {
         expect(state.holdAnalysis, isNull);
         expect(state.repCount, 1);
         expect(state.currentPhase, 'NEUTRAL');
-        expect(state.currentAngle, closeTo(170.0, 0.001));
+        expect(state.currentAngle, closeTo(121.0, 0.001));
         expect(
           state.calibrationMetrics.lastRangeRepValidatedRepIndex,
           equals(1),
@@ -483,6 +483,99 @@ void main() {
           equals('valid'),
         );
         expect(diagnostics.analysisKind, 'rangeRep');
+        expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+      },
+    );
+
+    test(
+      'sit-up production path keeps an advisory low-likelihood ankle out of body-not-visible fallback',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        const ankleLowLikelihood = <PoseLandmarkType, double>{
+          PoseLandmarkType.leftAnkle: 0.10,
+        };
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 125,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 108,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 68,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 82,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 121,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final diagnostics = harness.controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.feedbackMessage, isNot('Vucut net gorunmuyor.'));
+        expect(diagnostics.rejectedPoseFrameCount, 0);
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
       },
     );
@@ -2203,15 +2296,20 @@ ExerciseConfig _pushUpConfig() {
 
 Pose _sitUpPose({
   required double primaryAngle,
-  double formAngle = 120,
+  double formAngle = 90,
   bool includeLeftSide = true,
   bool includeRightSide = true,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
 }) {
   return buildSitUpPose(
     primaryAngle: primaryAngle,
     formAngle: formAngle,
     includeLeftSide: includeLeftSide,
     includeRightSide: includeRightSide,
+    likelihoodOverrides: likelihoodOverrides,
+    missingLandmarks: missingLandmarks,
   );
 }
 

@@ -134,6 +134,7 @@ class PoseQualityPolicy {
             config: config,
             engineKind: engineKind,
             rangeRepContract: rangeRepContract,
+            rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
             side: RangeRepSide.left,
           ),
         );
@@ -144,6 +145,7 @@ class PoseQualityPolicy {
             config: config,
             engineKind: engineKind,
             rangeRepContract: rangeRepContract,
+            rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
             side: RangeRepSide.right,
           ),
         );

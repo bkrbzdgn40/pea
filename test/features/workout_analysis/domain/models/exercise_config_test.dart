@@ -92,11 +92,11 @@ void main() {
       expect(config.primaryJoint, PoseLandmarkType.leftHip);
       expect(config.joint1, PoseLandmarkType.leftShoulder);
       expect(config.joint2, PoseLandmarkType.leftKnee);
-      expect(config.thresholdNeutral, 160.0);
-      expect(config.thresholdActive, 130.0);
-      expect(config.thresholdPeak, 90.0);
-      expect(config.formThreshold, 95.0);
-      expect(config.targetMinAngle, 85.0);
+      expect(config.thresholdNeutral, 120.0);
+      expect(config.thresholdActive, 113.0);
+      expect(config.thresholdPeak, 73.0);
+      expect(config.formThreshold, 70.0);
+      expect(config.targetMinAngle, 70.0);
       expect(config.rangeRepSignals, isNotNull);
       expect(config.usesLegacyRangeRepSignalFallback, isFalse);
       expect(

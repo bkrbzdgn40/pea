@@ -621,7 +621,7 @@ Pose _squatPose({required double angle, double defaultLikelihood = 0.95}) {
   return buildSquatPose(angle: angle, defaultLikelihood: defaultLikelihood);
 }
 
-Pose _sitUpPose({required double primaryAngle, double formAngle = 120}) {
+Pose _sitUpPose({required double primaryAngle, double formAngle = 90}) {
   return buildSitUpPose(primaryAngle: primaryAngle, formAngle: formAngle);
 }
 
@@ -775,21 +775,21 @@ Future<void> _completeCleanSitUpRepOnScreen(
   _FakeClock clock,
 ) async {
   await _analyzePoseFrame(controller, detector, <Pose>[
-    _sitUpPose(primaryAngle: 170, formAngle: 120),
+    _sitUpPose(primaryAngle: 125, formAngle: 90),
   ]);
   clock.advance(const Duration(milliseconds: 120));
   await _analyzePoseFrame(controller, detector, <Pose>[
-    _sitUpPose(primaryAngle: 170, formAngle: 120),
+    _sitUpPose(primaryAngle: 125, formAngle: 90),
   ]);
   clock.advance(const Duration(milliseconds: 120));
   await _analyzePoseFrame(controller, detector, <Pose>[
-    _sitUpPose(primaryAngle: 170, formAngle: 120),
+    _sitUpPose(primaryAngle: 125, formAngle: 90),
   ]);
   await _driveRangeRepPoseUntilPhase(
     controller,
     detector,
     clock,
-    pose: _sitUpPose(primaryAngle: 125, formAngle: 120),
+    pose: _sitUpPose(primaryAngle: 108, formAngle: 90),
     expectedPhase: 'DESCENDING',
     spacing: const Duration(milliseconds: 90),
   );
@@ -797,7 +797,7 @@ Future<void> _completeCleanSitUpRepOnScreen(
     controller,
     detector,
     clock,
-    pose: _sitUpPose(primaryAngle: 85, formAngle: 120),
+    pose: _sitUpPose(primaryAngle: 68, formAngle: 90),
     expectedPhase: 'PEAK',
     spacing: const Duration(milliseconds: 90),
   );
@@ -805,7 +805,7 @@ Future<void> _completeCleanSitUpRepOnScreen(
     controller,
     detector,
     clock,
-    pose: _sitUpPose(primaryAngle: 110, formAngle: 120),
+    pose: _sitUpPose(primaryAngle: 82, formAngle: 90),
     expectedPhase: 'ASCENDING',
     spacing: const Duration(milliseconds: 90),
   );
@@ -813,7 +813,7 @@ Future<void> _completeCleanSitUpRepOnScreen(
     controller,
     detector,
     clock,
-    pose: _sitUpPose(primaryAngle: 170, formAngle: 120),
+    pose: _sitUpPose(primaryAngle: 121, formAngle: 90),
     expectedPhase: 'NEUTRAL',
     spacing: const Duration(milliseconds: 120),
   );

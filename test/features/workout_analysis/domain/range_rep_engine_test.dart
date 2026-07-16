@@ -322,6 +322,40 @@ void main() {
   });
 
   group('RangeRepEngine sit-up state machine', () {
+    test('real sit-up config characterizes the new threshold gates', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+      expect(engine.phaseLabel, 'NEUTRAL');
+
+      _confirmTransition(clock, engine, angle: 115, backAngle: 90);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 0);
+
+      _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+      expect(engine.phaseLabel, 'DESCENDING');
+
+      _confirmTransition(clock, engine, angle: 75, backAngle: 90);
+      expect(engine.phaseLabel, 'DESCENDING');
+
+      _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+      expect(engine.phaseLabel, 'PEAK');
+
+      _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+      expect(engine.phaseLabel, 'ASCENDING');
+
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 121,
+        backAngle: 90,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 1);
+    });
+
     test(
       'real sit-up config full rep counts once and produces a finite score',
       () {
@@ -334,7 +368,7 @@ void main() {
         expect(engine.phaseLabel, 'NEUTRAL');
         expect(engine.lastRepScoreBreakdown, isNotNull);
         expect(engine.lastRepScore, inInclusiveRange(0.0, 100.0));
-        expect(engine.lastRepRom, closeTo(85.0, 0.001));
+        expect(engine.lastRepRom, closeTo(68.0, 0.001));
         expect(engine.consumeCompletedRepCoreData()?.repIndex, 1);
       },
     );
@@ -343,13 +377,13 @@ void main() {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-      _acquireNeutral(clock, engine, angle: 170, backAngle: 120);
-      _confirmTransition(clock, engine, angle: 125, backAngle: 120);
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 90);
       _confirmTransition(
         clock,
         engine,
-        angle: 170,
-        backAngle: 120,
+        angle: 121,
+        backAngle: 90,
         confirmationWindow: _neutralConfirmationWindow,
       );
 
@@ -376,9 +410,9 @@ void main() {
         final clock = _TestClock();
         final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-        _acquireNeutral(clock, engine, angle: 170, backAngle: 120);
-        _confirmTransition(clock, engine, angle: 125, backAngle: 120);
-        _confirmTransition(clock, engine, angle: 85, backAngle: 120);
+        _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+        _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+        _confirmTransition(clock, engine, angle: 68, backAngle: 90);
 
         expect(engine.phaseLabel, 'PEAK');
         expect(engine.isFormBad, isFalse);
@@ -393,19 +427,19 @@ void main() {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-      _acquireNeutral(clock, engine, angle: 170, backAngle: 120);
-      _confirmTransition(clock, engine, angle: 125, backAngle: 80);
-      _confirmTransition(clock, engine, angle: 85, backAngle: 80);
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 65);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 65);
+      _confirmTransition(clock, engine, angle: 68, backAngle: 65);
 
       expect(engine.isFormBad, isTrue);
       expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
 
-      _confirmTransition(clock, engine, angle: 110, backAngle: 80);
+      _confirmTransition(clock, engine, angle: 82, backAngle: 65);
       _confirmTransition(
         clock,
         engine,
-        angle: 170,
-        backAngle: 80,
+        angle: 121,
+        backAngle: 65,
         confirmationWindow: _neutralConfirmationWindow,
       );
 
@@ -631,15 +665,15 @@ ExerciseConfig _sitUpConfig() {
 }
 
 void _completeSitUpRep(_TestClock clock, RangeRepEngine engine) {
-  _acquireNeutral(clock, engine, angle: 170, backAngle: 120);
-  _confirmTransition(clock, engine, angle: 125, backAngle: 120);
-  _confirmTransition(clock, engine, angle: 85, backAngle: 120);
-  _confirmTransition(clock, engine, angle: 110, backAngle: 120);
+  _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 82, backAngle: 90);
   _confirmTransition(
     clock,
     engine,
-    angle: 170,
-    backAngle: 120,
+    angle: 121,
+    backAngle: 90,
     confirmationWindow: _neutralConfirmationWindow,
   );
 }

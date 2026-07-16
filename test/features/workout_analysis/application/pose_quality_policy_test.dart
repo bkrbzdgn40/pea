@@ -220,15 +220,15 @@ void main() {
     });
 
     test(
-      'sit-up rejects the side when the mandatory form metric landmark is missing',
+      'sit-up keeps pose acceptance when only the advisory ankle likelihood dips',
       () {
         final assessment = policy.assess(
           pose: buildSitUpPose(
             primaryAngle: 90,
             formAngle: 120,
             includeRightSide: false,
-            missingLandmarks: const <PoseLandmarkType>{
-              PoseLandmarkType.leftAnkle,
+            likelihoodOverrides: const <PoseLandmarkType, double>{
+              PoseLandmarkType.leftAnkle: 0.10,
             },
           ),
           config: _loadConfig('assets/config/exercises/sit_up.json'),
@@ -236,11 +236,11 @@ void main() {
           rangeRepContract: RangeRepContracts.sitUp,
         );
 
-        expect(assessment.isAccepted, isFalse);
-        expect(
-          assessment.rejectionReason,
-          PoseRejectionReason.missingRequiredLandmark,
-        );
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedRangeRepSides, <RangeRepSide>{
+          RangeRepSide.left,
+        });
+        expect(assessment.preferredRangeRepSide, RangeRepSide.left);
       },
     );
 
