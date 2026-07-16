@@ -1,4 +1,5 @@
-const Duration briefOcclusionGraceDuration = Duration(milliseconds: 1500);
+import '../domain/analysis_visibility_gap_window.dart';
+import '../domain/range_rep_diagnostics.dart';
 
 class RangeRepVisibilityAssessment {
   const RangeRepVisibilityAssessment({
@@ -44,11 +45,14 @@ class RangeRepVisibilityAssessment {
 
 class RangeRepVisibilityPolicy {
   int _invalidFrameStreak = 0;
-  DateTime? _invalidStartedAt;
+  final AnalysisVisibilityGapWindow _invalidRunWindow =
+      AnalysisVisibilityGapWindow(
+        graceDuration: rangeRepVisibilityGapGraceDuration,
+      );
   bool _hasResyncedCurrentRun = false;
   String? _resyncReason;
 
-  bool get hasActiveInvalidRun => _invalidStartedAt != null;
+  bool get hasActiveInvalidRun => _invalidRunWindow.isActive;
 
   RangeRepVisibilityAssessment evaluate({
     required bool isInvalidFrame,
@@ -59,14 +63,12 @@ class RangeRepVisibilityPolicy {
       return const RangeRepVisibilityAssessment.stable();
     }
 
-    final didStartInvalidRun = _invalidStartedAt == null;
+    final didStartInvalidRun = !_invalidRunWindow.isActive;
     _invalidFrameStreak += 1;
-    _invalidStartedAt ??= now;
+    _invalidRunWindow.begin(now);
 
-    final invalidDuration = now.difference(_invalidStartedAt!);
-    final shouldResync = _markResyncedIfGraceExceeded(
-      invalidDuration: invalidDuration,
-    );
+    final invalidDuration = _invalidRunWindow.elapsedAt(now) ?? Duration.zero;
+    final shouldResync = _markResyncedIfGraceExceeded(now: now);
 
     return _currentAssessment(
       invalidDuration: invalidDuration,
@@ -76,15 +78,12 @@ class RangeRepVisibilityPolicy {
   }
 
   RangeRepVisibilityAssessment evaluateRecovery({required DateTime now}) {
-    final invalidStartedAt = _invalidStartedAt;
-    if (invalidStartedAt == null) {
+    if (!_invalidRunWindow.isActive) {
       return const RangeRepVisibilityAssessment.stable();
     }
 
-    final invalidDuration = now.difference(invalidStartedAt);
-    final shouldResync = _markResyncedIfGraceExceeded(
-      invalidDuration: invalidDuration,
-    );
+    final invalidDuration = _invalidRunWindow.elapsedAt(now) ?? Duration.zero;
+    final shouldResync = _markResyncedIfGraceExceeded(now: now);
 
     return _currentAssessment(
       invalidDuration: invalidDuration,
@@ -95,14 +94,13 @@ class RangeRepVisibilityPolicy {
 
   void reset() {
     _invalidFrameStreak = 0;
-    _invalidStartedAt = null;
+    _invalidRunWindow.reset();
     _hasResyncedCurrentRun = false;
     _resyncReason = null;
   }
 
-  bool _markResyncedIfGraceExceeded({required Duration invalidDuration}) {
-    if (_hasResyncedCurrentRun ||
-        invalidDuration < briefOcclusionGraceDuration) {
+  bool _markResyncedIfGraceExceeded({required DateTime now}) {
+    if (_hasResyncedCurrentRun || !_invalidRunWindow.hasExpiredAt(now)) {
       return false;
     }
 

@@ -389,13 +389,12 @@ void main() {
     test('lifecycle interruption hard-ends the active hold', () {
       final clock = _TestClock();
       final engine = HoldEngine(config: _plankConfig(), now: clock.now);
-      final interruptionControl = engine as HoldInterruptionControl;
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 5));
       engine.update(_validHoldFrame());
 
-      interruptionControl.endActiveHoldForInterruption();
+      engine.interrupt(reason: 'paused');
 
       expect(engine.phaseLabel, 'READY');
       expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
@@ -414,7 +413,6 @@ void main() {
       final clock = _TestClock();
       final engine = HoldEngine(config: _plankConfig(), now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
-      final interruptionControl = engine as HoldInterruptionControl;
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 5));
@@ -423,7 +421,7 @@ void main() {
 
       expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isTrue);
 
-      interruptionControl.endActiveHoldForInterruption();
+      engine.interrupt(reason: 'paused');
 
       expect(engine.phaseLabel, 'READY');
       expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);

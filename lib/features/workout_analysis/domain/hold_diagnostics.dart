@@ -1,6 +1,8 @@
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
 
+const Duration holdVisibilityGapGraceDuration = Duration(milliseconds: 1200);
+
 class HoldPostureDiagnosticsSnapshot {
   const HoldPostureDiagnosticsSnapshot({
     this.hasCompleteMetrics = false,
@@ -63,9 +65,4 @@ abstract class HoldVisibilityGapControl {
   void beginVisibilityGap();
 
   HoldVisibilityResumeResult resumeAfterVisibilityGap();
-}
-
-/// Optional interruption control surface for hold-style engines.
-abstract class HoldInterruptionControl {
-  void endActiveHoldForInterruption();
 }

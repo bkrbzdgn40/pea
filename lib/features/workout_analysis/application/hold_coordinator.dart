@@ -229,7 +229,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   @override
   HoldCoordinatorStateSnapshot handleLifecycleInterruption({String? reason}) {
     final publishedState = currentStateSnapshot();
-    _engine.endActiveHoldForInterruption();
+    _engine.interrupt(reason: reason);
     _hasAcceptedPoseForAnalysis = false;
     _resetHoldMetricFilters();
     _resetHoldSideSelection();

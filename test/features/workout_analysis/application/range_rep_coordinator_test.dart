@@ -120,6 +120,70 @@ void main() {
     );
 
     test(
+      'lifecycle interruption preserves completed rep facts while clearing only the active context',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 140,
+          expectedPhase: 'DESCENDING',
+        );
+        _driveUntilPhase(coordinator, clock, angle: 90, expectedPhase: 'PEAK');
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 110,
+          expectedPhase: 'ASCENDING',
+        );
+        final completedResult = _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 170,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+        final completedScore = completedResult.stateSnapshot.lastRepScore;
+        final completedRom = completedResult.stateSnapshot.lastRepRom;
+
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 140,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final interrupted = coordinator.handleLifecycleInterruption(
+          reason: 'paused',
+        );
+
+        expect(interrupted.repCount, 1);
+        expect(interrupted.currentPhase, rangeRepAwaitNeutralPhaseLabel);
+        expect(interrupted.lastRepScore, completedScore);
+        expect(interrupted.lastRepRom, completedRom);
+        expect(
+          interrupted.calibrationMetrics.lastRangeRepValidationStatus,
+          'valid',
+        );
+        expect(
+          interrupted
+              .calibrationMetrics
+              .lastRangeRepSummaryCompletedPhaseSequence,
+          isTrue,
+        );
+      },
+    );
+
+    test(
       'locks the previously selected side while an active rep context is in progress',
       () {
         final clock = _TestClock();
