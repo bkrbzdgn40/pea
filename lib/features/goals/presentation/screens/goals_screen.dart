@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/presentation/widgets/app_header_list_view.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/async_state_view.dart';
+import '../../../../app/theme/app_design_tokens.dart';
 import '../models/workout_goal.dart';
 import '../providers/goals_provider.dart';
 
@@ -16,12 +21,12 @@ class GoalsScreen extends ConsumerWidget {
       title: 'Hedefler',
       showDrawer: false,
       padding: EdgeInsets.zero,
-      body: goalsState.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+      body: AsyncStateView<GoalsState>(
+        value: goalsState,
+        errorBuilder: (context, error, stackTrace) => const AppErrorView(
+          message: 'Hedefler yüklenemedi. Lütfen daha sonra tekrar dene.',
         ),
-        error: (_, _) => const _GoalsErrorMessage(),
-        data: (state) => _GoalsList(state: state),
+        dataBuilder: (context, state) => _GoalsList(state: state),
       ),
     );
   }
@@ -38,21 +43,11 @@ class _GoalsList extends StatelessWidget {
         ? <WorkoutGoal>[]
         : state.goals.where((goal) => goal.id != 'three_day_streak').toList();
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: visibleGoals.isEmpty ? 2 : visibleGoals.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _GoalsHeaderCard();
-        }
-
-        if (visibleGoals.isEmpty) {
-          return _GoalsEmptyState(source: state.source);
-        }
-
-        return _GoalCard(goal: visibleGoals[index - 1]);
-      },
+    return AppHeaderListView<WorkoutGoal>(
+      header: const _GoalsHeaderCard(),
+      items: visibleGoals,
+      emptyState: _GoalsEmptyState(source: state.source),
+      itemBuilder: (context, goal) => _GoalCard(goal: goal),
     );
   }
 }
@@ -62,14 +57,9 @@ class _GoalsHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: const Column(
+    return const AppSurfaceCard(
+      padding: AppSpacing.headerSurfacePadding,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.flag_rounded, color: Colors.greenAccent, size: 32),
@@ -106,54 +96,7 @@ class _GoalsEmptyState extends StatelessWidget {
       _ => 'İlk analizini tamamladığında hedef ilerlemen burada görünür.',
     };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.flag_outlined, color: Colors.greenAccent, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GoalsErrorMessage extends StatelessWidget {
-  const _GoalsErrorMessage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: const Text(
-          'Hedefler yüklenemedi. Lütfen daha sonra tekrar dene.',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
+    return AppEmptyView(message: message, icon: Icons.flag_outlined);
   }
 }
 
@@ -164,15 +107,10 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: goal.isCompleted ? Colors.greenAccent : Colors.white12,
-        ),
-      ),
+    return AppSurfaceCard(
+      borderColor: goal.isCompleted
+          ? AppColors.accent
+          : AppColors.surfaceBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -196,7 +134,7 @@ class _GoalCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.greenAccent,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
                   child: const Text(
                     'Tamamlandı',
@@ -266,7 +204,7 @@ class _GoalProgressRow extends StatelessWidget {
           minHeight: 7,
           backgroundColor: Colors.white12,
           color: Colors.greenAccent,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(AppRadii.pill),
         ),
       ],
     );

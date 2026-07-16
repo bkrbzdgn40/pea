@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/presentation/widgets/app_header_list_view.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/async_state_view.dart';
+import '../../../../app/theme/app_design_tokens.dart';
 import '../models/achievement.dart';
 import '../providers/achievements_provider.dart';
 
@@ -16,12 +21,12 @@ class AchievementsScreen extends ConsumerWidget {
       title: 'Başarılar',
       showDrawer: false,
       padding: EdgeInsets.zero,
-      body: achievementsState.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
+      body: AsyncStateView<AchievementsState>(
+        value: achievementsState,
+        errorBuilder: (context, error, stackTrace) => const AppErrorView(
+          message: 'Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.',
         ),
-        error: (_, _) => const _AchievementsErrorMessage(),
-        data: (state) => _AchievementsList(state: state),
+        dataBuilder: (context, state) => _AchievementsList(state: state),
       ),
     );
   }
@@ -40,23 +45,12 @@ class _AchievementsList extends StatelessWidget {
               .where((achievement) => achievement.id != 'seven_day_streak')
               .toList();
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      itemCount: visibleAchievements.isEmpty
-          ? 2
-          : visibleAchievements.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return const _AchievementsHeaderCard();
-        }
-
-        if (visibleAchievements.isEmpty) {
-          return _AchievementsEmptyState(source: state.source);
-        }
-
-        return _AchievementCard(achievement: visibleAchievements[index - 1]);
-      },
+    return AppHeaderListView<Achievement>(
+      header: const _AchievementsHeaderCard(),
+      items: visibleAchievements,
+      emptyState: _AchievementsEmptyState(source: state.source),
+      itemBuilder: (context, achievement) =>
+          _AchievementCard(achievement: achievement),
     );
   }
 }
@@ -66,14 +60,9 @@ class _AchievementsHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: const Column(
+    return const AppSurfaceCard(
+      padding: AppSpacing.headerSurfacePadding,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.emoji_events_rounded, color: Colors.greenAccent, size: 34),
@@ -110,58 +99,7 @@ class _AchievementsEmptyState extends StatelessWidget {
       _ => 'İlk analizini tamamladığında rozetlerin burada görünür.',
     };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.emoji_events_outlined,
-            color: Colors.greenAccent,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AchievementsErrorMessage extends StatelessWidget {
-  const _AchievementsErrorMessage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: const Text(
-          'Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
+    return AppEmptyView(message: message, icon: Icons.emoji_events_outlined);
   }
 }
 
@@ -180,15 +118,10 @@ class _AchievementCard extends StatelessWidget {
 
     return Opacity(
       opacity: achievement.isUnlocked ? 1 : 0.78,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: achievement.isUnlocked ? Colors.greenAccent : Colors.white12,
-          ),
-        ),
+      child: AppSurfaceCard(
+        borderColor: achievement.isUnlocked
+            ? AppColors.accent
+            : AppColors.surfaceBorder,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -257,7 +190,7 @@ class _AchievementCard extends StatelessWidget {
                     minHeight: 7,
                     backgroundColor: Colors.white12,
                     color: foregroundColor,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
                 ),
                 const SizedBox(width: 12),

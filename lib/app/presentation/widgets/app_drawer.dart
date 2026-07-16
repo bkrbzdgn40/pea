@@ -1,49 +1,97 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_design_tokens.dart';
 import '../../../features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/guide_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/how_to_use_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/home_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/session_history_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/settings_screen.dart';
+import 'app_surface_card.dart';
 
-enum AppDrawerPage {
-  home,
-  howToUse,
-  exerciseSelection,
-  sessionHistory,
-  guide,
-  settings,
+enum AppDestination {
+  home(
+    label: 'Ana Sayfa',
+    icon: Icons.home_rounded,
+    builder: _buildHome,
+    suppressPushWhenCurrent: true,
+  ),
+  howToUse(
+    label: 'Nasıl Kullanılır',
+    icon: Icons.help_outline_rounded,
+    builder: _buildHowToUse,
+    suppressPushWhenCurrent: true,
+  ),
+  exerciseSelection(
+    label: 'Hareket Seç',
+    icon: Icons.directions_run_rounded,
+    builder: _buildExerciseSelection,
+  ),
+  sessionHistory(
+    label: 'Geçmiş Oturumlar',
+    icon: Icons.history_rounded,
+    builder: _buildSessionHistory,
+  ),
+  guide(
+    label: 'Hareket Rehberi',
+    icon: Icons.menu_book_rounded,
+    builder: _buildGuide,
+  ),
+  settings(
+    label: 'Ayarlar',
+    icon: Icons.settings_rounded,
+    builder: _buildSettings,
+  );
+
+  const AppDestination({
+    required this.label,
+    required this.icon,
+    required this.builder,
+    this.suppressPushWhenCurrent = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final WidgetBuilder builder;
+  final bool suppressPushWhenCurrent;
+
+  static Widget _buildHome(BuildContext context) => const HomeScreen();
+
+  static Widget _buildHowToUse(BuildContext context) => const HowToUseScreen();
+
+  static Widget _buildExerciseSelection(BuildContext context) =>
+      const ExerciseSelectionScreen();
+
+  static Widget _buildSessionHistory(BuildContext context) =>
+      const SessionHistoryScreen();
+
+  static Widget _buildGuide(BuildContext context) => const GuideScreen();
+
+  static Widget _buildSettings(BuildContext context) => const SettingsScreen();
 }
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, this.currentPage});
 
-  final AppDrawerPage? currentPage;
+  final AppDestination? currentPage;
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.black,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF151515),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: const Column(
+              const AppSurfaceCard(
+                padding: AppSpacing.headerSurfacePadding,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.fitness_center_rounded,
-                      color: Colors.greenAccent,
+                      color: AppColors.accent,
                       size: 30,
                     ),
                     SizedBox(height: 12),
@@ -65,63 +113,26 @@ class AppDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
-                  ),
+                child: AppSurfaceCard(
+                  color: AppColors.secondarySurface,
+                  borderColor: AppColors.subtleBorder,
+                  padding: EdgeInsets.zero,
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: [
-                      _DrawerItem(
-                        icon: Icons.home_rounded,
-                        label: 'Ana Sayfa',
-                        isSelected: currentPage == AppDrawerPage.home,
-                        onTap: () => _open(
-                          context,
-                          (_) => HomeScreen(),
-                          isCurrent: currentPage == AppDrawerPage.home,
-                        ),
-                      ),
-                      _DrawerItem(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Nasıl Kullanılır',
-                        isSelected: currentPage == AppDrawerPage.howToUse,
-                        onTap: () => _open(
-                          context,
-                          (_) => const HowToUseScreen(),
-                          isCurrent: currentPage == AppDrawerPage.howToUse,
-                        ),
-                      ),
-                      _DrawerItem(
-                        icon: Icons.directions_run_rounded,
-                        label: 'Hareket Seç',
-                        isSelected:
-                            currentPage == AppDrawerPage.exerciseSelection,
-                        onTap: () =>
-                            _open(context, (_) => ExerciseSelectionScreen()),
-                      ),
-                      _DrawerItem(
-                        icon: Icons.history_rounded,
-                        label: 'Geçmiş Oturumlar',
-                        isSelected: currentPage == AppDrawerPage.sessionHistory,
-                        onTap: () =>
-                            _open(context, (_) => SessionHistoryScreen()),
-                      ),
-                      _DrawerItem(
-                        icon: Icons.menu_book_rounded,
-                        label: 'Hareket Rehberi',
-                        isSelected: currentPage == AppDrawerPage.guide,
-                        onTap: () => _open(context, (_) => GuideScreen()),
-                      ),
-                      _DrawerItem(
-                        icon: Icons.settings_rounded,
-                        label: 'Ayarlar',
-                        isSelected: currentPage == AppDrawerPage.settings,
-                        onTap: () => _open(context, (_) => SettingsScreen()),
-                      ),
-                    ],
+                    children: AppDestination.values
+                        .map(
+                          (destination) => _DrawerItem(
+                            icon: destination.icon,
+                            label: destination.label,
+                            isSelected: currentPage == destination,
+                            onTap: () => _open(
+                              context,
+                              destination,
+                              isCurrent: currentPage == destination,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
                   ),
                 ),
               ),
@@ -134,14 +145,13 @@ class AppDrawer extends StatelessWidget {
 
   void _open(
     BuildContext context,
-    WidgetBuilder builder, {
+    AppDestination destination, {
     bool isCurrent = false,
   }) {
     final navigator = Navigator.of(context);
     navigator.pop();
-    if (isCurrent) return;
-
-    navigator.push(MaterialPageRoute(builder: builder));
+    if (isCurrent && destination.suppressPushWhenCurrent) return;
+    navigator.push(MaterialPageRoute(builder: destination.builder));
   }
 }
 
@@ -160,25 +170,30 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: Colors.greenAccent.withValues(alpha: 0.12),
-      leading: Icon(
-        icon,
-        color: isSelected ? Colors.greenAccent : Colors.white70,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.greenAccent : Colors.white,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        selected: isSelected,
+        selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
+        leading: Icon(
+          icon,
+          color: isSelected ? AppColors.accent : Colors.white70,
         ),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.accent : Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        iconColor: AppColors.accent,
+        textColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+        ),
+        onTap: onTap,
       ),
-      iconColor: Colors.greenAccent,
-      textColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: onTap,
     );
   }
 }

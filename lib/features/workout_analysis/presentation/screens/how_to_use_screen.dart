@@ -9,7 +9,7 @@ class HowToUseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScaffoldShell(
       title: 'Nasıl Kullanılır',
-      currentPage: AppDrawerPage.howToUse,
+      currentPage: AppDestination.howToUse,
       padding: EdgeInsets.zero,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
