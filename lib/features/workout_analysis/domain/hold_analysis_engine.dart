@@ -7,5 +7,4 @@ abstract interface class HoldAnalysisEngine
         AnalysisEngine,
         HoldDiagnostics,
         HoldFeedbackSource,
-        HoldVisibilityGapControl,
-        HoldInterruptionControl {}
+        HoldVisibilityGapControl {}

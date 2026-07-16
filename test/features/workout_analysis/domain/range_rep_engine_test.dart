@@ -576,6 +576,22 @@ void main() {
         inInclusiveRange(400, 700),
       );
     });
+
+    test('brief gap duration is excluded from phase-quality timing', () {
+      final gapClock = _TestClock();
+      final gapEngine = RangeRepEngine(
+        config: _squatConfig(),
+        now: gapClock.now,
+      );
+
+      _completeRepWithBriefDescendingGap(gapClock, gapEngine);
+
+      expect(gapEngine.repCount, 1);
+      expect(
+        gapEngine.diagnosticsSnapshot.descendingPhaseQuality.durationMs,
+        inInclusiveRange(400, 700),
+      );
+    });
   });
 }
 

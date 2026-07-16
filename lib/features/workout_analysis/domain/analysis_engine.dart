@@ -8,5 +8,7 @@ import 'models/analysis_frame.dart';
 abstract class AnalysisEngine {
   void update(AnalysisFrame frame);
 
+  void interrupt({String? reason});
+
   void reset();
 }

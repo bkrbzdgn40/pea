@@ -43,6 +43,7 @@ void main() {
     );
 
     for (final engine in engines) {
+      engine.interrupt(reason: 'paused');
       engine.reset();
     }
   });

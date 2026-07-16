@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'analysis_visibility_gap_window.dart';
 import 'hold_analysis_engine.dart';
 import 'hold_diagnostics.dart';
 import 'hold_posture_policy.dart';
@@ -14,10 +15,6 @@ class HoldEngine implements HoldAnalysisEngine {
     : _now = now ?? DateTime.now,
       _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
 
-  static const Duration _visibilityGapGraceDuration = Duration(
-    milliseconds: 1200,
-  );
-
   final ExerciseConfig config;
   final DateTime Function() _now;
   final HoldPosturePolicy _posturePolicy;
@@ -29,7 +26,10 @@ class HoldEngine implements HoldAnalysisEngine {
   bool _hadFormBreak = false;
   DateTime? _misalignmentStartedAt;
   DateTime? _lastVisibleFrameAt;
-  DateTime? _visibilityGapStartedAt;
+  final AnalysisVisibilityGapWindow _visibilityGapWindow =
+      AnalysisVisibilityGapWindow(
+        graceDuration: holdVisibilityGapGraceDuration,
+      );
   HoldPostureDiagnosticsSnapshot _lastVisiblePosture =
       const HoldPostureDiagnosticsSnapshot();
 
@@ -59,7 +59,7 @@ class HoldEngine implements HoldAnalysisEngine {
     currentHoldSeconds: _currentHoldSeconds,
     bestHoldSeconds: _bestHoldSeconds,
     isHolding: _phase == HoldPhase.holding,
-    isVisibilitySuspended: _visibilityGapStartedAt != null,
+    isVisibilitySuspended: _visibilityGapWindow.isActive,
     hadFormBreak: _hadFormBreak,
     bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
       isHolding: _phase == HoldPhase.holding,
@@ -168,31 +168,31 @@ class HoldEngine implements HoldAnalysisEngine {
 
   @override
   void beginVisibilityGap() {
-    if (_visibilityGapStartedAt != null ||
+    if (_visibilityGapWindow.isActive ||
         _phase != HoldPhase.holding ||
         _holdStartedAt == null) {
       return;
     }
 
-    _visibilityGapStartedAt = _lastVisibleFrameAt ?? _now();
+    _visibilityGapWindow.begin(_lastVisibleFrameAt ?? _now());
     _misalignmentStartedAt = null;
   }
 
   @override
   HoldVisibilityResumeResult resumeAfterVisibilityGap() {
-    if (_visibilityGapStartedAt == null) {
+    if (!_visibilityGapWindow.isActive) {
       return const HoldVisibilityResumeResult(
         disposition: HoldVisibilityResumeDisposition.noGap,
       );
     }
 
-    final gapStartedAt = _visibilityGapStartedAt!;
-    _visibilityGapStartedAt = null;
-    final gapDuration = _now().difference(gapStartedAt);
+    final now = _now();
+    final isWithinGrace = _visibilityGapWindow.isWithinGraceAt(now);
+    final gapDuration = _visibilityGapWindow.consume(now)!;
 
     // Visibility loss and posture drift are different events. A brief camera
     // gap gets a longer freeze window while hidden time stays excluded.
-    if (gapDuration < _visibilityGapGraceDuration &&
+    if (isWithinGrace &&
         _phase == HoldPhase.holding &&
         _holdStartedAt != null) {
       _holdStartedAt = _holdStartedAt!.add(gapDuration);
@@ -208,7 +208,7 @@ class HoldEngine implements HoldAnalysisEngine {
   }
 
   @override
-  void endActiveHoldForInterruption() {
+  void interrupt({String? reason}) {
     if (_phase == HoldPhase.holding) {
       _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
     }
@@ -217,7 +217,7 @@ class HoldEngine implements HoldAnalysisEngine {
     _currentHoldSeconds = 0.0;
     _misalignmentStartedAt = null;
     _lastVisibleFrameAt = null;
-    _visibilityGapStartedAt = null;
+    _visibilityGapWindow.reset();
     _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
     _phase = HoldPhase.ready;
   }
@@ -232,6 +232,6 @@ class HoldEngine implements HoldAnalysisEngine {
     _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
     _lastVisibleFrameAt = null;
     _misalignmentStartedAt = null;
-    _visibilityGapStartedAt = null;
+    _visibilityGapWindow.reset();
   }
 }

@@ -1,3 +1,4 @@
+import 'analysis_visibility_gap_window.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
 import 'models/range_rep_feedback_code.dart';
@@ -210,7 +211,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
   DateTime? _ascentStartTime;
-  DateTime? _briefVisibilityGapStartedAt;
+  final AnalysisVisibilityGapWindow _briefVisibilityGapWindow =
+      AnalysisVisibilityGapWindow(
+        graceDuration: rangeRepVisibilityGapGraceDuration,
+      );
   MovementPhase? _briefVisibilityGapFrozenPhase;
   bool _briefVisibilityGapWasArmed = false;
 
@@ -933,11 +937,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   @override
   void beginBriefVisibilityGap() {
-    if (_briefVisibilityGapStartedAt != null) {
+    if (_briefVisibilityGapWindow.isActive) {
       return;
     }
 
-    _briefVisibilityGapStartedAt = _now();
+    _briefVisibilityGapWindow.begin(_now());
     _briefVisibilityGapFrozenPhase = state;
     _briefVisibilityGapWasArmed = _isArmed;
     _clearPendingTransition();
@@ -945,8 +949,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   @override
   VisibilityGapResumeResult resumeAfterBriefVisibilityGap(AnalysisFrame frame) {
-    final gapStartedAt = _briefVisibilityGapStartedAt;
-    if (gapStartedAt == null) {
+    if (!_briefVisibilityGapWindow.isActive) {
       return const VisibilityGapResumeResult(
         disposition: VisibilityGapResumeDisposition.noGap,
       );
@@ -959,18 +962,15 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       wasArmed: _briefVisibilityGapWasArmed,
     );
     if (!isCompatible) {
-      _briefVisibilityGapStartedAt = null;
-      _briefVisibilityGapFrozenPhase = null;
-      _briefVisibilityGapWasArmed = false;
+      _clearBriefVisibilityGap();
       return const VisibilityGapResumeResult(
         disposition: VisibilityGapResumeDisposition.incompatible,
         reason: 'phase incompatible recovery',
       );
     }
 
-    final gapDuration = _now().difference(gapStartedAt);
+    final gapDuration = _briefVisibilityGapWindow.consume(_now())!;
     _shiftActivePhaseTiming(gapDuration);
-    _briefVisibilityGapStartedAt = null;
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
 
@@ -982,6 +982,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   @override
   void clearActiveRepContext({String? reason}) {
     _disarm();
+  }
+
+  @override
+  void interrupt({String? reason}) {
+    clearActiveRepContext(reason: reason);
   }
 
   @override
@@ -997,7 +1002,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
-    _briefVisibilityGapStartedAt = null;
+    _briefVisibilityGapWindow.reset();
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
     _lastCompletedPhaseQualityTelemetry = null;
@@ -1012,11 +1017,15 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
-    _briefVisibilityGapStartedAt = null;
-    _briefVisibilityGapFrozenPhase = null;
-    _briefVisibilityGapWasArmed = false;
+    _clearBriefVisibilityGap();
     _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
+  }
+
+  void _clearBriefVisibilityGap() {
+    _briefVisibilityGapWindow.reset();
+    _briefVisibilityGapFrozenPhase = null;
+    _briefVisibilityGapWasArmed = false;
   }
 
   bool _isFrameCompatibleWithFrozenPhase(

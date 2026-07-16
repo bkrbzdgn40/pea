@@ -3,6 +3,9 @@ import 'models/analysis_frame.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
 const String rangeRepAwaitNeutralPendingTransitionLabel = 'await neutral';
+const Duration rangeRepVisibilityGapGraceDuration = Duration(
+  milliseconds: 1500,
+);
 
 class RangeRepPhaseQualitySnapshot {
   const RangeRepPhaseQualitySnapshot({
