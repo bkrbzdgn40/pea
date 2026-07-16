@@ -30,7 +30,7 @@ void main() {
               analysisKind: 'rangeRep',
               validationStatus: 'valid',
               validationReasons: <String>['insufficient rom'],
-              score: 91,
+              score: 89.6,
               minPrimaryMetric: 74.3,
               worstFormMetric: 81.2,
               descentMillis: 450,
@@ -50,9 +50,10 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Push-up'), findsOneWidget);
+      expect(find.text('Push Up'), findsOneWidget);
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.textContaining('1:05'), findsWidgets);
+      expect(find.text('89.6'), findsNWidgets(4));
       expect(find.text('Tekrar Detayları'), findsOneWidget);
       expect(find.text('Tekrar 1'), findsOneWidget);
       expect(find.text('Geçerli'), findsWidgets);

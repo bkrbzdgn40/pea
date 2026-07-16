@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
-import '../../../../app/presentation/widgets/app_state_views.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
@@ -120,9 +119,15 @@ class _MissingSessionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppEmptyView(
-      centered: true,
-      message: 'Oturum verisi bulunamadı.',
+    return Center(
+      child: Text(
+        'Oturum verisi bulunamadı.',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.72),
+          fontSize: 16,
+        ),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }
@@ -190,11 +195,11 @@ List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
     MapEntry('Toplam tekrar', session.totalReps.toString()),
     MapEntry(
       'Ortalama skor',
-      WorkoutPresentationFormatter.score(session.averageScore),
+      WorkoutPresentationFormatter.roundedScore(session.averageScore),
     ),
     MapEntry(
       'En iyi skor',
-      WorkoutPresentationFormatter.score(session.bestScore),
+      WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
     MapEntry('Form uyarısı', session.formWarningCount.toString()),
     MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),

@@ -36,6 +36,7 @@ void main() {
 
     expect(find.text('Hata'), findsOneWidget);
     expect(find.text('Bir seyler ters gitti'), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
 
     await tester.tap(find.text('Tekrar Dene'));
     await tester.pump();

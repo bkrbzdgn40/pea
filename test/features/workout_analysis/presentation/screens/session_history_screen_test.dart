@@ -15,7 +15,7 @@ void main() {
       final session = buildWorkoutSession(
         id: 'session-1',
         ownerId: 'owner-1',
-        exerciseType: 'squat',
+        exerciseType: 'push_up',
         startedAt: DateTime(2024, 1, 5, 9, 30),
         totalReps: 12,
         averageScore: 89.6,
@@ -29,11 +29,11 @@ void main() {
           'session-1': const [
             WorkoutRep(
               repIndex: 1,
-              exerciseType: 'squat',
+              exerciseType: 'push_up',
               analysisKind: 'rangeRep',
               validationStatus: 'valid',
               validationReasons: <String>['coverage loss'],
-              score: 90,
+              score: 92,
               descentMillis: 400,
               ascentMillis: 500,
             ),
@@ -56,14 +56,15 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Squat'), findsOneWidget);
+      expect(find.text('Push Up'), findsOneWidget);
       expect(find.text('1:05'), findsOneWidget);
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.text('Ort. Skor'), findsOneWidget);
+      expect(find.text('90'), findsOneWidget);
 
       final pushCountBeforeTap = observer.pushCount;
 
-      await tester.tap(find.text('Squat'));
+      await tester.tap(find.text('Push Up'));
       await tester.pumpAndSettle();
 
       expect(observer.pushCount, pushCountBeforeTap + 1);

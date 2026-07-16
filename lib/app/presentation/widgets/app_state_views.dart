@@ -34,14 +34,14 @@ class AppErrorView extends StatelessWidget {
     super.key,
     required this.message,
     this.title,
-    this.icon = Icons.error_outline_rounded,
+    this.icon,
     this.actionLabel,
     this.onAction,
   });
 
   final String message;
   final String? title;
-  final IconData icon;
+  final IconData? icon;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -54,9 +54,11 @@ class AppErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.accent, size: 40),
+            if (icon != null) ...[
+              Icon(icon, color: AppColors.accent, size: 40),
+              SizedBox(height: title != null ? 16 : 10),
+            ],
             if (title != null) ...[
-              const SizedBox(height: 16),
               Text(
                 title!,
                 style: const TextStyle(
@@ -66,8 +68,8 @@ class AppErrorView extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 10),
             ],
-            const SizedBox(height: 10),
             Text(
               message,
               style: const TextStyle(

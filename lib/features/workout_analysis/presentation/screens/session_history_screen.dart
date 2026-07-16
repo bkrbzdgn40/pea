@@ -292,11 +292,11 @@ class _SessionCard extends StatelessWidget {
             MapEntry('Tekrar', session.totalReps.toString()),
             MapEntry(
               'Ort. Skor',
-              WorkoutPresentationFormatter.score(session.averageScore),
+              WorkoutPresentationFormatter.roundedScore(session.averageScore),
             ),
             MapEntry(
               'En Iyi',
-              WorkoutPresentationFormatter.score(session.bestScore),
+              WorkoutPresentationFormatter.roundedScore(session.bestScore),
             ),
             MapEntry('Uyari', session.formWarningCount.toString()),
           ];

@@ -17,8 +17,16 @@ void main() {
       },
     );
 
-    test('formats scores by rounding to an integer string', () {
-      expect(WorkoutPresentationFormatter.score(89.6), '90');
+    test(
+      'formats summary and history scores by rounding to an integer string',
+      () {
+        expect(WorkoutPresentationFormatter.roundedScore(89.6), '90');
+      },
+    );
+
+    test('formats session detail scores with compact precision', () {
+      expect(WorkoutPresentationFormatter.compactScore(89.6), '89.6');
+      expect(WorkoutPresentationFormatter.compactScore(89.0), '89');
     });
 
     test('formats local date time as dd.MM.yyyy HH:mm', () {
@@ -28,13 +36,21 @@ void main() {
       );
     });
 
-    test('formats canonical and legacy exercise titles', () {
-      expect(WorkoutPresentationFormatter.exerciseTitle('squat'), 'Squat');
-      expect(WorkoutPresentationFormatter.exerciseTitle('push_up'), 'Push-up');
-      expect(
-        WorkoutPresentationFormatter.exerciseTitle('single_leg_jump'),
-        'Single Leg Jump',
-      );
-    });
+    test(
+      'formats canonical and fallback exercise titles with snake_case words',
+      () {
+        expect(WorkoutPresentationFormatter.exerciseTitle('squat'), 'Squat');
+        expect(WorkoutPresentationFormatter.exerciseTitle('plank'), 'Plank');
+        expect(
+          WorkoutPresentationFormatter.exerciseTitle('push_up'),
+          'Push Up',
+        );
+        expect(WorkoutPresentationFormatter.exerciseTitle('sit_up'), 'Sit Up');
+        expect(
+          WorkoutPresentationFormatter.exerciseTitle('single_leg_jump'),
+          'Single Leg Jump',
+        );
+      },
+    );
   });
 }

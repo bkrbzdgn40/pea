@@ -13,16 +13,6 @@ void main() {
     'shows the shared loading state while achievements are unresolved',
     (WidgetTester tester) async {
       final completer = Completer<AchievementsState>();
-      addTearDown(() {
-        if (!completer.isCompleted) {
-          completer.complete(
-            const AchievementsState(
-              source: AchievementsDataSource.real,
-              achievements: <Achievement>[],
-            ),
-          );
-        }
-      });
 
       await pumpTestApp(
         tester,
@@ -34,30 +24,53 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      completer.complete(
+        const AchievementsState(
+          source: AchievementsDataSource.real,
+          achievements: <Achievement>[
+            Achievement(
+              id: 'first_analysis',
+              title: 'Ilk Analiz',
+              description: 'Ilk canli analiz oturumunu tamamladin.',
+              isUnlocked: true,
+              progress: 1,
+              requirementText: '1 analiz tamamla',
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('Ilk Analiz'), findsOneWidget);
     },
   );
 
   testWidgets('shows the shared error state when achievements fail', (
     WidgetTester tester,
   ) async {
+    final completer = Completer<AchievementsState>();
+
     await pumpTestApp(
       tester,
       home: const AchievementsScreen(),
-      overrides: [
-        achievementsProvider.overrideWith(
-          (ref) =>
-              Future<AchievementsState>.sync(() => throw Exception('boom')),
-        ),
-      ],
+      overrides: [achievementsProvider.overrideWith((ref) => completer.future)],
     );
     await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    completer.completeError(Exception('boom'));
     await tester.pump();
-    tester.takeException();
+    await tester.pumpAndSettle();
 
     expect(
       find.text('Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.'),
       findsOneWidget,
     );
+    expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
   });
 
   testWidgets('renders unlocked and locked achievement visual states', (

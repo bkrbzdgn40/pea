@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
@@ -19,7 +20,7 @@ void main() {
     final session = buildWorkoutSession(
       id: 'summary-1',
       startedAt: DateTime(2024, 1, 5, 9, 30),
-      exerciseType: 'squat',
+      exerciseType: 'push_up',
       totalReps: 12,
       averageScore: 89.6,
       bestScore: 95,
@@ -33,12 +34,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Squat özeti'), findsOneWidget);
+    expect(find.text('Push Up özeti'), findsOneWidget);
     expect(find.text('Toplam tekrar'), findsOneWidget);
     expect(find.text('Ortalama skor'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('1:05'), 200);
 
+    expect(find.text('90'), findsOneWidget);
     expect(find.text('1:05'), findsOneWidget);
   });
 
@@ -53,6 +55,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Oturum verisi bulunamadı.'), findsOneWidget);
+      expect(find.byIcon(Icons.inbox_outlined), findsNothing);
     },
   );
 

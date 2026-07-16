@@ -13,16 +13,6 @@ void main() {
     WidgetTester tester,
   ) async {
     final completer = Completer<GoalsState>();
-    addTearDown(() {
-      if (!completer.isCompleted) {
-        completer.complete(
-          const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        );
-      }
-    });
 
     await pumpTestApp(
       tester,
@@ -32,28 +22,53 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    completer.complete(
+      const GoalsState(
+        source: GoalsDataSource.real,
+        goals: <WorkoutGoal>[
+          WorkoutGoal(
+            id: 'weekly_analysis_count',
+            title: 'Haftalik 5 analiz',
+            targetValue: 5,
+            currentValue: 3,
+            unit: 'analiz',
+            description: 'Bu hafta en az 5 canli analiz tamamla.',
+            isCompleted: false,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Haftalik 5 analiz'), findsOneWidget);
   });
 
   testWidgets('shows the shared error state when loading goals fails', (
     WidgetTester tester,
   ) async {
+    final completer = Completer<GoalsState>();
+
     await pumpTestApp(
       tester,
       home: const GoalsScreen(),
-      overrides: [
-        goalsProvider.overrideWith(
-          (ref) => Future<GoalsState>.sync(() => throw Exception('boom')),
-        ),
-      ],
+      overrides: [goalsProvider.overrideWith((ref) => completer.future)],
     );
     await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    completer.completeError(Exception('boom'));
     await tester.pump();
-    tester.takeException();
+    await tester.pumpAndSettle();
 
     expect(
       find.text('Hedefler yüklenemedi. Lütfen daha sonra tekrar dene.'),
       findsOneWidget,
     );
+    expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
   });
 
   testWidgets('renders real goals and preserves completed-goal visual state', (

@@ -25,6 +25,7 @@ class AppSpacing {
 class AppRadii {
   const AppRadii._();
 
+  static const double small = 12;
   static const double surface = 16;
   static const double compact = 14;
   static const double pill = 999;

@@ -151,7 +151,7 @@ class _SessionSummaryCard extends StatelessWidget {
       if (!report.isHoldSession && report.hasScoreData)
         MapEntry(
           'Ortalama Skor',
-          WorkoutPresentationFormatter.score(report.averageScore),
+          WorkoutPresentationFormatter.compactScore(report.averageScore),
         ),
     ];
 
@@ -708,19 +708,19 @@ List<MapEntry<String, String>> _overviewMetrics({
     MapEntry(
       'Ortalama Skor',
       report.hasScoreData
-          ? WorkoutPresentationFormatter.score(report.averageScore)
+          ? WorkoutPresentationFormatter.compactScore(report.averageScore)
           : '--',
     ),
     MapEntry(
       'En İyi Skor',
       report.hasScoreData
-          ? WorkoutPresentationFormatter.score(report.bestScore)
+          ? WorkoutPresentationFormatter.compactScore(report.bestScore)
           : '--',
     ),
     MapEntry(
       'En Düşük Skor',
       report.hasScoreData
-          ? WorkoutPresentationFormatter.score(report.worstScore)
+          ? WorkoutPresentationFormatter.compactScore(report.worstScore)
           : '--',
     ),
     MapEntry('Form Uyarısı', report.formWarningCount.toString()),
@@ -772,7 +772,7 @@ String _formatOptionalScore(double? score) {
     return '--';
   }
 
-  return WorkoutPresentationFormatter.score(score);
+  return WorkoutPresentationFormatter.compactScore(score);
 }
 
 String _formatOptionalMetric(double? value) {

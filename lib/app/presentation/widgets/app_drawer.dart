@@ -10,11 +10,17 @@ import '../../../features/workout_analysis/presentation/screens/settings_screen.
 import 'app_surface_card.dart';
 
 enum AppDestination {
-  home(label: 'Ana Sayfa', icon: Icons.home_rounded, builder: _buildHome),
+  home(
+    label: 'Ana Sayfa',
+    icon: Icons.home_rounded,
+    builder: _buildHome,
+    suppressPushWhenCurrent: true,
+  ),
   howToUse(
     label: 'Nasıl Kullanılır',
     icon: Icons.help_outline_rounded,
     builder: _buildHowToUse,
+    suppressPushWhenCurrent: true,
   ),
   exerciseSelection(
     label: 'Hareket Seç',
@@ -41,11 +47,13 @@ enum AppDestination {
     required this.label,
     required this.icon,
     required this.builder,
+    this.suppressPushWhenCurrent = false,
   });
 
   final String label;
   final IconData icon;
   final WidgetBuilder builder;
+  final bool suppressPushWhenCurrent;
 
   static Widget _buildHome(BuildContext context) => const HomeScreen();
 
@@ -142,7 +150,7 @@ class AppDrawer extends StatelessWidget {
   }) {
     final navigator = Navigator.of(context);
     navigator.pop();
-    if (isCurrent) return;
+    if (isCurrent && destination.suppressPushWhenCurrent) return;
     navigator.push(MaterialPageRoute(builder: destination.builder));
   }
 }
@@ -182,7 +190,7 @@ class _DrawerItem extends StatelessWidget {
         iconColor: AppColors.accent,
         textColor: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.compact),
+          borderRadius: BorderRadius.circular(AppRadii.small),
         ),
         onTap: onTap,
       ),

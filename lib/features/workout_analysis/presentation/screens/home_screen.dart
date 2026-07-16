@@ -537,7 +537,7 @@ class _HomeActionCard extends StatelessWidget {
                   height: 38,
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(AppRadii.compact),
+                    borderRadius: BorderRadius.circular(AppRadii.small),
                   ),
                   child: Icon(icon, color: accentColor, size: 22),
                 ),

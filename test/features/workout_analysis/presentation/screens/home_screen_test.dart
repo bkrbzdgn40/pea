@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
@@ -100,6 +102,51 @@ void main() {
 
     expect(observer.pushCount, pushCountBeforeTap + 1);
     expect(find.byType(GuideScreen), findsOneWidget);
+  });
+
+  testWidgets('preserves the 12px action icon surface radius on HomeScreen', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _realDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+
+    final playIconSurface = find.ancestor(
+      of: find.byIcon(Icons.play_arrow_rounded),
+      matching: find.byWidgetPredicate((widget) {
+        if (widget is! Container) {
+          return false;
+        }
+
+        final decoration = widget.decoration;
+        final constraints = widget.constraints;
+        return constraints?.minWidth == 38 &&
+            constraints?.maxWidth == 38 &&
+            constraints?.minHeight == 38 &&
+            constraints?.maxHeight == 38 &&
+            decoration is BoxDecoration &&
+            decoration.borderRadius == BorderRadius.circular(AppRadii.small);
+      }),
+    );
+
+    expect(playIconSurface, findsOneWidget);
   });
 }
 

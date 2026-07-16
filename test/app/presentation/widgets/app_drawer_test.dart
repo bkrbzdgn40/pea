@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
 
 import '../../../support/presentation_test_support.dart';
@@ -44,10 +45,59 @@ void main() {
         Icons.settings_rounded,
       ],
     );
+    expect(
+      <AppDestination, bool>{
+        for (final destination in AppDestination.values)
+          destination: destination.suppressPushWhenCurrent,
+      },
+      <AppDestination, bool>{
+        AppDestination.home: true,
+        AppDestination.howToUse: true,
+        AppDestination.exerciseSelection: false,
+        AppDestination.sessionHistory: false,
+        AppDestination.guide: false,
+        AppDestination.settings: false,
+      },
+    );
   });
 
   testWidgets(
-    'keeps the selected destination highlighted and does not push it',
+    'keeps the selected home destination highlighted and does not push it',
+    (WidgetTester tester) async {
+      final observer = RecordingNavigatorObserver();
+
+      await pumpTestApp(
+        tester,
+        navigatorObservers: [observer],
+        home: Scaffold(
+          appBar: AppBar(title: const Text('Drawer Host')),
+          drawer: const AppDrawer(currentPage: AppDestination.home),
+          body: const SizedBox.shrink(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+
+      final selectedTile = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'Ana Sayfa'),
+      );
+      final selectedShape = selectedTile.shape! as RoundedRectangleBorder;
+      final pushCountAfterOpening = observer.pushCount;
+
+      expect(selectedTile.selected, isTrue);
+      expect(selectedShape.borderRadius, BorderRadius.circular(AppRadii.small));
+
+      await tester.tap(find.text('Ana Sayfa'));
+      await tester.pumpAndSettle();
+
+      expect(observer.pushCount, pushCountAfterOpening);
+    },
+  );
+
+  testWidgets(
+    'keeps the selected how-to-use destination highlighted and does not push it',
     (WidgetTester tester) async {
       final observer = RecordingNavigatorObserver();
 
@@ -76,6 +126,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(observer.pushCount, pushCountAfterOpening);
+    },
+  );
+
+  testWidgets(
+    'pushes the current exercise selection destination to preserve legacy reselect behavior',
+    (WidgetTester tester) async {
+      final observer = RecordingNavigatorObserver();
+
+      await pumpTestApp(
+        tester,
+        navigatorObservers: [observer],
+        home: Scaffold(
+          appBar: AppBar(title: const Text('Drawer Host')),
+          drawer: const AppDrawer(
+            currentPage: AppDestination.exerciseSelection,
+          ),
+          body: const SizedBox.shrink(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+
+      final pushCountAfterOpening = observer.pushCount;
+
+      await tester.tap(find.text('Hareket Seç'));
+      await tester.pumpAndSettle();
+
+      expect(observer.pushCount, pushCountAfterOpening + 1);
+      expect(observer.lastPushedRoute, isA<MaterialPageRoute<dynamic>>());
+      expect(find.byType(ExerciseSelectionScreen), findsOneWidget);
     },
   );
 

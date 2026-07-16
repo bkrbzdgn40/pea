@@ -1,14 +1,7 @@
-import '../../domain/models/exercise_type.dart';
-
 class WorkoutPresentationFormatter {
   const WorkoutPresentationFormatter._();
 
   static String exerciseTitle(String exerciseType) {
-    final exercise = ExerciseType.fromIdOrNull(exerciseType);
-    if (exercise != null) {
-      return exercise.title;
-    }
-
     return exerciseType
         .split('_')
         .where((part) => part.isNotEmpty)
@@ -26,8 +19,12 @@ class WorkoutPresentationFormatter {
     return duration(Duration(seconds: seconds.round()));
   }
 
-  static String score(double score) {
+  static String roundedScore(double score) {
     return score.round().toString();
+  }
+
+  static String compactScore(double score) {
+    return score.toStringAsFixed(score.truncateToDouble() == score ? 0 : 1);
   }
 
   static String dateTime(DateTime dateTime) {
