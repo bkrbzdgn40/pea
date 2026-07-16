@@ -548,6 +548,110 @@ void main() {
       },
     );
 
+    test(
+      'both arms around 84 degrees can reach PEAK through the real bilateral path',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final peakResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 84,
+          rightAngle: 84,
+          expectedPhase: 'PEAK',
+        );
+
+        expect(peakResult.stateSnapshot.currentPhase, 'PEAK');
+      },
+    );
+
+    test(
+      'a lagging arm around 86 degrees still blocks PEAK at the relaxed threshold',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final blockedResult = _holdAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 84,
+          rightAngle: 86,
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+
+        expect(blockedResult.stateSnapshot.currentPhase, 'DESCENDING');
+      },
+    );
+
+    test(
+      'an exact 85-degree bilateral aggregate does not satisfy the strict PEAK entry gate',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final blockedResult = _holdAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 85,
+          rightAngle: 85,
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+
+        expect(blockedResult.stateSnapshot.currentPhase, 'DESCENDING');
+      },
+    );
+
     test('severe bilateral lag does not create an early peak', () {
       final clock = _TestClock();
       final coordinator = _buildBicepsCoordinator(clock);
@@ -620,6 +724,52 @@ void main() {
     });
 
     test(
+      'valid-but-not-ideal bilateral ROM is accepted while ideal depth keeps a better ROM score',
+      () {
+        final shallowClock = _TestClock();
+        final shallowCoordinator = _buildBicepsCoordinator(shallowClock);
+        final shallowCompleted = _completeAcceptedBicepsRep(
+          shallowCoordinator,
+          shallowClock,
+          peakLeftAngle: 84,
+          peakRightAngle: 84,
+          ascentLeftAngle: 98,
+          ascentRightAngle: 98,
+        );
+
+        final idealClock = _TestClock();
+        final idealCoordinator = _buildBicepsCoordinator(idealClock);
+        final idealCompleted = _completeAcceptedBicepsRep(
+          idealCoordinator,
+          idealClock,
+          peakLeftAngle: 72,
+          peakRightAngle: 74,
+          ascentLeftAngle: 98,
+          ascentRightAngle: 100,
+        );
+
+        expect(shallowCompleted.stateSnapshot.repCount, 1);
+        expect(shallowCompleted.stateSnapshot.lastRepRom, closeTo(84.0, 0.001));
+        expect(
+          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
+          closeTo(91.0, 0.001),
+        );
+        expect(idealCompleted.stateSnapshot.repCount, 1);
+        expect(idealCompleted.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
+        expect(
+          idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
+          closeTo(100.0, 0.001),
+        );
+        expect(
+          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
+          lessThan(
+            idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
+          ),
+        );
+      },
+    );
+
+    test(
       'early one-arm neutral return cannot complete the rep and rom stays conservative',
       () {
         final clock = _TestClock();
@@ -674,6 +824,56 @@ void main() {
         expect(earlyReturnResult.stateSnapshot.currentPhase, 'ASCENDING');
         expect(completedResult.stateSnapshot.repCount, 1);
         expect(completedResult.stateSnapshot.lastRepRom, closeTo(76.0, 0.001));
+      },
+    );
+
+    test(
+      'peak exit remains blocked until the bilateral aggregate rises above 96 degrees',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 84,
+          rightAngle: 84,
+          expectedPhase: 'PEAK',
+        );
+
+        final blockedExitResult = _holdAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 96,
+          rightAngle: 96,
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+        final ascendingResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 98,
+          rightAngle: 98,
+          expectedPhase: 'ASCENDING',
+        );
+
+        expect(blockedExitResult.stateSnapshot.currentPhase, 'PEAK');
+        expect(ascendingResult.stateSnapshot.currentPhase, 'ASCENDING');
       },
     );
   });
@@ -862,6 +1062,35 @@ RangeRepCoordinatorFrameResult _driveAcceptedBicepsUntilPhase(
   );
 }
 
+RangeRepCoordinatorFrameResult _holdAcceptedBicepsFrames(
+  DefaultRangeRepCoordinator coordinator,
+  _TestClock clock, {
+  required double leftAngle,
+  required double rightAngle,
+  double leftUpperArmDriftAngle = 20,
+  double rightUpperArmDriftAngle = 20,
+  required int count,
+  required Duration spacing,
+}) {
+  late RangeRepCoordinatorFrameResult result;
+
+  for (var index = 0; index < count; index++) {
+    result = _processAcceptedBicepsFrame(
+      coordinator,
+      clock,
+      leftAngle: leftAngle,
+      rightAngle: rightAngle,
+      leftUpperArmDriftAngle: leftUpperArmDriftAngle,
+      rightUpperArmDriftAngle: rightUpperArmDriftAngle,
+    );
+    if (index < count - 1) {
+      clock.advance(spacing);
+    }
+  }
+
+  return result;
+}
+
 void _pumpAcceptedBicepsFrames(
   DefaultRangeRepCoordinator coordinator,
   _TestClock clock, {
@@ -885,6 +1114,54 @@ void _pumpAcceptedBicepsFrames(
       clock.advance(spacing);
     }
   }
+}
+
+RangeRepCoordinatorFrameResult _completeAcceptedBicepsRep(
+  DefaultRangeRepCoordinator coordinator,
+  _TestClock clock, {
+  required double peakLeftAngle,
+  required double peakRightAngle,
+  required double ascentLeftAngle,
+  required double ascentRightAngle,
+}) {
+  _pumpAcceptedBicepsFrames(
+    coordinator,
+    clock,
+    leftAngle: 160,
+    rightAngle: 160,
+    count: 3,
+    spacing: const Duration(milliseconds: 120),
+  );
+  _driveAcceptedBicepsUntilPhase(
+    coordinator,
+    clock,
+    leftAngle: 134,
+    rightAngle: 136,
+    expectedPhase: 'DESCENDING',
+  );
+  _driveAcceptedBicepsUntilPhase(
+    coordinator,
+    clock,
+    leftAngle: peakLeftAngle,
+    rightAngle: peakRightAngle,
+    expectedPhase: 'PEAK',
+  );
+  _driveAcceptedBicepsUntilPhase(
+    coordinator,
+    clock,
+    leftAngle: ascentLeftAngle,
+    rightAngle: ascentRightAngle,
+    expectedPhase: 'ASCENDING',
+  );
+
+  return _driveAcceptedBicepsUntilPhase(
+    coordinator,
+    clock,
+    leftAngle: 160,
+    rightAngle: 158,
+    expectedPhase: 'NEUTRAL',
+    spacing: const Duration(milliseconds: 120),
+  );
 }
 
 ExerciseMetrics _leftRangeRepMetrics({

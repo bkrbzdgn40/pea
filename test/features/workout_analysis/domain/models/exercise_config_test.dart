@@ -145,7 +145,7 @@ void main() {
         expect(config.joint2, PoseLandmarkType.leftWrist);
         expect(config.thresholdNeutral, 155.0);
         expect(config.thresholdActive, 140.0);
-        expect(config.thresholdPeak, 80.0);
+        expect(config.thresholdPeak, 88.0);
         expect(config.formThreshold, 150.0);
         expect(config.targetMinAngle, 75.0);
         expect(
@@ -596,6 +596,42 @@ void main() {
                 contains(
                   'ExerciseConfig.rangeRepSignals.postureAngle.transform',
                 ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'alias signal diagnostics truthfully describe the optional transform key',
+      () {
+        expect(
+          () => ExerciseConfig.fromMap(<String, dynamic>{
+            'name': 'Biceps Curl',
+            'primaryJoint': 'leftElbow',
+            'joint1': 'leftShoulder',
+            'joint2': 'leftWrist',
+            'thresholdNeutral': 155.0,
+            'thresholdActive': 140.0,
+            'thresholdPeak': 88.0,
+            'rangeRepSignals': <String, dynamic>{
+              'depthMetric': <String, dynamic>{
+                'source': 'primaryMetric',
+                'unexpected': true,
+              },
+            },
+          }),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message.toString(),
+              'message',
+              allOf(
+                contains(
+                  'ExerciseConfig.rangeRepSignals.depthMetric only supports '
+                  'the "source" key and optional "transform" key',
+                ),
+                isNot(contains('only supports the "source" key for alias')),
               ),
             ),
           ),

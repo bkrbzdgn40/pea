@@ -667,7 +667,7 @@ void main() {
     );
 
     test(
-      'biceps curl production path resolves the real config and completes one simultaneous bilateral rep',
+      'biceps curl production path counts a valid-but-not-ideal bilateral rep without requiring perfect ROM',
       () async {
         final detector = _QueuedPoseDetector();
         final clock = _FakeClock();
@@ -707,7 +707,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _bicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 74),
+          _bicepsCurlPose(leftPrimaryAngle: 84, rightPrimaryAngle: 84),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );
@@ -715,7 +715,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _bicepsCurlPose(leftPrimaryAngle: 98, rightPrimaryAngle: 100),
+          _bicepsCurlPose(leftPrimaryAngle: 98, rightPrimaryAngle: 98),
           expectedPhase: 'ASCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -735,6 +735,8 @@ void main() {
         expect(state.holdAnalysis, isNull);
         expect(state.repCount, 1);
         expect(state.currentPhase, 'NEUTRAL');
+        expect(state.lastRepROM, closeTo(84.0, 0.001));
+        expect(state.calibrationMetrics.lastRepRomScore, closeTo(91.0, 0.001));
         expect(state.analysisKind.name, 'rangeRep');
         expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
         expect(diagnostics.analysisKind, 'rangeRep');

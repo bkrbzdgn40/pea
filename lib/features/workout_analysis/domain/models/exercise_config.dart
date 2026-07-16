@@ -454,8 +454,8 @@ class ExerciseConfig {
     if (hasSource) {
       if (keys.difference(const <String>{'source', 'transform'}).isNotEmpty) {
         throw FormatException(
-          '${signalReader.path} only supports the "source" key for alias '
-          'definitions.',
+          '${signalReader.path} only supports the "source" key and optional '
+          '"transform" key for alias definitions.',
         );
       }
 

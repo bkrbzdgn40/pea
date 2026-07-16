@@ -5,7 +5,7 @@
   "joint2": "leftWrist",
   "thresholdNeutral": 155.0,
   "thresholdActive": 140.0,
-  "thresholdPeak": 80.0,
+  "thresholdPeak": 88.0,
   "idealDescentSeconds": 1.0,
   "idealAscentSeconds": 1.5,
   "formThreshold": 150.0,
