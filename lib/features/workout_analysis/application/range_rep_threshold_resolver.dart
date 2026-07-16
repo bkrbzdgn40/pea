@@ -1,4 +1,5 @@
 import '../domain/models/exercise_config.dart';
+import '../domain/models/range_rep_contract.dart';
 import '../domain/models/session_calibration_baseline.dart';
 
 /// Resolves the effective range-rep form threshold from session calibration.
@@ -17,12 +18,24 @@ class RangeRepThresholdResolver {
     required String analysisKind,
     required ExerciseConfig config,
     required double baseThreshold,
+    required RangeRepFormThresholdCalibrationPolicy
+    formThresholdCalibrationPolicy,
     required SessionCalibrationBaseline? sessionCalibrationBaseline,
     required String? selectedRangeRepSide,
   }) {
     final baseline = sessionCalibrationBaseline;
     final sampleCount = baseline?.sampleCount;
     final baselineSideLabel = baseline?.selectedSideLabel;
+    if (formThresholdCalibrationPolicy ==
+        RangeRepFormThresholdCalibrationPolicy.disabled) {
+      return RangeRepThresholdResolution.fallback(
+        baseThreshold: baseThreshold,
+        decisionReason: 'disabled_by_contract',
+        sampleCount: sampleCount,
+        baselineSideLabel: baselineSideLabel,
+      );
+    }
+
     if (baseline == null) {
       return RangeRepThresholdResolution.fallback(
         baseThreshold: baseThreshold,

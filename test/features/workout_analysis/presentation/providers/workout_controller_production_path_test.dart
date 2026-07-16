@@ -25,11 +25,14 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_a
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 
 import '../../../../support/workout_analysis_test_support.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('WorkoutController production pose pipeline', () {
     late _QueuedPoseDetector detector;
     late _FakeClock clock;
@@ -402,6 +405,243 @@ void main() {
         expect(state.currentAngle, closeTo(90.0, 0.001));
         expect(state.currentPhase, 'AWAITING_NEUTRAL');
         expect(state.repCount, 0);
+      },
+    );
+
+    test(
+      'sit-up production path resolves the real config and publishes typed range-rep state',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        expect(
+          harness.container.read(exerciseConfigProvider).requireValue.name,
+          'Sit-up',
+        );
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 125, formAngle: 90),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 108, formAngle: 90),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 68, formAngle: 90),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 82, formAngle: 90),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 121, formAngle: 90),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final diagnostics = harness.controller.diagnosticsSnapshot();
+
+        expect(state.rangeRepAnalysis, isNotNull);
+        expect(state.holdAnalysis, isNull);
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.currentAngle, closeTo(121.0, 0.001));
+        expect(
+          state.calibrationMetrics.lastRangeRepValidatedRepIndex,
+          equals(1),
+        );
+        expect(
+          state.calibrationMetrics.lastRangeRepValidationStatus,
+          equals('valid'),
+        );
+        expect(state.calibrationMetrics.baseFormThreshold, 60.0);
+        expect(state.calibrationMetrics.effectiveFormThreshold, 60.0);
+        expect(
+          state.calibrationMetrics.lastRangeRepSummaryHadFormViolation,
+          isFalse,
+        );
+        expect(diagnostics.analysisKind, 'rangeRep');
+        expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+      },
+    );
+
+    test(
+      'sit-up production path keeps a normal peak form metric out of the warning even after a high baseline',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 125, formAngle: 120),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 108, formAngle: 68.4),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 52.7, formAngle: 68.4),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final metrics = state.calibrationMetrics;
+
+        expect(state.currentPhase, 'PEAK');
+        expect(state.isFormBad, isFalse);
+        expect(state.currentAngle, lessThan(70.0));
+        expect(state.feedbackMessage, isNot('Bacak acini koru.'));
+        expect(metrics.baseFormThreshold, 60.0);
+        expect(metrics.effectiveFormThreshold, 60.0);
+        expect(metrics.calibrationThresholdOffsetApplied, isFalse);
+        expect(metrics.calibrationThresholdOffsetCandidate, isNull);
+        expect(
+          metrics.calibrationThresholdOffsetFallbackReason,
+          'disabled_by_contract',
+        );
+        expect(
+          metrics.sessionCalibrationBaselineCandidate?.formMetricBaseline,
+          greaterThan(80.0),
+        );
+      },
+    );
+
+    test(
+      'sit-up production path keeps an advisory low-likelihood ankle out of body-not-visible fallback',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        const ankleLowLikelihood = <PoseLandmarkType, double>{
+          PoseLandmarkType.leftAnkle: 0.10,
+        };
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 125,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 108,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 68,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 82,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(
+            primaryAngle: 121,
+            formAngle: 90,
+            includeRightSide: false,
+            likelihoodOverrides: ankleLowLikelihood,
+          ),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final diagnostics = harness.controller.diagnosticsSnapshot();
+
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.feedbackMessage, isNot('Vucut net gorunmuyor.'));
+        expect(diagnostics.rejectedPoseFrameCount, 0);
+        expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
       },
     );
 
@@ -2034,6 +2274,34 @@ _ControllerHarness _createHarness({
   );
 }
 
+Future<_ControllerHarness> _createResolvedConfigHarness({
+  required ExerciseType selectedExercise,
+  required _QueuedPoseDetector detector,
+  required _FakeClock clock,
+  List<Override> extraOverrides = const <Override>[],
+}) async {
+  final container = ProviderContainer(
+    overrides: <Override>[
+      selectedExerciseProvider.overrideWith((ref) => selectedExercise),
+      poseDetectorProvider.overrideWith((ref) => detector),
+      workoutClockProvider.overrideWithValue(clock.now),
+      ...extraOverrides,
+    ],
+  );
+  await container.read(exerciseConfigProvider.future);
+  final subscription = container.listen<WorkoutState>(
+    workoutControllerProvider,
+    (previous, next) {},
+    fireImmediately: true,
+  );
+  final controller = container.read(workoutControllerProvider.notifier);
+  return _ControllerHarness(
+    container: container,
+    subscription: subscription,
+    controller: controller,
+  );
+}
+
 Future<void> _establishVisibleHold(
   WorkoutController controller,
   _QueuedPoseDetector detector,
@@ -2089,6 +2357,25 @@ ExerciseConfig _pushUpConfig() {
     'assets/config/exercises/push_up.json',
   ).readAsStringSync();
   return ExerciseConfig.fromMap(jsonDecode(rawJson) as Map<String, dynamic>);
+}
+
+Pose _sitUpPose({
+  required double primaryAngle,
+  double formAngle = 90,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  return buildSitUpPose(
+    primaryAngle: primaryAngle,
+    formAngle: formAngle,
+    includeLeftSide: includeLeftSide,
+    includeRightSide: includeRightSide,
+    likelihoodOverrides: likelihoodOverrides,
+    missingLandmarks: missingLandmarks,
+  );
 }
 
 Pose _squatPose({

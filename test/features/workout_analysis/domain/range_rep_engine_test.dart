@@ -6,6 +6,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 
+import '../../../support/workout_analysis_test_support.dart';
+
 void main() {
   group('RangeRepEngine squat state machine', () {
     test('starts disarmed and awaits a neutral acquisition gate', () {
@@ -317,6 +319,168 @@ void main() {
       expect(engine.lastRepScoreBreakdown, isNotNull);
       expect(engine.lastRepScore, greaterThanOrEqualTo(0.0));
     });
+
+    test('push-up form threshold behavior stays unchanged', () {
+      final cleanClock = _TestClock();
+      final cleanEngine = RangeRepEngine(
+        config: _pushUpConfig(),
+        now: cleanClock.now,
+      );
+      _completePushUpRep(cleanClock, cleanEngine, bodyLineAngle: 170);
+
+      final violatedClock = _TestClock();
+      final violatedEngine = RangeRepEngine(
+        config: _pushUpConfig(),
+        now: violatedClock.now,
+      );
+      _completePushUpRep(violatedClock, violatedEngine, bodyLineAngle: 140);
+
+      expect(cleanEngine.repCount, 1);
+      expect(violatedEngine.repCount, 1);
+      expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
+      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+    });
+  });
+
+  group('RangeRepEngine sit-up state machine', () {
+    test('real sit-up config characterizes the new threshold gates', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+      expect(engine.phaseLabel, 'NEUTRAL');
+
+      _confirmTransition(clock, engine, angle: 115, backAngle: 90);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 0);
+
+      _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+      expect(engine.phaseLabel, 'DESCENDING');
+
+      _confirmTransition(clock, engine, angle: 75, backAngle: 90);
+      expect(engine.phaseLabel, 'DESCENDING');
+
+      _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+      expect(engine.phaseLabel, 'PEAK');
+
+      _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+      expect(engine.phaseLabel, 'ASCENDING');
+
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 121,
+        backAngle: 90,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 1);
+    });
+
+    test(
+      'real sit-up config full rep counts once and produces a finite score',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+        _completeSitUpRep(clock, engine);
+
+        expect(engine.repCount, 1);
+        expect(engine.phaseLabel, 'NEUTRAL');
+        expect(engine.lastRepScoreBreakdown, isNotNull);
+        expect(engine.lastRepScore, inInclusiveRange(0.0, 100.0));
+        expect(engine.lastRepRom, closeTo(68.0, 0.001));
+        expect(engine.lastRepScoreBreakdown?.hadFormViolation, isFalse);
+        expect(engine.consumeCompletedRepCoreData()?.repIndex, 1);
+      },
+    );
+
+    test('real sit-up config does not count a partial return before peak', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 121,
+        backAngle: 90,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNull);
+    });
+
+    test('two real sit-up cycles count twice without double counting', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _completeSitUpRep(clock, engine);
+      _completeSitUpRep(clock, engine);
+
+      expect(engine.repCount, 2);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.lastRepScoreBreakdown, isNotNull);
+    });
+
+    test(
+      'normal peak hip flexion stays form-good at a 68.4 degree sit-up form metric',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+        _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+        _confirmTransition(clock, engine, angle: 108, backAngle: 68.4);
+        _confirmTransition(clock, engine, angle: 52.7, backAngle: 68.4);
+
+        expect(engine.phaseLabel, 'PEAK');
+        expect(engine.isFormBad, isFalse);
+        expect(
+          engine.feedbackCode,
+          isNot(RangeRepFeedbackCode.keepBodyUpright),
+        );
+      },
+    );
+
+    test('sit-up form metric stays form-good at the 60 degree boundary', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 60);
+      _confirmTransition(clock, engine, angle: 52.7, backAngle: 60);
+
+      expect(engine.phaseLabel, 'PEAK');
+      expect(engine.isFormBad, isFalse);
+      expect(engine.feedbackCode, isNot(RangeRepFeedbackCode.keepBodyUpright));
+    });
+
+    test('low knee-angle form metric still triggers a real form violation', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 55);
+      _confirmTransition(clock, engine, angle: 52.7, backAngle: 55);
+
+      expect(engine.isFormBad, isTrue);
+      expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
+
+      _confirmTransition(clock, engine, angle: 82, backAngle: 55);
+      _confirmTransition(
+        clock,
+        engine,
+        angle: 121,
+        backAngle: 55,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(engine.repCount, 1);
+      expect(engine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+    });
   });
 
   group('RangeRepEngine brief visibility gap control', () {
@@ -433,6 +597,24 @@ void _completeSquatRepAfterArming(
   );
 }
 
+void _completePushUpRep(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  double bodyLineAngle = 170,
+}) {
+  _acquireNeutral(clock, engine, angle: 170, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 130, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 90, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 110, backAngle: bodyLineAngle);
+  _confirmTransition(
+    clock,
+    engine,
+    angle: 170,
+    backAngle: bodyLineAngle,
+    confirmationWindow: _neutralConfirmationWindow,
+  );
+}
+
 void _completeRepWithBriefDescendingGap(
   _TestClock clock,
   RangeRepEngine engine,
@@ -528,5 +710,23 @@ ExerciseConfig _pushUpConfig() {
       minDescendingMillis: 250,
       minAscendingMillis: 250,
     ),
+  );
+}
+
+ExerciseConfig _sitUpConfig() {
+  return loadExerciseConfig('assets/config/exercises/sit_up.json');
+}
+
+void _completeSitUpRep(_TestClock clock, RangeRepEngine engine) {
+  _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+  _confirmTransition(
+    clock,
+    engine,
+    angle: 121,
+    backAngle: 90,
+    confirmationWindow: _neutralConfirmationWindow,
   );
 }

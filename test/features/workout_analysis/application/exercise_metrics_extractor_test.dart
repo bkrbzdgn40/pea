@@ -10,6 +10,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
+import '../../../support/workout_analysis_test_support.dart';
+
 void main() {
   const extractor = ExerciseMetricsExtractor();
 
@@ -414,6 +416,117 @@ void main() {
           isNull,
         );
         expect(metrics.leftRangeRepMetrics.formSignals?.lockoutMetric, isNull);
+      },
+    );
+
+    test(
+      'sit-up left-side extraction emits independent primary and form metrics',
+      () {
+        final config = _loadConfig('assets/config/exercises/sit_up.json');
+        final metrics = extractor.extract(
+          buildSitUpPose(
+            primaryAngle: 90,
+            formAngle: 120,
+            includeRightSide: false,
+          ),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+        );
+
+        expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
+        expect(metrics.leftRangeRepMetrics.hasFormMetric, isTrue);
+        expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(90.0, 0.001));
+        expect(metrics.leftRangeRepMetrics.formMetric, closeTo(120.0, 0.001));
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.torsoAngle,
+          closeTo(120.0, 0.001),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+          closeTo(90.0, 0.001),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.alignmentMetric,
+          isNull,
+        );
+        expect(metrics.leftRangeRepMetrics.formSignals?.lockoutMetric, isNull);
+      },
+    );
+
+    test('sit-up right-side mirroring uses the existing resolver path', () {
+      final config = _loadConfig('assets/config/exercises/sit_up.json');
+      final metrics = extractor.extract(
+        buildSitUpPose(primaryAngle: 85, formAngle: 125),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.sitUp,
+      );
+
+      expect(metrics.rightRangeRepMetrics.hasPrimaryAngle, isTrue);
+      expect(metrics.rightRangeRepMetrics.hasFormMetric, isTrue);
+      expect(metrics.rightRangeRepMetrics.primaryAngle, closeTo(85.0, 0.001));
+      expect(metrics.rightRangeRepMetrics.formMetric, closeTo(125.0, 0.001));
+    });
+
+    test(
+      'sit-up primary and form metrics do not collapse onto the same signal',
+      () {
+        final config = _loadConfig('assets/config/exercises/sit_up.json');
+        final metrics = extractor.extract(
+          buildSitUpPose(
+            primaryAngle: 82,
+            formAngle: 130,
+            includeRightSide: false,
+          ),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+        );
+
+        expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(82.0, 0.001));
+        expect(metrics.leftRangeRepMetrics.formMetric, closeTo(130.0, 0.001));
+        expect(
+          metrics.leftRangeRepMetrics.primaryAngle,
+          isNot(closeTo(metrics.leftRangeRepMetrics.formMetric, 0.001)),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+          closeTo(82.0, 0.001),
+        );
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.torsoAngle,
+          closeTo(130.0, 0.001),
+        );
+      },
+    );
+
+    test(
+      'sit-up still keeps the primary metric when the advisory ankle removes only the form metric',
+      () {
+        final config = _loadConfig('assets/config/exercises/sit_up.json');
+        final metrics = extractor.extract(
+          buildSitUpPose(
+            primaryAngle: 82,
+            formAngle: 130,
+            includeRightSide: false,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.leftAnkle,
+            },
+          ),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+        );
+
+        expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
+        expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(82.0, 0.001));
+        expect(metrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+        expect(metrics.leftRangeRepMetrics.formSignals?.torsoAngle, isNull);
+        expect(
+          metrics.leftRangeRepMetrics.formSignals?.depthMetric,
+          closeTo(82.0, 0.001),
+        );
       },
     );
 

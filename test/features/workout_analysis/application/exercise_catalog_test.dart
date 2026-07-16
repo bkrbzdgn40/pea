@@ -88,17 +88,28 @@ void main() {
       );
     });
 
-    test('keeps lunge and sit-up unsupported', () {
-      for (final type in const <ExerciseType>[
-        ExerciseType.lunge,
-        ExerciseType.sitUp,
-      ]) {
-        final definition = catalog.definitionFor(type);
+    test('enables sit-up as a supported range-rep exercise', () {
+      final definition = catalog.definitionFor(ExerciseType.sitUp);
 
-        expect(definition.id, type.id);
-        expect(definition.title, type.title);
-        expect(definition.isAnalysisSupported, isFalse);
-      }
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(definition.analysisExercise, ExerciseType.sitUp);
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(
+        definition.analysisConfigAssetPath,
+        'assets/config/exercises/sit_up.json',
+      );
+      expect(
+        definition.analysisRangeRepContract,
+        same(RangeRepContracts.sitUp),
+      );
+    });
+
+    test('keeps lunge unsupported', () {
+      final definition = catalog.definitionFor(ExerciseType.lunge);
+
+      expect(definition.id, ExerciseType.lunge.id);
+      expect(definition.title, ExerciseType.lunge.title);
+      expect(definition.isAnalysisSupported, isFalse);
     });
   });
 }

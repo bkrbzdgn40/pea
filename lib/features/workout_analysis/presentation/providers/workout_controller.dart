@@ -17,8 +17,10 @@ import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/exercise_type.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/range_rep_contract.dart';
+import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
@@ -97,6 +99,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   double _analysisFps = 0.0;
 
   late final EngineKind _engineKind;
+  late final ExerciseType _activeExercise;
   late final DateTime Function() _clock;
   late final ExerciseConfig _config;
   late final RangeRepContract? _rangeRepContract;
@@ -130,6 +133,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (activeExercise == null) {
       throw StateError('No active analysis exercise selected.');
     }
+    _activeExercise = activeExercise;
 
     final definition = _exerciseCatalog.definitionFor(activeExercise);
     _engineKind = definition.analysisEngineKind;
@@ -568,7 +572,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     state = WorkoutState.rangeRep(
       landmarks: snapshot.landmarks,
       feedbackMessage: snapshot.feedbackDirective.resolve(
-        mapFeedbackCode: mapRangeRepFeedbackCodeToMessage,
+        mapFeedbackCode: _mapRangeRepFeedbackCodeToMessage,
         fallbackMessage: snapshot.feedbackFallbackMessage,
       ),
       cameraFps: _cameraFps,
@@ -755,10 +759,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   String _resolvedRangeRepFeedbackMessage() {
     final feedbackCode = _rangeRepEngineOrThrow().feedbackCode;
     if (feedbackCode != null) {
-      return mapRangeRepFeedbackCodeToMessage(feedbackCode);
+      return _mapRangeRepFeedbackCodeToMessage(feedbackCode);
     }
 
     return _rangeRepEngineOrThrow().feedback;
+  }
+
+  String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
+    return mapRangeRepFeedbackCodeToMessage(
+      code,
+      exerciseType: _activeExercise,
+    );
   }
 
   void handleLifecycleInterruption({String? reason}) {

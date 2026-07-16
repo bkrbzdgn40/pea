@@ -1,0 +1,32 @@
+{
+  "name": "Sit-up",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftKnee",
+  "thresholdNeutral": 120.0,
+  "thresholdActive": 113.0,
+  "thresholdPeak": 73.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 60.0,
+  "targetMinAngle": 70.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 300
+  }
+}

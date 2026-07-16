@@ -1,13 +1,145 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_landmark_requirements.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+
+import '../../../support/workout_analysis_test_support.dart';
 
 void main() {
   const requirements = ExerciseLandmarkRequirements();
+
+  group('ExerciseLandmarkRequirements range-rep pose acceptance', () {
+    test('squat keeps its pose-acceptance landmark set unchanged', () {
+      final config = loadExerciseConfig('assets/config/exercises/squat.json');
+      final supportedAnalysis = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.squat,
+        side: RangeRepSide.left,
+      );
+      final poseAcceptance = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.left,
+      );
+
+      expect(
+        poseAcceptance.requiredLandmarks,
+        equals(supportedAnalysis.requiredLandmarks),
+      );
+      expect(
+        poseAcceptance.requiredAngleTriplets.map(_tripletKey).toList(),
+        equals(
+          supportedAnalysis.requiredAngleTriplets.map(_tripletKey).toList(),
+        ),
+      );
+    });
+
+    test('push-up keeps its pose-acceptance landmark set unchanged', () {
+      final config = loadExerciseConfig('assets/config/exercises/push_up.json');
+      final supportedAnalysis = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+        side: RangeRepSide.left,
+      );
+      final poseAcceptance = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.pushUp,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.left,
+      );
+
+      expect(
+        poseAcceptance.requiredLandmarks,
+        equals(supportedAnalysis.requiredLandmarks),
+      );
+      expect(
+        poseAcceptance.requiredAngleTriplets.map(_tripletKey).toList(),
+        equals(
+          supportedAnalysis.requiredAngleTriplets.map(_tripletKey).toList(),
+        ),
+      );
+    });
+
+    test(
+      'sit-up pose acceptance only requires the primary shoulder-hip-knee geometry',
+      () {
+        final requirementSet = requirements.resolve(
+          config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+          rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+          side: RangeRepSide.left,
+        );
+
+        expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        });
+        expect(requirementSet.requiredAngleTriplets.map(_tripletKey), <String>[
+          'leftShoulder->leftHip->leftKnee',
+        ]);
+      },
+    );
+
+    test(
+      'sit-up analysis-supported signals still include the advisory ankle geometry',
+      () {
+        final requirementSet = requirements.resolve(
+          config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+          side: RangeRepSide.left,
+        );
+
+        expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+          PoseLandmarkType.leftAnkle,
+        });
+        expect(
+          requirementSet.requiredAngleTriplets.map(_tripletKey),
+          containsAll(<String>[
+            'leftShoulder->leftHip->leftKnee',
+            'leftHip->leftKnee->leftAnkle',
+          ]),
+        );
+      },
+    );
+
+    test(
+      'sit-up pose acceptance mirrors the primary geometry to the right side',
+      () {
+        final requirementSet = requirements.resolve(
+          config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.sitUp,
+          rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+          side: RangeRepSide.right,
+        );
+
+        expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+          PoseLandmarkType.rightShoulder,
+          PoseLandmarkType.rightHip,
+          PoseLandmarkType.rightKnee,
+        });
+        expect(requirementSet.requiredAngleTriplets.map(_tripletKey), <String>[
+          'rightShoulder->rightHip->rightKnee',
+        ]);
+      },
+    );
+  });
 
   group('ExerciseLandmarkRequirements hold resolution', () {
     test('hold resolves the exact required landmark set', () {

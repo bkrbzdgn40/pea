@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
@@ -59,6 +61,11 @@ InputImage dummyInputImage() {
       bytesPerRow: 1,
     ),
   );
+}
+
+ExerciseConfig loadExerciseConfig(String path) {
+  final rawJson = File(path).readAsStringSync();
+  return ExerciseConfig.fromMap(jsonDecode(rawJson) as Map<String, dynamic>);
 }
 
 ExerciseConfig buildSquatConfig() {
@@ -143,6 +150,102 @@ Pose buildSquatPose({
   addLandmark(PoseLandmarkType.leftHip, 0, 1);
   addLandmark(PoseLandmarkType.leftKnee, 0, 0);
   addLandmark(PoseLandmarkType.leftAnkle, ankleX, ankleY);
+
+  return Pose(landmarks: landmarks);
+}
+
+Pose buildSitUpPose({
+  required double primaryAngle,
+  double formAngle = 120,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  double leftDefaultLikelihood = 0.95,
+  double rightDefaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double defaultLikelihood,
+  }) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+
+    landmarks[type] = buildLandmark(
+      type,
+      x,
+      y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  if (includeLeftSide) {
+    final primaryRadians = primaryAngle * (math.pi / 180.0);
+    final formRadians = formAngle * (math.pi / 180.0);
+
+    addLandmark(
+      PoseLandmarkType.leftHip,
+      0,
+      0,
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftKnee,
+      1,
+      0,
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftShoulder,
+      math.cos(primaryRadians),
+      math.sin(primaryRadians),
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftAnkle,
+      1 - math.cos(formRadians),
+      math.sin(formRadians),
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+  }
+
+  if (includeRightSide) {
+    final primaryRadians = primaryAngle * (math.pi / 180.0);
+    final formRadians = formAngle * (math.pi / 180.0);
+    const rightHipX = 3.0;
+    const rightKneeX = 2.0;
+
+    addLandmark(
+      PoseLandmarkType.rightHip,
+      rightHipX,
+      0,
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.rightKnee,
+      rightKneeX,
+      0,
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.rightShoulder,
+      rightHipX - math.cos(primaryRadians),
+      math.sin(primaryRadians),
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.rightAnkle,
+      rightKneeX + math.cos(formRadians),
+      math.sin(formRadians),
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+  }
 
   return Pose(landmarks: landmarks);
 }

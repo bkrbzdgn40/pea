@@ -29,6 +29,17 @@ void main() {
       ]);
     });
 
+    test('loads the sit-up config asset path', () async {
+      final source = _FakeExerciseConfigSource(_sampleConfig());
+      final resolver = ExerciseConfigResolver(source: source);
+
+      await resolver.resolve(ExerciseType.sitUp);
+
+      expect(source.loadedAssetPaths, <String>[
+        'assets/config/exercises/sit_up.json',
+      ]);
+    });
+
     test('rejects unsupported exercises before loading a config', () async {
       final source = _FakeExerciseConfigSource(_sampleConfig());
       final resolver = ExerciseConfigResolver(source: source);

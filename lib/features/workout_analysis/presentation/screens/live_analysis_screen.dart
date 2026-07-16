@@ -912,11 +912,11 @@ class _CalibrationDebugPanel extends StatelessWidget {
 
     final rangeRepCoreRows = <Widget>[
       _DebugMetricRow(
-        label: 'knee/current',
+        label: 'primary/current',
         value: _formatAngle(workoutState.currentAngle),
       ),
       _DebugMetricRow(
-        label: 'back-angle',
+        label: 'form/current',
         value: _formatAngle(metrics.currentBackAngle),
       ),
       _DebugMetricRow(

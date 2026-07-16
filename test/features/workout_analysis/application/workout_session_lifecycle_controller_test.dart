@@ -240,6 +240,67 @@ void main() {
     },
   );
 
+  test(
+    'sit-up range-rep sessions persist the canonical exercise id and kind',
+    () async {
+      final clock = _MutableClock(DateTime.utc(2030, 1, 1, 12));
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: clock.now,
+      );
+
+      controller.startSession(exercise: ExerciseType.sitUp);
+      controller.collect(
+        _rangeRepState(
+          repCount: 1,
+          lastRepScore: 88,
+          feedbackMessage: 'Sit-up tamamlandi',
+          validatedRepIndex: 1,
+          validationStatus: 'valid',
+          minPrimaryMetric: 84,
+          worstFormMetric: 120,
+          descentMillis: 410,
+          ascentMillis: 360,
+          selectedSideLabel: 'left',
+        ),
+      );
+
+      clock.advance(const Duration(seconds: 6));
+      final result = await controller.finishSession(
+        finalState: _rangeRepState(
+          repCount: 1,
+          lastRepScore: 88,
+          feedbackMessage: 'Sit-up tamamlandi',
+          validatedRepIndex: 1,
+          validationStatus: 'valid',
+          minPrimaryMetric: 84,
+          worstFormMetric: 120,
+          descentMillis: 410,
+          ascentMillis: 360,
+          selectedSideLabel: 'left',
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(repository.savedSessions, hasLength(1));
+      final session = repository.savedSessions.single;
+      final rep = session.reps!.single;
+
+      expect(session.exerciseType, ExerciseType.sitUp.id);
+      expect(session.analysisKind, EngineKind.rangeRep.name);
+      expect(session.totalReps, 1);
+      expect(rep.repIndex, 1);
+      expect(rep.score, 88);
+      expect(rep.minPrimaryMetric, 84);
+      expect(rep.worstFormMetric, 120);
+      expect(rep.feedback, 'Sit-up tamamlandi');
+    },
+  );
+
   test('hold accumulation tracks totals, best hold, and form breaks', () {
     final controller = WorkoutSessionLifecycleController(
       sessionRepository: _FakeSessionRepository(),
