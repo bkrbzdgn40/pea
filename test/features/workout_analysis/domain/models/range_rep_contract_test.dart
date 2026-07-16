@@ -2,6 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
+  test(
+    'RangeRepContract defaults form-threshold calibration policy to enabled',
+    () {
+      final contract = RangeRepContract(
+        supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+        supportedSignals: const <RangeRepSignal>{RangeRepSignal.primaryMetric},
+      );
+
+      expect(
+        contract.formThresholdCalibrationPolicy,
+        RangeRepFormThresholdCalibrationPolicy.enabled,
+      );
+    },
+  );
+
   test('RangeRepContracts.sitUp exposes the mandatory phases and signals', () {
     final contract = RangeRepContracts.sitUp;
 
@@ -27,6 +42,27 @@ void main() {
     expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
       RangeRepSignal.primaryMetric,
     });
+  });
+
+  test('RangeRepContracts.squat keeps threshold calibration enabled', () {
+    expect(
+      RangeRepContracts.squat.formThresholdCalibrationPolicy,
+      RangeRepFormThresholdCalibrationPolicy.enabled,
+    );
+  });
+
+  test('RangeRepContracts.pushUp keeps threshold calibration enabled', () {
+    expect(
+      RangeRepContracts.pushUp.formThresholdCalibrationPolicy,
+      RangeRepFormThresholdCalibrationPolicy.enabled,
+    );
+  });
+
+  test('RangeRepContracts.sitUp disables threshold calibration', () {
+    expect(
+      RangeRepContracts.sitUp.formThresholdCalibrationPolicy,
+      RangeRepFormThresholdCalibrationPolicy.disabled,
+    );
   });
 
   test(

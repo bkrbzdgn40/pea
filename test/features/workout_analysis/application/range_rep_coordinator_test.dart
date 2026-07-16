@@ -259,6 +259,61 @@ void main() {
           completedResult.stateSnapshot.calibrationMetrics.analysisKind.name,
           'rangeRep',
         );
+        expect(
+          completedResult
+              .stateSnapshot
+              .calibrationMetrics
+              .lastRangeRepSummaryHadFormViolation,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'sit-up coordinator keeps the base threshold when contract calibration is disabled',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildSitUpCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 125,
+          formMetric: 120,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 108,
+          formMetric: 68.4,
+          expectedPhase: 'DESCENDING',
+        );
+        final peakResult = _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 52.7,
+          formMetric: 68.4,
+          expectedPhase: 'PEAK',
+        );
+
+        final metrics = peakResult.stateSnapshot.calibrationMetrics;
+
+        expect(peakResult.stateSnapshot.currentPhase, 'PEAK');
+        expect(peakResult.stateSnapshot.isFormBad, isFalse);
+        expect(metrics.baseFormThreshold, 60.0);
+        expect(metrics.effectiveFormThreshold, 60.0);
+        expect(metrics.calibrationThresholdOffsetApplied, isFalse);
+        expect(metrics.calibrationThresholdOffsetCandidate, isNull);
+        expect(
+          metrics.calibrationThresholdOffsetFallbackReason,
+          'disabled_by_contract',
+        );
+        expect(
+          metrics.sessionCalibrationBaselineCandidate?.formMetricBaseline,
+          greaterThan(80.0),
+        );
       },
     );
 

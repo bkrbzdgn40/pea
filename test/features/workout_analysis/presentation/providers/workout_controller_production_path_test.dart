@@ -482,8 +482,73 @@ void main() {
           state.calibrationMetrics.lastRangeRepValidationStatus,
           equals('valid'),
         );
+        expect(state.calibrationMetrics.baseFormThreshold, 60.0);
+        expect(state.calibrationMetrics.effectiveFormThreshold, 60.0);
+        expect(
+          state.calibrationMetrics.lastRangeRepSummaryHadFormViolation,
+          isFalse,
+        );
         expect(diagnostics.analysisKind, 'rangeRep');
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+      },
+    );
+
+    test(
+      'sit-up production path keeps a normal peak form metric out of the warning even after a high baseline',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 125, formAngle: 120),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 108, formAngle: 68.4),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 52.7, formAngle: 68.4),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+        final metrics = state.calibrationMetrics;
+
+        expect(state.currentPhase, 'PEAK');
+        expect(state.isFormBad, isFalse);
+        expect(state.currentAngle, lessThan(70.0));
+        expect(state.feedbackMessage, isNot('Bacak acini koru.'));
+        expect(metrics.baseFormThreshold, 60.0);
+        expect(metrics.effectiveFormThreshold, 60.0);
+        expect(metrics.calibrationThresholdOffsetApplied, isFalse);
+        expect(metrics.calibrationThresholdOffsetCandidate, isNull);
+        expect(
+          metrics.calibrationThresholdOffsetFallbackReason,
+          'disabled_by_contract',
+        );
+        expect(
+          metrics.sessionCalibrationBaselineCandidate?.formMetricBaseline,
+          greaterThan(80.0),
+        );
       },
     );
 

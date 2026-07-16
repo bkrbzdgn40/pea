@@ -18,6 +18,8 @@ enum RangeRepSignal {
 
 enum RangeRepSignalSet { supportedAnalysis, poseAcceptanceRequired }
 
+enum RangeRepFormThresholdCalibrationPolicy { enabled, disabled }
+
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
 class RangeRepContract {
@@ -25,6 +27,8 @@ class RangeRepContract {
     required Iterable<RangeRepPhase> supportedPhases,
     required Iterable<RangeRepSignal> supportedSignals,
     Iterable<RangeRepSignal>? poseAcceptanceRequiredSignals,
+    this.formThresholdCalibrationPolicy =
+        RangeRepFormThresholdCalibrationPolicy.enabled,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
@@ -44,6 +48,7 @@ class RangeRepContract {
   final Set<RangeRepPhase> supportedPhases;
   final Set<RangeRepSignal> supportedSignals;
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
+  final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
 
   bool supportsPhase(RangeRepPhase phase) {
     return supportedPhases.contains(phase);
@@ -116,5 +121,7 @@ abstract final class RangeRepContracts {
     poseAcceptanceRequiredSignals: const <RangeRepSignal>{
       RangeRepSignal.primaryMetric,
     },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
   );
 }

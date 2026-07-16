@@ -319,6 +319,27 @@ void main() {
       expect(engine.lastRepScoreBreakdown, isNotNull);
       expect(engine.lastRepScore, greaterThanOrEqualTo(0.0));
     });
+
+    test('push-up form threshold behavior stays unchanged', () {
+      final cleanClock = _TestClock();
+      final cleanEngine = RangeRepEngine(
+        config: _pushUpConfig(),
+        now: cleanClock.now,
+      );
+      _completePushUpRep(cleanClock, cleanEngine, bodyLineAngle: 170);
+
+      final violatedClock = _TestClock();
+      final violatedEngine = RangeRepEngine(
+        config: _pushUpConfig(),
+        now: violatedClock.now,
+      );
+      _completePushUpRep(violatedClock, violatedEngine, bodyLineAngle: 140);
+
+      expect(cleanEngine.repCount, 1);
+      expect(violatedEngine.repCount, 1);
+      expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
+      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+    });
   });
 
   group('RangeRepEngine sit-up state machine', () {
@@ -369,6 +390,7 @@ void main() {
         expect(engine.lastRepScoreBreakdown, isNotNull);
         expect(engine.lastRepScore, inInclusiveRange(0.0, 100.0));
         expect(engine.lastRepRom, closeTo(68.0, 0.001));
+        expect(engine.lastRepScoreBreakdown?.hadFormViolation, isFalse);
         expect(engine.consumeCompletedRepCoreData()?.repIndex, 1);
       },
     );
@@ -405,14 +427,14 @@ void main() {
     });
 
     test(
-      'peak hip flexion stays form-good when the independent knee metric stays healthy',
+      'normal peak hip flexion stays form-good at a 68.4 degree sit-up form metric',
       () {
         final clock = _TestClock();
         final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-        _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
-        _confirmTransition(clock, engine, angle: 108, backAngle: 90);
-        _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+        _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+        _confirmTransition(clock, engine, angle: 108, backAngle: 68.4);
+        _confirmTransition(clock, engine, angle: 52.7, backAngle: 68.4);
 
         expect(engine.phaseLabel, 'PEAK');
         expect(engine.isFormBad, isFalse);
@@ -423,23 +445,36 @@ void main() {
       },
     );
 
+    test('sit-up form metric stays form-good at the 60 degree boundary', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 60);
+      _confirmTransition(clock, engine, angle: 52.7, backAngle: 60);
+
+      expect(engine.phaseLabel, 'PEAK');
+      expect(engine.isFormBad, isFalse);
+      expect(engine.feedbackCode, isNot(RangeRepFeedbackCode.keepBodyUpright));
+    });
+
     test('low knee-angle form metric still triggers a real form violation', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-      _acquireNeutral(clock, engine, angle: 125, backAngle: 65);
-      _confirmTransition(clock, engine, angle: 108, backAngle: 65);
-      _confirmTransition(clock, engine, angle: 68, backAngle: 65);
+      _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
+      _confirmTransition(clock, engine, angle: 108, backAngle: 55);
+      _confirmTransition(clock, engine, angle: 52.7, backAngle: 55);
 
       expect(engine.isFormBad, isTrue);
       expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
 
-      _confirmTransition(clock, engine, angle: 82, backAngle: 65);
+      _confirmTransition(clock, engine, angle: 82, backAngle: 55);
       _confirmTransition(
         clock,
         engine,
         angle: 121,
-        backAngle: 65,
+        backAngle: 55,
         confirmationWindow: _neutralConfirmationWindow,
       );
 
@@ -558,6 +593,24 @@ void _completeSquatRepAfterArming(
     engine,
     angle: 170,
     backAngle: repBackAngle,
+    confirmationWindow: _neutralConfirmationWindow,
+  );
+}
+
+void _completePushUpRep(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  double bodyLineAngle = 170,
+}) {
+  _acquireNeutral(clock, engine, angle: 170, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 130, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 90, backAngle: bodyLineAngle);
+  _confirmTransition(clock, engine, angle: 110, backAngle: bodyLineAngle);
+  _confirmTransition(
+    clock,
+    engine,
+    angle: 170,
+    backAngle: bodyLineAngle,
     confirmationWindow: _neutralConfirmationWindow,
   );
 }

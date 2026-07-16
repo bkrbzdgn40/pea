@@ -95,7 +95,7 @@ void main() {
       expect(config.thresholdNeutral, 120.0);
       expect(config.thresholdActive, 113.0);
       expect(config.thresholdPeak, 73.0);
-      expect(config.formThreshold, 70.0);
+      expect(config.formThreshold, 60.0);
       expect(config.targetMinAngle, 70.0);
       expect(config.rangeRepSignals, isNotNull);
       expect(config.usesLegacyRangeRepSignalFallback, isFalse);

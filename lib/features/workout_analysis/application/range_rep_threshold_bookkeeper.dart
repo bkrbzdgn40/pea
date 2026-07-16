@@ -1,4 +1,5 @@
 import '../domain/models/exercise_config.dart';
+import '../domain/models/range_rep_contract.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import 'range_rep_threshold_resolver.dart';
 
@@ -7,13 +8,17 @@ class RangeRepThresholdBookkeeper {
   RangeRepThresholdBookkeeper({
     required String analysisKind,
     required ExerciseConfig config,
+    required RangeRepFormThresholdCalibrationPolicy
+    formThresholdCalibrationPolicy,
     RangeRepThresholdResolver resolver = const RangeRepThresholdResolver(),
   }) : _analysisKind = analysisKind,
        _config = config,
+       _formThresholdCalibrationPolicy = formThresholdCalibrationPolicy,
        _resolver = resolver;
 
   final String _analysisKind;
   final ExerciseConfig _config;
+  final RangeRepFormThresholdCalibrationPolicy _formThresholdCalibrationPolicy;
   final RangeRepThresholdResolver _resolver;
 
   int _decisionCount = 0;
@@ -41,6 +46,7 @@ class RangeRepThresholdBookkeeper {
       analysisKind: _analysisKind,
       config: _config,
       baseThreshold: baseThreshold,
+      formThresholdCalibrationPolicy: _formThresholdCalibrationPolicy,
       sessionCalibrationBaseline: sessionCalibrationBaseline,
       selectedRangeRepSide: selectedRangeRepSide,
     );
@@ -64,6 +70,9 @@ class RangeRepThresholdBookkeeper {
         break;
       case 'offset_too_small':
         _offsetTooSmallCount++;
+        break;
+      case 'disabled_by_contract':
+        // Intentional: diagnostics schema has no dedicated disabled counter.
         break;
     }
 

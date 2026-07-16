@@ -480,6 +480,26 @@ void main() {
       expect(rep.score, inInclusiveRange(0, 100));
     },
   );
+
+  testWidgets('range-rep debug panel uses generic primary and form labels', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.sitUp,
+      config: _sitUpConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    await tester.longPress(find.text('FPS'));
+    await tester.pump();
+
+    expect(find.text('primary/current'), findsOneWidget);
+    expect(find.text('form/current'), findsOneWidget);
+    expect(find.text('knee/current'), findsNothing);
+    expect(find.text('back-angle'), findsNothing);
+  });
 }
 
 class _FakePoseDetector implements PoseDetector {

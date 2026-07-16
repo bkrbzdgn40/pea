@@ -197,6 +197,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
            RangeRepThresholdBookkeeper(
              analysisKind: EngineKind.rangeRep.name,
              config: config,
+             formThresholdCalibrationPolicy:
+                 rangeRepContract.formThresholdCalibrationPolicy,
            ),
        _outcomeTracker =
            outcomeTracker ??
