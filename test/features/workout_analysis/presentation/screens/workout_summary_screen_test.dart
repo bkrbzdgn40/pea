@@ -59,6 +59,31 @@ void main() {
     },
   );
 
+  testWidgets(
+    'formats biceps curl summary titles through the existing summary path',
+    (WidgetTester tester) async {
+      final session = buildWorkoutSession(
+        id: 'summary-biceps',
+        startedAt: DateTime(2024, 1, 6, 10, 15),
+        exerciseType: 'biceps_curl',
+        totalReps: 8,
+        averageScore: 91.2,
+        bestScore: 96,
+        durationSec: 75,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const WorkoutSummaryScreen(),
+        overrides: [completedSessionProvider.overrideWith((ref) => session)],
+      );
+      await tester.pump();
+
+      expect(find.text('Biceps Curl özeti'), findsOneWidget);
+      expect(find.text('Toplam tekrar'), findsOneWidget);
+    },
+  );
+
   testWidgets('keeps the explicit home navigation behavior', (
     WidgetTester tester,
   ) async {

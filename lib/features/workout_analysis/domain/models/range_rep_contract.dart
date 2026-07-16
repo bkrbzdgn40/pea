@@ -20,6 +20,8 @@ enum RangeRepSignalSet { supportedAnalysis, poseAcceptanceRequired }
 
 enum RangeRepFormThresholdCalibrationPolicy { enabled, disabled }
 
+enum RangeRepSideMode { selectedSide, bilateral }
+
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
 class RangeRepContract {
@@ -29,6 +31,7 @@ class RangeRepContract {
     Iterable<RangeRepSignal>? poseAcceptanceRequiredSignals,
     this.formThresholdCalibrationPolicy =
         RangeRepFormThresholdCalibrationPolicy.enabled,
+    this.sideMode = RangeRepSideMode.selectedSide,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
@@ -49,6 +52,7 @@ class RangeRepContract {
   final Set<RangeRepSignal> supportedSignals;
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
+  final RangeRepSideMode sideMode;
 
   bool supportsPhase(RangeRepPhase phase) {
     return supportedPhases.contains(phase);
@@ -123,5 +127,26 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+  );
+
+  static final RangeRepContract bicepsCurl = RangeRepContract(
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+    },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+    sideMode: RangeRepSideMode.bilateral,
   );
 }

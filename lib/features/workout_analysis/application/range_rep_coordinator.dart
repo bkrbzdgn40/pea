@@ -526,7 +526,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required bool didBecomeStableTracking,
     required bool recordBriefOcclusionRecovery,
   }) {
-    final selectedFormSignals = frameAssessment.selectedMetrics?.formSignals;
+    final selectedFormSignals = frameAssessment.analysisMetrics?.formSignals;
     final selectedSideLabel = _rangeRepSideLabel(
       frameAssessment.selection.selectedSide,
     );
@@ -673,6 +673,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       rightMetrics: rightMetrics,
     );
 
+    if (_rangeRepContract.sideMode == RangeRepSideMode.bilateral) {
+      return metrics.copyWith(
+        leftRangeRepMetrics: leftMetrics,
+        rightRangeRepMetrics: rightMetrics,
+      );
+    }
+
     return metrics.copyWith(
       primaryAngle: selectedMetrics?.primaryAngle ?? metrics.primaryAngle,
       formMetric: selectedMetrics?.formMetric ?? metrics.formMetric,
@@ -705,6 +712,15 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required bool visibilityRunActive,
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
   }) {
+    if (_rangeRepContract.sideMode == RangeRepSideMode.bilateral) {
+      return RangeRepSideSelection(
+        selectedSide: null,
+        leftMetrics: metrics.leftRangeRepMetrics,
+        rightMetrics: metrics.rightRangeRepMetrics,
+        reason: RangeRepSideSelectionReason.bilateralAggregate,
+      );
+    }
+
     if (visibilityRunActive && _briefGapFrozenRangeRepSide != null) {
       return _frozenSideSelection(metrics, _briefGapFrozenRangeRepSide!);
     }
@@ -787,7 +803,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
   AnalysisFrame _buildAnalysisFrame({
     required ExerciseMetrics metrics,
-    required RangeRepSideMetrics? selectedMetrics,
+    required RangeRepAnalysisMetrics? selectedMetrics,
   }) {
     return _analysisFrameBuilder.build(
       metrics: metrics,

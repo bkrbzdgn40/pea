@@ -667,6 +667,128 @@ void main() {
     );
 
     test(
+      'biceps curl production path resolves the real config and completes one simultaneous bilateral rep',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.bicepsCurl,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        expect(
+          harness.container.read(exerciseConfigProvider).requireValue.name,
+          'Biceps Curl',
+        );
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 162),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 134, rightPrimaryAngle: 136),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+
+        var state = harness.container.read(workoutControllerProvider);
+        expect(state.feedbackMessage, 'Kollarini yukari cek...');
+
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 74),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 98, rightPrimaryAngle: 100),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 158),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        state = harness.container.read(workoutControllerProvider);
+        final diagnostics = harness.controller.diagnosticsSnapshot();
+
+        expect(state.rangeRepAnalysis, isNotNull);
+        expect(state.holdAnalysis, isNull);
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.analysisKind.name, 'rangeRep');
+        expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
+        expect(diagnostics.analysisKind, 'rangeRep');
+        expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+      },
+    );
+
+    test(
+      'biceps curl production path does not accept one-arm-only reps',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.bicepsCurl,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 160),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 160),
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 160),
+          count: 2,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+
+        expect(state.rangeRepAnalysis, isNotNull);
+        expect(state.holdAnalysis, isNull);
+        expect(state.repCount, 0);
+        expect(state.analysisKind.name, 'rangeRep');
+      },
+    );
+
+    test(
       'completed clean rep records a valid production validation outcome',
       () async {
         await _pumpAcceptedPose(
@@ -2392,6 +2514,29 @@ Pose _sitUpPose({
   return buildSitUpPose(
     primaryAngle: primaryAngle,
     formAngle: formAngle,
+    includeLeftSide: includeLeftSide,
+    includeRightSide: includeRightSide,
+    likelihoodOverrides: likelihoodOverrides,
+    missingLandmarks: missingLandmarks,
+  );
+}
+
+Pose _bicepsCurlPose({
+  required double leftPrimaryAngle,
+  double? rightPrimaryAngle,
+  double leftUpperArmDriftAngle = 20,
+  double? rightUpperArmDriftAngle,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  return buildBicepsCurlPose(
+    leftPrimaryAngle: leftPrimaryAngle,
+    rightPrimaryAngle: rightPrimaryAngle,
+    leftUpperArmDriftAngle: leftUpperArmDriftAngle,
+    rightUpperArmDriftAngle: rightUpperArmDriftAngle,
     includeLeftSide: includeLeftSide,
     includeRightSide: includeRightSide,
     likelihoodOverrides: likelihoodOverrides,

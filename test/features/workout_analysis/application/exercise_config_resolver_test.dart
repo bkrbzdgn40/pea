@@ -40,6 +40,17 @@ void main() {
       ]);
     });
 
+    test('loads the biceps curl config asset path', () async {
+      final source = _FakeExerciseConfigSource(_sampleConfig());
+      final resolver = ExerciseConfigResolver(source: source);
+
+      await resolver.resolve(ExerciseType.bicepsCurl);
+
+      expect(source.loadedAssetPaths, <String>[
+        'assets/config/exercises/biceps_curl.json',
+      ]);
+    });
+
     test('rejects unsupported exercises before loading a config', () async {
       final source = _FakeExerciseConfigSource(_sampleConfig());
       final resolver = ExerciseConfigResolver(source: source);

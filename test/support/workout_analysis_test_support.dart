@@ -250,6 +250,72 @@ Pose buildSitUpPose({
   return Pose(landmarks: landmarks);
 }
 
+Pose buildBicepsCurlPose({
+  required double leftPrimaryAngle,
+  double? rightPrimaryAngle,
+  double leftUpperArmDriftAngle = 20,
+  double? rightUpperArmDriftAngle,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  double leftDefaultLikelihood = 0.95,
+  double rightDefaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double defaultLikelihood,
+  }) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+
+    landmarks[type] = buildLandmark(
+      type,
+      x,
+      y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  if (includeLeftSide) {
+    _addBicepsCurlSide(
+      addLandmark: addLandmark,
+      shoulderType: PoseLandmarkType.leftShoulder,
+      elbowType: PoseLandmarkType.leftElbow,
+      wristType: PoseLandmarkType.leftWrist,
+      hipType: PoseLandmarkType.leftHip,
+      shoulderX: 0,
+      mirrorSign: 1,
+      primaryAngle: leftPrimaryAngle,
+      upperArmDriftAngle: leftUpperArmDriftAngle,
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+  }
+
+  if (includeRightSide) {
+    _addBicepsCurlSide(
+      addLandmark: addLandmark,
+      shoulderType: PoseLandmarkType.rightShoulder,
+      elbowType: PoseLandmarkType.rightElbow,
+      wristType: PoseLandmarkType.rightWrist,
+      hipType: PoseLandmarkType.rightHip,
+      shoulderX: 4,
+      mirrorSign: -1,
+      primaryAngle: rightPrimaryAngle ?? leftPrimaryAngle,
+      upperArmDriftAngle: rightUpperArmDriftAngle ?? leftUpperArmDriftAngle,
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+  }
+
+  return Pose(landmarks: landmarks);
+}
+
 Pose buildPlankPose({
   double defaultLikelihood = 0.95,
   Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
@@ -282,6 +348,80 @@ Pose buildPlankPose({
   }
 
   return Pose(landmarks: landmarks);
+}
+
+void _addBicepsCurlSide({
+  required void Function(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double defaultLikelihood,
+  })
+  addLandmark,
+  required PoseLandmarkType shoulderType,
+  required PoseLandmarkType elbowType,
+  required PoseLandmarkType wristType,
+  required PoseLandmarkType hipType,
+  required double shoulderX,
+  required double mirrorSign,
+  required double primaryAngle,
+  required double upperArmDriftAngle,
+  required double defaultLikelihood,
+}) {
+  final driftRadians = upperArmDriftAngle * (math.pi / 180.0);
+  final primaryRadians = primaryAngle * (math.pi / 180.0);
+  final shoulder = math.Point<double>(shoulderX, 0);
+  final hip = math.Point<double>(shoulderX, -1);
+  final elbow = math.Point<double>(
+    shoulderX + (mirrorSign * math.sin(driftRadians)),
+    -math.cos(driftRadians),
+  );
+  final upperArmVector = math.Point<double>(
+    shoulder.x - elbow.x,
+    shoulder.y - elbow.y,
+  );
+  final upperArmLength = math.sqrt(
+    (upperArmVector.x * upperArmVector.x) +
+        (upperArmVector.y * upperArmVector.y),
+  );
+  final upperArmUnit = math.Point<double>(
+    upperArmVector.x / upperArmLength,
+    upperArmVector.y / upperArmLength,
+  );
+  final wristVector = _rotatePoint(upperArmUnit, mirrorSign * primaryRadians);
+  final wrist = math.Point<double>(
+    elbow.x + wristVector.x,
+    elbow.y + wristVector.y,
+  );
+
+  addLandmark(
+    shoulderType,
+    shoulder.x,
+    shoulder.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    elbowType,
+    elbow.x,
+    elbow.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    wristType,
+    wrist.x,
+    wrist.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(hipType, hip.x, hip.y, defaultLikelihood: defaultLikelihood);
+}
+
+math.Point<double> _rotatePoint(math.Point<double> point, double radians) {
+  final cosRadians = math.cos(radians);
+  final sinRadians = math.sin(radians);
+  return math.Point<double>(
+    (point.x * cosRadians) - (point.y * sinRadians),
+    (point.x * sinRadians) + (point.y * cosRadians),
+  );
 }
 
 PoseLandmark buildLandmark(

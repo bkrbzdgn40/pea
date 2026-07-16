@@ -13,7 +13,7 @@ class WorkoutAnalysisFrameBuilder {
     required MovingAverageFilter bodyLineFilter,
     required MovingAverageFilter armSupportFilter,
     required MovingAverageFilter legFilter,
-    RangeRepSideMetrics? rangeRepMetrics,
+    RangeRepAnalysisMetrics? rangeRepMetrics,
   }) {
     final primaryMetric = rangeRepMetrics?.primaryAngle ?? metrics.primaryAngle;
     final formMetric = rangeRepMetrics?.formMetric ?? metrics.formMetric;

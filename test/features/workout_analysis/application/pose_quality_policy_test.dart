@@ -259,6 +259,72 @@ void main() {
       );
     });
 
+    test(
+      'biceps curl bilateral pose requires both visible arms and both hips',
+      () {
+        final assessment = policy.assess(
+          pose: buildBicepsCurlPose(
+            leftPrimaryAngle: 90,
+            rightPrimaryAngle: 92,
+            leftUpperArmDriftAngle: 20,
+            rightUpperArmDriftAngle: 20,
+          ),
+          config: _loadConfig('assets/config/exercises/biceps_curl.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.bicepsCurl,
+        );
+
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedRangeRepSides, <RangeRepSide>{
+          RangeRepSide.left,
+          RangeRepSide.right,
+        });
+        expect(assessment.preferredRangeRepSide, isNull);
+      },
+    );
+
+    test('biceps curl rejects a single visible arm in bilateral mode', () {
+      final assessment = policy.assess(
+        pose: buildBicepsCurlPose(
+          leftPrimaryAngle: 90,
+          includeRightSide: false,
+        ),
+        config: _loadConfig('assets/config/exercises/biceps_curl.json'),
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.bicepsCurl,
+      );
+
+      expect(assessment.isAccepted, isFalse);
+      expect(
+        assessment.rejectionReason,
+        PoseRejectionReason.missingRequiredLandmark,
+      );
+    });
+
+    test(
+      'biceps curl rejects when a required hip for upper-arm form is missing',
+      () {
+        final assessment = policy.assess(
+          pose: buildBicepsCurlPose(
+            leftPrimaryAngle: 90,
+            rightPrimaryAngle: 92,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.rightHip,
+            },
+          ),
+          config: _loadConfig('assets/config/exercises/biceps_curl.json'),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.bicepsCurl,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.missingRequiredLandmark,
+        );
+      },
+    );
+
     test('plank valid required landmarks are accepted', () {
       final assessment = policy.assess(
         pose: _plankPose(),

@@ -96,4 +96,40 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'formats biceps curl history titles through the canonical title path',
+    (WidgetTester tester) async {
+      final session = buildWorkoutSession(
+        id: 'session-biceps',
+        ownerId: 'owner-1',
+        exerciseType: 'biceps_curl',
+        startedAt: DateTime(2024, 1, 6, 10, 15),
+        totalReps: 8,
+        averageScore: 91.2,
+        bestScore: 96,
+        durationSec: 75,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const SessionHistoryScreen(),
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            const TestAuthRepository(currentUserId: 'owner-1'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(
+            TestSessionRepository(
+              sessions: [session],
+              sessionById: {'session-biceps': session},
+            ),
+          ),
+        ],
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Biceps Curl'), findsOneWidget);
+    },
+  );
 }

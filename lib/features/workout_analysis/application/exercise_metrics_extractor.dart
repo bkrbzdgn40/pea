@@ -52,6 +52,16 @@ class ExerciseMetricsExtractor {
       RangeRepSide.right,
       rangeRepContract: effectiveRangeRepContract,
     );
+    final bilateralRangeRepMetrics =
+        effectiveRangeRepContract.sideMode == RangeRepSideMode.bilateral
+        ? _extractBilateralRangeRepMetrics(
+            config,
+            leftMetrics: leftRangeRepMetrics,
+            rightMetrics: rightRangeRepMetrics,
+          )
+        : null;
+    final engineFacingRangeRepMetrics =
+        bilateralRangeRepMetrics ?? leftRangeRepMetrics;
     final bodyLineAngle = _extractHoldSignalValue(
       pose,
       config,
@@ -75,10 +85,10 @@ class ExerciseMetricsExtractor {
     );
 
     return ExerciseMetrics(
-      primaryAngle: leftRangeRepMetrics.primaryAngle,
-      formMetric: leftRangeRepMetrics.formMetric,
-      hasPrimaryAngle: leftRangeRepMetrics.hasPrimaryAngle,
-      hasFormMetric: leftRangeRepMetrics.hasFormMetric,
+      primaryAngle: engineFacingRangeRepMetrics.primaryAngle,
+      formMetric: engineFacingRangeRepMetrics.formMetric,
+      hasPrimaryAngle: engineFacingRangeRepMetrics.hasPrimaryAngle,
+      hasFormMetric: engineFacingRangeRepMetrics.hasFormMetric,
       bodyLineAngle: bodyLineAngle,
       armSupportAngle: armSupportAngle,
       legExtensionAngle: legExtensionAngle,
@@ -87,6 +97,7 @@ class ExerciseMetricsExtractor {
       landmarks: pose.landmarks.values.toList(),
       leftRangeRepMetrics: leftRangeRepMetrics,
       rightRangeRepMetrics: rightRangeRepMetrics,
+      bilateralRangeRepMetrics: bilateralRangeRepMetrics,
     );
   }
 
@@ -141,6 +152,55 @@ class ExerciseMetricsExtractor {
       hasFormMetric: formMetric != null,
       sideConfidence: sideConfidence,
       formSignals: formSignals,
+    );
+  }
+
+  RangeRepBilateralMetrics _extractBilateralRangeRepMetrics(
+    ExerciseConfig config, {
+    required RangeRepSideMetrics leftMetrics,
+    required RangeRepSideMetrics rightMetrics,
+  }) {
+    final leftPrimaryAngle = leftMetrics.hasPrimaryAngle
+        ? leftMetrics.primaryAngle
+        : null;
+    final rightPrimaryAngle = rightMetrics.hasPrimaryAngle
+        ? rightMetrics.primaryAngle
+        : null;
+    final bilateralPrimaryAngle = _resolveBilateralPrimaryAngle(
+      config,
+      leftPrimaryAngle: leftPrimaryAngle,
+      rightPrimaryAngle: rightPrimaryAngle,
+    );
+    final leftFormScore = leftMetrics.hasFormMetric
+        ? leftMetrics.formMetric
+        : null;
+    final rightFormScore = rightMetrics.hasFormMetric
+        ? rightMetrics.formMetric
+        : null;
+    final syncScore = leftPrimaryAngle != null && rightPrimaryAngle != null
+        ? _clampAngleScore(180.0 - (leftPrimaryAngle - rightPrimaryAngle).abs())
+        : null;
+    final bilateralFormMetric =
+        leftFormScore != null && rightFormScore != null && syncScore != null
+        ? math.min(leftFormScore, math.min(rightFormScore, syncScore))
+        : null;
+
+    return RangeRepBilateralMetrics(
+      primaryAngle: bilateralPrimaryAngle ?? 180.0,
+      formMetric: bilateralFormMetric ?? 90.0,
+      hasPrimaryAngle: bilateralPrimaryAngle != null,
+      hasFormMetric: bilateralFormMetric != null,
+      leftPrimaryAngle: leftPrimaryAngle,
+      rightPrimaryAngle: rightPrimaryAngle,
+      leftFormScore: leftFormScore,
+      rightFormScore: rightFormScore,
+      syncScore: syncScore,
+      formSignals: bilateralPrimaryAngle != null || bilateralFormMetric != null
+          ? RangeRepFormSignals(
+              torsoAngle: bilateralFormMetric,
+              depthMetric: bilateralPrimaryAngle,
+            )
+          : null,
     );
   }
 
@@ -281,7 +341,6 @@ class ExerciseMetricsExtractor {
     return _tryCalculateSignalDefinition(
       pose,
       definition: _formMetricDefinition(config),
-      config: config,
       side: side,
       primaryAngle: _tryCalculatePrimaryAngle(pose, config, side: side),
     );
@@ -430,7 +489,6 @@ class ExerciseMetricsExtractor {
     return _tryCalculateSignalDefinition(
       pose,
       definition: definition,
-      config: config,
       side: side,
       primaryAngle: primaryAngle,
       formMetric: formMetric,
@@ -440,7 +498,6 @@ class ExerciseMetricsExtractor {
   double? _tryCalculateSignalDefinition(
     Pose pose, {
     required RangeRepSignalDefinition? definition,
-    required ExerciseConfig config,
     required RangeRepSide side,
     double? primaryAngle,
     double? formMetric,
@@ -449,22 +506,63 @@ class ExerciseMetricsExtractor {
       return null;
     }
 
+    final double? resolvedValue;
     final angle = definition.angle;
     if (angle != null) {
-      return _tryCalculateSideAngle(
+      resolvedValue = _tryCalculateSideAngle(
         pose,
         side: side,
         first: angle.first,
         middle: angle.middle,
         last: angle.last,
       );
+    } else {
+      switch (definition.source) {
+        case RangeRepSignalSource.primaryMetric:
+          resolvedValue = primaryAngle;
+        case null:
+          resolvedValue = formMetric;
+      }
     }
 
-    switch (definition.source) {
-      case RangeRepSignalSource.primaryMetric:
-        return primaryAngle;
-      case null:
-        return formMetric;
+    return _applySignalTransform(resolvedValue, definition.transform);
+  }
+
+  double? _applySignalTransform(
+    double? value,
+    RangeRepSignalTransform transform,
+  ) {
+    if (value == null) {
+      return null;
     }
+
+    switch (transform) {
+      case RangeRepSignalTransform.identity:
+        return value;
+      case RangeRepSignalTransform.complement180:
+        return _clampAngleScore(180.0 - value);
+    }
+  }
+
+  double? _resolveBilateralPrimaryAngle(
+    ExerciseConfig config, {
+    required double? leftPrimaryAngle,
+    required double? rightPrimaryAngle,
+  }) {
+    if (leftPrimaryAngle == null || rightPrimaryAngle == null) {
+      return null;
+    }
+
+    final laggingArmAngle = math.max(leftPrimaryAngle, rightPrimaryAngle);
+    if (leftPrimaryAngle > config.thresholdNeutral &&
+        rightPrimaryAngle > config.thresholdNeutral) {
+      return laggingArmAngle;
+    }
+
+    return laggingArmAngle.clamp(0.0, config.thresholdNeutral).toDouble();
+  }
+
+  double _clampAngleScore(double value) {
+    return value.clamp(0.0, 180.0).toDouble();
   }
 }

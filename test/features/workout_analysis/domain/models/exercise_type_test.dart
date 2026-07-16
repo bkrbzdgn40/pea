@@ -14,6 +14,8 @@ void main() {
       expect(ExerciseType.pushUp.title, 'Push-up');
       expect(ExerciseType.sitUp.id, 'sit_up');
       expect(ExerciseType.sitUp.title, 'Sit-up');
+      expect(ExerciseType.bicepsCurl.id, 'biceps_curl');
+      expect(ExerciseType.bicepsCurl.title, 'Biceps Curl');
     });
 
     test('fromIdOrNull resolves every canonical exercise id', () {

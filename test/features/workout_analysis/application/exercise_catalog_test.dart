@@ -104,6 +104,26 @@ void main() {
       );
     });
 
+    test('enables biceps curl as a supported bilateral range-rep exercise', () {
+      final definition = catalog.definitionFor(ExerciseType.bicepsCurl);
+
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(definition.analysisExercise, ExerciseType.bicepsCurl);
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(
+        definition.analysisConfigAssetPath,
+        'assets/config/exercises/biceps_curl.json',
+      );
+      expect(
+        definition.analysisRangeRepContract,
+        same(RangeRepContracts.bicepsCurl),
+      );
+      expect(
+        definition.analysisRangeRepContract.sideMode,
+        RangeRepSideMode.bilateral,
+      );
+    });
+
     test('keeps lunge unsupported', () {
       final definition = catalog.definitionFor(ExerciseType.lunge);
 

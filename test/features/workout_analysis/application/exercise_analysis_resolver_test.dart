@@ -27,6 +27,10 @@ void main() {
         resolver.resolveActiveExercise(ExerciseType.sitUp),
         ExerciseType.sitUp,
       );
+      expect(
+        resolver.resolveActiveExercise(ExerciseType.bicepsCurl),
+        ExerciseType.bicepsCurl,
+      );
     });
 
     test('returns null for unsupported selections', () {

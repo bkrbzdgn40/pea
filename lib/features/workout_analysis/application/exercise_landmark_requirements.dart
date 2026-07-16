@@ -59,19 +59,36 @@ class ExerciseLandmarkRequirements {
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
+        final contract = rangeRepContract ?? _emptyRangeRepContract;
         final resolvedSide = side;
-        if (resolvedSide == null) {
-          throw ArgumentError.value(
-            side,
-            'side',
-            'Range-rep landmark resolution requires a side.',
+        if (resolvedSide != null) {
+          return _resolveRangeRep(
+            config,
+            resolvedSide,
+            contract,
+            rangeRepSignalSet,
           );
         }
-        return _resolveRangeRep(
-          config,
-          resolvedSide,
-          rangeRepContract ?? _emptyRangeRepContract,
-          rangeRepSignalSet,
+        if (contract.sideMode == RangeRepSideMode.bilateral) {
+          return _mergeRequirementSets(
+            _resolveRangeRep(
+              config,
+              RangeRepSide.left,
+              contract,
+              rangeRepSignalSet,
+            ),
+            _resolveRangeRep(
+              config,
+              RangeRepSide.right,
+              contract,
+              rangeRepSignalSet,
+            ),
+          );
+        }
+        throw ArgumentError.value(
+          side,
+          'side',
+          'Range-rep landmark resolution requires a side.',
         );
       case EngineKind.hold:
         final requiredHoldContract = holdContract;
@@ -308,5 +325,38 @@ class ExerciseLandmarkRequirements {
         landmarkTypeForSide(config.joint2, side),
       );
     }
+  }
+
+  ExerciseLandmarkRequirementSet _mergeRequirementSets(
+    ExerciseLandmarkRequirementSet first,
+    ExerciseLandmarkRequirementSet second,
+  ) {
+    final requiredSegments = <PoseLandmarkSegment>[];
+    final segmentKeys = <String>{};
+    for (final segment in <PoseLandmarkSegment>[
+      ...first.requiredSegments,
+      ...second.requiredSegments,
+    ]) {
+      final key = '${segment.first.name}:${segment.second.name}';
+      if (segmentKeys.add(key)) {
+        requiredSegments.add(segment);
+      }
+    }
+
+    return ExerciseLandmarkRequirementSet(
+      requiredLandmarks: Set<PoseLandmarkType>.unmodifiable(<PoseLandmarkType>{
+        ...first.requiredLandmarks,
+        ...second.requiredLandmarks,
+      }),
+      requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
+        <PoseAngleTriplet>[
+          ...first.requiredAngleTriplets,
+          ...second.requiredAngleTriplets,
+        ],
+      ),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
+        requiredSegments,
+      ),
+    );
   }
 }
