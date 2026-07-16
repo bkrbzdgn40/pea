@@ -357,13 +357,16 @@ void main() {
       _confirmTransition(clock, engine, angle: 108, backAngle: 90);
       expect(engine.phaseLabel, 'DESCENDING');
 
-      _confirmTransition(clock, engine, angle: 75, backAngle: 90);
+      _confirmTransition(clock, engine, angle: 82, backAngle: 90);
       expect(engine.phaseLabel, 'DESCENDING');
 
-      _confirmTransition(clock, engine, angle: 68, backAngle: 90);
+      _confirmTransition(clock, engine, angle: 79, backAngle: 90);
       expect(engine.phaseLabel, 'PEAK');
 
-      _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+      _confirmTransition(clock, engine, angle: 90, backAngle: 90);
+      expect(engine.phaseLabel, 'PEAK');
+
+      _confirmTransition(clock, engine, angle: 92, backAngle: 90);
       expect(engine.phaseLabel, 'ASCENDING');
 
       _confirmTransition(
@@ -395,24 +398,42 @@ void main() {
       },
     );
 
-    test('real sit-up config does not count a partial return before peak', () {
-      final clock = _TestClock();
-      final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+    test(
+      'real sit-up config does not count a return from 82 degrees without reaching peak',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
 
-      _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
-      _confirmTransition(clock, engine, angle: 108, backAngle: 90);
-      _confirmTransition(
-        clock,
-        engine,
-        angle: 121,
-        backAngle: 90,
-        confirmationWindow: _neutralConfirmationWindow,
-      );
+        _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
+        _confirmTransition(clock, engine, angle: 108, backAngle: 90);
+        _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+        _confirmTransition(
+          clock,
+          engine,
+          angle: 121,
+          backAngle: 90,
+          confirmationWindow: _neutralConfirmationWindow,
+        );
 
-      expect(engine.repCount, 0);
-      expect(engine.phaseLabel, 'NEUTRAL');
-      expect(engine.lastRepScoreBreakdown, isNull);
-    });
+        expect(engine.repCount, 0);
+        expect(engine.phaseLabel, 'NEUTRAL');
+        expect(engine.lastRepScoreBreakdown, isNull);
+      },
+    );
+
+    test(
+      'real sit-up config counts a full cycle that bottoms out at 79 degrees',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _sitUpConfig(), now: clock.now);
+
+        _completeSitUpRep(clock, engine, peakAngle: 79);
+
+        expect(engine.repCount, 1);
+        expect(engine.phaseLabel, 'NEUTRAL');
+        expect(engine.lastRepScoreBreakdown, isNotNull);
+      },
+    );
 
     test('two real sit-up cycles count twice without double counting', () {
       final clock = _TestClock();
@@ -469,7 +490,7 @@ void main() {
       expect(engine.isFormBad, isTrue);
       expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
 
-      _confirmTransition(clock, engine, angle: 82, backAngle: 55);
+      _confirmTransition(clock, engine, angle: 92, backAngle: 55);
       _confirmTransition(
         clock,
         engine,
@@ -717,11 +738,15 @@ ExerciseConfig _sitUpConfig() {
   return loadExerciseConfig('assets/config/exercises/sit_up.json');
 }
 
-void _completeSitUpRep(_TestClock clock, RangeRepEngine engine) {
+void _completeSitUpRep(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  double peakAngle = 68,
+}) {
   _acquireNeutral(clock, engine, angle: 125, backAngle: 90);
   _confirmTransition(clock, engine, angle: 108, backAngle: 90);
-  _confirmTransition(clock, engine, angle: 68, backAngle: 90);
-  _confirmTransition(clock, engine, angle: 82, backAngle: 90);
+  _confirmTransition(clock, engine, angle: peakAngle, backAngle: 90);
+  _confirmTransition(clock, engine, angle: 92, backAngle: 90);
   _confirmTransition(
     clock,
     engine,
