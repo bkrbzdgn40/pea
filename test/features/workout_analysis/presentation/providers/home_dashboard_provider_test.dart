@@ -64,10 +64,8 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           userSessionsSnapshotProvider.overrideWith(
-            (ref) async => UserSessionsSnapshot(
-              sessions: const [],
-              source: entry.key,
-            ),
+            (ref) async =>
+                UserSessionsSnapshot(sessions: const [], source: entry.key),
           ),
         ],
       );

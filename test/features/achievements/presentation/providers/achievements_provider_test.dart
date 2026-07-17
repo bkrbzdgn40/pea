@@ -89,33 +89,34 @@ void main() {
     expect(scoreAchievement.progress, 0);
   });
 
-  test('non-real snapshots expose empty production achievement states', () async {
-    final cases = <UserSessionsSnapshotSource, AchievementsDataSource>{
-      UserSessionsSnapshotSource.noUser: AchievementsDataSource.noUser,
-      UserSessionsSnapshotSource.empty: AchievementsDataSource.empty,
-      UserSessionsSnapshotSource.error: AchievementsDataSource.error,
-    };
+  test(
+    'non-real snapshots expose empty production achievement states',
+    () async {
+      final cases = <UserSessionsSnapshotSource, AchievementsDataSource>{
+        UserSessionsSnapshotSource.noUser: AchievementsDataSource.noUser,
+        UserSessionsSnapshotSource.empty: AchievementsDataSource.empty,
+        UserSessionsSnapshotSource.error: AchievementsDataSource.error,
+      };
 
-    for (final entry in cases.entries) {
-      final container = ProviderContainer(
-        overrides: [
-          userSessionsSnapshotProvider.overrideWith(
-            (ref) async => UserSessionsSnapshot(
-              sessions: const [],
-              source: entry.key,
+      for (final entry in cases.entries) {
+        final container = ProviderContainer(
+          overrides: [
+            userSessionsSnapshotProvider.overrideWith(
+              (ref) async =>
+                  UserSessionsSnapshot(sessions: const [], source: entry.key),
             ),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final state = await container.read(achievementsProvider.future);
+        final state = await container.read(achievementsProvider.future);
 
-      expect(state.source, entry.value);
-      expect(state.isFallback, isTrue);
-      expect(state.achievements, isEmpty);
-    }
-  });
+        expect(state.source, entry.value);
+        expect(state.isFallback, isTrue);
+        expect(state.achievements, isEmpty);
+      }
+    },
+  );
 }
 
 Achievement _achievementById(List<Achievement> achievements, String id) {
