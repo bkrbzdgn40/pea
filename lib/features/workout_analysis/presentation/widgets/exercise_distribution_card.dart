@@ -1,10 +1,15 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../models/home_dashboard_data.dart';
+import '../providers/exercise_score_trend_provider.dart';
+import '../providers/selected_exercise_provider.dart';
+import '../screens/score_trend_detail_screen.dart';
+import 'score_trend_card.dart';
 
-class ExerciseDistributionCard extends StatelessWidget {
+class ExerciseDistributionCard extends ConsumerWidget {
   const ExerciseDistributionCard({super.key, required this.items});
 
   final List<ExerciseDistributionItem> items;
@@ -17,82 +22,113 @@ class ExerciseDistributionCard extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return AppSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Egzersiz Dağılımı',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Oturumlarının hareketlere göre dağılımı',
-            style: TextStyle(color: Colors.white60, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          if (items.isEmpty)
-            const _DistributionPlaceholder()
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 360;
-                final chart = SizedBox(
-                  height: 150,
-                  child: PieChart(
-                    PieChartData(
-                      centerSpaceRadius: 36,
-                      sectionsSpace: 2,
-                      startDegreeOffset: -90,
-                      sections: [
-                        for (var i = 0; i < items.length; i++)
-                          PieChartSectionData(
-                            value: items[i].value,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedExercise = ref.watch(selectedExerciseProvider);
+    final trendData = selectedExercise == null
+        ? null
+        : ref.watch(exerciseScoreTrendProvider(selectedExercise)).valueOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppSurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Egzersiz Dağılımı',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Oturumlarının hareketlere göre dağılımı',
+                style: TextStyle(color: Colors.white60, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              if (items.isEmpty)
+                const _DistributionPlaceholder()
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 360;
+                    final chart = SizedBox(
+                      height: 150,
+                      child: PieChart(
+                        PieChartData(
+                          centerSpaceRadius: 36,
+                          sectionsSpace: 2,
+                          startDegreeOffset: -90,
+                          sections: [
+                            for (var i = 0; i < items.length; i++)
+                              PieChartSectionData(
+                                value: items[i].value,
+                                color: _colorForIndex(i),
+                                radius: 46,
+                                title: '${items[i].value.round()}%',
+                                titleStyle: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                    final legend = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < items.length; i++) ...[
+                          _LegendItem(
+                            item: items[i],
                             color: _colorForIndex(i),
-                            radius: 46,
-                            title: '${items[i].value.round()}%',
-                            titleStyle: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
                           ),
+                          if (i != items.length - 1)
+                            const SizedBox(height: 10),
+                        ],
                       ],
-                    ),
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        children: [chart, const SizedBox(height: 14), legend],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: chart),
+                        const SizedBox(width: 14),
+                        Expanded(child: legend),
+                      ],
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        if (selectedExercise != null && trendData?.hasRealData == true) ...[
+          const SizedBox(height: 14),
+          ScoreTrendCard(
+            exerciseTitle: selectedExercise.title,
+            points: trendData!.latestPoints(),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScoreTrendDetailScreen(
+                    exercise: selectedExercise,
                   ),
-                );
-                final legend = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (var i = 0; i < items.length; i++) ...[
-                      _LegendItem(item: items[i], color: _colorForIndex(i)),
-                      if (i != items.length - 1) const SizedBox(height: 10),
-                    ],
-                  ],
-                );
-
-                if (isNarrow) {
-                  return Column(
-                    children: [chart, const SizedBox(height: 14), legend],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(child: chart),
-                    const SizedBox(width: 14),
-                    Expanded(child: legend),
-                  ],
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
         ],
-      ),
+      ],
     );
   }
 
