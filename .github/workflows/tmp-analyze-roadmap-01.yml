@@ -1,0 +1,48 @@
+name: Temporary Roadmap 01 Analyze Capture
+
+on:
+  push:
+    branches:
+      - refactor/frontend-roadmap-01-truthful-home-metrics
+
+permissions:
+  contents: write
+
+jobs:
+  analyze-capture:
+    if: ${{ !contains(github.event.head_commit.message, 'Capture Roadmap 1 analyze output') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: refactor/frontend-roadmap-01-truthful-home-metrics
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Capture analyzer output
+        shell: bash
+        run: |
+          set +e
+          flutter analyze > analyze-output.txt 2>&1
+          status=$?
+          echo "ANALYZE_EXIT_CODE=$status" >> analyze-output.txt
+          exit 0
+
+      - name: Commit analyzer output
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analyze-output.txt
+          git commit -m "Capture Roadmap 1 analyze output"
+          git push origin HEAD:refactor/frontend-roadmap-01-truthful-home-metrics
