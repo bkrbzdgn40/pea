@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../workout_analysis/application/workout_statistics_calculator.dart';
 import '../../../workout_analysis/domain/models/workout_session.dart';
 import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
-import '../data/demo_workout_goals.dart';
 import '../models/workout_goal.dart';
 
 final goalsProvider = FutureProvider<GoalsState>((ref) async {
@@ -15,16 +14,16 @@ final goalsProvider = FutureProvider<GoalsState>((ref) async {
       source: GoalsDataSource.real,
     ),
     UserSessionsSnapshotSource.noUser => const GoalsState(
-      goals: demoWorkoutGoals,
-      source: GoalsDataSource.demoNoUser,
+      goals: <WorkoutGoal>[],
+      source: GoalsDataSource.noUser,
     ),
     UserSessionsSnapshotSource.empty => const GoalsState(
-      goals: demoWorkoutGoals,
-      source: GoalsDataSource.demoEmpty,
+      goals: <WorkoutGoal>[],
+      source: GoalsDataSource.empty,
     ),
     UserSessionsSnapshotSource.error => const GoalsState(
-      goals: demoWorkoutGoals,
-      source: GoalsDataSource.demoError,
+      goals: <WorkoutGoal>[],
+      source: GoalsDataSource.error,
     ),
   };
 });
@@ -40,14 +39,14 @@ class GoalsState {
   String get sourceMessage {
     return switch (source) {
       GoalsDataSource.real => 'Gerçek oturum verisi',
-      GoalsDataSource.demoNoUser => 'Kullanıcı verisi yok, örnek hedefler',
-      GoalsDataSource.demoEmpty => 'Henüz oturum yok, örnek hedefler',
-      GoalsDataSource.demoError => 'Hedef verisi alınamadı, örnek hedefler',
+      GoalsDataSource.noUser => 'Kullanıcı oturumu bulunamadı',
+      GoalsDataSource.empty => 'Henüz oturum yok',
+      GoalsDataSource.error => 'Hedef verisi alınamadı',
     };
   }
 }
 
-enum GoalsDataSource { real, demoNoUser, demoEmpty, demoError }
+enum GoalsDataSource { real, noUser, empty, error }
 
 List<WorkoutGoal> _buildGoalsFromSessions(List<WorkoutSession> sessions) {
   final statistics = WorkoutStatisticsCalculator().calculate(sessions);
