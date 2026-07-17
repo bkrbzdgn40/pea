@@ -10,7 +10,7 @@
     "activePostureMaxAngle": 170.0,
     "compressionEntryMaxAngle": 165.0,
     "compressionSustainMaxAngle": 169.0,
-    "armExtensionMinAngle": 120.0,
+    "armExtensionMinAngle": 135.0,
     "kneeExtensionMinAngle": 165.0,
     "breakGraceMillis": 300
   },
