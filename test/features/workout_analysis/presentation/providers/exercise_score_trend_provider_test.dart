@@ -76,7 +76,7 @@ void main() {
         userSessionsSnapshotProvider.overrideWith(
           (ref) async => const UserSessionsSnapshot(
             sessions: [],
-            source: UserSessionsSnapshotSource.demoError,
+            source: UserSessionsSnapshotSource.error,
           ),
         ),
       ],
