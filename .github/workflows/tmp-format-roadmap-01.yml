@@ -1,0 +1,40 @@
+name: Temporary Roadmap 01 Format Capture
+
+on:
+  push:
+    branches:
+      - refactor/frontend-roadmap-01-truthful-home-metrics
+
+permissions:
+  contents: read
+
+jobs:
+  format-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Format changed Dart files
+        run: >-
+          dart format
+          lib/features/workout_analysis/presentation/screens/home_screen.dart
+          test/features/workout_analysis/presentation/screens/home_screen_test.dart
+          test/features/workout_analysis/presentation/screens/home_truthful_metrics_test.dart
+
+      - name: Upload formatted files
+        uses: actions/upload-artifact@v4
+        with:
+          name: roadmap-01-formatted-files
+          path: |
+            lib/features/workout_analysis/presentation/screens/home_screen.dart
+            test/features/workout_analysis/presentation/screens/home_screen_test.dart
+            test/features/workout_analysis/presentation/screens/home_truthful_metrics_test.dart
+          if-no-files-found: error
