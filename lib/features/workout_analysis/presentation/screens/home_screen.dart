@@ -594,17 +594,15 @@ class _HomeInsightPlaceholderCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
-    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final content = AppSurfaceCard(
+    return AppSurfaceCard(
       child: Row(
         children: [
           Container(
@@ -640,22 +638,8 @@ class _HomeInsightPlaceholderCard extends StatelessWidget {
               ],
             ),
           ),
-          if (onTap != null) ...[
-            const SizedBox(width: 10),
-            const Icon(Icons.chevron_right_rounded, color: Colors.greenAccent),
-          ],
         ],
       ),
-    );
-
-    if (onTap == null) {
-      return content;
-    }
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: content,
     );
   }
 }
