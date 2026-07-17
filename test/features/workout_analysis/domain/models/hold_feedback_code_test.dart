@@ -42,6 +42,21 @@ void main() {
             family: HoldFeedbackFamily.correctiveCue,
           ),
           (
+            code: HoldFeedbackCode.increaseHollowCompression,
+            stableCode: 'increase_hollow_compression',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
+            code: HoldFeedbackCode.extendArmsOverhead,
+            stableCode: 'extend_arms_overhead',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
+            code: HoldFeedbackCode.straightenKnees,
+            stableCode: 'straighten_knees',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
             code: HoldFeedbackCode.correctForm,
             stableCode: 'correct_form',
             family: HoldFeedbackFamily.correctiveCue,
@@ -77,6 +92,9 @@ void main() {
         HoldFeedbackCode.alignHips,
         HoldFeedbackCode.adjustElbowSupport,
         HoldFeedbackCode.extendLegs,
+        HoldFeedbackCode.increaseHollowCompression,
+        HoldFeedbackCode.extendArmsOverhead,
+        HoldFeedbackCode.straightenKnees,
         HoldFeedbackCode.correctForm,
       ],
     );

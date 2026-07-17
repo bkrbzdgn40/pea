@@ -197,6 +197,42 @@ void main() {
       );
     });
 
+    test(
+      'parses the hollow hold asset config with typed Hollow posture semantics',
+      () {
+        final config = _loadConfig('assets/config/exercises/hollow_hold.json');
+
+        expect(config.name, 'Hollow Hold');
+        expect(config.holdSignals, isNotNull);
+        expect(config.holdSignals?.referenceSide, HoldSide.left);
+        expect(
+          config.holdSignals?.definitionFor(HoldSignal.compression)?.middle,
+          PoseLandmarkType.leftHip,
+        );
+        expect(
+          config.holdSignals?.definitionFor(HoldSignal.armExtension)?.middle,
+          PoseLandmarkType.leftShoulder,
+        );
+        expect(
+          config.holdSignals?.definitionFor(HoldSignal.kneeExtension)?.middle,
+          PoseLandmarkType.leftKnee,
+        );
+        expect(config.hollowHoldPosture, isNotNull);
+        expect(config.hollowHoldPosture?.activePostureMaxAngle, 170.0);
+        expect(config.hollowHoldPosture?.compressionEntryMaxAngle, 155.0);
+        expect(config.hollowHoldPosture?.compressionSustainMaxAngle, 160.0);
+        expect(config.hollowHoldPosture?.armExtensionMinAngle, 150.0);
+        expect(config.hollowHoldPosture?.kneeExtensionMinAngle, 165.0);
+        expect(
+          config.hollowHoldPosture?.breakGraceDuration,
+          const Duration(milliseconds: 300),
+        );
+        expect(config.thresholdNeutral, 170.0);
+        expect(config.thresholdActive, 155.0);
+        expect(config.rangeRepSignals, isNull);
+      },
+    );
+
     test('keeps legacy squat configs without rangeRepSignals valid', () {
       final config = ExerciseConfig.fromMap(<String, dynamic>{
         'name': 'Legacy Squat',
@@ -245,6 +281,30 @@ void main() {
 
         expect(config.thresholdNeutral, 160.0);
         expect(config.thresholdActive, 168.0);
+        expect(config.thresholdPeak, 0.0);
+      },
+    );
+
+    test(
+      'keeps hollow hold threshold fallback behavior when thresholds are omitted',
+      () {
+        final config = ExerciseConfig.fromMap(<String, dynamic>{
+          'name': 'Hollow Hold',
+          'primaryJoint': 'leftHip',
+          'joint1': 'leftShoulder',
+          'joint2': 'leftAnkle',
+          'hollowHoldPosture': <String, dynamic>{
+            'activePostureMaxAngle': 170.0,
+            'compressionEntryMaxAngle': 155.0,
+            'compressionSustainMaxAngle': 160.0,
+            'armExtensionMinAngle': 150.0,
+            'kneeExtensionMinAngle': 165.0,
+            'breakGraceMillis': 300,
+          },
+        });
+
+        expect(config.thresholdNeutral, 170.0);
+        expect(config.thresholdActive, 155.0);
         expect(config.thresholdPeak, 0.0);
       },
     );
@@ -538,6 +598,71 @@ void main() {
         ),
       );
     });
+
+    test(
+      'rejects unknown hollow posture config keys with their parent path',
+      () {
+        expect(
+          () => ExerciseConfig.fromMap(<String, dynamic>{
+            'name': 'Hollow Hold',
+            'primaryJoint': 'leftHip',
+            'joint1': 'leftShoulder',
+            'joint2': 'leftAnkle',
+            'thresholdNeutral': 170.0,
+            'thresholdActive': 155.0,
+            'thresholdPeak': 0.0,
+            'hollowHoldPosture': <String, dynamic>{
+              'activePostureMaxAngle': 170.0,
+              'compressionEntryMaxAngle': 155.0,
+              'compressionSustainMaxAngle': 160.0,
+              'armExtensionMinAngle': 150.0,
+              'kneeExtensionMinAngle': 165.0,
+              'breakGraceMillis': 300,
+              'mystery': true,
+            },
+          }),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message.toString(),
+              'message',
+              contains('ExerciseConfig.hollowHoldPosture'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'includes the exact hollow hold signal path for invalid landmarks',
+      () {
+        expect(
+          () => ExerciseConfig.fromMap(<String, dynamic>{
+            'name': 'Hollow Hold',
+            'primaryJoint': 'leftHip',
+            'joint1': 'leftShoulder',
+            'joint2': 'leftAnkle',
+            'thresholdNeutral': 170.0,
+            'thresholdActive': 155.0,
+            'thresholdPeak': 0.0,
+            'holdSignals': <String, dynamic>{
+              'referenceSide': 'left',
+              'compression': <String, dynamic>{
+                'first': 'leftWing',
+                'middle': 'leftHip',
+                'last': 'leftAnkle',
+              },
+            },
+          }),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message.toString(),
+              'message',
+              contains('ExerciseConfig.holdSignals.compression.first'),
+            ),
+          ),
+        );
+      },
+    );
 
     test(
       'rejects unknown nested range-rep signal keys with their parent path',

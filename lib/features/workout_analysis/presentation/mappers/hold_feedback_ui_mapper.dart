@@ -14,6 +14,12 @@ String mapHoldFeedbackCodeToMessage(HoldFeedbackCode code) {
       return 'Dirsek Destegini Duzelt';
     case HoldFeedbackCode.extendLegs:
       return 'Dizleri Kaldir';
+    case HoldFeedbackCode.increaseHollowCompression:
+      return 'Govdeyi Biraz Daha Toparla';
+    case HoldFeedbackCode.extendArmsOverhead:
+      return 'Kollari Bas Ustune Uzat';
+    case HoldFeedbackCode.straightenKnees:
+      return 'Dizleri Duzlestir';
     case HoldFeedbackCode.correctForm:
       return 'Formu Duzelt';
   }

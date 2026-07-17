@@ -42,6 +42,10 @@ void main() {
         expect(WorkoutPresentationFormatter.exerciseTitle('squat'), 'Squat');
         expect(WorkoutPresentationFormatter.exerciseTitle('plank'), 'Plank');
         expect(
+          WorkoutPresentationFormatter.exerciseTitle('hollow_hold'),
+          'Hollow Hold',
+        );
+        expect(
           WorkoutPresentationFormatter.exerciseTitle('push_up'),
           'Push Up',
         );

@@ -22,6 +22,12 @@ class ExerciseCatalog {
           configAssetPath: 'assets/config/exercises/plank.json',
           holdContract: HoldContracts.plankFamily,
         ),
+        ExerciseDefinition.supported(
+          type: ExerciseType.hollowHold,
+          engineKind: EngineKind.hold,
+          configAssetPath: 'assets/config/exercises/hollow_hold.json',
+          holdContract: HoldContracts.hollowHold,
+        ),
         ExerciseDefinition.unsupported(type: ExerciseType.lunge),
         ExerciseDefinition.supported(
           type: ExerciseType.pushUp,

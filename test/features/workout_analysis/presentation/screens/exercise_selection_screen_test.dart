@@ -70,6 +70,43 @@ void main() {
     expect(find.byType(CameraPermissionScreen), findsOneWidget);
   });
 
+  testWidgets(
+    'hollow hold card is analysis-active and starts the permission flow',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final observer = RecordingNavigatorObserver();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: const ExerciseSelectionScreen(),
+            navigatorObservers: <NavigatorObserver>[observer],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final pushCountBeforeTap = observer.pushCount;
+
+      await tester.scrollUntilVisible(find.text('Hollow Hold'), 300);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hollow Hold'), findsOneWidget);
+      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+
+      await tester.tap(find.text('Hollow Hold'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(observer.pushCount, pushCountBeforeTap + 1);
+      expect(container.read(selectedExerciseProvider), ExerciseType.hollowHold);
+      expect(find.byType(CameraPermissionScreen), findsOneWidget);
+    },
+  );
+
   testWidgets('lunge remains unsupported and only shows the guide snackbar', (
     tester,
   ) async {

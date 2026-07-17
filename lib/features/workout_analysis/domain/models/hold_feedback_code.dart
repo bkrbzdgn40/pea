@@ -7,6 +7,9 @@ enum HoldFeedbackCode {
   alignHips,
   adjustElbowSupport,
   extendLegs,
+  increaseHollowCompression,
+  extendArmsOverhead,
+  straightenKnees,
   correctForm,
 }
 
@@ -24,6 +27,9 @@ extension HoldFeedbackCodeX on HoldFeedbackCode {
       case HoldFeedbackCode.alignHips:
       case HoldFeedbackCode.adjustElbowSupport:
       case HoldFeedbackCode.extendLegs:
+      case HoldFeedbackCode.increaseHollowCompression:
+      case HoldFeedbackCode.extendArmsOverhead:
+      case HoldFeedbackCode.straightenKnees:
       case HoldFeedbackCode.correctForm:
         return HoldFeedbackFamily.correctiveCue;
     }
@@ -43,6 +49,12 @@ extension HoldFeedbackCodeX on HoldFeedbackCode {
         return 'adjust_elbow_support';
       case HoldFeedbackCode.extendLegs:
         return 'extend_legs';
+      case HoldFeedbackCode.increaseHollowCompression:
+        return 'increase_hollow_compression';
+      case HoldFeedbackCode.extendArmsOverhead:
+        return 'extend_arms_overhead';
+      case HoldFeedbackCode.straightenKnees:
+        return 'straighten_knees';
       case HoldFeedbackCode.correctForm:
         return 'correct_form';
     }

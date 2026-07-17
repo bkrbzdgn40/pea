@@ -121,6 +121,44 @@ ExerciseConfig buildPlankConfig() {
   );
 }
 
+ExerciseConfig buildHollowHoldConfig() {
+  return ExerciseConfig(
+    name: 'Hollow Hold',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 170.0,
+    thresholdActive: 155.0,
+    thresholdPeak: 0.0,
+    hollowHoldPosture: const HollowHoldPostureConfig(
+      activePostureMaxAngle: 170.0,
+      compressionEntryMaxAngle: 155.0,
+      compressionSustainMaxAngle: 160.0,
+      armExtensionMinAngle: 150.0,
+      kneeExtensionMinAngle: 165.0,
+      breakGraceDuration: Duration(milliseconds: 300),
+    ),
+    holdSignals: HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
+      compression: PoseAngleLandmarks(
+        first: PoseLandmarkType.leftShoulder,
+        middle: PoseLandmarkType.leftHip,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+      armExtension: PoseAngleLandmarks(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftShoulder,
+        last: PoseLandmarkType.leftWrist,
+      ),
+      kneeExtension: PoseAngleLandmarks(
+        first: PoseLandmarkType.leftHip,
+        middle: PoseLandmarkType.leftKnee,
+        last: PoseLandmarkType.leftAnkle,
+      ),
+    ),
+  );
+}
+
 Pose buildSquatPose({
   required double angle,
   double defaultLikelihood = 0.95,
@@ -350,6 +388,67 @@ Pose buildPlankPose({
   return Pose(landmarks: landmarks);
 }
 
+Pose buildHollowHoldPose({
+  double compressionAngle = 150,
+  double armExtensionAngle = 160,
+  double kneeExtensionAngle = 170,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  double leftDefaultLikelihood = 0.95,
+  double rightDefaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double defaultLikelihood,
+  }) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+
+    landmarks[type] = buildLandmark(
+      type,
+      x,
+      y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  if (includeLeftSide) {
+    _addHollowHoldSide(
+      addLandmark: addLandmark,
+      side: HoldSide.left,
+      shoulder: const math.Point<double>(-1, 0),
+      hip: const math.Point<double>(0, 0),
+      compressionAngle: compressionAngle,
+      armExtensionAngle: armExtensionAngle,
+      kneeExtensionAngle: kneeExtensionAngle,
+      defaultLikelihood: leftDefaultLikelihood,
+    );
+  }
+
+  if (includeRightSide) {
+    _addHollowHoldSide(
+      addLandmark: addLandmark,
+      side: HoldSide.right,
+      shoulder: const math.Point<double>(4, 0),
+      hip: const math.Point<double>(3, 0),
+      compressionAngle: compressionAngle,
+      armExtensionAngle: armExtensionAngle,
+      kneeExtensionAngle: kneeExtensionAngle,
+      defaultLikelihood: rightDefaultLikelihood,
+    );
+  }
+
+  return Pose(landmarks: landmarks);
+}
+
 void _addBicepsCurlSide({
   required void Function(
     PoseLandmarkType type,
@@ -413,6 +512,153 @@ void _addBicepsCurlSide({
     defaultLikelihood: defaultLikelihood,
   );
   addLandmark(hipType, hip.x, hip.y, defaultLikelihood: defaultLikelihood);
+}
+
+void _addHollowHoldSide({
+  required void Function(
+    PoseLandmarkType type,
+    double x,
+    double y, {
+    required double defaultLikelihood,
+  })
+  addLandmark,
+  required HoldSide side,
+  required math.Point<double> shoulder,
+  required math.Point<double> hip,
+  required double compressionAngle,
+  required double armExtensionAngle,
+  required double kneeExtensionAngle,
+  required double defaultLikelihood,
+}) {
+  final compressionRadians = (compressionAngle - 180.0) * (math.pi / 180.0);
+  final ankleVector = side == HoldSide.left
+      ? math.Point<double>(
+          math.cos(compressionRadians),
+          math.sin(compressionRadians),
+        )
+      : math.Point<double>(
+          -math.cos(compressionRadians),
+          math.sin(compressionRadians),
+        );
+  final ankle = math.Point<double>(
+    hip.x + ankleVector.x,
+    hip.y + ankleVector.y,
+  );
+  final armExtensionRadians = armExtensionAngle * (math.pi / 180.0);
+  final wristVector = side == HoldSide.left
+      ? math.Point<double>(
+          math.cos(armExtensionRadians),
+          math.sin(armExtensionRadians),
+        )
+      : math.Point<double>(
+          -math.cos(armExtensionRadians),
+          math.sin(armExtensionRadians),
+        );
+  final wrist = math.Point<double>(
+    shoulder.x + wristVector.x,
+    shoulder.y + wristVector.y,
+  );
+  final knee = _holdKneePoint(
+    hip: hip,
+    ankle: ankle,
+    jointAngle: kneeExtensionAngle,
+  );
+
+  if (side == HoldSide.left) {
+    addLandmark(
+      PoseLandmarkType.leftShoulder,
+      shoulder.x,
+      shoulder.y,
+      defaultLikelihood: defaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftHip,
+      hip.x,
+      hip.y,
+      defaultLikelihood: defaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftWrist,
+      wrist.x,
+      wrist.y,
+      defaultLikelihood: defaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftKnee,
+      knee.x,
+      knee.y,
+      defaultLikelihood: defaultLikelihood,
+    );
+    addLandmark(
+      PoseLandmarkType.leftAnkle,
+      ankle.x,
+      ankle.y,
+      defaultLikelihood: defaultLikelihood,
+    );
+    return;
+  }
+
+  addLandmark(
+    PoseLandmarkType.rightShoulder,
+    shoulder.x,
+    shoulder.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightHip,
+    hip.x,
+    hip.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightWrist,
+    wrist.x,
+    wrist.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightKnee,
+    knee.x,
+    knee.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+  addLandmark(
+    PoseLandmarkType.rightAnkle,
+    ankle.x,
+    ankle.y,
+    defaultLikelihood: defaultLikelihood,
+  );
+}
+
+math.Point<double> _holdKneePoint({
+  required math.Point<double> hip,
+  required math.Point<double> ankle,
+  required double jointAngle,
+}) {
+  final midpoint = math.Point<double>(
+    (hip.x + ankle.x) / 2,
+    (hip.y + ankle.y) / 2,
+  );
+  final normalizedAngle = jointAngle.clamp(0.0, 180.0);
+  if (normalizedAngle >= 179.999) {
+    return midpoint;
+  }
+
+  final dx = ankle.x - hip.x;
+  final dy = ankle.y - hip.y;
+  final chordLength = math.sqrt(dx * dx + dy * dy);
+  if (chordLength == 0) {
+    return midpoint;
+  }
+
+  final halfChord = chordLength / 2;
+  final angleRadians = normalizedAngle * (math.pi / 180.0);
+  final offset = halfChord / math.tan(angleRadians / 2);
+  final perpendicular = math.Point<double>(-dy / chordLength, dx / chordLength);
+  return math.Point<double>(
+    midpoint.x + perpendicular.x * offset,
+    midpoint.y + perpendicular.y * offset,
+  );
 }
 
 math.Point<double> _rotatePoint(math.Point<double> point, double radians) {

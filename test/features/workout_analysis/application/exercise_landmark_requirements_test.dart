@@ -253,6 +253,86 @@ void main() {
     });
 
     test(
+      'hollow hold resolves the exact left-side landmark set and triplets',
+      () {
+        final requirementSet = requirements.resolve(
+          config: buildHollowHoldConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.hollowHold,
+          holdSide: HoldSide.left,
+        );
+
+        expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftWrist,
+          PoseLandmarkType.leftKnee,
+          PoseLandmarkType.leftAnkle,
+        });
+        expect(
+          requirementSet.requiredAngleTriplets.map(_tripletKey),
+          unorderedEquals(<String>{
+            'leftShoulder->leftHip->leftAnkle',
+            'leftHip->leftShoulder->leftWrist',
+            'leftHip->leftKnee->leftAnkle',
+          }),
+        );
+      },
+    );
+
+    test('hollow hold resolves the mirrored right-side landmark set', () {
+      final requirementSet = requirements.resolve(
+        config: buildHollowHoldConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContracts.hollowHold,
+        holdSide: HoldSide.right,
+      );
+
+      expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+        PoseLandmarkType.rightShoulder,
+        PoseLandmarkType.rightHip,
+        PoseLandmarkType.rightWrist,
+        PoseLandmarkType.rightKnee,
+        PoseLandmarkType.rightAnkle,
+      });
+      expect(
+        requirementSet.requiredAngleTriplets.map(_tripletKey),
+        unorderedEquals(<String>{
+          'rightShoulder->rightHip->rightAnkle',
+          'rightHip->rightShoulder->rightWrist',
+          'rightHip->rightKnee->rightAnkle',
+        }),
+      );
+    });
+
+    test('hollow hold requirements follow contract.requiredSignals', () {
+      final requirementSet = requirements.resolve(
+        config: buildHollowHoldConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContract(
+          family: HoldAnalysisFamily.hollowHold,
+          requiredSignals: const <HoldSignal>{
+            HoldSignal.compression,
+            HoldSignal.armExtension,
+          },
+        ),
+        holdSide: HoldSide.left,
+      );
+
+      expect(
+        requirementSet.requiredAngleTriplets.map(_tripletKey),
+        unorderedEquals(<String>{
+          'leftShoulder->leftHip->leftAnkle',
+          'leftHip->leftShoulder->leftWrist',
+        }),
+      );
+      expect(
+        requirementSet.requiredLandmarks.contains(PoseLandmarkType.leftKnee),
+        isFalse,
+      );
+    });
+
+    test(
       'hold requirements follow configured signal geometry instead of hardcoded plank triplets',
       () {
         final requirementSet = requirements.resolve(

@@ -64,6 +64,44 @@ void main() {
       expect(session.formBreakCount, 0);
       expect(session.reps, isNull);
     });
+
+    test('preserves hollow_hold session identity without schema changes', () {
+      final session = WorkoutSession(
+        id: 'session_hollow_1',
+        ownerId: 'owner_1',
+        exerciseType: 'hollow_hold',
+        analysisKind: 'hold',
+        startedAt: DateTime.utc(2026, 1, 1, 12),
+        endedAt: DateTime.utc(2026, 1, 1, 12, 0, 12),
+        durationSec: 12,
+        totalReps: 0,
+        averageScore: 0.0,
+        bestScore: 0.0,
+        worstScore: 0.0,
+        validReps: 0,
+        invalidReps: 0,
+        formWarningCount: 0,
+        totalHoldSeconds: 8.0,
+        bestHoldSeconds: 8.0,
+        formBreakCount: 1,
+        createdAt: DateTime.utc(2026, 1, 1, 12),
+        updatedAt: DateTime.utc(2026, 1, 1, 12, 0, 12),
+      );
+
+      final document = mapper.toDocument(session);
+      final restored = mapper.fromDocument(
+        document,
+        fallbackId: 'fallback',
+        fallbackOwnerId: 'fallback-owner',
+      );
+
+      expect(document['exerciseType'], 'hollow_hold');
+      expect(document['analysisKind'], 'hold');
+      expect(restored.exerciseType, 'hollow_hold');
+      expect(restored.analysisKind, 'hold');
+      expect(restored.bestHoldSeconds, 8.0);
+      expect(restored.formBreakCount, 1);
+    });
   });
 }
 

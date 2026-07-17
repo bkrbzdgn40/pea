@@ -142,11 +142,17 @@ class HoldSignalExtractionConfig {
     PoseAngleLandmarks? alignment,
     PoseAngleLandmarks? support,
     PoseAngleLandmarks? extension,
+    PoseAngleLandmarks? compression,
+    PoseAngleLandmarks? armExtension,
+    PoseAngleLandmarks? kneeExtension,
   }) : _definitions = _buildDefinitions(
          definitions: definitions,
          alignment: alignment,
          support: support,
          extension: extension,
+         compression: compression,
+         armExtension: armExtension,
+         kneeExtension: kneeExtension,
        );
 
   final HoldSide referenceSide;
@@ -158,6 +164,14 @@ class HoldSignalExtractionConfig {
   PoseAngleLandmarks? get support => definitionFor(HoldSignal.support);
 
   PoseAngleLandmarks? get extension => definitionFor(HoldSignal.extension);
+
+  PoseAngleLandmarks? get compression => definitionFor(HoldSignal.compression);
+
+  PoseAngleLandmarks? get armExtension =>
+      definitionFor(HoldSignal.armExtension);
+
+  PoseAngleLandmarks? get kneeExtension =>
+      definitionFor(HoldSignal.kneeExtension);
 
   PoseAngleLandmarks? definitionFor(HoldSignal signal) {
     return _definitions[signal];
@@ -172,6 +186,9 @@ class HoldSignalExtractionConfig {
     required PoseAngleLandmarks? alignment,
     required PoseAngleLandmarks? support,
     required PoseAngleLandmarks? extension,
+    required PoseAngleLandmarks? compression,
+    required PoseAngleLandmarks? armExtension,
+    required PoseAngleLandmarks? kneeExtension,
   }) {
     final resolvedDefinitions = <HoldSignal, PoseAngleLandmarks>{
       ...definitions,
@@ -184,6 +201,15 @@ class HoldSignalExtractionConfig {
     }
     if (extension != null) {
       resolvedDefinitions[HoldSignal.extension] = extension;
+    }
+    if (compression != null) {
+      resolvedDefinitions[HoldSignal.compression] = compression;
+    }
+    if (armExtension != null) {
+      resolvedDefinitions[HoldSignal.armExtension] = armExtension;
+    }
+    if (kneeExtension != null) {
+      resolvedDefinitions[HoldSignal.kneeExtension] = kneeExtension;
     }
 
     return Map<HoldSignal, PoseAngleLandmarks>.unmodifiable(
@@ -242,6 +268,47 @@ class HoldPostureConfig {
   }
 }
 
+class HollowHoldPostureConfig {
+  const HollowHoldPostureConfig({
+    required this.activePostureMaxAngle,
+    required this.compressionEntryMaxAngle,
+    required this.compressionSustainMaxAngle,
+    required this.armExtensionMinAngle,
+    required this.kneeExtensionMinAngle,
+    required this.breakGraceDuration,
+  });
+
+  final double activePostureMaxAngle;
+  final double compressionEntryMaxAngle;
+  final double compressionSustainMaxAngle;
+  final double armExtensionMinAngle;
+  final double kneeExtensionMinAngle;
+  final Duration breakGraceDuration;
+
+  factory HollowHoldPostureConfig.fromMap(Map<String, dynamic> map) {
+    return _fromReader(
+      _StrictConfigMapReader.root('HollowHoldPostureConfig', map),
+    );
+  }
+
+  static HollowHoldPostureConfig _fromReader(_StrictConfigMapReader reader) {
+    return HollowHoldPostureConfig(
+      activePostureMaxAngle: reader.requiredDouble('activePostureMaxAngle'),
+      compressionEntryMaxAngle: reader.requiredDouble(
+        'compressionEntryMaxAngle',
+      ),
+      compressionSustainMaxAngle: reader.requiredDouble(
+        'compressionSustainMaxAngle',
+      ),
+      armExtensionMinAngle: reader.requiredDouble('armExtensionMinAngle'),
+      kneeExtensionMinAngle: reader.requiredDouble('kneeExtensionMinAngle'),
+      breakGraceDuration: Duration(
+        milliseconds: reader.requiredInt('breakGraceMillis'),
+      ),
+    );
+  }
+}
+
 class ExerciseConfig {
   final String name;
   final PoseLandmarkType primaryJoint;
@@ -258,6 +325,7 @@ class ExerciseConfig {
   final double targetMinAngle;
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
+  final HollowHoldPostureConfig? hollowHoldPosture;
   final HoldSignalExtractionConfig? holdSignals;
   final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
   final RangeRepPhaseQualityConfig? rangeRepPhaseQuality;
@@ -277,6 +345,7 @@ class ExerciseConfig {
     this.targetMinAngle = 70.0,
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
+    this.hollowHoldPosture,
     this.holdSignals,
     this.rangeRepScoreWeights,
     this.rangeRepPhaseQuality,
@@ -305,6 +374,7 @@ class ExerciseConfig {
   factory ExerciseConfig.fromMap(Map<String, dynamic> map) {
     final reader = _StrictConfigMapReader.root('ExerciseConfig', map);
     final holdPosture = _readHoldPostureOrNull(reader);
+    final hollowHoldPosture = _readHollowHoldPostureOrNull(reader);
     final holdSignals = _readHoldSignalsOrNull(reader);
     final rangeRepScoreWeights = _readRangeRepScoreWeightsOrNull(reader);
     final rangeRepPhaseQuality = _readRangeRepPhaseQualityOrNull(reader);
@@ -317,11 +387,15 @@ class ExerciseConfig {
       joint2: reader.requiredPoseLandmark('joint2'),
       thresholdNeutral: reader.requiredDouble(
         'thresholdNeutral',
-        fallback: holdPosture?.activePostureAngle,
+        fallback:
+            holdPosture?.activePostureAngle ??
+            hollowHoldPosture?.activePostureMaxAngle,
       ),
       thresholdActive: reader.requiredDouble(
         'thresholdActive',
-        fallback: holdPosture?.bodyLineEntryAngle,
+        fallback:
+            holdPosture?.bodyLineEntryAngle ??
+            hollowHoldPosture?.compressionEntryMaxAngle,
       ),
       thresholdPeak: reader.requiredDouble('thresholdPeak', fallback: 0.0),
       idealDescentSeconds: reader.requiredDouble(
@@ -339,6 +413,7 @@ class ExerciseConfig {
         fallback: 0.0,
       ),
       holdPosture: holdPosture,
+      hollowHoldPosture: hollowHoldPosture,
       holdSignals: holdSignals,
       rangeRepScoreWeights: rangeRepScoreWeights,
       rangeRepPhaseQuality: rangeRepPhaseQuality,
@@ -355,6 +430,26 @@ class ExerciseConfig {
     }
 
     return HoldPostureConfig._fromReader(holdPostureReader);
+  }
+
+  static HollowHoldPostureConfig? _readHollowHoldPostureOrNull(
+    _StrictConfigMapReader reader,
+  ) {
+    final hollowHoldPostureReader = reader.optionalObject('hollowHoldPosture');
+    if (hollowHoldPostureReader == null) {
+      return null;
+    }
+
+    hollowHoldPostureReader.expectOnlyKeys(const <String>{
+      'activePostureMaxAngle',
+      'compressionEntryMaxAngle',
+      'compressionSustainMaxAngle',
+      'armExtensionMinAngle',
+      'kneeExtensionMinAngle',
+      'breakGraceMillis',
+    });
+
+    return HollowHoldPostureConfig._fromReader(hollowHoldPostureReader);
   }
 
   static HoldSignalExtractionConfig? _readHoldSignalsOrNull(

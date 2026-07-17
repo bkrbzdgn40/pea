@@ -15,6 +15,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
@@ -1327,6 +1328,131 @@ void main() {
   });
 
   test(
+    'hollow hold production path resolves through the real config and shared HoldEngine',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      late _SpyHoldCoordinator spyCoordinator;
+      final harness = await _createResolvedConfigHarness(
+        selectedExercise: ExerciseType.hollowHold,
+        detector: detector,
+        clock: clock,
+        extraOverrides: <Override>[
+          holdCoordinatorFactoryProvider.overrideWithValue(({
+            required HoldAnalysisEngine engine,
+            required ExerciseConfig config,
+          }) {
+            expect(engine, isA<HoldEngine>());
+            expect(config.name, 'Hollow Hold');
+            spyCoordinator = _SpyHoldCoordinator(
+              inner: DefaultHoldCoordinator(engine: engine, config: config),
+            );
+            return spyCoordinator;
+          }),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      expect(
+        harness.container.read(exerciseConfigProvider).requireValue.name,
+        'Hollow Hold',
+      );
+
+      await _establishVisibleHollowHold(harness.controller, detector, clock);
+
+      var state = harness.container.read(workoutControllerProvider);
+
+      expect(
+        spyCoordinator.selectHoldSideForAcceptedPoseCallCount,
+        greaterThan(0),
+      );
+      expect(
+        spyCoordinator.requiredHoldSideForAssessmentCallCount,
+        greaterThan(0),
+      );
+      expect(spyCoordinator.processFrameCallCount, greaterThan(0));
+      expect(spyCoordinator.lastSelectedHoldSide, HoldSide.left);
+      expect(state.holdAnalysis, isNotNull);
+      expect(state.rangeRepAnalysis, isNull);
+      expect(state.selectedHoldSide, HoldSide.left);
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Pozisyonu Koru');
+
+      for (var index = 0; index < 5 && state.isHolding; index++) {
+        clock.advance(const Duration(milliseconds: 150));
+        await _analyzeFrame(harness.controller, detector, <Pose>[
+          _hollowHoldPose(armExtensionAngle: 0.0, includeRightSide: false),
+        ]);
+        state = harness.container.read(workoutControllerProvider);
+      }
+
+      expect(state.isHolding, isFalse);
+      expect(state.currentHoldSeconds, 0);
+      expect(state.bestHoldSeconds, greaterThanOrEqualTo(5.0));
+      expect(state.holdFeedbackCode, HoldFeedbackCode.extendArmsOverhead);
+      expect(state.holdEnginePhase, HoldPhase.broken);
+      expect(state.feedbackMessage, 'Kollari Bas Ustune Uzat');
+    },
+  );
+
+  test(
+    'hollow hold compression drift uses the existing grace-window behavior',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = await _createResolvedConfigHarness(
+        selectedExercise: ExerciseType.hollowHold,
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+
+      await _establishVisibleHollowHold(harness.controller, detector, clock);
+
+      var state = harness.container.read(workoutControllerProvider);
+      var snapshot = harness.controller.diagnosticsSnapshot();
+
+      for (var index = 0; index < 5; index++) {
+        clock.advance(const Duration(milliseconds: 150));
+        await _analyzeFrame(harness.controller, detector, <Pose>[
+          _hollowHoldPose(compressionAngle: 170.0, includeRightSide: false),
+        ]);
+        state = harness.container.read(workoutControllerProvider);
+        snapshot = harness.controller.diagnosticsSnapshot();
+        if (snapshot.isHoldFormBreakGraceActive == true) {
+          break;
+        }
+      }
+
+      expect(snapshot.isHoldFormBreakGraceActive, isTrue);
+      final frozenHoldSeconds = state.currentHoldSeconds;
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(harness.controller, detector, <Pose>[
+        _hollowHoldPose(compressionAngle: 170.0, includeRightSide: false),
+      ]);
+
+      state = harness.container.read(workoutControllerProvider);
+      snapshot = harness.controller.diagnosticsSnapshot();
+
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, closeTo(frozenHoldSeconds, 0.001));
+      expect(
+        state.holdFeedbackCode,
+        HoldFeedbackCode.increaseHollowCompression,
+      );
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(state.feedbackMessage, 'Govdeyi Biraz Daha Toparla');
+      expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isTrue);
+      expect(snapshot.isHoldFormBreakGraceActive, isTrue);
+    },
+  );
+
+  test(
     'hold rejects low-confidence poses and does not start a false hold',
     () async {
       final detector = _QueuedPoseDetector();
@@ -2466,6 +2592,34 @@ Future<void> _establishVisibleHold(
   ]);
 }
 
+Future<void> _establishVisibleHollowHold(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock, {
+  bool rightOnly = false,
+}) async {
+  await _analyzeFrame(controller, detector, <Pose>[
+    _hollowHoldPose(
+      includeLeftSide: !rightOnly,
+      includeRightSide: rightOnly ? true : false,
+    ),
+  ]);
+  clock.advance(const Duration(milliseconds: 100));
+  await _analyzeFrame(controller, detector, <Pose>[
+    _hollowHoldPose(
+      includeLeftSide: !rightOnly,
+      includeRightSide: rightOnly ? true : false,
+    ),
+  ]);
+  clock.advance(const Duration(seconds: 5));
+  await _analyzeFrame(controller, detector, <Pose>[
+    _hollowHoldPose(
+      includeLeftSide: !rightOnly,
+      includeRightSide: rightOnly ? true : false,
+    ),
+  ]);
+}
+
 Future<void> _establishActiveLeftRepContext(
   WorkoutController controller,
   _QueuedPoseDetector detector,
@@ -2704,6 +2858,27 @@ Pose _plankPose({
     defaultLikelihood: defaultLikelihood,
     missingLandmarks: missingLandmarks,
     rightOnly: rightOnly,
+  );
+}
+
+Pose _hollowHoldPose({
+  double compressionAngle = 150,
+  double armExtensionAngle = 160,
+  double kneeExtensionAngle = 170,
+  bool includeLeftSide = true,
+  bool includeRightSide = true,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  return buildHollowHoldPose(
+    compressionAngle: compressionAngle,
+    armExtensionAngle: armExtensionAngle,
+    kneeExtensionAngle: kneeExtensionAngle,
+    includeLeftSide: includeLeftSide,
+    includeRightSide: includeRightSide,
+    likelihoodOverrides: likelihoodOverrides,
+    missingLandmarks: missingLandmarks,
   );
 }
 

@@ -39,5 +39,23 @@ void main() {
         });
       },
     );
+
+    test(
+      'hollowHold exposes the typed hollow-hold family and required signals',
+      () {
+        final contract = HoldContracts.hollowHold;
+
+        expect(contract.family, HoldAnalysisFamily.hollowHold);
+        expect(contract.supportsSignal(HoldSignal.compression), isTrue);
+        expect(contract.supportsSignal(HoldSignal.armExtension), isTrue);
+        expect(contract.supportsSignal(HoldSignal.kneeExtension), isTrue);
+        expect(contract.requiredSignals, const <HoldSignal>{
+          HoldSignal.compression,
+          HoldSignal.armExtension,
+          HoldSignal.kneeExtension,
+        });
+        expect(contract.supportsSignal(HoldSignal.alignment), isFalse);
+      },
+    );
   });
 }

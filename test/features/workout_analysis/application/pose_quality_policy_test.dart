@@ -340,6 +340,52 @@ void main() {
     });
 
     group('hold quality', () {
+      test('hollow hold valid left-side required landmarks are accepted', () {
+        final assessment = policy.assess(
+          pose: buildHollowHoldPose(includeRightSide: false),
+          config: buildHollowHoldConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.hollowHold,
+        );
+
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedHoldSides, <HoldSide>{HoldSide.left});
+        expect(assessment.preferredHoldSide, HoldSide.left);
+      });
+
+      test('hollow hold valid right-side required landmarks are accepted', () {
+        final assessment = policy.assess(
+          pose: buildHollowHoldPose(includeLeftSide: false),
+          config: buildHollowHoldConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.hollowHold,
+        );
+
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.acceptedHoldSides, <HoldSide>{HoldSide.right});
+        expect(assessment.preferredHoldSide, HoldSide.right);
+      });
+
+      test('hollow hold rejects the side when a required wrist is missing', () {
+        final assessment = policy.assess(
+          pose: buildHollowHoldPose(
+            includeRightSide: false,
+            missingLandmarks: const <PoseLandmarkType>{
+              PoseLandmarkType.leftWrist,
+            },
+          ),
+          config: buildHollowHoldConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.hollowHold,
+        );
+
+        expect(assessment.isAccepted, isFalse);
+        expect(
+          assessment.rejectionReason,
+          PoseRejectionReason.missingRequiredLandmark,
+        );
+      });
+
       for (final scenario in <({PoseLandmarkType landmark, String name})>[
         (landmark: PoseLandmarkType.leftShoulder, name: 'left shoulder'),
         (landmark: PoseLandmarkType.leftElbow, name: 'left elbow'),

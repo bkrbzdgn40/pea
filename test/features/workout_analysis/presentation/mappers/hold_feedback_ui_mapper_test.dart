@@ -14,6 +14,15 @@ void main() {
         message: 'Dirsek Destegini Duzelt',
       ),
       (code: HoldFeedbackCode.extendLegs, message: 'Dizleri Kaldir'),
+      (
+        code: HoldFeedbackCode.increaseHollowCompression,
+        message: 'Govdeyi Biraz Daha Toparla',
+      ),
+      (
+        code: HoldFeedbackCode.extendArmsOverhead,
+        message: 'Kollari Bas Ustune Uzat',
+      ),
+      (code: HoldFeedbackCode.straightenKnees, message: 'Dizleri Duzlestir'),
       (code: HoldFeedbackCode.correctForm, message: 'Formu Duzelt'),
     ];
 

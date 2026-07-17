@@ -8,6 +8,8 @@ void main() {
       expect(ExerciseType.squat.title, 'Squat');
       expect(ExerciseType.plank.id, 'plank');
       expect(ExerciseType.plank.title, 'Plank');
+      expect(ExerciseType.hollowHold.id, 'hollow_hold');
+      expect(ExerciseType.hollowHold.title, 'Hollow Hold');
       expect(ExerciseType.lunge.id, 'lunge');
       expect(ExerciseType.lunge.title, 'Lunge');
       expect(ExerciseType.pushUp.id, 'push_up');

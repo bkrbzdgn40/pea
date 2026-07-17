@@ -20,6 +20,10 @@ void main() {
         ExerciseType.plank,
       );
       expect(
+        resolver.resolveActiveExercise(ExerciseType.hollowHold),
+        ExerciseType.hollowHold,
+      );
+      expect(
         resolver.resolveActiveExercise(ExerciseType.pushUp),
         ExerciseType.pushUp,
       );

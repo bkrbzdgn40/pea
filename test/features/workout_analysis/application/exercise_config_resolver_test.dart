@@ -29,6 +29,17 @@ void main() {
       ]);
     });
 
+    test('loads the hollow hold config asset path', () async {
+      final source = _FakeExerciseConfigSource(_sampleConfig());
+      final resolver = ExerciseConfigResolver(source: source);
+
+      await resolver.resolve(ExerciseType.hollowHold);
+
+      expect(source.loadedAssetPaths, <String>[
+        'assets/config/exercises/hollow_hold.json',
+      ]);
+    });
+
     test('loads the sit-up config asset path', () async {
       final source = _FakeExerciseConfigSource(_sampleConfig());
       final resolver = ExerciseConfigResolver(source: source);

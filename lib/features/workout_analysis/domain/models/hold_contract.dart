@@ -1,7 +1,14 @@
-enum HoldAnalysisFamily { plank }
+enum HoldAnalysisFamily { plank, hollowHold }
 
 /// Canonical signal identifiers that a hold contract may support.
-enum HoldSignal { alignment, support, extension }
+enum HoldSignal {
+  alignment,
+  support,
+  extension,
+  compression,
+  armExtension,
+  kneeExtension,
+}
 
 /// Immutable contract describing which normalized signals a hold exercise
 /// supports.
@@ -28,6 +35,15 @@ abstract final class HoldContracts {
       HoldSignal.alignment,
       HoldSignal.support,
       HoldSignal.extension,
+    },
+  );
+
+  static final HoldContract hollowHold = HoldContract(
+    family: HoldAnalysisFamily.hollowHold,
+    requiredSignals: const <HoldSignal>{
+      HoldSignal.compression,
+      HoldSignal.armExtension,
+      HoldSignal.kneeExtension,
     },
   );
 }

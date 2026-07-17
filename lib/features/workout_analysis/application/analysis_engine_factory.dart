@@ -2,6 +2,7 @@ import '../domain/analysis_engine.dart';
 import '../domain/hold_form_policy.dart';
 import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_engine.dart';
+import '../domain/hollow_hold_posture_policy.dart';
 import '../domain/hold_posture_policy.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
@@ -36,6 +37,12 @@ class AnalysisEngineFactory {
         _validatePlankHoldEngineContract(holdContract, config);
         return HoldEngine(
           posturePolicy: _createPlankPosturePolicy(config),
+          now: now,
+        );
+      case HoldAnalysisFamily.hollowHold:
+        _validateHollowHoldEngineContract(holdContract, config);
+        return HoldEngine(
+          posturePolicy: _createHollowHoldPosturePolicy(config),
           now: now,
         );
     }
@@ -105,11 +112,45 @@ class AnalysisEngineFactory {
     HoldContract contract,
     ExerciseConfig config,
   ) {
-    for (final signal in const <HoldSignal>[
-      HoldSignal.alignment,
-      HoldSignal.support,
-      HoldSignal.extension,
-    ]) {
+    _validateRequiredHoldSignals(
+      contract: contract,
+      config: config,
+      requiredSignals: const <HoldSignal>[
+        HoldSignal.alignment,
+        HoldSignal.support,
+        HoldSignal.extension,
+      ],
+    );
+  }
+
+  void _validateHollowHoldEngineContract(
+    HoldContract contract,
+    ExerciseConfig config,
+  ) {
+    _validateRequiredHoldSignals(
+      contract: contract,
+      config: config,
+      requiredSignals: const <HoldSignal>[
+        HoldSignal.compression,
+        HoldSignal.armExtension,
+        HoldSignal.kneeExtension,
+      ],
+    );
+
+    if (config.hollowHoldPosture == null) {
+      throw StateError(
+        'Current hold engine requires hollowHoldPosture config for hold '
+        'analysis.',
+      );
+    }
+  }
+
+  void _validateRequiredHoldSignals({
+    required HoldContract contract,
+    required ExerciseConfig config,
+    required Iterable<HoldSignal> requiredSignals,
+  }) {
+    for (final signal in requiredSignals) {
       if (!contract.supportsSignal(signal)) {
         throw StateError(
           'Current hold engine requires ${signal.name} in the hold contract.',
@@ -124,11 +165,7 @@ class AnalysisEngineFactory {
       );
     }
 
-    for (final signal in const <HoldSignal>[
-      HoldSignal.alignment,
-      HoldSignal.support,
-      HoldSignal.extension,
-    ]) {
+    for (final signal in requiredSignals) {
       if (holdSignals.definitionFor(signal) == null) {
         throw StateError(
           'Current hold engine missing ${signal.name} definition in '
@@ -140,5 +177,17 @@ class AnalysisEngineFactory {
 
   HoldFormPolicy _createPlankPosturePolicy(ExerciseConfig config) {
     return HoldPosturePolicy(config: config.resolvedHoldPosture);
+  }
+
+  HoldFormPolicy _createHollowHoldPosturePolicy(ExerciseConfig config) {
+    final hollowHoldPosture = config.hollowHoldPosture;
+    if (hollowHoldPosture == null) {
+      throw StateError(
+        'Current hold engine requires hollowHoldPosture config for hold '
+        'analysis.',
+      );
+    }
+
+    return HollowHoldPosturePolicy(config: hollowHoldPosture);
   }
 }

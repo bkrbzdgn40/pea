@@ -1,6 +1,7 @@
 enum ExerciseType {
   squat(id: 'squat', title: 'Squat'),
   plank(id: 'plank', title: 'Plank'),
+  hollowHold(id: 'hollow_hold', title: 'Hollow Hold'),
   lunge(id: 'lunge', title: 'Lunge'),
   pushUp(id: 'push_up', title: 'Push-up'),
   sitUp(id: 'sit_up', title: 'Sit-up'),

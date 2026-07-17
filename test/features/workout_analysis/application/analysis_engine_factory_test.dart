@@ -11,6 +11,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_a
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -43,6 +44,7 @@ void main() {
     thresholdPeak: 90.0,
   );
   final plankConfig = _holdConfig();
+  final hollowHoldConfig = _hollowHoldConfig();
 
   group('AnalysisEngineFactory', () {
     test('rejects range-rep creation without a contract', () {
@@ -118,6 +120,23 @@ void main() {
       );
     });
 
+    test('rejects hollow hold creation without hollowHoldPosture config', () {
+      expect(
+        () => factory.create(
+          engineKind: EngineKind.hold,
+          config: _hollowHoldConfig(includeHollowHoldPosture: false),
+          holdContract: HoldContracts.hollowHold,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('hollowHoldPosture'),
+          ),
+        ),
+      );
+    });
+
     test(
       'rejects plank hold creation when the contract is missing extension',
       () {
@@ -175,6 +194,47 @@ void main() {
       });
     }
 
+    for (final scenario in <({HoldSignal signal, ExerciseConfig config})>[
+      (
+        signal: HoldSignal.compression,
+        config: _hollowHoldConfig(
+          missingSignals: <HoldSignal>{HoldSignal.compression},
+        ),
+      ),
+      (
+        signal: HoldSignal.armExtension,
+        config: _hollowHoldConfig(
+          missingSignals: <HoldSignal>{HoldSignal.armExtension},
+        ),
+      ),
+      (
+        signal: HoldSignal.kneeExtension,
+        config: _hollowHoldConfig(
+          missingSignals: <HoldSignal>{HoldSignal.kneeExtension},
+        ),
+      ),
+    ]) {
+      test(
+        'rejects hollow hold creation when ${scenario.signal.name} is missing',
+        () {
+          expect(
+            () => factory.create(
+              engineKind: EngineKind.hold,
+              config: scenario.config,
+              holdContract: HoldContracts.hollowHold,
+            ),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains(scenario.signal.name),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     test('creates a hold engine for a valid plank contract and config', () {
       final HoldAnalysisEngine engine = factory.createHold(
         config: plankConfig,
@@ -183,6 +243,18 @@ void main() {
 
       expect(engine, isA<HoldEngine>());
     });
+
+    test(
+      'creates a hold engine for a valid hollow hold contract and config',
+      () {
+        final HoldAnalysisEngine engine = factory.createHold(
+          config: hollowHoldConfig,
+          holdContract: HoldContracts.hollowHold,
+        );
+
+        expect(engine, isA<HoldEngine>());
+      },
+    );
 
     test('factory wiring injects the plank posture policy targets', () {
       final HoldAnalysisEngine engine = factory.createHold(
@@ -205,11 +277,69 @@ void main() {
       expect(engine.diagnosticsSnapshot.bodyLineTargetAngle, 166.0);
     });
 
+    test('factory wiring injects the hollow hold posture policy targets', () {
+      final HoldAnalysisEngine engine = factory.createHold(
+        config: hollowHoldConfig,
+        holdContract: HoldContracts.hollowHold,
+      );
+
+      expect(
+        engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+          HoldSignal.compression,
+        ),
+        155.0,
+      );
+      expect(
+        engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+          HoldSignal.armExtension,
+        ),
+        150.0,
+      );
+      expect(
+        engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+          HoldSignal.kneeExtension,
+        ),
+        165.0,
+      );
+
+      engine.update(
+        AnalysisFrame(
+          primaryMetric: 150.0,
+          formMetric: 150.0,
+          holdSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.compression: 150.0,
+              HoldSignal.armExtension: 160.0,
+              HoldSignal.kneeExtension: 170.0,
+            },
+          ),
+        ),
+      );
+
+      expect(
+        engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+          HoldSignal.compression,
+        ),
+        160.0,
+      );
+    });
+
     test('generic hold creation keeps the plank hold engine path', () {
       final AnalysisEngine engine = factory.create(
         engineKind: EngineKind.hold,
         config: plankConfig,
         holdContract: HoldContracts.plankFamily,
+      );
+
+      expect(engine, isA<HoldEngine>());
+      expect(engine, isA<HoldAnalysisEngine>());
+    });
+
+    test('generic hold creation keeps the hollow hold engine path', () {
+      final AnalysisEngine engine = factory.create(
+        engineKind: EngineKind.hold,
+        config: hollowHoldConfig,
+        holdContract: HoldContracts.hollowHold,
       );
 
       expect(engine, isA<HoldEngine>());
@@ -282,6 +412,60 @@ ExerciseConfig _holdConfig({
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
+    holdSignals: holdSignals,
+  );
+}
+
+ExerciseConfig _hollowHoldConfig({
+  bool includeHoldSignals = true,
+  bool includeHollowHoldPosture = true,
+  Set<HoldSignal> missingSignals = const <HoldSignal>{},
+}) {
+  final holdSignals = includeHoldSignals
+      ? HoldSignalExtractionConfig(
+          referenceSide: HoldSide.left,
+          compression: missingSignals.contains(HoldSignal.compression)
+              ? null
+              : const PoseAngleLandmarks(
+                  first: PoseLandmarkType.leftShoulder,
+                  middle: PoseLandmarkType.leftHip,
+                  last: PoseLandmarkType.leftAnkle,
+                ),
+          armExtension: missingSignals.contains(HoldSignal.armExtension)
+              ? null
+              : const PoseAngleLandmarks(
+                  first: PoseLandmarkType.leftHip,
+                  middle: PoseLandmarkType.leftShoulder,
+                  last: PoseLandmarkType.leftWrist,
+                ),
+          kneeExtension: missingSignals.contains(HoldSignal.kneeExtension)
+              ? null
+              : const PoseAngleLandmarks(
+                  first: PoseLandmarkType.leftHip,
+                  middle: PoseLandmarkType.leftKnee,
+                  last: PoseLandmarkType.leftAnkle,
+                ),
+        )
+      : null;
+
+  return ExerciseConfig(
+    name: 'Hollow Hold',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 170.0,
+    thresholdActive: 155.0,
+    thresholdPeak: 0.0,
+    hollowHoldPosture: includeHollowHoldPosture
+        ? const HollowHoldPostureConfig(
+            activePostureMaxAngle: 170.0,
+            compressionEntryMaxAngle: 155.0,
+            compressionSustainMaxAngle: 160.0,
+            armExtensionMinAngle: 150.0,
+            kneeExtensionMinAngle: 165.0,
+            breakGraceDuration: Duration(milliseconds: 300),
+          )
+        : null,
     holdSignals: holdSignals,
   );
 }

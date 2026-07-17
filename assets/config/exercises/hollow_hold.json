@@ -1,0 +1,35 @@
+{
+  "name": "Hollow Hold",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftAnkle",
+  "thresholdNeutral": 170.0,
+  "thresholdActive": 155.0,
+  "thresholdPeak": 0.0,
+  "hollowHoldPosture": {
+    "activePostureMaxAngle": 170.0,
+    "compressionEntryMaxAngle": 155.0,
+    "compressionSustainMaxAngle": 160.0,
+    "armExtensionMinAngle": 150.0,
+    "kneeExtensionMinAngle": 165.0,
+    "breakGraceMillis": 300
+  },
+  "holdSignals": {
+    "referenceSide": "left",
+    "compression": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftAnkle"
+    },
+    "armExtension": {
+      "first": "leftHip",
+      "middle": "leftShoulder",
+      "last": "leftWrist"
+    },
+    "kneeExtension": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    }
+  }
+}

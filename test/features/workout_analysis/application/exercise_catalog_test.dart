@@ -72,6 +72,19 @@ void main() {
       expect(definition.analysisHoldContract, same(HoldContracts.plankFamily));
     });
 
+    test('registers hollow hold as a supported hold exercise', () {
+      final definition = catalog.definitionFor(ExerciseType.hollowHold);
+
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(definition.analysisExercise, ExerciseType.hollowHold);
+      expect(definition.analysisEngineKind, EngineKind.hold);
+      expect(
+        definition.analysisConfigAssetPath,
+        'assets/config/exercises/hollow_hold.json',
+      );
+      expect(definition.analysisHoldContract, same(HoldContracts.hollowHold));
+    });
+
     test('keeps push-up as a supported range-rep exercise', () {
       final definition = catalog.definitionFor(ExerciseType.pushUp);
 

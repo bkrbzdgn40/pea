@@ -58,6 +58,34 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'ScottHermanFitness',
   ),
   ExerciseGuideContent(
+    type: ExerciseType.hollowHold,
+    subtitle:
+        'Sirt ustu core gerilimi, govde kontrolu ve izometrik dayaniklilik icin ileri seviye hareket.',
+    purpose:
+        'Karni aktif tutmayi, omuzlari yerden ayirmayi, kollari bas ustune uzatmayi ve bacaklari duz tutarken govde kontrolunu korumayi hedefler.',
+    difficulty: ExerciseDifficulty.advanced,
+    setupSteps: [
+      'Sirt ustu uzan ve belini kontrollu sekilde zemine yaklastir.',
+      'Karni sıkmadan aktiflestir, kaburgalari asiri disari acma.',
+      'Omuzlarini yerden hafif ayir ve kollari bas ustune uzat.',
+      'Bacaklarini kaldirirken dizleri duz ve govdeyi sabit tutmaya odaklan.',
+    ],
+    tips: [
+      'Form bozuluyorsa bacak yuksekligini azalt veya dizleri hafif buk.',
+      'Kollari kulaklara yakin uzat ve boynu gereksiz kasma.',
+      'Hareket boyunca nefesi tutmadan core gerilimini surdur.',
+      'Sureyi zorlamak yerine duzgun compression ve duz bacaklari koru.',
+    ],
+    commonMistakes: [
+      'Bel kontrolunu kaybedip govdeyi gevsetmek.',
+      'Kollari bas ustunde tutamadan omuzlari dusurmek.',
+      'Dizleri bikip bacak hattini bozmak.',
+      'Bacaklari fazla indirmek pahasina formu kaybetmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=u6vuP12rdJY',
+    youtubeSourceLabel: 'FITTR',
+  ),
+  ExerciseGuideContent(
     type: ExerciseType.lunge,
     subtitle:
         'Tek bacak kontrolü, denge ve alt vücut kuvveti için dinamik hareket.',

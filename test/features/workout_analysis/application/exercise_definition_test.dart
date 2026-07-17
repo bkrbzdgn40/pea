@@ -10,6 +10,7 @@ void main() {
       for (final type in const <ExerciseType>[
         ExerciseType.squat,
         ExerciseType.plank,
+        ExerciseType.hollowHold,
         ExerciseType.pushUp,
         ExerciseType.sitUp,
       ]) {

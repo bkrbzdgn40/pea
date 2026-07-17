@@ -15,8 +15,8 @@ void main() {
             .map((content) => content.type)
             .toList(growable: false);
 
-        expect(guideCatalog.contents, hasLength(6));
-        expect(types.toSet(), hasLength(6));
+        expect(guideCatalog.contents, hasLength(7));
+        expect(types.toSet(), hasLength(7));
         expect(types, unorderedEquals(ExerciseType.values));
       },
     );
@@ -77,5 +77,21 @@ void main() {
         );
       },
     );
+
+    test('hollow hold guide stays available on the canonical hold owner', () {
+      final hollowDefinition = analysisCatalog.definitionFor(
+        ExerciseType.hollowHold,
+      );
+      final hollowContent = guideCatalog.contentFor(ExerciseType.hollowHold);
+
+      expect(hollowDefinition.isAnalysisSupported, isTrue);
+      expect(hollowDefinition.analysisEngineKind.name, 'hold');
+      expect(hollowContent.type, ExerciseType.hollowHold);
+      expect(hollowContent.setupSteps.join(' '), contains('Sirt ustu uzan'));
+      expect(
+        hollowContent.tips.join(' '),
+        contains('Kollari kulaklara yakin uzat'),
+      );
+    });
   });
 }

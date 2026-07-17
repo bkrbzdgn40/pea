@@ -827,6 +827,83 @@ void main() {
         );
       });
 
+      test(
+        'hollow hold left-side extraction emits the expected canonical signals',
+        () {
+          final metrics = extractor.extract(
+            buildHollowHoldPose(includeRightSide: false),
+            buildHollowHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.hollowHold,
+            holdSide: HoldSide.left,
+          );
+
+          expect(metrics.holdSide, HoldSide.left);
+          expect(
+            metrics.holdSignalValues.asMap().keys,
+            unorderedEquals(<HoldSignal>{
+              HoldSignal.compression,
+              HoldSignal.armExtension,
+              HoldSignal.kneeExtension,
+            }),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.compression),
+            closeTo(150.0, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.armExtension),
+            closeTo(160.0, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.kneeExtension),
+            closeTo(170.0, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.hasValue(HoldSignal.alignment),
+            isFalse,
+          );
+          expect(metrics.bodyLineAngle, isNull);
+          expect(metrics.armSupportAngle, isNull);
+          expect(metrics.legExtensionAngle, isNull);
+        },
+      );
+
+      test(
+        'hollow hold right-side extraction mirrors the configured triplets',
+        () {
+          final metrics = extractor.extract(
+            buildHollowHoldPose(includeLeftSide: false),
+            buildHollowHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.hollowHold,
+            holdSide: HoldSide.right,
+          );
+
+          expect(metrics.holdSide, HoldSide.right);
+          expect(
+            metrics.holdSignalValues.asMap().keys,
+            unorderedEquals(<HoldSignal>{
+              HoldSignal.compression,
+              HoldSignal.armExtension,
+              HoldSignal.kneeExtension,
+            }),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.compression),
+            closeTo(150.0, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.armExtension),
+            closeTo(160.0, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.kneeExtension),
+            closeTo(170.0, 0.001),
+          );
+        },
+      );
+
       test('missing required hold signal config still fails', () {
         final config = ExerciseConfig(
           name: 'Plank',
