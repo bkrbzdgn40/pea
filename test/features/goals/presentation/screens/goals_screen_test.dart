@@ -125,7 +125,7 @@ void main() {
       overrides: [
         goalsProvider.overrideWith(
           (ref) => GoalsState(
-            source: GoalsDataSource.demoEmpty,
+            source: GoalsDataSource.empty,
             goals: const [
               WorkoutGoal(
                 id: 'demo_goal',

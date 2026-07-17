@@ -46,16 +46,7 @@ class GoalsState {
   }
 }
 
-enum GoalsDataSource {
-  real,
-  noUser,
-  empty,
-  error;
-
-  static const demoNoUser = noUser;
-  static const demoEmpty = empty;
-  static const demoError = error;
-}
+enum GoalsDataSource { real, noUser, empty, error }
 
 List<WorkoutGoal> _buildGoalsFromSessions(List<WorkoutSession> sessions) {
   final statistics = WorkoutStatisticsCalculator().calculate(sessions);

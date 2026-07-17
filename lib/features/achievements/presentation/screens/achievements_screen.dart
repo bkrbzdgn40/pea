@@ -94,7 +94,7 @@ class _AchievementsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = switch (source) {
-      AchievementsDataSource.demoError =>
+      AchievementsDataSource.error =>
         'Rozetler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
       _ => 'İlk analizini tamamladığında rozetlerin burada görünür.',
     };

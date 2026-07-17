@@ -46,16 +46,7 @@ class AchievementsState {
   }
 }
 
-enum AchievementsDataSource {
-  real,
-  noUser,
-  empty,
-  error;
-
-  static const demoNoUser = noUser;
-  static const demoEmpty = empty;
-  static const demoError = error;
-}
+enum AchievementsDataSource { real, noUser, empty, error }
 
 List<Achievement> _buildAchievementsFromSessions(
   List<WorkoutSession> sessions,

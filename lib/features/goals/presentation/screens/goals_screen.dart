@@ -91,7 +91,7 @@ class _GoalsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = switch (source) {
-      GoalsDataSource.demoError =>
+      GoalsDataSource.error =>
         'Hedefler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
       _ => 'İlk analizini tamamladığında hedef ilerlemen burada görünür.',
     };

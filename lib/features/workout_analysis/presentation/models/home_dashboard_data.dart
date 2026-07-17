@@ -1,14 +1,4 @@
-enum HomeDashboardSource {
-  loading,
-  real,
-  noUser,
-  empty,
-  error;
-
-  static const demoNoUser = noUser;
-  static const demoEmpty = empty;
-  static const demoError = error;
-}
+enum HomeDashboardSource { loading, real, noUser, empty, error }
 
 /// Aggregated values used by Home without exposing session query details.
 class HomeDashboardData {
