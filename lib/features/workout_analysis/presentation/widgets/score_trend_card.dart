@@ -4,16 +4,25 @@ import 'package:flutter/material.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../models/home_dashboard_data.dart';
 
-/// Compact Home chart; detailed history lives on the score trend detail screen.
 class ScoreTrendCard extends StatelessWidget {
-  const ScoreTrendCard({super.key, required this.points, this.onTap});
+  const ScoreTrendCard({
+    super.key,
+    required this.exerciseTitle,
+    required this.points,
+    this.onTap,
+    this.chartHeight = 160,
+    this.subtitle,
+  });
 
+  final String exerciseTitle;
   final List<ScoreTrendPoint> points;
   final VoidCallback? onTap;
+  final double chartHeight;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    final chartPoints = points.where(_isValidMiniChartPoint).toList();
+    final chartPoints = points.where(_isValidPoint).toList(growable: false);
     final bounds = chartPoints.isEmpty
         ? null
         : _ScoreTrendBounds.fromPoints(chartPoints);
@@ -21,144 +30,142 @@ class ScoreTrendCard extends StatelessWidget {
         ? (chartPoints.length - 1).toDouble()
         : 1.0;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AppSurfaceCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Skor Trendi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                if (onTap != null) ...[
-                  const Text(
-                    'Detayı Gör',
-                    style: TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.greenAccent,
-                    size: 18,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              chartPoints.isEmpty
-                  ? 'İlk skorların geldikçe trend burada görünür.'
-                  : 'Son oturumlardaki skor değişimi',
-              style: const TextStyle(color: Colors.white60, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            if (bounds == null)
-              const _ScoreTrendPlaceholder()
-            else
-              SizedBox(
-                height: 160,
-                child: LineChart(
-                  LineChartData(
-                    minX: 0,
-                    maxX: maxX,
-                    minY: bounds.minY,
-                    maxY: bounds.maxY,
-                    lineTouchData: const LineTouchData(enabled: false),
-                    gridData: FlGridData(
-                      drawVerticalLine: false,
-                      horizontalInterval: bounds.interval,
-                      getDrawingHorizontalLine: (value) => FlLine(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        strokeWidth: 1,
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 32,
-                          interval: bounds.interval,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 26,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index < 0 || index >= chartPoints.length) {
-                              return const SizedBox.shrink();
-                            }
-
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                chartPoints[index].label,
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: [
-                          for (var i = 0; i < chartPoints.length; i++)
-                            FlSpot(i.toDouble(), chartPoints[i].score),
-                        ],
-                        isCurved: false,
-                        color: Colors.greenAccent,
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: const FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Colors.greenAccent.withValues(alpha: 0.10),
-                        ),
-                      ),
-                    ],
+    final content = AppSurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$exerciseTitle Form Skoru Trendi',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-          ],
-        ),
+              if (onTap != null) ...[
+                const Text(
+                  'Detayı Gör',
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.greenAccent,
+                  size: 18,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle ?? '$exerciseTitle oturumlarındaki form skoru değişimi',
+            style: const TextStyle(color: Colors.white60, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          if (bounds == null)
+            const _ScoreTrendPlaceholder()
+          else
+            SizedBox(
+              height: chartHeight,
+              child: LineChart(
+                LineChartData(
+                  minX: 0,
+                  maxX: maxX,
+                  minY: bounds.minY,
+                  maxY: bounds.maxY,
+                  lineTouchData: LineTouchData(enabled: chartHeight > 200),
+                  gridData: FlGridData(
+                    drawVerticalLine: false,
+                    horizontalInterval: bounds.interval,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 34,
+                        interval: bounds.interval,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        interval: _xLabelInterval(chartPoints.length),
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index < 0 || index >= chartPoints.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              chartPoints[index].label,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: [
+                        for (var i = 0; i < chartPoints.length; i++)
+                          FlSpot(i.toDouble(), chartPoints[i].score),
+                      ],
+                      isCurved: false,
+                      color: Colors.greenAccent,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.greenAccent.withValues(alpha: 0.10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return GestureDetector(onTap: onTap, child: content);
   }
 }
 
@@ -176,15 +183,28 @@ class _ScoreTrendPlaceholder extends StatelessWidget {
         border: Border.all(color: Colors.white10),
       ),
       child: const Text(
-        'Henüz çizilecek skor yok.',
+        'Henüz çizilecek form skoru yok.',
         style: TextStyle(color: Colors.white54, fontSize: 13),
       ),
     );
   }
 }
 
-bool _isValidMiniChartPoint(ScoreTrendPoint point) {
+bool _isValidPoint(ScoreTrendPoint point) {
   return point.score > 0 && point.score <= 100;
+}
+
+double _xLabelInterval(int pointCount) {
+  if (pointCount <= 8) {
+    return 1;
+  }
+  if (pointCount <= 16) {
+    return 2;
+  }
+  if (pointCount <= 32) {
+    return 4;
+  }
+  return 8;
 }
 
 class _ScoreTrendBounds {
@@ -218,7 +238,6 @@ class _ScoreTrendBounds {
       final middle = (minY + maxY) / 2;
       minY = _clampScore(middle - 5);
       maxY = _clampScore(middle + 5);
-
       if (maxY - minY < 10) {
         if (minY <= 0) {
           maxY = 10;
