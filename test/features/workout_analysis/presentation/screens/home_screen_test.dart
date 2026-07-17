@@ -113,9 +113,8 @@ void main() {
       home: const HomeScreen(),
       overrides: [
         homeDashboardProvider.overrideWith(
-          (ref) => HomeDashboardData.fallback(
-            source: HomeDashboardSource.demoEmpty,
-          ),
+          (ref) =>
+              HomeDashboardData.fallback(source: HomeDashboardSource.demoEmpty),
         ),
         goalsProvider.overrideWith(
           (ref) => const GoalsState(
