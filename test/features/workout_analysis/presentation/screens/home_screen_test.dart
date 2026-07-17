@@ -16,13 +16,13 @@ import '../../../../support/presentation_test_support.dart';
 
 void main() {
   testWidgets(
-    'renders the real dashboard surface and selected exercise summary',
+    'renders truthful universal metrics without global score surfaces',
     (WidgetTester tester) async {
       await pumpTestApp(
         tester,
         home: const HomeScreen(),
         overrides: [
-          homeDashboardProvider.overrideWith((ref) => _realDashboardData()),
+          homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
           goalsProvider.overrideWith(
             (ref) => GoalsState(
               source: GoalsDataSource.real,
@@ -62,10 +62,91 @@ void main() {
       expect(find.text('Plank analizine başla'), findsOneWidget);
       expect(find.text('Seçili hareket: Plank'), findsOneWidget);
       expect(find.text('Toplam Analiz'), findsOneWidget);
+      expect(find.text('Bu Hafta'), findsOneWidget);
+      expect(find.text('Ortalama Skor'), findsNothing);
+      expect(find.text('En İyi Skor'), findsNothing);
+      expect(find.text('Skor Trendi'), findsNothing);
       expect(find.text('Haftalık Hedef'), findsOneWidget);
       expect(find.text('Başarılar'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'does not present zero score as poor performance for hold-only history',
+    (WidgetTester tester) async {
+      await pumpTestApp(
+        tester,
+        home: const HomeScreen(),
+        overrides: [
+          homeDashboardProvider.overrideWith((ref) => _holdOnlyDashboardData()),
+          goalsProvider.overrideWith(
+            (ref) => const GoalsState(
+              source: GoalsDataSource.real,
+              goals: <WorkoutGoal>[],
+            ),
+          ),
+          achievementsProvider.overrideWith(
+            (ref) => const AchievementsState(
+              source: AchievementsDataSource.real,
+              achievements: <Achievement>[],
+            ),
+          ),
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
+        ],
+      );
+      await tester.pump();
+
+      expect(find.text('Toplam Analiz'), findsOneWidget);
+      expect(find.text('Bu Hafta'), findsOneWidget);
+      expect(find.text('4'), findsAtLeastNWidgets(1));
+      expect(find.text('Ortalama Skor'), findsNothing);
+      expect(find.text('En İyi Skor'), findsNothing);
+      expect(find.text('Skor Trendi'), findsNothing);
+    },
+  );
+
+  testWidgets('keeps truthful empty-state copy without promising scores', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith(
+          (ref) => HomeDashboardData.fallback(
+            source: HomeDashboardSource.demoEmpty,
+          ),
+        ),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.demoEmpty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.demoEmpty,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+
+    expect(
+      find.text(
+        'İlk analizini tamamladığında oturumların ve haftalık özetin burada görünür.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'İlk analizini tamamladığında skorların, tekrarların ve haftalık özetin burada görünür.',
+      ),
+      findsNothing,
+    );
+    expect(find.text('Skor Trendi'), findsNothing);
+  });
 
   testWidgets('keeps explicit guide navigation behavior on HomeScreen', (
     WidgetTester tester,
@@ -77,7 +158,7 @@ void main() {
       navigatorObservers: [observer],
       home: const HomeScreen(),
       overrides: [
-        homeDashboardProvider.overrideWith((ref) => _realDashboardData()),
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
         goalsProvider.overrideWith(
           (ref) => const GoalsState(
             source: GoalsDataSource.real,
@@ -111,7 +192,7 @@ void main() {
       tester,
       home: const HomeScreen(),
       overrides: [
-        homeDashboardProvider.overrideWith((ref) => _realDashboardData()),
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
         goalsProvider.overrideWith(
           (ref) => const GoalsState(
             source: GoalsDataSource.real,
@@ -150,7 +231,7 @@ void main() {
   });
 }
 
-HomeDashboardData _realDashboardData() {
+HomeDashboardData _mixedDashboardData() {
   return const HomeDashboardData(
     totalAnalyses: 8,
     averageScore: 87,
@@ -162,8 +243,24 @@ HomeDashboardData _realDashboardData() {
       ScoreTrendPoint(label: 'Çar', score: 90),
     ],
     exerciseDistribution: [
-      ExerciseDistributionItem(label: 'Plank', value: 60),
+      ExerciseDistributionItem(label: 'Plank', value: 25),
       ExerciseDistributionItem(label: 'Squat', value: 40),
+      ExerciseDistributionItem(label: 'Push-up', value: 35),
+    ],
+    source: HomeDashboardSource.real,
+  );
+}
+
+HomeDashboardData _holdOnlyDashboardData() {
+  return const HomeDashboardData(
+    totalAnalyses: 4,
+    averageScore: 0,
+    thisWeekCount: 2,
+    bestScore: 0,
+    scoreTrend: <ScoreTrendPoint>[],
+    exerciseDistribution: [
+      ExerciseDistributionItem(label: 'Plank', value: 50),
+      ExerciseDistributionItem(label: 'Hollow Hold', value: 50),
     ],
     source: HomeDashboardSource.real,
   );
