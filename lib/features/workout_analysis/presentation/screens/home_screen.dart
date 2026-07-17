@@ -15,15 +15,13 @@ import '../../domain/models/exercise_type.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../widgets/exercise_distribution_card.dart';
+import '../widgets/home_feature_preview_card.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
-import 'score_trend_detail_screen.dart';
 import 'session_history_screen.dart';
 import 'settings_screen.dart';
-import '../widgets/exercise_distribution_card.dart';
-import '../widgets/home_feature_preview_card.dart';
-import '../widgets/score_trend_card.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -165,34 +163,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             const SizedBox(height: 14),
             if (hasDashboardData)
-              ScoreTrendCard(
-                points: dashboardData.scoreTrend,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ScoreTrendDetailScreen(),
-                    ),
-                  );
-                },
-              )
-            else
-              _HomeInsightPlaceholderCard(
-                title: 'Skor Trendi',
-                subtitle:
-                    'Birkaç analiz tamamlandığında skor değişimin burada görünür.',
-                icon: Icons.show_chart_rounded,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ScoreTrendDetailScreen(),
-                    ),
-                  );
-                },
-              ),
-            const SizedBox(height: 14),
-            if (hasDashboardData)
               ExerciseDistributionCard(
                 items: dashboardData.exerciseDistribution,
               )
@@ -250,9 +220,7 @@ class _HomeGreetingCard extends StatelessWidget {
             ),
             child: Icon(greeting.icon, color: greeting.accentColor, size: 30),
           ),
-
           const SizedBox(width: 16),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,7 +573,7 @@ class _HomeProgressEmptyCard extends StatelessWidget {
                 ),
                 SizedBox(height: 7),
                 Text(
-                  'İlk analizini tamamladığında skorların, tekrarların ve haftalık özetin burada görünür.',
+                  'İlk analizini tamamladığında oturumların ve haftalık özetin burada görünür.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -701,30 +669,20 @@ class _DashboardStats extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 380;
-        final cardWidth = isNarrow
-            ? (constraints.maxWidth - 10) / 2
-            : (constraints.maxWidth - 20) / 3;
+        const spacing = 10.0;
+        final cardWidth = (constraints.maxWidth - spacing) / 2;
 
         return Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: spacing,
+          runSpacing: spacing,
           children: [
             _DashboardStatCard(
               label: 'Toplam Analiz',
               value: data.totalAnalyses.toString(),
             ),
             _DashboardStatCard(
-              label: 'Ortalama Skor',
-              value: data.averageScore.toString(),
-            ),
-            _DashboardStatCard(
               label: 'Bu Hafta',
               value: data.thisWeekCount.toString(),
-            ),
-            _DashboardStatCard(
-              label: 'En İyi Skor',
-              value: data.bestScore.toString(),
             ),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
         );
