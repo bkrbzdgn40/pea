@@ -6,6 +6,8 @@ import 'models/hold_feedback_code.dart';
 import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
 
+const double _armExtensionMeasurementToleranceDegrees = 15.0;
+
 class HollowHoldPosturePolicy implements HoldFormPolicy {
   const HollowHoldPosturePolicy({required this.config});
 
@@ -19,6 +21,9 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
         ? config.compressionSustainMaxAngle
         : config.compressionEntryMaxAngle;
   }
+
+  double get armExtensionAcceptanceMinAngle =>
+      config.armExtensionMinAngle - _armExtensionMeasurementToleranceDegrees;
 
   @override
   HoldSignalValues targetSignalValues({required bool isHolding}) {
@@ -50,7 +55,8 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
     final isCompressionValid =
         hasCompleteMetrics && compressionAngle <= targetCompressionAngle;
     final isArmExtensionValid =
-        hasCompleteMetrics && armExtensionAngle >= config.armExtensionMinAngle;
+        hasCompleteMetrics &&
+        armExtensionAngle >= armExtensionAcceptanceMinAngle;
     final isKneeExtensionValid =
         hasCompleteMetrics &&
         kneeExtensionAngle >= config.kneeExtensionMinAngle;

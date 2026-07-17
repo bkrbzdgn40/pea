@@ -21,6 +21,7 @@ void main() {
     test('implements the generic hold form policy contract', () {
       expect(policy, isA<HoldFormPolicy>());
       expect(policy.breakGraceDuration, const Duration(milliseconds: 300));
+      expect(policy.armExtensionAcceptanceMinAngle, 120.0);
     });
 
     test(
@@ -83,7 +84,7 @@ void main() {
         final boundaryEvaluation = policy.evaluate(
           _signals(
             compressionAngle: 165.0,
-            armExtensionAngle: 135.0,
+            armExtensionAngle: 120.0,
             kneeExtensionAngle: 165.0,
           ),
           isHolding: false,
@@ -104,6 +105,33 @@ void main() {
         expect(activeButInvalidEvaluation.isValidHoldPosture, isFalse);
       },
     );
+
+    test('accepts the measured real-device correct hollow hold sample', () {
+      final evaluation = policy.evaluate(
+        _signals(
+          compressionAngle: 164.2008483809672,
+          armExtensionAngle: 126.97889758142742,
+          kneeExtensionAngle: 175.183585533214,
+        ),
+        isHolding: false,
+      );
+
+      expect(evaluation.hasActivePosture, isTrue);
+      expect(evaluation.hasCompleteMetrics, isTrue);
+      expect(
+        evaluation.postureDiagnostics.validityFor(HoldSignal.compression),
+        isTrue,
+      );
+      expect(
+        evaluation.postureDiagnostics.validityFor(HoldSignal.armExtension),
+        isTrue,
+      );
+      expect(
+        evaluation.postureDiagnostics.validityFor(HoldSignal.kneeExtension),
+        isTrue,
+      );
+      expect(evaluation.isValidHoldPosture, isTrue);
+    });
 
     test(
       'missing any required signal disables complete posture evaluation',
@@ -157,7 +185,7 @@ void main() {
       final evaluation = policy.evaluate(
         _signals(
           compressionAngle: 150.0,
-          armExtensionAngle: 134.0,
+          armExtensionAngle: 119.0,
           kneeExtensionAngle: 170.0,
         ),
         isHolding: false,
@@ -196,7 +224,7 @@ void main() {
         final compressionAndArmInvalid = policy.evaluate(
           _signals(
             compressionAngle: 170.0,
-            armExtensionAngle: 134.0,
+            armExtensionAngle: 119.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: true,
@@ -204,7 +232,7 @@ void main() {
         final armAndKneeInvalid = policy.evaluate(
           _signals(
             compressionAngle: 150.0,
-            armExtensionAngle: 134.0,
+            armExtensionAngle: 119.0,
             kneeExtensionAngle: 164.0,
           ),
           isHolding: false,
@@ -235,7 +263,7 @@ void main() {
         final armFailure = policy.evaluate(
           _signals(
             compressionAngle: 150.0,
-            armExtensionAngle: 134.0,
+            armExtensionAngle: 119.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: true,
