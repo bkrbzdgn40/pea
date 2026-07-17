@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 
@@ -41,6 +42,7 @@ void main() {
 
       final data = await container.read(homeDashboardProvider.future);
 
+      expect(data.source, HomeDashboardSource.real);
       expect(data.totalAnalyses, 10);
       expect(data.averageScore, 50);
       expect(data.bestScore, 90);
@@ -50,4 +52,37 @@ void main() {
       );
     },
   );
+
+  test('non-real snapshots never produce demo dashboard values', () async {
+    final cases = <UserSessionsSnapshotSource, HomeDashboardSource>{
+      UserSessionsSnapshotSource.noUser: HomeDashboardSource.noUser,
+      UserSessionsSnapshotSource.empty: HomeDashboardSource.empty,
+      UserSessionsSnapshotSource.error: HomeDashboardSource.error,
+    };
+
+    for (final entry in cases.entries) {
+      final container = ProviderContainer(
+        overrides: [
+          userSessionsSnapshotProvider.overrideWith(
+            (ref) async => UserSessionsSnapshot(
+              sessions: const [],
+              source: entry.key,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final data = await container.read(homeDashboardProvider.future);
+
+      expect(data.source, entry.value);
+      expect(data.hasRealData, isFalse);
+      expect(data.totalAnalyses, 0);
+      expect(data.averageScore, 0);
+      expect(data.thisWeekCount, 0);
+      expect(data.bestScore, 0);
+      expect(data.scoreTrend, isEmpty);
+      expect(data.exerciseDistribution, isEmpty);
+    }
+  });
 }
