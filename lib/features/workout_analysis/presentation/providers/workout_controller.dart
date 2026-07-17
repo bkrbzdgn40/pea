@@ -690,6 +690,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       presentedHoldFeedbackCode: publishedState.holdFeedbackCode,
       holdDiagnostics: _holdCoordinatorOrThrow().diagnosticsSnapshot(),
       currentHoldSide: publishedState.selectedHoldSide,
+      currentSignalValues:
+          publishedState.calibrationMetrics.currentHoldSignalValues,
+      targetSignalValues:
+          publishedState.calibrationMetrics.targetHoldSignalValues,
+      signalValidity: publishedState.calibrationMetrics.holdSignalValidity,
     );
   }
 

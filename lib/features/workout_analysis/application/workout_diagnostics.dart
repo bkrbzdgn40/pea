@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 import '../domain/hold_diagnostics.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
+import '../domain/models/hold_signal_validity.dart';
+import '../domain/models/hold_signal_values.dart';
 
 const String _defaultAppCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
@@ -72,7 +75,14 @@ class HoldWorkoutDiagnostics {
     this.lastVisibleHoldPosture,
     this.isHoldFormBreakGraceActive,
     this.isHoldVisibilitySuspended,
-  });
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
+  }) : currentSignalValues =
+           currentSignalValues ?? const HoldSignalValues.empty(),
+       targetSignalValues =
+           targetSignalValues ?? const HoldSignalValues.empty(),
+       signalValidity = signalValidity ?? const HoldSignalValidity.empty();
 
   final int? currentHoldSeconds;
   final int? bestHoldSeconds;
@@ -85,6 +95,9 @@ class HoldWorkoutDiagnostics {
   final HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture;
   final bool? isHoldFormBreakGraceActive;
   final bool? isHoldVisibilitySuspended;
+  final HoldSignalValues currentSignalValues;
+  final HoldSignalValues targetSignalValues;
+  final HoldSignalValidity signalValidity;
 }
 
 const Object _unsetValue = Object();
@@ -241,6 +254,42 @@ class WorkoutDiagnosticsSnapshot {
   bool? get isHoldVisibilitySuspended =>
       holdDiagnostics?.isHoldVisibilitySuspended;
 
+  HoldSignalValues get holdCurrentSignalValues =>
+      holdDiagnostics?.currentSignalValues ?? const HoldSignalValues.empty();
+
+  HoldSignalValues get holdTargetSignalValues =>
+      holdDiagnostics?.targetSignalValues ?? const HoldSignalValues.empty();
+
+  HoldSignalValidity get holdSignalValidity =>
+      holdDiagnostics?.signalValidity ?? const HoldSignalValidity.empty();
+
+  double? currentHoldSignalValue(HoldSignal signal) {
+    return holdCurrentSignalValues.valueFor(signal);
+  }
+
+  double? targetHoldSignalValue(HoldSignal signal) {
+    return holdTargetSignalValues.valueFor(signal);
+  }
+
+  bool? holdSignalValidityFor(HoldSignal signal) {
+    return holdSignalValidity.validityFor(signal);
+  }
+
+  Iterable<HoldSignal> get holdSignals {
+    final signalSet = <HoldSignal>{
+      ...holdCurrentSignalValues.signals,
+      ...holdTargetSignalValues.signals,
+      ...holdSignalValidity.signals,
+    };
+    return HoldSignal.values.where(signalSet.contains);
+  }
+
+  bool hasHoldSignal(HoldSignal signal) {
+    return currentHoldSignalValue(signal) != null ||
+        targetHoldSignalValue(signal) != null ||
+        holdSignalValidityFor(signal) != null;
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'schema_version': schemaVersion,
     'app_commit_sha': appCommitSha,
@@ -290,11 +339,24 @@ class WorkoutDiagnosticsSnapshot {
     'engine_hold_feedback_code': engineHoldFeedbackCode?.code,
     'hold_engine_phase': holdEnginePhase?.code,
     'current_hold_side': currentHoldSide?.name,
+    'hold_current_signals': _serializeHoldDoubleMap(
+      holdCurrentSignalValues.asMap(),
+    ),
+    'hold_target_signals': _serializeHoldDoubleMap(
+      holdTargetSignalValues.asMap(),
+    ),
+    'hold_signal_validity': _serializeHoldBoolMap(holdSignalValidity.asMap()),
     'hold_has_complete_metrics': lastVisibleHoldPosture?.hasCompleteMetrics,
     'hold_has_active_posture': lastVisibleHoldPosture?.hasActivePosture,
-    'hold_is_body_aligned': lastVisibleHoldPosture?.isBodyAligned,
-    'hold_is_arm_supported': lastVisibleHoldPosture?.isArmSupported,
-    'hold_are_legs_extended': lastVisibleHoldPosture?.areLegsExtended,
+    'hold_is_body_aligned': lastVisibleHoldPosture?.validityFor(
+      HoldSignal.alignment,
+    ),
+    'hold_is_arm_supported': lastVisibleHoldPosture?.validityFor(
+      HoldSignal.support,
+    ),
+    'hold_are_legs_extended': lastVisibleHoldPosture?.validityFor(
+      HoldSignal.extension,
+    ),
     'hold_is_form_break_grace_active': isHoldFormBreakGraceActive,
     'hold_is_visibility_suspended': isHoldVisibilitySuspended,
   };
@@ -465,6 +527,9 @@ class WorkoutDiagnosticsAccumulator {
     HoldFeedbackCode? presentedHoldFeedbackCode,
     HoldDiagnosticsSnapshot? holdDiagnostics,
     HoldSide? currentHoldSide,
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
   }) {
     _holdDiagnostics = HoldWorkoutDiagnostics(
       currentHoldSeconds: currentHoldSeconds,
@@ -478,6 +543,10 @@ class WorkoutDiagnosticsAccumulator {
       lastVisibleHoldPosture: holdDiagnostics?.lastVisiblePosture,
       isHoldFormBreakGraceActive: holdDiagnostics?.isFormBreakGraceActive,
       isHoldVisibilitySuspended: holdDiagnostics?.isVisibilitySuspended,
+      currentSignalValues: currentSignalValues,
+      targetSignalValues:
+          targetSignalValues ?? holdDiagnostics?.targetSignalValues,
+      signalValidity: signalValidity ?? holdDiagnostics?.signalValidity,
     );
     _rangeRepDiagnostics = null;
   }
@@ -568,4 +637,26 @@ class WorkoutDiagnosticsAccumulator {
     );
     return sortedValues[rank - 1];
   }
+}
+
+Map<String, double>? _serializeHoldDoubleMap(Map<HoldSignal, double> values) {
+  if (values.isEmpty) {
+    return null;
+  }
+
+  return <String, double>{
+    for (final signal in HoldSignal.values)
+      if (values.containsKey(signal)) signal.name: values[signal]!,
+  };
+}
+
+Map<String, bool>? _serializeHoldBoolMap(Map<HoldSignal, bool> values) {
+  if (values.isEmpty) {
+    return null;
+  }
+
+  return <String, bool>{
+    for (final signal in HoldSignal.values)
+      if (values.containsKey(signal)) signal.name: values[signal]!,
+  };
 }

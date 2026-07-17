@@ -287,13 +287,13 @@ void main() {
         engine.diagnosticsSnapshot.targetSignalValues.valueFor(
           HoldSignal.compression,
         ),
-        155.0,
+        165.0,
       );
       expect(
         engine.diagnosticsSnapshot.targetSignalValues.valueFor(
           HoldSignal.armExtension,
         ),
-        150.0,
+        135.0,
       );
       expect(
         engine.diagnosticsSnapshot.targetSignalValues.valueFor(
@@ -320,7 +320,7 @@ void main() {
         engine.diagnosticsSnapshot.targetSignalValues.valueFor(
           HoldSignal.compression,
         ),
-        160.0,
+        169.0,
       );
     });
 
@@ -454,14 +454,14 @@ ExerciseConfig _hollowHoldConfig({
     joint1: PoseLandmarkType.leftShoulder,
     joint2: PoseLandmarkType.leftAnkle,
     thresholdNeutral: 170.0,
-    thresholdActive: 155.0,
+    thresholdActive: 165.0,
     thresholdPeak: 0.0,
     hollowHoldPosture: includeHollowHoldPosture
         ? const HollowHoldPostureConfig(
             activePostureMaxAngle: 170.0,
-            compressionEntryMaxAngle: 155.0,
-            compressionSustainMaxAngle: 160.0,
-            armExtensionMinAngle: 150.0,
+            compressionEntryMaxAngle: 165.0,
+            compressionSustainMaxAngle: 169.0,
+            armExtensionMinAngle: 135.0,
             kneeExtensionMinAngle: 165.0,
             breakGraceDuration: Duration(milliseconds: 300),
           )

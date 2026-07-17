@@ -10,6 +10,7 @@ import '../../application/engine_kind.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/hold_contract.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
@@ -870,32 +871,12 @@ class _CalibrationDebugPanel extends StatelessWidget {
     final scrollMaxHeight = MediaQuery.of(context).size.height * 0.42;
 
     final holdRows = <Widget>[
-      _DebugMetricRow(
-        label: 'body line',
-        value: _formatOptionalAngle(
-          metrics.currentBodyLineAngle,
-          isAvailable: metrics.hasBodyLineAngle,
+      for (final signal in metrics.availableHoldSignals)
+        _DebugMetricRow(
+          label: signal.name,
+          value: _formatHoldSignalDiagnostic(metrics, signal),
         ),
-      ),
-      _DebugMetricRow(
-        label: 'arm support',
-        value: _formatOptionalAngle(
-          metrics.currentArmSupportAngle,
-          isAvailable: metrics.hasArmSupportAngle,
-        ),
-      ),
-      _DebugMetricRow(
-        label: 'leg extension',
-        value: _formatOptionalAngle(
-          metrics.currentLegExtensionAngle,
-          isAvailable: metrics.hasLegExtensionAngle,
-        ),
-      ),
       _DebugMetricRow(label: 'coverage', value: _formatHoldCoverage(metrics)),
-      _DebugMetricRow(
-        label: 'body target',
-        value: _formatAngle(metrics.formThreshold),
-      ),
       _DebugMetricRow(
         label: 'isFormBad',
         value: workoutState.isFormBad ? 'true' : 'false',
@@ -1322,11 +1303,53 @@ String _formatTelemetryValue(double value) {
 }
 
 String _formatHoldCoverage(WorkoutCalibrationMetrics metrics) {
-  final bodyCoverage = metrics.hasBodyLineAngle ? 'body ok' : 'body missing';
-  final armCoverage = metrics.hasArmSupportAngle ? 'arm ok' : 'arm missing';
-  final legCoverage = metrics.hasLegExtensionAngle ? 'leg ok' : 'leg missing';
+  final signals = metrics.availableHoldSignals.toList();
+  if (signals.isEmpty) {
+    return '--';
+  }
 
-  return '$bodyCoverage / $armCoverage / $legCoverage';
+  final parts = <String>[
+    for (final signal in signals)
+      '${signal.name} '
+          '${metrics.currentHoldSignalValues.hasValue(signal) ? 'ok' : 'missing'}',
+  ];
+
+  return parts.join(' / ');
+}
+
+String _formatHoldSignalDiagnostic(
+  WorkoutCalibrationMetrics metrics,
+  HoldSignal signal,
+) {
+  final currentValue = metrics.currentHoldSignalValues.valueFor(signal);
+  final targetValue = metrics.targetHoldSignalValues.valueFor(signal);
+  final validity = metrics.holdSignalValidity.validityFor(signal);
+  final currentLabel = currentValue == null
+      ? '--'
+      : _formatTelemetryValue(currentValue);
+  final targetLabel = targetValue == null
+      ? '--'
+      : _formatHoldSignalTarget(signal, targetValue);
+  final validityLabel = validity == null
+      ? '--'
+      : (validity ? 'valid' : 'invalid');
+
+  return '$currentLabel / $targetLabel / $validityLabel';
+}
+
+String _formatHoldSignalTarget(HoldSignal signal, double value) {
+  final formattedValue = _formatTelemetryValue(value);
+  switch (signal) {
+    case HoldSignal.alignment:
+    case HoldSignal.extension:
+    case HoldSignal.armExtension:
+    case HoldSignal.kneeExtension:
+      return '>= $formattedValue';
+    case HoldSignal.compression:
+      return '<= $formattedValue';
+    case HoldSignal.support:
+      return formattedValue;
+  }
 }
 
 String _formatRangeRepCoverage(WorkoutCalibrationMetrics metrics) {

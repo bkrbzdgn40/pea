@@ -9,9 +9,9 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 void main() {
   const config = HollowHoldPostureConfig(
     activePostureMaxAngle: 170.0,
-    compressionEntryMaxAngle: 155.0,
-    compressionSustainMaxAngle: 160.0,
-    armExtensionMinAngle: 150.0,
+    compressionEntryMaxAngle: 165.0,
+    compressionSustainMaxAngle: 169.0,
+    armExtensionMinAngle: 135.0,
     kneeExtensionMinAngle: 165.0,
     breakGraceDuration: Duration(milliseconds: 300),
   );
@@ -28,16 +28,16 @@ void main() {
       () {
         final entryEvaluation = policy.evaluate(
           _signals(
-            compressionAngle: 158.0,
-            armExtensionAngle: 160.0,
+            compressionAngle: 167.0,
+            armExtensionAngle: 136.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: false,
         );
         final sustainEvaluation = policy.evaluate(
           _signals(
-            compressionAngle: 158.0,
-            armExtensionAngle: 160.0,
+            compressionAngle: 167.0,
+            armExtensionAngle: 136.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: true,
@@ -45,11 +45,11 @@ void main() {
 
         expect(
           entryEvaluation.targetSignalValues.valueFor(HoldSignal.compression),
-          155.0,
+          165.0,
         );
         expect(
           entryEvaluation.targetSignalValues.valueFor(HoldSignal.armExtension),
-          150.0,
+          135.0,
         );
         expect(
           entryEvaluation.targetSignalValues.valueFor(HoldSignal.kneeExtension),
@@ -65,7 +65,7 @@ void main() {
 
         expect(
           sustainEvaluation.targetSignalValues.valueFor(HoldSignal.compression),
-          160.0,
+          169.0,
         );
         expect(
           sustainEvaluation.postureDiagnostics.validityFor(
@@ -82,8 +82,8 @@ void main() {
       () {
         final boundaryEvaluation = policy.evaluate(
           _signals(
-            compressionAngle: 155.0,
-            armExtensionAngle: 150.0,
+            compressionAngle: 165.0,
+            armExtensionAngle: 135.0,
             kneeExtensionAngle: 165.0,
           ),
           isHolding: false,
@@ -139,7 +139,7 @@ void main() {
       () {
         final evaluation = policy.evaluate(
           _signals(
-            compressionAngle: 161.0,
+            compressionAngle: 170.0,
             armExtensionAngle: 160.0,
             kneeExtensionAngle: 170.0,
           ),
@@ -157,7 +157,7 @@ void main() {
       final evaluation = policy.evaluate(
         _signals(
           compressionAngle: 150.0,
-          armExtensionAngle: 149.0,
+          armExtensionAngle: 134.0,
           kneeExtensionAngle: 170.0,
         ),
         isHolding: false,
@@ -195,8 +195,8 @@ void main() {
       () {
         final compressionAndArmInvalid = policy.evaluate(
           _signals(
-            compressionAngle: 165.0,
-            armExtensionAngle: 149.0,
+            compressionAngle: 170.0,
+            armExtensionAngle: 134.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: true,
@@ -204,7 +204,7 @@ void main() {
         final armAndKneeInvalid = policy.evaluate(
           _signals(
             compressionAngle: 150.0,
-            armExtensionAngle: 149.0,
+            armExtensionAngle: 134.0,
             kneeExtensionAngle: 164.0,
           ),
           isHolding: false,
@@ -226,7 +226,7 @@ void main() {
       () {
         final compressionOnly = policy.evaluate(
           _signals(
-            compressionAngle: 161.0,
+            compressionAngle: 170.0,
             armExtensionAngle: 160.0,
             kneeExtensionAngle: 170.0,
           ),
@@ -235,7 +235,7 @@ void main() {
         final armFailure = policy.evaluate(
           _signals(
             compressionAngle: 150.0,
-            armExtensionAngle: 149.0,
+            armExtensionAngle: 134.0,
             kneeExtensionAngle: 170.0,
           ),
           isHolding: true,

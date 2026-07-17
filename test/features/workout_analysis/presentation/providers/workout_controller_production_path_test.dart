@@ -19,6 +19,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -1453,6 +1454,182 @@ void main() {
   );
 
   test(
+    'characterized low and long hollow hold enters HOLDING and publishes generic signal diagnostics',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = await _createResolvedConfigHarness(
+        selectedExercise: ExerciseType.hollowHold,
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+
+      await _establishVisibleHollowHoldWithPose(
+        harness.controller,
+        detector,
+        clock,
+        _characterizedLowLongHollowHoldPose(),
+      );
+
+      final state = harness.container.read(workoutControllerProvider);
+      final snapshot = harness.controller.diagnosticsSnapshot();
+      final json = snapshot.toJson();
+      final currentSignals = Map<String, Object?>.from(
+        json['hold_current_signals']! as Map,
+      );
+      final targetSignals = Map<String, Object?>.from(
+        json['hold_target_signals']! as Map,
+      );
+      final signalValidity = Map<String, Object?>.from(
+        json['hold_signal_validity']! as Map,
+      );
+
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.compression),
+        closeTo(164.291, 0.001),
+      );
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.armExtension),
+        closeTo(136.302, 0.001),
+      );
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.kneeExtension),
+        closeTo(173.0, 0.001),
+      );
+      expect(snapshot.holdSignalValidityFor(HoldSignal.compression), isTrue);
+      expect(snapshot.holdSignalValidityFor(HoldSignal.armExtension), isTrue);
+      expect(snapshot.holdSignalValidityFor(HoldSignal.kneeExtension), isTrue);
+      expect(currentSignals['compression'], closeTo(164.291, 0.001));
+      expect(currentSignals['armExtension'], closeTo(136.302, 0.001));
+      expect(currentSignals['kneeExtension'], closeTo(173.0, 0.001));
+      expect(targetSignals['compression'], 169.0);
+      expect(targetSignals['armExtension'], 135.0);
+      expect(targetSignals['kneeExtension'], 165.0);
+      expect(signalValidity['compression'], isTrue);
+      expect(signalValidity['armExtension'], isTrue);
+      expect(signalValidity['kneeExtension'], isTrue);
+      expect(json['hold_is_body_aligned'], isNull);
+      expect(json['hold_is_arm_supported'], isNull);
+      expect(json['hold_are_legs_extended'], isNull);
+    },
+  );
+
+  test(
+    'characterized more-compressed hollow hold also enters HOLDING',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = await _createResolvedConfigHarness(
+        selectedExercise: ExerciseType.hollowHold,
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+
+      await _establishVisibleHollowHoldWithPose(
+        harness.controller,
+        detector,
+        clock,
+        _characterizedCompressedHollowHoldPose(),
+      );
+
+      final state = harness.container.read(workoutControllerProvider);
+      final snapshot = harness.controller.diagnosticsSnapshot();
+
+      expect(state.isHolding, isTrue);
+      expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
+      expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
+      expect(state.holdEnginePhase, HoldPhase.holding);
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.compression),
+        closeTo(151.04, 0.001),
+      );
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.armExtension),
+        closeTo(136.302, 0.001),
+      );
+      expect(
+        snapshot.currentHoldSignalValue(HoldSignal.kneeExtension),
+        closeTo(166.0, 0.001),
+      );
+    },
+  );
+
+  test('flat hollow hold stays rejected and never starts the timer', () async {
+    final detector = _QueuedPoseDetector();
+    final clock = _FakeClock();
+    final harness = await _createResolvedConfigHarness(
+      selectedExercise: ExerciseType.hollowHold,
+      detector: detector,
+      clock: clock,
+    );
+    addTearDown(harness.dispose);
+
+    await _establishVisibleHollowHoldWithPose(
+      harness.controller,
+      detector,
+      clock,
+      _restingFlatHollowHoldPose(),
+    );
+
+    final state = harness.container.read(workoutControllerProvider);
+    final snapshot = harness.controller.diagnosticsSnapshot();
+
+    expect(state.isHolding, isFalse);
+    expect(state.currentHoldSeconds, 0);
+    expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
+    expect(state.holdEnginePhase, HoldPhase.ready);
+    expect(state.currentPhase, 'READY');
+    expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isFalse);
+    expect(
+      snapshot.currentHoldSignalValue(HoldSignal.compression),
+      closeTo(174.545, 0.001),
+    );
+    expect(snapshot.holdSignalValidityFor(HoldSignal.compression), isFalse);
+  });
+
+  test(
+    'bent-knee hollow hold still surfaces the knee corrective cue',
+    () async {
+      final detector = _QueuedPoseDetector();
+      final clock = _FakeClock();
+      final harness = await _createResolvedConfigHarness(
+        selectedExercise: ExerciseType.hollowHold,
+        detector: detector,
+        clock: clock,
+      );
+      addTearDown(harness.dispose);
+
+      await _establishVisibleHollowHoldWithPose(
+        harness.controller,
+        detector,
+        clock,
+        _characterizedLowLongHollowHoldPose(),
+      );
+
+      var state = harness.container.read(workoutControllerProvider);
+      for (var index = 0; index < 5 && state.isHolding; index++) {
+        clock.advance(const Duration(milliseconds: 150));
+        await _analyzeFrame(harness.controller, detector, <Pose>[
+          _bentKneeHollowHoldPose(),
+        ]);
+        state = harness.container.read(workoutControllerProvider);
+      }
+
+      expect(state.isHolding, isFalse);
+      expect(state.holdFeedbackCode, HoldFeedbackCode.straightenKnees);
+      expect(state.holdEnginePhase, HoldPhase.broken);
+      expect(state.feedbackMessage, 'Dizleri Duzlestir');
+      expect(state.currentPhase, 'BROKEN');
+    },
+  );
+
+  test(
     'hold rejects low-confidence poses and does not start a false hold',
     () async {
       final detector = _QueuedPoseDetector();
@@ -2620,6 +2797,19 @@ Future<void> _establishVisibleHollowHold(
   ]);
 }
 
+Future<void> _establishVisibleHollowHoldWithPose(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock,
+  Pose pose,
+) async {
+  await _analyzeFrame(controller, detector, <Pose>[pose]);
+  clock.advance(const Duration(milliseconds: 100));
+  await _analyzeFrame(controller, detector, <Pose>[pose]);
+  clock.advance(const Duration(seconds: 5));
+  await _analyzeFrame(controller, detector, <Pose>[pose]);
+}
+
 Future<void> _establishActiveLeftRepContext(
   WorkoutController controller,
   _QueuedPoseDetector detector,
@@ -2879,6 +3069,46 @@ Pose _hollowHoldPose({
     includeRightSide: includeRightSide,
     likelihoodOverrides: likelihoodOverrides,
     missingLandmarks: missingLandmarks,
+  );
+}
+
+Pose _characterizedLowLongHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.2),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.2),
+    ankle: const math.Point<double>(1.3, 0.1),
+    kneeExtensionAngle: 173.0,
+  );
+}
+
+Pose _characterizedCompressedHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.2),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.2),
+    ankle: const math.Point<double>(1.1, 0.35),
+    kneeExtensionAngle: 166.0,
+  );
+}
+
+Pose _restingFlatHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.08),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.0),
+    ankle: const math.Point<double>(1.3, 0.02),
+    kneeExtensionAngle: 179.0,
+  );
+}
+
+Pose _bentKneeHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.2),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.2),
+    ankle: const math.Point<double>(1.3, 0.1),
+    kneeExtensionAngle: 117.0,
   );
 }
 

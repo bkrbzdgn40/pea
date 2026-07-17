@@ -8,6 +8,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -36,6 +37,9 @@ void main() {
     expect(snapshot.engineHoldFeedbackCode, isNull);
     expect(snapshot.holdEnginePhase, isNull);
     expect(snapshot.currentHoldSide, isNull);
+    expect(snapshot.holdCurrentSignalValues.asMap(), isEmpty);
+    expect(snapshot.holdTargetSignalValues.asMap(), isEmpty);
+    expect(snapshot.holdSignalValidity.asMap(), isEmpty);
   });
 
   test(
@@ -150,6 +154,9 @@ void main() {
       expect(json['last_calibration_offset_degrees'], 2.5);
       expect(json['presented_hold_feedback_code'], isNull);
       expect(json['engine_hold_feedback_code'], isNull);
+      expect(json['hold_current_signals'], isNull);
+      expect(json['hold_target_signals'], isNull);
+      expect(json['hold_signal_validity'], isNull);
     },
   );
 
@@ -183,6 +190,13 @@ void main() {
         presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
         holdDiagnostics: holdDiagnostics,
         currentHoldSide: HoldSide.right,
+        currentSignalValues: HoldSignalValues(
+          values: <HoldSignal, double>{
+            HoldSignal.alignment: 168.0,
+            HoldSignal.support: 90.0,
+            HoldSignal.extension: 170.0,
+          },
+        ),
       );
     final snapshot = subject.snapshot(now: startedAt);
     expect(snapshot.currentCameraFps, 30);
@@ -207,6 +221,17 @@ void main() {
     expect(snapshot.lastVisibleHoldPosture?.areLegsExtended, isTrue);
     expect(snapshot.isHoldFormBreakGraceActive, isFalse);
     expect(snapshot.isHoldVisibilitySuspended, isFalse);
+    expect(snapshot.holdCurrentSignalValues.asMap(), <HoldSignal, double>{
+      HoldSignal.alignment: 168.0,
+      HoldSignal.support: 90.0,
+      HoldSignal.extension: 170.0,
+    });
+    expect(snapshot.holdTargetSignalValues.asMap(), <HoldSignal, double>{});
+    expect(snapshot.holdSignalValidity.asMap(), <HoldSignal, bool>{
+      HoldSignal.alignment: true,
+      HoldSignal.support: true,
+      HoldSignal.extension: true,
+    });
     final json = snapshot.toJson();
     expect(json['schema_version'], 3);
     expect(json['rep_count'], 0);
@@ -225,7 +250,84 @@ void main() {
     expect(json['hold_engine_phase'], HoldPhase.holding.code);
     expect(json['current_hold_side'], 'right');
     expect(json['current_selected_side'], isNull);
+    expect(json['hold_current_signals'], <String, double>{
+      'alignment': 168.0,
+      'support': 90.0,
+      'extension': 170.0,
+    });
+    expect(json['hold_target_signals'], isNull);
+    expect(json['hold_signal_validity'], <String, bool>{
+      'alignment': true,
+      'support': true,
+      'extension': true,
+    });
   });
+
+  test(
+    'hollow hold diagnostics serialize generic signal maps without fake plank booleans',
+    () {
+      final holdDiagnostics = HoldDiagnosticsSnapshot(
+        phase: HoldPhase.holding,
+        feedbackCode: HoldFeedbackCode.holdPosition,
+        targetSignalValues: HoldSignalValues(
+          values: <HoldSignal, double>{
+            HoldSignal.compression: 169.0,
+            HoldSignal.armExtension: 135.0,
+            HoldSignal.kneeExtension: 165.0,
+          },
+        ),
+        lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+          hasCompleteMetrics: true,
+          hasActivePosture: true,
+          signalValidity: HoldSignalValidity(
+            values: <HoldSignal, bool>{
+              HoldSignal.compression: true,
+              HoldSignal.armExtension: true,
+              HoldSignal.kneeExtension: true,
+            },
+          ),
+        ),
+      );
+      final subject = accumulator()
+        ..updateHoldState(
+          currentHoldSeconds: 5,
+          bestHoldSeconds: 8,
+          currentPhase: 'HOLDING',
+          isHolding: true,
+          presentedHoldFeedbackCode: HoldFeedbackCode.holdPosition,
+          holdDiagnostics: holdDiagnostics,
+          currentHoldSide: HoldSide.left,
+          currentSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.compression: 164.3,
+              HoldSignal.armExtension: 136.3,
+              HoldSignal.kneeExtension: 173.0,
+            },
+          ),
+        );
+
+      final json = subject.snapshot(now: startedAt).toJson();
+
+      expect(json['hold_current_signals'], <String, double>{
+        'compression': 164.3,
+        'armExtension': 136.3,
+        'kneeExtension': 173.0,
+      });
+      expect(json['hold_target_signals'], <String, double>{
+        'compression': 169.0,
+        'armExtension': 135.0,
+        'kneeExtension': 165.0,
+      });
+      expect(json['hold_signal_validity'], <String, bool>{
+        'compression': true,
+        'armExtension': true,
+        'kneeExtension': true,
+      });
+      expect(json['hold_is_body_aligned'], isNull);
+      expect(json['hold_is_arm_supported'], isNull);
+      expect(json['hold_are_legs_extended'], isNull);
+    },
+  );
 
   test('processing duration uses deterministic nearest-rank percentiles', () {
     final subject = accumulator();
@@ -312,6 +414,9 @@ void main() {
     expect(json['engine_hold_feedback_code'], isNull);
     expect(json['hold_engine_phase'], isNull);
     expect(json['current_hold_side'], isNull);
+    expect(json['hold_current_signals'], isNull);
+    expect(json['hold_target_signals'], isNull);
+    expect(json['hold_signal_validity'], isNull);
     expect(json['hold_has_complete_metrics'], isNull);
     expect(json['hold_has_active_posture'], isNull);
     expect(json['hold_is_body_aligned'], isNull);

@@ -248,6 +248,21 @@ class HoldWorkoutCalibrationMetrics {
 
   bool get hasLegExtensionAngle =>
       currentSignalValues.hasValue(HoldSignal.extension);
+
+  Iterable<HoldSignal> get availableSignals {
+    final signalSet = <HoldSignal>{
+      ...currentSignalValues.signals,
+      ...targetSignalValues.signals,
+      ...signalValidity.signals,
+    };
+    return HoldSignal.values.where(signalSet.contains);
+  }
+
+  bool hasSignal(HoldSignal signal) {
+    return currentSignalValues.hasValue(signal) ||
+        targetSignalValues.hasValue(signal) ||
+        signalValidity.validityFor(signal) != null;
+  }
 }
 
 class WorkoutCalibrationMetrics {
@@ -286,6 +301,13 @@ class WorkoutCalibrationMetrics {
 
   HoldSignalValidity get holdSignalValidity =>
       _hold?.signalValidity ?? const HoldSignalValidity.empty();
+
+  Iterable<HoldSignal> get availableHoldSignals =>
+      _hold?.availableSignals ?? const <HoldSignal>[];
+
+  bool hasHoldSignal(HoldSignal signal) {
+    return _hold?.hasSignal(signal) ?? false;
+  }
 
   bool get isRangeRepFrameValid => _rangeRep?.isRangeRepFrameValid ?? true;
   bool get hasPrimaryAngle => _rangeRep?.hasPrimaryAngle ?? false;

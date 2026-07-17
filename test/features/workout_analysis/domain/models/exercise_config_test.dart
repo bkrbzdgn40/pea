@@ -219,16 +219,16 @@ void main() {
         );
         expect(config.hollowHoldPosture, isNotNull);
         expect(config.hollowHoldPosture?.activePostureMaxAngle, 170.0);
-        expect(config.hollowHoldPosture?.compressionEntryMaxAngle, 155.0);
-        expect(config.hollowHoldPosture?.compressionSustainMaxAngle, 160.0);
-        expect(config.hollowHoldPosture?.armExtensionMinAngle, 150.0);
+        expect(config.hollowHoldPosture?.compressionEntryMaxAngle, 165.0);
+        expect(config.hollowHoldPosture?.compressionSustainMaxAngle, 169.0);
+        expect(config.hollowHoldPosture?.armExtensionMinAngle, 135.0);
         expect(config.hollowHoldPosture?.kneeExtensionMinAngle, 165.0);
         expect(
           config.hollowHoldPosture?.breakGraceDuration,
           const Duration(milliseconds: 300),
         );
         expect(config.thresholdNeutral, 170.0);
-        expect(config.thresholdActive, 155.0);
+        expect(config.thresholdActive, 165.0);
         expect(config.rangeRepSignals, isNull);
       },
     );
@@ -295,16 +295,16 @@ void main() {
           'joint2': 'leftAnkle',
           'hollowHoldPosture': <String, dynamic>{
             'activePostureMaxAngle': 170.0,
-            'compressionEntryMaxAngle': 155.0,
-            'compressionSustainMaxAngle': 160.0,
-            'armExtensionMinAngle': 150.0,
+            'compressionEntryMaxAngle': 165.0,
+            'compressionSustainMaxAngle': 169.0,
+            'armExtensionMinAngle': 135.0,
             'kneeExtensionMinAngle': 165.0,
             'breakGraceMillis': 300,
           },
         });
 
         expect(config.thresholdNeutral, 170.0);
-        expect(config.thresholdActive, 155.0);
+        expect(config.thresholdActive, 165.0);
         expect(config.thresholdPeak, 0.0);
       },
     );
@@ -609,13 +609,13 @@ void main() {
             'joint1': 'leftShoulder',
             'joint2': 'leftAnkle',
             'thresholdNeutral': 170.0,
-            'thresholdActive': 155.0,
+            'thresholdActive': 165.0,
             'thresholdPeak': 0.0,
             'hollowHoldPosture': <String, dynamic>{
               'activePostureMaxAngle': 170.0,
-              'compressionEntryMaxAngle': 155.0,
-              'compressionSustainMaxAngle': 160.0,
-              'armExtensionMinAngle': 150.0,
+              'compressionEntryMaxAngle': 165.0,
+              'compressionSustainMaxAngle': 169.0,
+              'armExtensionMinAngle': 135.0,
               'kneeExtensionMinAngle': 165.0,
               'breakGraceMillis': 300,
               'mystery': true,
@@ -642,7 +642,7 @@ void main() {
             'joint1': 'leftShoulder',
             'joint2': 'leftAnkle',
             'thresholdNeutral': 170.0,
-            'thresholdActive': 155.0,
+            'thresholdActive': 165.0,
             'thresholdPeak': 0.0,
             'holdSignals': <String, dynamic>{
               'referenceSide': 'left',

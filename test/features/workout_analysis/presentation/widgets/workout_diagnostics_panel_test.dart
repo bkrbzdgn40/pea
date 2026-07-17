@@ -9,6 +9,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -56,6 +57,20 @@ void main() {
             },
           ),
         ),
+        currentSignalValues: HoldSignalValues(
+          values: <HoldSignal, double>{
+            HoldSignal.alignment: 168.0,
+            HoldSignal.support: 90.0,
+            HoldSignal.extension: 170.0,
+          },
+        ),
+        signalValidity: HoldSignalValidity(
+          values: <HoldSignal, bool>{
+            HoldSignal.alignment: true,
+            HoldSignal.support: false,
+            HoldSignal.extension: true,
+          },
+        ),
         isHoldFormBreakGraceActive: true,
         isHoldVisibilitySuspended: false,
       ),
@@ -78,12 +93,76 @@ void main() {
     expect(find.text('right'), findsOneWidget);
     expect(find.text('Metrics complete'), findsOneWidget);
     expect(find.text('Active posture'), findsOneWidget);
+    expect(find.text('alignment'), findsOneWidget);
+    expect(find.text('support'), findsOneWidget);
+    expect(find.text('extension'), findsOneWidget);
     expect(find.text('Body aligned'), findsOneWidget);
     expect(find.text('Arm supported'), findsOneWidget);
     expect(find.text('Legs extended'), findsOneWidget);
     expect(find.text('Form-break grace active'), findsOneWidget);
     expect(find.text('Visibility suspended'), findsOneWidget);
   });
+
+  testWidgets(
+    'hollow hold typed state shows generic signals and hides plank compatibility rows',
+    (tester) async {
+      await _pumpPanel(
+        tester,
+        snapshotReader: () => _snapshot(
+          analysisKind: 'hold',
+          presentedHoldFeedbackCode: HoldFeedbackCode.holdPosition,
+          engineHoldFeedbackCode: HoldFeedbackCode.holdPosition,
+          holdEnginePhase: HoldPhase.holding,
+          currentHoldSide: HoldSide.left,
+          lastVisibleHoldPosture: HoldPostureDiagnosticsSnapshot(
+            hasCompleteMetrics: true,
+            hasActivePosture: true,
+            signalValidity: HoldSignalValidity(
+              values: <HoldSignal, bool>{
+                HoldSignal.compression: true,
+                HoldSignal.armExtension: true,
+                HoldSignal.kneeExtension: true,
+              },
+            ),
+          ),
+          currentSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.compression: 164.3,
+              HoldSignal.armExtension: 136.3,
+              HoldSignal.kneeExtension: 173.0,
+            },
+          ),
+          targetSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.compression: 169.0,
+              HoldSignal.armExtension: 135.0,
+              HoldSignal.kneeExtension: 165.0,
+            },
+          ),
+          signalValidity: HoldSignalValidity(
+            values: <HoldSignal, bool>{
+              HoldSignal.compression: true,
+              HoldSignal.armExtension: true,
+              HoldSignal.kneeExtension: true,
+            },
+          ),
+          isHoldFormBreakGraceActive: false,
+          isHoldVisibilitySuspended: false,
+        ),
+        onReset: () {},
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, -1400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('compression'), findsOneWidget);
+      expect(find.text('armExtension'), findsOneWidget);
+      expect(find.text('kneeExtension'), findsOneWidget);
+      expect(find.text('Body aligned'), findsNothing);
+      expect(find.text('Arm supported'), findsNothing);
+      expect(find.text('Legs extended'), findsNothing);
+    },
+  );
 
   testWidgets(
     'nullable degerleri yer tutucu olarak gosterir ve unknown commit SHA görünür kalir',
@@ -350,6 +429,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
   HoldPhase? holdEnginePhase,
   HoldSide? currentHoldSide,
   HoldPostureDiagnosticsSnapshot? lastVisibleHoldPosture,
+  HoldSignalValues? currentSignalValues,
+  HoldSignalValues? targetSignalValues,
+  HoldSignalValidity? signalValidity,
   bool? isHoldFormBreakGraceActive,
   bool? isHoldVisibilitySuspended,
 }) {
@@ -397,6 +479,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
             holdEnginePhase: holdEnginePhase,
             currentHoldSide: currentHoldSide,
             lastVisibleHoldPosture: lastVisibleHoldPosture,
+            currentSignalValues: currentSignalValues,
+            targetSignalValues: targetSignalValues,
+            signalValidity: signalValidity,
             isHoldFormBreakGraceActive: isHoldFormBreakGraceActive,
             isHoldVisibilitySuspended: isHoldVisibilitySuspended,
           )

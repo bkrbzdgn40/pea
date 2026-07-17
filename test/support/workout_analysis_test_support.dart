@@ -128,13 +128,13 @@ ExerciseConfig buildHollowHoldConfig() {
     joint1: PoseLandmarkType.leftShoulder,
     joint2: PoseLandmarkType.leftAnkle,
     thresholdNeutral: 170.0,
-    thresholdActive: 155.0,
+    thresholdActive: 165.0,
     thresholdPeak: 0.0,
     hollowHoldPosture: const HollowHoldPostureConfig(
       activePostureMaxAngle: 170.0,
-      compressionEntryMaxAngle: 155.0,
-      compressionSustainMaxAngle: 160.0,
-      armExtensionMinAngle: 150.0,
+      compressionEntryMaxAngle: 165.0,
+      compressionSustainMaxAngle: 169.0,
+      armExtensionMinAngle: 135.0,
       kneeExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
@@ -446,6 +446,55 @@ Pose buildHollowHoldPose({
     );
   }
 
+  return Pose(landmarks: landmarks);
+}
+
+Pose buildHollowHoldPoseFromCoordinates({
+  required math.Point<double> shoulder,
+  required math.Point<double> hip,
+  required math.Point<double> wrist,
+  required math.Point<double> ankle,
+  double kneeExtensionAngle = 170.0,
+  HoldSide side = HoldSide.left,
+  double defaultLikelihood = 0.95,
+  Map<PoseLandmarkType, double> likelihoodOverrides =
+      const <PoseLandmarkType, double>{},
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+
+    landmarks[type] = buildLandmark(
+      type,
+      x,
+      y,
+      likelihood: likelihoodOverrides[type] ?? defaultLikelihood,
+    );
+  }
+
+  final knee = _holdKneePoint(
+    hip: hip,
+    ankle: ankle,
+    jointAngle: kneeExtensionAngle,
+  );
+  if (side == HoldSide.left) {
+    addLandmark(PoseLandmarkType.leftShoulder, shoulder.x, shoulder.y);
+    addLandmark(PoseLandmarkType.leftHip, hip.x, hip.y);
+    addLandmark(PoseLandmarkType.leftWrist, wrist.x, wrist.y);
+    addLandmark(PoseLandmarkType.leftKnee, knee.x, knee.y);
+    addLandmark(PoseLandmarkType.leftAnkle, ankle.x, ankle.y);
+    return Pose(landmarks: landmarks);
+  }
+
+  addLandmark(PoseLandmarkType.rightShoulder, shoulder.x, shoulder.y);
+  addLandmark(PoseLandmarkType.rightHip, hip.x, hip.y);
+  addLandmark(PoseLandmarkType.rightWrist, wrist.x, wrist.y);
+  addLandmark(PoseLandmarkType.rightKnee, knee.x, knee.y);
+  addLandmark(PoseLandmarkType.rightAnkle, ankle.x, ankle.y);
   return Pose(landmarks: landmarks);
 }
 

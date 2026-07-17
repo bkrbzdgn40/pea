@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../application/workout_diagnostics.dart';
+import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
 
@@ -67,6 +68,7 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
         snapshot?.holdEnginePhase != null ||
         snapshot?.currentHoldSide != null ||
         snapshot?.lastVisibleHoldPosture != null ||
+        snapshot?.holdSignals.isNotEmpty == true ||
         snapshot?.isHoldFormBreakGraceActive != null ||
         snapshot?.isHoldVisibilitySuspended != null;
     return SafeArea(
@@ -387,30 +389,38 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                         ?.hasActivePosture,
                                   ),
                                 ),
-                                _DiagnosticsRow(
-                                  label: 'Body aligned',
-                                  value: _formatBool(
-                                    snapshot
-                                        .lastVisibleHoldPosture
-                                        ?.isBodyAligned,
+                                ..._buildHoldSignalRows(snapshot),
+                                if (snapshot.hasHoldSignal(
+                                  HoldSignal.alignment,
+                                ))
+                                  _DiagnosticsRow(
+                                    label: 'Body aligned',
+                                    value: _formatBool(
+                                      snapshot.holdSignalValidityFor(
+                                        HoldSignal.alignment,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                _DiagnosticsRow(
-                                  label: 'Arm supported',
-                                  value: _formatBool(
-                                    snapshot
-                                        .lastVisibleHoldPosture
-                                        ?.isArmSupported,
+                                if (snapshot.hasHoldSignal(HoldSignal.support))
+                                  _DiagnosticsRow(
+                                    label: 'Arm supported',
+                                    value: _formatBool(
+                                      snapshot.holdSignalValidityFor(
+                                        HoldSignal.support,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                _DiagnosticsRow(
-                                  label: 'Legs extended',
-                                  value: _formatBool(
-                                    snapshot
-                                        .lastVisibleHoldPosture
-                                        ?.areLegsExtended,
+                                if (snapshot.hasHoldSignal(
+                                  HoldSignal.extension,
+                                ))
+                                  _DiagnosticsRow(
+                                    label: 'Legs extended',
+                                    value: _formatBool(
+                                      snapshot.holdSignalValidityFor(
+                                        HoldSignal.extension,
+                                      ),
+                                    ),
                                   ),
-                                ),
                                 _DiagnosticsRow(
                                   label: 'Form-break grace active',
                                   value: _formatBool(
@@ -573,6 +583,53 @@ class _DiagnosticsRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+List<Widget> _buildHoldSignalRows(WorkoutDiagnosticsSnapshot snapshot) {
+  return <Widget>[
+    for (final signal in snapshot.holdSignals)
+      _DiagnosticsRow(
+        label: signal.name,
+        value: _formatHoldSignalDiagnostic(snapshot, signal),
+      ),
+  ];
+}
+
+String _formatHoldSignalDiagnostic(
+  WorkoutDiagnosticsSnapshot snapshot,
+  HoldSignal signal,
+) {
+  final currentValue = snapshot.currentHoldSignalValue(signal);
+  final targetValue = snapshot.targetHoldSignalValue(signal);
+  final validity = snapshot.holdSignalValidityFor(signal);
+  final currentLabel = currentValue == null
+      ? _missingDiagnosticsValue
+      : _formatSignalValue(currentValue);
+  final targetLabel = targetValue == null
+      ? _missingDiagnosticsValue
+      : _formatHoldSignalTarget(signal, targetValue);
+  final validityLabel = validity == null
+      ? _missingDiagnosticsValue
+      : (validity ? 'valid' : 'invalid');
+
+  return '$currentLabel / target $targetLabel / $validityLabel';
+}
+
+String _formatSignalValue(double value) => value.toStringAsFixed(1);
+
+String _formatHoldSignalTarget(HoldSignal signal, double value) {
+  final formattedValue = _formatSignalValue(value);
+  switch (signal) {
+    case HoldSignal.alignment:
+    case HoldSignal.extension:
+    case HoldSignal.armExtension:
+    case HoldSignal.kneeExtension:
+      return '>= $formattedValue';
+    case HoldSignal.compression:
+      return '<= $formattedValue';
+    case HoldSignal.support:
+      return formattedValue;
   }
 }
 

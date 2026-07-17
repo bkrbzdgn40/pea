@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
@@ -904,6 +905,58 @@ void main() {
         },
       );
 
+      test(
+        'characterizes a low and long hollow hold with real landmark coordinates',
+        () {
+          final metrics = extractor.extract(
+            _characterizedLowLongHollowHoldPose(),
+            buildHollowHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.hollowHold,
+            holdSide: HoldSide.left,
+          );
+
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.compression),
+            closeTo(164.291, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.armExtension),
+            closeTo(136.302, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.kneeExtension),
+            closeTo(173.0, 0.001),
+          );
+        },
+      );
+
+      test(
+        'characterizes a more-compressed hollow hold with real landmark coordinates',
+        () {
+          final metrics = extractor.extract(
+            _characterizedCompressedHollowHoldPose(),
+            buildHollowHoldConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.hollowHold,
+            holdSide: HoldSide.left,
+          );
+
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.compression),
+            closeTo(151.04, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.armExtension),
+            closeTo(136.302, 0.001),
+          );
+          expect(
+            metrics.holdSignalValues.valueFor(HoldSignal.kneeExtension),
+            closeTo(166.0, 0.001),
+          );
+        },
+      );
+
       test('missing required hold signal config still fails', () {
         final config = ExerciseConfig(
           name: 'Plank',
@@ -1379,4 +1432,24 @@ Map<PoseLandmarkType, PoseLandmark> _rightHoldLandmarks() {
 
 PoseLandmark _landmark(PoseLandmarkType type, double x, double y) {
   return PoseLandmark(type: type, x: x, y: y, z: 0, likelihood: 1.0);
+}
+
+Pose _characterizedLowLongHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.2),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.2),
+    ankle: const math.Point<double>(1.3, 0.1),
+    kneeExtensionAngle: 173.0,
+  );
+}
+
+Pose _characterizedCompressedHollowHoldPose() {
+  return buildHollowHoldPoseFromCoordinates(
+    shoulder: const math.Point<double>(-1.0, 0.2),
+    hip: const math.Point<double>(0.0, 0.0),
+    wrist: const math.Point<double>(-1.7, 1.2),
+    ankle: const math.Point<double>(1.1, 0.35),
+    kneeExtensionAngle: 166.0,
+  );
 }
