@@ -8,6 +8,8 @@ import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
+import '../domain/models/hold_signal_validity.dart';
+import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
 import 'analysis_frame_builder.dart';
 import 'engine_kind.dart';
@@ -103,13 +105,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         const WorkoutCalibrationMetricsBuilder(),
     HoldSideStabilizer? holdSideStabilizer,
   }) : _engine = engine,
-       _config = config,
        _analysisFrameBuilder = analysisFrameBuilder,
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
        _holdSideStabilizer = holdSideStabilizer ?? HoldSideStabilizer();
 
   final HoldAnalysisEngine _engine;
-  final ExerciseConfig _config;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
   final HoldSideStabilizer _holdSideStabilizer;
@@ -279,7 +279,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         currentPhase: 'WAITING',
         calibrationMetrics: _buildHoldCalibrationMetrics(
           currentFormMetric: metrics.formMetric,
-          thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
+          targetSignalValues: holdDiagnostics.targetSignalValues,
         ),
       ),
       diagnosticsUpdate: const HoldCoordinatorDiagnosticsUpdate(
@@ -317,10 +317,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: metrics.formMetric,
-            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: metrics.bodyLineAngle,
-            currentArmSupportAngle: metrics.armSupportAngle,
-            currentLegExtensionAngle: metrics.legExtensionAngle,
+            currentSignalValues: metrics.holdSignalValues,
+            targetSignalValues: holdDiagnostics.targetSignalValues,
           ),
         ),
         diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -370,10 +368,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: analysisFrame.formMetric,
-            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: analysisFrame.bodyLineAngle,
-            currentArmSupportAngle: analysisFrame.armSupportAngle,
-            currentLegExtensionAngle: analysisFrame.legExtensionAngle,
+            currentSignalValues: analysisFrame.holdSignalValues,
+            targetSignalValues: holdDiagnostics.targetSignalValues,
+            signalValidity: holdDiagnostics.signalValidity,
           ),
         ),
         diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -402,7 +399,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         currentPhase: 'WAITING',
         calibrationMetrics: _buildHoldCalibrationMetrics(
           currentFormMetric: metrics.formMetric,
-          thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
+          targetSignalValues: _holdDiagnosticsSnapshot().targetSignalValues,
         ),
       ),
       diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -470,17 +467,15 @@ class DefaultHoldCoordinator implements HoldCoordinator {
 
   WorkoutCalibrationMetrics _buildHoldCalibrationMetrics({
     required double currentFormMetric,
-    required double thresholdValue,
-    double? currentBodyLineAngle,
-    double? currentArmSupportAngle,
-    double? currentLegExtensionAngle,
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
   }) {
     return _calibrationMetricsBuilder.buildHold(
       currentFormMetric: currentFormMetric,
-      thresholdValue: thresholdValue,
-      currentBodyLineAngle: currentBodyLineAngle,
-      currentArmSupportAngle: currentArmSupportAngle,
-      currentLegExtensionAngle: currentLegExtensionAngle,
+      currentSignalValues: currentSignalValues,
+      targetSignalValues: targetSignalValues,
+      signalValidity: signalValidity,
     );
   }
 

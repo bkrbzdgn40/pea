@@ -68,6 +68,39 @@ void main() {
       'ExerciseMetrics noPose and copyWith preserve canonical hold signals',
       () {
         final noPose = const ExerciseMetrics.noPose();
+        final canonicalSignals = HoldSignalValues(
+          values: <HoldSignal, double>{
+            HoldSignal.alignment: 170.0,
+            HoldSignal.support: 90.0,
+            HoldSignal.extension: 168.0,
+          },
+        );
+        final metrics = ExerciseMetrics(
+          primaryAngle: 170.0,
+          formMetric: 170.0,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          hasPose: true,
+          landmarks: const <PoseLandmark>[],
+          leftRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+            RangeRepSide.left,
+          ),
+          rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+            RangeRepSide.right,
+          ),
+          holdSignalValues: canonicalSignals,
+        );
+        final copied = metrics.copyWith();
+
+        expect(noPose.holdSignalValues.signals, isEmpty);
+        expect(identical(copied.holdSignalValues, canonicalSignals), isTrue);
+        expect(copied.holdSignalValues.asMap(), canonicalSignals.asMap());
+      },
+    );
+
+    test(
+      'ExerciseMetrics legacy compatibility overrides update only one signal',
+      () {
         final metrics = ExerciseMetrics(
           primaryAngle: 170.0,
           formMetric: 170.0,
@@ -85,15 +118,51 @@ void main() {
             values: <HoldSignal, double>{
               HoldSignal.alignment: 170.0,
               HoldSignal.support: 90.0,
+              HoldSignal.extension: 168.0,
             },
           ),
         );
-        final copied = metrics.copyWith();
+        final copied = metrics.copyWith(bodyLineAngle: 172.0);
 
-        expect(noPose.holdSignalValues.signals, isEmpty);
-        expect(copied.bodyLineAngle, 170.0);
-        expect(copied.armSupportAngle, 90.0);
-        expect(copied.legExtensionAngle, isNull);
+        expect(copied.holdSignalValues.asMap(), <HoldSignal, double>{
+          HoldSignal.alignment: 172.0,
+          HoldSignal.support: 90.0,
+          HoldSignal.extension: 168.0,
+        });
+      },
+    );
+
+    test(
+      'ExerciseMetrics copyWith replaces canonical hold signals when provided',
+      () {
+        final metrics = ExerciseMetrics(
+          primaryAngle: 170.0,
+          formMetric: 170.0,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          hasPose: true,
+          landmarks: const <PoseLandmark>[],
+          leftRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+            RangeRepSide.left,
+          ),
+          rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+            RangeRepSide.right,
+          ),
+          holdSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.alignment: 170.0,
+              HoldSignal.support: 90.0,
+              HoldSignal.extension: 168.0,
+            },
+          ),
+        );
+        final replacementSignals = HoldSignalValues(
+          values: <HoldSignal, double>{HoldSignal.support: 88.0},
+        );
+        final copied = metrics.copyWith(holdSignalValues: replacementSignals);
+
+        expect(identical(copied.holdSignalValues, replacementSignals), isTrue);
+        expect(copied.holdSignalValues.asMap(), replacementSignals.asMap());
       },
     );
 

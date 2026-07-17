@@ -1,6 +1,5 @@
 import 'hold_diagnostics.dart';
 import 'models/hold_feedback_code.dart';
-import 'models/hold_contract.dart';
 import 'models/hold_signal_values.dart';
 
 abstract interface class HoldFormPolicy {
@@ -32,13 +31,4 @@ class HoldFormEvaluation {
   final HoldFeedbackCode correctiveFeedbackCode;
   final bool isValidHoldPosture;
   final bool supportsGraceWindow;
-
-  double get bodyLineTargetAngle =>
-      targetSignalValues.valueFor(HoldSignal.alignment) ?? 0.0;
-
-  bool get isBodyAligned => postureDiagnostics.isBodyAligned;
-
-  bool get isArmSupported => postureDiagnostics.isArmSupported;
-
-  bool get areLegsExtended => postureDiagnostics.areLegsExtended;
 }

@@ -3,6 +3,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_form_p
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_posture_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 
@@ -33,11 +34,17 @@ void main() {
         isHolding: true,
       );
 
-      expect(entryEvaluation.bodyLineTargetAngle, 168.0);
-      expect(entryEvaluation.isBodyAligned, isFalse);
+      expect(
+        entryEvaluation.targetSignalValues.valueFor(HoldSignal.alignment),
+        168.0,
+      );
+      expect(entryEvaluation.postureDiagnostics.isBodyAligned, isFalse);
       expect(entryEvaluation.isValidHoldPosture, isFalse);
-      expect(sustainEvaluation.bodyLineTargetAngle, 166.0);
-      expect(sustainEvaluation.isBodyAligned, isTrue);
+      expect(
+        sustainEvaluation.targetSignalValues.valueFor(HoldSignal.alignment),
+        166.0,
+      );
+      expect(sustainEvaluation.postureDiagnostics.isBodyAligned, isTrue);
       expect(sustainEvaluation.isValidHoldPosture, isTrue);
     });
 
@@ -85,14 +92,14 @@ void main() {
           isHolding: false,
         );
 
-        expect(entryBoundary.isBodyAligned, isTrue);
-        expect(entryBoundary.isArmSupported, isTrue);
-        expect(entryBoundary.areLegsExtended, isTrue);
+        expect(entryBoundary.postureDiagnostics.isBodyAligned, isTrue);
+        expect(entryBoundary.postureDiagnostics.isArmSupported, isTrue);
+        expect(entryBoundary.postureDiagnostics.areLegsExtended, isTrue);
         expect(entryBoundary.isValidHoldPosture, isTrue);
-        expect(upperArmBoundary.isArmSupported, isTrue);
-        expect(lowArmEvaluation.isArmSupported, isFalse);
-        expect(highArmEvaluation.isArmSupported, isFalse);
-        expect(lowLegEvaluation.areLegsExtended, isFalse);
+        expect(upperArmBoundary.postureDiagnostics.isArmSupported, isTrue);
+        expect(lowArmEvaluation.postureDiagnostics.isArmSupported, isFalse);
+        expect(highArmEvaluation.postureDiagnostics.isArmSupported, isFalse);
+        expect(lowLegEvaluation.postureDiagnostics.areLegsExtended, isFalse);
       },
     );
 
@@ -197,7 +204,7 @@ void main() {
       );
 
       expect(evaluation.hasActivePosture, isTrue);
-      expect(evaluation.isBodyAligned, isFalse);
+      expect(evaluation.postureDiagnostics.isBodyAligned, isFalse);
       expect(evaluation.isValidHoldPosture, isFalse);
     });
   });

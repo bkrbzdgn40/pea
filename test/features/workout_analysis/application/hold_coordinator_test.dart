@@ -4,10 +4,15 @@ import 'package:pose_estimation_app/features/workout_analysis/application/analys
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/hold_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 
 void main() {
@@ -67,6 +72,28 @@ void main() {
         closeTo(170.0, 0.001),
       );
       expect(
+        firstResult.stateSnapshot.calibrationMetrics.currentHoldSignalValues
+            .asMap(),
+        <HoldSignal, double>{
+          HoldSignal.alignment: 170.0,
+          HoldSignal.support: 90.0,
+          HoldSignal.extension: 170.0,
+        },
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.targetHoldSignalValues
+            .asMap(),
+        <HoldSignal, double>{HoldSignal.alignment: 166.0},
+      );
+      expect(
+        firstResult.stateSnapshot.calibrationMetrics.holdSignalValidity.asMap(),
+        <HoldSignal, bool>{
+          HoldSignal.alignment: true,
+          HoldSignal.support: true,
+          HoldSignal.extension: true,
+        },
+      );
+      expect(
         firstResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
         isNull,
       );
@@ -79,6 +106,45 @@ void main() {
       expect(() => dynamicSnapshot.repCount, throwsNoSuchMethodError);
       expect(() => dynamicSnapshot.lastRepScore, throwsNoSuchMethodError);
       expect(() => dynamicSnapshot.lastRepRom, throwsNoSuchMethodError);
+    });
+
+    test('reads invalid-frame target signals from engine diagnostics', () {
+      final coordinator = DefaultHoldCoordinator(
+        engine: _FakeHoldAnalysisEngine(
+          diagnostics: HoldDiagnosticsSnapshot(
+            targetSignalValues: HoldSignalValues(
+              values: <HoldSignal, double>{HoldSignal.support: 42.0},
+            ),
+            feedbackCode: HoldFeedbackCode.preparePosition,
+            phase: HoldPhase.ready,
+          ),
+        ),
+        config: _plankConfig(),
+      );
+
+      final result = coordinator.processFrame(
+        metrics: const ExerciseMetrics.noPose(),
+        now: DateTime(2026, 1, 1, 12),
+        isAcceptedPoseFrame: false,
+        didBecomeStableTracking: false,
+      );
+
+      expect(
+        result.stateSnapshot.calibrationMetrics.targetHoldSignalValues.valueFor(
+          HoldSignal.support,
+        ),
+        42.0,
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.targetHoldSignalValues.valueFor(
+          HoldSignal.alignment,
+        ),
+        isNull,
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.currentHoldSignalValues.signals,
+        isEmpty,
+      );
     });
 
     test(
@@ -325,5 +391,56 @@ class _TestClock {
 
   void advance(Duration duration) {
     _current = _current.add(duration);
+  }
+}
+
+class _FakeHoldAnalysisEngine implements HoldAnalysisEngine {
+  _FakeHoldAnalysisEngine({required this.diagnostics});
+
+  HoldDiagnosticsSnapshot diagnostics;
+
+  @override
+  HoldDiagnosticsSnapshot get diagnosticsSnapshot => diagnostics;
+
+  @override
+  HoldFeedbackCode get feedbackCode => diagnostics.feedbackCode;
+
+  @override
+  void beginVisibilityGap() {}
+
+  @override
+  void interrupt({String? reason}) {}
+
+  @override
+  void reset() {}
+
+  @override
+  HoldVisibilityResumeResult resumeAfterVisibilityGap() {
+    return const HoldVisibilityResumeResult(
+      disposition: HoldVisibilityResumeDisposition.noGap,
+    );
+  }
+
+  @override
+  void update(AnalysisFrame frame) {
+    diagnostics = HoldDiagnosticsSnapshot(
+      currentHoldSeconds: diagnostics.currentHoldSeconds,
+      bestHoldSeconds: diagnostics.bestHoldSeconds,
+      isHolding: diagnostics.isHolding,
+      isVisibilitySuspended: diagnostics.isVisibilitySuspended,
+      hadFormBreak: diagnostics.hadFormBreak,
+      phase: diagnostics.phase,
+      feedbackCode: diagnostics.feedbackCode,
+      targetSignalValues: diagnostics.targetSignalValues,
+      lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
+        hasCompleteMetrics: true,
+        hasActivePosture: true,
+        signalValidity: HoldSignalValidity(
+          values: <HoldSignal, bool>{
+            for (final signal in frame.holdSignalValues.signals) signal: true,
+          },
+        ),
+      ),
+    );
   }
 }

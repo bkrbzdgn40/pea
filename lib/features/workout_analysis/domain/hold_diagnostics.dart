@@ -24,8 +24,6 @@ class HoldPostureDiagnosticsSnapshot {
   bool get isArmSupported => validityFor(HoldSignal.support) ?? false;
 
   bool get areLegsExtended => validityFor(HoldSignal.extension) ?? false;
-
-  double get bodyLineTargetAngle => 0.0;
 }
 
 /// Hold-specific diagnostics used while the hold engine family is still
@@ -57,6 +55,8 @@ class HoldDiagnosticsSnapshot {
   final HoldSignalValues targetSignalValues;
   final HoldPostureDiagnosticsSnapshot lastVisiblePosture;
   final bool isFormBreakGraceActive;
+
+  HoldSignalValidity get signalValidity => lastVisiblePosture.signalValidity;
 
   double get bodyLineTargetAngle =>
       targetSignalValues.valueFor(HoldSignal.alignment) ?? 0.0;

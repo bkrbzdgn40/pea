@@ -1,8 +1,11 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/calibration_snapshot.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
+import '../domain/models/hold_signal_validity.dart';
+import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import 'engine_kind.dart';
@@ -202,23 +205,49 @@ class RangeRepWorkoutCalibrationMetrics {
 class HoldWorkoutCalibrationMetrics {
   const HoldWorkoutCalibrationMetrics({
     this.currentBackAngle = 0.0,
-    this.formThreshold = 0.0,
-    this.currentBodyLineAngle,
-    this.currentArmSupportAngle,
-    this.currentLegExtensionAngle,
-    this.hasBodyLineAngle = false,
-    this.hasArmSupportAngle = false,
-    this.hasLegExtensionAngle = false,
-  });
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
+  }) : currentSignalValues =
+           currentSignalValues ?? const HoldSignalValues.empty(),
+       targetSignalValues =
+           targetSignalValues ?? const HoldSignalValues.empty(),
+       signalValidity = signalValidity ?? const HoldSignalValidity.empty();
 
   final double currentBackAngle;
-  final double formThreshold;
-  final double? currentBodyLineAngle;
-  final double? currentArmSupportAngle;
-  final double? currentLegExtensionAngle;
-  final bool hasBodyLineAngle;
-  final bool hasArmSupportAngle;
-  final bool hasLegExtensionAngle;
+  final HoldSignalValues currentSignalValues;
+  final HoldSignalValues targetSignalValues;
+  final HoldSignalValidity signalValidity;
+
+  double? currentSignalValue(HoldSignal signal) {
+    return currentSignalValues.valueFor(signal);
+  }
+
+  double? targetSignalValue(HoldSignal signal) {
+    return targetSignalValues.valueFor(signal);
+  }
+
+  bool? signalValidityFor(HoldSignal signal) {
+    return signalValidity.validityFor(signal);
+  }
+
+  double get formThreshold => targetSignalValue(HoldSignal.alignment) ?? 0.0;
+
+  double? get currentBodyLineAngle => currentSignalValue(HoldSignal.alignment);
+
+  double? get currentArmSupportAngle => currentSignalValue(HoldSignal.support);
+
+  double? get currentLegExtensionAngle =>
+      currentSignalValue(HoldSignal.extension);
+
+  bool get hasBodyLineAngle =>
+      currentSignalValues.hasValue(HoldSignal.alignment);
+
+  bool get hasArmSupportAngle =>
+      currentSignalValues.hasValue(HoldSignal.support);
+
+  bool get hasLegExtensionAngle =>
+      currentSignalValues.hasValue(HoldSignal.extension);
 }
 
 class WorkoutCalibrationMetrics {
@@ -248,6 +277,15 @@ class WorkoutCalibrationMetrics {
 
   double get formThreshold =>
       _rangeRep?.formThreshold ?? _hold?.formThreshold ?? 0.0;
+
+  HoldSignalValues get currentHoldSignalValues =>
+      _hold?.currentSignalValues ?? const HoldSignalValues.empty();
+
+  HoldSignalValues get targetHoldSignalValues =>
+      _hold?.targetSignalValues ?? const HoldSignalValues.empty();
+
+  HoldSignalValidity get holdSignalValidity =>
+      _hold?.signalValidity ?? const HoldSignalValidity.empty();
 
   bool get isRangeRepFrameValid => _rangeRep?.isRangeRepFrameValid ?? true;
   bool get hasPrimaryAngle => _rangeRep?.hasPrimaryAngle ?? false;
