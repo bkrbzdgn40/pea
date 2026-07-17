@@ -35,6 +35,12 @@ class ExerciseCatalog {
           configAssetPath: 'assets/config/exercises/sit_up.json',
           rangeRepContract: RangeRepContracts.sitUp,
         ),
+        ExerciseDefinition.supported(
+          type: ExerciseType.bicepsCurl,
+          engineKind: EngineKind.rangeRep,
+          configAssetPath: 'assets/config/exercises/biceps_curl.json',
+          rangeRepContract: RangeRepContracts.bicepsCurl,
+        ),
       ]);
 
   static final Map<ExerciseType, ExerciseDefinition> _definitionsByType =

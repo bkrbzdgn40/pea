@@ -98,4 +98,41 @@ void main() {
     expect(find.textContaining('rehber'), findsOneWidget);
     expect(find.byType(SnackBar), findsOneWidget);
   });
+
+  testWidgets(
+    'biceps curl card is analysis-active and starts the permission flow',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final observer = RecordingNavigatorObserver();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: const ExerciseSelectionScreen(),
+            navigatorObservers: <NavigatorObserver>[observer],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final pushCountBeforeTap = observer.pushCount;
+
+      await tester.scrollUntilVisible(find.text('Biceps Curl'), 300);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Biceps Curl'), findsOneWidget);
+      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+
+      await tester.tap(find.text('Biceps Curl'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(observer.pushCount, pushCountBeforeTap + 1);
+      expect(container.read(selectedExerciseProvider), ExerciseType.bicepsCurl);
+      expect(find.byType(CameraPermissionScreen), findsOneWidget);
+    },
+  );
 }

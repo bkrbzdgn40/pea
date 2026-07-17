@@ -481,6 +481,54 @@ void main() {
     },
   );
 
+  testWidgets(
+    'finishing a completed biceps curl session preserves biceps_curl and rangeRep persistence',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.bicepsCurl,
+        config: _bicepsConfig(),
+        showFinishButton: true,
+      );
+      addTearDown(harness.dispose);
+
+      await tester.runAsync(() async {
+        await _completeCleanBicepsCurlRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      final state = harness.container.read(workoutControllerProvider);
+      expect(state.repCount, 1);
+      expect(state.rangeRepAnalysis, isNotNull);
+      expect(find.text('Bitir'), findsOneWidget);
+
+      final initialPushCount = harness.navigationObserver.pushCount;
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
+
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      final session = harness.sessionRepository.savedSessions.single;
+      final rep = session.reps!.single;
+
+      expect(session.exerciseType, ExerciseType.bicepsCurl.id);
+      expect(session.analysisKind, EngineKind.rangeRep.name);
+      expect(session.totalReps, 1);
+      expect(rep.validationStatus, 'valid');
+      expect(rep.completedPhaseSequence, isTrue);
+      expect(rep.score, inInclusiveRange(0, 100));
+      expect(rep.selectedSideLabel, isNull);
+    },
+  );
+
   testWidgets('range-rep debug panel uses generic primary and form labels', (
     tester,
   ) async {
@@ -633,6 +681,10 @@ ExerciseConfig _sitUpConfig() {
   return loadExerciseConfig('assets/config/exercises/sit_up.json');
 }
 
+ExerciseConfig _bicepsConfig() {
+  return loadExerciseConfig('assets/config/exercises/biceps_curl.json');
+}
+
 Pose _plankPose({double defaultLikelihood = 0.95}) {
   return buildPlankPose(defaultLikelihood: defaultLikelihood);
 }
@@ -643,6 +695,20 @@ Pose _squatPose({required double angle, double defaultLikelihood = 0.95}) {
 
 Pose _sitUpPose({required double primaryAngle, double formAngle = 90}) {
   return buildSitUpPose(primaryAngle: primaryAngle, formAngle: formAngle);
+}
+
+Pose _bicepsCurlPose({
+  required double leftPrimaryAngle,
+  double? rightPrimaryAngle,
+  double leftUpperArmDriftAngle = 20,
+  double? rightUpperArmDriftAngle,
+}) {
+  return buildBicepsCurlPose(
+    leftPrimaryAngle: leftPrimaryAngle,
+    rightPrimaryAngle: rightPrimaryAngle,
+    leftUpperArmDriftAngle: leftUpperArmDriftAngle,
+    rightUpperArmDriftAngle: rightUpperArmDriftAngle,
+  );
 }
 
 class _LiveScreenHarness {
@@ -842,6 +908,56 @@ Future<void> _completeCleanSitUpRepOnScreen(
     detector,
     clock,
     pose: _sitUpPose(primaryAngle: 121, formAngle: 90),
+    expectedPhase: 'NEUTRAL',
+    spacing: const Duration(milliseconds: 120),
+  );
+}
+
+Future<void> _completeCleanBicepsCurlRepOnScreen(
+  WorkoutController controller,
+  _QueuedPoseDetector detector,
+  _FakeClock clock,
+) async {
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 162),
+  ]);
+  clock.advance(const Duration(milliseconds: 120));
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 162),
+  ]);
+  clock.advance(const Duration(milliseconds: 120));
+  await _analyzePoseFrame(controller, detector, <Pose>[
+    _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 162),
+  ]);
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _bicepsCurlPose(leftPrimaryAngle: 134, rightPrimaryAngle: 136),
+    expectedPhase: 'DESCENDING',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _bicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 74),
+    expectedPhase: 'PEAK',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _bicepsCurlPose(leftPrimaryAngle: 98, rightPrimaryAngle: 100),
+    expectedPhase: 'ASCENDING',
+    spacing: const Duration(milliseconds: 90),
+  );
+  await _driveRangeRepPoseUntilPhase(
+    controller,
+    detector,
+    clock,
+    pose: _bicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 158),
     expectedPhase: 'NEUTRAL',
     spacing: const Duration(milliseconds: 120),
   );

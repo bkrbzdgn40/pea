@@ -38,6 +38,19 @@ String mapRangeRepFeedbackCodeToMessage(
 }
 
 _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(ExerciseType? exerciseType) {
+  if (exerciseType == ExerciseType.bicepsCurl) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kollarini yukari cek...',
+      ascend: 'Kontrollu indir...',
+      formViolation:
+          'Dirseklerini sabit tut ve kollarini birlikte hareket ettir.',
+      controlDescent: 'Yukari cekisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ustte gecisi sabitle.',
+      maintainForm: 'Dirseklerini sabit tut.',
+    );
+  }
+
   if (exerciseType == ExerciseType.sitUp) {
     return const _RangeRepFeedbackCopy(
       descend: 'Yukari kalk...',

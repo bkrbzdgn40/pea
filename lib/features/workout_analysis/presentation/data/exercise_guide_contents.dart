@@ -140,4 +140,32 @@ const exerciseGuideContents = [
     youtubeUrl: 'https://www.youtube.com/watch?v=UMaZGY6CbC4',
     youtubeSourceLabel: 'Beginner technique video',
   ),
+  ExerciseGuideContent(
+    type: ExerciseType.bicepsCurl,
+    subtitle:
+        'Eş zamanlı iki kol curl kontrolü için ayakta üst vücut hareketi.',
+    purpose:
+        'İki kolun birlikte, kontrollü ve simetrik çalışmasını hedefler. Dirseklerin gövdeye yakın kalması ve salınımın sınırlanması önceliklidir.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Ayakta dengeli dur ve iki kolunu başlangıçta aşağıda uzat.',
+      'Omuz, dirsek, bilek ve kalçaların kadrajda net görünmesini sağla.',
+      'İlk kalibrasyon için kamerayı yaklaşık 30-45 derece çapraz açıyla yerleştir.',
+      'Hareket boyunca iki kolun birlikte başlayıp birlikte bitmesine hazırlan.',
+    ],
+    tips: [
+      'Her iki kolu aynı anda yukarı çek.',
+      'Dirseklerini gövdeye yakın ve sabit tut.',
+      'Omuz veya üst kol savurmak yerine ön kol hareketini öne çıkar.',
+      'Aşağı dönüşü yavaş ve kontrollü tamamla.',
+    ],
+    commonMistakes: [
+      'Kolları sırayla veya farklı hızlarda kaldırmak.',
+      'Dirsekleri yana açmak ya da öne savurmak.',
+      'Gövdeden momentum alarak sallanmak.',
+      'Bir kolu erken indirip diğerini tepede bırakmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
+    youtubeSourceLabel: 'Simultaneous standing curl demo',
+  ),
 ];

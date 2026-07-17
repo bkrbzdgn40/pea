@@ -127,6 +127,14 @@ class PoseQualityPolicy {
             'requiredHoldSide is only valid for hold pose-quality assessment.',
           );
         }
+        if (rangeRepContract?.sideMode == RangeRepSideMode.bilateral) {
+          return _assessBilateralRangeRep(
+            pose: pose,
+            config: config,
+            engineKind: engineKind,
+            rangeRepContract: rangeRepContract,
+          );
+        }
         final leftAssessment = _assessRequirementSet(
           pose: pose,
           side: RangeRepSide.left,
@@ -204,6 +212,36 @@ class PoseQualityPolicy {
           qualityScore: 0.0,
         );
     }
+  }
+
+  PoseQualityAssessment _assessBilateralRangeRep({
+    required Pose pose,
+    required ExerciseConfig config,
+    required EngineKind engineKind,
+    required RangeRepContract? rangeRepContract,
+  }) {
+    final bilateralAssessment = _assessRequirementSet(
+      pose: pose,
+      requirementSet: _requirements.resolve(
+        config: config,
+        engineKind: engineKind,
+        rangeRepContract: rangeRepContract,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+      ),
+    );
+
+    return PoseQualityAssessment(
+      isAccepted: bilateralAssessment.isAccepted,
+      rejectionReason: bilateralAssessment.rejectionReason,
+      minimumRequiredLikelihood: bilateralAssessment.minimumRequiredLikelihood,
+      meanRequiredLikelihood: bilateralAssessment.meanRequiredLikelihood,
+      requiredLandmarkCount: bilateralAssessment.requiredLandmarkCount,
+      acceptedLandmarkCount: bilateralAssessment.acceptedLandmarkCount,
+      qualityScore: bilateralAssessment.qualityScore,
+      acceptedRangeRepSides: bilateralAssessment.isAccepted
+          ? const <RangeRepSide>{RangeRepSide.left, RangeRepSide.right}
+          : const <RangeRepSide>{},
+    );
   }
 
   PoseQualityAssessment _combineRangeRepAssessments({

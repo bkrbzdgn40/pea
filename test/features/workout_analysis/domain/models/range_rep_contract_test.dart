@@ -44,6 +44,40 @@ void main() {
     });
   });
 
+  test(
+    'RangeRepContracts.bicepsCurl exposes bilateral range-rep semantics',
+    () {
+      final contract = RangeRepContracts.bicepsCurl;
+
+      expect(
+        contract.supportedPhases,
+        containsAll(<RangeRepPhase>[
+          RangeRepPhase.descending,
+          RangeRepPhase.peak,
+          RangeRepPhase.ascending,
+        ]),
+      );
+      expect(
+        contract.supportedSignals,
+        containsAll(<RangeRepSignal>[
+          RangeRepSignal.primaryMetric,
+          RangeRepSignal.formMetric,
+          RangeRepSignal.postureAngle,
+          RangeRepSignal.depthMetric,
+        ]),
+      );
+      expect(contract.sideMode, RangeRepSideMode.bilateral);
+      expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
+        RangeRepSignal.primaryMetric,
+        RangeRepSignal.formMetric,
+      });
+      expect(
+        contract.formThresholdCalibrationPolicy,
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+      );
+    },
+  );
+
   test('RangeRepContracts.squat keeps threshold calibration enabled', () {
     expect(
       RangeRepContracts.squat.formThresholdCalibrationPolicy,
@@ -63,6 +97,12 @@ void main() {
       RangeRepContracts.sitUp.formThresholdCalibrationPolicy,
       RangeRepFormThresholdCalibrationPolicy.disabled,
     );
+  });
+
+  test('existing selected-side contracts keep their side mode unchanged', () {
+    expect(RangeRepContracts.squat.sideMode, RangeRepSideMode.selectedSide);
+    expect(RangeRepContracts.pushUp.sideMode, RangeRepSideMode.selectedSide);
+    expect(RangeRepContracts.sitUp.sideMode, RangeRepSideMode.selectedSide);
   });
 
   test(

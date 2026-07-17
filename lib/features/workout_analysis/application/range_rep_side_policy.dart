@@ -1,6 +1,7 @@
 import 'exercise_metrics.dart';
 
 enum RangeRepSideSelectionReason {
+  bilateralAggregate,
   poseMissing,
   lockedActiveRepSide,
   keptPreviousSide,
@@ -37,6 +38,8 @@ class RangeRepSideSelection {
 
   String get debugLabel {
     switch (reason) {
+      case RangeRepSideSelectionReason.bilateralAggregate:
+        return 'bilateral aggregate';
       case RangeRepSideSelectionReason.poseMissing:
         return 'pose missing';
       case RangeRepSideSelectionReason.lockedActiveRepSide:

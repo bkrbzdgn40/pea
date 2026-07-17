@@ -1,0 +1,33 @@
+{
+  "name": "Biceps Curl",
+  "primaryJoint": "leftElbow",
+  "joint1": "leftShoulder",
+  "joint2": "leftWrist",
+  "thresholdNeutral": 155.0,
+  "thresholdActive": 140.0,
+  "thresholdPeak": 88.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.5,
+  "formThreshold": 150.0,
+  "targetMinAngle": 75.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftElbow",
+      "middle": "leftShoulder",
+      "last": "leftHip",
+      "transform": "complement180"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 250
+  }
+}

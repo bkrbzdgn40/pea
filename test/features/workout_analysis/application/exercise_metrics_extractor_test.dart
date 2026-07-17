@@ -530,6 +530,244 @@ void main() {
       },
     );
 
+    group('biceps curl bilateral metrics', () {
+      test(
+        'extracts left and right elbow primary angles without side mix-up',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/biceps_curl.json',
+          );
+          final metrics = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 82, rightPrimaryAngle: 104),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+
+          expect(
+            metrics.leftRangeRepMetrics.primaryAngle,
+            closeTo(82.0, 0.001),
+          );
+          expect(
+            metrics.rightRangeRepMetrics.primaryAngle,
+            closeTo(104.0, 0.001),
+          );
+          expect(
+            metrics.leftRangeRepMetrics.primaryAngle,
+            isNot(closeTo(metrics.rightRangeRepMetrics.primaryAngle, 0.001)),
+          );
+        },
+      );
+
+      test(
+        'complement180 posture transform preserves configured upper-arm scores on both sides',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/biceps_curl.json',
+          );
+          final metrics = extractor.extract(
+            buildBicepsCurlPose(
+              leftPrimaryAngle: 90,
+              rightPrimaryAngle: 90,
+              leftUpperArmDriftAngle: 20,
+              rightUpperArmDriftAngle: 35,
+            ),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+
+          expect(metrics.leftRangeRepMetrics.formMetric, closeTo(160.0, 0.001));
+          expect(
+            metrics.rightRangeRepMetrics.formMetric,
+            closeTo(145.0, 0.001),
+          );
+        },
+      );
+
+      test(
+        'bilateral primary metric only crosses neutral when both arms are neutral',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/biceps_curl.json',
+          );
+          final bothNeutral = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 162),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final leftOnlyNeutral = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 132),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final rightOnlyNeutral = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 132, rightPrimaryAngle: 160),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+
+          expect(
+            bothNeutral.bilateralRangeRepMetrics?.primaryAngle,
+            greaterThan(config.thresholdNeutral),
+          );
+          expect(
+            leftOnlyNeutral.bilateralRangeRepMetrics?.primaryAngle,
+            equals(config.thresholdNeutral),
+          );
+          expect(
+            rightOnlyNeutral.bilateralRangeRepMetrics?.primaryAngle,
+            equals(config.thresholdNeutral),
+          );
+        },
+      );
+
+      test(
+        'bilateral primary metric waits for the lagging arm before exposing peak and return',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/biceps_curl.json',
+          );
+          final earlyPeak = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 92),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final bothPeak = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 72, rightPrimaryAngle: 78),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final earlyReturn = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 120),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final fullReturn = extractor.extract(
+            buildBicepsCurlPose(leftPrimaryAngle: 160, rightPrimaryAngle: 158),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+
+          expect(
+            earlyPeak.bilateralRangeRepMetrics?.primaryAngle,
+            closeTo(92.0, 0.001),
+          );
+          expect(
+            bothPeak.bilateralRangeRepMetrics?.primaryAngle,
+            closeTo(78.0, 0.001),
+          );
+          expect(
+            earlyReturn.bilateralRangeRepMetrics?.primaryAngle,
+            equals(config.thresholdNeutral),
+          );
+          expect(
+            fullReturn.bilateralRangeRepMetrics?.primaryAngle,
+            greaterThan(config.thresholdNeutral),
+          );
+        },
+      );
+
+      test('sync score decreases as left-right elbow timing diverges', () {
+        final config = _loadConfig('assets/config/exercises/biceps_curl.json');
+        final inSync = extractor.extract(
+          buildBicepsCurlPose(leftPrimaryAngle: 90, rightPrimaryAngle: 90),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.bicepsCurl,
+        );
+        final outOfSync = extractor.extract(
+          buildBicepsCurlPose(leftPrimaryAngle: 90, rightPrimaryAngle: 120),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.bicepsCurl,
+        );
+
+        expect(
+          inSync.bilateralRangeRepMetrics?.syncScore,
+          closeTo(180.0, 0.001),
+        );
+        expect(
+          outOfSync.bilateralRangeRepMetrics?.syncScore,
+          closeTo(150.0, 0.001),
+        );
+      });
+
+      test(
+        'bilateral form metric reflects the worse arm or the worse sync score',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/biceps_curl.json',
+          );
+          final leftFormWorst = extractor.extract(
+            buildBicepsCurlPose(
+              leftPrimaryAngle: 90,
+              rightPrimaryAngle: 90,
+              leftUpperArmDriftAngle: 40,
+              rightUpperArmDriftAngle: 20,
+            ),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final rightFormWorst = extractor.extract(
+            buildBicepsCurlPose(
+              leftPrimaryAngle: 90,
+              rightPrimaryAngle: 90,
+              leftUpperArmDriftAngle: 20,
+              rightUpperArmDriftAngle: 45,
+            ),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+          final syncWorst = extractor.extract(
+            buildBicepsCurlPose(
+              leftPrimaryAngle: 90,
+              rightPrimaryAngle: 130,
+              leftUpperArmDriftAngle: 20,
+              rightUpperArmDriftAngle: 20,
+            ),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.bicepsCurl,
+          );
+
+          expect(
+            leftFormWorst.bilateralRangeRepMetrics?.leftFormScore,
+            closeTo(140.0, 0.001),
+          );
+          expect(
+            leftFormWorst.bilateralRangeRepMetrics?.formMetric,
+            closeTo(140.0, 0.001),
+          );
+          expect(
+            rightFormWorst.bilateralRangeRepMetrics?.rightFormScore,
+            closeTo(135.0, 0.001),
+          );
+          expect(
+            rightFormWorst.bilateralRangeRepMetrics?.formMetric,
+            closeTo(135.0, 0.001),
+          );
+          expect(
+            syncWorst.bilateralRangeRepMetrics?.syncScore,
+            closeTo(140.0, 0.001),
+          );
+          expect(
+            syncWorst.bilateralRangeRepMetrics?.formMetric,
+            closeTo(140.0, 0.001),
+          );
+        },
+      );
+    });
+
     group('hold metrics', () {
       test(
         'valid left plank geometry emits expected hold angles and preserves pose metadata',

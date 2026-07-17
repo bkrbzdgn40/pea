@@ -126,7 +126,48 @@ void main() {
             ?.source,
         RangeRepSignalSource.primaryMetric,
       );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.transform,
+        RangeRepSignalTransform.identity,
+      );
     });
+
+    test(
+      'parses the biceps curl asset config with complement180 posture form',
+      () {
+        final config = _loadConfig('assets/config/exercises/biceps_curl.json');
+
+        expect(config.name, 'Biceps Curl');
+        expect(config.primaryJoint, PoseLandmarkType.leftElbow);
+        expect(config.joint1, PoseLandmarkType.leftShoulder);
+        expect(config.joint2, PoseLandmarkType.leftWrist);
+        expect(config.thresholdNeutral, 155.0);
+        expect(config.thresholdActive, 140.0);
+        expect(config.thresholdPeak, 88.0);
+        expect(config.formThreshold, 150.0);
+        expect(config.targetMinAngle, 75.0);
+        expect(
+          config.rangeRepSignals
+              ?.definitionFor(RangeRepSignal.postureAngle)
+              ?.transform,
+          RangeRepSignalTransform.complement180,
+        );
+        expect(
+          config.rangeRepSignals
+              ?.definitionFor(RangeRepSignal.depthMetric)
+              ?.transform,
+          RangeRepSignalTransform.identity,
+        );
+        expect(
+          config.rangeRepSignals
+              ?.definitionFor(RangeRepSignal.depthMetric)
+              ?.source,
+          RangeRepSignalSource.primaryMetric,
+        );
+      },
+    );
 
     test('parses the plank asset config without changing hold semantics', () {
       final config = _loadConfig('assets/config/exercises/plank.json');
@@ -519,6 +560,79 @@ void main() {
               (error) => error.message.toString(),
               'message',
               contains('ExerciseConfig.rangeRepSignals'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'includes the exact transform path for unsupported transform names',
+      () {
+        expect(
+          () => ExerciseConfig.fromMap(<String, dynamic>{
+            'name': 'Biceps Curl',
+            'primaryJoint': 'leftElbow',
+            'joint1': 'leftShoulder',
+            'joint2': 'leftWrist',
+            'thresholdNeutral': 155.0,
+            'thresholdActive': 140.0,
+            'thresholdPeak': 80.0,
+            'rangeRepSignals': <String, dynamic>{
+              'postureAngle': <String, dynamic>{
+                'first': 'leftElbow',
+                'middle': 'leftShoulder',
+                'last': 'leftHip',
+                'transform': 'flip360',
+              },
+            },
+          }),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message.toString(),
+              'message',
+              allOf(
+                contains('RangeRepSignalTransform'),
+                contains(
+                  'ExerciseConfig.rangeRepSignals.postureAngle.transform',
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'alias signal diagnostics truthfully describe the optional transform key',
+      () {
+        expect(
+          () => ExerciseConfig.fromMap(<String, dynamic>{
+            'name': 'Biceps Curl',
+            'primaryJoint': 'leftElbow',
+            'joint1': 'leftShoulder',
+            'joint2': 'leftWrist',
+            'thresholdNeutral': 155.0,
+            'thresholdActive': 140.0,
+            'thresholdPeak': 88.0,
+            'rangeRepSignals': <String, dynamic>{
+              'depthMetric': <String, dynamic>{
+                'source': 'primaryMetric',
+                'unexpected': true,
+              },
+            },
+          }),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message.toString(),
+              'message',
+              allOf(
+                contains(
+                  'ExerciseConfig.rangeRepSignals.depthMetric only supports '
+                  'the "source" key and optional "transform" key',
+                ),
+                isNot(contains('only supports the "source" key for alias')),
+              ),
             ),
           ),
         );

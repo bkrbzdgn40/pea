@@ -61,4 +61,35 @@ void main() {
       expect(find.text('Sol'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'formats biceps curl session detail titles through the canonical exercise string',
+    (WidgetTester tester) async {
+      final session = buildWorkoutSession(
+        id: 'session-biceps',
+        ownerId: 'owner-1',
+        exerciseType: 'biceps_curl',
+        startedAt: DateTime(2024, 1, 6, 10, 15),
+        totalReps: 1,
+        averageScore: 91.2,
+        bestScore: 96,
+        durationSec: 75,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: SessionDetailScreen(session: session),
+        overrides: [
+          sessionRepositoryProvider.overrideWithValue(
+            TestSessionRepository(sessionById: {'session-biceps': session}),
+          ),
+        ],
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Biceps Curl'), findsOneWidget);
+      expect(find.text('06.01.2024 10:15'), findsOneWidget);
+    },
+  );
 }

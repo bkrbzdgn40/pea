@@ -78,13 +78,22 @@ class RangeRepPhaseQualityConfig {
 
 enum RangeRepSignalSource { primaryMetric }
 
-class RangeRepSignalDefinition {
-  const RangeRepSignalDefinition.angle(this.angle) : source = null;
+enum RangeRepSignalTransform { identity, complement180 }
 
-  const RangeRepSignalDefinition.source(this.source) : angle = null;
+class RangeRepSignalDefinition {
+  const RangeRepSignalDefinition.angle(
+    this.angle, {
+    this.transform = RangeRepSignalTransform.identity,
+  }) : source = null;
+
+  const RangeRepSignalDefinition.source(
+    this.source, {
+    this.transform = RangeRepSignalTransform.identity,
+  }) : angle = null;
 
   final PoseAngleLandmarks? angle;
   final RangeRepSignalSource? source;
+  final RangeRepSignalTransform transform;
 }
 
 class RangeRepSignalExtractionConfig {
@@ -443,10 +452,10 @@ class ExerciseConfig {
     }
 
     if (hasSource) {
-      if (keys.length != 1) {
+      if (keys.difference(const <String>{'source', 'transform'}).isNotEmpty) {
         throw FormatException(
-          '${signalReader.path} only supports the "source" key for alias '
-          'definitions.',
+          '${signalReader.path} only supports the "source" key and optional '
+          '"transform" key for alias definitions.',
         );
       }
 
@@ -456,11 +465,48 @@ class ExerciseConfig {
           RangeRepSignalSource.values,
           'RangeRepSignalSource',
         ),
+        transform: _readRangeRepSignalTransform(signalReader),
       );
     }
 
     return RangeRepSignalDefinition.angle(
-      signalReader.requiredAngleLandmarks(),
+      _readAngleLandmarksWithOptionalTransform(signalReader),
+      transform: _readRangeRepSignalTransform(signalReader),
+    );
+  }
+
+  static PoseAngleLandmarks _readAngleLandmarksWithOptionalTransform(
+    _StrictConfigMapReader reader,
+  ) {
+    reader.expectOnlyKeys(const <String>{
+      'first',
+      'middle',
+      'last',
+      'transform',
+    });
+    final first = reader.requiredPoseLandmark('first');
+    final middle = reader.requiredPoseLandmark('middle');
+    final last = reader.requiredPoseLandmark('last');
+    if (first == middle || first == last || middle == last) {
+      throw FormatException(
+        '${reader.path} must define three distinct landmarks.',
+      );
+    }
+
+    return PoseAngleLandmarks(first: first, middle: middle, last: last);
+  }
+
+  static RangeRepSignalTransform _readRangeRepSignalTransform(
+    _StrictConfigMapReader reader,
+  ) {
+    if (!reader.containsKey('transform')) {
+      return RangeRepSignalTransform.identity;
+    }
+
+    return reader.requiredEnumByName(
+      'transform',
+      RangeRepSignalTransform.values,
+      'RangeRepSignalTransform',
     );
   }
 

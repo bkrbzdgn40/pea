@@ -38,6 +38,7 @@ extension RangeRepFrameInvalidReasonX on RangeRepFrameInvalidReason {
 class RangeRepFrameAssessment {
   const RangeRepFrameAssessment._({
     required this.selection,
+    required this.analysisMetrics,
     required this.shouldUpdateEngine,
     required this.hasPrimaryAngle,
     required this.hasFormMetric,
@@ -47,10 +48,12 @@ class RangeRepFrameAssessment {
 
   RangeRepFrameAssessment.valid({
     required RangeRepSideSelection selection,
+    required RangeRepAnalysisMetrics? analysisMetrics,
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
   }) : this._(
          selection: selection,
+         analysisMetrics: analysisMetrics,
          shouldUpdateEngine: true,
          hasPrimaryAngle: hasPrimaryAngle,
          hasFormMetric: hasFormMetric,
@@ -59,11 +62,13 @@ class RangeRepFrameAssessment {
 
   RangeRepFrameAssessment.invalid({
     required RangeRepSideSelection selection,
+    required RangeRepAnalysisMetrics? analysisMetrics,
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
     required RangeRepFrameInvalidReason invalidReason,
   }) : this._(
          selection: selection,
+         analysisMetrics: analysisMetrics,
          shouldUpdateEngine: false,
          hasPrimaryAngle: hasPrimaryAngle,
          hasFormMetric: hasFormMetric,
@@ -72,6 +77,7 @@ class RangeRepFrameAssessment {
        );
 
   final RangeRepSideSelection selection;
+  final RangeRepAnalysisMetrics? analysisMetrics;
   final bool shouldUpdateEngine;
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
@@ -79,7 +85,7 @@ class RangeRepFrameAssessment {
   final RangeRepFrameInvalidReason? invalidReason;
 
   bool get isValid => shouldUpdateEngine;
-  RangeRepSideMetrics? get selectedMetrics => selection.selectedMetrics;
+  RangeRepAnalysisMetrics? get selectedMetrics => analysisMetrics;
 }
 
 class RangeRepFramePolicy {
@@ -90,7 +96,9 @@ class RangeRepFramePolicy {
     required RangeRepSideSelection selection,
     required RangeRepContract contract,
   }) {
-    final selectedMetrics = selection.selectedMetrics;
+    final selectedMetrics = contract.sideMode == RangeRepSideMode.bilateral
+        ? metrics.bilateralRangeRepMetrics
+        : selection.selectedMetrics;
     final hasPrimaryAngle = selectedMetrics?.hasPrimaryAngle ?? false;
     final hasFormMetric = selectedMetrics?.hasFormMetric ?? false;
     final requiresPrimaryAngle = contract.supportsSignal(
@@ -105,6 +113,7 @@ class RangeRepFramePolicy {
     if (!metrics.hasPose) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
+        analysisMetrics: selectedMetrics,
         hasPrimaryAngle: hasPrimaryAngle,
         hasFormMetric: hasFormMetric,
         invalidReason: RangeRepFrameInvalidReason.noPose,
@@ -114,6 +123,7 @@ class RangeRepFramePolicy {
     if (isMissingPrimaryAngle && isMissingFormMetric) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
+        analysisMetrics: selectedMetrics,
         hasPrimaryAngle: false,
         hasFormMetric: false,
         invalidReason: RangeRepFrameInvalidReason.missingPrimaryAndFormMetrics,
@@ -123,6 +133,7 @@ class RangeRepFramePolicy {
     if (isMissingPrimaryAngle) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
+        analysisMetrics: selectedMetrics,
         hasPrimaryAngle: false,
         hasFormMetric: hasFormMetric,
         invalidReason: RangeRepFrameInvalidReason.missingPrimaryAngle,
@@ -132,6 +143,7 @@ class RangeRepFramePolicy {
     if (isMissingFormMetric) {
       return RangeRepFrameAssessment.invalid(
         selection: selection,
+        analysisMetrics: selectedMetrics,
         hasPrimaryAngle: hasPrimaryAngle,
         hasFormMetric: false,
         invalidReason: RangeRepFrameInvalidReason.missingFormMetric,
@@ -140,6 +152,7 @@ class RangeRepFramePolicy {
 
     return RangeRepFrameAssessment.valid(
       selection: selection,
+      analysisMetrics: selectedMetrics,
       hasPrimaryAngle: hasPrimaryAngle,
       hasFormMetric: hasFormMetric,
     );

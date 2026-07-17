@@ -18,7 +18,7 @@ class RangeRepBlockedStateBuilder {
     required double fallbackBackAngle,
     required String? selectedRangeRepSide,
   }) {
-    final selectedMetrics = assessment.selectedMetrics;
+    final selectedMetrics = assessment.analysisMetrics;
     return RangeRepBlockedPreviewSnapshot(
       previewAngle: _previewRangeRepMetric(
         hasSignal: assessment.hasPrimaryAngle,

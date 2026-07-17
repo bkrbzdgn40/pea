@@ -9,14 +9,14 @@ void main() {
 
   group('ExerciseGuideCatalog', () {
     test(
-      'preserves the five guide entries with unique canonical exercise types',
+      'preserves the guide entries with unique canonical exercise types',
       () {
         final types = guideCatalog.contents
             .map((content) => content.type)
             .toList(growable: false);
 
-        expect(guideCatalog.contents, hasLength(5));
-        expect(types.toSet(), hasLength(5));
+        expect(guideCatalog.contents, hasLength(6));
+        expect(types.toSet(), hasLength(6));
         expect(types, unorderedEquals(ExerciseType.values));
       },
     );
@@ -55,5 +55,27 @@ void main() {
       expect(sitUpContent.type, ExerciseType.sitUp);
       expect(sitUpContent.subtitle, isNotEmpty);
     });
+
+    test(
+      'biceps curl guide stays on the canonical owner with bilateral coaching',
+      () {
+        final bicepsDefinition = analysisCatalog.definitionFor(
+          ExerciseType.bicepsCurl,
+        );
+        final bicepsContent = guideCatalog.contentFor(ExerciseType.bicepsCurl);
+
+        expect(bicepsDefinition.isAnalysisSupported, isTrue);
+        expect(bicepsDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(bicepsContent.type, ExerciseType.bicepsCurl);
+        expect(
+          bicepsContent.setupSteps.join(' '),
+          contains('30-45 derece çapraz açıyla'),
+        );
+        expect(
+          bicepsContent.tips.join(' '),
+          contains('Dirseklerini gövdeye yakın ve sabit tut.'),
+        );
+      },
+    );
   });
 }

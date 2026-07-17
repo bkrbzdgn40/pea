@@ -95,4 +95,38 @@ void main() {
       'Bacak pozisyonunu koru.',
     );
   });
+
+  test('biceps curl maps range-rep cues to simultaneous-arm copy', () {
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        exerciseType: ExerciseType.bicepsCurl,
+      ),
+      'Kollarini yukari cek...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.ascend,
+        exerciseType: ExerciseType.bicepsCurl,
+      ),
+      'Kontrollu indir...',
+    );
+  });
+
+  test('biceps curl uses elbow-control form feedback', () {
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.keepBodyUpright,
+        exerciseType: ExerciseType.bicepsCurl,
+      ),
+      'Dirseklerini sabit tut ve kollarini birlikte hareket ettir.',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.maintainForm,
+        exerciseType: ExerciseType.bicepsCurl,
+      ),
+      'Dirseklerini sabit tut.',
+    );
+  });
 }
