@@ -83,12 +83,8 @@ class ExerciseDistributionCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         for (var i = 0; i < items.length; i++) ...[
-                          _LegendItem(
-                            item: items[i],
-                            color: _colorForIndex(i),
-                          ),
-                          if (i != items.length - 1)
-                            const SizedBox(height: 10),
+                          _LegendItem(item: items[i], color: _colorForIndex(i)),
+                          if (i != items.length - 1) const SizedBox(height: 10),
                         ],
                       ],
                     );
@@ -120,9 +116,8 @@ class ExerciseDistributionCard extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ScoreTrendDetailScreen(
-                    exercise: selectedExercise,
-                  ),
+                  builder: (_) =>
+                      ScoreTrendDetailScreen(exercise: selectedExercise),
                 ),
               );
             },

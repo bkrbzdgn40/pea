@@ -71,24 +71,28 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
                     return Wrap(
                       spacing: spacing,
                       runSpacing: spacing,
-                      children: [
-                        _TrendSummaryTile(
-                          label: 'Oturum',
-                          value: trendData.samples.length.toString(),
-                        ),
-                        _TrendSummaryTile(
-                          label: 'Son Form Skoru',
-                          value: lastScore.round().toString(),
-                        ),
-                        _TrendSummaryTile(
-                          label: 'En İyi Form Skoru',
-                          value: trendData.bestAverageScore.round().toString(),
-                        ),
-                      ]
-                          .map(
-                            (tile) => SizedBox(width: tileWidth, child: tile),
-                          )
-                          .toList(),
+                      children:
+                          [
+                                _TrendSummaryTile(
+                                  label: 'Oturum',
+                                  value: trendData.samples.length.toString(),
+                                ),
+                                _TrendSummaryTile(
+                                  label: 'Son Form Skoru',
+                                  value: lastScore.round().toString(),
+                                ),
+                                _TrendSummaryTile(
+                                  label: 'En İyi Form Skoru',
+                                  value: trendData.bestAverageScore
+                                      .round()
+                                      .toString(),
+                                ),
+                              ]
+                              .map(
+                                (tile) =>
+                                    SizedBox(width: tileWidth, child: tile),
+                              )
+                              .toList(),
                     );
                   },
                 ),

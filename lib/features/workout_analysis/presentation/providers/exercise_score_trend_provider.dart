@@ -7,12 +7,17 @@ import '../models/home_dashboard_data.dart';
 import 'user_sessions_snapshot_provider.dart';
 
 final exerciseScoreTrendProvider =
-    FutureProvider.family<ExerciseScoreTrendData, ExerciseType>((ref, exercise) async {
+    FutureProvider.family<ExerciseScoreTrendData, ExerciseType>((
+      ref,
+      exercise,
+    ) async {
       final snapshot = await ref.watch(userSessionsSnapshotProvider.future);
       final exerciseSessions = snapshot.sessions
           .where((session) => session.exerciseType == exercise.id)
           .toList(growable: false);
-      final statistics = WorkoutStatisticsCalculator().calculate(exerciseSessions);
+      final statistics = WorkoutStatisticsCalculator().calculate(
+        exerciseSessions,
+      );
 
       return ExerciseScoreTrendData(
         exercise: exercise,

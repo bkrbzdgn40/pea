@@ -13,7 +13,9 @@ import '../../../../support/presentation_test_support.dart';
 import '../../../../support/workout_statistics_test_support.dart';
 
 void main() {
-  testWidgets('Home mini trend uses the selected exercise context', (tester) async {
+  testWidgets('Home mini trend uses the selected exercise context', (
+    tester,
+  ) async {
     final snapshot = UserSessionsSnapshot(
       sessions: [
         buildWorkoutSession(

@@ -106,7 +106,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Plank için henüz form skoru trendi yok.'), findsOneWidget);
+    expect(
+      find.text('Plank için henüz form skoru trendi yok.'),
+      findsOneWidget,
+    );
     expect(find.text('0'), findsNothing);
   });
 }
