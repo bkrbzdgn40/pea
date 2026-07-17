@@ -65,6 +65,7 @@ void main() {
     expect(find.text('Squat Form Skoru Trendi'), findsOneWidget);
     expect(find.text('Push-up Form Skoru Trendi'), findsNothing);
 
+    await tester.scrollUntilVisible(find.text('Detayı Gör'), 250);
     await tester.tap(find.text('Detayı Gör'));
     await tester.pumpAndSettle();
 
