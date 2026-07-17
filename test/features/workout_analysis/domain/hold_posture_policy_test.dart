@@ -1,23 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_form_policy.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_posture_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 
 void main() {
   final policy = HoldPosturePolicy(config: _holdConfig().resolvedHoldPosture);
 
   group('HoldPosturePolicy', () {
+    test('implements the generic hold form policy contract', () {
+      expect(policy, isA<HoldFormPolicy>());
+      expect(policy.breakGraceDuration, const Duration(milliseconds: 300));
+    });
+
     test('uses entry and sustain thresholds as hysteresis targets', () {
       final entryEvaluation = policy.evaluate(
-        bodyLineAngle: 167.0,
-        armSupportAngle: 90.0,
-        legExtensionAngle: 170.0,
+        _signals(
+          bodyLineAngle: 167.0,
+          armSupportAngle: 90.0,
+          legExtensionAngle: 170.0,
+        ),
         isHolding: false,
       );
       final sustainEvaluation = policy.evaluate(
-        bodyLineAngle: 167.0,
-        armSupportAngle: 90.0,
-        legExtensionAngle: 170.0,
+        _signals(
+          bodyLineAngle: 167.0,
+          armSupportAngle: 90.0,
+          legExtensionAngle: 170.0,
+        ),
         isHolding: true,
       );
 
@@ -33,33 +45,43 @@ void main() {
       'treats boundary values as inclusive and outside values as invalid',
       () {
         final entryBoundary = policy.evaluate(
-          bodyLineAngle: 168.0,
-          armSupportAngle: 60.0,
-          legExtensionAngle: 165.0,
+          _signals(
+            bodyLineAngle: 168.0,
+            armSupportAngle: 60.0,
+            legExtensionAngle: 165.0,
+          ),
           isHolding: false,
         );
         final upperArmBoundary = policy.evaluate(
-          bodyLineAngle: 168.0,
-          armSupportAngle: 120.0,
-          legExtensionAngle: 165.0,
+          _signals(
+            bodyLineAngle: 168.0,
+            armSupportAngle: 120.0,
+            legExtensionAngle: 165.0,
+          ),
           isHolding: false,
         );
         final lowArmEvaluation = policy.evaluate(
-          bodyLineAngle: 168.0,
-          armSupportAngle: 59.0,
-          legExtensionAngle: 165.0,
+          _signals(
+            bodyLineAngle: 168.0,
+            armSupportAngle: 59.0,
+            legExtensionAngle: 165.0,
+          ),
           isHolding: false,
         );
         final highArmEvaluation = policy.evaluate(
-          bodyLineAngle: 168.0,
-          armSupportAngle: 121.0,
-          legExtensionAngle: 165.0,
+          _signals(
+            bodyLineAngle: 168.0,
+            armSupportAngle: 121.0,
+            legExtensionAngle: 165.0,
+          ),
           isHolding: false,
         );
         final lowLegEvaluation = policy.evaluate(
-          bodyLineAngle: 168.0,
-          armSupportAngle: 90.0,
-          legExtensionAngle: 164.0,
+          _signals(
+            bodyLineAngle: 168.0,
+            armSupportAngle: 90.0,
+            legExtensionAngle: 164.0,
+          ),
           isHolding: false,
         );
 
@@ -106,9 +128,11 @@ void main() {
         '${scenario.name} disables complete-posture and grace evaluation',
         () {
           final evaluation = policy.evaluate(
-            bodyLineAngle: scenario.bodyLineAngle,
-            armSupportAngle: scenario.armSupportAngle,
-            legExtensionAngle: scenario.legExtensionAngle,
+            _signals(
+              bodyLineAngle: scenario.bodyLineAngle,
+              armSupportAngle: scenario.armSupportAngle,
+              legExtensionAngle: scenario.legExtensionAngle,
+            ),
             isHolding: true,
           );
 
@@ -123,25 +147,40 @@ void main() {
       'supports grace only for body misalignment with valid arm and leg metrics',
       () {
         final bodyMisaligned = policy.evaluate(
-          bodyLineAngle: 165.0,
-          armSupportAngle: 90.0,
-          legExtensionAngle: 170.0,
+          _signals(
+            bodyLineAngle: 165.0,
+            armSupportAngle: 90.0,
+            legExtensionAngle: 170.0,
+          ),
           isHolding: true,
         );
         final armInvalid = policy.evaluate(
-          bodyLineAngle: 170.0,
-          armSupportAngle: 59.0,
-          legExtensionAngle: 170.0,
+          _signals(
+            bodyLineAngle: 170.0,
+            armSupportAngle: 59.0,
+            legExtensionAngle: 170.0,
+          ),
           isHolding: true,
         );
         final legInvalid = policy.evaluate(
-          bodyLineAngle: 170.0,
-          armSupportAngle: 90.0,
-          legExtensionAngle: 164.0,
+          _signals(
+            bodyLineAngle: 170.0,
+            armSupportAngle: 90.0,
+            legExtensionAngle: 164.0,
+          ),
           isHolding: true,
         );
 
         expect(bodyMisaligned.supportsGraceWindow, isTrue);
+        expect(
+          bodyMisaligned.correctiveFeedbackCode,
+          HoldFeedbackCode.alignHips,
+        );
+        expect(
+          armInvalid.correctiveFeedbackCode,
+          HoldFeedbackCode.adjustElbowSupport,
+        );
+        expect(legInvalid.correctiveFeedbackCode, HoldFeedbackCode.extendLegs);
         expect(armInvalid.supportsGraceWindow, isFalse);
         expect(legInvalid.supportsGraceWindow, isFalse);
       },
@@ -149,9 +188,11 @@ void main() {
 
     test('active posture remains distinct from valid hold posture', () {
       final evaluation = policy.evaluate(
-        bodyLineAngle: 162.0,
-        armSupportAngle: 90.0,
-        legExtensionAngle: 170.0,
+        _signals(
+          bodyLineAngle: 162.0,
+          armSupportAngle: 90.0,
+          legExtensionAngle: 170.0,
+        ),
         isHolding: false,
       );
 
@@ -180,5 +221,17 @@ ExerciseConfig _holdConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
+  );
+}
+
+HoldSignalValues _signals({
+  double? bodyLineAngle,
+  double? armSupportAngle,
+  double? legExtensionAngle,
+}) {
+  return HoldSignalValues.legacy(
+    alignment: bodyLineAngle,
+    support: armSupportAngle,
+    extension: legExtensionAngle,
   );
 }

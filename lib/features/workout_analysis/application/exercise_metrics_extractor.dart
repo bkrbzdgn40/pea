@@ -6,6 +6,7 @@ import '../../../../core/utils/angle_calculator.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
+import '../domain/models/hold_signal_values.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
@@ -62,26 +63,11 @@ class ExerciseMetricsExtractor {
         : null;
     final engineFacingRangeRepMetrics =
         bilateralRangeRepMetrics ?? leftRangeRepMetrics;
-    final bodyLineAngle = _extractHoldSignalValue(
+    final holdSignalValues = _extractHoldSignalValues(
       pose,
       config,
       holdContract: effectiveHoldContract,
       holdSide: effectiveHoldSide,
-      signal: HoldSignal.alignment,
-    );
-    final armSupportAngle = _extractHoldSignalValue(
-      pose,
-      config,
-      holdContract: effectiveHoldContract,
-      holdSide: effectiveHoldSide,
-      signal: HoldSignal.support,
-    );
-    final legExtensionAngle = _extractHoldSignalValue(
-      pose,
-      config,
-      holdContract: effectiveHoldContract,
-      holdSide: effectiveHoldSide,
-      signal: HoldSignal.extension,
     );
 
     return ExerciseMetrics(
@@ -89,9 +75,7 @@ class ExerciseMetricsExtractor {
       formMetric: engineFacingRangeRepMetrics.formMetric,
       hasPrimaryAngle: engineFacingRangeRepMetrics.hasPrimaryAngle,
       hasFormMetric: engineFacingRangeRepMetrics.hasFormMetric,
-      bodyLineAngle: bodyLineAngle,
-      armSupportAngle: armSupportAngle,
-      legExtensionAngle: legExtensionAngle,
+      holdSignalValues: holdSignalValues,
       holdSide: effectiveHoldSide,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
@@ -411,6 +395,33 @@ class ExerciseMetricsExtractor {
         targetSide: requiredHoldSide,
       ),
     );
+  }
+
+  HoldSignalValues _extractHoldSignalValues(
+    Pose pose,
+    ExerciseConfig config, {
+    required HoldContract? holdContract,
+    required HoldSide? holdSide,
+  }) {
+    if (holdContract == null) {
+      return const HoldSignalValues.empty();
+    }
+
+    final values = <HoldSignal, double>{};
+    for (final signal in holdContract.requiredSignals) {
+      final value = _extractHoldSignalValue(
+        pose,
+        config,
+        holdContract: holdContract,
+        holdSide: holdSide,
+        signal: signal,
+      );
+      if (value != null) {
+        values[signal] = value;
+      }
+    }
+
+    return HoldSignalValues(values: values);
   }
 
   double? _tryCalculateAngle(

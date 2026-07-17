@@ -178,6 +178,33 @@ void main() {
       );
     });
 
+    test('hold requirement resolution follows contract.requiredSignals', () {
+      final requirementSet = requirements.resolve(
+        config: _holdConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContract(
+          family: HoldAnalysisFamily.plank,
+          requiredSignals: const <HoldSignal>{
+            HoldSignal.alignment,
+            HoldSignal.support,
+          },
+        ),
+        holdSide: HoldSide.left,
+      );
+
+      expect(
+        requirementSet.requiredAngleTriplets.map(_tripletKey),
+        unorderedEquals(<String>{
+          'leftShoulder->leftHip->leftAnkle',
+          'leftShoulder->leftElbow->leftWrist',
+        }),
+      );
+      expect(
+        requirementSet.requiredLandmarks.contains(PoseLandmarkType.leftKnee),
+        isFalse,
+      );
+    });
+
     test('hold resolves the exact required segments', () {
       final requirementSet = requirements.resolve(
         config: _holdConfig(),
@@ -296,7 +323,7 @@ ExerciseConfig _holdConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
@@ -335,7 +362,7 @@ ExerciseConfig _alternateHoldConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,

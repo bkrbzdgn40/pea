@@ -2,15 +2,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_form_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/hold_posture_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 
 void main() {
   group('HoldEngine', () {
     test('initial state reports prepare feedback and default diagnostics', () {
-      final engine = HoldEngine(config: _plankConfig());
+      final engine = _plankEngine();
 
       expect(engine.phaseLabel, 'READY');
       expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
@@ -25,11 +30,72 @@ void main() {
       );
     });
 
+    test('can run with an injected fake hold policy', () {
+      final clock = _TestClock();
+      final engine = HoldEngine(
+        posturePolicy: _FakeHoldFormPolicy(targetSignal: HoldSignal.support),
+        now: clock.now,
+      );
+
+      engine.update(
+        _policyDrivenFrame(
+          values: <HoldSignal, double>{HoldSignal.support: 1.0},
+        ),
+      );
+
+      expect(engine.phaseLabel, 'HOLDING');
+      expect(engine.feedbackCode, HoldFeedbackCode.holdPosition);
+      expect(engine.diagnosticsSnapshot.isHolding, isTrue);
+      expect(
+        engine.diagnosticsSnapshot.lastVisiblePosture.isArmSupported,
+        isTrue,
+      );
+    });
+
+    test(
+      'generic signal evaluation can drive hold transitions without plank fields',
+      () {
+        final clock = _TestClock();
+        final engine = HoldEngine(
+          posturePolicy: _FakeHoldFormPolicy(targetSignal: HoldSignal.support),
+          now: clock.now,
+        );
+
+        engine.update(
+          _policyDrivenFrame(
+            values: <HoldSignal, double>{HoldSignal.support: 1.0},
+          ),
+        );
+        clock.advance(const Duration(milliseconds: 100));
+        engine.update(
+          _policyDrivenFrame(
+            values: <HoldSignal, double>{HoldSignal.support: 0.5},
+          ),
+        );
+
+        expect(engine.phaseLabel, 'HOLDING');
+        expect(engine.feedbackCode, HoldFeedbackCode.correctForm);
+        expect(engine.diagnosticsSnapshot.isFormBreakGraceActive, isTrue);
+
+        clock.advance(const Duration(milliseconds: 201));
+        engine.update(
+          _policyDrivenFrame(
+            values: <HoldSignal, double>{HoldSignal.support: 0.5},
+          ),
+        );
+
+        expect(engine.phaseLabel, 'BROKEN');
+        expect(engine.feedbackCode, HoldFeedbackCode.correctForm);
+        expect(engine.diagnosticsSnapshot.isHolding, isFalse);
+        expect(engine.diagnosticsSnapshot.hadFormBreak, isTrue);
+      },
+    );
+
     test(
       'starts holding when body line, arm support, and leg extension are valid',
       () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
 
@@ -51,7 +117,7 @@ void main() {
 
     test('accumulates current hold seconds over time', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 2));
@@ -66,7 +132,7 @@ void main() {
 
     test('short visibility gap excludes hidden hold time', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -92,7 +158,7 @@ void main() {
 
     test('one-second visibility gap resumes without counting hidden time', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -117,7 +183,7 @@ void main() {
     test('visibility gap at the freeze boundary ends the hold without a '
         'form-break penalty', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -152,7 +218,7 @@ void main() {
 
     test('updates best hold seconds across multiple hold attempts', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 2));
@@ -172,7 +238,7 @@ void main() {
 
     test('uses the grace window before breaking a temporary misalignment', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(milliseconds: 150));
@@ -225,7 +291,7 @@ void main() {
       test('form-break grace boundary at ${scenario.elapsedMillis} ms '
           'keeps the current production outcome', () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
         engine.update(_bodyMisalignedFrame());
@@ -251,7 +317,7 @@ void main() {
       'body misalignment breaks the hold after the grace window expires',
       () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
         _breakHoldAfterGraceWindow(clock, engine);
@@ -271,7 +337,7 @@ void main() {
       'missing body-line metric ends the hold without grace or form-break',
       () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
         clock.advance(const Duration(milliseconds: 100));
@@ -328,7 +394,7 @@ void main() {
         ]) {
       test(scenario.name, () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
         clock.advance(const Duration(milliseconds: 100));
@@ -346,7 +412,7 @@ void main() {
 
     test('continuous valid plank still accumulates over 30 seconds', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 30));
@@ -363,7 +429,7 @@ void main() {
 
     test('reset clears the active and best hold state', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 2));
@@ -388,7 +454,7 @@ void main() {
 
     test('lifecycle interruption hard-ends the active hold', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
 
       engine.update(_validHoldFrame());
       clock.advance(const Duration(seconds: 5));
@@ -411,7 +477,7 @@ void main() {
 
     test('lifecycle interruption clears an active visibility suspension', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -440,7 +506,7 @@ void main() {
       'visibility gap at 1199 ms resumes and keeps hidden time excluded',
       () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
         final gapControl = engine as HoldVisibilityGapControl;
 
         engine.update(_validHoldFrame());
@@ -465,7 +531,7 @@ void main() {
 
     test('visibility gap at 1201 ms ends the hold', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -485,7 +551,7 @@ void main() {
     });
 
     test('beginning a visibility gap while not holding remains a no-op', () {
-      final engine = HoldEngine(config: _plankConfig());
+      final engine = _plankEngine();
       final gapControl = engine as HoldVisibilityGapControl;
 
       gapControl.beginVisibilityGap();
@@ -499,7 +565,7 @@ void main() {
 
     test('repeated beginVisibilityGap calls keep the original gap start', () {
       final clock = _TestClock();
-      final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+      final engine = _plankEngine(now: clock.now);
       final gapControl = engine as HoldVisibilityGapControl;
 
       engine.update(_validHoldFrame());
@@ -521,7 +587,7 @@ void main() {
     test(
       'resumeAfterVisibilityGap without a gap leaves an active hold unchanged',
       () {
-        final engine = HoldEngine(config: _plankConfig());
+        final engine = _plankEngine();
         final gapControl = engine as HoldVisibilityGapControl;
 
         engine.update(_validHoldFrame());
@@ -539,7 +605,7 @@ void main() {
       'a new valid attempt clears hadFormBreak and preserves the best hold',
       () {
         final clock = _TestClock();
-        final engine = HoldEngine(config: _plankConfig(), now: clock.now);
+        final engine = _plankEngine(now: clock.now);
 
         engine.update(_validHoldFrame());
         clock.advance(const Duration(seconds: 2));
@@ -569,6 +635,58 @@ class _TestClock {
   void advance(Duration duration) {
     _current = _current.add(duration);
   }
+}
+
+class _FakeHoldFormPolicy implements HoldFormPolicy {
+  _FakeHoldFormPolicy({required this.targetSignal});
+
+  final HoldSignal targetSignal;
+
+  @override
+  final Duration breakGraceDuration = const Duration(milliseconds: 200);
+
+  @override
+  HoldSignalValues targetSignalValues({required bool isHolding}) {
+    return HoldSignalValues(
+      values: <HoldSignal, double>{targetSignal: isHolding ? 2.0 : 1.0},
+    );
+  }
+
+  @override
+  HoldFormEvaluation evaluate(
+    HoldSignalValues signals, {
+    required bool isHolding,
+  }) {
+    final value = signals.valueFor(targetSignal);
+    final hasCompleteMetrics = value != null;
+    final hasActivePosture = value != null && value > 0.0;
+    final isValid = value != null && value >= 1.0;
+
+    return HoldFormEvaluation(
+      hasActivePosture: hasActivePosture,
+      hasCompleteMetrics: hasCompleteMetrics,
+      targetSignalValues: targetSignalValues(isHolding: isHolding),
+      postureDiagnostics: HoldPostureDiagnosticsSnapshot(
+        hasCompleteMetrics: hasCompleteMetrics,
+        hasActivePosture: hasActivePosture,
+        signalValidity: HoldSignalValidity(
+          values: <HoldSignal, bool>{targetSignal: isValid},
+        ),
+      ),
+      correctiveFeedbackCode: HoldFeedbackCode.correctForm,
+      isValidHoldPosture: isValid,
+      supportsGraceWindow: hasCompleteMetrics && hasActivePosture && !isValid,
+    );
+  }
+}
+
+HoldEngine _plankEngine({DateTime Function()? now}) {
+  return HoldEngine(
+    posturePolicy: HoldPosturePolicy(
+      config: _plankConfig().resolvedHoldPosture,
+    ),
+    now: now,
+  );
 }
 
 void _breakHoldAfterGraceWindow(_TestClock clock, HoldEngine engine) {
@@ -612,6 +730,14 @@ AnalysisFrame _holdFrame({
     bodyLineAngle: bodyLineAngle,
     armSupportAngle: armSupportAngle,
     legExtensionAngle: legExtensionAngle,
+  );
+}
+
+AnalysisFrame _policyDrivenFrame({required Map<HoldSignal, double> values}) {
+  return AnalysisFrame(
+    primaryMetric: 0.0,
+    formMetric: 0.0,
+    holdSignalValues: HoldSignalValues(values: values),
   );
 }
 

@@ -249,14 +249,7 @@ class ExerciseLandmarkRequirements {
       addSegment(middle, last);
     }
 
-    for (final signal in const <HoldSignal>[
-      HoldSignal.alignment,
-      HoldSignal.support,
-      HoldSignal.extension,
-    ]) {
-      if (!contract.supportsSignal(signal)) {
-        continue;
-      }
+    for (final signal in contract.requiredSignals) {
       final definition = holdSignals.definitionFor(signal);
       if (definition == null) {
         throw StateError(

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -43,12 +45,16 @@ void main() {
         engineHoldFeedbackCode: HoldFeedbackCode.holdPosition,
         holdEnginePhase: HoldPhase.holding,
         currentHoldSide: HoldSide.right,
-        lastVisibleHoldPosture: const HoldPostureDiagnosticsSnapshot(
+        lastVisibleHoldPosture: HoldPostureDiagnosticsSnapshot(
           hasCompleteMetrics: true,
           hasActivePosture: true,
-          isBodyAligned: true,
-          isArmSupported: false,
-          areLegsExtended: true,
+          signalValidity: HoldSignalValidity(
+            values: <HoldSignal, bool>{
+              HoldSignal.alignment: true,
+              HoldSignal.support: false,
+              HoldSignal.extension: true,
+            },
+          ),
         ),
         isHoldFormBreakGraceActive: true,
         isHoldVisibilitySuspended: false,

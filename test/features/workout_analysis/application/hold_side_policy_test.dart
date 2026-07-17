@@ -10,7 +10,7 @@ void main() {
       final shouldLock = shouldLockHoldSideSelection(
         engineKind: EngineKind.rangeRep,
         selectedSide: HoldSide.left,
-        diagnostics: const HoldDiagnosticsSnapshot(isHolding: true),
+        diagnostics: HoldDiagnosticsSnapshot(isHolding: true),
       );
 
       expect(shouldLock, isFalse);
@@ -20,7 +20,7 @@ void main() {
       final shouldLock = shouldLockHoldSideSelection(
         engineKind: EngineKind.hold,
         selectedSide: null,
-        diagnostics: const HoldDiagnosticsSnapshot(isHolding: true),
+        diagnostics: HoldDiagnosticsSnapshot(isHolding: true),
       );
 
       expect(shouldLock, isFalse);
@@ -30,7 +30,7 @@ void main() {
       final shouldLock = shouldLockHoldSideSelection(
         engineKind: EngineKind.hold,
         selectedSide: HoldSide.right,
-        diagnostics: const HoldDiagnosticsSnapshot(isHolding: true),
+        diagnostics: HoldDiagnosticsSnapshot(isHolding: true),
       );
 
       expect(shouldLock, isTrue);
@@ -40,7 +40,7 @@ void main() {
       final shouldLock = shouldLockHoldSideSelection(
         engineKind: EngineKind.hold,
         selectedSide: HoldSide.right,
-        diagnostics: const HoldDiagnosticsSnapshot(isVisibilitySuspended: true),
+        diagnostics: HoldDiagnosticsSnapshot(isVisibilitySuspended: true),
       );
 
       expect(shouldLock, isTrue);
@@ -50,7 +50,7 @@ void main() {
       final shouldLock = shouldLockHoldSideSelection(
         engineKind: EngineKind.hold,
         selectedSide: HoldSide.left,
-        diagnostics: const HoldDiagnosticsSnapshot(),
+        diagnostics: HoldDiagnosticsSnapshot(),
       );
 
       expect(shouldLock, isFalse);

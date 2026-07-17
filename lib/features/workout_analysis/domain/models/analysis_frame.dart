@@ -1,15 +1,30 @@
+import 'hold_contract.dart';
+import 'hold_signal_values.dart';
+
 class AnalysisFrame {
-  const AnalysisFrame({
+  AnalysisFrame({
     required this.primaryMetric,
     required this.formMetric,
-    this.bodyLineAngle,
-    this.armSupportAngle,
-    this.legExtensionAngle,
-  });
+    HoldSignalValues? holdSignalValues,
+    double? bodyLineAngle,
+    double? armSupportAngle,
+    double? legExtensionAngle,
+  }) : holdSignalValues =
+           holdSignalValues ??
+           HoldSignalValues.legacy(
+             alignment: bodyLineAngle,
+             support: armSupportAngle,
+             extension: legExtensionAngle,
+           );
 
   final double primaryMetric;
   final double formMetric;
-  final double? bodyLineAngle;
-  final double? armSupportAngle;
-  final double? legExtensionAngle;
+  final HoldSignalValues holdSignalValues;
+
+  double? get bodyLineAngle => holdSignalValues.valueFor(HoldSignal.alignment);
+
+  double? get armSupportAngle => holdSignalValues.valueFor(HoldSignal.support);
+
+  double? get legExtensionAngle =>
+      holdSignalValues.valueFor(HoldSignal.extension);
 }

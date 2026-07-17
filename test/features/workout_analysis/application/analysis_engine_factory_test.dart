@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/domain/analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -181,6 +182,27 @@ void main() {
       );
 
       expect(engine, isA<HoldEngine>());
+    });
+
+    test('factory wiring injects the plank posture policy targets', () {
+      final HoldAnalysisEngine engine = factory.createHold(
+        config: plankConfig,
+        holdContract: HoldContracts.plankFamily,
+      );
+
+      expect(engine.diagnosticsSnapshot.bodyLineTargetAngle, 168.0);
+
+      engine.update(
+        AnalysisFrame(
+          primaryMetric: 170.0,
+          formMetric: 170.0,
+          bodyLineAngle: 170.0,
+          armSupportAngle: 90.0,
+          legExtensionAngle: 170.0,
+        ),
+      );
+
+      expect(engine.diagnosticsSnapshot.bodyLineTargetAngle, 166.0);
     });
 
     test('generic hold creation keeps the plank hold engine path', () {

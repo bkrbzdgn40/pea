@@ -5,6 +5,7 @@ import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_diagnostics.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
@@ -118,13 +119,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   final MovingAverageFilter _formMetricFilter = MovingAverageFilter(
     windowSize: 5,
   );
-  final MovingAverageFilter _bodyLineFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _armSupportFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _legFilter = MovingAverageFilter(windowSize: 5);
+  final Map<HoldSignal, MovingAverageFilter> _holdSignalFilters =
+      <HoldSignal, MovingAverageFilter>{
+        for (final signal in HoldSignal.values)
+          signal: MovingAverageFilter(windowSize: 5),
+      };
 
   HoldSide? _selectedHoldSide;
   HoldSide? _briefGapFrozenHoldSide;
@@ -344,9 +343,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         metrics: metrics,
         primaryMetricFilter: _primaryMetricFilter,
         formMetricFilter: _formMetricFilter,
-        bodyLineFilter: _bodyLineFilter,
-        armSupportFilter: _armSupportFilter,
-        legFilter: _legFilter,
+        holdSignalFilters: _holdSignalFilters,
       );
       _engine.update(analysisFrame);
       final holdDiagnostics = _holdDiagnosticsSnapshot();
@@ -451,9 +448,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   }
 
   void _resetHoldMetricFilters() {
-    _bodyLineFilter.reset();
-    _armSupportFilter.reset();
-    _legFilter.reset();
+    for (final filter in _holdSignalFilters.values) {
+      filter.reset();
+    }
   }
 
   void _beginHoldVisibilityGap() {

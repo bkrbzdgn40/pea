@@ -1,50 +1,65 @@
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
+import 'models/hold_contract.dart';
+import 'models/hold_signal_validity.dart';
+import 'models/hold_signal_values.dart';
 
 const Duration holdVisibilityGapGraceDuration = Duration(milliseconds: 1200);
 
 class HoldPostureDiagnosticsSnapshot {
-  const HoldPostureDiagnosticsSnapshot({
+  HoldPostureDiagnosticsSnapshot({
     this.hasCompleteMetrics = false,
     this.hasActivePosture = false,
-    this.isBodyAligned = false,
-    this.isArmSupported = false,
-    this.areLegsExtended = false,
-  });
+    HoldSignalValidity? signalValidity,
+  }) : signalValidity = signalValidity ?? const HoldSignalValidity.empty();
 
   final bool hasCompleteMetrics;
   final bool hasActivePosture;
-  final bool isBodyAligned;
-  final bool isArmSupported;
-  final bool areLegsExtended;
+  final HoldSignalValidity signalValidity;
+
+  bool? validityFor(HoldSignal signal) => signalValidity.validityFor(signal);
+
+  bool get isBodyAligned => validityFor(HoldSignal.alignment) ?? false;
+
+  bool get isArmSupported => validityFor(HoldSignal.support) ?? false;
+
+  bool get areLegsExtended => validityFor(HoldSignal.extension) ?? false;
+
+  double get bodyLineTargetAngle => 0.0;
 }
 
 /// Hold-specific diagnostics used while the hold engine family is still
 /// maturing behind the shared analysis contract.
 class HoldDiagnosticsSnapshot {
-  const HoldDiagnosticsSnapshot({
+  HoldDiagnosticsSnapshot({
     this.currentHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.isHolding = false,
     this.isVisibilitySuspended = false,
     this.hadFormBreak = false,
-    this.bodyLineTargetAngle = 0.0,
     this.phase = HoldPhase.ready,
     this.feedbackCode = HoldFeedbackCode.preparePosition,
-    this.lastVisiblePosture = const HoldPostureDiagnosticsSnapshot(),
+    HoldSignalValues? targetSignalValues,
+    HoldPostureDiagnosticsSnapshot? lastVisiblePosture,
     this.isFormBreakGraceActive = false,
-  });
+  }) : targetSignalValues =
+           targetSignalValues ?? const HoldSignalValues.empty(),
+       lastVisiblePosture =
+           lastVisiblePosture ?? HoldPostureDiagnosticsSnapshot();
 
   final double currentHoldSeconds;
   final double bestHoldSeconds;
   final bool isHolding;
   final bool isVisibilitySuspended;
   final bool hadFormBreak;
-  final double bodyLineTargetAngle;
   final HoldPhase phase;
   final HoldFeedbackCode feedbackCode;
+  final HoldSignalValues targetSignalValues;
   final HoldPostureDiagnosticsSnapshot lastVisiblePosture;
   final bool isFormBreakGraceActive;
+
+  double get bodyLineTargetAngle =>
+      targetSignalValues.valueFor(HoldSignal.alignment) ?? 0.0;
 }
 
 enum HoldVisibilityResumeDisposition { resumed, ended, noGap }

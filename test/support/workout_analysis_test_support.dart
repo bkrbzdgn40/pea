@@ -100,7 +100,7 @@ ExerciseConfig buildPlankConfig() {
       legExtensionMinAngle: 165,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
