@@ -1,0 +1,6 @@
+Analyzing pea...                                                
+
+warning • A value for optional parameter 'onTap' isn't ever given. Try removing the unused parameter • lib/features/workout_analysis/presentation/screens/home_screen.dart:597:10 • unused_element_parameter
+
+1 issue found. (ran in 15.8s)
+ANALYZE_EXIT_CODE=1
