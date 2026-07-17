@@ -1,6 +1,8 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/hold_side.dart';
+import '../domain/models/hold_contract.dart';
+import '../domain/models/hold_signal_values.dart';
 
 enum RangeRepSide { left, right }
 
@@ -97,8 +99,9 @@ class RangeRepBilateralMetrics extends RangeRepAnalysisMetrics {
 class ExerciseMetrics {
   static const Object _holdSideUnset = Object();
   static const Object _bilateralRangeRepMetricsUnset = Object();
+  static const Object _holdSignalOverrideUnset = Object();
 
-  const ExerciseMetrics({
+  ExerciseMetrics({
     required this.primaryAngle,
     required this.formMetric,
     required this.hasPrimaryAngle,
@@ -108,11 +111,18 @@ class ExerciseMetrics {
     required this.leftRangeRepMetrics,
     required this.rightRangeRepMetrics,
     this.bilateralRangeRepMetrics,
-    this.bodyLineAngle,
-    this.armSupportAngle,
-    this.legExtensionAngle,
+    HoldSignalValues? holdSignalValues,
+    double? bodyLineAngle,
+    double? armSupportAngle,
+    double? legExtensionAngle,
     this.holdSide,
-  });
+  }) : holdSignalValues =
+           holdSignalValues ??
+           HoldSignalValues.legacy(
+             alignment: bodyLineAngle,
+             support: armSupportAngle,
+             extension: legExtensionAngle,
+           );
 
   const ExerciseMetrics.noPose()
     : primaryAngle = 180.0,
@@ -128,9 +138,7 @@ class ExerciseMetrics {
         RangeRepSide.right,
       ),
       bilateralRangeRepMetrics = null,
-      bodyLineAngle = null,
-      armSupportAngle = null,
-      legExtensionAngle = null,
+      holdSignalValues = const HoldSignalValues.empty(),
       holdSide = null;
 
   final double primaryAngle;
@@ -142,10 +150,15 @@ class ExerciseMetrics {
   final RangeRepSideMetrics leftRangeRepMetrics;
   final RangeRepSideMetrics rightRangeRepMetrics;
   final RangeRepBilateralMetrics? bilateralRangeRepMetrics;
-  final double? bodyLineAngle;
-  final double? armSupportAngle;
-  final double? legExtensionAngle;
+  final HoldSignalValues holdSignalValues;
   final HoldSide? holdSide;
+
+  double? get bodyLineAngle => holdSignalValues.valueFor(HoldSignal.alignment);
+
+  double? get armSupportAngle => holdSignalValues.valueFor(HoldSignal.support);
+
+  double? get legExtensionAngle =>
+      holdSignalValues.valueFor(HoldSignal.extension);
 
   ExerciseMetrics copyWith({
     double? primaryAngle,
@@ -157,9 +170,10 @@ class ExerciseMetrics {
     RangeRepSideMetrics? leftRangeRepMetrics,
     RangeRepSideMetrics? rightRangeRepMetrics,
     Object? bilateralRangeRepMetrics = _bilateralRangeRepMetricsUnset,
-    double? bodyLineAngle,
-    double? armSupportAngle,
-    double? legExtensionAngle,
+    HoldSignalValues? holdSignalValues,
+    Object? bodyLineAngle = _holdSignalOverrideUnset,
+    Object? armSupportAngle = _holdSignalOverrideUnset,
+    Object? legExtensionAngle = _holdSignalOverrideUnset,
     Object? holdSide = _holdSideUnset,
   }) {
     return ExerciseMetrics(
@@ -175,9 +189,16 @@ class ExerciseMetrics {
           bilateralRangeRepMetrics == _bilateralRangeRepMetricsUnset
           ? this.bilateralRangeRepMetrics
           : bilateralRangeRepMetrics as RangeRepBilateralMetrics?,
-      bodyLineAngle: bodyLineAngle ?? this.bodyLineAngle,
-      armSupportAngle: armSupportAngle ?? this.armSupportAngle,
-      legExtensionAngle: legExtensionAngle ?? this.legExtensionAngle,
+      holdSignalValues:
+          holdSignalValues ??
+          this.holdSignalValues.mergedWith(<HoldSignal, double?>{
+            if (bodyLineAngle != _holdSignalOverrideUnset)
+              HoldSignal.alignment: bodyLineAngle as double?,
+            if (armSupportAngle != _holdSignalOverrideUnset)
+              HoldSignal.support: armSupportAngle as double?,
+            if (legExtensionAngle != _holdSignalOverrideUnset)
+              HoldSignal.extension: legExtensionAngle as double?,
+          }),
       holdSide: holdSide == _holdSideUnset
           ? this.holdSide
           : holdSide as HoldSide?,

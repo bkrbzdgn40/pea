@@ -803,6 +803,81 @@ void main() {
         expect(metrics.legExtensionAngle, isNull);
       });
 
+      test('hold extraction follows contract.requiredSignals', () {
+        final metrics = extractor.extract(
+          _holdPose(),
+          _holdConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContract(
+            family: HoldAnalysisFamily.plank,
+            requiredSignals: const <HoldSignal>{
+              HoldSignal.alignment,
+              HoldSignal.support,
+            },
+          ),
+          holdSide: HoldSide.left,
+        );
+
+        expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
+        expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
+        expect(metrics.legExtensionAngle, isNull);
+        expect(
+          metrics.holdSignalValues.hasValue(HoldSignal.extension),
+          isFalse,
+        );
+      });
+
+      test('missing required hold signal config still fails', () {
+        final config = ExerciseConfig(
+          name: 'Plank',
+          primaryJoint: PoseLandmarkType.leftHip,
+          joint1: PoseLandmarkType.leftShoulder,
+          joint2: PoseLandmarkType.leftAnkle,
+          thresholdNeutral: 160.0,
+          thresholdActive: 168.0,
+          thresholdPeak: 0.0,
+          holdPosture: const HoldPostureConfig(
+            activePostureAngle: 160.0,
+            bodyLineEntryAngle: 168.0,
+            bodyLineSustainAngle: 166.0,
+            armSupportMinAngle: 60.0,
+            armSupportMaxAngle: 120.0,
+            legExtensionMinAngle: 165.0,
+            breakGraceDuration: Duration(milliseconds: 300),
+          ),
+          holdSignals: HoldSignalExtractionConfig(
+            referenceSide: HoldSide.left,
+            alignment: PoseAngleLandmarks(
+              first: PoseLandmarkType.leftShoulder,
+              middle: PoseLandmarkType.leftHip,
+              last: PoseLandmarkType.leftAnkle,
+            ),
+            support: PoseAngleLandmarks(
+              first: PoseLandmarkType.leftShoulder,
+              middle: PoseLandmarkType.leftElbow,
+              last: PoseLandmarkType.leftWrist,
+            ),
+          ),
+        );
+
+        expect(
+          () => extractor.extract(
+            _holdPose(),
+            config,
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.plankFamily,
+            holdSide: HoldSide.left,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains(HoldSignal.extension.name),
+            ),
+          ),
+        );
+      });
+
       for (final scenario
           in <
             ({
@@ -972,7 +1047,7 @@ ExerciseConfig _holdConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
@@ -1011,7 +1086,7 @@ ExerciseConfig _alternateHoldConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,

@@ -6,6 +6,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagno
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -152,15 +154,19 @@ void main() {
   );
 
   test('hold diagnostics stay hold-owned and clear range-rep live payload', () {
-    const holdDiagnostics = HoldDiagnosticsSnapshot(
+    final holdDiagnostics = HoldDiagnosticsSnapshot(
       phase: HoldPhase.holding,
       feedbackCode: HoldFeedbackCode.holdPosition,
       lastVisiblePosture: HoldPostureDiagnosticsSnapshot(
         hasCompleteMetrics: true,
         hasActivePosture: true,
-        isBodyAligned: true,
-        isArmSupported: true,
-        areLegsExtended: true,
+        signalValidity: HoldSignalValidity(
+          values: <HoldSignal, bool>{
+            HoldSignal.alignment: true,
+            HoldSignal.support: true,
+            HoldSignal.extension: true,
+          },
+        ),
       ),
       isFormBreakGraceActive: false,
       isVisibilitySuspended: false,
@@ -259,7 +265,7 @@ void main() {
         currentPhase: 'HOLDING',
         isHolding: true,
         presentedHoldFeedbackCode: HoldFeedbackCode.preparePosition,
-        holdDiagnostics: const HoldDiagnosticsSnapshot(
+        holdDiagnostics: HoldDiagnosticsSnapshot(
           phase: HoldPhase.ready,
           feedbackCode: HoldFeedbackCode.preparePosition,
           lastVisiblePosture: HoldPostureDiagnosticsSnapshot(

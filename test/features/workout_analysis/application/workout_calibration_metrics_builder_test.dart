@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_frame_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_calibration_metrics_builder.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_rep_summary.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_score_breakdown.dart';
@@ -154,12 +157,28 @@ void main() {
   test(
     'buildHold produces hold-only metrics without range-rep placeholders',
     () {
+      final currentSignalValues = HoldSignalValues(
+        values: <HoldSignal, double>{
+          HoldSignal.alignment: 168,
+          HoldSignal.support: 88,
+          HoldSignal.extension: 170,
+        },
+      );
+      final targetSignalValues = HoldSignalValues(
+        values: <HoldSignal, double>{HoldSignal.alignment: 166},
+      );
+      final signalValidity = HoldSignalValidity(
+        values: <HoldSignal, bool>{
+          HoldSignal.alignment: true,
+          HoldSignal.support: true,
+          HoldSignal.extension: true,
+        },
+      );
       final metrics = builder.buildHold(
         currentFormMetric: 168,
-        thresholdValue: 166,
-        currentBodyLineAngle: 168,
-        currentArmSupportAngle: 88,
-        currentLegExtensionAngle: 170,
+        currentSignalValues: currentSignalValues,
+        targetSignalValues: targetSignalValues,
+        signalValidity: signalValidity,
       );
 
       expect(metrics.analysisKind.name, 'hold');
@@ -170,6 +189,15 @@ void main() {
       expect(metrics.currentBodyLineAngle, 168);
       expect(metrics.currentArmSupportAngle, 88);
       expect(metrics.currentLegExtensionAngle, 170);
+      expect(
+        metrics.currentHoldSignalValues.asMap(),
+        currentSignalValues.asMap(),
+      );
+      expect(
+        metrics.targetHoldSignalValues.asMap(),
+        targetSignalValues.asMap(),
+      );
+      expect(metrics.holdSignalValidity.asMap(), signalValidity.asMap());
       expect(metrics.hasBodyLineAngle, isTrue);
       expect(metrics.hasArmSupportAngle, isTrue);
       expect(metrics.hasLegExtensionAngle, isTrue);

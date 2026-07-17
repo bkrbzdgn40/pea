@@ -135,27 +135,60 @@ class RangeRepSignalExtractionConfig {
 }
 
 class HoldSignalExtractionConfig {
-  const HoldSignalExtractionConfig({
+  HoldSignalExtractionConfig({
     required this.referenceSide,
-    this.alignment,
-    this.support,
-    this.extension,
-  });
+    Map<HoldSignal, PoseAngleLandmarks> definitions =
+        const <HoldSignal, PoseAngleLandmarks>{},
+    PoseAngleLandmarks? alignment,
+    PoseAngleLandmarks? support,
+    PoseAngleLandmarks? extension,
+  }) : _definitions = _buildDefinitions(
+         definitions: definitions,
+         alignment: alignment,
+         support: support,
+         extension: extension,
+       );
 
   final HoldSide referenceSide;
-  final PoseAngleLandmarks? alignment;
-  final PoseAngleLandmarks? support;
-  final PoseAngleLandmarks? extension;
+
+  final Map<HoldSignal, PoseAngleLandmarks> _definitions;
+
+  PoseAngleLandmarks? get alignment => definitionFor(HoldSignal.alignment);
+
+  PoseAngleLandmarks? get support => definitionFor(HoldSignal.support);
+
+  PoseAngleLandmarks? get extension => definitionFor(HoldSignal.extension);
 
   PoseAngleLandmarks? definitionFor(HoldSignal signal) {
-    switch (signal) {
-      case HoldSignal.alignment:
-        return alignment;
-      case HoldSignal.support:
-        return support;
-      case HoldSignal.extension:
-        return extension;
+    return _definitions[signal];
+  }
+
+  Map<HoldSignal, PoseAngleLandmarks> get definitions {
+    return Map<HoldSignal, PoseAngleLandmarks>.unmodifiable(_definitions);
+  }
+
+  static Map<HoldSignal, PoseAngleLandmarks> _buildDefinitions({
+    required Map<HoldSignal, PoseAngleLandmarks> definitions,
+    required PoseAngleLandmarks? alignment,
+    required PoseAngleLandmarks? support,
+    required PoseAngleLandmarks? extension,
+  }) {
+    final resolvedDefinitions = <HoldSignal, PoseAngleLandmarks>{
+      ...definitions,
+    };
+    if (alignment != null) {
+      resolvedDefinitions[HoldSignal.alignment] = alignment;
     }
+    if (support != null) {
+      resolvedDefinitions[HoldSignal.support] = support;
+    }
+    if (extension != null) {
+      resolvedDefinitions[HoldSignal.extension] = extension;
+    }
+
+    return Map<HoldSignal, PoseAngleLandmarks>.unmodifiable(
+      resolvedDefinitions,
+    );
   }
 }
 
@@ -332,12 +365,21 @@ class ExerciseConfig {
       return null;
     }
 
-    holdSignalsReader.expectOnlyKeys(const <String>{
+    final allowedKeys = <String>{
       'referenceSide',
-      'alignment',
-      'support',
-      'extension',
-    });
+      ...HoldSignal.values.map((signal) => signal.name),
+    };
+    holdSignalsReader.expectOnlyKeys(allowedKeys);
+
+    final definitions = <HoldSignal, PoseAngleLandmarks>{};
+    for (final signal in HoldSignal.values) {
+      if (!holdSignalsReader.containsKey(signal.name)) {
+        continue;
+      }
+      definitions[signal] = holdSignalsReader
+          .requiredObject(signal.name)
+          .requiredAngleLandmarks();
+    }
 
     return HoldSignalExtractionConfig(
       referenceSide: holdSignalsReader.requiredEnumByName(
@@ -345,19 +387,7 @@ class ExerciseConfig {
         HoldSide.values,
         'HoldSide',
       ),
-      alignment: holdSignalsReader.containsKey('alignment')
-          ? holdSignalsReader
-                .requiredObject('alignment')
-                .requiredAngleLandmarks()
-          : null,
-      support: holdSignalsReader.containsKey('support')
-          ? holdSignalsReader.requiredObject('support').requiredAngleLandmarks()
-          : null,
-      extension: holdSignalsReader.containsKey('extension')
-          ? holdSignalsReader
-                .requiredObject('extension')
-                .requiredAngleLandmarks()
-          : null,
+      definitions: definitions,
     );
   }
 

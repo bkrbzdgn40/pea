@@ -1,5 +1,7 @@
 import '../../../../core/utils/moving_average.dart';
 import '../domain/models/analysis_frame.dart';
+import '../domain/models/hold_contract.dart';
+import '../domain/models/hold_signal_values.dart';
 import 'exercise_metrics.dart';
 
 /// Assembles the engine-facing analysis frame with the existing smoothing order.
@@ -10,9 +12,7 @@ class WorkoutAnalysisFrameBuilder {
     required ExerciseMetrics metrics,
     required MovingAverageFilter primaryMetricFilter,
     required MovingAverageFilter formMetricFilter,
-    required MovingAverageFilter bodyLineFilter,
-    required MovingAverageFilter armSupportFilter,
-    required MovingAverageFilter legFilter,
+    Map<HoldSignal, MovingAverageFilter>? holdSignalFilters,
     RangeRepAnalysisMetrics? rangeRepMetrics,
   }) {
     final primaryMetric = rangeRepMetrics?.primaryAngle ?? metrics.primaryAngle;
@@ -21,20 +21,31 @@ class WorkoutAnalysisFrameBuilder {
     return AnalysisFrame(
       primaryMetric: primaryMetricFilter.process(primaryMetric),
       formMetric: formMetricFilter.process(formMetric),
-      bodyLineAngle: _smoothOptional(metrics.bodyLineAngle, bodyLineFilter),
-      armSupportAngle: _smoothOptional(
-        metrics.armSupportAngle,
-        armSupportFilter,
+      holdSignalValues: _smoothHoldSignals(
+        metrics.holdSignalValues,
+        holdSignalFilters,
       ),
-      legExtensionAngle: _smoothOptional(metrics.legExtensionAngle, legFilter),
     );
   }
 
-  double? _smoothOptional(double? value, MovingAverageFilter filter) {
-    if (value == null) {
-      return null;
+  HoldSignalValues _smoothHoldSignals(
+    HoldSignalValues values,
+    Map<HoldSignal, MovingAverageFilter>? holdSignalFilters,
+  ) {
+    if (holdSignalFilters == null) {
+      return values;
     }
 
-    return filter.process(value);
+    final smoothedValues = <HoldSignal, double>{};
+    for (final signal in values.signals) {
+      final value = values.valueFor(signal);
+      final filter = holdSignalFilters[signal];
+      if (value == null || filter == null) {
+        continue;
+      }
+      smoothedValues[signal] = filter.process(value);
+    }
+
+    return HoldSignalValues(values: smoothedValues);
   }
 }

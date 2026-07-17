@@ -5,8 +5,11 @@ import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_diagnostics.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
+import '../domain/models/hold_signal_validity.dart';
+import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
 import 'analysis_frame_builder.dart';
 import 'engine_kind.dart';
@@ -102,13 +105,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         const WorkoutCalibrationMetricsBuilder(),
     HoldSideStabilizer? holdSideStabilizer,
   }) : _engine = engine,
-       _config = config,
        _analysisFrameBuilder = analysisFrameBuilder,
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
        _holdSideStabilizer = holdSideStabilizer ?? HoldSideStabilizer();
 
   final HoldAnalysisEngine _engine;
-  final ExerciseConfig _config;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
   final HoldSideStabilizer _holdSideStabilizer;
@@ -118,13 +119,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   final MovingAverageFilter _formMetricFilter = MovingAverageFilter(
     windowSize: 5,
   );
-  final MovingAverageFilter _bodyLineFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _armSupportFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _legFilter = MovingAverageFilter(windowSize: 5);
+  final Map<HoldSignal, MovingAverageFilter> _holdSignalFilters =
+      <HoldSignal, MovingAverageFilter>{
+        for (final signal in HoldSignal.values)
+          signal: MovingAverageFilter(windowSize: 5),
+      };
 
   HoldSide? _selectedHoldSide;
   HoldSide? _briefGapFrozenHoldSide;
@@ -280,7 +279,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         currentPhase: 'WAITING',
         calibrationMetrics: _buildHoldCalibrationMetrics(
           currentFormMetric: metrics.formMetric,
-          thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
+          targetSignalValues: holdDiagnostics.targetSignalValues,
         ),
       ),
       diagnosticsUpdate: const HoldCoordinatorDiagnosticsUpdate(
@@ -318,10 +317,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: metrics.formMetric,
-            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: metrics.bodyLineAngle,
-            currentArmSupportAngle: metrics.armSupportAngle,
-            currentLegExtensionAngle: metrics.legExtensionAngle,
+            currentSignalValues: metrics.holdSignalValues,
+            targetSignalValues: holdDiagnostics.targetSignalValues,
           ),
         ),
         diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -344,9 +341,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         metrics: metrics,
         primaryMetricFilter: _primaryMetricFilter,
         formMetricFilter: _formMetricFilter,
-        bodyLineFilter: _bodyLineFilter,
-        armSupportFilter: _armSupportFilter,
-        legFilter: _legFilter,
+        holdSignalFilters: _holdSignalFilters,
       );
       _engine.update(analysisFrame);
       final holdDiagnostics = _holdDiagnosticsSnapshot();
@@ -373,10 +368,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           currentPhase: holdDiagnostics.phase.legacyLabel,
           calibrationMetrics: _buildHoldCalibrationMetrics(
             currentFormMetric: analysisFrame.formMetric,
-            thresholdValue: holdDiagnostics.bodyLineTargetAngle,
-            currentBodyLineAngle: analysisFrame.bodyLineAngle,
-            currentArmSupportAngle: analysisFrame.armSupportAngle,
-            currentLegExtensionAngle: analysisFrame.legExtensionAngle,
+            currentSignalValues: analysisFrame.holdSignalValues,
+            targetSignalValues: holdDiagnostics.targetSignalValues,
+            signalValidity: holdDiagnostics.signalValidity,
           ),
         ),
         diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -405,7 +399,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         currentPhase: 'WAITING',
         calibrationMetrics: _buildHoldCalibrationMetrics(
           currentFormMetric: metrics.formMetric,
-          thresholdValue: _config.resolvedHoldPosture.bodyLineEntryAngle,
+          targetSignalValues: _holdDiagnosticsSnapshot().targetSignalValues,
         ),
       ),
       diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
@@ -451,9 +445,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   }
 
   void _resetHoldMetricFilters() {
-    _bodyLineFilter.reset();
-    _armSupportFilter.reset();
-    _legFilter.reset();
+    for (final filter in _holdSignalFilters.values) {
+      filter.reset();
+    }
   }
 
   void _beginHoldVisibilityGap() {
@@ -473,17 +467,15 @@ class DefaultHoldCoordinator implements HoldCoordinator {
 
   WorkoutCalibrationMetrics _buildHoldCalibrationMetrics({
     required double currentFormMetric,
-    required double thresholdValue,
-    double? currentBodyLineAngle,
-    double? currentArmSupportAngle,
-    double? currentLegExtensionAngle,
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
   }) {
     return _calibrationMetricsBuilder.buildHold(
       currentFormMetric: currentFormMetric,
-      thresholdValue: thresholdValue,
-      currentBodyLineAngle: currentBodyLineAngle,
-      currentArmSupportAngle: currentArmSupportAngle,
-      currentLegExtensionAngle: currentLegExtensionAngle,
+      currentSignalValues: currentSignalValues,
+      targetSignalValues: targetSignalValues,
+      signalValidity: signalValidity,
     );
   }
 

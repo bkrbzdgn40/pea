@@ -1,23 +1,21 @@
 import 'dart:math' as math;
 
 import 'analysis_visibility_gap_window.dart';
+import 'hold_form_policy.dart';
 import 'hold_analysis_engine.dart';
 import 'hold_diagnostics.dart';
-import 'hold_posture_policy.dart';
 import 'models/analysis_frame.dart';
-import 'models/exercise_config.dart';
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
 
 /// First real non-repetition engine family backed by typed hold diagnostics.
 class HoldEngine implements HoldAnalysisEngine {
-  HoldEngine({required this.config, DateTime Function()? now})
+  HoldEngine({required HoldFormPolicy posturePolicy, DateTime Function()? now})
     : _now = now ?? DateTime.now,
-      _posturePolicy = HoldPosturePolicy(config: config.resolvedHoldPosture);
+      _posturePolicy = posturePolicy;
 
-  final ExerciseConfig config;
   final DateTime Function() _now;
-  final HoldPosturePolicy _posturePolicy;
+  final HoldFormPolicy _posturePolicy;
 
   HoldPhase _phase = HoldPhase.ready;
   DateTime? _holdStartedAt;
@@ -31,7 +29,9 @@ class HoldEngine implements HoldAnalysisEngine {
         graceDuration: holdVisibilityGapGraceDuration,
       );
   HoldPostureDiagnosticsSnapshot _lastVisiblePosture =
-      const HoldPostureDiagnosticsSnapshot();
+      HoldPostureDiagnosticsSnapshot();
+  HoldFeedbackCode _lastCorrectiveFeedbackCodeValue =
+      HoldFeedbackCode.correctForm;
 
   @override
   HoldFeedbackCode get feedbackCode {
@@ -40,11 +40,11 @@ class HoldEngine implements HoldAnalysisEngine {
         return HoldFeedbackCode.preparePosition;
       case HoldPhase.holding:
         if (_misalignmentStartedAt != null) {
-          return _alignmentFeedbackCode();
+          return _currentCorrectiveFeedbackCode();
         }
         return HoldFeedbackCode.holdPosition;
       case HoldPhase.broken:
-        return _alignmentFeedbackCode();
+        return _currentCorrectiveFeedbackCode();
     }
   }
 
@@ -61,7 +61,7 @@ class HoldEngine implements HoldAnalysisEngine {
     isHolding: _phase == HoldPhase.holding,
     isVisibilitySuspended: _visibilityGapWindow.isActive,
     hadFormBreak: _hadFormBreak,
-    bodyLineTargetAngle: _posturePolicy.bodyLineTargetAngle(
+    targetSignalValues: _posturePolicy.targetSignalValues(
       isHolding: _phase == HoldPhase.holding,
     ),
     phase: _phase,
@@ -75,18 +75,11 @@ class HoldEngine implements HoldAnalysisEngine {
     final now = _now();
     _lastVisibleFrameAt = now;
     final evaluation = _posturePolicy.evaluate(
-      bodyLineAngle: frame.bodyLineAngle,
-      armSupportAngle: frame.armSupportAngle,
-      legExtensionAngle: frame.legExtensionAngle,
+      frame.holdSignalValues,
       isHolding: _phase == HoldPhase.holding,
     );
-    _lastVisiblePosture = HoldPostureDiagnosticsSnapshot(
-      hasCompleteMetrics: evaluation.hasCompleteMetrics,
-      hasActivePosture: evaluation.hasActivePosture,
-      isBodyAligned: evaluation.isBodyAligned,
-      isArmSupported: evaluation.isArmSupported,
-      areLegsExtended: evaluation.areLegsExtended,
-    );
+    _lastVisiblePosture = evaluation.postureDiagnostics;
+    _lastCorrectiveFeedbackCodeValue = evaluation.correctiveFeedbackCode;
 
     if (evaluation.isValidHoldPosture) {
       _misalignmentStartedAt = null;
@@ -97,7 +90,7 @@ class HoldEngine implements HoldAnalysisEngine {
     if (_phase == HoldPhase.holding && evaluation.supportsGraceWindow) {
       _misalignmentStartedAt ??= now;
       if (now.difference(_misalignmentStartedAt!) <
-          _posturePolicy.config.breakGraceDuration) {
+          _posturePolicy.breakGraceDuration) {
         return;
       }
     } else {
@@ -153,17 +146,8 @@ class HoldEngine implements HoldAnalysisEngine {
     _phase = HoldPhase.ready;
   }
 
-  HoldFeedbackCode _alignmentFeedbackCode() {
-    if (!_lastVisiblePosture.isBodyAligned) {
-      return HoldFeedbackCode.alignHips;
-    }
-    if (!_lastVisiblePosture.isArmSupported) {
-      return HoldFeedbackCode.adjustElbowSupport;
-    }
-    if (!_lastVisiblePosture.areLegsExtended) {
-      return HoldFeedbackCode.extendLegs;
-    }
-    return HoldFeedbackCode.correctForm;
+  HoldFeedbackCode _currentCorrectiveFeedbackCode() {
+    return _lastCorrectiveFeedbackCodeValue;
   }
 
   @override
@@ -218,7 +202,8 @@ class HoldEngine implements HoldAnalysisEngine {
     _misalignmentStartedAt = null;
     _lastVisibleFrameAt = null;
     _visibilityGapWindow.reset();
-    _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
+    _lastVisiblePosture = HoldPostureDiagnosticsSnapshot();
+    _lastCorrectiveFeedbackCodeValue = HoldFeedbackCode.correctForm;
     _phase = HoldPhase.ready;
   }
 
@@ -229,7 +214,8 @@ class HoldEngine implements HoldAnalysisEngine {
     _currentHoldSeconds = 0.0;
     _bestHoldSeconds = 0.0;
     _hadFormBreak = false;
-    _lastVisiblePosture = const HoldPostureDiagnosticsSnapshot();
+    _lastVisiblePosture = HoldPostureDiagnosticsSnapshot();
+    _lastCorrectiveFeedbackCodeValue = HoldFeedbackCode.correctForm;
     _lastVisibleFrameAt = null;
     _misalignmentStartedAt = null;
     _visibilityGapWindow.reset();

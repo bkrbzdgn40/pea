@@ -1,4 +1,6 @@
 import '../domain/models/calibration_snapshot.dart';
+import '../domain/models/hold_signal_validity.dart';
+import '../domain/models/hold_signal_values.dart';
 import '../domain/models/range_rep_rep_summary.dart';
 import '../domain/models/range_rep_validation_result.dart';
 import '../domain/models/rep_score_breakdown.dart';
@@ -221,21 +223,16 @@ class WorkoutCalibrationMetricsBuilder {
 
   WorkoutCalibrationMetrics buildHold({
     required double currentFormMetric,
-    required double thresholdValue,
-    double? currentBodyLineAngle,
-    double? currentArmSupportAngle,
-    double? currentLegExtensionAngle,
+    HoldSignalValues? currentSignalValues,
+    HoldSignalValues? targetSignalValues,
+    HoldSignalValidity? signalValidity,
   }) {
     return WorkoutCalibrationMetrics.hold(
       payload: HoldWorkoutCalibrationMetrics(
         currentBackAngle: currentFormMetric,
-        formThreshold: thresholdValue,
-        currentBodyLineAngle: currentBodyLineAngle,
-        currentArmSupportAngle: currentArmSupportAngle,
-        currentLegExtensionAngle: currentLegExtensionAngle,
-        hasBodyLineAngle: currentBodyLineAngle != null,
-        hasArmSupportAngle: currentArmSupportAngle != null,
-        hasLegExtensionAngle: currentLegExtensionAngle != null,
+        currentSignalValues: currentSignalValues,
+        targetSignalValues: targetSignalValues,
+        signalValidity: signalValidity,
       ),
     );
   }

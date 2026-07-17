@@ -1,44 +1,40 @@
+import 'hold_diagnostics.dart';
+import 'hold_form_policy.dart';
 import 'models/exercise_config.dart';
+import 'models/hold_contract.dart';
+import 'models/hold_feedback_code.dart';
+import 'models/hold_signal_validity.dart';
+import 'models/hold_signal_values.dart';
 
-class HoldPostureEvaluation {
-  const HoldPostureEvaluation({
-    required this.hasActivePosture,
-    required this.hasCompleteMetrics,
-    required this.bodyLineTargetAngle,
-    required this.isBodyAligned,
-    required this.isArmSupported,
-    required this.areLegsExtended,
-  });
-
-  final bool hasActivePosture;
-  final bool hasCompleteMetrics;
-  final double bodyLineTargetAngle;
-  final bool isBodyAligned;
-  final bool isArmSupported;
-  final bool areLegsExtended;
-
-  bool get isValidHoldPosture =>
-      hasCompleteMetrics && isBodyAligned && isArmSupported && areLegsExtended;
-
-  bool get supportsGraceWindow =>
-      hasCompleteMetrics && !isBodyAligned && isArmSupported && areLegsExtended;
-}
-
-class HoldPosturePolicy {
+class HoldPosturePolicy implements HoldFormPolicy {
   const HoldPosturePolicy({required this.config});
 
   final HoldPostureConfig config;
+
+  @override
+  Duration get breakGraceDuration => config.breakGraceDuration;
 
   double bodyLineTargetAngle({required bool isHolding}) {
     return isHolding ? config.bodyLineSustainAngle : config.bodyLineEntryAngle;
   }
 
-  HoldPostureEvaluation evaluate({
-    required double? bodyLineAngle,
-    required double? armSupportAngle,
-    required double? legExtensionAngle,
+  @override
+  HoldSignalValues targetSignalValues({required bool isHolding}) {
+    return HoldSignalValues(
+      values: <HoldSignal, double>{
+        HoldSignal.alignment: bodyLineTargetAngle(isHolding: isHolding),
+      },
+    );
+  }
+
+  @override
+  HoldFormEvaluation evaluate(
+    HoldSignalValues signals, {
     required bool isHolding,
   }) {
+    final bodyLineAngle = signals.valueFor(HoldSignal.alignment);
+    final armSupportAngle = signals.valueFor(HoldSignal.support);
+    final legExtensionAngle = signals.valueFor(HoldSignal.extension);
     final targetAngle = bodyLineTargetAngle(isHolding: isHolding);
     final hasCompleteMetrics =
         bodyLineAngle != null &&
@@ -53,14 +49,57 @@ class HoldPosturePolicy {
         armSupportAngle <= config.armSupportMaxAngle;
     final areLegsExtended =
         hasCompleteMetrics && legExtensionAngle >= config.legExtensionMinAngle;
+    final signalValidity = HoldSignalValidity(
+      values: <HoldSignal, bool>{
+        HoldSignal.alignment: isBodyAligned,
+        HoldSignal.support: isArmSupported,
+        HoldSignal.extension: areLegsExtended,
+      },
+    );
+    final isValidHoldPosture =
+        hasCompleteMetrics &&
+        isBodyAligned &&
+        isArmSupported &&
+        areLegsExtended;
+    final supportsGraceWindow =
+        hasCompleteMetrics &&
+        !isBodyAligned &&
+        isArmSupported &&
+        areLegsExtended;
 
-    return HoldPostureEvaluation(
+    return HoldFormEvaluation(
       hasActivePosture: hasActivePosture,
       hasCompleteMetrics: hasCompleteMetrics,
-      bodyLineTargetAngle: targetAngle,
-      isBodyAligned: isBodyAligned,
-      isArmSupported: isArmSupported,
-      areLegsExtended: areLegsExtended,
+      targetSignalValues: targetSignalValues(isHolding: isHolding),
+      postureDiagnostics: HoldPostureDiagnosticsSnapshot(
+        hasActivePosture: hasActivePosture,
+        hasCompleteMetrics: hasCompleteMetrics,
+        signalValidity: signalValidity,
+      ),
+      correctiveFeedbackCode: _resolveCorrectiveFeedbackCode(
+        isBodyAligned: isBodyAligned,
+        isArmSupported: isArmSupported,
+        areLegsExtended: areLegsExtended,
+      ),
+      isValidHoldPosture: isValidHoldPosture,
+      supportsGraceWindow: supportsGraceWindow,
     );
+  }
+
+  HoldFeedbackCode _resolveCorrectiveFeedbackCode({
+    required bool isBodyAligned,
+    required bool isArmSupported,
+    required bool areLegsExtended,
+  }) {
+    if (!isBodyAligned) {
+      return HoldFeedbackCode.alignHips;
+    }
+    if (!isArmSupported) {
+      return HoldFeedbackCode.adjustElbowSupport;
+    }
+    if (!areLegsExtended) {
+      return HoldFeedbackCode.extendLegs;
+    }
+    return HoldFeedbackCode.correctForm;
   }
 }

@@ -1,6 +1,8 @@
 import '../domain/analysis_engine.dart';
+import '../domain/hold_form_policy.dart';
 import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_engine.dart';
+import '../domain/hold_posture_policy.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -32,7 +34,10 @@ class AnalysisEngineFactory {
     switch (holdContract.family) {
       case HoldAnalysisFamily.plank:
         _validatePlankHoldEngineContract(holdContract, config);
-        return HoldEngine(config: config, now: now);
+        return HoldEngine(
+          posturePolicy: _createPlankPosturePolicy(config),
+          now: now,
+        );
     }
   }
 
@@ -131,5 +136,9 @@ class AnalysisEngineFactory {
         );
       }
     }
+  }
+
+  HoldFormPolicy _createPlankPosturePolicy(ExerciseConfig config) {
+    return HoldPosturePolicy(config: config.resolvedHoldPosture);
   }
 }

@@ -4,6 +4,7 @@ import '../../../../core/utils/moving_average.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/range_rep_analysis_engine.dart';
@@ -810,9 +811,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       rangeRepMetrics: selectedMetrics,
       primaryMetricFilter: _primaryMetricFilter,
       formMetricFilter: _formMetricFilter,
-      bodyLineFilter: _bodyLineFilter,
-      armSupportFilter: _armSupportFilter,
-      legFilter: _legFilter,
+      holdSignalFilters: <HoldSignal, MovingAverageFilter>{
+        HoldSignal.alignment: _bodyLineFilter,
+        HoldSignal.support: _armSupportFilter,
+        HoldSignal.extension: _legFilter,
+      },
     );
   }
 

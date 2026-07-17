@@ -29,11 +29,9 @@ void main() {
       ),
     ];
 
-    engines.first.update(
-      const AnalysisFrame(primaryMetric: 170.0, formMetric: 60.0),
-    );
+    engines.first.update(AnalysisFrame(primaryMetric: 170.0, formMetric: 60.0));
     engines.last.update(
-      const AnalysisFrame(
+      AnalysisFrame(
         primaryMetric: 170.0,
         formMetric: 170.0,
         bodyLineAngle: 170.0,
@@ -106,7 +104,7 @@ ExerciseConfig _plankConfig() {
       legExtensionMinAngle: 165.0,
       breakGraceDuration: Duration(milliseconds: 300),
     ),
-    holdSignals: const HoldSignalExtractionConfig(
+    holdSignals: HoldSignalExtractionConfig(
       referenceSide: HoldSide.left,
       alignment: PoseAngleLandmarks(
         first: PoseLandmarkType.leftShoulder,
