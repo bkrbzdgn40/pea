@@ -1,236 +1,101 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
-import '../../application/workout_statistics.dart';
-import '../../application/workout_statistics_calculator.dart';
+import '../../domain/models/exercise_type.dart';
+import '../providers/exercise_score_trend_provider.dart';
 import '../providers/user_sessions_snapshot_provider.dart';
+import '../widgets/score_trend_card.dart';
 
 class ScoreTrendDetailScreen extends ConsumerWidget {
-  const ScoreTrendDetailScreen({super.key});
+  const ScoreTrendDetailScreen({super.key, required this.exercise});
+
+  final ExerciseType exercise;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final snapshotState = ref.watch(userSessionsSnapshotProvider);
+    final trendState = ref.watch(exerciseScoreTrendProvider(exercise));
 
     return AppScaffoldShell(
-      title: 'Skor Trendi',
+      title: '${exercise.title} Form Skoru Trendi',
       currentPage: null,
-      body: snapshotState.when(
+      body: trendState.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: Colors.greenAccent),
         ),
         error: (_, _) => const _ScoreTrendEmptyState(
-          message: 'Skor verisi alınamadı.',
+          message: 'Form skoru verisi alınamadı.',
           detail: 'Biraz sonra tekrar deneyebilirsin.',
         ),
-        data: (snapshot) {
-          final statistics = WorkoutStatisticsCalculator().calculate(
-            snapshot.sessions,
-          );
-          final points = _buildDetailPoints(
-            statistics.chronologicalScoreSamples,
-          );
-
-          if (points.isEmpty) {
-            final didFail = snapshot.source == UserSessionsSnapshotSource.error;
+        data: (trendData) {
+          if (!trendData.hasRealData) {
+            final didFail =
+                trendData.source == UserSessionsSnapshotSource.error;
 
             return _ScoreTrendEmptyState(
               message: didFail
-                  ? 'Skor trendi hazırlanamadı.'
-                  : 'Henüz skor trendi yok.',
+                  ? '${exercise.title} form skoru trendi hazırlanamadı.'
+                  : '${exercise.title} için henüz form skoru trendi yok.',
               detail: didFail
                   ? 'Biraz sonra tekrar deneyebilirsin.'
-                  : 'İlk analizini tamamladığında skor değişimi burada görünür.',
+                  : 'Bu egzersizde form skoru üreten analizler tamamlandığında değişim burada görünür.',
             );
           }
 
-          return _ScoreTrendDetailContent(
-            points: points,
-            bestScore: statistics.bestAverageScore,
-          );
-        },
-      ),
-    );
-  }
-}
+          final lastScore = trendData.samples.last.score;
 
-class _ScoreTrendDetailContent extends StatelessWidget {
-  const _ScoreTrendDetailContent({
-    required this.points,
-    required this.bestScore,
-  });
-
-  final List<_ScoreTrendDetailPoint> points;
-  final double bestScore;
-
-  @override
-  Widget build(BuildContext context) {
-    final bounds = _DetailScoreBounds.fromPoints(points);
-    final lastPoint = points.last;
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF151515),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white12),
-            ),
+          return SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Ortalama skor gelişimi',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
+                ScoreTrendCard(
+                  exerciseTitle: exercise.title,
+                  points: trendData.detailPoints(),
+                  chartHeight: 300,
+                  subtitle:
+                      '${exercise.title} oturumlarının tarih sırasına göre form skoru değişimi.',
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Kaydedilmiş oturumların tarih sırasına göre daha geniş görünümü.',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 300,
-                  child: LineChart(
-                    LineChartData(
-                      minX: 0,
-                      maxX: points.length > 1
-                          ? (points.length - 1).toDouble()
-                          : 1,
-                      minY: bounds.minY,
-                      maxY: bounds.maxY,
-                      gridData: FlGridData(
-                        drawVerticalLine: false,
-                        horizontalInterval: bounds.interval,
-                        getDrawingHorizontalLine: (value) => FlLine(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          strokeWidth: 1,
-                        ),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      lineTouchData: const LineTouchData(enabled: true),
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 36,
-                            interval: bounds.interval,
-                            getTitlesWidget: (value, meta) {
-                              return Text(
-                                value.toInt().toString(),
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 11,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 30,
-                            interval: _xLabelInterval(points.length),
-                            getTitlesWidget: (value, meta) {
-                              final index = value.toInt();
-                              if (index < 0 || index >= points.length) {
-                                return const SizedBox.shrink();
-                              }
+                const SizedBox(height: 14),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 10.0;
+                    final columnCount = constraints.maxWidth < 340
+                        ? 1
+                        : constraints.maxWidth < 560
+                        ? 2
+                        : 3;
+                    final tileWidth =
+                        (constraints.maxWidth - spacing * (columnCount - 1)) /
+                        columnCount;
 
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  points[index].label,
-                                  style: const TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        _TrendSummaryTile(
+                          label: 'Oturum',
+                          value: trendData.samples.length.toString(),
                         ),
-                      ),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: [
-                            for (var i = 0; i < points.length; i++)
-                              FlSpot(i.toDouble(), points[i].score),
-                          ],
-                          isCurved: false,
-                          color: Colors.greenAccent,
-                          barWidth: 3,
-                          isStrokeCapRound: true,
-                          dotData: const FlDotData(show: true),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: Colors.greenAccent.withValues(alpha: 0.10),
-                          ),
+                        _TrendSummaryTile(
+                          label: 'Son Form Skoru',
+                          value: lastScore.round().toString(),
                         ),
-                      ],
-                    ),
-                  ),
+                        _TrendSummaryTile(
+                          label: 'En İyi Form Skoru',
+                          value: trendData.bestAverageScore.round().toString(),
+                        ),
+                      ]
+                          .map(
+                            (tile) => SizedBox(width: tileWidth, child: tile),
+                          )
+                          .toList(),
+                    );
+                  },
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const spacing = 10.0;
-              final columnCount = constraints.maxWidth < 340
-                  ? 1
-                  : constraints.maxWidth < 560
-                  ? 2
-                  : 3;
-              final tileWidth =
-                  (constraints.maxWidth - spacing * (columnCount - 1)) /
-                  columnCount;
-
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children:
-                    [
-                          _TrendSummaryTile(
-                            label: 'Oturum',
-                            value: points.length.toString(),
-                          ),
-                          _TrendSummaryTile(
-                            label: 'Son Skor',
-                            value: lastPoint.score.round().toString(),
-                          ),
-                          _TrendSummaryTile(
-                            label: 'En İyi',
-                            value: bestScore.round().toString(),
-                          ),
-                        ]
-                        .map((tile) => SizedBox(width: tileWidth, child: tile))
-                        .toList(),
-              );
-            },
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -324,101 +189,4 @@ class _ScoreTrendEmptyState extends StatelessWidget {
       ),
     );
   }
-}
-
-List<_ScoreTrendDetailPoint> _buildDetailPoints(
-  List<WorkoutScoreSample> samples,
-) {
-  return [
-    for (final sample in samples)
-      _ScoreTrendDetailPoint(
-        label: _dateLabel(sample.startedAt.toLocal()),
-        score: sample.score,
-      ),
-  ];
-}
-
-double _xLabelInterval(int pointCount) {
-  if (pointCount <= 8) {
-    return 1;
-  }
-  if (pointCount <= 16) {
-    return 2;
-  }
-  if (pointCount <= 32) {
-    return 4;
-  }
-  return 8;
-}
-
-String _dateLabel(DateTime dateTime) {
-  final day = dateTime.day.toString().padLeft(2, '0');
-  final month = dateTime.month.toString().padLeft(2, '0');
-  return '$day.$month';
-}
-
-class _ScoreTrendDetailPoint {
-  const _ScoreTrendDetailPoint({required this.label, required this.score});
-
-  final String label;
-  final double score;
-}
-
-class _DetailScoreBounds {
-  const _DetailScoreBounds({
-    required this.minY,
-    required this.maxY,
-    required this.interval,
-  });
-
-  final double minY;
-  final double maxY;
-  final double interval;
-
-  factory _DetailScoreBounds.fromPoints(List<_ScoreTrendDetailPoint> points) {
-    var minScore = points.first.score;
-    var maxScore = points.first.score;
-
-    for (final point in points.skip(1)) {
-      if (point.score < minScore) {
-        minScore = point.score;
-      }
-      if (point.score > maxScore) {
-        maxScore = point.score;
-      }
-    }
-
-    var minY = minScore - 5;
-    var maxY = maxScore + 5;
-    if (minY < 0) {
-      minY = 0;
-    }
-
-    if (maxY - minY < 10) {
-      final middle = (minY + maxY) / 2;
-      minY = middle - 5;
-      maxY = middle + 5;
-      if (minY < 0) {
-        minY = 0;
-        maxY = 10;
-      }
-    }
-
-    final range = maxY - minY;
-    return _DetailScoreBounds(
-      minY: minY,
-      maxY: maxY,
-      interval: _detailInterval(range),
-    );
-  }
-}
-
-double _detailInterval(double range) {
-  if (range <= 20) {
-    return 5;
-  }
-  if (range <= 50) {
-    return 10;
-  }
-  return 20;
 }
