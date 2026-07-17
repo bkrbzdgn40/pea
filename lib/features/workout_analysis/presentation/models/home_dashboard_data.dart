@@ -1,4 +1,14 @@
-enum HomeDashboardSource { loading, real, noUser, empty, error }
+enum HomeDashboardSource {
+  loading,
+  real,
+  noUser,
+  empty,
+  error;
+
+  static const demoNoUser = noUser;
+  static const demoEmpty = empty;
+  static const demoError = error;
+}
 
 /// Aggregated values used by Home without exposing session query details.
 class HomeDashboardData {
@@ -32,6 +42,12 @@ class HomeDashboardData {
       exerciseDistribution: const <ExerciseDistributionItem>[],
       source: source,
     );
+  }
+
+  factory HomeDashboardData.fallback({
+    HomeDashboardSource source = HomeDashboardSource.loading,
+  }) {
+    return HomeDashboardData.empty(source: source);
   }
 
   bool get hasRealData => source == HomeDashboardSource.real;
