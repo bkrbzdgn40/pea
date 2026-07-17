@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/analysis_engine_factory.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
@@ -116,6 +117,31 @@ void main() {
       );
     });
 
+    test(
+      'rejects plank hold creation when the contract is missing extension',
+      () {
+        expect(
+          () => factory.createHold(
+            config: plankConfig,
+            holdContract: HoldContract(
+              family: HoldAnalysisFamily.plank,
+              requiredSignals: const <HoldSignal>{
+                HoldSignal.alignment,
+                HoldSignal.support,
+              },
+            ),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains(HoldSignal.extension.name),
+            ),
+          ),
+        );
+      },
+    );
+
     for (final scenario in <({HoldSignal signal, ExerciseConfig config})>[
       (
         signal: HoldSignal.alignment,
@@ -155,6 +181,17 @@ void main() {
       );
 
       expect(engine, isA<HoldEngine>());
+    });
+
+    test('generic hold creation keeps the plank hold engine path', () {
+      final AnalysisEngine engine = factory.create(
+        engineKind: EngineKind.hold,
+        config: plankConfig,
+        holdContract: HoldContracts.plankFamily,
+      );
+
+      expect(engine, isA<HoldEngine>());
+      expect(engine, isA<HoldAnalysisEngine>());
     });
 
     test('keeps alternating-rep unimplemented', () {
