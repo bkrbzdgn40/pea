@@ -181,7 +181,7 @@ void main() {
       expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
-    test('keeps legacy validation timing for Biceps Curl', () {
+    test('stores Biceps Curl-specific validation timing', () {
       final definition = catalog.definitionFor(ExerciseType.bicepsCurl);
       final config = definition.rangeRepValidationConfig;
 
@@ -189,7 +189,7 @@ void main() {
       expect(config, isNotNull);
       expect(config!.minAcceptableRomAngle, 110.0);
       expect(config.minDescentMillis, 250);
-      expect(config.minAscentMillis, 200);
+      expect(config.minAscentMillis, 250);
       expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
