@@ -1,45 +1,74 @@
 # PEA Beta Hardening Gates
 
-Bu belge guncel kapi durumudur. `hardening-baseline.md` tarihsel snapshot olarak degistirilmez.
+Bu belge güncel kapı durumudur. `hardening-baseline.md` tarihsel snapshot olarak değiştirilmez.
 
-| Gate | Durum | Kanit | Sonraki kosul |
+> **Kapsam ayrımı:** Aşağıdaki G0-G8 kanıtları, tarihsel beta hardening programında cihaz üzerinde doğrulanan Squat, Push-up ve Plank kapsamına aittir. Güncel `ExerciseCatalog` daha geniştir. Sonradan `supported` yapılan Sit-up, Biceps Curl ve Hollow Hold bu tarihsel cihaz kanıtını otomatik olarak devralmaz.
+
+| Gate | Durum | Kanıt | Sonraki koşul |
 | --- | --- | --- | --- |
-| G0 Baseline ve freeze | PASSED | `docs/beta/hardening-baseline.md`, support matrisi ve feature-freeze kontrati | Korunmali |
-| G1 Security CI | PASSED | Merge `45b883bcd2302c68aea65f2b2b3bb7613bfcc88d`; main run `29186161518`; Java 21, Node 22, Firebase CLI 15.17.0; 17 passed, 0 skipped | Her main run'da korunmali |
-| G2 Measurement contract | PASSED | PR #8, merge `2f760e523ffe598817edad932e13e7b731caaa47` | Korunmali |
-| G3 Testable runtime | PASSED | Task 06A merge `da6431a3048278c419c917e527c74fb5ed4216e9`; Task 06B PR #15 merge `98b56a6b55badb797f3e0becd52341e973171145`; implementation, automated tests, CI ve real-device verification PASSED; issue #16 completed | Regression testleriyle korunmali |
-| G4 Observability | PASSED | Beta Diagnostics v0, debug/profile diagnostics paneli, privacy-minimized JSON export ve profile artifact commit SHA injection dogrulandi; cihaz diagnostics SHA degeri build metadata ile eslesti | E0 cihaz kayitlarinda kanit standardi korunmali |
-| G5 Reproducible beta build | PASSED | Android profile artifact workflow'u `main` uzerinde basarili; artifact indirildi; SHA-256 checksum, APK signature, cihaz kurulumu ve diagnostics/build metadata SHA eslesmesi dogrulandi | Ayni workflow ve metadata kontratiyla korunmali |
-| G6 Device baseline | PASSED | Tek cihazda Squat, Push-up ve Plank icin pozitif, negatif, occlusion, lifecycle/form-break ve persistence davranislari dogrulandi; diagnostics performans sinirlari gecti; issue #19 completed | Coklu cihaz kapsami beta iddiasi icin ertelenmis risk olarak tutulmali |
-| G7 Data evaluation | PASSED | Tek cihaz E0 diagnostics dataset'inde count/hold sonuclari, statik negatifler, occlusion/lifecycle davranislari, analysis FPS ve p95 sinirlari degerlendirildi; genel runtime veya persistence red-line bulunmadi | Kanitli bulgular disinda runtime degisikligi yapilmamali |
-| G8 Runtime regression | PASSED | Plank visibility loss posture grace'den ayrildi; 1200 ms freeze penceresi eklendi; PR #22 merge `1800ae63df45fa7abe16477ac9857c2f6bdcd261`; Flutter CI run #50 ve real-device 1 saniyelik visibility-gap smoke check PASSED | G9 final beta karari |
-| G9 Final beta release | IN_PROGRESS | G0-G8 mevcut tek cihaz muhendislik beta kapsami icin tamamlandi; coklu cihaz genellemesi ertelenmis risk | Son beta kapsam, paketleme ve release karari |
+| G0 Baseline ve freeze | PASSED | `docs/beta/hardening-baseline.md`, support matrisi ve feature-freeze kontratı | Tarihsel baseline korunmalı |
+| G1 Security CI | PASSED | Merge `45b883bcd2302c68aea65f2b2b3bb7613bfcc88d`; main run `29186161518`; Java 21, Node 22, Firebase CLI 15.17.0; 17 passed, 0 skipped | Her main run'da korunmalı |
+| G2 Measurement contract | PASSED | PR #8, merge `2f760e523ffe598817edad932e13e7b731caaa47`; v1 kapsamı Squat, Plank, Push-up | Tarihsel contract kapsamı korunmalı; yeni egzersizler ayrı kanıt gerektirir |
+| G3 Testable runtime | PASSED | Task 06A merge `da6431a3048278c419c917e527c74fb5ed4216e9`; Task 06B PR #15 merge `98b56a6b55badb797f3e0becd52341e973171145`; implementation, automated tests, CI ve real-device verification PASSED; issue #16 completed | Regression testleriyle korunmalı |
+| G4 Observability | PASSED | Beta Diagnostics v0, debug/profile diagnostics paneli, privacy-minimized JSON export ve profile artifact commit SHA injection doğrulandı; cihaz diagnostics SHA değeri build metadata ile eşleşti | Yeni egzersiz cihaz kayıtlarında aynı kanıt standardı kullanılmalı |
+| G5 Reproducible beta build | PASSED | Android profile artifact workflow'u `main` üzerinde başarılı; artifact indirildi; SHA-256 checksum, APK signature, cihaz kurulumu ve diagnostics/build metadata SHA eşleşmesi doğrulandı | Aynı workflow ve metadata kontratıyla korunmalı |
+| G6 Device baseline | PASSED | Tek cihazda Squat, Push-up ve Plank için pozitif, negatif, occlusion, lifecycle/form-break ve persistence davranışları doğrulandı; diagnostics performans sınırları geçti; issue #19 completed | Bu PASS yalnız kanıtlanan üç egzersiz ve tek-cihaz engineering kapsamı için geçerlidir |
+| G7 Data evaluation | PASSED | Tek cihaz E0 diagnostics dataset'inde Squat, Push-up ve Plank count/hold sonuçları, statik negatifler, occlusion/lifecycle davranışları, analysis FPS ve p95 sınırları değerlendirildi; genel runtime veya persistence red-line bulunmadı | Yeni egzersizler için ayrı dataset değerlendirmesi yapılmalı |
+| G8 Runtime regression | PASSED | Plank visibility loss posture grace'den ayrıldı; 1200 ms freeze penceresi eklendi; PR #22 merge `1800ae63df45fa7abe16477ac9857c2f6bdcd261`; Flutter CI run #50 ve real-device 1 saniyelik visibility-gap smoke check PASSED | Kanıtlanan davranış regression testleriyle korunmalı |
+| G9 Final beta release | IN_PROGRESS | G0-G8 mevcut tek cihaz mühendislik beta kapsamı için tamamlandı; çoklu cihaz genellemesi ve sonradan eklenen egzersizlerin eşdeğer cihaz kanıtı açık risk | Nihai beta kapsam, paketleme ve release kararı |
 
-## Durum Sozlesmesi
+## Durum Sözleşmesi
 
-Yalniz `PASSED`, `IN_PROGRESS`, `BLOCKED`, `NOT_STARTED` ve `FAILED` kullanilir. Bir gate kanit tamamlanmadan `PASSED` yapilamaz. `NOT_MEASURABLE` test sonucu gate basarisi degildir.
+Yalnız `PASSED`, `IN_PROGRESS`, `BLOCKED`, `NOT_STARTED` ve `FAILED` kullanılır. Bir gate kanıt tamamlanmadan `PASSED` yapılamaz. `NOT_MEASURABLE` test sonucu gate başarısı değildir.
 
-## Guncel Program Gercegi
+Bir gate'in `PASSED` olması yalnız gate satırında ve bağlı kanıtta tanımlanan kapsam için geçerlidir. Yeni egzersiz, yeni cihaz sınıfı veya yeni engine semantiği eski PASS sonucunu otomatik olarak devralmaz.
 
-- Desteklenen analiz egzersizleri Squat, Plank ve Push-up'tir.
-- Security CI main uzerinde basarilidir; rules testleri skip edilmeden calisir.
-- Controller production-path testleri, neutral arming, pose-quality, brief occlusion ve hold lifecycle hardening tamamlanmistir.
-- Kamera analiz guvenilirligi mevcut beta kapsami icin tamamlanmis kabul edilir.
-- Telemetry artifact dogrulamasi ve tekrarlanabilir beta build kaniti tamamlanmistir.
-- Tek cihaz muhendislik baseline'i ve dataset degerlendirmesi tamamlanmistir.
-- Low/Mid/High coklu cihaz kapsami dogrulanmamistir ve beta genellemesi icin ertelenmis risk olarak kalir.
-- Plank posture break grace'i 300 ms olarak kalir; visibility loss icin ayri 1200 ms freeze penceresi vardir. Gizli sure hold toplamına eklenmez; 1200 ms ve uzeri kayip aktif hold'u sonlandirir ve `bestHoldSeconds` degerini korur.
+## Güncel Program Gerçeği
+
+### Güncel ürün / catalog kapsamı
+
+`ExerciseCatalog` bugün şu hareketleri canlı analiz için destekler:
+
+- Squat: `rangeRep`, selected-side
+- Plank: `hold`, plank family
+- Hollow Hold: `hold`, hollow-hold family
+- Push-up: `rangeRep`, selected-side
+- Sit-up: `rangeRep`, selected-side
+- Biceps Curl: `rangeRep`, bilateral
+
+Lunge guide içeriğine sahiptir ancak catalog içinde `unsupported` durumdadır.
+
+### Tarihsel beta hardening kanıt kapsamı
+
+G0-G8 programında gerçek cihaz baseline ve dataset değerlendirmesi aşağıdaki hareketler için üretildi:
+
+- Squat
+- Push-up
+- Plank
+
+Sit-up, Biceps Curl ve Hollow Hold daha sonra aktif edildi. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
+
+### Altyapı durumu
+
+- Security CI main üzerinde başarılıdır; rules testleri skip edilmeden çalışır.
+- Controller production-path testleri, neutral arming, pose-quality, brief occlusion ve hold lifecycle hardening tamamlanmıştır.
+- Kamera analiz güvenilirliği tarihsel beta kapsamı için tamamlanmış kabul edilir.
+- Telemetry artifact doğrulaması ve tekrarlanabilir beta build kanıtı tamamlanmıştır.
+- Tek cihaz mühendislik baseline'ı ve dataset değerlendirmesi Squat, Push-up ve Plank için tamamlanmıştır.
+- Low/Mid/High çoklu cihaz kapsamı doğrulanmamıştır ve beta genellemesi için ertelenmiş risk olarak kalır.
+- Sonradan etkinleştirilen egzersizlerin gerçek cihaz kabulü exercise-specific kanıtla izlenmelidir.
+- Plank posture break grace'i 300 ms olarak kalır; visibility loss için ayrı 1200 ms freeze penceresi vardır. Gizli süre hold toplamına eklenmez; 1200 ms ve üzeri kayıp aktif hold'u sonlandırır ve `bestHoldSeconds` değerini korur.
 
 ## Device Finding: Range-rep neutral arming / reacquisition gate
 
-- Finding: Range-rep session PEAK pozisyonunda baslatildiginda neutral geri donus tek basina rep sayilabiliyordu.
+- Finding: Range-rep session PEAK pozisyonunda başlatıldığında neutral geri dönüş tek başına rep sayılabiliyordu.
 - Fix: Range-rep neutral arming/reacquisition gate.
 - Durum:
   - Implementation: PASSED
   - Automated tests: PASSED
   - CI: PASSED
   - Manual USB device verification: PASSED
-  - Kanit: merge `da6431a3048278c419c917e527c74fb5ed4216e9`
+  - Kanıt: merge `da6431a3048278c419c917e527c74fb5ed4216e9`
 
 Required device verification:
 
@@ -47,6 +76,8 @@ Required device verification:
 - neutral acquisition -> full rep -> 1 rep
 - PEAK resync -> rise -> 0 rep
 - pause/resume PEAK -> rise -> 0 rep
+
+Bu kanıt tarihsel olarak Squat/Push-up beta kapsamındaki range-rep davranışını doğrular. Sonradan eklenen range-rep egzersizlerde contract ve metric semantiği ayrıca test edilmelidir.
 
 ## Device Finding: Task 06B pose-quality ve brief occlusion
 
@@ -57,6 +88,8 @@ Required device verification:
   - Implementation: PASSED
   - Automated tests: PASSED
   - CI: PASSED
-  - Real-device verification: PASSED for current beta scope
+  - Real-device verification: PASSED for current historical beta scope
   - Known limitation follow-up: issue #16 completed without threshold changes because no false rep, hold total, session total or persisted result corruption was observed
-  - Kanit: PR #15, merge `98b56a6b55badb797f3e0becd52341e973171145`
+  - Kanıt: PR #15, merge `98b56a6b55badb797f3e0becd52341e973171145`
+
+Bu finding'in cihaz kanıtı da o tarihteki destek matrisiyle sınırlıdır. Yeni hold family veya bilateral range-rep davranışı için eşdeğer cihaz kanıtı ayrı değerlendirilmelidir.
