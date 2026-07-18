@@ -169,21 +169,28 @@ void main() {
       expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
-    test('keeps legacy validation timing for Sit-up and Biceps Curl', () {
-      for (final type in const <ExerciseType>[
-        ExerciseType.sitUp,
-        ExerciseType.bicepsCurl,
-      ]) {
-        final definition = catalog.definitionFor(type);
-        final config = definition.rangeRepValidationConfig;
+    test('stores Sit-up-specific validation timing', () {
+      final definition = catalog.definitionFor(ExerciseType.sitUp);
+      final config = definition.rangeRepValidationConfig;
 
-        expect(definition.analysisEngineKind, EngineKind.rangeRep);
-        expect(config, isNotNull);
-        expect(config!.minAcceptableRomAngle, 110.0);
-        expect(config.minDescentMillis, 250);
-        expect(config.minAscentMillis, 200);
-        expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
-      }
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(config, isNotNull);
+      expect(config!.minAcceptableRomAngle, 110.0);
+      expect(config.minDescentMillis, 250);
+      expect(config.minAscentMillis, 300);
+      expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
+    });
+
+    test('keeps legacy validation timing for Biceps Curl', () {
+      final definition = catalog.definitionFor(ExerciseType.bicepsCurl);
+      final config = definition.rangeRepValidationConfig;
+
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(config, isNotNull);
+      expect(config!.minAcceptableRomAngle, 110.0);
+      expect(config.minDescentMillis, 250);
+      expect(config.minAscentMillis, 200);
+      expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
     test(

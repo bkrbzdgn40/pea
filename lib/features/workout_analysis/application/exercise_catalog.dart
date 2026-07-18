@@ -56,7 +56,7 @@ class ExerciseCatalog {
           rangeRepValidationConfig: const RangeRepValidationConfig(
             minAcceptableRomAngle: 110.0,
             minDescentMillis: 250,
-            minAscentMillis: 200,
+            minAscentMillis: 300,
             allowLowConfidenceOnCoverageLoss: true,
           ),
         ),
