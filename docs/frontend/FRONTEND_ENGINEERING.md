@@ -29,7 +29,7 @@ Değişmez kurallar:
 2. Unknown durum kötü sonuç değildir.
 3. Ölçülmeyen bir metrik kullanıcıya ölçülmüş gibi gösterilmez.
 4. Farklı egzersizlerin performans değerleri, açıkça karşılaştırılabilir oldukları kanıtlanmadıkça tek gelişim metriği olarak karşılaştırılmaz.
-5. Squat gelişimi squat ile, push-up gelişimi push-up ile, plank gelişimi plank ile karşılaştırılır.
+5. Bir egzersizin performans trendi aynı `ExerciseType` bağlamındaki geçmiş oturumlarla karşılaştırılır. Cross-exercise skor trendi varsayılan olarak yasaktır.
 6. Demo veya fake data production kullanıcı verisi gibi gösterilmez.
 7. Demo özellikler açıkça demo olarak etiketlenmedikçe production kullanıcı yüzeyinde bulunmaz.
 8. Gerçek AI sistemi olmayan özellik "AI" yeteneği gibi sunulmaz.
