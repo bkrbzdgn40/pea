@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pose_estimation_app/features/goals/presentation/data/demo_workout_goals.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
@@ -108,17 +107,19 @@ void main() {
     },
   );
 
-  test('fallback snapshots preserve demo goals', () async {
-    for (final source in [
-      UserSessionsSnapshotSource.noUser,
-      UserSessionsSnapshotSource.empty,
-      UserSessionsSnapshotSource.error,
-    ]) {
+  test('non-real snapshots expose empty production goal states', () async {
+    final cases = <UserSessionsSnapshotSource, GoalsDataSource>{
+      UserSessionsSnapshotSource.noUser: GoalsDataSource.noUser,
+      UserSessionsSnapshotSource.empty: GoalsDataSource.empty,
+      UserSessionsSnapshotSource.error: GoalsDataSource.error,
+    };
+
+    for (final entry in cases.entries) {
       final container = ProviderContainer(
         overrides: [
           userSessionsSnapshotProvider.overrideWith(
             (ref) async =>
-                UserSessionsSnapshot(sessions: const [], source: source),
+                UserSessionsSnapshot(sessions: const [], source: entry.key),
           ),
         ],
       );
@@ -126,11 +127,9 @@ void main() {
 
       final state = await container.read(goalsProvider.future);
 
+      expect(state.source, entry.value);
       expect(state.isFallback, isTrue);
-      expect(
-        state.goals.map((goal) => goal.id).toList(growable: false),
-        demoWorkoutGoals.map((goal) => goal.id).toList(growable: false),
-      );
+      expect(state.goals, isEmpty);
     }
   });
 }

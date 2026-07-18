@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pose_estimation_app/features/achievements/presentation/data/demo_achievements.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
@@ -90,35 +89,34 @@ void main() {
     expect(scoreAchievement.progress, 0);
   });
 
-  test('fallback snapshots preserve demo achievements', () async {
-    for (final source in [
-      UserSessionsSnapshotSource.noUser,
-      UserSessionsSnapshotSource.empty,
-      UserSessionsSnapshotSource.error,
-    ]) {
-      final container = ProviderContainer(
-        overrides: [
-          userSessionsSnapshotProvider.overrideWith(
-            (ref) async =>
-                UserSessionsSnapshot(sessions: const [], source: source),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+  test(
+    'non-real snapshots expose empty production achievement states',
+    () async {
+      final cases = <UserSessionsSnapshotSource, AchievementsDataSource>{
+        UserSessionsSnapshotSource.noUser: AchievementsDataSource.noUser,
+        UserSessionsSnapshotSource.empty: AchievementsDataSource.empty,
+        UserSessionsSnapshotSource.error: AchievementsDataSource.error,
+      };
 
-      final state = await container.read(achievementsProvider.future);
+      for (final entry in cases.entries) {
+        final container = ProviderContainer(
+          overrides: [
+            userSessionsSnapshotProvider.overrideWith(
+              (ref) async =>
+                  UserSessionsSnapshot(sessions: const [], source: entry.key),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      expect(state.isFallback, isTrue);
-      expect(
-        state.achievements
-            .map((achievement) => achievement.id)
-            .toList(growable: false),
-        demoAchievements
-            .map((achievement) => achievement.id)
-            .toList(growable: false),
-      );
-    }
-  });
+        final state = await container.read(achievementsProvider.future);
+
+        expect(state.source, entry.value);
+        expect(state.isFallback, isTrue);
+        expect(state.achievements, isEmpty);
+      }
+    },
+  );
 }
 
 Achievement _achievementById(List<Achievement> achievements, String id) {

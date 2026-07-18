@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../workout_analysis/application/workout_statistics_calculator.dart';
 import '../../../workout_analysis/domain/models/workout_session.dart';
 import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
-import '../data/demo_achievements.dart';
 import '../models/achievement.dart';
 
 final achievementsProvider = FutureProvider<AchievementsState>((ref) async {
@@ -15,16 +14,16 @@ final achievementsProvider = FutureProvider<AchievementsState>((ref) async {
       source: AchievementsDataSource.real,
     ),
     UserSessionsSnapshotSource.noUser => const AchievementsState(
-      achievements: demoAchievements,
-      source: AchievementsDataSource.demoNoUser,
+      achievements: <Achievement>[],
+      source: AchievementsDataSource.noUser,
     ),
     UserSessionsSnapshotSource.empty => const AchievementsState(
-      achievements: demoAchievements,
-      source: AchievementsDataSource.demoEmpty,
+      achievements: <Achievement>[],
+      source: AchievementsDataSource.empty,
     ),
     UserSessionsSnapshotSource.error => const AchievementsState(
-      achievements: demoAchievements,
-      source: AchievementsDataSource.demoError,
+      achievements: <Achievement>[],
+      source: AchievementsDataSource.error,
     ),
   };
 });
@@ -40,16 +39,14 @@ class AchievementsState {
   String get sourceMessage {
     return switch (source) {
       AchievementsDataSource.real => 'Gerçek oturum verisi',
-      AchievementsDataSource.demoNoUser =>
-        'Kullanıcı verisi yok, örnek rozetler',
-      AchievementsDataSource.demoEmpty => 'Henüz oturum yok, örnek rozetler',
-      AchievementsDataSource.demoError =>
-        'Rozet verisi alınamadı, örnek rozetler',
+      AchievementsDataSource.noUser => 'Kullanıcı oturumu bulunamadı',
+      AchievementsDataSource.empty => 'Henüz oturum yok',
+      AchievementsDataSource.error => 'Rozet verisi alınamadı',
     };
   }
 }
 
-enum AchievementsDataSource { real, demoNoUser, demoEmpty, demoError }
+enum AchievementsDataSource { real, noUser, empty, error }
 
 List<Achievement> _buildAchievementsFromSessions(
   List<WorkoutSession> sessions,

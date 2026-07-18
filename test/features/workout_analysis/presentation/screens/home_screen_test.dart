@@ -114,17 +114,17 @@ void main() {
       overrides: [
         homeDashboardProvider.overrideWith(
           (ref) =>
-              HomeDashboardData.fallback(source: HomeDashboardSource.demoEmpty),
+              HomeDashboardData.fallback(source: HomeDashboardSource.empty),
         ),
         goalsProvider.overrideWith(
           (ref) => const GoalsState(
-            source: GoalsDataSource.demoEmpty,
+            source: GoalsDataSource.empty,
             goals: <WorkoutGoal>[],
           ),
         ),
         achievementsProvider.overrideWith(
           (ref) => const AchievementsState(
-            source: AchievementsDataSource.demoEmpty,
+            source: AchievementsDataSource.empty,
             achievements: <Achievement>[],
           ),
         ),

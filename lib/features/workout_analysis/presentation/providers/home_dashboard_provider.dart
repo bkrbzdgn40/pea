@@ -13,14 +13,14 @@ final homeDashboardProvider = FutureProvider<HomeDashboardData>((ref) async {
 
   return switch (snapshot.source) {
     UserSessionsSnapshotSource.real => _buildDashboardData(snapshot.sessions),
-    UserSessionsSnapshotSource.noUser => HomeDashboardData.fallback(
-      source: HomeDashboardSource.demoNoUser,
+    UserSessionsSnapshotSource.noUser => HomeDashboardData.empty(
+      source: HomeDashboardSource.noUser,
     ),
-    UserSessionsSnapshotSource.empty => HomeDashboardData.fallback(
-      source: HomeDashboardSource.demoEmpty,
+    UserSessionsSnapshotSource.empty => HomeDashboardData.empty(
+      source: HomeDashboardSource.empty,
     ),
-    UserSessionsSnapshotSource.error => HomeDashboardData.fallback(
-      source: HomeDashboardSource.demoError,
+    UserSessionsSnapshotSource.error => HomeDashboardData.empty(
+      source: HomeDashboardSource.error,
     ),
   };
 });

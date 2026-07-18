@@ -125,7 +125,7 @@ void main() {
       overrides: [
         achievementsProvider.overrideWith(
           (ref) => AchievementsState(
-            source: AchievementsDataSource.demoEmpty,
+            source: AchievementsDataSource.empty,
             achievements: const [
               Achievement(
                 id: 'demo_achievement',

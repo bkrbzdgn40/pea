@@ -1,4 +1,4 @@
-enum HomeDashboardSource { real, demoNoUser, demoEmpty, demoError }
+enum HomeDashboardSource { loading, real, noUser, empty, error }
 
 /// Aggregated values used by Home without exposing session query details.
 class HomeDashboardData {
@@ -20,39 +20,35 @@ class HomeDashboardData {
   final List<ExerciseDistributionItem> exerciseDistribution;
   final HomeDashboardSource source;
 
-  factory HomeDashboardData.fallback({
-    HomeDashboardSource source = HomeDashboardSource.demoEmpty,
+  factory HomeDashboardData.empty({
+    HomeDashboardSource source = HomeDashboardSource.empty,
   }) {
     return HomeDashboardData(
-      totalAnalyses: 24,
-      averageScore: 82,
-      thisWeekCount: 6,
-      bestScore: 90,
-      scoreTrend: [
-        ScoreTrendPoint(label: 'Pzt', score: 72),
-        ScoreTrendPoint(label: 'Sal', score: 75),
-        ScoreTrendPoint(label: 'Çar', score: 78),
-        ScoreTrendPoint(label: 'Per', score: 74),
-        ScoreTrendPoint(label: 'Cum', score: 82),
-        ScoreTrendPoint(label: 'Cmt', score: 80),
-        ScoreTrendPoint(label: 'Paz', score: 84),
-      ],
-      exerciseDistribution: [
-        ExerciseDistributionItem(label: 'Squat', value: 40),
-        ExerciseDistributionItem(label: 'Plank', value: 25),
-        ExerciseDistributionItem(label: 'Lunge', value: 20),
-        ExerciseDistributionItem(label: 'Burpee', value: 15),
-      ],
+      totalAnalyses: 0,
+      averageScore: 0,
+      thisWeekCount: 0,
+      bestScore: 0,
+      scoreTrend: const <ScoreTrendPoint>[],
+      exerciseDistribution: const <ExerciseDistributionItem>[],
       source: source,
     );
   }
 
+  factory HomeDashboardData.fallback({
+    HomeDashboardSource source = HomeDashboardSource.loading,
+  }) {
+    return HomeDashboardData.empty(source: source);
+  }
+
+  bool get hasRealData => source == HomeDashboardSource.real;
+
   String get sourceMessage {
     return switch (source) {
+      HomeDashboardSource.loading => 'Oturum verisi yükleniyor',
       HomeDashboardSource.real => 'Gerçek oturum verisi',
-      HomeDashboardSource.demoNoUser => 'Kullanıcı verisi yok, örnek gösterim',
-      HomeDashboardSource.demoEmpty => 'Henüz oturum yok, örnek gösterim',
-      HomeDashboardSource.demoError => 'Veri alınamadı, örnek gösterim',
+      HomeDashboardSource.noUser => 'Kullanıcı oturumu bulunamadı',
+      HomeDashboardSource.empty => 'Henüz oturum yok',
+      HomeDashboardSource.error => 'Oturum verisi alınamadı',
     };
   }
 }
