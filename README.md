@@ -4,7 +4,7 @@
 
 ### Kamera tabanlı gerçek zamanlı egzersiz analizi uygulaması
 
-Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum özeti ve egzersiz rehberi sunan Flutter tabanlı bir hareket analizi uygulaması.
+Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum özeti, geçmiş görünümü ve egzersiz rehberi sunan Flutter tabanlı bir hareket analizi uygulaması.
 
 <br/>
 
@@ -40,54 +40,106 @@ Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum öz
 
 ## Proje Özeti
 
-PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Kaynak kod bugün üç aktif analiz hareketi sunar: squat, plank ve push-up. Lunge ile sit-up uygulamada rehber içeriği olarak bulunur, ancak canlı analiz katalogunda aktif değildir.
+PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Güncel `ExerciseCatalog` altı hareketi canlı analiz için destekler: Squat, Plank, Hollow Hold, Push-up, Sit-up ve Biceps Curl. Lunge rehber içeriğine ve kalıcı kimliğe sahiptir, ancak canlı analiz katalogunda desteklenmez.
 
 ## Aktif Analiz Desteği
 
 | Egzersiz | Engine ailesi | Analiz | Temel çıktı |
-| -------- | ------------- | ------ | ----------- |
-| Squat | Range-rep | Aktif | Tekrar, skor, form sinyalleri |
-| Plank | Hold | Aktif | Anlık süre, en iyi süre, form-break |
-| Push-up | Range-rep | Aktif | Tekrar, skor, form sinyalleri |
+| --- | --- | --- | --- |
+| Squat | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
+| Plank | `hold` / `plank` family | Aktif | Anlık hold, en iyi hold, form-break |
+| Hollow Hold | `hold` / `hollowHold` family | Aktif | Anlık hold, en iyi hold, form-break |
 | Lunge | Belirlenmedi | Kapalı | Rehber içeriği |
-| Sit-up | Belirlenmedi | Kapalı | Rehber içeriği |
+| Push-up | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
+| Sit-up | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
+| Biceps Curl | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol tekrar takibi, form skoru, form sinyalleri |
 
 ## Engine Aileleri
 
-- `rangeRep`: `neutral -> descending -> peak -> ascending -> neutral`
-- `hold`: `ready -> holding -> broken`
-- `alternatingRep` enum olarak tanımlıdır, ancak `AnalysisEngineFactory` içinde henüz uygulanmamıştır.
+### `rangeRep`
 
-Bugünkü katalogda squat ve push-up `rangeRep`, plank ise `hold` ailesini kullanır. README içindeki "analiz aktif" ifadesi, yalnızca katalog ve canlı analiz akışının bu hareketi açabildiği anlamına gelir.
+Temel hareket akışı:
+
+```text
+neutral -> descending -> peak -> ascending -> neutral
+```
+
+Güncel katalogda Squat, Push-up, Sit-up ve Biceps Curl bu aileyi kullanır.
+
+`RangeRepContract`, bir hareketin:
+
+- desteklediği fazları,
+- analiz sinyallerini,
+- pose kabulü için zorunlu sinyalleri,
+- form-threshold kalibrasyon politikasını,
+- selected-side veya bilateral çalışma modunu
+
+belirler.
+
+Squat, Push-up ve Sit-up selected-side akışını kullanır. Biceps Curl ise iki kolu birlikte değerlendiren `bilateral` side mode kullanır. Bilateral analiz, sağ-sol dönüşümlü tekrar anlamına gelmez; iki tarafın aynı tekrar içinde eş zamanlı değerlendirilmesidir.
+
+### `hold`
+
+Temel hold state akışı:
+
+```text
+ready -> holding -> broken
+```
+
+Güncel kodda ortak `HoldEngine`, family-specific contract ve posture policy ile iki aktif hold ailesini çalıştırır:
+
+- `plank`: `alignment`, `support`, `extension`
+- `hollowHold`: `compression`, `armExtension`, `kneeExtension`
+
+Bu yapı, `hold` engine'inin bütün statik egzersizler için otomatik olarak genel amaçlı bir motor olduğu anlamına gelmez. Yeni bir statik hareket mevcut family semantiğine uymuyorsa yeni contract ve posture-policy tasarımı gerekir.
+
+### `alternatingRep`
+
+`EngineKind.alternatingRep` enum olarak tanımlıdır, ancak `AnalysisEngineFactory` içinde henüz uygulanmamıştır. Enum değerinin varlığı çalışan bir analiz motoru anlamına gelmez.
 
 ## Destek Seviyeleri ve Doğrulama
 
 | Katman | Ne anlama gelir | Ne anlama gelmez |
-| ------ | ---------------- | ---------------- |
+| --- | --- | --- |
 | Rehber içeriği | Hareket kartı, açıklama ve video yönlendirmesi vardır | Canlı analiz otomatik olarak aktiftir |
-| Catalog desteği | `ExerciseCatalog` hareketi analiz için destekli işaretler | Hareketin her cihazda biyomekanik olarak kabul edildiği |
+| Catalog desteği | `ExerciseCatalog` hareketi canlı analiz için destekli işaretler | Hareketin her cihazda biyomekanik olarak kabul edildiği |
 | Otomatik doğrulama | `flutter analyze`, `flutter test` ve PR CI kod yolunu doğrular | Gerçek cihaz kabulü veya saha doğrulaması |
-| Cihaz doğrulaması | Profile build ve ayrı cihaz denemeleriyle ölçüm yapılır | Otomatik testlerin yerine geçen tek doğrulama katmanı |
+| Cihaz doğrulaması | Belirli build, cihaz ve senaryoda ölçüm kanıtı üretir | Başka egzersizlerin veya başka cihazların otomatik olarak doğrulandığı |
+
+Catalog desteği ile cihaz kabul kanıtı aynı şey değildir. Tarihsel beta hardening belgeleri belirli commit ve egzersiz kapsamlarına bağlıdır; daha sonra `supported` yapılan bir hareket eski cihaz kanıtını otomatik olarak devralmaz.
 
 Repository ayrıca `main` branch üzerinde elle tetiklenen `Android Profile Beta Artifact` workflow'una sahiptir. Bu yol profile APK ve commit SHA metadata'sı üretir; PR CI ile aynı şey değildir ve tek başına gerçek cihaz kabulü yerine geçmez.
+
+---
 
 ## Uygulama Deneyimi
 
 ### Home
 
-Kullanıcıyı zaman bazlı greeting card ve hızlı aksiyon grid’i ile karşılar. Gerçek oturum verisi varsa özet görünümü sunar; veri yoksa sahte metriklerle yanıltmak yerine sade bir başlangıç yüzeyi gösterir.
+Home yüzeyi kullanıcıyı zaman bazlı greeting card ve hızlı aksiyonlarla karşılar. Gerçek oturum verisi varsa yalnız güvenilir ve egzersizler arasında anlamlı olan özetleri gösterir.
+
+Production provider'ları `loading`, `noUser`, `empty` ve `error` durumlarında sahte analiz, skor, hedef veya başarı verisi üretmez. Missing data kullanıcıya düşük performans veya sıfır başarı gibi sunulmaz.
+
+Global ve cross-exercise skor yüzeyleri kaldırılmıştır. Form skoru trendleri tek bir `ExerciseType` bağlamında hesaplanır; hold-only geçmiş sıfır form skoru trendi gibi gösterilmez.
 
 ### Live Analysis
 
-Kamera akışı üzerinden pose detection çalışır. Squat ve push-up için `rangeRep` faz takibi ile tekrar sayısı, skor ve form sinyalleri; plank için `hold` akışı ile anlık süre, en iyi süre ve form-break telemetrisi üretilir.
+Kamera akışı üzerinden ML Kit pose detection çalışır. Pose verisi seçilen hareketin catalog tanımı, config'i ve contract'ı üzerinden ilgili engine ailesine yönlendirilir.
+
+- Squat, Push-up ve Sit-up: selected-side `rangeRep`
+- Biceps Curl: bilateral `rangeRep`
+- Plank: `hold` + plank posture policy
+- Hollow Hold: `hold` + hollow-hold posture policy
+
+Range-rep oturumları tekrar, skor ve form sinyalleri; hold oturumları anlık hold, en iyi hold ve form-break telemetrisi üretir.
 
 ### Workout Summary & History
 
-Tamamlanan oturum özetlenir, kaydedilir ve geçmiş ekranında yeniden incelenebilir.
+Tamamlanan oturum özetlenir, Firestore'a kaydedilir ve geçmiş ekranında yeniden incelenebilir. Range-rep oturumlarında rep-level kayıtlar ayrı subcollection altında tutulabilir.
 
 ### Guide
 
-Hareketler için kısa amaç açıklamaları, kurulum adımları, teknik ipuçları, yaygın hatalar ve güvenilir dış video bağlantıları sunar.
+Hareketler için kısa amaç açıklamaları, kurulum adımları, teknik ipuçları, yaygın hatalar ve dış video bağlantıları sunar. Guide görünürlüğü canlı analiz desteğinden bağımsızdır; support politikasının kaynağı `ExerciseCatalog` sınıfıdır.
 
 ### How to Use
 
@@ -99,28 +151,28 @@ Uygulamanın ne yaptığını ve nasıl kullanılması gerektiğini kısa, sade 
 
 ### Mobil
 
-* Flutter
-* Dart
+- Flutter
+- Dart
 
 ### Durum Yönetimi
 
-* Riverpod
+- Riverpod
 
 ### Bilgisayarlı Görü
 
-* Google ML Kit Pose Detection
+- Google ML Kit Pose Detection
 
 ### Backend / Veri
 
-* Firebase Core
-* Firebase Auth
-* Cloud Firestore
+- Firebase Core
+- Firebase Auth
+- Cloud Firestore
 
 ### Yardımcı Paketler
 
-* Shared Preferences
-* fl_chart
-* url_launcher
+- Shared Preferences
+- fl_chart
+- url_launcher
 
 ## Mimari Yaklaşım
 
@@ -140,11 +192,14 @@ lib/
 
 ### Temel prensipler
 
-* analiz mantığını UI katmanından ayırmak
-* Firebase erişimini repository katmanında toplamak
-* feature bazlı yapıyı korumak
-* kullanıcıyı sahte veriyle etkilemeye çalışmamak
-* ürün yüzeylerini adım adım olgunlaştırmak
+- analiz mantığını UI katmanından ayırmak
+- Firebase erişimini repository ve infrastructure katmanlarında toplamak
+- `ExerciseCatalog` ile analiz desteğini tek merkezden yönetmek
+- engine family contract'larını config semantiğinden açık biçimde ayırmak
+- kullanıcıyı sahte veriyle etkilemeye çalışmamak
+- missing data'yı zero gibi göstermemek
+- farklı egzersizlerin skorlarını doğrulanmamış bir global gelişim metriğinde birleştirmemek
+- ürün yüzeylerini adım adım ve kanıtla olgunlaştırmak
 
 ---
 
@@ -154,56 +209,82 @@ lib/
 Camera stream
   -> InputImage dönüşümü
   -> ML Kit Pose Detection
-  -> Landmark çıkarımı
-  -> Açı / hold sinyali hesaplama
-  -> Range-rep faz takibi veya hold durumu
-  -> Skor / feedback / hold telemetrisi
-  -> Session özeti kaydı (Firestore)
+  -> Pose quality / landmark requirements
+  -> ExerciseMetricsExtractor
+  -> ExerciseCatalog + ExerciseDefinition
+  -> RangeRepContract veya HoldContract
+  -> RangeRepEngine veya HoldEngine + family posture policy
+  -> Skor / feedback / hold diagnostics
+  -> Session summary + opsiyonel rep documents (Firestore)
 ```
 
 Bu akış, canlı analiz ekranının temel omurgasını oluşturur.
 
 ## Rehber Yaklaşımı
 
-Guide ekranı, uzun ve sıkıcı açıklamalardan oluşan bir broşür sayfası olarak değil, uygulama içi hızlı referans yüzeyi olarak tasarlanmıştır.
+Guide ekranı, uzun bir broşür sayfası yerine uygulama içi hızlı referans yüzeyi olarak tasarlanmıştır.
 
 Her hareket için:
 
-* kısa açıklama
-* zorluk seviyesi
-* amaç
-* kurulum adımları
-* teknik ipuçları
-* yaygın hatalar
-* güvenilir video yönlendirmesi
+- kısa açıklama
+- zorluk seviyesi
+- amaç
+- kurulum adımları
+- teknik ipuçları
+- yaygın hatalar
+- dış video yönlendirmesi
 
 sunulur.
 
-İlk sürümde video oynatımı uygulama içine gömülmemiştir. Bunun yerine kullanıcı, küratörlü YouTube bağlantısına yönlendirilir. Bu tercih, deneyimi hafif ve bakım maliyetini daha düşük tutar.
+Video oynatımı uygulama içine gömülmemiştir. Kullanıcı, küratörlü dış video bağlantısına yönlendirilir.
 
 ---
 
 ## Veri Saklama Modeli
 
-Session verileri kullanıcı bazlı saklanır:
+Session ve rep verileri kullanıcı bazlı saklanır:
 
 ```text
 users/{uid}/sessions/{sessionId}
+users/{uid}/sessions/{sessionId}/reps/{repId}
 ```
 
-Kaydedilen temel alanlar şunları içerir:
+### Session document
 
-* egzersiz tipi
-* `analysisKind`
-* başlangıç zamanı
-* bitiş zamanı
-* süre
-* toplam tekrar, ortalama skor, en iyi skor ve form uyarısı sayısı
-* hold oturumları için toplam geçerli hold süresi
-* hold oturumları için en iyi hold süresi
-* hold oturumları için form-break sayısı
+Session document özet seviyesindedir. Başlıca alanlar:
 
-Mevcut Firestore session sözleşmesi özet seviyesindedir. Rep-level detaylar domain modelinde taşınabilse de bugünkü session dokümanı bu alanları persist etmez.
+- egzersiz tipi
+- `analysisKind`
+- başlangıç ve bitiş zamanı
+- süre
+- toplam tekrar
+- geçerli ve geçersiz tekrar sayıları
+- ortalama, en iyi ve en kötü skor
+- form uyarısı sayısı
+- hold oturumları için toplam geçerli hold süresi
+- hold oturumları için en iyi hold süresi
+- hold form-break sayısı
+
+### Rep subcollection
+
+Range-rep oturumlarında `WorkoutRep` kayıtları `reps` subcollection'ına ayrı dokümanlar olarak yazılır. Rep dokümanları, mevcut runtime'ın üretebildiği ölçüde:
+
+- rep index
+- exercise ve analysis kind
+- skor
+- validation status ve validation reasons
+- minimum primary metric
+- worst form metric
+- descent/ascent süreleri
+- form violation ve coverage-drop bilgileri
+- rep sırasında side switch bilgisi
+- tamamlanan faz sırası
+- selected side
+- feedback
+
+gibi alanlar taşır.
+
+Session document'ın summary-level olması, rep-level verinin hiç persist edilmediği anlamına gelmez.
 
 ---
 
@@ -211,19 +292,15 @@ Mevcut Firestore session sözleşmesi özet seviyesindedir. Rep-level detaylar d
 
 Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 
-* aktif analiz desteği bugün squat, plank ve push-up ile sınırlıdır
-* plank, `hold` ailesinin ilk aktif örneğidir
-* plank hold sinyal geometrisi bugün `plank.json` içindeki `holdSignals` ve `referenceSide` tanımından okunur
-* `HoldContract`, hold motorunun beklediği semantik signal setini; `holdSignals` ise bu signal'ların referans landmark üçlülerini tanımlar
-* hold pipeline aynı config'ten left ve right requirement setleri üretir; right-only plank pose'ları kabul edilip hold başlatabilir
-* aktif hold attempt sırasında seçilen side lock edilir ve kısa visibility gap boyunca korunur
-* hold engine kullanıcı mesajı yerine typed feedback code üretir; Türkçe kullanıcı mesajı presentation mapper'da kalır
-* hold diagnostics artık typed phase, feedback ve last-visible posture state taşır; Beta Diagnostics JSON schema version `3` üzerinden bunları additive alanlarla gösterir
-* missing body/arm/leg metric semantics'i bugün hâlâ mevcut production davranışını korur; bu debt yalnız görünür hâle getirilmiştir, düzeltilmemiştir
-* `hold` ailesi henüz bütün statik egzersizler için kolayca genellenmiş, ikinci fixture ile kanıtlanmış bir şablon değildir
-* kısa visibility gap sonrası hold devam edebilse de gizli süre hold toplamına eklenmez
-* otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez
-* session persistence bugün summary-level sözleşmeye dayanır
+- Lunge rehberde bulunur ancak canlı analiz için `unsupported` durumdadır.
+- `alternatingRep` engine ailesi henüz uygulanmamıştır.
+- `hold` ailesi Plank ve Hollow Hold ile iki gerçek family örneğine sahiptir; yine de bütün statik egzersizler için config-only genel motor olarak kabul edilmemelidir.
+- Catalog desteği gerçek cihaz kabulü anlamına gelmez; yeni veya sonradan etkinleştirilen egzersizler ayrı cihaz kanıtı gerektirir.
+- Çoklu cihaz Low/Mid/High genellemesi tarihsel beta kapsamının açık risklerinden biridir.
+- Hold sırasında kısa visibility gap için koruma vardır; görünmeyen süre geçerli hold toplamına eklenmez.
+- Beta Diagnostics JSON schema version `3`, range-rep ve hold alanlarını geriye uyumluluk amacıyla birlikte taşıyabilir; `0` veya `false` değerler her zaman ölçülen performans anlamına gelmez, analysis kind bağlamında yorumlanmalıdır.
+- Form skoru trendleri yalnız skor üretmeye uygun range-rep oturumlarından ve tek egzersiz bağlamından oluşturulur.
+- Otomatik testler ve CI, gerçek cihaz kabulünün yerine geçmez.
 
 ---
 
@@ -246,10 +323,10 @@ flutter pub get
 
 Projeyi çalıştırmadan önce Firebase tarafında gerekli yapılandırmayı tamamlayın:
 
-* Firebase projesi oluşturun
-* Android / iOS uygulamalarını ekleyin
-* `flutterfire configure` çalıştırın
-* `firebase_options.dart` dosyasını üretin
+- Firebase projesi oluşturun
+- Android / iOS uygulamalarını ekleyin
+- `flutterfire configure` çalıştırın
+- `firebase_options.dart` dosyasını üretin
 
 ### 4. Uygulamayı başlatın
 
@@ -260,13 +337,13 @@ flutter run
 ## Yol Haritası
 
 | Öncelik | Başlık | Not |
-| ------- | ------ | --- |
-| Yüksek | Yeni egzersiz enablement | Yeni hareketler ancak engine, test ve cihaz kanıtı ile aktif edilmeli |
-| Yüksek | İkinci hold-family fixture | Hold ailesini plank dışına güvenli biçimde genişletmek için |
-| Orta | Daha güçlü skor açıklaması | Neden bu skor üretildiğini daha anlaşılır göstermek için |
-| Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek için |
-| Orta | Gerçek cihaz kabul kanıtlarını genişletme | Profile build ve saha ölçümlerini daha sistematik hale getirmek için |
-| Orta | Test kapsamını artırma | Yeni enablement işlerini daha güvenli hale getirmek için |
+| --- | --- | --- |
+| Yüksek | Yeni egzersiz enablement | Yeni hareketler yalnız engine uyumu, test ve cihaz kanıtı tamamlandığında aktif edilmeli |
+| Yüksek | Gerçek cihaz kabul kapsamını genişletme | Sonradan etkinleştirilen hareketler ve Low/Mid/High cihaz çeşitliliği için ayrı kanıt üretmek |
+| Orta | Daha güçlü skor açıklaması | Egzersiz-bazlı form skorunun neden üretildiğini daha anlaşılır göstermek |
+| Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek |
+| Orta | Hold family genellemesini güçlendirme | Yeni statik hareketlerde family/contract/posture-policy sınırlarını kanıtla genişletmek |
+| Orta | Test kapsamını artırma | Yeni enablement ve regression işlerini daha güvenli hale getirmek |
 
 ---
 
@@ -274,12 +351,16 @@ flutter run
 
 Bu repo aktif geliştirme altındadır. Katkı verirken özellikle şu prensiplere dikkat edilmesi önerilir:
 
-* analiz çekirdeği ile UI düzenlemelerini karıştırmamak
-* kullanıcıya gerçek olmayan veri göstermemek
-* kısa ve açık ürün dili kullanmak
-* bir hareketi kanıt tamamlanmadan `supported` yapmamak
-* küçük ekran düzenlerini bozmamak
-* feature bazlı yapının bütünlüğünü korumak
+- analiz çekirdeği ile UI düzenlemelerini karıştırmamak
+- kullanıcıya gerçek olmayan veri göstermemek
+- missing data'yı zero gibi sunmamak
+- kısa ve açık ürün dili kullanmak
+- bir hareketi kanıt tamamlanmadan `supported` yapmamak
+- catalog support ile device validation kavramlarını karıştırmamak
+- küçük ekran düzenlerini bozmamak
+- feature bazlı yapının bütünlüğünü korumak
+
+Yeni egzersiz geliştirmeleri için `docs/development/adding-exercises.md`, repository genelindeki kalıcı mühendislik kuralları için `docs/frontend/FRONTEND_ENGINEERING.md`, beta kanıt kapsamı için `docs/beta/` altındaki belgeler esas alınmalıdır.
 
 ---
 
@@ -291,6 +372,6 @@ Bu repo için lisans bilgisi henüz eklenmemiştir. Lisans tercihi netleştiğin
 
 <div align="center">
 
-**PEA, bugün doğrulanan analiz yüzeylerini koruyarak kapsamını adım adım genişletiyor.**
+**PEA, kullanıcıya yalnız gerçekten ölçtüğü şeyi göstermeyi ve analiz kapsamını kanıtla genişletmeyi hedefler.**
 
 </div>
