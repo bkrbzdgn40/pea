@@ -17,9 +17,7 @@ class RangeRepValidationConfig {
 
 /// Standalone range-rep validator used by the runtime validation outcome flow.
 class RangeRepValidationPolicy {
-  const RangeRepValidationPolicy({
-    this.config = const RangeRepValidationConfig(),
-  });
+  const RangeRepValidationPolicy({required this.config});
 
   final RangeRepValidationConfig config;
 

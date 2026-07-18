@@ -144,5 +144,50 @@ void main() {
       expect(definition.title, ExerciseType.lunge.title);
       expect(definition.isAnalysisSupported, isFalse);
     });
+
+    test('stores Squat-specific validation timing', () {
+      final definition = catalog.definitionFor(ExerciseType.squat);
+      final config = definition.rangeRepValidationConfig;
+
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(config, isNotNull);
+      expect(config!.minAcceptableRomAngle, 110.0);
+      expect(config.minDescentMillis, 300);
+      expect(config.minAscentMillis, 250);
+      expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
+    });
+
+    test('keeps legacy validation timing for other range-rep exercises', () {
+      for (final type in const <ExerciseType>[
+        ExerciseType.pushUp,
+        ExerciseType.sitUp,
+        ExerciseType.bicepsCurl,
+      ]) {
+        final definition = catalog.definitionFor(type);
+        final config = definition.rangeRepValidationConfig;
+
+        expect(definition.analysisEngineKind, EngineKind.rangeRep);
+        expect(config, isNotNull);
+        expect(config!.minAcceptableRomAngle, 110.0);
+        expect(config.minDescentMillis, 250);
+        expect(config.minAscentMillis, 200);
+        expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
+      }
+    });
+
+    test(
+      'does not attach a range-rep validation config to hold or unsupported exercises',
+      () {
+        for (final type in const <ExerciseType>[
+          ExerciseType.plank,
+          ExerciseType.hollowHold,
+          ExerciseType.lunge,
+        ]) {
+          final definition = catalog.definitionFor(type);
+
+          expect(definition.rangeRepValidationConfig, isNull);
+        }
+      },
+    );
   });
 }

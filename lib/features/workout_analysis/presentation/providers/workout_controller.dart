@@ -22,6 +22,7 @@ import '../../domain/models/hold_contract.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/range_rep_analysis_engine.dart';
+import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
@@ -57,6 +58,7 @@ typedef RangeRepCoordinatorFactory =
       required RangeRepAnalysisEngine engine,
       required ExerciseConfig config,
       required RangeRepContract rangeRepContract,
+      required RangeRepValidationConfig rangeRepValidationConfig,
     });
 
 final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
@@ -65,11 +67,13 @@ final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
       required RangeRepAnalysisEngine engine,
       required ExerciseConfig config,
       required RangeRepContract rangeRepContract,
+      required RangeRepValidationConfig rangeRepValidationConfig,
     }) {
       return DefaultRangeRepCoordinator(
         engine: engine,
         config: config,
         rangeRepContract: rangeRepContract,
+        rangeRepValidationConfig: rangeRepValidationConfig,
       );
     };
   },
@@ -151,6 +155,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             (throw StateError(
               'Range-rep analysis requires a RangeRepContract.',
             ));
+        final rangeRepValidationConfig =
+            definition.analysisRangeRepValidationConfig;
         final rangeRepEngine = _engineFactory.createRangeRep(
           config: _config,
           rangeRepContract: rangeRepContract,
@@ -161,6 +167,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           engine: rangeRepEngine,
           config: _config,
           rangeRepContract: rangeRepContract,
+          rangeRepValidationConfig: rangeRepValidationConfig,
         );
         _holdCoordinator = null;
         break;

@@ -1,6 +1,7 @@
 import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
 
@@ -15,6 +16,12 @@ class ExerciseCatalog {
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/squat.json',
           rangeRepContract: RangeRepContracts.squat,
+          rangeRepValidationConfig: const RangeRepValidationConfig(
+            minAcceptableRomAngle: 110.0,
+            minDescentMillis: 300,
+            minAscentMillis: 250,
+            allowLowConfidenceOnCoverageLoss: true,
+          ),
         ),
         ExerciseDefinition.supported(
           type: ExerciseType.plank,
@@ -34,18 +41,36 @@ class ExerciseCatalog {
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/push_up.json',
           rangeRepContract: RangeRepContracts.pushUp,
+          rangeRepValidationConfig: const RangeRepValidationConfig(
+            minAcceptableRomAngle: 110.0,
+            minDescentMillis: 250,
+            minAscentMillis: 200,
+            allowLowConfidenceOnCoverageLoss: true,
+          ),
         ),
         ExerciseDefinition.supported(
           type: ExerciseType.sitUp,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/sit_up.json',
           rangeRepContract: RangeRepContracts.sitUp,
+          rangeRepValidationConfig: const RangeRepValidationConfig(
+            minAcceptableRomAngle: 110.0,
+            minDescentMillis: 250,
+            minAscentMillis: 200,
+            allowLowConfidenceOnCoverageLoss: true,
+          ),
         ),
         ExerciseDefinition.supported(
           type: ExerciseType.bicepsCurl,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/biceps_curl.json',
           rangeRepContract: RangeRepContracts.bicepsCurl,
+          rangeRepValidationConfig: const RangeRepValidationConfig(
+            minAcceptableRomAngle: 110.0,
+            minDescentMillis: 250,
+            minAscentMillis: 200,
+            allowLowConfidenceOnCoverageLoss: true,
+          ),
         ),
       ]);
 

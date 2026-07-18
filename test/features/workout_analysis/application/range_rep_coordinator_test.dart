@@ -5,9 +5,11 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_rep_outcome_tracker.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
 
@@ -78,6 +80,66 @@ void main() {
         'rangeRep',
       );
       expect(completedResult.diagnosticsUpdate.recordAcceptedPoseFrame, isTrue);
+    });
+
+    test('uses the supplied config for its default validation tracker', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = const AnalysisEngineFactory().createRangeRep(
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        now: clock.now,
+      );
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomAngle: 0.0,
+        ),
+      );
+
+      final completedResult = _completeCleanSquatRep(coordinator, clock);
+      final calibrationMetrics =
+          completedResult.stateSnapshot.calibrationMetrics;
+
+      expect(calibrationMetrics.lastRangeRepValidationStatus, 'invalid');
+      expect(
+        calibrationMetrics.lastRangeRepValidationReasons,
+        contains('insufficient rom'),
+      );
+      expect(calibrationMetrics.rangeRepInvalidCount, 1);
+    });
+
+    test('keeps an explicitly injected outcome tracker unchanged', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = const AnalysisEngineFactory().createRangeRep(
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        now: clock.now,
+      );
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomAngle: 0.0,
+        ),
+        outcomeTracker: RangeRepRepOutcomeTracker(
+          validationPolicy: const RangeRepValidationPolicy(
+            config: RangeRepValidationConfig(minAcceptableRomAngle: 180.0),
+          ),
+        ),
+      );
+
+      final completedResult = _completeCleanSquatRep(coordinator, clock);
+      final calibrationMetrics =
+          completedResult.stateSnapshot.calibrationMetrics;
+
+      expect(calibrationMetrics.lastRangeRepValidationStatus, 'valid');
+      expect(calibrationMetrics.rangeRepValidatedCount, 1);
+      expect(calibrationMetrics.rangeRepInvalidCount, 0);
     });
 
     test(
@@ -918,6 +980,30 @@ DefaultRangeRepCoordinator _buildCoordinatorWith(
     engine: engine,
     config: config,
     rangeRepContract: contract,
+    rangeRepValidationConfig: const RangeRepValidationConfig(),
+  );
+}
+
+RangeRepCoordinatorFrameResult _completeCleanSquatRep(
+  DefaultRangeRepCoordinator coordinator,
+  _TestClock clock,
+) {
+  _pumpAcceptedFrames(
+    coordinator,
+    clock,
+    angle: 170,
+    count: 3,
+    spacing: const Duration(milliseconds: 120),
+  );
+  _driveUntilPhase(coordinator, clock, angle: 140, expectedPhase: 'DESCENDING');
+  _driveUntilPhase(coordinator, clock, angle: 90, expectedPhase: 'PEAK');
+  _driveUntilPhase(coordinator, clock, angle: 110, expectedPhase: 'ASCENDING');
+  return _driveUntilPhase(
+    coordinator,
+    clock,
+    angle: 170,
+    expectedPhase: 'NEUTRAL',
+    spacing: const Duration(milliseconds: 120),
   );
 }
 
