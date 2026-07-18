@@ -16,6 +16,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -42,12 +43,14 @@ void main() {
             required RangeRepAnalysisEngine engine,
             required ExerciseConfig config,
             required RangeRepContract rangeRepContract,
+            required RangeRepValidationConfig rangeRepValidationConfig,
           }) {
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
                 engine: engine,
                 config: config,
                 rangeRepContract: rangeRepContract,
+                rangeRepValidationConfig: rangeRepValidationConfig,
               ),
             );
             return spyCoordinator;
@@ -132,12 +135,14 @@ void main() {
             required RangeRepAnalysisEngine engine,
             required ExerciseConfig config,
             required RangeRepContract rangeRepContract,
+            required RangeRepValidationConfig rangeRepValidationConfig,
           }) {
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
                 engine: engine,
                 config: config,
                 rangeRepContract: rangeRepContract,
+                rangeRepValidationConfig: rangeRepValidationConfig,
               ),
             );
             return spyCoordinator;

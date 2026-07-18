@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/common_frame_pose_pipeline.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/hold_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_acceptance_stabilizer.dart';
@@ -24,6 +25,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -291,6 +293,7 @@ void main() {
       final detector = _QueuedPoseDetector();
       final clock = _FakeClock();
       late _SpyRangeRepCoordinator spyCoordinator;
+      late RangeRepValidationConfig factoryValidationConfig;
       final harness = _createHarness(
         exerciseType: ExerciseType.squat,
         config: _squatConfig(),
@@ -301,12 +304,15 @@ void main() {
             required RangeRepAnalysisEngine engine,
             required ExerciseConfig config,
             required RangeRepContract rangeRepContract,
+            required RangeRepValidationConfig rangeRepValidationConfig,
           }) {
+            factoryValidationConfig = rangeRepValidationConfig;
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
                 engine: engine,
                 config: config,
                 rangeRepContract: rangeRepContract,
+                rangeRepValidationConfig: rangeRepValidationConfig,
               ),
             );
             return spyCoordinator;
@@ -314,6 +320,15 @@ void main() {
         ],
       );
       addTearDown(harness.dispose);
+
+      expect(
+        factoryValidationConfig,
+        same(
+          const ExerciseCatalog()
+              .definitionFor(ExerciseType.squat)
+              .analysisRangeRepValidationConfig,
+        ),
+      );
 
       await _pumpAcceptedPose(
         harness.controller,
@@ -1229,12 +1244,14 @@ void main() {
             required RangeRepAnalysisEngine engine,
             required ExerciseConfig config,
             required RangeRepContract rangeRepContract,
+            required RangeRepValidationConfig rangeRepValidationConfig,
           }) {
             spyCoordinator = _SpyRangeRepCoordinator(
               inner: DefaultRangeRepCoordinator(
                 engine: engine,
                 config: config,
                 rangeRepContract: rangeRepContract,
+                rangeRepValidationConfig: rangeRepValidationConfig,
               ),
             );
             return spyCoordinator;

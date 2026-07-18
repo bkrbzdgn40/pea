@@ -2,6 +2,7 @@ import 'engine_kind.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/range_rep_validation_policy.dart';
 
 /// In-memory exercise metadata that can later come from a JSON-backed source.
 class ExerciseDefinition {
@@ -10,18 +11,26 @@ class ExerciseDefinition {
     required this.engineKind,
     required this.configAssetPath,
     this.rangeRepContract,
+    this.rangeRepValidationConfig,
     this.holdContract,
   }) : isAnalysisSupported = true,
        assert(engineKind != EngineKind.rangeRep || rangeRepContract != null),
+       assert(
+         engineKind != EngineKind.rangeRep || rangeRepValidationConfig != null,
+       ),
        assert(engineKind != EngineKind.hold || holdContract != null),
        assert(engineKind != EngineKind.rangeRep || holdContract == null),
-       assert(engineKind != EngineKind.hold || rangeRepContract == null);
+       assert(engineKind != EngineKind.hold || rangeRepContract == null),
+       assert(
+         engineKind == EngineKind.rangeRep || rangeRepValidationConfig == null,
+       );
 
   const ExerciseDefinition.unsupported({required this.type})
     : isAnalysisSupported = false,
       engineKind = null,
       configAssetPath = null,
       rangeRepContract = null,
+      rangeRepValidationConfig = null,
       holdContract = null;
 
   final ExerciseType type;
@@ -29,6 +38,7 @@ class ExerciseDefinition {
   final EngineKind? engineKind;
   final String? configAssetPath;
   final RangeRepContract? rangeRepContract;
+  final RangeRepValidationConfig? rangeRepValidationConfig;
   final HoldContract? holdContract;
 
   String get id => type.id;
@@ -78,6 +88,20 @@ class ExerciseDefinition {
     return rangeRepContract;
   }
 
+  RangeRepValidationConfig get analysisRangeRepValidationConfig {
+    _ensureAnalysisDefinitionConsistency();
+    if (engineKind != EngineKind.rangeRep) {
+      throw StateError('No range-rep validation config registered for $type.');
+    }
+
+    final rangeRepValidationConfig = this.rangeRepValidationConfig;
+    if (rangeRepValidationConfig == null) {
+      throw StateError('No range-rep validation config registered for $type.');
+    }
+
+    return rangeRepValidationConfig;
+  }
+
   HoldContract get analysisHoldContract {
     _ensureAnalysisDefinitionConsistency();
     if (engineKind != EngineKind.hold) {
@@ -107,6 +131,11 @@ class ExerciseDefinition {
         if (rangeRepContract == null) {
           throw StateError('No range-rep contract registered for $type.');
         }
+        if (rangeRepValidationConfig == null) {
+          throw StateError(
+            'No range-rep validation config registered for $type.',
+          );
+        }
         if (holdContract != null) {
           throw StateError(
             'Range-rep definition for $type cannot also declare a hold '
@@ -124,12 +153,20 @@ class ExerciseDefinition {
             'contract.',
           );
         }
+        if (rangeRepValidationConfig != null) {
+          throw StateError(
+            'Hold definition for $type cannot also declare a range-rep '
+            'validation config.',
+          );
+        }
         return;
       case EngineKind.alternatingRep:
-        if (rangeRepContract != null || holdContract != null) {
+        if (rangeRepContract != null ||
+            rangeRepValidationConfig != null ||
+            holdContract != null) {
           throw StateError(
             'Alternating-rep definition for $type cannot declare analysis '
-            'contracts.',
+            'contracts or range-rep validation config.',
           );
         }
         return;

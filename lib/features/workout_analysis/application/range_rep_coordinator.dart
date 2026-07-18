@@ -166,6 +166,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepAnalysisEngine engine,
     required ExerciseConfig config,
     required RangeRepContract rangeRepContract,
+    required RangeRepValidationConfig rangeRepValidationConfig,
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
         const WorkoutAnalysisFrameBuilder(),
     RangeRepBlockedStateBuilder blockedStateBuilder =
@@ -204,7 +205,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _outcomeTracker =
            outcomeTracker ??
            RangeRepRepOutcomeTracker(
-             validationPolicy: const RangeRepValidationPolicy(),
+             validationPolicy: RangeRepValidationPolicy(
+               config: rangeRepValidationConfig,
+             ),
            ),
        _sessionCalibrationBaselineAccumulator =
            sessionCalibrationBaselineAccumulator ??

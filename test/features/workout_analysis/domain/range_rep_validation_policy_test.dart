@@ -5,7 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_v
 
 void main() {
   group('RangeRepValidationPolicy', () {
-    const policy = RangeRepValidationPolicy();
+    const policy = RangeRepValidationPolicy(config: RangeRepValidationConfig());
 
     test('returns valid for a clean completed rep', () {
       final result = policy.evaluate(_summary());
