@@ -157,9 +157,20 @@ void main() {
       expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
-    test('keeps legacy validation timing for other range-rep exercises', () {
+    test('stores Push-up-specific validation timing', () {
+      final definition = catalog.definitionFor(ExerciseType.pushUp);
+      final config = definition.rangeRepValidationConfig;
+
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(config, isNotNull);
+      expect(config!.minAcceptableRomAngle, 110.0);
+      expect(config.minDescentMillis, 250);
+      expect(config.minAscentMillis, 250);
+      expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
+    });
+
+    test('keeps legacy validation timing for Sit-up and Biceps Curl', () {
       for (final type in const <ExerciseType>[
-        ExerciseType.pushUp,
         ExerciseType.sitUp,
         ExerciseType.bicepsCurl,
       ]) {
