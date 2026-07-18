@@ -2,7 +2,9 @@
 
 ## Amaç
 
-Bu workflow, E0 engineering baseline için Android profile APK üretir. Üretilen artifact bir production release veya Play Store paketi değildir; amaç commit SHA doğrulanabilir, indirilebilir bir engineering beta artifact sağlamaktır.
+Bu workflow, Android üzerinde commit SHA'sı doğrulanabilir ve indirilebilir bir engineering profile APK üretir. İlk olarak E0 engineering baseline ve beta hardening kanıtı için kullanılmıştır; güncel kullanımda da gerçek cihaz doğrulaması gereken mühendislik çalışmalarında aynı artifact sözleşmesini sağlar.
+
+Üretilen artifact bir production release veya Play Store paketi değildir. Tek başına bir egzersizin device-validation kabulünü veya beta release onayını kanıtlamaz; yalnız belirli commit için yeniden üretilebilir ve kimliği doğrulanabilir test artifact'i sağlar.
 
 ## Manuel çalıştırma
 
@@ -60,6 +62,8 @@ adb install -r pea-profile-<SHORT_SHA>.apk
 Panelde görünen Commit SHA, `build-metadata.txt` içindeki `commit_sha` değeri ile tam olarak aynı olmalıdır.
 
 Eşleşmiyorsa test sonucu `INVALID` sayılmalıdır.
+
+Bu eşleşme artifact'in hangi commit'ten üretildiğini doğrular; analiz doğruluğunu veya ilgili egzersizin cihaz kabulünü tek başına kanıtlamaz.
 
 ## Signing sınırı
 
