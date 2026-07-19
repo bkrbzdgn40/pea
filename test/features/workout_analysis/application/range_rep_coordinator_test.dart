@@ -10,6 +10,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/legacy_rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_score_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -344,6 +345,7 @@ void main() {
           result.stateSnapshot.calibrationMetrics.lastRepRomScore,
           isNot(sentinelBreakdown.romScore),
         );
+        expect(productionEngine.consumeCompletedRepCoreDataCalled, isFalse);
       },
     );
 
@@ -1794,8 +1796,7 @@ class _CompletingRangeRepEngine extends RangeRepEngine {
 
   final RangeRepCompletedRepCoreData completedRepCoreData;
   final RangeRepDiagnosticsSnapshot _diagnosticsSnapshot;
-  bool _didUpdate = false;
-  bool _didConsume = false;
+  bool consumeCompletedRepCoreDataCalled = false;
 
   @override
   double get lastRepRom => completedRepCoreData.minAngle;
@@ -1804,22 +1805,22 @@ class _CompletingRangeRepEngine extends RangeRepEngine {
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot => _diagnosticsSnapshot;
 
   @override
-  void updateWithTechniqueAssessment(
+  RangeRepEngineFrameResult updateWithTechniqueAssessment(
     AnalysisFrame frame, {
     required RangeRepTechniqueAssessment techniqueAssessment,
   }) {
-    _didUpdate = true;
     repCount = completedRepCoreData.repIndex;
+    return RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: true,
+      isArmedAfterUpdate: true,
+      completedRepCoreData: completedRepCoreData,
+    );
   }
 
   @override
   RangeRepCompletedRepCoreData? consumeCompletedRepCoreData() {
-    if (!_didUpdate || _didConsume) {
-      return null;
-    }
-
-    _didConsume = true;
-    return completedRepCoreData;
+    consumeCompletedRepCoreDataCalled = true;
+    throw StateError('Coordinator must use the typed lifecycle result.');
   }
 }
 
@@ -1841,13 +1842,17 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
   }
 
   @override
-  void updateWithTechniqueAssessment(
+  RangeRepEngineFrameResult updateWithTechniqueAssessment(
     AnalysisFrame frame, {
     required RangeRepTechniqueAssessment techniqueAssessment,
   }) {
     typedUpdateCount++;
     frames.add(frame);
     assessments.add(techniqueAssessment);
+    return RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: false,
+      isArmedAfterUpdate: false,
+    );
   }
 }
 

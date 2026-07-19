@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -315,6 +317,146 @@ void main() {
     });
   });
 
+  group('RangeRepEngine typed lifecycle result', () {
+    test('reports arming boundaries without observing a rep phase', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      final acquisitionStarted = engine.updateWithTechniqueAssessment(
+        _frame(170, 60),
+        techniqueAssessment: RangeRepTechniqueAssessment.empty,
+      );
+      clock.advance(_neutralConfirmationWindow);
+      final acquisitionCompleted = engine.updateWithTechniqueAssessment(
+        _frame(170, 60),
+        techniqueAssessment: RangeRepTechniqueAssessment.empty,
+      );
+      final armedNeutral = engine.updateWithTechniqueAssessment(
+        _frame(170, 60),
+        techniqueAssessment: RangeRepTechniqueAssessment.empty,
+      );
+
+      expect(acquisitionStarted.wasArmedAtFrameStart, isFalse);
+      expect(acquisitionStarted.isArmedAfterUpdate, isFalse);
+      expect(acquisitionStarted.observedRepPhases, isEmpty);
+      expect(acquisitionCompleted.wasArmedAtFrameStart, isFalse);
+      expect(acquisitionCompleted.isArmedAfterUpdate, isTrue);
+      expect(acquisitionCompleted.observedRepPhases, isEmpty);
+      expect(armedNeutral.wasArmedAtFrameStart, isTrue);
+      expect(armedNeutral.isArmedAfterUpdate, isTrue);
+      expect(armedNeutral.observedRepPhases, isEmpty);
+    });
+
+    test(
+      'reports exact phases and lifecycle events through a completed rep',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+        _acquireNeutralWithTechniqueAssessment(clock, engine);
+        final started = _confirmTransitionWithTechniqueAssessment(
+          clock,
+          engine,
+          angle: 140,
+        );
+        final descending = engine.updateWithTechniqueAssessment(
+          _frame(130, 60),
+          techniqueAssessment: RangeRepTechniqueAssessment.empty,
+        );
+        final reachedPeak = _confirmTransitionWithTechniqueAssessment(
+          clock,
+          engine,
+          angle: 90,
+        );
+        final peak = engine.updateWithTechniqueAssessment(
+          _frame(90, 60),
+          techniqueAssessment: RangeRepTechniqueAssessment.empty,
+        );
+        final startedAscending = _confirmTransitionWithTechniqueAssessment(
+          clock,
+          engine,
+          angle: 110,
+        );
+        final ascending = engine.updateWithTechniqueAssessment(
+          _frame(110, 60),
+          techniqueAssessment: RangeRepTechniqueAssessment.empty,
+        );
+        final completed = _confirmTransitionWithTechniqueAssessment(
+          clock,
+          engine,
+          angle: 170,
+          confirmationWindow: _neutralConfirmationWindow,
+        );
+
+        expect(started.repStarted, isTrue);
+        expect(started.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.descending,
+        ]);
+        expect(descending.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.descending,
+        ]);
+        expect(reachedPeak.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.descending,
+          RangeRepPhase.peak,
+        ]);
+        expect(peak.observedRepPhases, <RangeRepPhase>[RangeRepPhase.peak]);
+        expect(startedAscending.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.peak,
+          RangeRepPhase.ascending,
+        ]);
+        expect(ascending.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.ascending,
+        ]);
+        expect(completed.observedRepPhases, <RangeRepPhase>[
+          RangeRepPhase.ascending,
+        ]);
+        expect(completed.didCompleteRep, isTrue);
+        expect(completed.completedRepCoreData?.repIndex, 1);
+        expect(engine.consumeCompletedRepCoreData(), isNull);
+      },
+    );
+
+    test('reports an aborted descent without completion data', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutralWithTechniqueAssessment(clock, engine);
+      _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 140);
+      final aborted = _confirmTransitionWithTechniqueAssessment(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(aborted.repAborted, isTrue);
+      expect(aborted.didCompleteRep, isFalse);
+      expect(aborted.completedRepCoreData, isNull);
+      expect(aborted.observedRepPhases, <RangeRepPhase>[
+        RangeRepPhase.descending,
+      ]);
+    });
+
+    test('defensively copies and freezes observed phases', () {
+      final sourcePhases = <RangeRepPhase>[RangeRepPhase.descending];
+      final result = RangeRepEngineFrameResult(
+        wasArmedAtFrameStart: true,
+        isArmedAfterUpdate: true,
+        observedRepPhases: sourcePhases,
+      );
+
+      sourcePhases.add(RangeRepPhase.peak);
+
+      expect(result.observedRepPhases, <RangeRepPhase>[
+        RangeRepPhase.descending,
+      ]);
+      expect(
+        () => result.observedRepPhases.add(RangeRepPhase.peak),
+        throwsUnsupportedError,
+      );
+    });
+  });
+
   group('RangeRepEngine typed technique assessment path', () {
     test('empty assessment overrides a below-threshold legacy metric', () {
       final clock = _TestClock();
@@ -376,7 +518,7 @@ void main() {
       );
       _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 90);
       _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 110);
-      _confirmTransitionWithTechniqueAssessment(
+      final completionResult = _confirmTransitionWithTechniqueAssessment(
         clock,
         engine,
         angle: 170,
@@ -384,9 +526,10 @@ void main() {
       );
 
       final diagnostics = engine.diagnosticsSnapshot;
-      final completedRepCoreData = engine.consumeCompletedRepCoreData();
+      final completedRepCoreData = completionResult.completedRepCoreData;
       expect(engine.repCount, 1);
       expect(completedRepCoreData?.hadFormViolation, isTrue);
+      expect(engine.consumeCompletedRepCoreData(), isNull);
       expect(engine.lastRepScore, 0.0);
       expect(engine.lastRepScoreBreakdown, isNull);
       expect(diagnostics.descendingPhaseQuality.hadFormViolation, isTrue);
@@ -852,11 +995,11 @@ void _acquireNeutral(
   );
 }
 
-void _acquireNeutralWithTechniqueAssessment(
+RangeRepEngineFrameResult _acquireNeutralWithTechniqueAssessment(
   _TestClock clock,
   RangeRepEngine engine,
 ) {
-  _confirmTransitionWithTechniqueAssessment(
+  return _confirmTransitionWithTechniqueAssessment(
     clock,
     engine,
     angle: 170,
@@ -864,7 +1007,7 @@ void _acquireNeutralWithTechniqueAssessment(
   );
 }
 
-void _confirmTransitionWithTechniqueAssessment(
+RangeRepEngineFrameResult _confirmTransitionWithTechniqueAssessment(
   _TestClock clock,
   RangeRepEngine engine, {
   required double angle,
@@ -876,7 +1019,7 @@ void _confirmTransitionWithTechniqueAssessment(
     techniqueAssessment: RangeRepTechniqueAssessment.empty,
   );
   clock.advance(confirmationWindow);
-  engine.updateWithTechniqueAssessment(
+  return engine.updateWithTechniqueAssessment(
     _frame(angle, backAngle),
     techniqueAssessment: RangeRepTechniqueAssessment.empty,
   );

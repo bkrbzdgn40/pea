@@ -567,11 +567,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       formMetric: engineFrame.formMetric,
       formThreshold: _config.formThreshold,
     );
-    _engine.updateWithTechniqueAssessment(
+    final engineResult = _engine.updateWithTechniqueAssessment(
       engineFrame,
       techniqueAssessment: techniqueAssessment,
     );
-    final completedRepCoreData = _consumeCompletedRepCoreData();
+    final completedRepCoreData = engineResult.completedRepCoreData;
     final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
     final didCompleteRep = completedRepCoreData != null;
     if (completedRepCoreData != null) {
@@ -1100,10 +1100,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       selectedSideLabel: _rangeRepSideLabel(selectedSide),
       markCoverageDrop: markCoverageDrop,
     );
-  }
-
-  RangeRepCompletedRepCoreData? _consumeCompletedRepCoreData() {
-    return _engine.consumeCompletedRepCoreData();
   }
 
   void _clearActiveRepContext({String? reason}) {

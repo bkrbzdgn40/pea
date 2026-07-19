@@ -1,5 +1,6 @@
 import 'analysis_engine.dart';
 import 'models/analysis_frame.dart';
+import 'models/range_rep_engine_frame_result.dart';
 import 'models/range_rep_feedback_code.dart';
 import 'models/range_rep_technique_assessment.dart';
 import 'range_rep_diagnostics.dart';
@@ -12,7 +13,7 @@ abstract interface class RangeRepAnalysisEngine
         RangeRepResyncControl,
         RangeRepVisibilityGapControl,
         RangeRepFeedbackSource {
-  void updateWithTechniqueAssessment(
+  RangeRepEngineFrameResult updateWithTechniqueAssessment(
     AnalysisFrame frame, {
     required RangeRepTechniqueAssessment techniqueAssessment,
   });
