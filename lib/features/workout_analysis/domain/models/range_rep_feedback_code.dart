@@ -15,11 +15,18 @@ enum RangeRepFeedbackCode {
   ascend,
   repCompleted,
   repIncomplete,
-  keepBodyUpright,
+  legacyFormThresholdViolation,
   controlDescent,
   controlAscent,
   stabilizeTransition,
-  maintainForm,
+  maintainForm;
+
+  /// Source-compatibility alias for the pre-R13 feedback name.
+  ///
+  /// The legacy form threshold is exercise-specific and must not imply that the
+  /// measured signal is a back angle or that an upright torso is the correction.
+  static const RangeRepFeedbackCode keepBodyUpright =
+      legacyFormThresholdViolation;
 }
 
 /// Optional surface for range-rep engines that can expose a typed feedback code.
@@ -40,7 +47,7 @@ extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
       case RangeRepFeedbackCode.repCompleted:
       case RangeRepFeedbackCode.repIncomplete:
         return RangeRepFeedbackFamily.movementCue;
-      case RangeRepFeedbackCode.keepBodyUpright:
+      case RangeRepFeedbackCode.legacyFormThresholdViolation:
       case RangeRepFeedbackCode.controlDescent:
       case RangeRepFeedbackCode.controlAscent:
       case RangeRepFeedbackCode.stabilizeTransition:
@@ -67,8 +74,8 @@ extension RangeRepFeedbackCodeX on RangeRepFeedbackCode {
         return 'rep_completed';
       case RangeRepFeedbackCode.repIncomplete:
         return 'rep_incomplete';
-      case RangeRepFeedbackCode.keepBodyUpright:
-        return 'keep_body_upright';
+      case RangeRepFeedbackCode.legacyFormThresholdViolation:
+        return 'legacy_form_threshold_violation';
       case RangeRepFeedbackCode.controlDescent:
         return 'control_descent';
       case RangeRepFeedbackCode.controlAscent:
