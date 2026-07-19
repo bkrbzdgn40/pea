@@ -7,7 +7,6 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
