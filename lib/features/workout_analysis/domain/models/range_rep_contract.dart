@@ -1,3 +1,5 @@
+import 'analysis_signal_role.dart';
+
 /// Canonical phases for range-rep style movements.
 enum RangeRepPhase { descending, peak, ascending }
 
@@ -28,12 +30,22 @@ class RangeRepContract {
   RangeRepContract({
     required Iterable<RangeRepPhase> supportedPhases,
     required Iterable<RangeRepSignal> supportedSignals,
+    required Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles,
     Iterable<RangeRepSignal>? poseAcceptanceRequiredSignals,
     this.formThresholdCalibrationPolicy =
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
+       signalRoles = Map<RangeRepSignal, Set<AnalysisSignalRole>>.unmodifiable(
+         <RangeRepSignal, Set<AnalysisSignalRole>>{
+           for (final signal in RangeRepSignal.values)
+             if (signalRoles.containsKey(signal))
+               signal: Set<AnalysisSignalRole>.unmodifiable(
+                 AnalysisSignalRole.values.where(signalRoles[signal]!.contains),
+               ),
+         },
+       ),
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
          poseAcceptanceRequiredSignals ?? supportedSignals,
        ) {
@@ -46,10 +58,33 @@ class RangeRepContract {
         'Pose-acceptance signals must be a subset of supportedSignals.',
       );
     }
+
+    final missingRoleSignals = this.supportedSignals.where(
+      (signal) => rolesForSignal(signal).isEmpty,
+    );
+    if (missingRoleSignals.isNotEmpty) {
+      throw ArgumentError.value(
+        missingRoleSignals.toSet(),
+        'signalRoles',
+        'Every supported signal must have at least one semantic role.',
+      );
+    }
+
+    final unsupportedRoleSignals = this.signalRoles.keys.toSet().difference(
+      this.supportedSignals,
+    );
+    if (unsupportedRoleSignals.isNotEmpty) {
+      throw ArgumentError.value(
+        unsupportedRoleSignals,
+        'signalRoles',
+        'Role metadata may only describe supported signals.',
+      );
+    }
   }
 
   final Set<RangeRepPhase> supportedPhases;
   final Set<RangeRepSignal> supportedSignals;
+  final Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles;
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
@@ -64,6 +99,20 @@ class RangeRepContract {
 
   bool requiresPoseAcceptanceSignal(RangeRepSignal signal) {
     return poseAcceptanceRequiredSignals.contains(signal);
+  }
+
+  Set<AnalysisSignalRole> rolesForSignal(RangeRepSignal signal) {
+    return signalRoles[signal] ?? const <AnalysisSignalRole>{};
+  }
+
+  bool signalHasRole(RangeRepSignal signal, AnalysisSignalRole role) {
+    return rolesForSignal(signal).contains(role);
+  }
+
+  Set<RangeRepSignal> signalsForRole(AnalysisSignalRole role) {
+    return Set<RangeRepSignal>.unmodifiable(
+      RangeRepSignal.values.where((signal) => signalHasRole(signal, role)),
+    );
   }
 
   Set<RangeRepSignal> signalsFor(RangeRepSignalSet signalSet) {
@@ -92,6 +141,30 @@ abstract final class RangeRepContracts {
       RangeRepSignal.alignmentMetric,
       RangeRepSignal.endRangeMetric,
     },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.alignmentMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.endRangeMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+    },
   );
 
   static final RangeRepContract pushUp = RangeRepContract(
@@ -108,6 +181,30 @@ abstract final class RangeRepContracts {
       RangeRepSignal.alignmentMetric,
       RangeRepSignal.endRangeMetric,
     },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.alignmentMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.endRangeMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+    },
   );
 
   static final RangeRepContract sitUp = RangeRepContract(
@@ -121,6 +218,24 @@ abstract final class RangeRepContracts {
       RangeRepSignal.formMetric,
       RangeRepSignal.postureAngle,
       RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
     },
     poseAcceptanceRequiredSignals: const <RangeRepSignal>{
       RangeRepSignal.primaryMetric,
@@ -140,6 +255,24 @@ abstract final class RangeRepContracts {
       RangeRepSignal.formMetric,
       RangeRepSignal.postureAngle,
       RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
     },
     poseAcceptanceRequiredSignals: const <RangeRepSignal>{
       RangeRepSignal.primaryMetric,

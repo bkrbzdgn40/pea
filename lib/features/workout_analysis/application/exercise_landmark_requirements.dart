@@ -1,6 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../domain/models/exercise_config.dart';
+import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -46,6 +47,7 @@ class ExerciseLandmarkRequirements {
   static final RangeRepContract _emptyRangeRepContract = RangeRepContract(
     supportedPhases: const <RangeRepPhase>{},
     supportedSignals: const <RangeRepSignal>{},
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   );
 
   ExerciseLandmarkRequirementSet resolve({

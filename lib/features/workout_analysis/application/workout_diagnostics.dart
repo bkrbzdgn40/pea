@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 import '../domain/hold_diagnostics.dart';
+import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
+import '../domain/models/range_rep_contract.dart';
 
 const String _defaultAppCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
@@ -27,6 +29,7 @@ class RangeRepWorkoutDiagnostics {
     this.activeRepSideSwitchCount = 0,
     this.currentSelectedSide,
     this.lastCalibrationOffsetDegrees,
+    this.signalRoles = const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   });
 
   final int? repCount;
@@ -35,6 +38,7 @@ class RangeRepWorkoutDiagnostics {
   final int activeRepSideSwitchCount;
   final String? currentSelectedSide;
   final double? lastCalibrationOffsetDegrees;
+  final Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles;
 
   RangeRepWorkoutDiagnostics copyWith({
     Object? repCount = _unsetValue,
@@ -43,6 +47,7 @@ class RangeRepWorkoutDiagnostics {
     int? activeRepSideSwitchCount,
     Object? currentSelectedSide = _unsetValue,
     Object? lastCalibrationOffsetDegrees = _unsetValue,
+    Object? signalRoles = _unsetValue,
   }) {
     return RangeRepWorkoutDiagnostics(
       repCount: repCount == _unsetValue ? this.repCount : repCount as int?,
@@ -58,6 +63,9 @@ class RangeRepWorkoutDiagnostics {
       lastCalibrationOffsetDegrees: lastCalibrationOffsetDegrees == _unsetValue
           ? this.lastCalibrationOffsetDegrees
           : lastCalibrationOffsetDegrees as double?,
+      signalRoles: signalRoles == _unsetValue
+          ? this.signalRoles
+          : signalRoles as Map<RangeRepSignal, Set<AnalysisSignalRole>>,
     );
   }
 }
@@ -78,6 +86,7 @@ class HoldWorkoutDiagnostics {
     HoldSignalValues? currentSignalValues,
     HoldSignalValues? targetSignalValues,
     HoldSignalValidity? signalValidity,
+    this.signalRoles = const <HoldSignal, Set<AnalysisSignalRole>>{},
   }) : currentSignalValues =
            currentSignalValues ?? const HoldSignalValues.empty(),
        targetSignalValues =
@@ -98,6 +107,7 @@ class HoldWorkoutDiagnostics {
   final HoldSignalValues currentSignalValues;
   final HoldSignalValues targetSignalValues;
   final HoldSignalValidity signalValidity;
+  final Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles;
 }
 
 const Object _unsetValue = Object();
@@ -181,6 +191,14 @@ class WorkoutDiagnosticsSnapshot {
   final int? frameProcessingMsP50;
   final int? frameProcessingMsP95;
   final int? frameProcessingMsMax;
+
+  Map<RangeRepSignal, Set<AnalysisSignalRole>> get rangeRepSignalRoles =>
+      rangeRepDiagnostics?.signalRoles ??
+      const <RangeRepSignal, Set<AnalysisSignalRole>>{};
+
+  Map<HoldSignal, Set<AnalysisSignalRole>> get holdSignalRoles =>
+      holdDiagnostics?.signalRoles ??
+      const <HoldSignal, Set<AnalysisSignalRole>>{};
 
   int get sideSwitchCount => rangeRepDiagnostics?.sideSwitchCount ?? 0;
 
@@ -321,6 +339,10 @@ class WorkoutDiagnosticsSnapshot {
     'last_pose_rejection_reason': lastPoseRejectionReason,
     'current_pose_quality_status': currentPoseQualityStatus,
     'current_visibility_status': currentVisibilityStatus,
+    'range_rep_signal_roles': _serializeRangeRepSignalRoles(
+      rangeRepSignalRoles,
+    ),
+    'hold_signal_roles': _serializeHoldSignalRoles(holdSignalRoles),
     'side_switch_count': sideSwitchCount,
     'active_rep_side_switch_count': activeRepSideSwitchCount,
     'current_selected_side': currentSelectedSide,
@@ -508,6 +530,7 @@ class WorkoutDiagnosticsAccumulator {
   void updateRangeRepState({
     required int repCount,
     required String currentPhase,
+    required Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles,
     double? calibrationOffsetDegrees,
   }) {
     final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
@@ -515,6 +538,7 @@ class WorkoutDiagnosticsAccumulator {
       repCount: repCount,
       currentPhase: currentPhase,
       lastCalibrationOffsetDegrees: calibrationOffsetDegrees,
+      signalRoles: signalRoles,
     );
     _holdDiagnostics = null;
   }
@@ -524,6 +548,7 @@ class WorkoutDiagnosticsAccumulator {
     required int bestHoldSeconds,
     required String currentPhase,
     required bool isHolding,
+    required Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles,
     HoldFeedbackCode? presentedHoldFeedbackCode,
     HoldDiagnosticsSnapshot? holdDiagnostics,
     HoldSide? currentHoldSide,
@@ -547,6 +572,7 @@ class WorkoutDiagnosticsAccumulator {
       targetSignalValues:
           targetSignalValues ?? holdDiagnostics?.targetSignalValues,
       signalValidity: signalValidity ?? holdDiagnostics?.signalValidity,
+      signalRoles: signalRoles,
     );
     _rangeRepDiagnostics = null;
   }
@@ -554,7 +580,7 @@ class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 3,
+      schemaVersion: 4,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -637,6 +663,41 @@ class WorkoutDiagnosticsAccumulator {
     );
     return sortedValues[rank - 1];
   }
+}
+
+Map<String, List<String>>? _serializeRangeRepSignalRoles(
+  Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles,
+) {
+  if (signalRoles.isEmpty) {
+    return null;
+  }
+
+  return <String, List<String>>{
+    for (final signal in RangeRepSignal.values)
+      if (signalRoles.containsKey(signal))
+        signal.name: _serializeAnalysisSignalRoles(signalRoles[signal]!),
+  };
+}
+
+Map<String, List<String>>? _serializeHoldSignalRoles(
+  Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles,
+) {
+  if (signalRoles.isEmpty) {
+    return null;
+  }
+
+  return <String, List<String>>{
+    for (final signal in HoldSignal.values)
+      if (signalRoles.containsKey(signal))
+        signal.name: _serializeAnalysisSignalRoles(signalRoles[signal]!),
+  };
+}
+
+List<String> _serializeAnalysisSignalRoles(Set<AnalysisSignalRole> roles) {
+  return <String>[
+    for (final role in AnalysisSignalRole.values)
+      if (roles.contains(role)) role.name,
+  ];
 }
 
 Map<String, double>? _serializeHoldDoubleMap(Map<HoldSignal, double> values) {

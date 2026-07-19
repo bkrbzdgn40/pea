@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../application/workout_diagnostics.dart';
+import '../../domain/models/analysis_signal_role.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
+import '../../domain/models/range_rep_contract.dart';
 
 bool get workoutDiagnosticsUiEnabled => kDebugMode || kProfileMode;
 
@@ -135,6 +137,15 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                               ),
                             ],
                           ),
+                          if (snapshot.rangeRepSignalRoles.isNotEmpty ||
+                              snapshot.holdSignalRoles.isNotEmpty)
+                            _DiagnosticsSection(
+                              title: 'Signal roles',
+                              children: [
+                                ..._buildRangeRepSignalRoleRows(snapshot),
+                                ..._buildHoldSignalRoleRows(snapshot),
+                              ],
+                            ),
                           _DiagnosticsSection(
                             title: 'Frame ak\u0131\u015f\u0131',
                             children: [
@@ -594,6 +605,37 @@ List<Widget> _buildHoldSignalRows(WorkoutDiagnosticsSnapshot snapshot) {
         value: _formatHoldSignalDiagnostic(snapshot, signal),
       ),
   ];
+}
+
+List<Widget> _buildRangeRepSignalRoleRows(WorkoutDiagnosticsSnapshot snapshot) {
+  return <Widget>[
+    for (final signal in RangeRepSignal.values)
+      if (snapshot.rangeRepSignalRoles.containsKey(signal))
+        _DiagnosticsRow(
+          label: '${signal.name} roles',
+          value: _formatAnalysisSignalRoles(
+            snapshot.rangeRepSignalRoles[signal]!,
+          ),
+        ),
+  ];
+}
+
+List<Widget> _buildHoldSignalRoleRows(WorkoutDiagnosticsSnapshot snapshot) {
+  return <Widget>[
+    for (final signal in HoldSignal.values)
+      if (snapshot.holdSignalRoles.containsKey(signal))
+        _DiagnosticsRow(
+          label: '${signal.name} roles',
+          value: _formatAnalysisSignalRoles(snapshot.holdSignalRoles[signal]!),
+        ),
+  ];
+}
+
+String _formatAnalysisSignalRoles(Set<AnalysisSignalRole> roles) {
+  return AnalysisSignalRole.values
+      .where(roles.contains)
+      .map((role) => role.name)
+      .join(', ');
 }
 
 String _formatHoldSignalDiagnostic(

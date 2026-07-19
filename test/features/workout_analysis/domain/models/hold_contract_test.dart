@@ -1,61 +1,104 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 
+const Set<AnalysisSignalRole> _legacyHoldRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.detection,
+  AnalysisSignalRole.validation,
+  AnalysisSignalRole.technique,
+};
+
 void main() {
-  group('HoldContract', () {
-    test('stores an unmodifiable required signal set', () {
+  group('HoldContract role metadata', () {
+    test('deeply copies and protects role metadata', () {
+      final alignmentRoles = <AnalysisSignalRole>{AnalysisSignalRole.detection};
+      final source = <HoldSignal, Set<AnalysisSignalRole>>{
+        HoldSignal.alignment: alignmentRoles,
+      };
       final contract = HoldContract(
         family: HoldAnalysisFamily.plank,
-        requiredSignals: const <HoldSignal>{
-          HoldSignal.alignment,
-          HoldSignal.support,
-        },
+        requiredSignals: const <HoldSignal>{HoldSignal.alignment},
+        signalRoles: source,
       );
 
-      expect(contract.family, HoldAnalysisFamily.plank);
-      expect(contract.requiredSignals, <HoldSignal>{
-        HoldSignal.alignment,
-        HoldSignal.support,
-      });
+      alignmentRoles.add(AnalysisSignalRole.technique);
+      source[HoldSignal.support] = <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+      };
+
       expect(
-        () => contract.requiredSignals.add(HoldSignal.extension),
+        contract.rolesForSignal(HoldSignal.alignment),
+        <AnalysisSignalRole>{AnalysisSignalRole.detection},
+      );
+      expect(contract.rolesForSignal(HoldSignal.support), isEmpty);
+      expect(
+        () => contract.signalRoles[HoldSignal.support] =
+            const <AnalysisSignalRole>{AnalysisSignalRole.detection},
+        throwsUnsupportedError,
+      );
+      expect(
+        () => contract
+            .rolesForSignal(HoldSignal.alignment)
+            .add(AnalysisSignalRole.technique),
         throwsUnsupportedError,
       );
     });
 
-    test(
-      'plankFamily exposes the typed plank family and current hold signals',
-      () {
-        final contract = HoldContracts.plankFamily;
-
-        expect(contract.family, HoldAnalysisFamily.plank);
-        expect(contract.supportsSignal(HoldSignal.alignment), isTrue);
-        expect(contract.supportsSignal(HoldSignal.support), isTrue);
-        expect(contract.supportsSignal(HoldSignal.extension), isTrue);
-        expect(contract.requiredSignals, const <HoldSignal>{
-          HoldSignal.alignment,
-          HoldSignal.support,
-          HoldSignal.extension,
-        });
-      },
-    );
-
-    test(
-      'hollowHold exposes the typed hollow-hold family and required signals',
-      () {
-        final contract = HoldContracts.hollowHold;
-
-        expect(contract.family, HoldAnalysisFamily.hollowHold);
-        expect(contract.supportsSignal(HoldSignal.compression), isTrue);
-        expect(contract.supportsSignal(HoldSignal.armExtension), isTrue);
-        expect(contract.supportsSignal(HoldSignal.kneeExtension), isTrue);
-        expect(contract.requiredSignals, const <HoldSignal>{
-          HoldSignal.compression,
-          HoldSignal.armExtension,
-          HoldSignal.kneeExtension,
-        });
-        expect(contract.supportsSignal(HoldSignal.alignment), isFalse);
-      },
-    );
+    test('rejects missing roles and unsupported role keys', () {
+      expect(
+        () => HoldContract(
+          family: HoldAnalysisFamily.plank,
+          requiredSignals: const <HoldSignal>{HoldSignal.alignment},
+          signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{},
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => HoldContract(
+          family: HoldAnalysisFamily.plank,
+          requiredSignals: const <HoldSignal>{HoldSignal.alignment},
+          signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+            HoldSignal.alignment: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+            HoldSignal.support: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
   });
+
+  group('predefined hold role classifications', () {
+    test('Plank required signals have exactly the legacy hold roles', () {
+      _expectLegacyHoldRoles(HoldContracts.plankFamily, const <HoldSignal>{
+        HoldSignal.alignment,
+        HoldSignal.support,
+        HoldSignal.extension,
+      });
+    });
+
+    test('Hollow required signals have exactly the legacy hold roles', () {
+      _expectLegacyHoldRoles(HoldContracts.hollowHold, const <HoldSignal>{
+        HoldSignal.compression,
+        HoldSignal.armExtension,
+        HoldSignal.kneeExtension,
+      });
+    });
+  });
+}
+
+void _expectLegacyHoldRoles(
+  HoldContract contract,
+  Set<HoldSignal> expectedSignals,
+) {
+  expect(contract.requiredSignals, expectedSignals);
+  expect(contract.signalRoles.keys.toSet(), expectedSignals);
+  for (final signal in expectedSignals) {
+    expect(contract.rolesForSignal(signal), _legacyHoldRoles);
+    expect(contract.signalHasRole(signal, AnalysisSignalRole.setup), isFalse);
+    expect(contract.signalHasRole(signal, AnalysisSignalRole.scoring), isFalse);
+  }
 }

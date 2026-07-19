@@ -67,7 +67,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v3',
+      'v4',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -80,12 +80,22 @@ void main() {
         final snapshot = controller.diagnosticsSnapshot();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 3);
+        expect(snapshot.schemaVersion, 4);
         expect(snapshot.acceptedPoseFrameCount, 0);
         expect(snapshot.rejectedPoseFrameCount, 2);
         expect(snapshot.lowConfidencePoseFrameCount, 2);
         expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
-        expect(snapshot.toJson()['schema_version'], 3);
+        expect(snapshot.toJson()['schema_version'], 4);
+        expect(
+          snapshot.rangeRepSignalRoles,
+          RangeRepContracts.squat.signalRoles,
+        );
+        expect(
+          (snapshot.toJson()['range_rep_signal_roles']!
+              as Map)['primaryMetric'],
+          <String>['detection', 'validation', 'scoring'],
+        );
+        expect(snapshot.toJson()['hold_signal_roles'], isNull);
       },
     );
 
@@ -1521,6 +1531,8 @@ void main() {
       expect(snapshot.holdSignalValidityFor(HoldSignal.compression), isTrue);
       expect(snapshot.holdSignalValidityFor(HoldSignal.armExtension), isTrue);
       expect(snapshot.holdSignalValidityFor(HoldSignal.kneeExtension), isTrue);
+      expect(snapshot.holdSignalRoles, HoldContracts.hollowHold.signalRoles);
+      expect(json['range_rep_signal_roles'], isNull);
       expect(currentSignals['compression'], closeTo(164.291, 0.001));
       expect(currentSignals['armExtension'], closeTo(136.302, 0.001));
       expect(currentSignals['kneeExtension'], closeTo(173.0, 0.001));
