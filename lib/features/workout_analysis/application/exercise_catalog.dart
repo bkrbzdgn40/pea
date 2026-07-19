@@ -1,3 +1,4 @@
+import '../domain/models/camera_view_contract.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -15,6 +16,12 @@ class ExerciseCatalog {
           type: ExerciseType.squat,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/squat.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.preferred,
+              CameraView.front: CameraViewSupport.unsupported,
+            },
+          ),
           rangeRepContract: RangeRepContracts.squat,
           rangeRepValidationConfig: const RangeRepValidationConfig(
             minAcceptableRomAngle: 110.0,
@@ -27,12 +34,24 @@ class ExerciseCatalog {
           type: ExerciseType.plank,
           engineKind: EngineKind.hold,
           configAssetPath: 'assets/config/exercises/plank.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.preferred,
+              CameraView.front: CameraViewSupport.unsupported,
+            },
+          ),
           holdContract: HoldContracts.plankFamily,
         ),
         ExerciseDefinition.supported(
           type: ExerciseType.hollowHold,
           engineKind: EngineKind.hold,
           configAssetPath: 'assets/config/exercises/hollow_hold.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.preferred,
+              CameraView.front: CameraViewSupport.unsupported,
+            },
+          ),
           holdContract: HoldContracts.hollowHold,
         ),
         ExerciseDefinition.unsupported(type: ExerciseType.lunge),
@@ -40,6 +59,12 @@ class ExerciseCatalog {
           type: ExerciseType.pushUp,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/push_up.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.preferred,
+              CameraView.front: CameraViewSupport.unsupported,
+            },
+          ),
           rangeRepContract: RangeRepContracts.pushUp,
           rangeRepValidationConfig: const RangeRepValidationConfig(
             minAcceptableRomAngle: 110.0,
@@ -52,6 +77,12 @@ class ExerciseCatalog {
           type: ExerciseType.sitUp,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/sit_up.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.preferred,
+              CameraView.front: CameraViewSupport.unsupported,
+            },
+          ),
           rangeRepContract: RangeRepContracts.sitUp,
           rangeRepValidationConfig: const RangeRepValidationConfig(
             minAcceptableRomAngle: 110.0,
@@ -64,6 +95,12 @@ class ExerciseCatalog {
           type: ExerciseType.bicepsCurl,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/biceps_curl.json',
+          cameraViewContract: CameraViewContract(
+            views: const <CameraView, CameraViewSupport>{
+              CameraView.side: CameraViewSupport.unsupported,
+              CameraView.front: CameraViewSupport.preferred,
+            },
+          ),
           rangeRepContract: RangeRepContracts.bicepsCurl,
           rangeRepValidationConfig: const RangeRepValidationConfig(
             minAcceptableRomAngle: 110.0,

@@ -1,4 +1,5 @@
 import 'engine_kind.dart';
+import '../domain/models/camera_view_contract.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -10,10 +11,12 @@ class ExerciseDefinition {
     required this.type,
     required this.engineKind,
     required this.configAssetPath,
+    required this.cameraViewContract,
     this.rangeRepContract,
     this.rangeRepValidationConfig,
     this.holdContract,
   }) : isAnalysisSupported = true,
+       assert(cameraViewContract != null),
        assert(engineKind != EngineKind.rangeRep || rangeRepContract != null),
        assert(
          engineKind != EngineKind.rangeRep || rangeRepValidationConfig != null,
@@ -29,6 +32,7 @@ class ExerciseDefinition {
     : isAnalysisSupported = false,
       engineKind = null,
       configAssetPath = null,
+      cameraViewContract = null,
       rangeRepContract = null,
       rangeRepValidationConfig = null,
       holdContract = null;
@@ -37,6 +41,7 @@ class ExerciseDefinition {
   final bool isAnalysisSupported;
   final EngineKind? engineKind;
   final String? configAssetPath;
+  final CameraViewContract? cameraViewContract;
   final RangeRepContract? rangeRepContract;
   final RangeRepValidationConfig? rangeRepValidationConfig;
   final HoldContract? holdContract;
@@ -72,6 +77,16 @@ class ExerciseDefinition {
     }
 
     return configAssetPath;
+  }
+
+  CameraViewContract get analysisCameraViewContract {
+    _ensureAnalysisDefinitionConsistency();
+    final cameraViewContract = this.cameraViewContract;
+    if (cameraViewContract == null) {
+      throw StateError('No camera-view contract registered for $type.');
+    }
+
+    return cameraViewContract;
   }
 
   RangeRepContract get analysisRangeRepContract {
@@ -122,7 +137,9 @@ class ExerciseDefinition {
     }
 
     final engineKind = this.engineKind;
-    if (engineKind == null || configAssetPath == null) {
+    if (engineKind == null ||
+        configAssetPath == null ||
+        cameraViewContract == null) {
       throw StateError('Incomplete analysis definition registered for $type.');
     }
 

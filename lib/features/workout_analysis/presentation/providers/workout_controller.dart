@@ -210,6 +210,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _diagnostics = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: _clock(),
       analysisKind: _engineKind.name,
+      cameraViewContract: definition.analysisCameraViewContract,
     );
     final initialHoldSnapshot = _engineKind == EngineKind.hold
         ? _holdCoordinatorOrThrow().currentStateSnapshot()

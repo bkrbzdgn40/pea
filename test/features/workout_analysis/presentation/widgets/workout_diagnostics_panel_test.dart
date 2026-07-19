@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
@@ -19,6 +20,20 @@ const String _resetButtonText = 'Saya\u00e7lar\u0131 S\u0131f\u0131rla';
 const String _copySuccessText = 'Diagnostics JSON panoya kopyaland\u0131.';
 const String _resetSuccessText =
     'Diagnostics saya\u00e7lar\u0131 s\u0131f\u0131rland\u0131.';
+
+final CameraViewContract _sideViewContract = CameraViewContract(
+  views: const <CameraView, CameraViewSupport>{
+    CameraView.side: CameraViewSupport.preferred,
+    CameraView.front: CameraViewSupport.unsupported,
+  },
+);
+
+final CameraViewContract _frontViewContract = CameraViewContract(
+  views: const <CameraView, CameraViewSupport>{
+    CameraView.side: CameraViewSupport.unsupported,
+    CameraView.front: CameraViewSupport.preferred,
+  },
+);
 
 void main() {
   testWidgets('temel snapshot alanlarini gosterir', (tester) async {
@@ -55,6 +70,27 @@ void main() {
     expect(find.text('formMetric roles'), findsOneWidget);
     expect(find.text('validation, technique, scoring'), findsOneWidget);
     expect(find.text('alignment roles'), findsNothing);
+  });
+
+  testWidgets('active camera-view contract renders in canonical order', (
+    tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(cameraViewContract: _frontViewContract),
+      onReset: () {},
+    );
+    await tester.scrollUntilVisible(
+      find.text('Camera view'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Camera view'), findsOneWidget);
+    expect(find.text('Camera side'), findsOneWidget);
+    expect(find.text('unsupported'), findsOneWidget);
+    expect(find.text('Camera front'), findsOneWidget);
+    expect(find.text('preferred'), findsOneWidget);
   });
 
   testWidgets('active hold roles render without range-rep leakage', (
@@ -278,7 +314,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 4);
+    expect(decoded['schema_version'], 5);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -433,7 +469,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 4,
+  int schemaVersion = 5,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -477,6 +513,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
       const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   Map<HoldSignal, Set<AnalysisSignalRole>> holdSignalRoles =
       const <HoldSignal, Set<AnalysisSignalRole>>{},
+  CameraViewContract? cameraViewContract,
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -501,6 +538,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
     maxPoseCount: maxPoseCount,
     analysisExceptionCount: analysisExceptionCount,
     resyncCount: resyncCount,
+    cameraViewContract: cameraViewContract ?? _sideViewContract,
     rangeRepDiagnostics: analysisKind == 'rangeRep'
         ? RangeRepWorkoutDiagnostics(
             repCount: repCount,

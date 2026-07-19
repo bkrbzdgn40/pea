@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../application/workout_diagnostics.dart';
 import '../../domain/models/analysis_signal_role.dart';
+import '../../domain/models/camera_view_contract.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
@@ -446,6 +447,13 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                 ),
                               ],
                             ),
+                          if (snapshot.cameraViewContract != null)
+                            _DiagnosticsSection(
+                              title: 'Camera view',
+                              children: _buildCameraViewRows(
+                                snapshot.cameraViewContract!,
+                              ),
+                            ),
                         ],
                       ),
               ),
@@ -603,6 +611,16 @@ List<Widget> _buildHoldSignalRows(WorkoutDiagnosticsSnapshot snapshot) {
       _DiagnosticsRow(
         label: signal.name,
         value: _formatHoldSignalDiagnostic(snapshot, signal),
+      ),
+  ];
+}
+
+List<Widget> _buildCameraViewRows(CameraViewContract contract) {
+  return <Widget>[
+    for (final view in CameraView.values)
+      _DiagnosticsRow(
+        label: 'Camera ${view.name}',
+        value: contract.supportFor(view).name,
       ),
   ];
 }

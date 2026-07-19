@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../domain/hold_diagnostics.dart';
 import '../domain/models/analysis_signal_role.dart';
+import '../domain/models/camera_view_contract.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_feedback_code.dart';
 import '../domain/models/hold_phase.dart';
@@ -145,6 +146,7 @@ class WorkoutDiagnosticsSnapshot {
     this.lastPoseRejectionReason,
     this.currentPoseQualityStatus = 'stable',
     this.currentVisibilityStatus = 'stable',
+    this.cameraViewContract,
     this.rangeRepDiagnostics,
     this.holdDiagnostics,
     required this.currentCameraFps,
@@ -184,6 +186,7 @@ class WorkoutDiagnosticsSnapshot {
   final String? lastPoseRejectionReason;
   final String currentPoseQualityStatus;
   final String currentVisibilityStatus;
+  final CameraViewContract? cameraViewContract;
   final RangeRepWorkoutDiagnostics? rangeRepDiagnostics;
   final HoldWorkoutDiagnostics? holdDiagnostics;
   final double? currentCameraFps;
@@ -339,6 +342,7 @@ class WorkoutDiagnosticsSnapshot {
     'last_pose_rejection_reason': lastPoseRejectionReason,
     'current_pose_quality_status': currentPoseQualityStatus,
     'current_visibility_status': currentVisibilityStatus,
+    'camera_view_contract': _serializeCameraViewContract(cameraViewContract),
     'range_rep_signal_roles': _serializeRangeRepSignalRoles(
       rangeRepSignalRoles,
     ),
@@ -390,10 +394,12 @@ class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsAccumulator({
     required DateTime sessionStartedAt,
     required String analysisKind,
+    required CameraViewContract cameraViewContract,
     String appCommitSha = _defaultAppCommitSha,
     String? buildMode,
   }) : _appCommitSha = appCommitSha,
        _buildMode = buildMode ?? workoutDiagnosticsBuildMode,
+       _cameraViewContract = cameraViewContract,
        _sessionStartedAt = sessionStartedAt,
        _analysisKind = analysisKind;
 
@@ -401,6 +407,7 @@ class WorkoutDiagnosticsAccumulator {
 
   final String _appCommitSha;
   final String _buildMode;
+  final CameraViewContract _cameraViewContract;
   late DateTime _sessionStartedAt;
   late String _analysisKind;
   final List<int> _processingDurationMs = <int>[];
@@ -580,7 +587,7 @@ class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 4,
+      schemaVersion: 5,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -610,6 +617,7 @@ class WorkoutDiagnosticsAccumulator {
       lastPoseRejectionReason: _lastPoseRejectionReason,
       currentPoseQualityStatus: _currentPoseQualityStatus,
       currentVisibilityStatus: _currentVisibilityStatus,
+      cameraViewContract: _cameraViewContract,
       rangeRepDiagnostics: _rangeRepDiagnostics,
       holdDiagnostics: _holdDiagnostics,
       currentCameraFps: _currentCameraFps,
@@ -663,6 +671,19 @@ class WorkoutDiagnosticsAccumulator {
     );
     return sortedValues[rank - 1];
   }
+}
+
+Map<String, String>? _serializeCameraViewContract(
+  CameraViewContract? contract,
+) {
+  if (contract == null) {
+    return null;
+  }
+
+  return <String, String>{
+    for (final view in CameraView.values)
+      view.name: contract.supportFor(view).name,
+  };
 }
 
 Map<String, List<String>>? _serializeRangeRepSignalRoles(

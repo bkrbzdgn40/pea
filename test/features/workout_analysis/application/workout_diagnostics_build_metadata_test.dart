@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 
 const expectedCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
@@ -17,6 +18,12 @@ void main() {
     final accumulator = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'rangeRep',
+      cameraViewContract: CameraViewContract(
+        views: const <CameraView, CameraViewSupport>{
+          CameraView.side: CameraViewSupport.preferred,
+          CameraView.front: CameraViewSupport.unsupported,
+        },
+      ),
     );
 
     final snapshot = accumulator.snapshot(

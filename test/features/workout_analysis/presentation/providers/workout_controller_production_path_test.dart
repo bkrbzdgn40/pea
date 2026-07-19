@@ -67,7 +67,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v4',
+      'v5',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -78,24 +78,36 @@ void main() {
 
         final state = container.read(workoutControllerProvider);
         final snapshot = controller.diagnosticsSnapshot();
+        final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 4);
+        expect(snapshot.schemaVersion, 5);
         expect(snapshot.acceptedPoseFrameCount, 0);
         expect(snapshot.rejectedPoseFrameCount, 2);
         expect(snapshot.lowConfidencePoseFrameCount, 2);
         expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
-        expect(snapshot.toJson()['schema_version'], 4);
+        expect(json['schema_version'], 5);
+        expect(
+          snapshot.cameraViewContract,
+          same(
+            const ExerciseCatalog()
+                .definitionFor(ExerciseType.squat)
+                .analysisCameraViewContract,
+          ),
+        );
+        expect(json['camera_view_contract'], <String, String>{
+          'side': 'preferred',
+          'front': 'unsupported',
+        });
         expect(
           snapshot.rangeRepSignalRoles,
           RangeRepContracts.squat.signalRoles,
         );
         expect(
-          (snapshot.toJson()['range_rep_signal_roles']!
-              as Map)['primaryMetric'],
+          (json['range_rep_signal_roles']! as Map)['primaryMetric'],
           <String>['detection', 'validation', 'scoring'],
         );
-        expect(snapshot.toJson()['hold_signal_roles'], isNull);
+        expect(json['hold_signal_roles'], isNull);
       },
     );
 
@@ -757,6 +769,7 @@ void main() {
 
         state = harness.container.read(workoutControllerProvider);
         final diagnostics = harness.controller.diagnosticsSnapshot();
+        final diagnosticsJson = diagnostics.toJson();
 
         expect(state.rangeRepAnalysis, isNotNull);
         expect(state.holdAnalysis, isNull);
@@ -768,6 +781,18 @@ void main() {
         expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
         expect(diagnostics.analysisKind, 'rangeRep');
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+        expect(
+          diagnostics.cameraViewContract,
+          same(
+            const ExerciseCatalog()
+                .definitionFor(ExerciseType.bicepsCurl)
+                .analysisCameraViewContract,
+          ),
+        );
+        expect(diagnosticsJson['camera_view_contract'], <String, String>{
+          'side': 'unsupported',
+          'front': 'preferred',
+        });
       },
     );
 
@@ -1328,6 +1353,7 @@ void main() {
     await _establishVisibleHold(harness.controller, detector, clock);
 
     final state = harness.container.read(workoutControllerProvider);
+    final diagnostics = harness.controller.diagnosticsSnapshot();
 
     expect(
       spyCoordinator.selectHoldSideForAcceptedPoseCallCount,
@@ -1353,6 +1379,18 @@ void main() {
     expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
     expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
     expect(state.holdEnginePhase, HoldPhase.holding);
+    expect(
+      diagnostics.cameraViewContract,
+      same(
+        const ExerciseCatalog()
+            .definitionFor(ExerciseType.plank)
+            .analysisCameraViewContract,
+      ),
+    );
+    expect(diagnostics.toJson()['camera_view_contract'], <String, String>{
+      'side': 'preferred',
+      'front': 'unsupported',
+    });
   });
 
   test(
