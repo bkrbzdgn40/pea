@@ -1,7 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../domain/models/exercise_config.dart';
 import '../domain/models/analysis_signal_role.dart';
+import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -162,7 +162,7 @@ class ExerciseLandmarkRequirements {
       return rangeRepContract.signalsFor(rangeRepSignalSet).contains(signal);
     }
 
-    if (includesSignal(RangeRepSignal.primaryMetric)) {
+    void addPrimaryMetricRequirements() {
       switch (rangeRepContract.primaryMetricKind) {
         case RangeRepPrimaryMetricKind.jointAngle:
           addTriplet(
@@ -178,11 +178,15 @@ class ExerciseLandmarkRequirements {
       }
     }
 
+    if (includesSignal(RangeRepSignal.primaryMetric)) {
+      addPrimaryMetricRequirements();
+    }
+
     if (includesSignal(RangeRepSignal.formMetric)) {
       _addConfiguredDefinition(
         addTriplet: addTriplet,
+        addPrimaryMetricRequirements: addPrimaryMetricRequirements,
         definition: config.resolvedRangeRepSignals?.postureAngle,
-        config: config,
         side: side,
       );
     }
@@ -200,8 +204,8 @@ class ExerciseLandmarkRequirements {
       }
       _addConfiguredDefinition(
         addTriplet: addTriplet,
+        addPrimaryMetricRequirements: addPrimaryMetricRequirements,
         definition: config.resolvedRangeRepSignals?.definitionFor(signal),
-        config: config,
         side: side,
       );
     }
@@ -296,8 +300,8 @@ class ExerciseLandmarkRequirements {
       PoseLandmarkType last,
     )
     addTriplet,
+    required void Function() addPrimaryMetricRequirements,
     required RangeRepSignalDefinition? definition,
-    required ExerciseConfig config,
     required RangeRepSide side,
   }) {
     if (definition == null) {
@@ -315,25 +319,8 @@ class ExerciseLandmarkRequirements {
     }
 
     if (definition.source == RangeRepSignalSource.primaryMetric) {
-      switch (rangeRepContractPrimaryMetricKindForConfig(config)) {
-        case RangeRepPrimaryMetricKind.jointAngle:
-          addTriplet(
-            landmarkTypeForSide(config.joint1, side),
-            landmarkTypeForSide(config.primaryJoint, side),
-            landmarkTypeForSide(config.joint2, side),
-          );
-        case RangeRepPrimaryMetricKind.imagePlaneInclination:
-          // Primary-source secondary signals are not used by the current
-          // inclination-backed contract outside primary pose acceptance.
-          break;
-      }
+      addPrimaryMetricRequirements();
     }
-  }
-
-  RangeRepPrimaryMetricKind rangeRepContractPrimaryMetricKindForConfig(
-    ExerciseConfig config,
-  ) {
-    return RangeRepPrimaryMetricKind.jointAngle;
   }
 
   ExerciseLandmarkRequirementSet _mergeRequirementSets(
