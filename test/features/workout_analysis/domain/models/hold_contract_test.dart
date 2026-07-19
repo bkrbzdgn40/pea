@@ -80,44 +80,59 @@ void main() {
       });
     });
 
-    test('Hollow compression is detection-only while limb signals keep legacy roles', () {
-      final contract = HoldContracts.hollowHold;
+    test(
+      'Hollow compression is detection-only while limb signals keep legacy roles',
+      () {
+        final contract = HoldContracts.hollowHold;
 
-      expect(contract.requiredSignals, const <HoldSignal>{
-        HoldSignal.compression,
-        HoldSignal.armExtension,
-        HoldSignal.kneeExtension,
-      });
-      expect(contract.signalRoles.keys.toSet(), contract.requiredSignals);
-      expect(
-        contract.rolesForSignal(HoldSignal.compression),
-        const <AnalysisSignalRole>{AnalysisSignalRole.detection},
-      );
-      expect(
-        contract.signalHasRole(
+        expect(contract.requiredSignals, const <HoldSignal>{
           HoldSignal.compression,
-          AnalysisSignalRole.validation,
-        ),
-        isFalse,
-      );
-      expect(
-        contract.signalHasRole(
-          HoldSignal.compression,
-          AnalysisSignalRole.technique,
-        ),
-        isFalse,
-      );
-      expect(
-        contract.rolesForSignal(HoldSignal.armExtension),
-        _legacyHoldRoles,
-      );
-      expect(
-        contract.rolesForSignal(HoldSignal.kneeExtension),
-        _legacyHoldRoles,
-      );
-      expect(contract.signalHasRole(HoldSignal.compression, AnalysisSignalRole.setup), isFalse);
-      expect(contract.signalHasRole(HoldSignal.compression, AnalysisSignalRole.scoring), isFalse);
-    });
+          HoldSignal.armExtension,
+          HoldSignal.kneeExtension,
+        });
+        expect(contract.signalRoles.keys.toSet(), contract.requiredSignals);
+        expect(
+          contract.rolesForSignal(HoldSignal.compression),
+          const <AnalysisSignalRole>{AnalysisSignalRole.detection},
+        );
+        expect(
+          contract.signalHasRole(
+            HoldSignal.compression,
+            AnalysisSignalRole.validation,
+          ),
+          isFalse,
+        );
+        expect(
+          contract.signalHasRole(
+            HoldSignal.compression,
+            AnalysisSignalRole.technique,
+          ),
+          isFalse,
+        );
+        expect(
+          contract.rolesForSignal(HoldSignal.armExtension),
+          _legacyHoldRoles,
+        );
+        expect(
+          contract.rolesForSignal(HoldSignal.kneeExtension),
+          _legacyHoldRoles,
+        );
+        expect(
+          contract.signalHasRole(
+            HoldSignal.compression,
+            AnalysisSignalRole.setup,
+          ),
+          isFalse,
+        );
+        expect(
+          contract.signalHasRole(
+            HoldSignal.compression,
+            AnalysisSignalRole.scoring,
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }
 
