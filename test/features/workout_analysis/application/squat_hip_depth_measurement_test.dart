@@ -189,9 +189,7 @@ Pose _poseWithHipDepth({
   required double ankleY,
 }) {
   final isLeft = side == RangeRepSide.left;
-  final hipType = isLeft
-      ? PoseLandmarkType.leftHip
-      : PoseLandmarkType.rightHip;
+  final hipType = isLeft ? PoseLandmarkType.leftHip : PoseLandmarkType.rightHip;
   final kneeType = isLeft
       ? PoseLandmarkType.leftKnee
       : PoseLandmarkType.rightKnee;
