@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -18,6 +19,7 @@ void main() {
         ExerciseType.hollowHold,
         ExerciseType.pushUp,
         ExerciseType.sitUp,
+        ExerciseType.bicepsCurl,
       ]) {
         final definition = catalog.definitionFor(type);
 
@@ -31,6 +33,30 @@ void main() {
 
         expect(() => definition.analysisExercise, throwsA(isA<StateError>()));
       }
+    });
+  });
+
+  group('ExerciseDefinition.analysisCameraViewContract', () {
+    test('returns the contract required by every supported definition', () {
+      for (final definition in catalog.definitions.where(
+        (definition) => definition.isAnalysisSupported,
+      )) {
+        expect(definition.cameraViewContract, isNotNull);
+        expect(
+          definition.analysisCameraViewContract,
+          same(definition.cameraViewContract),
+        );
+      }
+    });
+
+    test('unsupported definitions store no camera contract', () {
+      final definition = catalog.definitionFor(ExerciseType.lunge);
+
+      expect(definition.cameraViewContract, isNull);
+      expect(
+        () => definition.analysisCameraViewContract,
+        throwsA(isA<StateError>()),
+      );
     });
   });
 
@@ -61,6 +87,7 @@ void main() {
           type: ExerciseType.squat,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/squat.json',
+          cameraViewContract: _sideViewContract(),
           rangeRepContract: RangeRepContracts.squat,
         ),
         throwsA(isA<AssertionError>()),
@@ -73,6 +100,7 @@ void main() {
           type: ExerciseType.plank,
           engineKind: EngineKind.hold,
           configAssetPath: 'assets/config/exercises/plank.json',
+          cameraViewContract: _sideViewContract(),
           holdContract: HoldContracts.plankFamily,
           rangeRepValidationConfig: const RangeRepValidationConfig(),
         ),
@@ -80,4 +108,13 @@ void main() {
       );
     });
   });
+}
+
+CameraViewContract _sideViewContract() {
+  return CameraViewContract(
+    views: const <CameraView, CameraViewSupport>{
+      CameraView.side: CameraViewSupport.preferred,
+      CameraView.front: CameraViewSupport.unsupported,
+    },
+  );
 }

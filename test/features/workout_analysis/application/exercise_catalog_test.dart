@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -143,6 +144,45 @@ void main() {
       expect(definition.id, ExerciseType.lunge.id);
       expect(definition.title, ExerciseType.lunge.title);
       expect(definition.isAnalysisSupported, isFalse);
+      expect(definition.cameraViewContract, isNull);
+    });
+
+    test('declares side-only camera support for side-view exercises', () {
+      for (final type in const <ExerciseType>[
+        ExerciseType.squat,
+        ExerciseType.pushUp,
+        ExerciseType.sitUp,
+        ExerciseType.plank,
+        ExerciseType.hollowHold,
+      ]) {
+        final contract = catalog.definitionFor(type).analysisCameraViewContract;
+
+        expect(
+          contract.supportFor(CameraView.side),
+          CameraViewSupport.preferred,
+          reason: type.name,
+        );
+        expect(
+          contract.supportFor(CameraView.front),
+          CameraViewSupport.unsupported,
+          reason: type.name,
+        );
+      }
+    });
+
+    test('declares front-only camera support for bilateral Biceps Curl', () {
+      final contract = catalog
+          .definitionFor(ExerciseType.bicepsCurl)
+          .analysisCameraViewContract;
+
+      expect(
+        contract.supportFor(CameraView.side),
+        CameraViewSupport.unsupported,
+      );
+      expect(
+        contract.supportFor(CameraView.front),
+        CameraViewSupport.preferred,
+      );
     });
 
     test('stores Squat-specific validation timing', () {

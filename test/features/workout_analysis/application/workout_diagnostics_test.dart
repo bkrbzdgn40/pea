@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
@@ -14,17 +15,32 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
+  final sideViewContract = CameraViewContract(
+    views: const <CameraView, CameraViewSupport>{
+      CameraView.side: CameraViewSupport.preferred,
+      CameraView.front: CameraViewSupport.unsupported,
+    },
+  );
+  final frontViewContract = CameraViewContract(
+    views: const <CameraView, CameraViewSupport>{
+      CameraView.side: CameraViewSupport.unsupported,
+      CameraView.front: CameraViewSupport.preferred,
+    },
+  );
 
-  WorkoutDiagnosticsAccumulator accumulator() => WorkoutDiagnosticsAccumulator(
+  WorkoutDiagnosticsAccumulator accumulator({
+    CameraViewContract? cameraViewContract,
+  }) => WorkoutDiagnosticsAccumulator(
     sessionStartedAt: startedAt,
     analysisKind: 'rangeRep',
+    cameraViewContract: cameraViewContract ?? sideViewContract,
     appCommitSha: 'abc123',
     buildMode: 'debug',
   );
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 4);
+    expect(snapshot.schemaVersion, 5);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -42,6 +58,29 @@ void main() {
     expect(snapshot.holdCurrentSignalValues.asMap(), isEmpty);
     expect(snapshot.holdTargetSignalValues.asMap(), isEmpty);
     expect(snapshot.holdSignalValidity.asMap(), isEmpty);
+    expect(snapshot.cameraViewContract, same(sideViewContract));
+  });
+
+  test('camera-view metadata serializes in enum order per active contract', () {
+    final sideSnapshot = accumulator().snapshot(now: startedAt);
+    final frontSnapshot = accumulator(
+      cameraViewContract: frontViewContract,
+    ).snapshot(now: startedAt);
+
+    expect(sideSnapshot.cameraViewContract, same(sideViewContract));
+    expect(frontSnapshot.cameraViewContract, same(frontViewContract));
+    expect(sideSnapshot.toJson()['camera_view_contract'], <String, String>{
+      'side': 'preferred',
+      'front': 'unsupported',
+    });
+
+    final serialized =
+        frontSnapshot.toJson()['camera_view_contract']! as Map<String, String>;
+    expect(serialized.keys.toList(), <String>['side', 'front']);
+    expect(serialized, <String, String>{
+      'side': 'unsupported',
+      'front': 'preferred',
+    });
   });
 
   test(
@@ -147,7 +186,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 4);
+      expect(json['schema_version'], 5);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -241,7 +280,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 4);
+    expect(json['schema_version'], 5);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -481,12 +520,16 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 4);
+    expect(json['schema_version'], 5);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['camera_frame_count'], 0);
     expect(json['accepted_pose_frame_count'], 0);
     expect(json['current_pose_quality_status'], 'stable');
+    expect(json['camera_view_contract'], <String, String>{
+      'side': 'preferred',
+      'front': 'unsupported',
+    });
     expect(json['side_switch_count'], 0);
     expect(json['active_rep_side_switch_count'], 0);
     expect(json['rep_count'], isNull);
