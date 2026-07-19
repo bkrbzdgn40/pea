@@ -235,7 +235,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             ),
           )
         : WorkoutState.rangeRep(
-            feedbackMessage: _resolvedRangeRepFeedbackMessage(),
+            feedbackMessage: _mapRangeRepFeedbackCodeToMessage(
+              RangeRepFeedbackCode.awaitNeutral,
+            ),
             analysis: RangeRepWorkoutAnalysisState(
               currentPhase: _rangeRepEngineOrThrow().phaseLabel,
             ),
@@ -580,7 +582,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       landmarks: snapshot.landmarks,
       feedbackMessage: snapshot.feedbackDirective.resolve(
         mapFeedbackCode: _mapRangeRepFeedbackCodeToMessage,
-        fallbackMessage: snapshot.feedbackFallbackMessage,
       ),
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
@@ -766,15 +767,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       holdContract: _holdContract,
       requiredHoldSide: requiredHoldSide,
     );
-  }
-
-  String _resolvedRangeRepFeedbackMessage() {
-    final feedbackCode = _rangeRepEngineOrThrow().feedbackCode;
-    if (feedbackCode != null) {
-      return _mapRangeRepFeedbackCodeToMessage(feedbackCode);
-    }
-
-    return _rangeRepEngineOrThrow().feedback;
   }
 
   String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {

@@ -10,7 +10,6 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 
@@ -54,7 +53,7 @@ void main() {
 
     expect(engine.repCount, 0);
     expect(engine.lastRepRom, 180.0);
-    expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
+    expect(engine.detectionDiagnosticsSnapshot.hasActiveRepPhase, isFalse);
     expect(engine.phaseLabel, rangeRepAwaitNeutralPhaseLabel);
   });
 

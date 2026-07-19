@@ -3,11 +3,15 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../../../../core/utils/moving_average.dart';
 import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
+import '../domain/legacy_range_rep_technique_history_tracker.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
+import '../domain/models/range_rep_completed_rep_detection_data.dart';
+import '../domain/models/range_rep_confirmed_transition.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/models/range_rep_engine_frame_result.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
@@ -30,46 +34,15 @@ import 'session_calibration_baseline_accumulator.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
 
-enum RangeRepFeedbackDirectiveKind { engine, code }
-
 class RangeRepFeedbackDirective {
-  const RangeRepFeedbackDirective._({required this.kind, this.feedbackCode});
+  const RangeRepFeedbackDirective.code(this.feedbackCode);
 
-  const RangeRepFeedbackDirective.engine({RangeRepFeedbackCode? feedbackCode})
-    : this._(
-        kind: RangeRepFeedbackDirectiveKind.engine,
-        feedbackCode: feedbackCode,
-      );
-
-  const RangeRepFeedbackDirective.code(RangeRepFeedbackCode feedbackCode)
-    : this._(
-        kind: RangeRepFeedbackDirectiveKind.code,
-        feedbackCode: feedbackCode,
-      );
-
-  final RangeRepFeedbackDirectiveKind kind;
-  final RangeRepFeedbackCode? feedbackCode;
+  final RangeRepFeedbackCode feedbackCode;
 
   String resolve({
     required String Function(RangeRepFeedbackCode code) mapFeedbackCode,
-    required String fallbackMessage,
   }) {
-    switch (kind) {
-      case RangeRepFeedbackDirectiveKind.engine:
-        final resolvedCode = feedbackCode;
-        if (resolvedCode != null) {
-          return mapFeedbackCode(resolvedCode);
-        }
-        return fallbackMessage;
-      case RangeRepFeedbackDirectiveKind.code:
-        final resolvedCode = feedbackCode;
-        if (resolvedCode == null) {
-          throw StateError(
-            'RangeRepFeedbackDirective.code requires feedbackCode.',
-          );
-        }
-        return mapFeedbackCode(resolvedCode);
-    }
+    return mapFeedbackCode(feedbackCode);
   }
 }
 
@@ -84,7 +57,6 @@ class RangeRepCoordinatorStateSnapshot {
     required this.currentPhase,
     required this.calibrationMetrics,
     required this.feedbackDirective,
-    required this.feedbackFallbackMessage,
   });
 
   final List<PoseLandmark>? landmarks;
@@ -96,7 +68,6 @@ class RangeRepCoordinatorStateSnapshot {
   final String currentPhase;
   final WorkoutCalibrationMetrics calibrationMetrics;
   final RangeRepFeedbackDirective feedbackDirective;
-  final String feedbackFallbackMessage;
 }
 
 class RangeRepCoordinatorDiagnosticsUpdate {
@@ -173,6 +144,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     LegacyRangeRepScorer scorer = const LegacyRangeRepScorer(),
     LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
         const LegacyRangeRepTechniqueEvaluator(),
+    LegacyRangeRepTechniqueHistoryTracker? techniqueHistoryTracker,
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
         const WorkoutAnalysisFrameBuilder(),
     RangeRepBlockedStateBuilder blockedStateBuilder =
@@ -194,6 +166,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _rangeRepContract = rangeRepContract,
        _scorer = scorer,
        _techniqueEvaluator = techniqueEvaluator,
+       _techniqueHistoryTracker =
+           techniqueHistoryTracker ??
+           LegacyRangeRepTechniqueHistoryTracker(
+             phaseQualityConfig: config.rangeRepPhaseQuality,
+           ),
        _analysisFrameBuilder = analysisFrameBuilder,
        _blockedStateBuilder = blockedStateBuilder,
        _calibrationSnapshotBuilder = calibrationSnapshotBuilder,
@@ -226,6 +203,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepContract _rangeRepContract;
   final LegacyRangeRepScorer _scorer;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
+  final LegacyRangeRepTechniqueHistoryTracker _techniqueHistoryTracker;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final RangeRepBlockedStateBuilder _blockedStateBuilder;
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder;
@@ -261,6 +239,10 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   double _lastPublishedCurrentAngle = 0.0;
   double _lastRepScore = 0.0;
   RepScoreBreakdown? _lastRepScoreBreakdown;
+  RangeRepCompletedRepCoreData? _lastCompletedRepCoreData;
+  bool _isFormBad = false;
+  RangeRepFeedbackCode _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
+  DateTime _diagnosticsNow = DateTime.fromMillisecondsSinceEpoch(0);
   WorkoutCalibrationMetrics _lastPublishedCalibrationMetrics =
       const WorkoutCalibrationMetrics.rangeRep();
 
@@ -273,6 +255,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
   }) {
+    _diagnosticsNow = now;
     final preUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
     final effectiveMetrics = _effectiveMetricsForAnalysis(
       metrics: metrics,
@@ -319,7 +302,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
               metrics: effectiveMetrics,
               frameAssessment: frameAssessment,
               freezeSmoothedPreview: true,
-              feedbackDirective: _engineFeedbackDirective(),
+              feedbackDirective: _coordinatorFeedbackDirective(),
               currentPhase: _engine.phaseLabel,
               visibilityAssessment: recoveryVisibilityAssessment,
               selectedSideLabel: selectedSideLabel,
@@ -356,7 +339,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       var shouldResetPoseAcceptance = false;
 
       if (didBecomeStableTracking) {
-        final gapResumeResult = _resumeBriefVisibilityGap(engineFrame);
+        final gapResumeResult = _resumeBriefVisibilityGap(
+          engineFrame.primaryMetric,
+        );
         if (gapResumeResult.disposition ==
             VisibilityGapResumeDisposition.incompatible) {
           _visibilityPolicy.reset();
@@ -371,13 +356,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             stateSnapshot: _rememberStateSnapshot(
               landmarks: _lastPublishedLandmarks,
               repCount: _engine.repCount,
-              isFormBad: _engine.isFormBad,
+              isFormBad: _isFormBad,
               currentAngle: _lastPublishedCurrentAngle,
               lastRepScore: _lastRepScore,
               lastRepRom: _engine.lastRepRom,
               currentPhase: _engine.phaseLabel,
               calibrationMetrics: _lastPublishedCalibrationMetrics,
-              feedbackDirective: _engineFeedbackDirective(),
+              feedbackDirective: _coordinatorFeedbackDirective(),
             ),
             diagnosticsUpdate: RangeRepCoordinatorDiagnosticsUpdate(
               visibilityStatus: 'brief_abort',
@@ -391,6 +376,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         }
         if (gapResumeResult.disposition ==
             VisibilityGapResumeDisposition.compatible) {
+          _techniqueHistoryTracker.shiftActivePhaseTiming(
+            gapResumeResult.appliedGapDuration,
+          );
           recordBriefOcclusionRecovery = true;
         }
       }
@@ -445,13 +433,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return _rememberStateSnapshot(
       landmarks: _lastPublishedLandmarks,
       repCount: _engine.repCount,
-      isFormBad: _engine.isFormBad,
+      isFormBad: _isFormBad,
       currentAngle: _lastPublishedCurrentAngle,
       lastRepScore: _lastRepScore,
       lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: _lastPublishedCalibrationMetrics,
-      feedbackDirective: _engineFeedbackDirective(),
+      feedbackDirective: _coordinatorFeedbackDirective(),
     );
   }
 
@@ -496,7 +484,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
           metrics: metrics,
           frameAssessment: frameAssessment,
           freezeSmoothedPreview: true,
-          feedbackDirective: _engineFeedbackDirective(),
+          feedbackDirective: _coordinatorFeedbackDirective(),
           currentPhase: _engine.phaseLabel,
           visibilityAssessment: visibilityAssessment,
           selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
@@ -567,13 +555,34 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       formMetric: engineFrame.formMetric,
       formThreshold: _config.formThreshold,
     );
-    final engineResult = _engine.updateWithTechniqueAssessment(
-      engineFrame,
-      techniqueAssessment: techniqueAssessment,
+    final engineResult = _engine.updateDetectionFrame(
+      primaryMetric: engineFrame.primaryMetric,
     );
-    final completedRepCoreData = engineResult.completedRepCoreData;
+    final hasTechniqueViolation = techniqueAssessment.hasObservations;
+    _applyLiveTechniqueFeedback(
+      engineResult: engineResult,
+      hasTechniqueViolation: hasTechniqueViolation,
+    );
+    final completedTechniqueData = _techniqueHistoryTracker.recordFrame(
+      engineResult: engineResult,
+      primaryMetric: engineFrame.primaryMetric,
+      formMetric: engineFrame.formMetric,
+      hasTechniqueViolation: hasTechniqueViolation,
+    );
+    final completedRepCoreData = _buildCompletedRepCoreData(
+      detectionData: engineResult.completedRepDetectionData,
+      techniqueData: completedTechniqueData,
+    );
+    if (completedRepCoreData != null) {
+      _lastCompletedRepCoreData = completedRepCoreData;
+    }
     final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
-    final didCompleteRep = completedRepCoreData != null;
+    _applyLifecycleFeedback(
+      engineResult: engineResult,
+      phaseFeedbackCandidate:
+          _currentTechniqueHistorySnapshot().phaseFeedbackCandidate,
+    );
+    final didCompleteRep = engineResult.didCompleteRep;
     if (completedRepCoreData != null) {
       _scoreCompletedRep(
         completedRepCoreData: completedRepCoreData,
@@ -640,13 +649,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final stateSnapshot = _rememberStateSnapshot(
       landmarks: metrics.landmarks,
       repCount: _engine.repCount,
-      isFormBad: _engine.isFormBad,
+      isFormBad: _isFormBad,
       currentAngle: _currentAngleForState(analysisFrame),
       lastRepScore: _lastRepScore,
       lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: calibrationMetrics,
-      feedbackDirective: _engineFeedbackDirective(),
+      feedbackDirective: _coordinatorFeedbackDirective(),
     );
     _hasAcceptedPoseForAnalysis = true;
 
@@ -862,6 +871,73 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       bodyLineAngle: frame.bodyLineAngle,
       armSupportAngle: frame.armSupportAngle,
       legExtensionAngle: frame.legExtensionAngle,
+    );
+  }
+
+  void _applyLiveTechniqueFeedback({
+    required RangeRepEngineFrameResult engineResult,
+    required bool hasTechniqueViolation,
+  }) {
+    if (!engineResult.wasArmedAtFrameStart) {
+      _isFormBad = false;
+      _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
+      return;
+    }
+
+    _isFormBad = hasTechniqueViolation;
+    if (hasTechniqueViolation) {
+      _currentFeedbackCode = RangeRepFeedbackCode.keepBodyUpright;
+    }
+  }
+
+  void _applyLifecycleFeedback({
+    required RangeRepEngineFrameResult engineResult,
+    required RangeRepFeedbackCode? phaseFeedbackCandidate,
+  }) {
+    switch (engineResult.confirmedTransition?.type) {
+      case null:
+        return;
+      case RangeRepConfirmedTransitionType.acquireNeutral:
+        _currentFeedbackCode = RangeRepFeedbackCode.ready;
+        break;
+      case RangeRepConfirmedTransitionType.startDescending:
+        _currentFeedbackCode = RangeRepFeedbackCode.descend;
+        break;
+      case RangeRepConfirmedTransitionType.reachPeak:
+      case RangeRepConfirmedTransitionType.startAscending:
+        _currentFeedbackCode = RangeRepFeedbackCode.ascend;
+        break;
+      case RangeRepConfirmedTransitionType.abortToNeutral:
+        _currentFeedbackCode = RangeRepFeedbackCode.repIncomplete;
+        break;
+      case RangeRepConfirmedTransitionType.completeRep:
+        _currentFeedbackCode =
+            phaseFeedbackCandidate ?? RangeRepFeedbackCode.repCompleted;
+        break;
+    }
+  }
+
+  RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({
+    required RangeRepCompletedRepDetectionData? detectionData,
+    required LegacyRangeRepCompletedTechniqueData? techniqueData,
+  }) {
+    if (detectionData == null) {
+      return null;
+    }
+    if (techniqueData == null) {
+      throw StateError(
+        'Completed range-rep detection requires coordinator technique data.',
+      );
+    }
+
+    return RangeRepCompletedRepCoreData(
+      repIndex: detectionData.repIndex,
+      minAngle: detectionData.minAngle,
+      worstFormMetric: techniqueData.worstFormMetric,
+      descentDuration: detectionData.descentDuration,
+      ascentDuration: detectionData.ascentDuration,
+      hadFormViolation: techniqueData.hadFormViolation,
+      completedPhaseSequence: detectionData.completedPhaseSequence,
     );
   }
 
@@ -1086,7 +1162,43 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
-    return _engine.diagnosticsSnapshot;
+    final detectionDiagnostics = _engine.detectionDiagnosticsSnapshot;
+    final techniqueHistory = _techniqueHistorySnapshotFor(detectionDiagnostics);
+    final phaseQuality = techniqueHistory.phaseQualityTelemetry;
+    return RangeRepDiagnosticsSnapshot(
+      currentRepWorstBackAngle: techniqueHistory.currentRepWorstFormMetric,
+      currentRepHadFormViolation: techniqueHistory.currentRepHadFormViolation,
+      phaseGateStatus: detectionDiagnostics.phaseGateStatus,
+      hasActiveRepPhase: detectionDiagnostics.hasActiveRepPhase,
+      hasPendingTransition: detectionDiagnostics.hasPendingTransition,
+      pendingTransitionLabel: detectionDiagnostics.pendingTransitionLabel,
+      lastConfirmedTransitionLabel:
+          detectionDiagnostics.lastConfirmedTransitionLabel,
+      lastRepScoreBreakdown: _lastRepScoreBreakdown,
+      lastCompletedRepCoreData: _lastCompletedRepCoreData,
+      descendingPhaseQuality: phaseQuality.descendingPhaseQuality,
+      peakPhaseQuality: phaseQuality.peakPhaseQuality,
+      ascendingPhaseQuality: phaseQuality.ascendingPhaseQuality,
+      descendingPhaseAssessment: techniqueHistory.descendingPhaseAssessment,
+      peakPhaseAssessment: techniqueHistory.peakPhaseAssessment,
+      ascendingPhaseAssessment: techniqueHistory.ascendingPhaseAssessment,
+      phaseFeedbackCandidate: techniqueHistory.phaseFeedbackCandidate?.code,
+    );
+  }
+
+  LegacyRangeRepTechniqueHistorySnapshot _currentTechniqueHistorySnapshot() {
+    return _techniqueHistorySnapshotFor(_engine.detectionDiagnosticsSnapshot);
+  }
+
+  LegacyRangeRepTechniqueHistorySnapshot _techniqueHistorySnapshotFor(
+    RangeRepDiagnosticsSnapshot detectionDiagnostics,
+  ) {
+    return _techniqueHistoryTracker.snapshot(
+      now: _diagnosticsNow,
+      preferLastCompletedTelemetry:
+          !detectionDiagnostics.hasActiveRepPhase &&
+          !detectionDiagnostics.hasPendingTransition,
+    );
   }
 
   void _trackRepContext({
@@ -1104,6 +1216,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
   void _clearActiveRepContext({String? reason}) {
     _engine.clearActiveRepContext(reason: reason);
+    _techniqueHistoryTracker.clearActiveRepContext();
+    _isFormBad = false;
+    _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
   }
 
   bool _beginBriefVisibilityGap(RangeRepDiagnosticsSnapshot diagnostics) {
@@ -1121,8 +1236,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return shouldTrackBriefGap;
   }
 
-  VisibilityGapResumeResult _resumeBriefVisibilityGap(AnalysisFrame frame) {
-    return _engine.resumeAfterBriefVisibilityGap(frame);
+  VisibilityGapResumeResult _resumeBriefVisibilityGap(double primaryMetric) {
+    return _engine.resumeAfterBriefVisibilityGap(primaryMetric: primaryMetric);
   }
 
   void _resetVisibilityResyncState({
@@ -1241,7 +1356,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       currentPhase: currentPhase,
       calibrationMetrics: calibrationMetrics,
       feedbackDirective: feedbackDirective,
-      feedbackFallbackMessage: _engine.feedback,
     );
     _lastPublishedLandmarks = landmarks;
     _lastPublishedCurrentAngle = currentAngle;
@@ -1249,14 +1363,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return snapshot;
   }
 
-  RangeRepFeedbackDirective _engineFeedbackDirective() {
-    return RangeRepFeedbackDirective.engine(
-      feedbackCode: _currentFeedbackCode(),
-    );
-  }
-
-  RangeRepFeedbackCode? _currentFeedbackCode() {
-    return _engine.feedbackCode;
+  RangeRepFeedbackDirective _coordinatorFeedbackDirective() {
+    return RangeRepFeedbackDirective.code(_currentFeedbackCode);
   }
 
   double _currentAngleForState(AnalysisFrame frame) {

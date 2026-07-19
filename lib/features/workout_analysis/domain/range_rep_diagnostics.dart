@@ -1,5 +1,4 @@
 import 'models/rep_score_breakdown.dart';
-import 'models/analysis_frame.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
 const String rangeRepAwaitNeutralPendingTransitionLabel = 'await neutral';
@@ -75,7 +74,7 @@ class RangeRepPhaseQualityAssessment {
   final List<RangeRepPhaseQualityIssue> issues;
 }
 
-/// Core engine-owned facts about the last fully completed range-rep repetition.
+/// Technique-enriched facts about a fully completed range-rep repetition.
 class RangeRepCompletedRepCoreData {
   const RangeRepCompletedRepCoreData({
     required this.repIndex,
@@ -140,6 +139,11 @@ abstract class RangeRepDiagnostics {
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot;
 }
 
+/// Detection-only diagnostics consumed by the production coordinator.
+abstract class RangeRepDetectionDiagnostics {
+  RangeRepDiagnosticsSnapshot get detectionDiagnosticsSnapshot;
+}
+
 /// Optional explicit seam for consuming newly completed rep core facts exactly
 /// once from a range-rep engine.
 abstract class RangeRepValidationHook {
@@ -173,7 +177,9 @@ class VisibilityGapResumeResult {
 abstract class RangeRepVisibilityGapControl {
   void beginBriefVisibilityGap();
 
-  VisibilityGapResumeResult resumeAfterBriefVisibilityGap(AnalysisFrame frame);
+  VisibilityGapResumeResult resumeAfterBriefVisibilityGap({
+    required double primaryMetric,
+  });
 }
 
 extension RangeRepDiagnosticsSnapshotX on RangeRepDiagnosticsSnapshot {

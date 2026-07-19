@@ -7,10 +7,14 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_rep_outcome_tracker.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/legacy_range_rep_technique_evaluator.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/legacy_range_rep_technique_history_tracker.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_completed_rep_detection_data.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_confirmed_transition.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_score_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -149,7 +153,7 @@ void main() {
     });
 
     test(
-      'evaluates the threshold-adjusted metric once and calls only the typed engine API',
+      'evaluates the threshold-adjusted metric once and calls only the detection engine API',
       () {
         const cases =
             <
@@ -208,23 +212,226 @@ void main() {
           );
 
           expect(evaluator.formMetrics, hasLength(4));
-          expect(engine.typedUpdateCount, 4);
+          expect(engine.detectionUpdateCount, 4);
+          expect(engine.typedUpdateCount, 0);
           expect(engine.legacyUpdateCount, 0);
           expect(
             evaluator.formMetrics.last,
             closeTo(testCase.expectedAdjustedMetric, 0.001),
           );
+          expect(engine.primaryMetrics.last, closeTo(170.0, 0.001));
           expect(
-            engine.frames.last.formMetric,
-            closeTo(testCase.expectedAdjustedMetric, 0.001),
-          );
-          expect(
-            engine.assessments.last.hasObservations,
+            evaluator.assessments.last.hasObservations,
             testCase.hasViolation,
           );
         }
       },
     );
+
+    test('owns live form and feedback across the production lifecycle', () {
+      final clock = _TestClock();
+      final base = clock.now();
+      final config = _squatConfig();
+      final engine = _ScriptedRangeRepEngine(
+        config: config,
+        now: clock.now,
+        results: <RangeRepEngineFrameResult>[
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.acquireNeutral,
+            base,
+            wasArmedAtFrameStart: false,
+          ),
+          _scriptedArmedFrame(),
+          _scriptedArmedFrame(),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.startDescending,
+            base.add(const Duration(seconds: 3)),
+            repStarted: true,
+            phases: const <RangeRepPhase>[RangeRepPhase.descending],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.reachPeak,
+            base.add(const Duration(seconds: 4)),
+            phases: const <RangeRepPhase>[
+              RangeRepPhase.descending,
+              RangeRepPhase.peak,
+            ],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.startAscending,
+            base.add(const Duration(seconds: 5)),
+            phases: const <RangeRepPhase>[
+              RangeRepPhase.peak,
+              RangeRepPhase.ascending,
+            ],
+          ),
+          _scriptedCompletion(
+            base.add(const Duration(seconds: 6)),
+            repIndex: 1,
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.startDescending,
+            base.add(const Duration(seconds: 7)),
+            repStarted: true,
+            phases: const <RangeRepPhase>[RangeRepPhase.descending],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.abortToNeutral,
+            base.add(const Duration(seconds: 8)),
+            repAborted: true,
+            phases: const <RangeRepPhase>[RangeRepPhase.descending],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.startDescending,
+            base.add(const Duration(seconds: 9)),
+            repStarted: true,
+            phases: const <RangeRepPhase>[RangeRepPhase.descending],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.reachPeak,
+            base.add(const Duration(seconds: 10)),
+            phases: const <RangeRepPhase>[
+              RangeRepPhase.descending,
+              RangeRepPhase.peak,
+            ],
+          ),
+          _scriptedTransition(
+            RangeRepConfirmedTransitionType.startAscending,
+            base.add(const Duration(seconds: 11)),
+            phases: const <RangeRepPhase>[
+              RangeRepPhase.peak,
+              RangeRepPhase.ascending,
+            ],
+          ),
+          _scriptedCompletion(
+            base.add(const Duration(seconds: 12)),
+            repIndex: 2,
+          ),
+        ],
+      )..isFormBad = true;
+      final evaluator = _ScriptedTechniqueEvaluator(<bool>[
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+      ]);
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(),
+        techniqueEvaluator: evaluator,
+      );
+
+      RangeRepCoordinatorFrameResult next() {
+        final result = _processAcceptedFrame(coordinator, clock, angle: 120);
+        clock.advance(const Duration(seconds: 1));
+        return result;
+      }
+
+      final newlyArmed = next();
+      expect(newlyArmed.stateSnapshot.isFormBad, isFalse);
+      expect(
+        newlyArmed.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.ready,
+      );
+
+      final armedViolation = next();
+      expect(armedViolation.stateSnapshot.isFormBad, isTrue);
+      expect(
+        armedViolation.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.keepBodyUpright,
+      );
+
+      final armedClean = next();
+      expect(armedClean.stateSnapshot.isFormBad, isFalse);
+      expect(
+        armedClean.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.keepBodyUpright,
+      );
+
+      final startedDescending = next();
+      expect(startedDescending.stateSnapshot.isFormBad, isTrue);
+      expect(
+        startedDescending.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.descend,
+      );
+
+      final reachedPeak = next();
+      expect(reachedPeak.stateSnapshot.isFormBad, isTrue);
+      expect(
+        reachedPeak.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.ascend,
+      );
+
+      next();
+      final techniqueCompletion = next();
+      expect(
+        techniqueCompletion.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.stabilizeTransition,
+      );
+      expect(
+        techniqueCompletion
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepSummaryHadFormViolation,
+        isTrue,
+      );
+      expect(
+        techniqueCompletion
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepValidationStatus,
+        'low confidence',
+      );
+
+      next();
+      final aborted = next();
+      expect(
+        aborted.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.repIncomplete,
+      );
+
+      next();
+      next();
+      next();
+      final cleanCompletion = next();
+      expect(cleanCompletion.stateSnapshot.isFormBad, isFalse);
+      expect(
+        cleanCompletion.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.repCompleted,
+      );
+      expect(
+        cleanCompletion
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepSummaryHadFormViolation,
+        isFalse,
+      );
+      expect(
+        cleanCompletion
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepValidationStatus,
+        'valid',
+      );
+
+      expect(engine.isFormBad, isTrue);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
+      expect(engine.detectionUpdateCount, 13);
+      expect(engine.typedUpdateCount, 0);
+      expect(engine.legacyUpdateCount, 0);
+      expect(evaluator.evaluateCount, 13);
+    });
 
     test('does not evaluate technique for invalid or blocked frames', () {
       final clock = _TestClock();
@@ -257,6 +464,7 @@ void main() {
       );
 
       expect(evaluator.formMetrics, isEmpty);
+      expect(engine.detectionUpdateCount, 0);
       expect(engine.typedUpdateCount, 0);
       expect(engine.legacyUpdateCount, 0);
     });
@@ -322,11 +530,17 @@ void main() {
           ),
         )..lastRepScore = 999.0;
         productionEngine.lastRepScoreBreakdown = sentinelBreakdown;
+        final techniqueHistoryTracker = _seedTechniqueHistoryForCompletion(
+          config: config,
+          completedRepCoreData: completedRepCoreData,
+          completionAt: productionClock.now(),
+        );
         final coordinator = DefaultRangeRepCoordinator(
           engine: productionEngine,
           config: config,
           rangeRepContract: RangeRepContracts.squat,
           rangeRepValidationConfig: const RangeRepValidationConfig(),
+          techniqueHistoryTracker: techniqueHistoryTracker,
         );
 
         final result = _processAcceptedFrame(
@@ -346,6 +560,8 @@ void main() {
           isNot(sentinelBreakdown.romScore),
         );
         expect(productionEngine.consumeCompletedRepCoreDataCalled, isFalse);
+        expect(productionEngine.typedUpdateCount, 0);
+        expect(productionEngine.detectionUpdateCount, 1);
       },
     );
 
@@ -400,16 +616,13 @@ void main() {
 
     test('preserves phase-quality penalty and adjusted final score', () {
       final result = _scoreCompletedCoreData(
-        config: _squatConfig(),
-        completedRepCoreData: _completedRepCoreData(),
-        diagnosticsSnapshot: const RangeRepDiagnosticsSnapshot(
-          descendingPhaseAssessment: RangeRepPhaseQualityAssessment(
-            status: RangeRepPhaseQualityStatus.flagged,
-          ),
-          ascendingPhaseAssessment: RangeRepPhaseQualityAssessment(
-            status: RangeRepPhaseQualityStatus.observed,
+        config: _squatConfig(
+          phaseQuality: const RangeRepPhaseQualityConfig(
+            minDescendingMillis: 1001,
+            minAscendingMillis: 1,
           ),
         ),
+        completedRepCoreData: _completedRepCoreData(),
       );
 
       expect(result.stateSnapshot.lastRepScore, 80.0);
@@ -1639,14 +1852,98 @@ RangeRepCoordinatorFrameResult _scoreCompletedCoreData({
     completedRepCoreData: completedRepCoreData,
     diagnosticsSnapshot: diagnosticsSnapshot,
   );
+  final techniqueHistoryTracker = _seedTechniqueHistoryForCompletion(
+    config: config,
+    completedRepCoreData: completedRepCoreData,
+    completionAt: clock.now(),
+  );
   final coordinator = DefaultRangeRepCoordinator(
     engine: engine,
     config: config,
     rangeRepContract: RangeRepContracts.squat,
     rangeRepValidationConfig: const RangeRepValidationConfig(),
+    techniqueHistoryTracker: techniqueHistoryTracker,
   );
 
   return _processAcceptedFrame(coordinator, clock, angle: 170);
+}
+
+LegacyRangeRepTechniqueHistoryTracker _seedTechniqueHistoryForCompletion({
+  required ExerciseConfig config,
+  required RangeRepCompletedRepCoreData completedRepCoreData,
+  required DateTime completionAt,
+}) {
+  final tracker = LegacyRangeRepTechniqueHistoryTracker(
+    phaseQualityConfig: config.rangeRepPhaseQuality,
+  );
+  final ascentStartedAt = completionAt.subtract(
+    completedRepCoreData.ascentDuration,
+  );
+  final descentStartedAt = ascentStartedAt.subtract(
+    completedRepCoreData.descentDuration,
+  );
+  final worstFormMetric = completedRepCoreData.worstFormMetric;
+
+  tracker.recordFrame(
+    engineResult: RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: true,
+      isArmedAfterUpdate: true,
+      repStarted: true,
+    ),
+    primaryMetric: 170.0,
+    formMetric: worstFormMetric,
+    hasTechniqueViolation: completedRepCoreData.hadFormViolation,
+  );
+  tracker.recordFrame(
+    engineResult: RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: true,
+      isArmedAfterUpdate: true,
+      confirmedTransition: RangeRepConfirmedTransition(
+        type: RangeRepConfirmedTransitionType.startDescending,
+        effectiveAt: descentStartedAt,
+      ),
+      observedRepPhases: const <RangeRepPhase>[RangeRepPhase.descending],
+    ),
+    primaryMetric: 140.0,
+    formMetric: 60.0,
+    hasTechniqueViolation: false,
+  );
+  tracker.recordFrame(
+    engineResult: RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: true,
+      isArmedAfterUpdate: true,
+      confirmedTransition: RangeRepConfirmedTransition(
+        type: RangeRepConfirmedTransitionType.reachPeak,
+        effectiveAt: ascentStartedAt,
+      ),
+      observedRepPhases: const <RangeRepPhase>[
+        RangeRepPhase.descending,
+        RangeRepPhase.peak,
+      ],
+    ),
+    primaryMetric: completedRepCoreData.minAngle,
+    formMetric: 60.0,
+    hasTechniqueViolation: false,
+  );
+  tracker.recordFrame(
+    engineResult: RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: true,
+      isArmedAfterUpdate: true,
+      confirmedTransition: RangeRepConfirmedTransition(
+        type: RangeRepConfirmedTransitionType.startAscending,
+        effectiveAt: ascentStartedAt,
+      ),
+      observedRepPhases: const <RangeRepPhase>[
+        RangeRepPhase.peak,
+        RangeRepPhase.ascending,
+      ],
+    ),
+    primaryMetric: 110.0,
+    formMetric: 60.0,
+    hasTechniqueViolation: false,
+  );
+
+  return tracker;
 }
 
 RangeRepCompletedRepCoreData _completedRepCoreData({
@@ -1662,6 +1959,56 @@ RangeRepCompletedRepCoreData _completedRepCoreData({
     ascentDuration: ascentDuration,
     hadFormViolation: hadFormViolation,
     completedPhaseSequence: true,
+  );
+}
+
+RangeRepEngineFrameResult _scriptedArmedFrame() {
+  return RangeRepEngineFrameResult(
+    wasArmedAtFrameStart: true,
+    isArmedAfterUpdate: true,
+  );
+}
+
+RangeRepEngineFrameResult _scriptedTransition(
+  RangeRepConfirmedTransitionType type,
+  DateTime effectiveAt, {
+  bool wasArmedAtFrameStart = true,
+  bool repStarted = false,
+  bool repAborted = false,
+  List<RangeRepPhase> phases = const <RangeRepPhase>[],
+}) {
+  return RangeRepEngineFrameResult(
+    wasArmedAtFrameStart: wasArmedAtFrameStart,
+    isArmedAfterUpdate: true,
+    repStarted: repStarted,
+    repAborted: repAborted,
+    confirmedTransition: RangeRepConfirmedTransition(
+      type: type,
+      effectiveAt: effectiveAt,
+    ),
+    observedRepPhases: phases,
+  );
+}
+
+RangeRepEngineFrameResult _scriptedCompletion(
+  DateTime effectiveAt, {
+  required int repIndex,
+}) {
+  return RangeRepEngineFrameResult(
+    wasArmedAtFrameStart: true,
+    isArmedAfterUpdate: true,
+    completedRepDetectionData: RangeRepCompletedRepDetectionData(
+      repIndex: repIndex,
+      minAngle: 90,
+      descentDuration: const Duration(seconds: 1),
+      ascentDuration: const Duration(seconds: 1),
+      completedPhaseSequence: true,
+    ),
+    confirmedTransition: RangeRepConfirmedTransition(
+      type: RangeRepConfirmedTransitionType.completeRep,
+      effectiveAt: effectiveAt,
+    ),
+    observedRepPhases: const <RangeRepPhase>[RangeRepPhase.ascending],
   );
 }
 
@@ -1767,7 +2114,10 @@ RepScoreBreakdown _sentinelBreakdown() {
   );
 }
 
-ExerciseConfig _squatConfig({RangeRepScoreWeightsConfig? scoreWeights}) {
+ExerciseConfig _squatConfig({
+  RangeRepScoreWeightsConfig? scoreWeights,
+  RangeRepPhaseQualityConfig? phaseQuality,
+}) {
   return ExerciseConfig(
     name: 'Squat',
     primaryJoint: PoseLandmarkType.leftKnee,
@@ -1782,6 +2132,7 @@ ExerciseConfig _squatConfig({RangeRepScoreWeightsConfig? scoreWeights}) {
     idealAscentSeconds: 1.0,
     tempoPenaltyPerSecond: 20.0,
     rangeRepScoreWeights: scoreWeights,
+    rangeRepPhaseQuality: phaseQuality,
   );
 }
 
@@ -1792,11 +2143,15 @@ class _CompletingRangeRepEngine extends RangeRepEngine {
     required this.completedRepCoreData,
     required RangeRepDiagnosticsSnapshot diagnosticsSnapshot,
   }) : _diagnosticsSnapshot = diagnosticsSnapshot,
+       _now = now,
        super(now: now);
 
   final RangeRepCompletedRepCoreData completedRepCoreData;
   final RangeRepDiagnosticsSnapshot _diagnosticsSnapshot;
+  final DateTime Function() _now;
   bool consumeCompletedRepCoreDataCalled = false;
+  int detectionUpdateCount = 0;
+  int typedUpdateCount = 0;
 
   @override
   double get lastRepRom => completedRepCoreData.minAngle;
@@ -1805,16 +2160,40 @@ class _CompletingRangeRepEngine extends RangeRepEngine {
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot => _diagnosticsSnapshot;
 
   @override
-  RangeRepEngineFrameResult updateWithTechniqueAssessment(
-    AnalysisFrame frame, {
-    required RangeRepTechniqueAssessment techniqueAssessment,
+  RangeRepDiagnosticsSnapshot get detectionDiagnosticsSnapshot =>
+      const RangeRepDiagnosticsSnapshot();
+
+  @override
+  RangeRepEngineFrameResult updateDetectionFrame({
+    required double primaryMetric,
   }) {
+    detectionUpdateCount++;
     repCount = completedRepCoreData.repIndex;
     return RangeRepEngineFrameResult(
       wasArmedAtFrameStart: true,
       isArmedAfterUpdate: true,
-      completedRepCoreData: completedRepCoreData,
+      completedRepDetectionData: RangeRepCompletedRepDetectionData(
+        repIndex: completedRepCoreData.repIndex,
+        minAngle: completedRepCoreData.minAngle,
+        descentDuration: completedRepCoreData.descentDuration,
+        ascentDuration: completedRepCoreData.ascentDuration,
+        completedPhaseSequence: completedRepCoreData.completedPhaseSequence,
+      ),
+      confirmedTransition: RangeRepConfirmedTransition(
+        type: RangeRepConfirmedTransitionType.completeRep,
+        effectiveAt: _now(),
+      ),
+      observedRepPhases: const <RangeRepPhase>[RangeRepPhase.ascending],
     );
+  }
+
+  @override
+  RangeRepEngineFrameResult updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+  }) {
+    typedUpdateCount++;
+    throw StateError('Coordinator must use the detection-only API.');
   }
 
   @override
@@ -1831,14 +2210,25 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
   }) : super(now: now);
 
   int legacyUpdateCount = 0;
+  int detectionUpdateCount = 0;
   int typedUpdateCount = 0;
-  final List<AnalysisFrame> frames = <AnalysisFrame>[];
-  final List<RangeRepTechniqueAssessment> assessments =
-      <RangeRepTechniqueAssessment>[];
+  final List<double> primaryMetrics = <double>[];
 
   @override
   void update(AnalysisFrame frame) {
     legacyUpdateCount++;
+  }
+
+  @override
+  RangeRepEngineFrameResult updateDetectionFrame({
+    required double primaryMetric,
+  }) {
+    detectionUpdateCount++;
+    primaryMetrics.add(primaryMetric);
+    return RangeRepEngineFrameResult(
+      wasArmedAtFrameStart: false,
+      isArmedAfterUpdate: false,
+    );
   }
 
   @override
@@ -1847,17 +2237,83 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
     required RangeRepTechniqueAssessment techniqueAssessment,
   }) {
     typedUpdateCount++;
-    frames.add(frame);
-    assessments.add(techniqueAssessment);
-    return RangeRepEngineFrameResult(
-      wasArmedAtFrameStart: false,
-      isArmedAfterUpdate: false,
+    throw StateError('Coordinator must use the detection-only API.');
+  }
+}
+
+class _ScriptedRangeRepEngine extends RangeRepEngine {
+  _ScriptedRangeRepEngine({
+    required super.config,
+    required DateTime Function() now,
+    required List<RangeRepEngineFrameResult> results,
+  }) : _results = List<RangeRepEngineFrameResult>.of(results),
+       super(now: now);
+
+  final List<RangeRepEngineFrameResult> _results;
+  int detectionUpdateCount = 0;
+  int typedUpdateCount = 0;
+  int legacyUpdateCount = 0;
+
+  @override
+  RangeRepEngineFrameResult updateDetectionFrame({
+    required double primaryMetric,
+  }) {
+    detectionUpdateCount++;
+    final result = _results.removeAt(0);
+    final detectionData = result.completedRepDetectionData;
+    if (detectionData != null) {
+      repCount = detectionData.repIndex;
+    }
+    return result;
+  }
+
+  @override
+  RangeRepEngineFrameResult updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+  }) {
+    typedUpdateCount++;
+    throw StateError('Coordinator must use the detection-only API.');
+  }
+
+  @override
+  void update(AnalysisFrame frame) {
+    legacyUpdateCount++;
+  }
+}
+
+class _ScriptedTechniqueEvaluator extends LegacyRangeRepTechniqueEvaluator {
+  _ScriptedTechniqueEvaluator(List<bool> violations)
+    : _violations = List<bool>.of(violations);
+
+  final List<bool> _violations;
+  int evaluateCount = 0;
+
+  @override
+  RangeRepTechniqueAssessment evaluate({
+    required double formMetric,
+    required double formThreshold,
+  }) {
+    evaluateCount++;
+    if (!_violations.removeAt(0)) {
+      return RangeRepTechniqueAssessment.empty;
+    }
+    return RangeRepTechniqueAssessment(
+      observations: const <RangeRepTechniqueObservation>[
+        RangeRepTechniqueObservation(
+          type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
+          code: 'legacy_form_threshold_violation',
+          severity: RangeRepTechniqueSeverity.warning,
+        ),
+      ],
     );
   }
 }
 
 class _RecordingTechniqueEvaluator extends LegacyRangeRepTechniqueEvaluator {
   final List<double> formMetrics = <double>[];
+  final List<RangeRepTechniqueAssessment> assessments =
+      <RangeRepTechniqueAssessment>[];
 
   @override
   RangeRepTechniqueAssessment evaluate({
@@ -1865,7 +2321,12 @@ class _RecordingTechniqueEvaluator extends LegacyRangeRepTechniqueEvaluator {
     required double formThreshold,
   }) {
     formMetrics.add(formMetric);
-    return super.evaluate(formMetric: formMetric, formThreshold: formThreshold);
+    final assessment = super.evaluate(
+      formMetric: formMetric,
+      formThreshold: formThreshold,
+    );
+    assessments.add(assessment);
+    return assessment;
   }
 }
 

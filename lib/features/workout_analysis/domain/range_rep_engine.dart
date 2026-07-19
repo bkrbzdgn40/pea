@@ -1,8 +1,10 @@
 import 'analysis_visibility_gap_window.dart';
+import 'legacy_range_rep_phase_quality_policy.dart';
 import 'legacy_range_rep_scorer.dart';
 import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
+import 'models/range_rep_completed_rep_detection_data.dart';
 import 'models/range_rep_confirmed_transition.dart';
 import 'models/range_rep_contract.dart';
 import 'models/range_rep_engine_frame_result.dart';
@@ -36,6 +38,7 @@ class _RangeRepLifecycleFacts {
   const _RangeRepLifecycleFacts({
     this.repStarted = false,
     this.repAborted = false,
+    this.completedRepDetectionData,
     this.completedRepCoreData,
     this.confirmedTransition,
     this.observedRepPhases = const <RangeRepPhase>[],
@@ -43,9 +46,20 @@ class _RangeRepLifecycleFacts {
 
   final bool repStarted;
   final bool repAborted;
+  final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
   final RangeRepConfirmedTransition? confirmedTransition;
   final List<RangeRepPhase> observedRepPhases;
+}
+
+class _RangeRepCompletionFacts {
+  const _RangeRepCompletionFacts({
+    required this.detectionData,
+    this.compatibilityCoreData,
+  });
+
+  final RangeRepCompletedRepDetectionData detectionData;
+  final RangeRepCompletedRepCoreData? compatibilityCoreData;
 }
 
 extension _PhaseTransitionX on _PhaseTransition {
@@ -224,22 +238,21 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   final LegacyRangeRepScorer _scorer = const LegacyRangeRepScorer();
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator =
       const LegacyRangeRepTechniqueEvaluator();
+  final LegacyRangeRepPhaseQualityPolicy _phaseQualityPolicy =
+      const LegacyRangeRepPhaseQualityPolicy();
 
   MovementPhase state = MovementPhase.neutral;
   bool _isArmed = false;
   @override
   int repCount = 0;
-  @override
   bool isFormBad = false;
 
   // Compatibility ROM value for the most recently completed repetition.
   double _lastRepRom = 180.0;
-  @override
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
   RangeRepCompletedRepCoreData? _pendingCompletedRepCoreData;
-  @override
   late String feedback;
   RangeRepFeedbackCode? _feedbackCode;
 
@@ -278,10 +291,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   @override
   double get lastRepRom => _lastRepRom;
 
-  @override
   RangeRepFeedbackCode? get feedbackCode => _feedbackCode;
 
-  @override
   RangeRepCompletedRepCoreData? consumeCompletedRepCoreData() {
     final completedRepCoreData = _pendingCompletedRepCoreData;
     _pendingCompletedRepCoreData = null;
@@ -293,6 +304,16 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       _isArmed ? state.name.toUpperCase() : rangeRepAwaitNeutralPhaseLabel;
 
   @override
+  RangeRepDiagnosticsSnapshot get detectionDiagnosticsSnapshot {
+    return RangeRepDiagnosticsSnapshot(
+      phaseGateStatus: _phaseGateStatus,
+      hasActiveRepPhase: _isArmed && state != MovementPhase.neutral,
+      hasPendingTransition: _pendingTransition != null,
+      pendingTransitionLabel: _pendingTransition?.debugLabel,
+      lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
+    );
+  }
+
   RangeRepDiagnosticsSnapshot get diagnosticsSnapshot {
     final now = _now();
     final phaseQualityTelemetry =
@@ -339,56 +360,75 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     );
   }
 
-  /// Updates live form feedback and advances the repetition state machine.
+  @override
+  RangeRepEngineFrameResult updateDetectionFrame({
+    required double primaryMetric,
+  }) {
+    return _updateFrame(
+      primaryMetric: primaryMetric,
+      calculateCompatibilityScore: false,
+    );
+  }
+
+  /// Legacy compatibility path that retains form, scoring, and feedback state.
   @override
   void update(AnalysisFrame frame) {
     final techniqueAssessment = _techniqueEvaluator.evaluate(
       formMetric: frame.formMetric,
       formThreshold: config.formThreshold,
     );
-    _updateWithTechniqueAssessment(
-      frame,
+    _updateFrame(
+      primaryMetric: frame.primaryMetric,
+      compatibilityFormMetric: frame.formMetric,
       techniqueAssessment: techniqueAssessment,
       calculateCompatibilityScore: true,
     );
   }
 
-  @override
+  /// Compatibility path for direct callers that supply technique decisions.
   RangeRepEngineFrameResult updateWithTechniqueAssessment(
     AnalysisFrame frame, {
     required RangeRepTechniqueAssessment techniqueAssessment,
   }) {
-    return _updateWithTechniqueAssessment(
-      frame,
+    return _updateFrame(
+      primaryMetric: frame.primaryMetric,
+      compatibilityFormMetric: frame.formMetric,
       techniqueAssessment: techniqueAssessment,
       calculateCompatibilityScore: false,
     );
   }
 
-  RangeRepEngineFrameResult _updateWithTechniqueAssessment(
-    AnalysisFrame frame, {
-    required RangeRepTechniqueAssessment techniqueAssessment,
+  RangeRepEngineFrameResult _updateFrame({
+    required double primaryMetric,
+    double? compatibilityFormMetric,
+    RangeRepTechniqueAssessment? techniqueAssessment,
     required bool calculateCompatibilityScore,
   }) {
     final wasArmedAtFrameStart = _isArmed;
-    final hasTechniqueViolation = techniqueAssessment.hasObservations;
-    if (_isArmed) {
-      _checkForm(hasTechniqueViolation);
-    } else {
-      isFormBad = false;
-      _setFeedback(RangeRepFeedbackCode.awaitNeutral);
+    final tracksCompatibilityTechnique =
+        compatibilityFormMetric != null && techniqueAssessment != null;
+    final hasTechniqueViolation = techniqueAssessment?.hasObservations ?? false;
+    if (tracksCompatibilityTechnique) {
+      if (_isArmed) {
+        _checkForm(hasTechniqueViolation);
+      } else {
+        isFormBad = false;
+        _setFeedback(RangeRepFeedbackCode.awaitNeutral);
+      }
     }
     final lifecycleFacts = _processState(
-      frame.primaryMetric,
-      frame.formMetric,
-      hasTechniqueViolation,
-      calculateCompatibilityScore,
+      primaryMetric,
+      compatibilityFormMetric: compatibilityFormMetric,
+      hasTechniqueViolation: hasTechniqueViolation,
+      tracksCompatibilityTechnique: tracksCompatibilityTechnique,
+      calculateCompatibilityScore: calculateCompatibilityScore,
     );
     return RangeRepEngineFrameResult(
       wasArmedAtFrameStart: wasArmedAtFrameStart,
       isArmedAfterUpdate: _isArmed,
       repStarted: lifecycleFacts.repStarted,
       repAborted: lifecycleFacts.repAborted,
+      completedRepDetectionData: lifecycleFacts.completedRepDetectionData,
       completedRepCoreData: lifecycleFacts.completedRepCoreData,
       confirmedTransition: lifecycleFacts.confirmedTransition,
       observedRepPhases: lifecycleFacts.observedRepPhases,
@@ -396,11 +436,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   _RangeRepLifecycleFacts _processState(
-    double angle,
-    double backAngle,
-    bool hasTechniqueViolation,
-    bool calculateCompatibilityScore,
-  ) {
+    double angle, {
+    required double? compatibilityFormMetric,
+    required bool hasTechniqueViolation,
+    required bool tracksCompatibilityTechnique,
+    required bool calculateCompatibilityScore,
+  }) {
     final now = _now();
 
     if (!_isArmed) {
@@ -414,7 +455,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         state = MovementPhase.neutral;
         _lastConfirmedTransitionLabel =
             _PhaseTransition.acquireNeutral.debugLabel;
-        _setFeedback(RangeRepFeedbackCode.ready);
+        if (tracksCompatibilityTechnique) {
+          _setFeedback(RangeRepFeedbackCode.ready);
+        }
       }
       return _RangeRepLifecycleFacts(
         confirmedTransition: armedAt == null
@@ -425,6 +468,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
     var repStarted = false;
     var repAborted = false;
+    RangeRepCompletedRepDetectionData? completedRepDetectionData;
     RangeRepCompletedRepCoreData? completedRepCoreData;
     RangeRepConfirmedTransition? confirmedTransition;
     final observedRepPhases = <RangeRepPhase>[];
@@ -445,26 +489,31 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           observedRepPhases.add(RangeRepPhase.descending);
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
-          _startRepMetrics(
-            angle,
-            backAngle,
-            hasTechniqueViolation: hasTechniqueViolation,
-            phaseStartedAt: confirmedAt,
-          );
-          _setFeedback(RangeRepFeedbackCode.descend);
+          _startDetectionRepMetrics(angle);
+          if (tracksCompatibilityTechnique) {
+            _startCompatibilityRepMetrics(
+              compatibilityFormMetric!,
+              hasTechniqueViolation: hasTechniqueViolation,
+              phaseStartedAt: confirmedAt,
+              primaryMetric: angle,
+            );
+            _setFeedback(RangeRepFeedbackCode.descend);
+          }
         }
         break;
 
       case MovementPhase.descending:
         observedRepPhases.add(RangeRepPhase.descending);
-        _trackRepForm(backAngle, hasTechniqueViolation);
+        if (tracksCompatibilityTechnique) {
+          _trackRepForm(compatibilityFormMetric!, hasTechniqueViolation);
+          _recordPhaseObservation(
+            phase: MovementPhase.descending,
+            primaryMetric: angle,
+            formMetric: compatibilityFormMetric,
+            hasTechniqueViolation: hasTechniqueViolation,
+          );
+        }
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
-        _recordPhaseObservation(
-          phase: MovementPhase.descending,
-          primaryMetric: angle,
-          formMetric: backAngle,
-          hasTechniqueViolation: hasTechniqueViolation,
-        );
 
         final peakConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.reachPeak,
@@ -481,18 +530,20 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           if (_descentStartTime != null) {
             lastDescentTime = _peakStartTime!.difference(_descentStartTime!);
           }
-          _completePhaseTelemetry(
-            phase: MovementPhase.descending,
-            phaseEndedAt: peakConfirmedAt,
-          );
-          _beginPhaseTelemetry(
-            phase: MovementPhase.peak,
-            phaseStartedAt: peakConfirmedAt,
-            primaryMetric: angle,
-            formMetric: backAngle,
-            hasTechniqueViolation: hasTechniqueViolation,
-          );
-          _setFeedback(RangeRepFeedbackCode.ascend);
+          if (tracksCompatibilityTechnique) {
+            _completePhaseTelemetry(
+              phase: MovementPhase.descending,
+              phaseEndedAt: peakConfirmedAt,
+            );
+            _beginPhaseTelemetry(
+              phase: MovementPhase.peak,
+              phaseStartedAt: peakConfirmedAt,
+              primaryMetric: angle,
+              formMetric: compatibilityFormMetric!,
+              hasTechniqueViolation: hasTechniqueViolation,
+            );
+            _setFeedback(RangeRepFeedbackCode.ascend);
+          }
         } else {
           final abortConfirmedAt = _confirmTransition(
             transition: _PhaseTransition.abortToNeutral,
@@ -505,22 +556,27 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             );
             repAborted = true;
             state = MovementPhase.neutral;
-            _resetCurrentRepMetrics();
-            _setFeedback(RangeRepFeedbackCode.repIncomplete);
+            _resetDetectionRepMetrics();
+            if (tracksCompatibilityTechnique) {
+              _resetCompatibilityRepMetrics();
+              _setFeedback(RangeRepFeedbackCode.repIncomplete);
+            }
           }
         }
         break;
 
       case MovementPhase.peak:
         observedRepPhases.add(RangeRepPhase.peak);
-        _trackRepForm(backAngle, hasTechniqueViolation);
+        if (tracksCompatibilityTechnique) {
+          _trackRepForm(compatibilityFormMetric!, hasTechniqueViolation);
+          _recordPhaseObservation(
+            phase: MovementPhase.peak,
+            primaryMetric: angle,
+            formMetric: compatibilityFormMetric,
+            hasTechniqueViolation: hasTechniqueViolation,
+          );
+        }
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
-        _recordPhaseObservation(
-          phase: MovementPhase.peak,
-          primaryMetric: angle,
-          formMetric: backAngle,
-          hasTechniqueViolation: hasTechniqueViolation,
-        );
 
         final ascentConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.startAscending,
@@ -534,30 +590,34 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           observedRepPhases.add(RangeRepPhase.ascending);
           state = MovementPhase.ascending;
           _ascentStartTime = ascentConfirmedAt;
-          _completePhaseTelemetry(
-            phase: MovementPhase.peak,
-            phaseEndedAt: ascentConfirmedAt,
-          );
-          _beginPhaseTelemetry(
-            phase: MovementPhase.ascending,
-            phaseStartedAt: ascentConfirmedAt,
-            primaryMetric: angle,
-            formMetric: backAngle,
-            hasTechniqueViolation: hasTechniqueViolation,
-          );
-          _setFeedback(RangeRepFeedbackCode.ascend);
+          if (tracksCompatibilityTechnique) {
+            _completePhaseTelemetry(
+              phase: MovementPhase.peak,
+              phaseEndedAt: ascentConfirmedAt,
+            );
+            _beginPhaseTelemetry(
+              phase: MovementPhase.ascending,
+              phaseStartedAt: ascentConfirmedAt,
+              primaryMetric: angle,
+              formMetric: compatibilityFormMetric!,
+              hasTechniqueViolation: hasTechniqueViolation,
+            );
+            _setFeedback(RangeRepFeedbackCode.ascend);
+          }
         }
         break;
 
       case MovementPhase.ascending:
         observedRepPhases.add(RangeRepPhase.ascending);
-        _trackRepForm(backAngle, hasTechniqueViolation);
-        _recordPhaseObservation(
-          phase: MovementPhase.ascending,
-          primaryMetric: angle,
-          formMetric: backAngle,
-          hasTechniqueViolation: hasTechniqueViolation,
-        );
+        if (tracksCompatibilityTechnique) {
+          _trackRepForm(compatibilityFormMetric!, hasTechniqueViolation);
+          _recordPhaseObservation(
+            phase: MovementPhase.ascending,
+            primaryMetric: angle,
+            formMetric: compatibilityFormMetric,
+            hasTechniqueViolation: hasTechniqueViolation,
+          );
+        }
         final repCompleteAt = _confirmTransition(
           transition: _PhaseTransition.completeRep,
           condition: angle > _neutralReturnThreshold,
@@ -570,15 +630,22 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           if (_ascentStartTime != null) {
             lastAscentTime = repCompleteAt.difference(_ascentStartTime!);
           }
-          _completePhaseTelemetry(
-            phase: MovementPhase.ascending,
-            phaseEndedAt: repCompleteAt,
-          );
-          completedRepCoreData = _finishRep(
+          if (tracksCompatibilityTechnique) {
+            _completePhaseTelemetry(
+              phase: MovementPhase.ascending,
+              phaseEndedAt: repCompleteAt,
+            );
+          }
+          final completionFacts = _finishRep(
+            tracksCompatibilityTechnique: tracksCompatibilityTechnique,
             calculateCompatibilityScore: calculateCompatibilityScore,
           );
+          completedRepDetectionData = completionFacts.detectionData;
+          completedRepCoreData = completionFacts.compatibilityCoreData;
           state = MovementPhase.neutral;
-          _captureLastCompletedPhaseQualityTelemetry(repCompleteAt);
+          if (tracksCompatibilityTechnique) {
+            _captureLastCompletedPhaseQualityTelemetry(repCompleteAt);
+          }
         }
         break;
     }
@@ -586,13 +653,15 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     return _RangeRepLifecycleFacts(
       repStarted: repStarted,
       repAborted: repAborted,
+      completedRepDetectionData: completedRepDetectionData,
       completedRepCoreData: completedRepCoreData,
       confirmedTransition: confirmedTransition,
       observedRepPhases: observedRepPhases,
     );
   }
 
-  RangeRepCompletedRepCoreData _finishRep({
+  _RangeRepCompletionFacts _finishRep({
+    required bool tracksCompatibilityTechnique,
     required bool calculateCompatibilityScore,
   }) {
     repCount++;
@@ -601,6 +670,17 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
+    final detectionData = RangeRepCompletedRepDetectionData(
+      repIndex: repCount,
+      minAngle: _lastRepRom,
+      descentDuration: lastDescentTime,
+      ascentDuration: lastAscentTime,
+      completedPhaseSequence: completedPhaseSequence,
+    );
+    if (!tracksCompatibilityTechnique) {
+      return _RangeRepCompletionFacts(detectionData: detectionData);
+    }
+
     final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
       _now(),
     );
@@ -625,13 +705,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       ascendingPhaseAssessment: ascendingPhaseAssessment,
     );
     final completedRepCoreData = RangeRepCompletedRepCoreData(
-      repIndex: repCount,
-      minAngle: _lastRepRom,
+      repIndex: detectionData.repIndex,
+      minAngle: detectionData.minAngle,
       worstFormMetric: _currentRepWorstBackAngle,
-      descentDuration: lastDescentTime,
-      ascentDuration: lastAscentTime,
+      descentDuration: detectionData.descentDuration,
+      ascentDuration: detectionData.ascentDuration,
       hadFormViolation: _currentRepHadFormViolation,
-      completedPhaseSequence: completedPhaseSequence,
+      completedPhaseSequence: detectionData.completedPhaseSequence,
     );
     lastCompletedRepCoreData = completedRepCoreData;
 
@@ -647,7 +727,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _setFeedback(
       phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
     );
-    return completedRepCoreData;
+    return _RangeRepCompletionFacts(
+      detectionData: detectionData,
+      compatibilityCoreData: completedRepCoreData,
+    );
   }
 
   void _calculateCompatibilityScore({
@@ -772,42 +855,21 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required RangeRepPhaseQualitySnapshot phaseQuality,
     required bool isActivePhase,
   }) {
-    if (!phaseQuality.hasData) {
-      return const RangeRepPhaseQualityAssessment();
-    }
-
-    final issues = <RangeRepPhaseQualityIssue>[];
-    final phaseQualityConfig = config.rangeRepPhaseQuality;
-
-    if (!isActivePhase) {
-      int? minDurationMillis;
-      switch (phase) {
-        case MovementPhase.descending:
-          minDurationMillis = phaseQualityConfig?.minDescendingMillis;
-          break;
-        case MovementPhase.ascending:
-          minDurationMillis = phaseQualityConfig?.minAscendingMillis;
-          break;
-        case MovementPhase.neutral:
-        case MovementPhase.peak:
-          minDurationMillis = null;
-          break;
-      }
-      if (minDurationMillis != null &&
-          phaseQuality.durationMs < minDurationMillis) {
-        issues.add(RangeRepPhaseQualityIssue.durationTooShort);
-      }
-    }
-
-    if (phaseQuality.hadFormViolation) {
-      issues.add(RangeRepPhaseQualityIssue.formViolation);
-    }
-
-    return RangeRepPhaseQualityAssessment(
-      status: issues.isEmpty
-          ? RangeRepPhaseQualityStatus.observed
-          : RangeRepPhaseQualityStatus.flagged,
-      issues: issues,
+    final rangeRepPhase = switch (phase) {
+      MovementPhase.descending => RangeRepPhase.descending,
+      MovementPhase.peak => RangeRepPhase.peak,
+      MovementPhase.ascending => RangeRepPhase.ascending,
+      MovementPhase.neutral => throw ArgumentError.value(
+        phase,
+        'phase',
+        'Neutral has no phase-quality assessment.',
+      ),
+    };
+    return _phaseQualityPolicy.assess(
+      phase: rangeRepPhase,
+      phaseQuality: phaseQuality,
+      isActivePhase: isActivePhase,
+      config: config.rangeRepPhaseQuality,
     );
   }
 
@@ -816,31 +878,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required RangeRepPhaseQualityAssessment peakPhaseAssessment,
     required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
   }) {
-    if (descendingPhaseAssessment.issues.contains(
-      RangeRepPhaseQualityIssue.durationTooShort,
-    )) {
-      return RangeRepFeedbackCode.controlDescent;
-    }
-    if (ascendingPhaseAssessment.issues.contains(
-      RangeRepPhaseQualityIssue.durationTooShort,
-    )) {
-      return RangeRepFeedbackCode.controlAscent;
-    }
-    if (peakPhaseAssessment.issues.contains(
-      RangeRepPhaseQualityIssue.formViolation,
-    )) {
-      return RangeRepFeedbackCode.stabilizeTransition;
-    }
-    if (descendingPhaseAssessment.issues.contains(
-          RangeRepPhaseQualityIssue.formViolation,
-        ) ||
-        ascendingPhaseAssessment.issues.contains(
-          RangeRepPhaseQualityIssue.formViolation,
-        )) {
-      return RangeRepFeedbackCode.maintainForm;
-    }
-
-    return null;
+    return _phaseQualityPolicy.feedbackCandidate(
+      descending: descendingPhaseAssessment,
+      peak: peakPhaseAssessment,
+      ascending: ascendingPhaseAssessment,
+    );
   }
 
   String _feedbackMessageForCode(RangeRepFeedbackCode code) {
@@ -943,21 +985,24 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _ascendingPhaseQuality.reset();
   }
 
-  void _startRepMetrics(
-    double angle,
-    double backAngle, {
+  void _startDetectionRepMetrics(double primaryMetric) {
+    _currentRepMinAngle = primaryMetric;
+  }
+
+  void _startCompatibilityRepMetrics(
+    double formMetric, {
     required bool hasTechniqueViolation,
     required DateTime phaseStartedAt,
+    required double primaryMetric,
   }) {
-    _currentRepMinAngle = angle;
-    _currentRepWorstBackAngle = backAngle;
+    _currentRepWorstBackAngle = formMetric;
     _currentRepHadFormViolation = hasTechniqueViolation;
     _resetPhaseQualityTelemetry();
     _beginPhaseTelemetry(
       phase: MovementPhase.descending,
       phaseStartedAt: phaseStartedAt,
-      primaryMetric: angle,
-      formMetric: backAngle,
+      primaryMetric: primaryMetric,
+      formMetric: formMetric,
       hasTechniqueViolation: hasTechniqueViolation,
     );
   }
@@ -972,11 +1017,19 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   void _resetCurrentRepMetrics() {
+    _resetDetectionRepMetrics();
+    _resetCompatibilityRepMetrics();
+  }
+
+  void _resetDetectionRepMetrics() {
     _currentRepMinAngle = 180.0;
+    _clearPendingTransition();
+  }
+
+  void _resetCompatibilityRepMetrics() {
     _currentRepWorstBackAngle = 180.0;
     _currentRepHadFormViolation = false;
     _resetPhaseQualityTelemetry();
-    _clearPendingTransition();
   }
 
   void _checkForm(bool hasTechniqueViolation) {
@@ -1059,7 +1112,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   @override
-  VisibilityGapResumeResult resumeAfterBriefVisibilityGap(AnalysisFrame frame) {
+  VisibilityGapResumeResult resumeAfterBriefVisibilityGap({
+    required double primaryMetric,
+  }) {
     if (!_briefVisibilityGapWindow.isActive) {
       return const VisibilityGapResumeResult(
         disposition: VisibilityGapResumeDisposition.noGap,
@@ -1068,7 +1123,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
     final frozenPhase = _briefVisibilityGapFrozenPhase ?? state;
     final isCompatible = _isFrameCompatibleWithFrozenPhase(
-      frame.primaryMetric,
+      primaryMetric,
       frozenPhase: frozenPhase,
       wasArmed: _briefVisibilityGapWasArmed,
     );
