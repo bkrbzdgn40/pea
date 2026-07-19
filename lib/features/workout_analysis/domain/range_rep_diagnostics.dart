@@ -1,3 +1,4 @@
+import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
@@ -114,6 +115,7 @@ class RangeRepDiagnosticsSnapshot {
     this.peakPhaseAssessment = const RangeRepPhaseQualityAssessment(),
     this.ascendingPhaseAssessment = const RangeRepPhaseQualityAssessment(),
     this.phaseFeedbackCandidate,
+    this.techniqueObservations = const <RangeRepTechniqueObservation>[],
   });
 
   final double currentRepWorstBackAngle;
@@ -132,6 +134,7 @@ class RangeRepDiagnosticsSnapshot {
   final RangeRepPhaseQualityAssessment peakPhaseAssessment;
   final RangeRepPhaseQualityAssessment ascendingPhaseAssessment;
   final String? phaseFeedbackCandidate;
+  final List<RangeRepTechniqueObservation> techniqueObservations;
 }
 
 /// Optional diagnostics surface for range-rep style engines.
