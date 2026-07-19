@@ -52,7 +52,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepVisibilityPolicy? visibilityPolicy,
     RangeRepThresholdBookkeeper? thresholdBookkeeper,
     RangeRepRepOutcomeTracker? outcomeTracker,
-    SessionCalibrationBaselineAccumulator? sessionCalibrationBaselineAccumulator,
+    SessionCalibrationBaselineAccumulator?
+    sessionCalibrationBaselineAccumulator,
   }) : _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
        super(
          engine: engine,
@@ -175,7 +176,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
             ),
           );
           _torsoDriftTracker.reset();
-        } else if (_previousPhase == 'DESCENDING' || _previousPhase == 'PEAK') {
+        } else if (_previousPhase == 'DESCENDING' ||
+            _previousPhase == 'PEAK') {
           _resetTorsoDrift(clearObservations: true);
         }
         break;
