@@ -79,4 +79,20 @@ class LegacyRangeRepScorer {
 
     return penalty > 0 ? penalty : null;
   }
+
+  double? calculatePhaseAdjustedScore({
+    required double baseScore,
+    required double? phaseQualityPenalty,
+  }) {
+    return phaseQualityPenalty == null
+        ? null
+        : (baseScore - phaseQualityPenalty).clamp(0.0, 100.0).toDouble();
+  }
+
+  double calculateFinalScore({
+    required double baseScore,
+    required double? phaseAdjustedScore,
+  }) {
+    return phaseAdjustedScore ?? baseScore;
+  }
 }
