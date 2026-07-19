@@ -384,8 +384,11 @@ void main() {
       );
 
       final diagnostics = engine.diagnosticsSnapshot;
+      final completedRepCoreData = engine.consumeCompletedRepCoreData();
       expect(engine.repCount, 1);
-      expect(engine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+      expect(completedRepCoreData?.hadFormViolation, isTrue);
+      expect(engine.lastRepScore, 0.0);
+      expect(engine.lastRepScoreBreakdown, isNull);
       expect(diagnostics.descendingPhaseQuality.hadFormViolation, isTrue);
       expect(
         diagnostics.descendingPhaseAssessment.issues,

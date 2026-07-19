@@ -310,9 +310,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       formMetric: frame.formMetric,
       formThreshold: config.formThreshold,
     );
-    updateWithTechniqueAssessment(
+    _updateWithTechniqueAssessment(
       frame,
       techniqueAssessment: techniqueAssessment,
+      calculateCompatibilityScore: true,
     );
   }
 
@@ -321,6 +322,18 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     AnalysisFrame frame, {
     required RangeRepTechniqueAssessment techniqueAssessment,
   }) {
+    _updateWithTechniqueAssessment(
+      frame,
+      techniqueAssessment: techniqueAssessment,
+      calculateCompatibilityScore: false,
+    );
+  }
+
+  void _updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+    required bool calculateCompatibilityScore,
+  }) {
     final hasTechniqueViolation = techniqueAssessment.hasObservations;
     if (_isArmed) {
       _checkForm(hasTechniqueViolation);
@@ -328,13 +341,19 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       isFormBad = false;
       _setFeedback(RangeRepFeedbackCode.awaitNeutral);
     }
-    _processState(frame.primaryMetric, frame.formMetric, hasTechniqueViolation);
+    _processState(
+      frame.primaryMetric,
+      frame.formMetric,
+      hasTechniqueViolation,
+      calculateCompatibilityScore,
+    );
   }
 
   void _processState(
     double angle,
     double backAngle,
     bool hasTechniqueViolation,
+    bool calculateCompatibilityScore,
   ) {
     final now = _now();
 
@@ -476,7 +495,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             phase: MovementPhase.ascending,
             phaseEndedAt: repCompleteAt,
           );
-          _finishRep();
+          _finishRep(calculateCompatibilityScore: calculateCompatibilityScore);
           state = MovementPhase.neutral;
           _captureLastCompletedPhaseQualityTelemetry(repCompleteAt);
         }
@@ -484,26 +503,78 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     }
   }
 
-  void _finishRep() {
-    // Score is finalized only after descent, peak, and ascent return to neutral.
+  void _finishRep({required bool calculateCompatibilityScore}) {
     repCount++;
     _lastRepRom = _currentRepMinAngle;
     final completedPhaseSequence =
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
-
-    final romScore = _scorer.calculateRomScore(
+    final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
+      _now(),
+    );
+    final descendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.descending,
+      phaseQuality: completedPhaseQualityTelemetry.descendingPhaseQuality,
+      isActivePhase: false,
+    );
+    final peakPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.peak,
+      phaseQuality: completedPhaseQualityTelemetry.peakPhaseQuality,
+      isActivePhase: false,
+    );
+    final ascendingPhaseAssessment = _assessPhaseQuality(
+      phase: MovementPhase.ascending,
+      phaseQuality: completedPhaseQualityTelemetry.ascendingPhaseQuality,
+      isActivePhase: false,
+    );
+    final phaseFeedbackCodeCandidate = _phaseFeedbackCodeCandidate(
+      descendingPhaseAssessment: descendingPhaseAssessment,
+      peakPhaseAssessment: peakPhaseAssessment,
+      ascendingPhaseAssessment: ascendingPhaseAssessment,
+    );
+    lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
+      repIndex: repCount,
       minAngle: _lastRepRom,
+      worstFormMetric: _currentRepWorstBackAngle,
+      descentDuration: lastDescentTime,
+      ascentDuration: lastAscentTime,
+      hadFormViolation: _currentRepHadFormViolation,
+      completedPhaseSequence: completedPhaseSequence,
+    );
+    _pendingCompletedRepCoreData = lastCompletedRepCoreData;
+
+    if (calculateCompatibilityScore) {
+      _calculateCompatibilityScore(
+        completedRepCoreData: lastCompletedRepCoreData!,
+        descendingPhaseAssessment: descendingPhaseAssessment,
+        ascendingPhaseAssessment: ascendingPhaseAssessment,
+      );
+    }
+
+    _setFeedback(
+      phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
+    );
+  }
+
+  void _calculateCompatibilityScore({
+    required RangeRepCompletedRepCoreData completedRepCoreData,
+    required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
+    required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
+  }) {
+    final romScore = _scorer.calculateRomScore(
+      minAngle: completedRepCoreData.minAngle,
       targetMinAngle: config.targetMinAngle,
     );
-    final descentSeconds = lastDescentTime.inMilliseconds / 1000.0;
+    final descentSeconds =
+        completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
     final descentScore = _scorer.calculateTempoScore(
       actualSeconds: descentSeconds,
       idealSeconds: config.idealDescentSeconds,
       tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
     );
-    final ascentSeconds = lastAscentTime.inMilliseconds / 1000.0;
+    final ascentSeconds =
+        completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
     final ascentScore = _scorer.calculateTempoScore(
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
@@ -524,24 +595,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
             ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
           );
-    final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
-      _now(),
-    );
-    final descendingPhaseAssessment = _assessPhaseQuality(
-      phase: MovementPhase.descending,
-      phaseQuality: completedPhaseQualityTelemetry.descendingPhaseQuality,
-      isActivePhase: false,
-    );
-    final peakPhaseAssessment = _assessPhaseQuality(
-      phase: MovementPhase.peak,
-      phaseQuality: completedPhaseQualityTelemetry.peakPhaseQuality,
-      isActivePhase: false,
-    );
-    final ascendingPhaseAssessment = _assessPhaseQuality(
-      phase: MovementPhase.ascending,
-      phaseQuality: completedPhaseQualityTelemetry.ascendingPhaseQuality,
-      isActivePhase: false,
-    );
     final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
       descendingPhaseFlagged:
           descendingPhaseAssessment.status ==
@@ -549,18 +602,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       ascendingPhaseFlagged:
           ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged,
     );
-    final phaseFeedbackCodeCandidate = _phaseFeedbackCodeCandidate(
-      descendingPhaseAssessment: descendingPhaseAssessment,
-      peakPhaseAssessment: peakPhaseAssessment,
-      ascendingPhaseAssessment: ascendingPhaseAssessment,
-    );
-
-    // Phase-aware score now becomes the runtime score when a completed rep is flagged.
     final baseScore = _scorer.calculateBaseScore(
       romScore: romScore,
       tempoScore: tempoScore,
       weightedBaseScore: weightedBaseScore,
-      hadFormViolation: _currentRepHadFormViolation,
+      hadFormViolation: completedRepCoreData.hadFormViolation,
     );
     final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
       baseScore: baseScore,
@@ -572,18 +618,15 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     );
 
     lastRepScore = finalScore;
-    _setFeedback(
-      phaseFeedbackCodeCandidate ?? RangeRepFeedbackCode.repCompleted,
-    );
     lastRepScoreBreakdown = RepScoreBreakdown(
-      minAngle: _lastRepRom,
+      minAngle: completedRepCoreData.minAngle,
       romScore: romScore,
       descentSeconds: descentSeconds,
       descentScore: descentScore,
       ascentSeconds: ascentSeconds,
       ascentScore: ascentScore,
-      worstBackAngle: _currentRepWorstBackAngle,
-      hadFormViolation: _currentRepHadFormViolation,
+      worstBackAngle: completedRepCoreData.worstFormMetric,
+      hadFormViolation: completedRepCoreData.hadFormViolation,
       runtimeBaseScore: baseScore,
       finalScore: finalScore,
       depthScore: depthScore,
@@ -593,16 +636,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       phaseQualityPenalty: phaseQualityPenalty,
       phaseAdjustedScore: phaseAdjustedScore,
     );
-    lastCompletedRepCoreData = RangeRepCompletedRepCoreData(
-      repIndex: repCount,
-      minAngle: _lastRepRom,
-      worstFormMetric: _currentRepWorstBackAngle,
-      descentDuration: lastDescentTime,
-      ascentDuration: lastAscentTime,
-      hadFormViolation: _currentRepHadFormViolation,
-      completedPhaseSequence: completedPhaseSequence,
-    );
-    _pendingCompletedRepCoreData = lastCompletedRepCoreData;
   }
 
   RangeRepPhaseQualityTelemetry _phaseQualityTelemetry(DateTime now) {
