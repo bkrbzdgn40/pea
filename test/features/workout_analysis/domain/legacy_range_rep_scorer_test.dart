@@ -62,5 +62,77 @@ void main() {
         );
       });
     });
+
+    group('calculateWeightedBaseScore', () {
+      test('returns the arithmetic mean for equal positive weights', () {
+        expect(
+          scorer.calculateWeightedBaseScore(
+            depthScore: 90,
+            descentControlScore: 60,
+            ascentControlScore: 30,
+            depthWeight: 1,
+            descentControlWeight: 1,
+            ascentControlWeight: 1,
+          ),
+          60,
+        );
+      });
+
+      test('returns the weighted mean for unequal positive weights', () {
+        expect(
+          scorer.calculateWeightedBaseScore(
+            depthScore: 100,
+            descentControlScore: 80,
+            ascentControlScore: 60,
+            depthWeight: 2,
+            descentControlWeight: 1,
+            ascentControlWeight: 1,
+          ),
+          85,
+        );
+      });
+
+      test('ignores a component with zero weight', () {
+        expect(
+          scorer.calculateWeightedBaseScore(
+            depthScore: 100,
+            descentControlScore: 80,
+            ascentControlScore: 60,
+            depthWeight: 0,
+            descentControlWeight: 1,
+            ascentControlWeight: 1,
+          ),
+          70,
+        );
+      });
+
+      test('ignores a component with negative weight', () {
+        expect(
+          scorer.calculateWeightedBaseScore(
+            depthScore: 100,
+            descentControlScore: 80,
+            ascentControlScore: 60,
+            depthWeight: -1,
+            descentControlWeight: 1,
+            ascentControlWeight: 1,
+          ),
+          70,
+        );
+      });
+
+      test('returns null when all weights are non-positive', () {
+        expect(
+          scorer.calculateWeightedBaseScore(
+            depthScore: 100,
+            descentControlScore: 80,
+            ascentControlScore: 60,
+            depthWeight: 0,
+            descentControlWeight: -1,
+            ascentControlWeight: 0,
+          ),
+          isNull,
+        );
+      });
+    });
   });
 }

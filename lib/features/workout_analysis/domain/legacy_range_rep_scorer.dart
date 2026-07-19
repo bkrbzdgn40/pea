@@ -17,4 +17,35 @@ class LegacyRangeRepScorer {
         .clamp(0, 100)
         .toDouble();
   }
+
+  double? calculateWeightedBaseScore({
+    required double depthScore,
+    required double descentControlScore,
+    required double ascentControlScore,
+    required double depthWeight,
+    required double descentControlWeight,
+    required double ascentControlWeight,
+  }) {
+    var weightedScoreTotal = 0.0;
+    var totalWeight = 0.0;
+
+    void includeScore(double score, double weight) {
+      if (weight <= 0) {
+        return;
+      }
+
+      weightedScoreTotal += score * weight;
+      totalWeight += weight;
+    }
+
+    includeScore(depthScore, depthWeight);
+    includeScore(descentControlScore, descentControlWeight);
+    includeScore(ascentControlScore, ascentControlWeight);
+
+    if (totalWeight <= 0) {
+      return null;
+    }
+
+    return weightedScoreTotal / totalWeight;
+  }
 }

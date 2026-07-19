@@ -394,12 +394,26 @@ void main() {
 
         _completeSitUpRep(clock, engine);
 
+        final breakdown = engine.lastRepScoreBreakdown;
+        final expectedWeightedBaseScore =
+            (breakdown!.depthScore! +
+                breakdown.descentControlScore! +
+                breakdown.ascentControlScore!) /
+            3;
+
         expect(engine.repCount, 1);
         expect(engine.phaseLabel, 'NEUTRAL');
-        expect(engine.lastRepScoreBreakdown, isNotNull);
+        expect(
+          breakdown.weightedBaseScore,
+          closeTo(expectedWeightedBaseScore, 0.001),
+        );
+        expect(
+          breakdown.runtimeBaseScore,
+          closeTo(expectedWeightedBaseScore, 0.001),
+        );
         expect(engine.lastRepScore, inInclusiveRange(0.0, 100.0));
         expect(engine.lastRepRom, closeTo(68.0, 0.001));
-        expect(engine.lastRepScoreBreakdown?.hadFormViolation, isFalse);
+        expect(breakdown.hadFormViolation, isFalse);
         expect(engine.consumeCompletedRepCoreData()?.repIndex, 1);
       },
     );
