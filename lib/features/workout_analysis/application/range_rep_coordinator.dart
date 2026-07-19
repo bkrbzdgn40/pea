@@ -129,6 +129,10 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     required base.RangeRepCoordinatorFrameResult result,
   }) {
     final phase = result.stateSnapshot.currentPhase;
+    if (phase == _previousPhase) {
+      return;
+    }
+
     final side = switch (result.diagnosticsUpdate.selectedSideLabel) {
       'left' => RangeRepSide.left,
       'right' => RangeRepSide.right,
@@ -138,12 +142,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
         ? null
         : _torsoMeasurement.measure(_poseFrom(metrics.landmarks), side: side);
 
-    if (phase == 'DESCENDING' && _previousPhase != 'DESCENDING') {
-      _resetTorsoDrift(clearObservations: true);
-    }
-
     switch (phase) {
       case 'DESCENDING':
+        _resetTorsoDrift(clearObservations: true);
         _torsoDriftTracker.record(
           phase: RangeRepTechniquePhase.descending,
           inclinationDegrees: inclination,
@@ -154,14 +155,12 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
           phase: RangeRepTechniquePhase.peak,
           inclinationDegrees: inclination,
         );
-        if (_previousPhase != 'PEAK') {
-          _addObservation(
-            _torsoDriftTracker.observeTransition(
-              referencePhase: RangeRepTechniquePhase.descending,
-              measuredPhase: RangeRepTechniquePhase.peak,
-            ),
-          );
-        }
+        _addObservation(
+          _torsoDriftTracker.observeTransition(
+            referencePhase: RangeRepTechniquePhase.descending,
+            measuredPhase: RangeRepTechniquePhase.peak,
+          ),
+        );
         break;
       case 'ASCENDING':
         _torsoDriftTracker.record(
