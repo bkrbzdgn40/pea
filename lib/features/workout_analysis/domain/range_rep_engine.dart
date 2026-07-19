@@ -1,4 +1,5 @@
 import 'analysis_visibility_gap_window.dart';
+import 'legacy_range_rep_scorer.dart';
 import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
@@ -190,6 +191,7 @@ class _MutableRangeRepPhaseQuality {
 class RangeRepEngine implements RangeRepAnalysisEngine {
   final ExerciseConfig config;
   final DateTime Function() _now;
+  final LegacyRangeRepScorer _scorer = const LegacyRangeRepScorer();
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator =
       const LegacyRangeRepTechniqueEvaluator();
 
@@ -467,16 +469,21 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         _peakStartTime != null &&
         _ascentStartTime != null;
 
-    final romScore = _calculateRomScore(_lastRepRom);
+    final romScore = _scorer.calculateRomScore(
+      minAngle: _lastRepRom,
+      targetMinAngle: config.targetMinAngle,
+    );
     final descentSeconds = lastDescentTime.inMilliseconds / 1000.0;
-    final descentScore = _calculateTempoScore(
+    final descentScore = _scorer.calculateTempoScore(
       actualSeconds: descentSeconds,
       idealSeconds: config.idealDescentSeconds,
+      tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
     );
     final ascentSeconds = lastAscentTime.inMilliseconds / 1000.0;
-    final ascentScore = _calculateTempoScore(
+    final ascentScore = _scorer.calculateTempoScore(
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
+      tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
     );
     final tempoScore = (descentScore + ascentScore) / 2;
     final depthScore = romScore;
@@ -573,20 +580,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       completedPhaseSequence: completedPhaseSequence,
     );
     _pendingCompletedRepCoreData = lastCompletedRepCoreData;
-  }
-
-  double _calculateRomScore(double minAngle) {
-    return (100 - (minAngle - config.targetMinAngle)).clamp(0, 100).toDouble();
-  }
-
-  double _calculateTempoScore({
-    required double actualSeconds,
-    required double idealSeconds,
-  }) {
-    return (100 -
-            (idealSeconds - actualSeconds).abs() * config.tempoPenaltyPerSecond)
-        .clamp(0, 100)
-        .toDouble();
   }
 
   double? _composeWeightedScore(Iterable<_WeightedScoreComponent> components) {

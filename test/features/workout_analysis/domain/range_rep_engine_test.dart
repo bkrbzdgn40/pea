@@ -62,9 +62,15 @@ void main() {
       _acquireNeutral(clock, engine);
       _completeSquatRepAfterArming(clock, engine);
 
+      final breakdown = engine.lastRepScoreBreakdown;
+
       expect(engine.repCount, 1);
       expect(engine.phaseLabel, 'NEUTRAL');
-      expect(engine.lastRepScoreBreakdown, isNotNull);
+      expect(breakdown, isNotNull);
+      expect(breakdown?.romScore, 80);
+      expect(breakdown?.descentScore, closeTo(71.62, 0.001));
+      expect(breakdown?.ascentScore, closeTo(81.62, 0.001));
+      expect(engine.lastRepScore, closeTo(78.31, 0.001));
     });
 
     test('neutral acquisition does not itself create a rep', () {
