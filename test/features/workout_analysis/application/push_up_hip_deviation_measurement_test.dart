@@ -198,7 +198,9 @@ Pose _poseWithPushUpHipDeviation({
   final shoulderType = isLeft
       ? PoseLandmarkType.leftShoulder
       : PoseLandmarkType.rightShoulder;
-  final hipType = isLeft ? PoseLandmarkType.leftHip : PoseLandmarkType.rightHip;
+  final hipType = isLeft
+      ? PoseLandmarkType.leftHip
+      : PoseLandmarkType.rightHip;
   final ankleType = isLeft
       ? PoseLandmarkType.leftAnkle
       : PoseLandmarkType.rightAnkle;
