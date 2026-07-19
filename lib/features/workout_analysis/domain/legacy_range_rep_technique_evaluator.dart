@@ -7,6 +7,7 @@ class LegacyRangeRepTechniqueEvaluator {
       RangeRepTechniqueAssessment(
         observations: const <RangeRepTechniqueObservation>[
           RangeRepTechniqueObservation(
+            type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
             code: 'legacy_form_threshold_violation',
             severity: RangeRepTechniqueSeverity.warning,
           ),
