@@ -114,8 +114,6 @@ abstract final class HoldContracts {
     signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
       HoldSignal.compression: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
-        AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
       },
       HoldSignal.armExtension: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
