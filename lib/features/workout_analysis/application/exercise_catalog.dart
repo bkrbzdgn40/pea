@@ -85,7 +85,7 @@ class ExerciseCatalog {
         ),
         rangeRepContract: RangeRepContracts.sitUp,
         rangeRepValidationConfig: const RangeRepValidationConfig(
-          minAcceptableRomAngle: 110.0,
+          minAcceptableRomAngle: 20.0,
           minDescentMillis: 250,
           minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,
