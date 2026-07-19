@@ -474,9 +474,22 @@ void main() {
       _confirmTransition(clock, engine, angle: 108, backAngle: 60);
       _confirmTransition(clock, engine, angle: 52.7, backAngle: 60);
 
+      final diagnostics = engine.diagnosticsSnapshot;
+
       expect(engine.phaseLabel, 'PEAK');
       expect(engine.isFormBad, isFalse);
       expect(engine.feedbackCode, isNot(RangeRepFeedbackCode.keepBodyUpright));
+      expect(diagnostics.currentRepHadFormViolation, isFalse);
+      expect(diagnostics.descendingPhaseQuality.hadFormViolation, isFalse);
+      expect(diagnostics.peakPhaseQuality.hadFormViolation, isFalse);
+      expect(
+        diagnostics.descendingPhaseAssessment.issues,
+        isNot(contains(RangeRepPhaseQualityIssue.formViolation)),
+      );
+      expect(
+        diagnostics.peakPhaseAssessment.issues,
+        isNot(contains(RangeRepPhaseQualityIssue.formViolation)),
+      );
     });
 
     test('low knee-angle form metric still triggers a real form violation', () {
@@ -490,14 +503,25 @@ void main() {
 
       expect(engine.isFormBad, isTrue);
       expect(engine.feedbackCode, RangeRepFeedbackCode.keepBodyUpright);
-      expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
+      final diagnostics = engine.diagnosticsSnapshot;
+      expect(diagnostics.currentRepHadFormViolation, isTrue);
+      expect(diagnostics.descendingPhaseQuality.hadFormViolation, isTrue);
+      expect(diagnostics.peakPhaseQuality.hadFormViolation, isTrue);
+      expect(
+        diagnostics.descendingPhaseAssessment.issues,
+        contains(RangeRepPhaseQualityIssue.formViolation),
+      );
+      expect(
+        diagnostics.peakPhaseAssessment.issues,
+        contains(RangeRepPhaseQualityIssue.formViolation),
+      );
 
-      _confirmTransition(clock, engine, angle: 92, backAngle: 55);
+      _confirmTransition(clock, engine, angle: 92, backAngle: 60);
       _confirmTransition(
         clock,
         engine,
         angle: 121,
-        backAngle: 55,
+        backAngle: 60,
         confirmationWindow: _neutralConfirmationWindow,
       );
 
