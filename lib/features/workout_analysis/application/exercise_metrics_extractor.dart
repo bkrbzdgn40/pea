@@ -327,12 +327,10 @@ class ExerciseMetricsExtractor {
           last: config.joint2,
         );
       case RangeRepPrimaryMetricKind.imagePlaneInclination:
-        final start = pose.landmarks[
-          _landmarkTypeForSide(config.joint1, side)
-        ];
-        final end = pose.landmarks[
-          _landmarkTypeForSide(config.primaryJoint, side)
-        ];
+        final startType = _landmarkTypeForSide(config.joint1, side);
+        final endType = _landmarkTypeForSide(config.primaryJoint, side);
+        final start = pose.landmarks[startType];
+        final end = pose.landmarks[endType];
         if (start == null || end == null) {
           return null;
         }
