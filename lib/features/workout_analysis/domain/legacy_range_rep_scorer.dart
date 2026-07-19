@@ -63,4 +63,20 @@ class LegacyRangeRepScorer {
         ? legacyBaseScore
         : (hadFormViolation ? weightedBaseScore / 2 : weightedBaseScore);
   }
+
+  double? calculatePhaseQualityPenalty({
+    required bool descendingPhaseFlagged,
+    required bool ascendingPhaseFlagged,
+  }) {
+    var penalty = 0.0;
+
+    if (descendingPhaseFlagged) {
+      penalty += 5.0;
+    }
+    if (ascendingPhaseFlagged) {
+      penalty += 5.0;
+    }
+
+    return penalty > 0 ? penalty : null;
+  }
 }

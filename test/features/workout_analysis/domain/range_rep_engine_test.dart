@@ -256,8 +256,10 @@ void main() {
         expect(breakdown?.phaseAdjustedScore, isNotNull);
         expect(
           breakdown!.phaseAdjustedScore!,
-          lessThan(breakdown.runtimeBaseScore),
+          closeTo(breakdown.runtimeBaseScore - 5.0, 0.001),
         );
+        expect(breakdown.finalScore, breakdown.phaseAdjustedScore);
+        expect(engine.lastRepScore, breakdown.finalScore);
         expect(engine.feedbackCode, RangeRepFeedbackCode.controlDescent);
         expect(
           diagnostics.phaseFeedbackCandidate,
@@ -295,6 +297,16 @@ void main() {
         violatedBreakdown.runtimeBaseScore,
         closeTo(expectedViolatedBaseScore, 0.001),
       );
+      expect(violatedBreakdown.phaseQualityPenalty, 10.0);
+      expect(
+        violatedBreakdown.phaseAdjustedScore,
+        closeTo(violatedBreakdown.runtimeBaseScore - 10.0, 0.001),
+      );
+      expect(
+        violatedBreakdown.finalScore,
+        violatedBreakdown.phaseAdjustedScore,
+      );
+      expect(violatedEngine.lastRepScore, violatedBreakdown.finalScore);
       expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
     });
   });

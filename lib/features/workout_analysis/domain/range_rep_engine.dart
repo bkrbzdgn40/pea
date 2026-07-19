@@ -511,9 +511,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       phaseQuality: completedPhaseQualityTelemetry.ascendingPhaseQuality,
       isActivePhase: false,
     );
-    final phaseQualityPenalty = _phaseQualityPenaltyCandidate(
-      descendingPhaseAssessment: descendingPhaseAssessment,
-      ascendingPhaseAssessment: ascendingPhaseAssessment,
+    final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
+      descendingPhaseFlagged:
+          descendingPhaseAssessment.status ==
+          RangeRepPhaseQualityStatus.flagged,
+      ascendingPhaseFlagged:
+          ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged,
     );
     final phaseFeedbackCodeCandidate = _phaseFeedbackCodeCandidate(
       descendingPhaseAssessment: descendingPhaseAssessment,
@@ -645,23 +648,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           : RangeRepPhaseQualityStatus.flagged,
       issues: issues,
     );
-  }
-
-  double? _phaseQualityPenaltyCandidate({
-    required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
-    required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
-  }) {
-    var penalty = 0.0;
-
-    if (descendingPhaseAssessment.status ==
-        RangeRepPhaseQualityStatus.flagged) {
-      penalty += 5.0;
-    }
-    if (ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged) {
-      penalty += 5.0;
-    }
-
-    return penalty > 0 ? penalty : null;
   }
 
   RangeRepFeedbackCode? _phaseFeedbackCodeCandidate({
