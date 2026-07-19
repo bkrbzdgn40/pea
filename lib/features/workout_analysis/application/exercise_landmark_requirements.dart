@@ -133,26 +133,23 @@ class ExerciseLandmarkRequirements {
     final segmentKeys = <String>{};
     final requiredSegments = <PoseLandmarkSegment>[];
 
+    void addSegment(PoseLandmarkType start, PoseLandmarkType end) {
+      requiredLandmarks.addAll(<PoseLandmarkType>{start, end});
+      final key = '${start.name}:${end.name}';
+      if (segmentKeys.add(key)) {
+        requiredSegments.add(PoseLandmarkSegment(first: start, second: end));
+      }
+    }
+
     void addTriplet(
       PoseLandmarkType first,
       PoseLandmarkType middle,
       PoseLandmarkType last,
     ) {
-      final triplet = PoseAngleTriplet(
-        first: first,
-        middle: middle,
-        last: last,
+      requiredTriplets.add(
+        PoseAngleTriplet(first: first, middle: middle, last: last),
       );
-      requiredTriplets.add(triplet);
       requiredLandmarks.addAll(<PoseLandmarkType>{first, middle, last});
-
-      void addSegment(PoseLandmarkType start, PoseLandmarkType end) {
-        final key = '${start.name}:${end.name}';
-        if (segmentKeys.add(key)) {
-          requiredSegments.add(PoseLandmarkSegment(first: start, second: end));
-        }
-      }
-
       addSegment(first, middle);
       addSegment(middle, last);
     }
@@ -166,11 +163,19 @@ class ExerciseLandmarkRequirements {
     }
 
     if (includesSignal(RangeRepSignal.primaryMetric)) {
-      addTriplet(
-        sideLandmark(config.joint1),
-        sideLandmark(config.primaryJoint),
-        sideLandmark(config.joint2),
-      );
+      switch (rangeRepContract.primaryMetricKind) {
+        case RangeRepPrimaryMetricKind.jointAngle:
+          addTriplet(
+            sideLandmark(config.joint1),
+            sideLandmark(config.primaryJoint),
+            sideLandmark(config.joint2),
+          );
+        case RangeRepPrimaryMetricKind.imagePlaneInclination:
+          addSegment(
+            sideLandmark(config.joint1),
+            sideLandmark(config.primaryJoint),
+          );
+      }
     }
 
     if (includesSignal(RangeRepSignal.formMetric)) {
@@ -206,9 +211,7 @@ class ExerciseLandmarkRequirements {
       requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
         requiredTriplets,
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
-        requiredSegments,
-      ),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
     );
   }
 
@@ -282,9 +285,7 @@ class ExerciseLandmarkRequirements {
       requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
         requiredTriplets,
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
-        requiredSegments,
-      ),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
     );
   }
 
@@ -314,12 +315,25 @@ class ExerciseLandmarkRequirements {
     }
 
     if (definition.source == RangeRepSignalSource.primaryMetric) {
-      addTriplet(
-        landmarkTypeForSide(config.joint1, side),
-        landmarkTypeForSide(config.primaryJoint, side),
-        landmarkTypeForSide(config.joint2, side),
-      );
+      switch (rangeRepContractPrimaryMetricKindForConfig(config)) {
+        case RangeRepPrimaryMetricKind.jointAngle:
+          addTriplet(
+            landmarkTypeForSide(config.joint1, side),
+            landmarkTypeForSide(config.primaryJoint, side),
+            landmarkTypeForSide(config.joint2, side),
+          );
+        case RangeRepPrimaryMetricKind.imagePlaneInclination:
+          // Primary-source secondary signals are not used by the current
+          // inclination-backed contract outside primary pose acceptance.
+          break;
+      }
     }
+  }
+
+  RangeRepPrimaryMetricKind rangeRepContractPrimaryMetricKindForConfig(
+    ExerciseConfig config,
+  ) {
+    return RangeRepPrimaryMetricKind.jointAngle;
   }
 
   ExerciseLandmarkRequirementSet _mergeRequirementSets(
@@ -349,9 +363,7 @@ class ExerciseLandmarkRequirements {
           ...second.requiredAngleTriplets,
         ],
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
-        requiredSegments,
-      ),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
     );
   }
 }
