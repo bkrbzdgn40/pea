@@ -791,7 +791,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       startedAt: phaseStartedAt,
       primaryMetric: primaryMetric,
       formMetric: formMetric,
-      hadFormViolation: formMetric < config.formThreshold,
+      hadFormViolation: _hasLegacyTechniqueViolation(formMetric),
     );
   }
 
@@ -803,7 +803,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _phaseQualityFor(phase).record(
       primaryMetric: primaryMetric,
       formMetric: formMetric,
-      hadFormViolation: formMetric < config.formThreshold,
+      hadFormViolation: _hasLegacyTechniqueViolation(formMetric),
     );
   }
 
@@ -844,7 +844,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }) {
     _currentRepMinAngle = angle;
     _currentRepWorstBackAngle = backAngle;
-    _currentRepHadFormViolation = backAngle < config.formThreshold;
+    _currentRepHadFormViolation = _hasLegacyTechniqueViolation(backAngle);
     _resetPhaseQualityTelemetry();
     _beginPhaseTelemetry(
       phase: MovementPhase.descending,
@@ -858,7 +858,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     if (backAngle < _currentRepWorstBackAngle) {
       _currentRepWorstBackAngle = backAngle;
     }
-    if (backAngle < config.formThreshold) {
+    if (_hasLegacyTechniqueViolation(backAngle)) {
       _currentRepHadFormViolation = true;
     }
   }
@@ -873,16 +873,18 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   void _checkForm(double backAngle) {
     // Live feedback uses the current frame; final scoring uses rep-level history.
-    final techniqueAssessment = _techniqueEvaluator.evaluate(
-      formMetric: backAngle,
-      formThreshold: config.formThreshold,
-    );
-    if (techniqueAssessment.hasObservations) {
+    if (_hasLegacyTechniqueViolation(backAngle)) {
       isFormBad = true;
       _setFeedback(RangeRepFeedbackCode.keepBodyUpright);
     } else {
       isFormBad = false;
     }
+  }
+
+  bool _hasLegacyTechniqueViolation(double formMetric) {
+    return _techniqueEvaluator
+        .evaluate(formMetric: formMetric, formThreshold: config.formThreshold)
+        .hasObservations;
   }
 
   double get _descentEntryThreshold =>
