@@ -14,6 +14,7 @@ import '../domain/squat_torso_drift_tracker.dart';
 import 'analysis_frame_builder.dart';
 import 'calibration_snapshot_builder.dart';
 import 'exercise_metrics.dart';
+import 'push_up_hip_deviation_measurement.dart';
 import 'range_rep_blocked_state_builder.dart';
 import 'range_rep_coordinator_base.dart' as base;
 import 'range_rep_frame_policy.dart';
@@ -29,9 +30,9 @@ import 'workout_calibration_metrics_builder.dart';
 
 export 'range_rep_coordinator_base.dart' hide DefaultRangeRepCoordinator;
 
-/// Production range-rep coordinator with squat-specific diagnostic and
-/// technique-signal wiring layered on top of the established coordinator
-/// behavior.
+/// Production range-rep coordinator with push-up and squat-specific
+/// diagnostic and technique-signal wiring layered on top of the established
+/// coordinator behavior.
 class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   DefaultRangeRepCoordinator({
     required RangeRepAnalysisEngine engine,
@@ -58,7 +59,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepRepOutcomeTracker? outcomeTracker,
     SessionCalibrationBaselineAccumulator?
     sessionCalibrationBaselineAccumulator,
-  }) : _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
+  }) : _isPushUp = identical(rangeRepContract, RangeRepContracts.pushUp),
+       _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
        super(
          engine: engine,
          config: config,
@@ -81,7 +83,10 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
              sessionCalibrationBaselineAccumulator,
        );
 
+  final bool _isPushUp;
   final bool _isSquat;
+  final PushUpHipDeviationMeasurement _pushUpHipDeviationMeasurement =
+      const PushUpHipDeviationMeasurement();
   final SquatTorsoInclinationMeasurement _torsoMeasurement =
       const SquatTorsoInclinationMeasurement();
   final SquatHipDepthMeasurement _hipDepthMeasurement =
@@ -89,11 +94,17 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   final SquatTorsoDriftTracker _torsoDriftTracker = SquatTorsoDriftTracker();
   final List<RangeRepTechniqueObservation> _techniqueObservations =
       <RangeRepTechniqueObservation>[];
+  double? _currentPushUpHipDeviationMetric;
   double? _currentSquatHipDepthMetric;
   String? _previousPhase;
 
   List<RangeRepTechniqueObservation> get techniqueObservations =>
       List<RangeRepTechniqueObservation>.unmodifiable(_techniqueObservations);
+
+  /// Latest selected-side normalized hip deviation from the shoulder-ankle
+  /// line for an accepted push-up frame. This diagnostic value is not a
+  /// validation or scoring input.
+  double? get currentPushUpHipDeviationMetric => _currentPushUpHipDeviationMetric;
 
   /// Latest selected-side normalized hip/knee height signal for an accepted
   /// squat frame. This diagnostic value is not a validation or scoring input.
@@ -117,6 +128,14 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       preferredRangeRepSide: preferredRangeRepSide,
     );
 
+    if (_isPushUp) {
+      _recordPushUpHipDeviation(
+        metrics: metrics,
+        result: result,
+        isAcceptedPoseFrame: isAcceptedPoseFrame,
+      );
+    }
+
     if (_isSquat) {
       _recordSquatHipDepth(
         metrics: metrics,
@@ -135,10 +154,30 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   base.RangeRepCoordinatorStateSnapshot handleLifecycleInterruption({
     String? reason,
   }) {
+    _currentPushUpHipDeviationMetric = null;
     _currentSquatHipDepthMetric = null;
     _resetTorsoDrift(clearObservations: true);
     _previousPhase = null;
     return super.handleLifecycleInterruption(reason: reason);
+  }
+
+  void _recordPushUpHipDeviation({
+    required ExerciseMetrics metrics,
+    required base.RangeRepCoordinatorFrameResult result,
+    required bool isAcceptedPoseFrame,
+  }) {
+    if (!isAcceptedPoseFrame) {
+      _currentPushUpHipDeviationMetric = null;
+      return;
+    }
+
+    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
+    _currentPushUpHipDeviationMetric = side == null
+        ? null
+        : _pushUpHipDeviationMeasurement.measure(
+            _poseFrom(metrics.landmarks),
+            side: side,
+          );
   }
 
   void _recordSquatHipDepth({
