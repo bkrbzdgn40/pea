@@ -20,7 +20,10 @@ class PushUpHipDeviationMeasurement {
       PoseLandmarkType.leftShoulder,
       side,
     );
-    final hipType = resolveRangeRepLandmarkForSide(PoseLandmarkType.leftHip, side);
+    final hipType = resolveRangeRepLandmarkForSide(
+      PoseLandmarkType.leftHip,
+      side,
+    );
     final ankleType = resolveRangeRepLandmarkForSide(
       PoseLandmarkType.leftAnkle,
       side,
