@@ -154,7 +154,10 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
     _currentSquatHipDepthMetric = side == null
         ? null
-        : _hipDepthMeasurement.measure(_poseFrom(metrics.landmarks), side: side);
+        : _hipDepthMeasurement.measure(
+            _poseFrom(metrics.landmarks),
+            side: side,
+          );
   }
 
   void _recordSquatTorsoDrift({
