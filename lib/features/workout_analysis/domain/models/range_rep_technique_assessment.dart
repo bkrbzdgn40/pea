@@ -1,4 +1,7 @@
-enum RangeRepTechniqueObservationType { legacyFormThresholdViolation }
+enum RangeRepTechniqueObservationType {
+  legacyFormThresholdViolation,
+  torsoDrift,
+}
 
 enum RangeRepTechniquePhase { live, descending, peak, ascending, completedRep }
 
@@ -10,12 +13,27 @@ class RangeRepTechniqueObservation {
     required this.code,
     required this.severity,
     this.phase,
+    this.referencePhase,
+    this.measuredValue,
+    this.referenceValue,
   });
 
   final RangeRepTechniqueObservationType type;
   final String code;
   final RangeRepTechniqueSeverity severity;
   final RangeRepTechniquePhase? phase;
+  final RangeRepTechniquePhase? referencePhase;
+  final double? measuredValue;
+  final double? referenceValue;
+
+  double? get deltaValue {
+    final measuredValue = this.measuredValue;
+    final referenceValue = this.referenceValue;
+    if (measuredValue == null || referenceValue == null) {
+      return null;
+    }
+    return measuredValue - referenceValue;
+  }
 }
 
 class RangeRepTechniqueAssessment {
