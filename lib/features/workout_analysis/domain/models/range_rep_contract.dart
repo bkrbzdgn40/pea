@@ -28,8 +28,10 @@ enum RangeRepSideMode { selectedSide, bilateral }
 ///
 /// [jointAngle] preserves the legacy three-landmark angle configured by
 /// `joint1 -> primaryJoint -> joint2`.
-/// [imagePlaneInclination] measures the `joint1 -> primaryJoint` segment
-/// against the image-plane vertical axis using the shared geometry primitive.
+/// [imagePlaneInclination] derives the primary metric from the
+/// `joint1 -> primaryJoint` segment using the shared image-plane inclination
+/// primitive. Runtime extraction may preserve the engine's existing 0-180
+/// directional angle convention after that pure inclination measurement.
 enum RangeRepPrimaryMetricKind { jointAngle, imagePlaneInclination }
 
 /// Immutable contract describing which phases and normalized signals a
