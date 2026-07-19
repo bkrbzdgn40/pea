@@ -70,6 +70,8 @@ void main() {
       expect(breakdown?.romScore, 80);
       expect(breakdown?.descentScore, closeTo(71.62, 0.001));
       expect(breakdown?.ascentScore, closeTo(81.62, 0.001));
+      expect(breakdown?.weightedBaseScore, isNull);
+      expect(breakdown?.runtimeBaseScore, closeTo(78.31, 0.001));
       expect(engine.lastRepScore, closeTo(78.31, 0.001));
     });
 
@@ -279,10 +281,21 @@ void main() {
       );
       _completeSquatRep(violatedClock, violatedEngine, repBackAngle: 40);
 
+      final violatedBreakdown = violatedEngine.lastRepScoreBreakdown!;
+      final violatedTempoScore =
+          (violatedBreakdown.descentScore + violatedBreakdown.ascentScore) / 2;
+      final expectedViolatedBaseScore =
+          (violatedBreakdown.romScore + violatedTempoScore) / 4;
+
       expect(cleanEngine.repCount, 1);
       expect(violatedEngine.repCount, 1);
+      expect(violatedBreakdown.hadFormViolation, isTrue);
+      expect(violatedBreakdown.weightedBaseScore, isNull);
+      expect(
+        violatedBreakdown.runtimeBaseScore,
+        closeTo(expectedViolatedBaseScore, 0.001),
+      );
       expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
-      expect(violatedEngine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
     });
   });
 

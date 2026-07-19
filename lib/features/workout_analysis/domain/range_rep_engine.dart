@@ -522,14 +522,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     );
 
     // Phase-aware score now becomes the runtime score when a completed rep is flagged.
-    final legacyBaseScore = _currentRepHadFormViolation
-        ? (romScore + tempoScore) / 4
-        : (romScore + tempoScore) / 2;
-    final baseScore = weightedBaseScore == null
-        ? legacyBaseScore
-        : (_currentRepHadFormViolation
-              ? weightedBaseScore / 2
-              : weightedBaseScore);
+    final baseScore = _scorer.calculateBaseScore(
+      romScore: romScore,
+      tempoScore: tempoScore,
+      weightedBaseScore: weightedBaseScore,
+      hadFormViolation: _currentRepHadFormViolation,
+    );
     final phaseAdjustedScore = phaseQualityPenalty == null
         ? null
         : (baseScore - phaseQualityPenalty).clamp(0.0, 100.0).toDouble();

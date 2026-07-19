@@ -48,4 +48,19 @@ class LegacyRangeRepScorer {
 
     return weightedScoreTotal / totalWeight;
   }
+
+  double calculateBaseScore({
+    required double romScore,
+    required double tempoScore,
+    required double? weightedBaseScore,
+    required bool hadFormViolation,
+  }) {
+    final legacyBaseScore = hadFormViolation
+        ? (romScore + tempoScore) / 4
+        : (romScore + tempoScore) / 2;
+
+    return weightedBaseScore == null
+        ? legacyBaseScore
+        : (hadFormViolation ? weightedBaseScore / 2 : weightedBaseScore);
+  }
 }
