@@ -104,7 +104,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   /// Latest selected-side normalized hip deviation from the shoulder-ankle
   /// line for an accepted push-up frame. This diagnostic value is not a
   /// validation or scoring input.
-  double? get currentPushUpHipDeviationMetric => _currentPushUpHipDeviationMetric;
+  double? get currentPushUpHipDeviationMetric =>
+      _currentPushUpHipDeviationMetric;
 
   /// Latest selected-side normalized hip/knee height signal for an accepted
   /// squat frame. This diagnostic value is not a validation or scoring input.
@@ -248,7 +249,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
             ),
           );
           _torsoDriftTracker.reset();
-        } else if (_previousPhase == 'DESCENDING' || _previousPhase == 'PEAK') {
+        } else if (
+          _previousPhase == 'DESCENDING' || _previousPhase == 'PEAK'
+        ) {
           _resetTorsoDrift(clearObservations: true);
         }
         break;
