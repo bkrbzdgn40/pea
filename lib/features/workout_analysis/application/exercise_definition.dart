@@ -11,12 +11,14 @@ class ExerciseDefinition {
     required this.type,
     required this.engineKind,
     required this.configAssetPath,
-    required this.cameraViewContract,
+    required CameraViewContract cameraViewContract,
     this.rangeRepContract,
     this.rangeRepValidationConfig,
     this.holdContract,
   }) : isAnalysisSupported = true,
-       assert(cameraViewContract != null),
+       // The supported API narrows the nullable storage field at compile time.
+       // ignore: prefer_initializing_formals
+       cameraViewContract = cameraViewContract,
        assert(engineKind != EngineKind.rangeRep || rangeRepContract != null),
        assert(
          engineKind != EngineKind.rangeRep || rangeRepValidationConfig != null,

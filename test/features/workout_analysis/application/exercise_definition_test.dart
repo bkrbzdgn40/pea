@@ -81,20 +81,6 @@ void main() {
   });
 
   group('ExerciseDefinition.supported', () {
-    test('requires a non-null camera-view contract', () {
-      expect(
-        () => ExerciseDefinition.supported(
-          type: ExerciseType.squat,
-          engineKind: EngineKind.rangeRep,
-          configAssetPath: 'assets/config/exercises/squat.json',
-          cameraViewContract: null,
-          rangeRepContract: RangeRepContracts.squat,
-          rangeRepValidationConfig: const RangeRepValidationConfig(),
-        ),
-        throwsA(isA<AssertionError>()),
-      );
-    });
-
     test('requires range-rep definitions to provide a validation config', () {
       expect(
         () => ExerciseDefinition.supported(
