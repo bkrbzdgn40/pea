@@ -68,7 +68,9 @@ void main() {
     expect(find.text('primaryMetric roles'), findsOneWidget);
     expect(find.text('detection, validation, scoring'), findsOneWidget);
     expect(find.text('formMetric roles'), findsOneWidget);
-    expect(find.text('validation, technique, scoring'), findsOneWidget);
+    expect(find.text('postureAngle roles'), findsOneWidget);
+    expect(find.text('setup'), findsNWidgets(2));
+    expect(find.text('validation, technique, scoring'), findsNothing);
     expect(find.text('alignment roles'), findsNothing);
   });
 

@@ -15,7 +15,8 @@ void main() {
   const sidePolicy = RangeRepSidePolicy();
   const framePolicy = RangeRepFramePolicy();
   const poseQualityPolicy = PoseQualityPolicy();
-  final config = loadExerciseConfig('assets/config/exercises/sit_up.json');
+  final sitUpConfig = loadExerciseConfig('assets/config/exercises/sit_up.json');
+  final squatConfig = loadExerciseConfig('assets/config/exercises/squat.json');
 
   test(
     'sit-up low-likelihood ankle alone does not invalidate the production frame',
@@ -31,13 +32,13 @@ void main() {
 
       final qualityAssessment = poseQualityPolicy.assess(
         pose: pose,
-        config: config,
+        config: sitUpConfig,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
       );
       final metrics = extractor.extract(
         pose,
-        config,
+        sitUpConfig,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
       );
@@ -58,7 +59,7 @@ void main() {
   );
 
   test(
-    'sit-up missing form landmarks keeps the existing safe invalid behavior after pose acceptance',
+    'sit-up missing setup landmarks does not block an otherwise valid frame',
     () {
       final pose = buildSitUpPose(
         primaryAngle: 90,
@@ -69,13 +70,13 @@ void main() {
 
       final qualityAssessment = poseQualityPolicy.assess(
         pose: pose,
-        config: config,
+        config: sitUpConfig,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
       );
       final metrics = extractor.extract(
         pose,
-        config,
+        sitUpConfig,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
       );
@@ -88,14 +89,39 @@ void main() {
 
       expect(qualityAssessment.isAccepted, isTrue);
       expect(selection.selectedSide, RangeRepSide.left);
-      expect(frameAssessment.isValid, isFalse);
-      expect(
-        frameAssessment.invalidReason,
-        RangeRepFrameInvalidReason.missingFormMetric,
-      );
+      expect(frameAssessment.isValid, isTrue);
+      expect(frameAssessment.invalidReason, isNull);
       expect(frameAssessment.hasPrimaryAngle, isTrue);
       expect(frameAssessment.hasFormMetric, isFalse);
-      expect(frameAssessment.feedbackMessage, 'Tum eklemleri kadraja al.');
+      expect(frameAssessment.feedbackMessage, isEmpty);
     },
   );
+
+  test('squat still requires its pose-acceptance form metric', () {
+    final pose = buildSquatPose(
+      angle: 120,
+      missingLandmarks: const <PoseLandmarkType>{PoseLandmarkType.leftShoulder},
+    );
+    final metrics = extractor.extract(
+      pose,
+      squatConfig,
+      engineKind: EngineKind.rangeRep,
+      rangeRepContract: RangeRepContracts.squat,
+    );
+    final selection = sidePolicy.select(metrics: metrics);
+    final frameAssessment = framePolicy.assessWithContract(
+      metrics: metrics,
+      selection: selection,
+      contract: RangeRepContracts.squat,
+    );
+
+    expect(selection.selectedSide, RangeRepSide.left);
+    expect(frameAssessment.isValid, isFalse);
+    expect(
+      frameAssessment.invalidReason,
+      RangeRepFrameInvalidReason.missingFormMetric,
+    );
+    expect(frameAssessment.hasPrimaryAngle, isTrue);
+    expect(frameAssessment.hasFormMetric, isFalse);
+  });
 }

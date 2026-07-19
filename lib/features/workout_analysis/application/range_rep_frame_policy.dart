@@ -104,7 +104,7 @@ class RangeRepFramePolicy {
     final requiresPrimaryAngle = contract.supportsSignal(
       RangeRepSignal.primaryMetric,
     );
-    final requiresFormMetric = contract.supportsSignal(
+    final requiresFormMetric = contract.requiresPoseAcceptanceSignal(
       RangeRepSignal.formMetric,
     );
     final isMissingPrimaryAngle = requiresPrimaryAngle && !hasPrimaryAngle;
