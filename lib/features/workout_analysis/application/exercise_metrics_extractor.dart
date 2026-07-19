@@ -334,10 +334,21 @@ class ExerciseMetricsExtractor {
         if (start == null || end == null) {
           return null;
         }
-        return imagePlaneInclination(
+        final inclination = imagePlaneInclination(
           math.Point<double>(start.x, start.y),
           math.Point<double>(end.x, end.y),
         );
+        if (inclination == null) {
+          return null;
+        }
+        if (start.x == end.x) {
+          return 90.0;
+        }
+        final isObtuseSide = switch (side) {
+          RangeRepSide.left => start.x < end.x,
+          RangeRepSide.right => start.x > end.x,
+        };
+        return isObtuseSide ? 90.0 + inclination : 90.0 - inclination;
     }
   }
 
