@@ -238,5 +238,60 @@ void main() {
         );
       });
     });
+
+    group('calculatePhaseAdjustedScore', () {
+      test('returns null without a phase-quality penalty', () {
+        expect(
+          scorer.calculatePhaseAdjustedScore(
+            baseScore: 80,
+            phaseQualityPenalty: null,
+          ),
+          isNull,
+        );
+      });
+
+      test('subtracts a positive phase-quality penalty', () {
+        expect(
+          scorer.calculatePhaseAdjustedScore(
+            baseScore: 80,
+            phaseQualityPenalty: 5,
+          ),
+          75,
+        );
+      });
+
+      test('clamps a penalty larger than the base score to zero', () {
+        expect(
+          scorer.calculatePhaseAdjustedScore(
+            baseScore: 3,
+            phaseQualityPenalty: 5,
+          ),
+          0,
+        );
+      });
+    });
+
+    group('calculateFinalScore', () {
+      test('falls back to the base score without an adjusted score', () {
+        expect(
+          scorer.calculateFinalScore(baseScore: 80, phaseAdjustedScore: null),
+          80,
+        );
+      });
+
+      test('uses a non-null phase-adjusted score', () {
+        expect(
+          scorer.calculateFinalScore(baseScore: 80, phaseAdjustedScore: 75),
+          75,
+        );
+      });
+
+      test('uses a non-null phase-adjusted score of zero', () {
+        expect(
+          scorer.calculateFinalScore(baseScore: 80, phaseAdjustedScore: 0),
+          0,
+        );
+      });
+    });
   });
 }

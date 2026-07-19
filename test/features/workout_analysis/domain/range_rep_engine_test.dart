@@ -72,7 +72,10 @@ void main() {
       expect(breakdown?.ascentScore, closeTo(81.62, 0.001));
       expect(breakdown?.weightedBaseScore, isNull);
       expect(breakdown?.runtimeBaseScore, closeTo(78.31, 0.001));
-      expect(engine.lastRepScore, closeTo(78.31, 0.001));
+      expect(breakdown?.phaseQualityPenalty, isNull);
+      expect(breakdown?.phaseAdjustedScore, isNull);
+      expect(breakdown?.finalScore, breakdown?.runtimeBaseScore);
+      expect(engine.lastRepScore, breakdown?.finalScore);
     });
 
     test('neutral acquisition does not itself create a rep', () {

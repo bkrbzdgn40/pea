@@ -531,10 +531,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       weightedBaseScore: weightedBaseScore,
       hadFormViolation: _currentRepHadFormViolation,
     );
-    final phaseAdjustedScore = phaseQualityPenalty == null
-        ? null
-        : (baseScore - phaseQualityPenalty).clamp(0.0, 100.0).toDouble();
-    final finalScore = phaseAdjustedScore ?? baseScore;
+    final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
+      baseScore: baseScore,
+      phaseQualityPenalty: phaseQualityPenalty,
+    );
+    final finalScore = _scorer.calculateFinalScore(
+      baseScore: baseScore,
+      phaseAdjustedScore: phaseAdjustedScore,
+    );
 
     lastRepScore = finalScore;
     _setFeedback(
