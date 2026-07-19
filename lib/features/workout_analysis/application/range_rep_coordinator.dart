@@ -23,13 +23,15 @@ import 'range_rep_side_stabilizer.dart';
 import 'range_rep_threshold_bookkeeper.dart';
 import 'range_rep_visibility_policy.dart';
 import 'session_calibration_baseline_accumulator.dart';
+import 'squat_hip_depth_measurement.dart';
 import 'squat_torso_inclination_measurement.dart';
 import 'workout_calibration_metrics_builder.dart';
 
 export 'range_rep_coordinator_base.dart' hide DefaultRangeRepCoordinator;
 
-/// Production range-rep coordinator with R15B squat torso-drift observation
-/// wiring layered on top of the established coordinator behavior.
+/// Production range-rep coordinator with squat-specific diagnostic and
+/// technique-signal wiring layered on top of the established coordinator
+/// behavior.
 class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   DefaultRangeRepCoordinator({
     required RangeRepAnalysisEngine engine,
@@ -82,13 +84,20 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   final bool _isSquat;
   final SquatTorsoInclinationMeasurement _torsoMeasurement =
       const SquatTorsoInclinationMeasurement();
+  final SquatHipDepthMeasurement _hipDepthMeasurement =
+      const SquatHipDepthMeasurement();
   final SquatTorsoDriftTracker _torsoDriftTracker = SquatTorsoDriftTracker();
   final List<RangeRepTechniqueObservation> _techniqueObservations =
       <RangeRepTechniqueObservation>[];
+  double? _currentSquatHipDepthMetric;
   String? _previousPhase;
 
   List<RangeRepTechniqueObservation> get techniqueObservations =>
       List<RangeRepTechniqueObservation>.unmodifiable(_techniqueObservations);
+
+  /// Latest selected-side normalized hip/knee height signal for an accepted
+  /// squat frame. This diagnostic value is not a validation or scoring input.
+  double? get currentSquatHipDepthMetric => _currentSquatHipDepthMetric;
 
   @override
   base.RangeRepCoordinatorFrameResult processFrame({
@@ -108,8 +117,15 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       preferredRangeRepSide: preferredRangeRepSide,
     );
 
-    if (_isSquat && isAcceptedPoseFrame) {
-      _recordSquatTorsoDrift(metrics: metrics, result: result);
+    if (_isSquat) {
+      _recordSquatHipDepth(
+        metrics: metrics,
+        result: result,
+        isAcceptedPoseFrame: isAcceptedPoseFrame,
+      );
+      if (isAcceptedPoseFrame) {
+        _recordSquatTorsoDrift(metrics: metrics, result: result);
+      }
     }
     _previousPhase = result.stateSnapshot.currentPhase;
     return result;
@@ -119,9 +135,29 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   base.RangeRepCoordinatorStateSnapshot handleLifecycleInterruption({
     String? reason,
   }) {
+    _currentSquatHipDepthMetric = null;
     _resetTorsoDrift(clearObservations: true);
     _previousPhase = null;
     return super.handleLifecycleInterruption(reason: reason);
+  }
+
+  void _recordSquatHipDepth({
+    required ExerciseMetrics metrics,
+    required base.RangeRepCoordinatorFrameResult result,
+    required bool isAcceptedPoseFrame,
+  }) {
+    if (!isAcceptedPoseFrame) {
+      _currentSquatHipDepthMetric = null;
+      return;
+    }
+
+    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
+    _currentSquatHipDepthMetric = side == null
+        ? null
+        : _hipDepthMeasurement.measure(
+            _poseFrom(metrics.landmarks),
+            side: side,
+          );
   }
 
   void _recordSquatTorsoDrift({
@@ -133,11 +169,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       return;
     }
 
-    final side = switch (result.diagnosticsUpdate.selectedSideLabel) {
-      'left' => RangeRepSide.left,
-      'right' => RangeRepSide.right,
-      _ => null,
-    };
+    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
     final inclination = side == null
         ? null
         : _torsoMeasurement.measure(_poseFrom(metrics.landmarks), side: side);
@@ -182,6 +214,14 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
         }
         break;
     }
+  }
+
+  RangeRepSide? _sideFromLabel(String? sideLabel) {
+    return switch (sideLabel) {
+      'left' => RangeRepSide.left,
+      'right' => RangeRepSide.right,
+      _ => null,
+    };
   }
 
   void _addObservation(RangeRepTechniqueObservation? observation) {
