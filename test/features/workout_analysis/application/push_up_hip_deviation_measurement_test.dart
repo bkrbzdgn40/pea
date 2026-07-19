@@ -209,12 +209,7 @@ Pose _poseWithPushUpHipDeviation({
         likelihood: 0.95,
       ),
       hipType: buildLandmark(hipType, hip.x, hip.y, likelihood: 0.95),
-      ankleType: buildLandmark(
-        ankleType,
-        ankle.x,
-        ankle.y,
-        likelihood: 0.95,
-      ),
+      ankleType: buildLandmark(ankleType, ankle.x, ankle.y, likelihood: 0.95),
     },
   );
 }

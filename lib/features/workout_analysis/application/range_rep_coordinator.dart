@@ -58,7 +58,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepThresholdBookkeeper? thresholdBookkeeper,
     RangeRepRepOutcomeTracker? outcomeTracker,
     SessionCalibrationBaselineAccumulator?
-        sessionCalibrationBaselineAccumulator,
+    sessionCalibrationBaselineAccumulator,
   }) : _isPushUp = identical(rangeRepContract, RangeRepContracts.pushUp),
        _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
        super(
@@ -249,8 +249,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
             ),
           );
           _torsoDriftTracker.reset();
-        } else if (_previousPhase == 'DESCENDING' ||
-            _previousPhase == 'PEAK') {
+        } else if (_previousPhase == 'DESCENDING' || _previousPhase == 'PEAK') {
           _resetTorsoDrift(clearObservations: true);
         }
         break;
