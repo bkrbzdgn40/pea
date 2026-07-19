@@ -12,6 +12,7 @@ void main() {
       final assessment = RangeRepTechniqueAssessment(
         observations: const <RangeRepTechniqueObservation>[
           RangeRepTechniqueObservation(
+            type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
             code: 'test_observation',
             severity: RangeRepTechniqueSeverity.info,
           ),
@@ -21,18 +22,26 @@ void main() {
       expect(assessment.hasObservations, isTrue);
     });
 
-    test('observation preserves its code and severity', () {
+    test('observation preserves its type, code, severity, and phase', () {
       const observation = RangeRepTechniqueObservation(
+        type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
         code: 'test_observation',
         severity: RangeRepTechniqueSeverity.warning,
+        phase: RangeRepTechniquePhase.peak,
       );
 
+      expect(
+        observation.type,
+        RangeRepTechniqueObservationType.legacyFormThresholdViolation,
+      );
       expect(observation.code, 'test_observation');
       expect(observation.severity, RangeRepTechniqueSeverity.warning);
+      expect(observation.phase, RangeRepTechniquePhase.peak);
     });
 
     test('does not expose the caller-owned mutable list', () {
       const observation = RangeRepTechniqueObservation(
+        type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
         code: 'test_observation',
         severity: RangeRepTechniqueSeverity.critical,
       );

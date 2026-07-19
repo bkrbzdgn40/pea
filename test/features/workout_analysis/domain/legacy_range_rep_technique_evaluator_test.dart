@@ -11,6 +11,10 @@ void main() {
 
       expect(assessment.observations, hasLength(1));
       expect(
+        assessment.observations.single.type,
+        RangeRepTechniqueObservationType.legacyFormThresholdViolation,
+      );
+      expect(
         assessment.observations.single.code,
         'legacy_form_threshold_violation',
       );
@@ -18,6 +22,7 @@ void main() {
         assessment.observations.single.severity,
         RangeRepTechniqueSeverity.warning,
       );
+      expect(assessment.observations.single.phase, isNull);
     });
 
     test('returns an empty assessment at the form threshold', () {
