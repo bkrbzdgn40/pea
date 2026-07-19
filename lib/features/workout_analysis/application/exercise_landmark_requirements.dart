@@ -1,7 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../domain/models/exercise_config.dart';
 import '../domain/models/analysis_signal_role.dart';
+import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -133,26 +133,23 @@ class ExerciseLandmarkRequirements {
     final segmentKeys = <String>{};
     final requiredSegments = <PoseLandmarkSegment>[];
 
+    void addSegment(PoseLandmarkType start, PoseLandmarkType end) {
+      requiredLandmarks.addAll(<PoseLandmarkType>{start, end});
+      final key = '${start.name}:${end.name}';
+      if (segmentKeys.add(key)) {
+        requiredSegments.add(PoseLandmarkSegment(first: start, second: end));
+      }
+    }
+
     void addTriplet(
       PoseLandmarkType first,
       PoseLandmarkType middle,
       PoseLandmarkType last,
     ) {
-      final triplet = PoseAngleTriplet(
-        first: first,
-        middle: middle,
-        last: last,
+      requiredTriplets.add(
+        PoseAngleTriplet(first: first, middle: middle, last: last),
       );
-      requiredTriplets.add(triplet);
       requiredLandmarks.addAll(<PoseLandmarkType>{first, middle, last});
-
-      void addSegment(PoseLandmarkType start, PoseLandmarkType end) {
-        final key = '${start.name}:${end.name}';
-        if (segmentKeys.add(key)) {
-          requiredSegments.add(PoseLandmarkSegment(first: start, second: end));
-        }
-      }
-
       addSegment(first, middle);
       addSegment(middle, last);
     }
@@ -165,19 +162,31 @@ class ExerciseLandmarkRequirements {
       return rangeRepContract.signalsFor(rangeRepSignalSet).contains(signal);
     }
 
+    void addPrimaryMetricRequirements() {
+      switch (rangeRepContract.primaryMetricKind) {
+        case RangeRepPrimaryMetricKind.jointAngle:
+          addTriplet(
+            sideLandmark(config.joint1),
+            sideLandmark(config.primaryJoint),
+            sideLandmark(config.joint2),
+          );
+        case RangeRepPrimaryMetricKind.imagePlaneInclination:
+          addSegment(
+            sideLandmark(config.joint1),
+            sideLandmark(config.primaryJoint),
+          );
+      }
+    }
+
     if (includesSignal(RangeRepSignal.primaryMetric)) {
-      addTriplet(
-        sideLandmark(config.joint1),
-        sideLandmark(config.primaryJoint),
-        sideLandmark(config.joint2),
-      );
+      addPrimaryMetricRequirements();
     }
 
     if (includesSignal(RangeRepSignal.formMetric)) {
       _addConfiguredDefinition(
         addTriplet: addTriplet,
+        addPrimaryMetricRequirements: addPrimaryMetricRequirements,
         definition: config.resolvedRangeRepSignals?.postureAngle,
-        config: config,
         side: side,
       );
     }
@@ -195,8 +204,8 @@ class ExerciseLandmarkRequirements {
       }
       _addConfiguredDefinition(
         addTriplet: addTriplet,
+        addPrimaryMetricRequirements: addPrimaryMetricRequirements,
         definition: config.resolvedRangeRepSignals?.definitionFor(signal),
-        config: config,
         side: side,
       );
     }
@@ -295,8 +304,8 @@ class ExerciseLandmarkRequirements {
       PoseLandmarkType last,
     )
     addTriplet,
+    required void Function() addPrimaryMetricRequirements,
     required RangeRepSignalDefinition? definition,
-    required ExerciseConfig config,
     required RangeRepSide side,
   }) {
     if (definition == null) {
@@ -314,11 +323,7 @@ class ExerciseLandmarkRequirements {
     }
 
     if (definition.source == RangeRepSignalSource.primaryMetric) {
-      addTriplet(
-        landmarkTypeForSide(config.joint1, side),
-        landmarkTypeForSide(config.primaryJoint, side),
-        landmarkTypeForSide(config.joint2, side),
-      );
+      addPrimaryMetricRequirements();
     }
   }
 

@@ -24,6 +24,16 @@ enum RangeRepFormThresholdCalibrationPolicy { enabled, disabled }
 
 enum RangeRepSideMode { selectedSide, bilateral }
 
+/// Declares how the exercise's primary movement signal is measured.
+///
+/// [jointAngle] preserves the legacy three-landmark angle configured by
+/// `joint1 -> primaryJoint -> joint2`.
+/// [imagePlaneInclination] derives the primary metric from the
+/// `joint1 -> primaryJoint` segment using the shared image-plane inclination
+/// primitive. Runtime extraction may preserve the engine's existing 0-180
+/// directional angle convention after that pure inclination measurement.
+enum RangeRepPrimaryMetricKind { jointAngle, imagePlaneInclination }
+
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
 class RangeRepContract {
@@ -35,6 +45,7 @@ class RangeRepContract {
     this.formThresholdCalibrationPolicy =
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
+    this.primaryMetricKind = RangeRepPrimaryMetricKind.jointAngle,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
        signalRoles = Map<RangeRepSignal, Set<AnalysisSignalRole>>.unmodifiable(
@@ -88,6 +99,7 @@ class RangeRepContract {
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
+  final RangeRepPrimaryMetricKind primaryMetricKind;
 
   bool supportsPhase(RangeRepPhase phase) {
     return supportedPhases.contains(phase);
@@ -238,6 +250,7 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    primaryMetricKind: RangeRepPrimaryMetricKind.imagePlaneInclination,
   );
 
   static final RangeRepContract bicepsCurl = RangeRepContract(
