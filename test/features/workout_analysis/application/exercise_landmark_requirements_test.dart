@@ -72,7 +72,7 @@ void main() {
     });
 
     test(
-      'sit-up pose acceptance only requires the primary shoulder-hip-knee geometry',
+      'sit-up pose acceptance only requires the primary shoulder-hip segment',
       () {
         final requirementSet = requirements.resolve(
           config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
@@ -85,16 +85,16 @@ void main() {
         expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
           PoseLandmarkType.leftShoulder,
           PoseLandmarkType.leftHip,
-          PoseLandmarkType.leftKnee,
         });
-        expect(requirementSet.requiredAngleTriplets.map(_tripletKey), <String>[
-          'leftShoulder->leftHip->leftKnee',
+        expect(requirementSet.requiredAngleTriplets, isEmpty);
+        expect(requirementSet.requiredSegments.map(_segmentKey), <String>[
+          'leftShoulder->leftHip',
         ]);
       },
     );
 
     test(
-      'sit-up analysis-supported signals still include the advisory ankle geometry',
+      'sit-up analysis-supported signals keep torso and advisory knee geometry',
       () {
         final requirementSet = requirements.resolve(
           config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
@@ -111,16 +111,17 @@ void main() {
         });
         expect(
           requirementSet.requiredAngleTriplets.map(_tripletKey),
-          containsAll(<String>[
-            'leftShoulder->leftHip->leftKnee',
-            'leftHip->leftKnee->leftAnkle',
-          ]),
+          contains('leftHip->leftKnee->leftAnkle'),
+        );
+        expect(
+          requirementSet.requiredSegments.map(_segmentKey),
+          contains('leftShoulder->leftHip'),
         );
       },
     );
 
     test(
-      'sit-up pose acceptance mirrors the primary geometry to the right side',
+      'sit-up pose acceptance mirrors the primary torso segment to the right side',
       () {
         final requirementSet = requirements.resolve(
           config: loadExerciseConfig('assets/config/exercises/sit_up.json'),
@@ -133,10 +134,10 @@ void main() {
         expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
           PoseLandmarkType.rightShoulder,
           PoseLandmarkType.rightHip,
-          PoseLandmarkType.rightKnee,
         });
-        expect(requirementSet.requiredAngleTriplets.map(_tripletKey), <String>[
-          'rightShoulder->rightHip->rightKnee',
+        expect(requirementSet.requiredAngleTriplets, isEmpty);
+        expect(requirementSet.requiredSegments.map(_segmentKey), <String>[
+          'rightShoulder->rightHip',
         ]);
       },
     );
