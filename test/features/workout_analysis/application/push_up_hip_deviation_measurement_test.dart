@@ -158,10 +158,7 @@ void main() {
       preferredRangeRepSide: RangeRepSide.left,
     );
 
-    expect(
-      coordinator.currentPushUpHipDeviationMetric,
-      closeTo(0.0625, 0.001),
-    );
+    expect(coordinator.currentPushUpHipDeviationMetric, closeTo(0.0625, 0.001));
     expect(coordinator.techniqueObservations, isEmpty);
 
     coordinator.processFrame(
@@ -198,9 +195,7 @@ Pose _poseWithPushUpHipDeviation({
   final shoulderType = isLeft
       ? PoseLandmarkType.leftShoulder
       : PoseLandmarkType.rightShoulder;
-  final hipType = isLeft
-      ? PoseLandmarkType.leftHip
-      : PoseLandmarkType.rightHip;
+  final hipType = isLeft ? PoseLandmarkType.leftHip : PoseLandmarkType.rightHip;
   final ankleType = isLeft
       ? PoseLandmarkType.leftAnkle
       : PoseLandmarkType.rightAnkle;
