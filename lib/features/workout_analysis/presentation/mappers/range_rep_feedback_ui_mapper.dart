@@ -24,7 +24,10 @@ String mapRangeRepFeedbackCodeToMessage(
       return 'Basarili!';
     case RangeRepFeedbackCode.repIncomplete:
       return 'Hareketi tamamlamadin.';
-    case RangeRepFeedbackCode.keepBodyUpright:
+    case RangeRepFeedbackCode.legacyFormThresholdViolation:
+      if (exerciseType == ExerciseType.squat) {
+        return 'Formunu koru.';
+      }
       return copy.formViolation;
     case RangeRepFeedbackCode.controlDescent:
       return copy.controlDescent;
