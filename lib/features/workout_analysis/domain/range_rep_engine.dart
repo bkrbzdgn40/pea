@@ -79,13 +79,6 @@ class RepResult {
   });
 }
 
-class _WeightedScoreComponent {
-  const _WeightedScoreComponent({required this.score, required this.weight});
-
-  final double? score;
-  final double weight;
-}
-
 class _MutableRangeRepPhaseQuality {
   DateTime? _startedAt;
   int _completedDurationMs = 0;
@@ -492,20 +485,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     final scoreWeights = config.rangeRepScoreWeights;
     final weightedBaseScore = scoreWeights == null
         ? null
-        : _composeWeightedScore(<_WeightedScoreComponent>[
-            _WeightedScoreComponent(
-              score: depthScore,
-              weight: scoreWeights.depthWeight ?? 1.0,
-            ),
-            _WeightedScoreComponent(
-              score: descentControlScore,
-              weight: scoreWeights.descentControlWeight ?? 1.0,
-            ),
-            _WeightedScoreComponent(
-              score: ascentControlScore,
-              weight: scoreWeights.ascentControlWeight ?? 1.0,
-            ),
-          ]);
+        : _scorer.calculateWeightedBaseScore(
+            depthScore: depthScore,
+            descentControlScore: descentControlScore,
+            ascentControlScore: ascentControlScore,
+            depthWeight: scoreWeights.depthWeight ?? 1.0,
+            descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
+            ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
+          );
     final completedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
       _now(),
     );
@@ -580,27 +567,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       completedPhaseSequence: completedPhaseSequence,
     );
     _pendingCompletedRepCoreData = lastCompletedRepCoreData;
-  }
-
-  double? _composeWeightedScore(Iterable<_WeightedScoreComponent> components) {
-    var weightedScoreTotal = 0.0;
-    var totalWeight = 0.0;
-
-    for (final component in components) {
-      final score = component.score;
-      if (score == null || component.weight <= 0) {
-        continue;
-      }
-
-      weightedScoreTotal += score * component.weight;
-      totalWeight += component.weight;
-    }
-
-    if (totalWeight <= 0) {
-      return null;
-    }
-
-    return weightedScoreTotal / totalWeight;
   }
 
   RangeRepPhaseQualityTelemetry _phaseQualityTelemetry(DateTime now) {
