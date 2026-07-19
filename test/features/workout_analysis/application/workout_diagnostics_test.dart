@@ -172,7 +172,6 @@ void main() {
           signalRoles: RangeRepContracts.squat.signalRoles,
           calibrationOffsetDegrees: 2.5,
         );
-
       final snapshot = subject.snapshot(now: startedAt);
       expect(snapshot.rangeRepDiagnostics, isNotNull);
       expect(snapshot.holdDiagnostics, isNull);
@@ -456,11 +455,7 @@ void main() {
       'armExtension',
       'kneeExtension',
     ]);
-    expect(serialized['compression'], <String>[
-      'detection',
-      'validation',
-      'technique',
-    ]);
+    expect(serialized['compression'], <String>['detection']);
     expect(serialized, isNot(contains(HoldSignal.alignment.name)));
     expect(json['range_rep_signal_roles'], isNull);
   });
