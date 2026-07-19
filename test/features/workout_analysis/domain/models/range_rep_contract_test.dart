@@ -18,6 +18,9 @@ const Set<AnalysisSignalRole> _techniqueRoles = <AnalysisSignalRole>{
 const Set<AnalysisSignalRole> _scoringRoles = <AnalysisSignalRole>{
   AnalysisSignalRole.scoring,
 };
+const Set<AnalysisSignalRole> _setupRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.setup,
+};
 
 void main() {
   group('RangeRepContract role metadata', () {
@@ -167,29 +170,34 @@ void main() {
       _expectExtendedRangeRepRoles(RangeRepContracts.pushUp);
     });
 
-    test('Sit-up keeps formMetric technique-owned and not setup-owned', () {
+    test('Sit-up classifies knee-angle carriers as setup-only', () {
       final contract = RangeRepContracts.sitUp;
 
       expect(
         contract.rolesForSignal(RangeRepSignal.primaryMetric),
         _primaryMetricRoles,
       );
-      expect(
-        contract.rolesForSignal(RangeRepSignal.formMetric),
-        _formMetricRoles,
-      );
-      expect(
-        contract.rolesForSignal(RangeRepSignal.postureAngle),
-        _techniqueRoles,
-      );
+      expect(contract.rolesForSignal(RangeRepSignal.formMetric), _setupRoles);
+      expect(contract.rolesForSignal(RangeRepSignal.postureAngle), _setupRoles);
       expect(
         contract.rolesForSignal(RangeRepSignal.depthMetric),
         _scoringRoles,
       );
+      for (final role in const <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+        AnalysisSignalRole.scoring,
+      }) {
+        expect(
+          contract.signalHasRole(RangeRepSignal.formMetric, role),
+          isFalse,
+        );
+      }
       expect(
         contract.signalHasRole(
-          RangeRepSignal.formMetric,
-          AnalysisSignalRole.setup,
+          RangeRepSignal.postureAngle,
+          AnalysisSignalRole.technique,
         ),
         isFalse,
       );

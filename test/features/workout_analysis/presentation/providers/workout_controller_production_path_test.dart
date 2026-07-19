@@ -17,6 +17,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
@@ -468,7 +469,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 125, formAngle: 90),
+          _sitUpPose(primaryAngle: 125, formAngle: 40),
           count: 3,
           spacing: const Duration(milliseconds: 120),
         );
@@ -476,7 +477,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 108, formAngle: 90),
+          _sitUpPose(primaryAngle: 108, formAngle: 40),
           expectedPhase: 'DESCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -484,7 +485,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 68, formAngle: 90),
+          _sitUpPose(primaryAngle: 68, formAngle: 40),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );
@@ -492,7 +493,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 90, formAngle: 90),
+          _sitUpPose(primaryAngle: 90, formAngle: 40),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );
@@ -500,7 +501,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 92, formAngle: 90),
+          _sitUpPose(primaryAngle: 92, formAngle: 40),
           expectedPhase: 'ASCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -508,40 +509,64 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 121, formAngle: 90),
+          _sitUpPose(primaryAngle: 121, formAngle: 40),
           expectedPhase: 'NEUTRAL',
           spacing: const Duration(milliseconds: 120),
         );
 
         final state = harness.container.read(workoutControllerProvider);
         final diagnostics = harness.controller.diagnosticsSnapshot();
+        final metrics = state.calibrationMetrics;
 
         expect(state.rangeRepAnalysis, isNotNull);
         expect(state.holdAnalysis, isNull);
         expect(state.repCount, 1);
         expect(state.currentPhase, 'NEUTRAL');
         expect(state.currentAngle, closeTo(121.0, 0.001));
+        expect(metrics.lastRangeRepValidatedRepIndex, equals(1));
+        expect(metrics.lastRangeRepValidationStatus, equals('valid'));
+        expect(state.isFormBad, isFalse);
+        expect(metrics.baseFormThreshold, 60.0);
+        expect(metrics.effectiveFormThreshold, 60.0);
+        expect(metrics.lastRangeRepSummaryWorstFormMetric, lessThan(60.0));
+        expect(metrics.lastRangeRepSummaryHadFormViolation, isFalse);
+        expect(metrics.lastRepHadFormViolation, isFalse);
+        expect(metrics.descendingPhaseHadFormViolation, isFalse);
+        expect(metrics.peakPhaseHadFormViolation, isFalse);
+        expect(metrics.ascendingPhaseHadFormViolation, isFalse);
         expect(
-          state.calibrationMetrics.lastRangeRepValidatedRepIndex,
-          equals(1),
+          metrics.descendingPhaseIssues,
+          isNot(contains('form violation')),
         );
+        expect(metrics.peakPhaseIssues, isNot(contains('form violation')));
+        expect(metrics.ascendingPhaseIssues, isNot(contains('form violation')));
         expect(
-          state.calibrationMetrics.lastRangeRepValidationStatus,
-          equals('valid'),
+          metrics.lastRangeRepValidationReasons,
+          isNot(contains('persistent form break')),
         );
-        expect(state.calibrationMetrics.baseFormThreshold, 60.0);
-        expect(state.calibrationMetrics.effectiveFormThreshold, 60.0);
-        expect(
-          state.calibrationMetrics.lastRangeRepSummaryHadFormViolation,
-          isFalse,
-        );
+        expect(metrics.phaseQualityPenalty, isNull);
+        expect(metrics.phaseAdjustedScore, isNull);
+        final expectedUnpenalizedScore =
+            (metrics.lastRepRomScore +
+                metrics.lastRepDescentScore +
+                metrics.lastRepAscentScore) /
+            3;
+        expect(state.lastRepScore, closeTo(expectedUnpenalizedScore, 0.001));
         expect(diagnostics.analysisKind, 'rangeRep');
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
+        expect(
+          diagnostics.rangeRepSignalRoles[RangeRepSignal.formMetric],
+          <AnalysisSignalRole>{AnalysisSignalRole.setup},
+        );
+        expect(
+          diagnostics.rangeRepSignalRoles[RangeRepSignal.postureAngle],
+          <AnalysisSignalRole>{AnalysisSignalRole.setup},
+        );
       },
     );
 
     test(
-      'sit-up production path keeps a normal peak form metric out of the warning even after a high baseline',
+      'sit-up production path does not treat low knee setup angle as bad form',
       () async {
         final detector = _QueuedPoseDetector();
         final clock = _FakeClock();
@@ -564,7 +589,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 108, formAngle: 68.4),
+          _sitUpPose(primaryAngle: 108, formAngle: 40),
           expectedPhase: 'DESCENDING',
           spacing: const Duration(milliseconds: 90),
         );
@@ -572,7 +597,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _sitUpPose(primaryAngle: 52.7, formAngle: 68.4),
+          _sitUpPose(primaryAngle: 52.7, formAngle: 40),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );

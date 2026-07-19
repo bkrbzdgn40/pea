@@ -228,6 +228,69 @@ void main() {
       },
     );
 
+    test('gates the legacy form evaluator by the contract technique role', () {
+      final sitUpClock = _TestClock();
+      final sitUpConfig = loadExerciseConfig(
+        'assets/config/exercises/sit_up.json',
+      );
+      final sitUpEvaluator = _RecordingTechniqueEvaluator();
+      final sitUpCoordinator = DefaultRangeRepCoordinator(
+        engine: _ScriptedRangeRepEngine(
+          config: sitUpConfig,
+          now: sitUpClock.now,
+          results: <RangeRepEngineFrameResult>[_scriptedArmedFrame()],
+        ),
+        config: sitUpConfig,
+        rangeRepContract: RangeRepContracts.sitUp,
+        rangeRepValidationConfig: const RangeRepValidationConfig(),
+        techniqueEvaluator: sitUpEvaluator,
+      );
+
+      final sitUpResult = _processAcceptedFrame(
+        sitUpCoordinator,
+        sitUpClock,
+        angle: 120,
+        formMetric: 40,
+      );
+
+      expect(sitUpEvaluator.formMetrics, isEmpty);
+      expect(sitUpResult.stateSnapshot.isFormBad, isFalse);
+      expect(
+        sitUpResult.stateSnapshot.feedbackDirective.feedbackCode,
+        isNot(RangeRepFeedbackCode.keepBodyUpright),
+      );
+
+      final squatClock = _TestClock();
+      final squatConfig = _squatConfig();
+      final squatEvaluator = _RecordingTechniqueEvaluator();
+      final squatCoordinator = DefaultRangeRepCoordinator(
+        engine: _ScriptedRangeRepEngine(
+          config: squatConfig,
+          now: squatClock.now,
+          results: <RangeRepEngineFrameResult>[_scriptedArmedFrame()],
+        ),
+        config: squatConfig,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(),
+        techniqueEvaluator: squatEvaluator,
+      );
+
+      final squatResult = _processAcceptedFrame(
+        squatCoordinator,
+        squatClock,
+        angle: 120,
+        formMetric: 40,
+      );
+
+      expect(squatEvaluator.formMetrics, <double>[40.0]);
+      expect(squatEvaluator.assessments.single.hasObservations, isTrue);
+      expect(squatResult.stateSnapshot.isFormBad, isTrue);
+      expect(
+        squatResult.stateSnapshot.feedbackDirective.feedbackCode,
+        RangeRepFeedbackCode.keepBodyUpright,
+      );
+    });
+
     test('owns live form and feedback across the production lifecycle', () {
       final clock = _TestClock();
       final base = clock.now();

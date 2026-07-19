@@ -225,13 +225,9 @@ abstract final class RangeRepContracts {
         AnalysisSignalRole.validation,
         AnalysisSignalRole.scoring,
       },
-      RangeRepSignal.formMetric: <AnalysisSignalRole>{
-        AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
-        AnalysisSignalRole.scoring,
-      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{AnalysisSignalRole.setup},
       RangeRepSignal.postureAngle: <AnalysisSignalRole>{
-        AnalysisSignalRole.technique,
+        AnalysisSignalRole.setup,
       },
       RangeRepSignal.depthMetric: <AnalysisSignalRole>{
         AnalysisSignalRole.scoring,

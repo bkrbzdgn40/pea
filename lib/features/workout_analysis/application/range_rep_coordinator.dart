@@ -5,6 +5,7 @@ import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
 import '../domain/models/analysis_frame.dart';
+import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
@@ -551,14 +552,21 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       analysisFrame,
       formThresholdResolution,
     );
-    final techniqueAssessment = _techniqueEvaluator.evaluate(
-      formMetric: engineFrame.formMetric,
-      formThreshold: _config.formThreshold,
+    final usesLegacyFormMetricTechnique = _rangeRepContract.signalHasRole(
+      RangeRepSignal.formMetric,
+      AnalysisSignalRole.technique,
     );
+    final hasTechniqueViolation =
+        usesLegacyFormMetricTechnique &&
+        _techniqueEvaluator
+            .evaluate(
+              formMetric: engineFrame.formMetric,
+              formThreshold: _config.formThreshold,
+            )
+            .hasObservations;
     final engineResult = _engine.updateDetectionFrame(
       primaryMetric: engineFrame.primaryMetric,
     );
-    final hasTechniqueViolation = techniqueAssessment.hasObservations;
     _applyLiveTechniqueFeedback(
       engineResult: engineResult,
       hasTechniqueViolation: hasTechniqueViolation,
