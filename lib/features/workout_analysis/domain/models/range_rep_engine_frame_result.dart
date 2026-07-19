@@ -1,4 +1,5 @@
 import '../range_rep_diagnostics.dart';
+import 'range_rep_confirmed_transition.dart';
 import 'range_rep_contract.dart';
 
 class RangeRepEngineFrameResult {
@@ -8,6 +9,7 @@ class RangeRepEngineFrameResult {
     this.repStarted = false,
     this.repAborted = false,
     this.completedRepCoreData,
+    this.confirmedTransition,
     List<RangeRepPhase> observedRepPhases = const <RangeRepPhase>[],
   }) : observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
 
@@ -16,6 +18,7 @@ class RangeRepEngineFrameResult {
   final bool repStarted;
   final bool repAborted;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
+  final RangeRepConfirmedTransition? confirmedTransition;
   final List<RangeRepPhase> observedRepPhases;
 
   bool get didCompleteRep => completedRepCoreData != null;

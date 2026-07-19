@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_confirmed_transition.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
@@ -322,6 +323,7 @@ void main() {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
+      final acquisitionEffectiveAt = clock.now();
       final acquisitionStarted = engine.updateWithTechniqueAssessment(
         _frame(170, 60),
         techniqueAssessment: RangeRepTechniqueAssessment.empty,
@@ -339,12 +341,19 @@ void main() {
       expect(acquisitionStarted.wasArmedAtFrameStart, isFalse);
       expect(acquisitionStarted.isArmedAfterUpdate, isFalse);
       expect(acquisitionStarted.observedRepPhases, isEmpty);
+      expect(acquisitionStarted.confirmedTransition, isNull);
       expect(acquisitionCompleted.wasArmedAtFrameStart, isFalse);
       expect(acquisitionCompleted.isArmedAfterUpdate, isTrue);
       expect(acquisitionCompleted.observedRepPhases, isEmpty);
+      _expectConfirmedTransition(
+        acquisitionCompleted,
+        type: RangeRepConfirmedTransitionType.acquireNeutral,
+        effectiveAt: acquisitionEffectiveAt,
+      );
       expect(armedNeutral.wasArmedAtFrameStart, isTrue);
       expect(armedNeutral.isArmedAfterUpdate, isTrue);
       expect(armedNeutral.observedRepPhases, isEmpty);
+      expect(armedNeutral.confirmedTransition, isNull);
     });
 
     test(
@@ -354,6 +363,7 @@ void main() {
         final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
 
         _acquireNeutralWithTechniqueAssessment(clock, engine);
+        final descentEffectiveAt = clock.now();
         final started = _confirmTransitionWithTechniqueAssessment(
           clock,
           engine,
@@ -363,6 +373,7 @@ void main() {
           _frame(130, 60),
           techniqueAssessment: RangeRepTechniqueAssessment.empty,
         );
+        final peakEffectiveAt = clock.now();
         final reachedPeak = _confirmTransitionWithTechniqueAssessment(
           clock,
           engine,
@@ -372,6 +383,7 @@ void main() {
           _frame(90, 60),
           techniqueAssessment: RangeRepTechniqueAssessment.empty,
         );
+        final ascentEffectiveAt = clock.now();
         final startedAscending = _confirmTransitionWithTechniqueAssessment(
           clock,
           engine,
@@ -381,6 +393,7 @@ void main() {
           _frame(110, 60),
           techniqueAssessment: RangeRepTechniqueAssessment.empty,
         );
+        final completionEffectiveAt = clock.now();
         final completed = _confirmTransitionWithTechniqueAssessment(
           clock,
           engine,
@@ -392,24 +405,47 @@ void main() {
         expect(started.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.descending,
         ]);
+        _expectConfirmedTransition(
+          started,
+          type: RangeRepConfirmedTransitionType.startDescending,
+          effectiveAt: descentEffectiveAt,
+        );
         expect(descending.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.descending,
         ]);
+        expect(descending.confirmedTransition, isNull);
         expect(reachedPeak.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.descending,
           RangeRepPhase.peak,
         ]);
+        _expectConfirmedTransition(
+          reachedPeak,
+          type: RangeRepConfirmedTransitionType.reachPeak,
+          effectiveAt: peakEffectiveAt,
+        );
         expect(peak.observedRepPhases, <RangeRepPhase>[RangeRepPhase.peak]);
+        expect(peak.confirmedTransition, isNull);
         expect(startedAscending.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.peak,
           RangeRepPhase.ascending,
         ]);
+        _expectConfirmedTransition(
+          startedAscending,
+          type: RangeRepConfirmedTransitionType.startAscending,
+          effectiveAt: ascentEffectiveAt,
+        );
         expect(ascending.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.ascending,
         ]);
+        expect(ascending.confirmedTransition, isNull);
         expect(completed.observedRepPhases, <RangeRepPhase>[
           RangeRepPhase.ascending,
         ]);
+        _expectConfirmedTransition(
+          completed,
+          type: RangeRepConfirmedTransitionType.completeRep,
+          effectiveAt: completionEffectiveAt,
+        );
         expect(completed.didCompleteRep, isTrue);
         expect(completed.completedRepCoreData?.repIndex, 1);
         expect(engine.consumeCompletedRepCoreData(), isNull);
@@ -422,6 +458,7 @@ void main() {
 
       _acquireNeutralWithTechniqueAssessment(clock, engine);
       _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 140);
+      final abortEffectiveAt = clock.now();
       final aborted = _confirmTransitionWithTechniqueAssessment(
         clock,
         engine,
@@ -435,6 +472,11 @@ void main() {
       expect(aborted.observedRepPhases, <RangeRepPhase>[
         RangeRepPhase.descending,
       ]);
+      _expectConfirmedTransition(
+        aborted,
+        type: RangeRepConfirmedTransitionType.abortToNeutral,
+        effectiveAt: abortEffectiveAt,
+      );
     });
 
     test('defensively copies and freezes observed phases', () {
@@ -805,6 +847,18 @@ void main() {
   });
 
   group('RangeRepEngine brief visibility gap control', () {
+    test('reports zero applied duration when there is no active gap', () {
+      final engine = RangeRepEngine(
+        config: _squatConfig(),
+        now: _TestClock().now,
+      );
+
+      final resume = engine.resumeAfterBriefVisibilityGap(_frame(170, 60));
+
+      expect(resume.disposition, VisibilityGapResumeDisposition.noGap);
+      expect(resume.appliedGapDuration, Duration.zero);
+    });
+
     test('1000 ms PEAK gap resumes safely and preserves the rep', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
@@ -828,6 +882,7 @@ void main() {
       );
 
       expect(resume.isCompatible, isTrue);
+      expect(resume.appliedGapDuration, const Duration(milliseconds: 1000));
       expect(engine.repCount, 1);
       expect(engine.phaseLabel, 'NEUTRAL');
     });
@@ -846,6 +901,7 @@ void main() {
       final resume = engine.resumeAfterBriefVisibilityGap(_frame(170, 60));
 
       expect(resume.isCompatible, isFalse);
+      expect(resume.appliedGapDuration, Duration.zero);
     });
 
     test('beginBriefVisibilityGap clears a pending transition', () {
@@ -875,6 +931,7 @@ void main() {
         gapEngine.lastDescentTime.inMilliseconds,
         inInclusiveRange(400, 700),
       );
+      expect(gapEngine.lastAscentTime, _transitionConfirmationWindow);
     });
 
     test('brief gap duration is excluded from phase-quality timing', () {
@@ -966,6 +1023,7 @@ void _completeRepWithBriefDescendingGap(
   clock.advance(const Duration(milliseconds: 1000));
   final resume = engine.resumeAfterBriefVisibilityGap(_frame(120, 60));
   expect(resume.isCompatible, isTrue);
+  expect(resume.appliedGapDuration, const Duration(milliseconds: 1000));
   engine.update(_frame(120, 60));
   clock.advance(const Duration(milliseconds: 200));
   engine.update(_frame(90, 60));
@@ -1023,6 +1081,15 @@ RangeRepEngineFrameResult _confirmTransitionWithTechniqueAssessment(
     _frame(angle, backAngle),
     techniqueAssessment: RangeRepTechniqueAssessment.empty,
   );
+}
+
+void _expectConfirmedTransition(
+  RangeRepEngineFrameResult result, {
+  required RangeRepConfirmedTransitionType type,
+  required DateTime effectiveAt,
+}) {
+  expect(result.confirmedTransition?.type, type);
+  expect(result.confirmedTransition?.effectiveAt, effectiveAt);
 }
 
 void _confirmTransition(

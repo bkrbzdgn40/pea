@@ -3,6 +3,7 @@ import 'legacy_range_rep_scorer.dart';
 import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
+import 'models/range_rep_confirmed_transition.dart';
 import 'models/range_rep_contract.dart';
 import 'models/range_rep_engine_frame_result.dart';
 import 'models/range_rep_feedback_code.dart';
@@ -36,16 +37,35 @@ class _RangeRepLifecycleFacts {
     this.repStarted = false,
     this.repAborted = false,
     this.completedRepCoreData,
+    this.confirmedTransition,
     this.observedRepPhases = const <RangeRepPhase>[],
   });
 
   final bool repStarted;
   final bool repAborted;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
+  final RangeRepConfirmedTransition? confirmedTransition;
   final List<RangeRepPhase> observedRepPhases;
 }
 
 extension _PhaseTransitionX on _PhaseTransition {
+  RangeRepConfirmedTransition confirmedAt(DateTime effectiveAt) {
+    final type = switch (this) {
+      _PhaseTransition.acquireNeutral =>
+        RangeRepConfirmedTransitionType.acquireNeutral,
+      _PhaseTransition.startDescending =>
+        RangeRepConfirmedTransitionType.startDescending,
+      _PhaseTransition.reachPeak => RangeRepConfirmedTransitionType.reachPeak,
+      _PhaseTransition.startAscending =>
+        RangeRepConfirmedTransitionType.startAscending,
+      _PhaseTransition.abortToNeutral =>
+        RangeRepConfirmedTransitionType.abortToNeutral,
+      _PhaseTransition.completeRep =>
+        RangeRepConfirmedTransitionType.completeRep,
+    };
+    return RangeRepConfirmedTransition(type: type, effectiveAt: effectiveAt);
+  }
+
   Duration get confirmationDuration {
     switch (this) {
       case _PhaseTransition.acquireNeutral:
@@ -370,6 +390,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       repStarted: lifecycleFacts.repStarted,
       repAborted: lifecycleFacts.repAborted,
       completedRepCoreData: lifecycleFacts.completedRepCoreData,
+      confirmedTransition: lifecycleFacts.confirmedTransition,
       observedRepPhases: lifecycleFacts.observedRepPhases,
     );
   }
@@ -395,12 +416,17 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             _PhaseTransition.acquireNeutral.debugLabel;
         _setFeedback(RangeRepFeedbackCode.ready);
       }
-      return const _RangeRepLifecycleFacts();
+      return _RangeRepLifecycleFacts(
+        confirmedTransition: armedAt == null
+            ? null
+            : _PhaseTransition.acquireNeutral.confirmedAt(armedAt),
+      );
     }
 
     var repStarted = false;
     var repAborted = false;
     RangeRepCompletedRepCoreData? completedRepCoreData;
+    RangeRepConfirmedTransition? confirmedTransition;
     final observedRepPhases = <RangeRepPhase>[];
 
     // Aborted descents reset to neutral without counting a repetition.
@@ -412,6 +438,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           now: now,
         );
         if (confirmedAt != null) {
+          confirmedTransition = _PhaseTransition.startDescending.confirmedAt(
+            confirmedAt,
+          );
           repStarted = true;
           observedRepPhases.add(RangeRepPhase.descending);
           state = MovementPhase.descending;
@@ -443,6 +472,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           now: now,
         );
         if (peakConfirmedAt != null) {
+          confirmedTransition = _PhaseTransition.reachPeak.confirmedAt(
+            peakConfirmedAt,
+          );
           observedRepPhases.add(RangeRepPhase.peak);
           state = MovementPhase.peak;
           _peakStartTime = peakConfirmedAt;
@@ -468,6 +500,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             now: now,
           );
           if (abortConfirmedAt != null) {
+            confirmedTransition = _PhaseTransition.abortToNeutral.confirmedAt(
+              abortConfirmedAt,
+            );
             repAborted = true;
             state = MovementPhase.neutral;
             _resetCurrentRepMetrics();
@@ -493,6 +528,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           now: now,
         );
         if (ascentConfirmedAt != null) {
+          confirmedTransition = _PhaseTransition.startAscending.confirmedAt(
+            ascentConfirmedAt,
+          );
           observedRepPhases.add(RangeRepPhase.ascending);
           state = MovementPhase.ascending;
           _ascentStartTime = ascentConfirmedAt;
@@ -526,6 +564,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
           now: now,
         );
         if (repCompleteAt != null) {
+          confirmedTransition = _PhaseTransition.completeRep.confirmedAt(
+            repCompleteAt,
+          );
           if (_ascentStartTime != null) {
             lastAscentTime = repCompleteAt.difference(_ascentStartTime!);
           }
@@ -546,6 +587,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       repStarted: repStarted,
       repAborted: repAborted,
       completedRepCoreData: completedRepCoreData,
+      confirmedTransition: confirmedTransition,
       observedRepPhases: observedRepPhases,
     );
   }
@@ -1043,8 +1085,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
 
-    return const VisibilityGapResumeResult(
+    return VisibilityGapResumeResult(
       disposition: VisibilityGapResumeDisposition.compatible,
+      appliedGapDuration: gapDuration,
     );
   }
 

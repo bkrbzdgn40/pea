@@ -155,10 +155,15 @@ abstract class RangeRepResyncControl {
 enum VisibilityGapResumeDisposition { compatible, incompatible, noGap }
 
 class VisibilityGapResumeResult {
-  const VisibilityGapResumeResult({required this.disposition, this.reason});
+  const VisibilityGapResumeResult({
+    required this.disposition,
+    this.reason,
+    this.appliedGapDuration = Duration.zero,
+  });
 
   final VisibilityGapResumeDisposition disposition;
   final String? reason;
+  final Duration appliedGapDuration;
 
   bool get isCompatible =>
       disposition == VisibilityGapResumeDisposition.compatible ||
