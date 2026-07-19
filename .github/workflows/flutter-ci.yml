@@ -41,7 +41,18 @@ jobs:
         run: flutter analyze
 
       - name: Run test suite
-        run: flutter test
+        run: |
+          set -o pipefail
+          flutter test 2>&1 | tee test-output.log
+
+      - name: Upload temporary test output
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: r12b-test-output
+          path: test-output.log
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Generate coverage report
         run: flutter test --coverage
