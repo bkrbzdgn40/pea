@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/angle_calculator.dart';
-import '../domain/models/exercise_config.dart';
+import '../../../../core/utils/image_plane_geometry.dart';
 import '../domain/models/analysis_signal_role.dart';
+import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_signal_values.dart';
@@ -111,14 +112,24 @@ class ExerciseMetricsExtractor {
     RangeRepSide side, {
     required RangeRepContract rangeRepContract,
   }) {
-    final primaryAngle = _tryCalculatePrimaryAngle(pose, config, side: side);
-    final formMetric = _tryCalculateFormMetric(pose, config, side: side);
+    final primaryMetric = _tryCalculatePrimaryMetric(
+      pose,
+      config,
+      rangeRepContract: rangeRepContract,
+      side: side,
+    );
+    final formMetric = _tryCalculateFormMetric(
+      pose,
+      config,
+      side: side,
+      primaryMetric: primaryMetric,
+    );
     final sideConfidence = _calculateRangeRepSideConfidence(
       pose,
       config,
       rangeRepContract: rangeRepContract,
       side: side,
-      hasPrimaryAngle: primaryAngle != null,
+      hasPrimaryAngle: primaryMetric != null,
       hasFormMetric: formMetric != null,
     );
     final formSignals = _extractRangeRepFormSignals(
@@ -126,15 +137,15 @@ class ExerciseMetricsExtractor {
       config,
       rangeRepContract: rangeRepContract,
       side: side,
-      primaryAngle: primaryAngle,
+      primaryAngle: primaryMetric,
       formMetric: formMetric,
     );
 
     return RangeRepSideMetrics(
       side: side,
-      primaryAngle: primaryAngle ?? 180.0,
+      primaryAngle: primaryMetric ?? 180.0,
       formMetric: formMetric ?? 90.0,
-      hasPrimaryAngle: primaryAngle != null,
+      hasPrimaryAngle: primaryMetric != null,
       hasFormMetric: formMetric != null,
       sideConfidence: sideConfidence,
       formSignals: formSignals,
@@ -198,16 +209,17 @@ class ExerciseMetricsExtractor {
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
   }) {
-    final requiresPrimaryMetric = rangeRepContract.supportsSignal(
+    final requiresPrimaryMetric = rangeRepContract.requiresPoseAcceptanceSignal(
       RangeRepSignal.primaryMetric,
     );
-    final requiresFormMetric = rangeRepContract.supportsSignal(
+    final requiresFormMetric = rangeRepContract.requiresPoseAcceptanceSignal(
       RangeRepSignal.formMetric,
     );
     final requirementSet = _requirements.resolve(
       config: config,
       engineKind: EngineKind.rangeRep,
       rangeRepContract: rangeRepContract,
+      rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
       side: side,
     );
     final requiredLandmarks = requirementSet.requiredLandmarks;
@@ -299,36 +311,49 @@ class ExerciseMetricsExtractor {
     return signals.hasAnyValue ? signals : null;
   }
 
-  double? _tryCalculatePrimaryAngle(
+  double? _tryCalculatePrimaryMetric(
     Pose pose,
     ExerciseConfig config, {
+    required RangeRepContract rangeRepContract,
     required RangeRepSide side,
   }) {
-    final p1 = pose.landmarks[_landmarkTypeForSide(config.joint1, side)];
-    final mid = pose.landmarks[_landmarkTypeForSide(config.primaryJoint, side)];
-    final p2 = pose.landmarks[_landmarkTypeForSide(config.joint2, side)];
-
-    if (p1 != null && mid != null && p2 != null) {
-      return AngleCalculator.calculate(
-        math.Point(p1.x, p1.y),
-        math.Point(mid.x, mid.y),
-        math.Point(p2.x, p2.y),
-      );
+    switch (rangeRepContract.primaryMetricKind) {
+      case RangeRepPrimaryMetricKind.jointAngle:
+        return _tryCalculateSideAngle(
+          pose,
+          side: side,
+          first: config.joint1,
+          middle: config.primaryJoint,
+          last: config.joint2,
+        );
+      case RangeRepPrimaryMetricKind.imagePlaneInclination:
+        final start = pose.landmarks[
+          _landmarkTypeForSide(config.joint1, side)
+        ];
+        final end = pose.landmarks[
+          _landmarkTypeForSide(config.primaryJoint, side)
+        ];
+        if (start == null || end == null) {
+          return null;
+        }
+        return imagePlaneInclination(
+          math.Point<double>(start.x, start.y),
+          math.Point<double>(end.x, end.y),
+        );
     }
-
-    return null;
   }
 
   double? _tryCalculateFormMetric(
     Pose pose,
     ExerciseConfig config, {
     required RangeRepSide side,
+    required double? primaryMetric,
   }) {
     return _tryCalculateSignalDefinition(
       pose,
       definition: _formMetricDefinition(config),
       side: side,
-      primaryAngle: _tryCalculatePrimaryAngle(pose, config, side: side),
+      primaryAngle: primaryMetric,
     );
   }
 
