@@ -88,9 +88,7 @@ void main() {
       _sitUpPose(
         torsoAngle: 82,
         kneeAngle: 120,
-        missingLandmarks: const <PoseLandmarkType>{
-          PoseLandmarkType.leftAnkle,
-        },
+        missingLandmarks: const <PoseLandmarkType>{PoseLandmarkType.leftAnkle},
       ),
       config,
       engineKind: EngineKind.rangeRep,
@@ -113,13 +111,10 @@ void main() {
         side: RangeRepSide.left,
       );
 
-      expect(
-        requirementSet.requiredLandmarks,
-        <PoseLandmarkType>{
-          PoseLandmarkType.leftShoulder,
-          PoseLandmarkType.leftHip,
-        },
-      );
+      expect(requirementSet.requiredLandmarks, <PoseLandmarkType>{
+        PoseLandmarkType.leftShoulder,
+        PoseLandmarkType.leftHip,
+      });
       expect(requirementSet.requiredAngleTriplets, isEmpty);
       expect(requirementSet.requiredSegments, hasLength(1));
       expect(
