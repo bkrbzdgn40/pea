@@ -5,9 +5,11 @@ import 'squat_torso_drift_observation_builder.dart';
 /// threshold-free observations when a later phase can be compared with the
 /// immediately preceding phase.
 ///
-/// Each phase keeps the latest physical measurement supplied by the caller.
-/// Missing measurements do not fabricate zeroes and therefore do not produce
-/// observations. [reset] must be called when the active rep context ends.
+/// Each phase keeps its first finite physical measurement. This prevents frames
+/// spent stabilizing the next transition from overwriting the previous phase's
+/// representative value. Missing measurements do not fabricate zeroes and
+/// therefore do not produce observations. [reset] must be called when the
+/// active rep context ends.
 class SquatTorsoDriftTracker {
   SquatTorsoDriftTracker({
     SquatTorsoDriftObservationBuilder observationBuilder =
@@ -25,7 +27,7 @@ class SquatTorsoDriftTracker {
     if (inclinationDegrees == null || !inclinationDegrees.isFinite) {
       return;
     }
-    _phaseInclinations[phase] = inclinationDegrees;
+    _phaseInclinations.putIfAbsent(phase, () => inclinationDegrees);
   }
 
   RangeRepTechniqueObservation? observeTransition({
