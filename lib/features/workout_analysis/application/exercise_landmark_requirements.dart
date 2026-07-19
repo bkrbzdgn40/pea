@@ -215,7 +215,9 @@ class ExerciseLandmarkRequirements {
       requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
         requiredTriplets,
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
+        requiredSegments,
+      ),
     );
   }
 
@@ -289,7 +291,9 @@ class ExerciseLandmarkRequirements {
       requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
         requiredTriplets,
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
+        requiredSegments,
+      ),
     );
   }
 
@@ -350,7 +354,9 @@ class ExerciseLandmarkRequirements {
           ...second.requiredAngleTriplets,
         ],
       ),
-      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(requiredSegments),
+      requiredSegments: List<PoseLandmarkSegment>.unmodifiable(
+        requiredSegments,
+      ),
     );
   }
 }
