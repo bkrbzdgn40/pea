@@ -11,6 +11,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/anal
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_score_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
@@ -257,6 +258,189 @@ void main() {
       expect(evaluator.formMetrics, isEmpty);
       expect(engine.typedUpdateCount, 0);
       expect(engine.legacyUpdateCount, 0);
+    });
+
+    test(
+      'production completion publishes coordinator score without updating typed engine score state',
+      () {
+        final clock = _TestClock();
+        final config = _squatConfig();
+        final engine = RangeRepEngine(config: config, now: clock.now);
+        final coordinator = DefaultRangeRepCoordinator(
+          engine: engine,
+          config: config,
+          rangeRepContract: RangeRepContracts.squat,
+          rangeRepValidationConfig: const RangeRepValidationConfig(),
+        );
+
+        final completedResult = _completeCleanSquatRep(coordinator, clock);
+        final interrupted = coordinator.handleLifecycleInterruption();
+
+        expect(completedResult.stateSnapshot.repCount, 1);
+        expect(completedResult.stateSnapshot.lastRepScore, greaterThan(0.0));
+        expect(
+          completedResult.stateSnapshot.calibrationMetrics.hasLastRepBreakdown,
+          isTrue,
+        );
+        expect(engine.lastRepScore, 0.0);
+        expect(engine.lastRepScoreBreakdown, isNull);
+        expect(
+          interrupted.lastRepScore,
+          completedResult.stateSnapshot.lastRepScore,
+        );
+      },
+    );
+
+    test(
+      'coordinator score and breakdown match legacy direct-engine compatibility',
+      () {
+        final config = _squatConfig();
+        final legacyClock = _TestClock();
+        final legacyEngine = RangeRepEngine(
+          config: config,
+          now: legacyClock.now,
+        );
+        _completeLegacySquatRep(legacyEngine, legacyClock);
+        final legacyBreakdown = legacyEngine.lastRepScoreBreakdown!;
+        final completedRepCoreData = legacyEngine
+            .consumeCompletedRepCoreData()!;
+        final legacyDiagnostics = legacyEngine.diagnosticsSnapshot;
+        final sentinelBreakdown = _sentinelBreakdown();
+        final productionClock = _TestClock();
+        final productionEngine = _CompletingRangeRepEngine(
+          config: config,
+          now: productionClock.now,
+          completedRepCoreData: completedRepCoreData,
+          diagnosticsSnapshot: RangeRepDiagnosticsSnapshot(
+            lastRepScoreBreakdown: sentinelBreakdown,
+            descendingPhaseAssessment:
+                legacyDiagnostics.descendingPhaseAssessment,
+            peakPhaseAssessment: legacyDiagnostics.peakPhaseAssessment,
+            ascendingPhaseAssessment:
+                legacyDiagnostics.ascendingPhaseAssessment,
+          ),
+        )..lastRepScore = 999.0;
+        productionEngine.lastRepScoreBreakdown = sentinelBreakdown;
+        final coordinator = DefaultRangeRepCoordinator(
+          engine: productionEngine,
+          config: config,
+          rangeRepContract: RangeRepContracts.squat,
+          rangeRepValidationConfig: const RangeRepValidationConfig(),
+        );
+
+        final result = _processAcceptedFrame(
+          coordinator,
+          productionClock,
+          angle: 170,
+        );
+
+        _expectScoreParity(
+          result,
+          completedRepCoreData: completedRepCoreData,
+          expectedBreakdown: legacyBreakdown,
+        );
+        expect(result.stateSnapshot.lastRepScore, isNot(999.0));
+        expect(
+          result.stateSnapshot.calibrationMetrics.lastRepRomScore,
+          isNot(sentinelBreakdown.romScore),
+        );
+      },
+    );
+
+    test('preserves weighted scoring and missing-weight defaults', () {
+      final result = _scoreCompletedCoreData(
+        config: _squatConfig(
+          scoreWeights: const RangeRepScoreWeightsConfig(
+            descentControlWeight: 2.0,
+            ascentControlWeight: 3.0,
+          ),
+        ),
+        completedRepCoreData: _completedRepCoreData(
+          descentDuration: const Duration(milliseconds: 1500),
+        ),
+      );
+
+      expect(
+        result.stateSnapshot.lastRepScore,
+        closeTo((80 + (100 * 2) + (90 * 3)) / 6, 0.001),
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.lastRepDescentScore,
+        100.0,
+      );
+      expect(result.stateSnapshot.calibrationMetrics.lastRepAscentScore, 90.0);
+    });
+
+    test('preserves the completed-rep form penalty', () {
+      final result = _scoreCompletedCoreData(
+        config: _squatConfig(),
+        completedRepCoreData: _completedRepCoreData(hadFormViolation: true),
+        diagnosticsSnapshot: const RangeRepDiagnosticsSnapshot(
+          descendingPhaseAssessment: RangeRepPhaseQualityAssessment(
+            status: RangeRepPhaseQualityStatus.observed,
+          ),
+          ascendingPhaseAssessment: RangeRepPhaseQualityAssessment(
+            status: RangeRepPhaseQualityStatus.observed,
+          ),
+        ),
+      );
+
+      expect(result.stateSnapshot.lastRepScore, 42.5);
+      expect(
+        result.stateSnapshot.calibrationMetrics.lastRepHadFormViolation,
+        isTrue,
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.phaseQualityPenalty,
+        isNull,
+      );
+    });
+
+    test('preserves phase-quality penalty and adjusted final score', () {
+      final result = _scoreCompletedCoreData(
+        config: _squatConfig(),
+        completedRepCoreData: _completedRepCoreData(),
+        diagnosticsSnapshot: const RangeRepDiagnosticsSnapshot(
+          descendingPhaseAssessment: RangeRepPhaseQualityAssessment(
+            status: RangeRepPhaseQualityStatus.flagged,
+          ),
+          ascendingPhaseAssessment: RangeRepPhaseQualityAssessment(
+            status: RangeRepPhaseQualityStatus.observed,
+          ),
+        ),
+      );
+
+      expect(result.stateSnapshot.lastRepScore, 80.0);
+      expect(result.stateSnapshot.calibrationMetrics.phaseQualityPenalty, 5.0);
+      expect(result.stateSnapshot.calibrationMetrics.phaseAdjustedScore, 80.0);
+    });
+
+    test('non-completing frames do not publish engine compatibility score', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = _RecordingRangeRepEngine(config: config, now: clock.now)
+        ..lastRepScore = 999.0;
+      engine.lastRepScoreBreakdown = _sentinelBreakdown();
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(),
+      );
+
+      final firstResult = _processAcceptedFrame(coordinator, clock, angle: 170);
+      final secondResult = _processAcceptedFrame(
+        coordinator,
+        clock,
+        angle: 140,
+      );
+
+      expect(firstResult.stateSnapshot.lastRepScore, 0.0);
+      expect(secondResult.stateSnapshot.lastRepScore, 0.0);
+      expect(
+        secondResult.stateSnapshot.calibrationMetrics.hasLastRepBreakdown,
+        isFalse,
+      );
     });
 
     test(
@@ -1440,7 +1624,148 @@ ExerciseMetrics _sideFilteredMetrics({
   );
 }
 
-ExerciseConfig _squatConfig() {
+RangeRepCoordinatorFrameResult _scoreCompletedCoreData({
+  required ExerciseConfig config,
+  required RangeRepCompletedRepCoreData completedRepCoreData,
+  RangeRepDiagnosticsSnapshot diagnosticsSnapshot =
+      const RangeRepDiagnosticsSnapshot(),
+}) {
+  final clock = _TestClock();
+  final engine = _CompletingRangeRepEngine(
+    config: config,
+    now: clock.now,
+    completedRepCoreData: completedRepCoreData,
+    diagnosticsSnapshot: diagnosticsSnapshot,
+  );
+  final coordinator = DefaultRangeRepCoordinator(
+    engine: engine,
+    config: config,
+    rangeRepContract: RangeRepContracts.squat,
+    rangeRepValidationConfig: const RangeRepValidationConfig(),
+  );
+
+  return _processAcceptedFrame(coordinator, clock, angle: 170);
+}
+
+RangeRepCompletedRepCoreData _completedRepCoreData({
+  Duration descentDuration = const Duration(milliseconds: 1000),
+  Duration ascentDuration = const Duration(milliseconds: 500),
+  bool hadFormViolation = false,
+}) {
+  return RangeRepCompletedRepCoreData(
+    repIndex: 1,
+    minAngle: 90.0,
+    worstFormMetric: hadFormViolation ? 40.0 : 60.0,
+    descentDuration: descentDuration,
+    ascentDuration: ascentDuration,
+    hadFormViolation: hadFormViolation,
+    completedPhaseSequence: true,
+  );
+}
+
+void _completeLegacySquatRep(RangeRepEngine engine, _TestClock clock) {
+  _confirmLegacyTransition(
+    engine,
+    clock,
+    angle: 170,
+    confirmationWindow: const Duration(milliseconds: 101),
+  );
+  _confirmLegacyTransition(engine, clock, angle: 140);
+  _confirmLegacyTransition(engine, clock, angle: 90);
+  _confirmLegacyTransition(engine, clock, angle: 110);
+  _confirmLegacyTransition(
+    engine,
+    clock,
+    angle: 170,
+    confirmationWindow: const Duration(milliseconds: 101),
+  );
+}
+
+void _confirmLegacyTransition(
+  RangeRepEngine engine,
+  _TestClock clock, {
+  required double angle,
+  Duration confirmationWindow = const Duration(milliseconds: 81),
+}) {
+  engine.update(AnalysisFrame(primaryMetric: angle, formMetric: 60));
+  clock.advance(confirmationWindow);
+  engine.update(AnalysisFrame(primaryMetric: angle, formMetric: 60));
+}
+
+void _expectScoreParity(
+  RangeRepCoordinatorFrameResult result, {
+  required RangeRepCompletedRepCoreData completedRepCoreData,
+  required RepScoreBreakdown expectedBreakdown,
+}) {
+  final metrics = result.stateSnapshot.calibrationMetrics;
+
+  expect(
+    result.stateSnapshot.lastRepScore,
+    closeTo(expectedBreakdown.finalScore, 0.001),
+  );
+  expect(
+    result.stateSnapshot.lastRepRom,
+    closeTo(completedRepCoreData.minAngle, 0.001),
+  );
+  expect(metrics.hasLastRepBreakdown, isTrue);
+  expect(metrics.lastRepRomScore, closeTo(expectedBreakdown.romScore, 0.001));
+  expect(
+    metrics.lastRepDescentScore,
+    closeTo(expectedBreakdown.descentScore, 0.001),
+  );
+  expect(
+    metrics.lastRepAscentScore,
+    closeTo(expectedBreakdown.ascentScore, 0.001),
+  );
+  expect(
+    metrics.lastRepWorstBackAngle,
+    closeTo(expectedBreakdown.worstBackAngle, 0.001),
+  );
+  expect(metrics.lastRepHadFormViolation, expectedBreakdown.hadFormViolation);
+  _expectNullableScore(
+    metrics.phaseQualityPenalty,
+    expectedBreakdown.phaseQualityPenalty,
+  );
+  _expectNullableScore(
+    metrics.phaseAdjustedScore,
+    expectedBreakdown.phaseAdjustedScore,
+  );
+  expect(metrics.lastRangeRepSummaryMinAngle, completedRepCoreData.minAngle);
+  expect(
+    metrics.lastRangeRepSummaryDescentMillis,
+    completedRepCoreData.descentDuration.inMilliseconds,
+  );
+  expect(
+    metrics.lastRangeRepSummaryAscentMillis,
+    completedRepCoreData.ascentDuration.inMilliseconds,
+  );
+}
+
+void _expectNullableScore(double? actual, double? expected) {
+  if (expected == null) {
+    expect(actual, isNull);
+    return;
+  }
+
+  expect(actual, closeTo(expected, 0.001));
+}
+
+RepScoreBreakdown _sentinelBreakdown() {
+  return const RepScoreBreakdown(
+    minAngle: 1.0,
+    romScore: 1.0,
+    descentSeconds: 1.0,
+    descentScore: 1.0,
+    ascentSeconds: 1.0,
+    ascentScore: 1.0,
+    worstBackAngle: 1.0,
+    hadFormViolation: false,
+    runtimeBaseScore: 1.0,
+    finalScore: 1.0,
+  );
+}
+
+ExerciseConfig _squatConfig({RangeRepScoreWeightsConfig? scoreWeights}) {
   return ExerciseConfig(
     name: 'Squat',
     primaryJoint: PoseLandmarkType.leftKnee,
@@ -1454,7 +1779,48 @@ ExerciseConfig _squatConfig() {
     idealDescentSeconds: 1.5,
     idealAscentSeconds: 1.0,
     tempoPenaltyPerSecond: 20.0,
+    rangeRepScoreWeights: scoreWeights,
   );
+}
+
+class _CompletingRangeRepEngine extends RangeRepEngine {
+  _CompletingRangeRepEngine({
+    required super.config,
+    required DateTime Function() now,
+    required this.completedRepCoreData,
+    required RangeRepDiagnosticsSnapshot diagnosticsSnapshot,
+  }) : _diagnosticsSnapshot = diagnosticsSnapshot,
+       super(now: now);
+
+  final RangeRepCompletedRepCoreData completedRepCoreData;
+  final RangeRepDiagnosticsSnapshot _diagnosticsSnapshot;
+  bool _didUpdate = false;
+  bool _didConsume = false;
+
+  @override
+  double get lastRepRom => completedRepCoreData.minAngle;
+
+  @override
+  RangeRepDiagnosticsSnapshot get diagnosticsSnapshot => _diagnosticsSnapshot;
+
+  @override
+  void updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+  }) {
+    _didUpdate = true;
+    repCount = completedRepCoreData.repIndex;
+  }
+
+  @override
+  RangeRepCompletedRepCoreData? consumeCompletedRepCoreData() {
+    if (!_didUpdate || _didConsume) {
+      return null;
+    }
+
+    _didConsume = true;
+    return completedRepCoreData;
+  }
 }
 
 class _RecordingRangeRepEngine extends RangeRepEngine {

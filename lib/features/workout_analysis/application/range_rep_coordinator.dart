@@ -1,15 +1,17 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/moving_average.dart';
+import '../domain/legacy_range_rep_scorer.dart';
+import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_feedback_code.dart';
-import '../domain/range_rep_analysis_engine.dart';
+import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
-import '../domain/legacy_range_rep_technique_evaluator.dart';
+import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_diagnostics.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'analysis_frame_builder.dart';
@@ -168,6 +170,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required ExerciseConfig config,
     required RangeRepContract rangeRepContract,
     required RangeRepValidationConfig rangeRepValidationConfig,
+    LegacyRangeRepScorer scorer = const LegacyRangeRepScorer(),
     LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
         const LegacyRangeRepTechniqueEvaluator(),
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
@@ -189,6 +192,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }) : _engine = engine,
        _config = config,
        _rangeRepContract = rangeRepContract,
+       _scorer = scorer,
        _techniqueEvaluator = techniqueEvaluator,
        _analysisFrameBuilder = analysisFrameBuilder,
        _blockedStateBuilder = blockedStateBuilder,
@@ -220,6 +224,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepAnalysisEngine _engine;
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
+  final LegacyRangeRepScorer _scorer;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final RangeRepBlockedStateBuilder _blockedStateBuilder;
@@ -254,6 +259,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   SessionCalibrationBaseline? _sessionCalibrationBaseline;
   List<PoseLandmark>? _lastPublishedLandmarks;
   double _lastPublishedCurrentAngle = 0.0;
+  double _lastRepScore = 0.0;
+  RepScoreBreakdown? _lastRepScoreBreakdown;
   WorkoutCalibrationMetrics _lastPublishedCalibrationMetrics =
       const WorkoutCalibrationMetrics.rangeRep();
 
@@ -366,7 +373,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
               repCount: _engine.repCount,
               isFormBad: _engine.isFormBad,
               currentAngle: _lastPublishedCurrentAngle,
-              lastRepScore: _engine.lastRepScore,
+              lastRepScore: _lastRepScore,
               lastRepRom: _engine.lastRepRom,
               currentPhase: _engine.phaseLabel,
               calibrationMetrics: _lastPublishedCalibrationMetrics,
@@ -440,7 +447,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       repCount: _engine.repCount,
       isFormBad: _engine.isFormBad,
       currentAngle: _lastPublishedCurrentAngle,
-      lastRepScore: _engine.lastRepScore,
+      lastRepScore: _lastRepScore,
       lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: _lastPublishedCalibrationMetrics,
@@ -567,6 +574,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final completedRepCoreData = _consumeCompletedRepCoreData();
     final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
     final didCompleteRep = completedRepCoreData != null;
+    if (completedRepCoreData != null) {
+      _scoreCompletedRep(
+        completedRepCoreData: completedRepCoreData,
+        postUpdateDiagnostics: postUpdateDiagnostics,
+      );
+    }
     _outcomeTracker.activateCompletedRepOutcomeIfAny(
       engineKind: EngineKind.rangeRep,
       analysisKindLabel: EngineKind.rangeRep.name,
@@ -629,7 +642,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       repCount: _engine.repCount,
       isFormBad: _engine.isFormBad,
       currentAngle: _currentAngleForState(analysisFrame),
-      lastRepScore: _engine.lastRepScore,
+      lastRepScore: _lastRepScore,
       lastRepRom: _engine.lastRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: calibrationMetrics,
@@ -852,6 +865,87 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
   }
 
+  void _scoreCompletedRep({
+    required RangeRepCompletedRepCoreData completedRepCoreData,
+    required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
+  }) {
+    final romScore = _scorer.calculateRomScore(
+      minAngle: completedRepCoreData.minAngle,
+      targetMinAngle: _config.targetMinAngle,
+    );
+    final descentSeconds =
+        completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
+    final descentScore = _scorer.calculateTempoScore(
+      actualSeconds: descentSeconds,
+      idealSeconds: _config.idealDescentSeconds,
+      tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
+    );
+    final ascentSeconds =
+        completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
+    final ascentScore = _scorer.calculateTempoScore(
+      actualSeconds: ascentSeconds,
+      idealSeconds: _config.idealAscentSeconds,
+      tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
+    );
+    final tempoScore = (descentScore + ascentScore) / 2;
+    final depthScore = romScore;
+    final descentControlScore = descentScore;
+    final ascentControlScore = ascentScore;
+    final scoreWeights = _config.rangeRepScoreWeights;
+    final weightedBaseScore = scoreWeights == null
+        ? null
+        : _scorer.calculateWeightedBaseScore(
+            depthScore: depthScore,
+            descentControlScore: descentControlScore,
+            ascentControlScore: ascentControlScore,
+            depthWeight: scoreWeights.depthWeight ?? 1.0,
+            descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
+            ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
+          );
+    final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
+      descendingPhaseFlagged:
+          postUpdateDiagnostics.descendingPhaseAssessment.status ==
+          RangeRepPhaseQualityStatus.flagged,
+      ascendingPhaseFlagged:
+          postUpdateDiagnostics.ascendingPhaseAssessment.status ==
+          RangeRepPhaseQualityStatus.flagged,
+    );
+    final baseScore = _scorer.calculateBaseScore(
+      romScore: romScore,
+      tempoScore: tempoScore,
+      weightedBaseScore: weightedBaseScore,
+      hadFormViolation: completedRepCoreData.hadFormViolation,
+    );
+    final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
+      baseScore: baseScore,
+      phaseQualityPenalty: phaseQualityPenalty,
+    );
+    final finalScore = _scorer.calculateFinalScore(
+      baseScore: baseScore,
+      phaseAdjustedScore: phaseAdjustedScore,
+    );
+
+    _lastRepScore = finalScore;
+    _lastRepScoreBreakdown = RepScoreBreakdown(
+      minAngle: completedRepCoreData.minAngle,
+      romScore: romScore,
+      descentSeconds: descentSeconds,
+      descentScore: descentScore,
+      ascentSeconds: ascentSeconds,
+      ascentScore: ascentScore,
+      worstBackAngle: completedRepCoreData.worstFormMetric,
+      hadFormViolation: completedRepCoreData.hadFormViolation,
+      runtimeBaseScore: baseScore,
+      finalScore: finalScore,
+      depthScore: depthScore,
+      descentControlScore: descentControlScore,
+      ascentControlScore: ascentControlScore,
+      weightedBaseScore: weightedBaseScore,
+      phaseQualityPenalty: phaseQualityPenalty,
+      phaseAdjustedScore: phaseAdjustedScore,
+    );
+  }
+
   WorkoutCalibrationMetrics _buildCalibrationMetrics({
     required double currentFormMetric,
     required double thresholdValue,
@@ -892,7 +986,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     bool hasLegExtensionAngle = false,
   }) {
     final diagnostics = _rangeRepDiagnosticsSnapshot();
-    final lastBreakdown = diagnostics.lastRepScoreBreakdown;
+    final lastBreakdown = _lastRepScoreBreakdown;
     final lastValidationResult = _outcomeTracker.lastRangeRepValidationResult;
     final lastSummaryCandidate =
         _outcomeTracker.lastRangeRepRepSummaryCandidate;
@@ -1122,7 +1216,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       repCount: _engine.repCount,
       isFormBad: false,
       currentAngle: preview.previewAngle,
-      lastRepScore: _engine.lastRepScore,
+      lastRepScore: _lastRepScore,
       lastRepRom: _engine.lastRepRom,
       currentPhase: currentPhase,
       calibrationMetrics: calibrationMetrics,
