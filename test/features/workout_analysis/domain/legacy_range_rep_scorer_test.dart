@@ -134,5 +134,67 @@ void main() {
         );
       });
     });
+
+    group('calculateBaseScore', () {
+      test('uses the legacy average without a weighted score', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 60,
+            weightedBaseScore: null,
+            hadFormViolation: false,
+          ),
+          70,
+        );
+      });
+
+      test('halves the legacy average for a form violation', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 60,
+            weightedBaseScore: null,
+            hadFormViolation: true,
+          ),
+          35,
+        );
+      });
+
+      test('uses a weighted score unchanged without a form violation', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 60,
+            weightedBaseScore: 75,
+            hadFormViolation: false,
+          ),
+          75,
+        );
+      });
+
+      test('halves a weighted score for a form violation', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 60,
+            weightedBaseScore: 75,
+            hadFormViolation: true,
+          ),
+          37.5,
+        );
+      });
+
+      test('uses a non-null weighted score of zero', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 60,
+            weightedBaseScore: 0,
+            hadFormViolation: false,
+          ),
+          0,
+        );
+      });
+    });
   });
 }
