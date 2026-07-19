@@ -318,6 +318,55 @@ void main() {
     });
   });
 
+  group('RangeRepEngine detection-only production path', () {
+    test('completes detection without technique, feedback, or score state', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _confirmDetectionTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+      _confirmDetectionTransition(clock, engine, angle: 140);
+      _confirmDetectionTransition(clock, engine, angle: 90);
+      _confirmDetectionTransition(clock, engine, angle: 110);
+      final completed = _confirmDetectionTransition(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      expect(completed.didCompleteRep, isTrue);
+      expect(completed.completedRepDetectionData?.repIndex, 1);
+      expect(completed.completedRepDetectionData?.minAngle, 90);
+      expect(
+        completed.completedRepDetectionData?.completedPhaseSequence,
+        isTrue,
+      );
+      expect(completed.completedRepCoreData, isNull);
+      expect(engine.repCount, 1);
+      expect(engine.lastRepRom, 90);
+      expect(engine.isFormBad, isFalse);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.awaitNeutral);
+      expect(engine.lastRepScore, 0);
+      expect(engine.lastRepScoreBreakdown, isNull);
+      expect(engine.lastCompletedRepCoreData, isNull);
+      expect(engine.consumeCompletedRepCoreData(), isNull);
+      expect(engine.detectionDiagnosticsSnapshot.hasActiveRepPhase, isFalse);
+      expect(
+        engine.detectionDiagnosticsSnapshot.currentRepHadFormViolation,
+        isFalse,
+      );
+      expect(
+        engine.detectionDiagnosticsSnapshot.descendingPhaseQuality.hasData,
+        isFalse,
+      );
+    });
+  });
+
   group('RangeRepEngine typed lifecycle result', () {
     test('reports arming boundaries without observing a rep phase', () {
       final clock = _TestClock();
@@ -853,7 +902,7 @@ void main() {
         now: _TestClock().now,
       );
 
-      final resume = engine.resumeAfterBriefVisibilityGap(_frame(170, 60));
+      final resume = engine.resumeAfterBriefVisibilityGap(primaryMetric: 170);
 
       expect(resume.disposition, VisibilityGapResumeDisposition.noGap);
       expect(resume.appliedGapDuration, Duration.zero);
@@ -870,7 +919,7 @@ void main() {
       engine.beginBriefVisibilityGap();
       clock.advance(const Duration(milliseconds: 1000));
 
-      final resume = engine.resumeAfterBriefVisibilityGap(_frame(90, 60));
+      final resume = engine.resumeAfterBriefVisibilityGap(primaryMetric: 90);
       engine.update(_frame(90, 60));
 
       _confirmTransition(clock, engine, angle: 110);
@@ -898,7 +947,7 @@ void main() {
       engine.beginBriefVisibilityGap();
       clock.advance(const Duration(milliseconds: 1000));
 
-      final resume = engine.resumeAfterBriefVisibilityGap(_frame(170, 60));
+      final resume = engine.resumeAfterBriefVisibilityGap(primaryMetric: 170);
 
       expect(resume.isCompatible, isFalse);
       expect(resume.appliedGapDuration, Duration.zero);
@@ -1021,7 +1070,7 @@ void _completeRepWithBriefDescendingGap(
   engine.update(_frame(120, 60));
   engine.beginBriefVisibilityGap();
   clock.advance(const Duration(milliseconds: 1000));
-  final resume = engine.resumeAfterBriefVisibilityGap(_frame(120, 60));
+  final resume = engine.resumeAfterBriefVisibilityGap(primaryMetric: 120);
   expect(resume.isCompatible, isTrue);
   expect(resume.appliedGapDuration, const Duration(milliseconds: 1000));
   engine.update(_frame(120, 60));
@@ -1081,6 +1130,17 @@ RangeRepEngineFrameResult _confirmTransitionWithTechniqueAssessment(
     _frame(angle, backAngle),
     techniqueAssessment: RangeRepTechniqueAssessment.empty,
   );
+}
+
+RangeRepEngineFrameResult _confirmDetectionTransition(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  required double angle,
+  Duration confirmationWindow = _transitionConfirmationWindow,
+}) {
+  engine.updateDetectionFrame(primaryMetric: angle);
+  clock.advance(confirmationWindow);
+  return engine.updateDetectionFrame(primaryMetric: angle);
 }
 
 void _expectConfirmedTransition(
