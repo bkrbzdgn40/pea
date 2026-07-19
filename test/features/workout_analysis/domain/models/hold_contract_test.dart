@@ -62,7 +62,9 @@ void main() {
         },
       );
 
-      expect(contract.requiredSignals, const <HoldSignal>{HoldSignal.alignment});
+      expect(contract.requiredSignals, const <HoldSignal>{
+        HoldSignal.alignment,
+      });
       expect(contract.supportsSignal(HoldSignal.hipDeviation), isTrue);
       expect(
         contract.signalsForRole(AnalysisSignalRole.technique),

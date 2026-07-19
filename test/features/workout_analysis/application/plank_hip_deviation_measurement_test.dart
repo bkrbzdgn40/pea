@@ -193,12 +193,7 @@ List<PoseLandmark> _landmarks({
       : PoseLandmarkType.rightAnkle;
 
   return <PoseLandmark>[
-    buildLandmark(
-      shoulderType,
-      shoulderX,
-      shoulderY,
-      likelihood: 0.95,
-    ),
+    buildLandmark(shoulderType, shoulderX, shoulderY, likelihood: 0.95),
     buildLandmark(hipType, hipX, hipY, likelihood: 0.95),
     buildLandmark(ankleType, ankleX, ankleY, likelihood: 0.95),
   ];

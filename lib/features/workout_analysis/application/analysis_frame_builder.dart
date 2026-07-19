@@ -26,10 +26,7 @@ class WorkoutAnalysisFrameBuilder {
     return AnalysisFrame(
       primaryMetric: primaryMetricFilter.process(primaryMetric),
       formMetric: formMetricFilter.process(formMetric),
-      holdSignalValues: _smoothHoldSignals(
-        holdSignalValues,
-        holdSignalFilters,
-      ),
+      holdSignalValues: _smoothHoldSignals(holdSignalValues, holdSignalFilters),
     );
   }
 

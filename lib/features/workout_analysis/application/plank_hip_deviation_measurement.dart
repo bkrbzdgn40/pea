@@ -22,15 +22,18 @@ class PlankHipDeviationMeasurement {
       for (final landmark in landmarks) landmark.type: landmark,
     };
     final isLeft = side == HoldSide.left;
-    final shoulder = landmarksByType[
-      isLeft ? PoseLandmarkType.leftShoulder : PoseLandmarkType.rightShoulder
-    ];
-    final hip = landmarksByType[
-      isLeft ? PoseLandmarkType.leftHip : PoseLandmarkType.rightHip
-    ];
-    final ankle = landmarksByType[
-      isLeft ? PoseLandmarkType.leftAnkle : PoseLandmarkType.rightAnkle
-    ];
+    final shoulder =
+        landmarksByType[isLeft
+            ? PoseLandmarkType.leftShoulder
+            : PoseLandmarkType.rightShoulder];
+    final hip =
+        landmarksByType[isLeft
+            ? PoseLandmarkType.leftHip
+            : PoseLandmarkType.rightHip];
+    final ankle =
+        landmarksByType[isLeft
+            ? PoseLandmarkType.leftAnkle
+            : PoseLandmarkType.rightAnkle];
 
     if (shoulder == null || hip == null || ankle == null) {
       return null;
