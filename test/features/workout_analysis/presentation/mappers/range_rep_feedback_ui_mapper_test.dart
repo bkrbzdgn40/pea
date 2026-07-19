@@ -4,7 +4,18 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/range_rep_feedback_ui_mapper.dart';
 
 void main() {
-  test('squat keeps the existing directional and form copy', () {
+  test('legacy form threshold feedback code is anatomy-neutral', () {
+    expect(
+      RangeRepFeedbackCode.legacyFormThresholdViolation.code,
+      'legacy_form_threshold_violation',
+    );
+    expect(
+      RangeRepFeedbackCode.keepBodyUpright,
+      RangeRepFeedbackCode.legacyFormThresholdViolation,
+    );
+  });
+
+  test('squat keeps directional copy without an upright-back claim', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
@@ -14,10 +25,10 @@ void main() {
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
-        RangeRepFeedbackCode.keepBodyUpright,
+        RangeRepFeedbackCode.legacyFormThresholdViolation,
         exerciseType: ExerciseType.squat,
       ),
-      'Sirtini Dik Tut!',
+      'Formunu koru.',
     );
   });
 
@@ -79,10 +90,10 @@ void main() {
     );
   });
 
-  test('sit-up uses a form-appropriate feedback copy', () {
+  test('sit-up keeps compatibility form copy anatomy-specific', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
-        RangeRepFeedbackCode.keepBodyUpright,
+        RangeRepFeedbackCode.legacyFormThresholdViolation,
         exerciseType: ExerciseType.sitUp,
       ),
       'Bacak acini koru.',
@@ -113,10 +124,10 @@ void main() {
     );
   });
 
-  test('biceps curl uses elbow-control form feedback', () {
+  test('biceps curl keeps elbow-control form feedback', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
-        RangeRepFeedbackCode.keepBodyUpright,
+        RangeRepFeedbackCode.legacyFormThresholdViolation,
         exerciseType: ExerciseType.bicepsCurl,
       ),
       'Dirseklerini sabit tut ve kollarini birlikte hareket ettir.',
