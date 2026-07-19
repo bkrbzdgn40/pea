@@ -196,5 +196,47 @@ void main() {
         );
       });
     });
+
+    group('calculatePhaseQualityPenalty', () {
+      test('returns null when neither phase is flagged', () {
+        expect(
+          scorer.calculatePhaseQualityPenalty(
+            descendingPhaseFlagged: false,
+            ascendingPhaseFlagged: false,
+          ),
+          isNull,
+        );
+      });
+
+      test('returns five when only descending is flagged', () {
+        expect(
+          scorer.calculatePhaseQualityPenalty(
+            descendingPhaseFlagged: true,
+            ascendingPhaseFlagged: false,
+          ),
+          5,
+        );
+      });
+
+      test('returns five when only ascending is flagged', () {
+        expect(
+          scorer.calculatePhaseQualityPenalty(
+            descendingPhaseFlagged: false,
+            ascendingPhaseFlagged: true,
+          ),
+          5,
+        );
+      });
+
+      test('returns ten when both phases are flagged', () {
+        expect(
+          scorer.calculatePhaseQualityPenalty(
+            descendingPhaseFlagged: true,
+            ascendingPhaseFlagged: true,
+          ),
+          10,
+        );
+      });
+    });
   });
 }
