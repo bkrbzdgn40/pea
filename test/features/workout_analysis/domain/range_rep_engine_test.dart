@@ -486,8 +486,10 @@ void main() {
       _acquireNeutral(clock, engine, angle: 125, backAngle: 120);
       _confirmTransition(clock, engine, angle: 108, backAngle: 55);
       _confirmTransition(clock, engine, angle: 52.7, backAngle: 55);
+      engine.update(_frame(52.7, 55));
 
       expect(engine.isFormBad, isTrue);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.keepBodyUpright);
       expect(engine.diagnosticsSnapshot.currentRepHadFormViolation, isTrue);
 
       _confirmTransition(clock, engine, angle: 92, backAngle: 55);

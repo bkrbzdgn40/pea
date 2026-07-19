@@ -1,4 +1,5 @@
 import 'analysis_visibility_gap_window.dart';
+import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
 import 'models/range_rep_feedback_code.dart';
@@ -189,6 +190,8 @@ class _MutableRangeRepPhaseQuality {
 class RangeRepEngine implements RangeRepAnalysisEngine {
   final ExerciseConfig config;
   final DateTime Function() _now;
+  final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator =
+      const LegacyRangeRepTechniqueEvaluator();
 
   MovementPhase state = MovementPhase.neutral;
   bool _isArmed = false;
@@ -870,7 +873,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   void _checkForm(double backAngle) {
     // Live feedback uses the current frame; final scoring uses rep-level history.
-    if (backAngle < config.formThreshold) {
+    final techniqueAssessment = _techniqueEvaluator.evaluate(
+      formMetric: backAngle,
+      formThreshold: config.formThreshold,
+    );
+    if (techniqueAssessment.hasObservations) {
       isFormBad = true;
       _setFeedback(RangeRepFeedbackCode.keepBodyUpright);
     } else {
