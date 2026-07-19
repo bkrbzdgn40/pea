@@ -176,8 +176,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
             ),
           );
           _torsoDriftTracker.reset();
-        } else if (_previousPhase == 'DESCENDING' ||
-            _previousPhase == 'PEAK') {
+        } else if (_previousPhase == 'DESCENDING' || _previousPhase == 'PEAK') {
           _resetTorsoDrift(clearObservations: true);
         }
         break;
