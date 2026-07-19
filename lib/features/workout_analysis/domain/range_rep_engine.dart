@@ -4,6 +4,7 @@ import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
 import 'models/range_rep_feedback_code.dart';
+import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
 import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
@@ -305,16 +306,36 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   /// Updates live form feedback and advances the repetition state machine.
   @override
   void update(AnalysisFrame frame) {
+    final techniqueAssessment = _techniqueEvaluator.evaluate(
+      formMetric: frame.formMetric,
+      formThreshold: config.formThreshold,
+    );
+    updateWithTechniqueAssessment(
+      frame,
+      techniqueAssessment: techniqueAssessment,
+    );
+  }
+
+  @override
+  void updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+  }) {
+    final hasTechniqueViolation = techniqueAssessment.hasObservations;
     if (_isArmed) {
-      _checkForm(frame.formMetric);
+      _checkForm(hasTechniqueViolation);
     } else {
       isFormBad = false;
       _setFeedback(RangeRepFeedbackCode.awaitNeutral);
     }
-    _processState(frame.primaryMetric, frame.formMetric);
+    _processState(frame.primaryMetric, frame.formMetric, hasTechniqueViolation);
   }
 
-  void _processState(double angle, double backAngle) {
+  void _processState(
+    double angle,
+    double backAngle,
+    bool hasTechniqueViolation,
+  ) {
     final now = _now();
 
     if (!_isArmed) {
@@ -344,18 +365,24 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         if (confirmedAt != null) {
           state = MovementPhase.descending;
           _descentStartTime = confirmedAt;
-          _startRepMetrics(angle, backAngle, phaseStartedAt: confirmedAt);
+          _startRepMetrics(
+            angle,
+            backAngle,
+            hasTechniqueViolation: hasTechniqueViolation,
+            phaseStartedAt: confirmedAt,
+          );
           _setFeedback(RangeRepFeedbackCode.descend);
         }
         break;
 
       case MovementPhase.descending:
-        _trackRepForm(backAngle);
+        _trackRepForm(backAngle, hasTechniqueViolation);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
         _recordPhaseObservation(
           phase: MovementPhase.descending,
           primaryMetric: angle,
           formMetric: backAngle,
+          hasTechniqueViolation: hasTechniqueViolation,
         );
 
         final peakConfirmedAt = _confirmTransition(
@@ -378,6 +405,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             phaseStartedAt: peakConfirmedAt,
             primaryMetric: angle,
             formMetric: backAngle,
+            hasTechniqueViolation: hasTechniqueViolation,
           );
           _setFeedback(RangeRepFeedbackCode.ascend);
         } else {
@@ -395,12 +423,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         break;
 
       case MovementPhase.peak:
-        _trackRepForm(backAngle);
+        _trackRepForm(backAngle, hasTechniqueViolation);
         if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
         _recordPhaseObservation(
           phase: MovementPhase.peak,
           primaryMetric: angle,
           formMetric: backAngle,
+          hasTechniqueViolation: hasTechniqueViolation,
         );
 
         final ascentConfirmedAt = _confirmTransition(
@@ -420,17 +449,19 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             phaseStartedAt: ascentConfirmedAt,
             primaryMetric: angle,
             formMetric: backAngle,
+            hasTechniqueViolation: hasTechniqueViolation,
           );
           _setFeedback(RangeRepFeedbackCode.ascend);
         }
         break;
 
       case MovementPhase.ascending:
-        _trackRepForm(backAngle);
+        _trackRepForm(backAngle, hasTechniqueViolation);
         _recordPhaseObservation(
           phase: MovementPhase.ascending,
           primaryMetric: angle,
           formMetric: backAngle,
+          hasTechniqueViolation: hasTechniqueViolation,
         );
         final repCompleteAt = _confirmTransition(
           transition: _PhaseTransition.completeRep,
@@ -733,12 +764,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required DateTime phaseStartedAt,
     required double primaryMetric,
     required double formMetric,
+    required bool hasTechniqueViolation,
   }) {
     _phaseQualityFor(phase).start(
       startedAt: phaseStartedAt,
       primaryMetric: primaryMetric,
       formMetric: formMetric,
-      hadFormViolation: _hasLegacyTechniqueViolation(formMetric),
+      hadFormViolation: hasTechniqueViolation,
     );
   }
 
@@ -746,11 +778,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required MovementPhase phase,
     required double primaryMetric,
     required double formMetric,
+    required bool hasTechniqueViolation,
   }) {
     _phaseQualityFor(phase).record(
       primaryMetric: primaryMetric,
       formMetric: formMetric,
-      hadFormViolation: _hasLegacyTechniqueViolation(formMetric),
+      hadFormViolation: hasTechniqueViolation,
     );
   }
 
@@ -787,25 +820,27 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   void _startRepMetrics(
     double angle,
     double backAngle, {
+    required bool hasTechniqueViolation,
     required DateTime phaseStartedAt,
   }) {
     _currentRepMinAngle = angle;
     _currentRepWorstBackAngle = backAngle;
-    _currentRepHadFormViolation = _hasLegacyTechniqueViolation(backAngle);
+    _currentRepHadFormViolation = hasTechniqueViolation;
     _resetPhaseQualityTelemetry();
     _beginPhaseTelemetry(
       phase: MovementPhase.descending,
       phaseStartedAt: phaseStartedAt,
       primaryMetric: angle,
       formMetric: backAngle,
+      hasTechniqueViolation: hasTechniqueViolation,
     );
   }
 
-  void _trackRepForm(double backAngle) {
+  void _trackRepForm(double backAngle, bool hasTechniqueViolation) {
     if (backAngle < _currentRepWorstBackAngle) {
       _currentRepWorstBackAngle = backAngle;
     }
-    if (_hasLegacyTechniqueViolation(backAngle)) {
+    if (hasTechniqueViolation) {
       _currentRepHadFormViolation = true;
     }
   }
@@ -818,20 +853,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     _clearPendingTransition();
   }
 
-  void _checkForm(double backAngle) {
+  void _checkForm(bool hasTechniqueViolation) {
     // Live feedback uses the current frame; final scoring uses rep-level history.
-    if (_hasLegacyTechniqueViolation(backAngle)) {
+    if (hasTechniqueViolation) {
       isFormBad = true;
       _setFeedback(RangeRepFeedbackCode.keepBodyUpright);
     } else {
       isFormBad = false;
     }
-  }
-
-  bool _hasLegacyTechniqueViolation(double formMetric) {
-    return _techniqueEvaluator
-        .evaluate(formMetric: formMetric, formThreshold: config.formThreshold)
-        .hasObservations;
   }
 
   double get _descentEntryThreshold =>

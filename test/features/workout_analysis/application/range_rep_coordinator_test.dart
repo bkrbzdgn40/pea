@@ -6,9 +6,13 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_rep_outcome_tracker.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/legacy_range_rep_technique_evaluator.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
@@ -140,6 +144,119 @@ void main() {
       expect(calibrationMetrics.lastRangeRepValidationStatus, 'valid');
       expect(calibrationMetrics.rangeRepValidatedCount, 1);
       expect(calibrationMetrics.rangeRepInvalidCount, 0);
+    });
+
+    test(
+      'evaluates the threshold-adjusted metric once and calls only the typed engine API',
+      () {
+        const cases =
+            <
+              ({
+                double finalRawMetric,
+                double expectedAdjustedMetric,
+                bool hasViolation,
+              })
+            >[
+              (
+                finalRawMetric: 49.0,
+                expectedAdjustedMetric: 44.75,
+                hasViolation: true,
+              ),
+              (
+                finalRawMetric: 50.0,
+                expectedAdjustedMetric: 45.0,
+                hasViolation: false,
+              ),
+              (
+                finalRawMetric: 51.0,
+                expectedAdjustedMetric: 45.25,
+                hasViolation: false,
+              ),
+            ];
+
+        for (final testCase in cases) {
+          final clock = _TestClock();
+          final config = _squatConfig();
+          final engine = _RecordingRangeRepEngine(
+            config: config,
+            now: clock.now,
+          );
+          final evaluator = _RecordingTechniqueEvaluator();
+          final coordinator = DefaultRangeRepCoordinator(
+            engine: engine,
+            config: config,
+            rangeRepContract: RangeRepContracts.squat,
+            rangeRepValidationConfig: const RangeRepValidationConfig(),
+            techniqueEvaluator: evaluator,
+          );
+
+          _pumpAcceptedFrames(
+            coordinator,
+            clock,
+            angle: 170,
+            formMetric: 50,
+            count: 3,
+            spacing: Duration.zero,
+          );
+          _processAcceptedFrame(
+            coordinator,
+            clock,
+            angle: 170,
+            formMetric: testCase.finalRawMetric,
+          );
+
+          expect(evaluator.formMetrics, hasLength(4));
+          expect(engine.typedUpdateCount, 4);
+          expect(engine.legacyUpdateCount, 0);
+          expect(
+            evaluator.formMetrics.last,
+            closeTo(testCase.expectedAdjustedMetric, 0.001),
+          );
+          expect(
+            engine.frames.last.formMetric,
+            closeTo(testCase.expectedAdjustedMetric, 0.001),
+          );
+          expect(
+            engine.assessments.last.hasObservations,
+            testCase.hasViolation,
+          );
+        }
+      },
+    );
+
+    test('does not evaluate technique for invalid or blocked frames', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = _RecordingRangeRepEngine(config: config, now: clock.now);
+      final evaluator = _RecordingTechniqueEvaluator();
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(),
+        techniqueEvaluator: evaluator,
+      );
+
+      coordinator.processFrame(
+        metrics: const ExerciseMetrics.noPose(),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: false,
+        qualityAcceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: null,
+      );
+      coordinator.processFrame(
+        metrics: _leftRangeRepMetrics(angle: 170, formMetric: 40),
+        now: clock.now(),
+        isAcceptedPoseFrame: false,
+        didBecomeStableTracking: false,
+        qualityAcceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.left},
+        preferredRangeRepSide: RangeRepSide.left,
+      );
+
+      expect(evaluator.formMetrics, isEmpty);
+      expect(engine.typedUpdateCount, 0);
+      expect(engine.legacyUpdateCount, 0);
     });
 
     test(
@@ -1338,6 +1455,47 @@ ExerciseConfig _squatConfig() {
     idealAscentSeconds: 1.0,
     tempoPenaltyPerSecond: 20.0,
   );
+}
+
+class _RecordingRangeRepEngine extends RangeRepEngine {
+  _RecordingRangeRepEngine({
+    required super.config,
+    required DateTime Function() now,
+  }) : super(now: now);
+
+  int legacyUpdateCount = 0;
+  int typedUpdateCount = 0;
+  final List<AnalysisFrame> frames = <AnalysisFrame>[];
+  final List<RangeRepTechniqueAssessment> assessments =
+      <RangeRepTechniqueAssessment>[];
+
+  @override
+  void update(AnalysisFrame frame) {
+    legacyUpdateCount++;
+  }
+
+  @override
+  void updateWithTechniqueAssessment(
+    AnalysisFrame frame, {
+    required RangeRepTechniqueAssessment techniqueAssessment,
+  }) {
+    typedUpdateCount++;
+    frames.add(frame);
+    assessments.add(techniqueAssessment);
+  }
+}
+
+class _RecordingTechniqueEvaluator extends LegacyRangeRepTechniqueEvaluator {
+  final List<double> formMetrics = <double>[];
+
+  @override
+  RangeRepTechniqueAssessment evaluate({
+    required double formMetric,
+    required double formThreshold,
+  }) {
+    formMetrics.add(formMetric);
+    return super.evaluate(formMetric: formMetric, formThreshold: formThreshold);
+  }
 }
 
 class _TestClock {
