@@ -23,7 +23,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Print formatter diff
+      - name: Capture formatter diff
         run: |
           dart format .
-          git diff --exit-code || true
+          git diff > format.diff
+
+      - name: Upload formatter diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: format-diff
+          path: format.diff
+          if-no-files-found: error
