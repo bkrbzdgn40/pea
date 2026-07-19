@@ -34,29 +34,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Capture temporary formatting diff
-        run: |
-          dart format .
-          git diff > formatting.diff
+      - name: Verify formatting
+        run: dart format --set-exit-if-changed .
 
       - name: Run static analysis
         run: flutter analyze
 
       - name: Run test suite
-        run: |
-          set -o pipefail
-          flutter test 2>&1 | tee test-output.log
-
-      - name: Upload temporary R12B diagnostics
-        if: ${{ always() && !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: r12b-ci-diagnostics
-          path: |
-            formatting.diff
-            test-output.log
-          if-no-files-found: ignore
-          retention-days: 1
+        run: flutter test
 
       - name: Generate coverage report
         run: flutter test --coverage
