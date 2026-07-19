@@ -40,19 +40,19 @@ void main() {
     },
   );
 
-  test('Sit-up primary metric follows shoulder-to-hip torso inclination', () {
+  test('Sit-up primary metric follows shoulder-to-hip torso orientation', () {
     final metrics = extractor.extract(
-      _sitUpPose(torsoInclination: 30, kneeAngle: 120),
+      _sitUpPose(torsoAngle: 125, kneeAngle: 120),
       config,
       engineKind: EngineKind.rangeRep,
       rangeRepContract: RangeRepContracts.sitUp,
     );
 
     expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
-    expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(30, 0.001));
+    expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(125, 0.001));
     expect(
       metrics.leftRangeRepMetrics.formSignals?.depthMetric,
-      closeTo(30, 0.001),
+      closeTo(125, 0.001),
     );
   });
 
@@ -60,13 +60,13 @@ void main() {
     'changing knee setup does not change Sit-up primary detection metric',
     () {
       final first = extractor.extract(
-        _sitUpPose(torsoInclination: 18, kneeAngle: 120),
+        _sitUpPose(torsoAngle: 108, kneeAngle: 120),
         config,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
       );
       final second = extractor.extract(
-        _sitUpPose(torsoInclination: 18, kneeAngle: 45),
+        _sitUpPose(torsoAngle: 108, kneeAngle: 45),
         config,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.sitUp,
@@ -86,7 +86,7 @@ void main() {
   test('missing knee setup landmark does not remove Sit-up primary metric', () {
     final metrics = extractor.extract(
       _sitUpPose(
-        torsoInclination: 18,
+        torsoAngle: 82,
         kneeAngle: 120,
         missingLandmarks: const <PoseLandmarkType>{
           PoseLandmarkType.leftAnkle,
@@ -98,7 +98,7 @@ void main() {
     );
 
     expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isTrue);
-    expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(18, 0.001));
+    expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(82, 0.001));
     expect(metrics.leftRangeRepMetrics.hasFormMetric, isFalse);
   });
 
@@ -141,11 +141,11 @@ ExerciseConfig _loadConfig(String path) {
 }
 
 Pose _sitUpPose({
-  required double torsoInclination,
+  required double torsoAngle,
   required double kneeAngle,
   Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
 }) {
-  final torsoRadians = torsoInclination * math.pi / 180.0;
+  final torsoRadians = torsoAngle * math.pi / 180.0;
   final kneeRadians = kneeAngle * math.pi / 180.0;
   final landmarks = <PoseLandmarkType, PoseLandmark>{};
 
@@ -158,8 +158,8 @@ Pose _sitUpPose({
   add(PoseLandmarkType.leftHip, 0, 0);
   add(
     PoseLandmarkType.leftShoulder,
+    math.cos(torsoRadians),
     math.sin(torsoRadians),
-    -math.cos(torsoRadians),
   );
   add(PoseLandmarkType.leftKnee, 1, 0);
   add(
