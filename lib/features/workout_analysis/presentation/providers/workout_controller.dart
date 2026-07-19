@@ -680,6 +680,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _diagnostics.updateRangeRepState(
         repCount: publishedState.repCount,
         currentPhase: publishedState.currentPhase,
+        signalRoles: _rangeRepContract!.signalRoles,
         calibrationOffsetDegrees:
             publishedState.calibrationMetrics.calibrationThresholdOffsetApplied
             ? publishedState
@@ -695,6 +696,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       bestHoldSeconds: publishedState.bestHoldSeconds.round(),
       currentPhase: publishedState.currentPhase,
       isHolding: publishedState.isHolding,
+      signalRoles: _holdContract!.signalRoles,
       presentedHoldFeedbackCode: publishedState.holdFeedbackCode,
       holdDiagnostics: _holdCoordinatorOrThrow().diagnosticsSnapshot(),
       currentHoldSide: publishedState.selectedHoldSide,

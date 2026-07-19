@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
@@ -98,6 +99,11 @@ void main() {
             RangeRepSignal.formMetric,
             RangeRepSignal.alignmentMetric,
           },
+          signalRoles: _testRangeRepSignalRoles(const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.alignmentMetric,
+          }),
         );
 
         final metrics = extractor.extract(
@@ -154,6 +160,11 @@ void main() {
             RangeRepSignal.formMetric,
             RangeRepSignal.depthMetric,
           },
+          signalRoles: _testRangeRepSignalRoles(const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.depthMetric,
+          }),
         );
 
         final metrics = extractor.extract(
@@ -191,6 +202,11 @@ void main() {
             RangeRepSignal.formMetric,
             RangeRepSignal.alignmentMetric,
           },
+          signalRoles: _testRangeRepSignalRoles(const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.alignmentMetric,
+          }),
         );
 
         final metrics = extractor.extract(
@@ -254,6 +270,12 @@ void main() {
             RangeRepSignal.depthMetric,
             RangeRepSignal.alignmentMetric,
           },
+          signalRoles: _testRangeRepSignalRoles(const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.depthMetric,
+            RangeRepSignal.alignmentMetric,
+          }),
         );
 
         final metrics = extractor.extract(
@@ -395,6 +417,12 @@ void main() {
             RangeRepSignal.postureAngle,
             RangeRepSignal.depthMetric,
           },
+          signalRoles: _testRangeRepSignalRoles(const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+            RangeRepSignal.formMetric,
+            RangeRepSignal.postureAngle,
+            RangeRepSignal.depthMetric,
+          }),
         );
 
         final metrics = extractor.extract(
@@ -815,6 +843,10 @@ void main() {
               HoldSignal.alignment,
               HoldSignal.support,
             },
+            signalRoles: _testHoldSignalRoles(const <HoldSignal>{
+              HoldSignal.alignment,
+              HoldSignal.support,
+            }),
           ),
           holdSide: HoldSide.left,
         );
@@ -1123,6 +1155,24 @@ void main() {
       );
     });
   });
+}
+
+Map<RangeRepSignal, Set<AnalysisSignalRole>> _testRangeRepSignalRoles(
+  Iterable<RangeRepSignal> signals,
+) {
+  return <RangeRepSignal, Set<AnalysisSignalRole>>{
+    for (final signal in signals)
+      signal: <AnalysisSignalRole>{AnalysisSignalRole.detection},
+  };
+}
+
+Map<HoldSignal, Set<AnalysisSignalRole>> _testHoldSignalRoles(
+  Iterable<HoldSignal> signals,
+) {
+  return <HoldSignal, Set<AnalysisSignalRole>>{
+    for (final signal in signals)
+      signal: <AnalysisSignalRole>{AnalysisSignalRole.detection},
+  };
 }
 
 ExerciseConfig _loadConfig(String path) {

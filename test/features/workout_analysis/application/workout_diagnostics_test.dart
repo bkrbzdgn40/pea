@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -22,7 +24,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 3);
+    expect(snapshot.schemaVersion, 4);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -128,6 +130,7 @@ void main() {
         ..updateRangeRepState(
           repCount: 3,
           currentPhase: 'ASCENDING',
+          signalRoles: RangeRepContracts.squat.signalRoles,
           calibrationOffsetDegrees: 2.5,
         );
 
@@ -144,7 +147,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 3);
+      expect(json['schema_version'], 4);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -180,13 +183,18 @@ void main() {
     );
     final subject = accumulator()
       ..recordSelectedSide(selectedSide: 'left', hasActiveRepContext: true)
-      ..updateRangeRepState(repCount: 2, currentPhase: 'PEAK')
+      ..updateRangeRepState(
+        repCount: 2,
+        currentPhase: 'PEAK',
+        signalRoles: RangeRepContracts.squat.signalRoles,
+      )
       ..updateLivePerformance(cameraFps: 30, analysisFps: 8)
       ..updateHoldState(
         currentHoldSeconds: 4,
         bestHoldSeconds: 7,
         currentPhase: 'HOLDING',
         isHolding: true,
+        signalRoles: HoldContracts.plankFamily.signalRoles,
         presentedHoldFeedbackCode: HoldFeedbackCode.bodyNotVisible,
         holdDiagnostics: holdDiagnostics,
         currentHoldSide: HoldSide.right,
@@ -233,7 +241,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 3);
+    expect(json['schema_version'], 4);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -294,6 +302,7 @@ void main() {
           bestHoldSeconds: 8,
           currentPhase: 'HOLDING',
           isHolding: true,
+          signalRoles: HoldContracts.hollowHold.signalRoles,
           presentedHoldFeedbackCode: HoldFeedbackCode.holdPosition,
           holdDiagnostics: holdDiagnostics,
           currentHoldSide: HoldSide.left,
@@ -344,6 +353,79 @@ void main() {
     );
   });
 
+  test('range-rep roles serialize by enum order without frame values', () {
+    final subject = accumulator()
+      ..updateRangeRepState(
+        repCount: 0,
+        currentPhase: 'AWAITING_NEUTRAL',
+        signalRoles: <RangeRepSignal, Set<AnalysisSignalRole>>{
+          RangeRepSignal.formMetric: <AnalysisSignalRole>{
+            AnalysisSignalRole.scoring,
+            AnalysisSignalRole.validation,
+            AnalysisSignalRole.technique,
+          },
+          RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+            AnalysisSignalRole.scoring,
+            AnalysisSignalRole.detection,
+            AnalysisSignalRole.validation,
+          },
+        },
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final json = snapshot.toJson();
+    final serialized = json['range_rep_signal_roles']! as Map<String, Object?>;
+
+    expect(
+      snapshot.rangeRepSignalRoles.keys,
+      containsAll(<RangeRepSignal>[
+        RangeRepSignal.primaryMetric,
+        RangeRepSignal.formMetric,
+      ]),
+    );
+    expect(serialized.keys.toList(), <String>['primaryMetric', 'formMetric']);
+    expect(serialized['primaryMetric'], <String>[
+      'detection',
+      'validation',
+      'scoring',
+    ]);
+    expect(serialized['formMetric'], <String>[
+      'validation',
+      'technique',
+      'scoring',
+    ]);
+    expect(json['hold_signal_roles'], isNull);
+  });
+
+  test('hold roles expose only the active hold contract signals', () {
+    final subject = accumulator()
+      ..updateHoldState(
+        currentHoldSeconds: 0,
+        bestHoldSeconds: 0,
+        currentPhase: 'READY',
+        isHolding: false,
+        signalRoles: HoldContracts.hollowHold.signalRoles,
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final json = snapshot.toJson();
+    final serialized = json['hold_signal_roles']! as Map<String, Object?>;
+
+    expect(snapshot.holdSignalRoles, HoldContracts.hollowHold.signalRoles);
+    expect(serialized.keys.toList(), <String>[
+      'compression',
+      'armExtension',
+      'kneeExtension',
+    ]);
+    expect(serialized['compression'], <String>[
+      'detection',
+      'validation',
+      'technique',
+    ]);
+    expect(serialized, isNot(contains(HoldSignal.alignment.name)));
+    expect(json['range_rep_signal_roles'], isNull);
+  });
+
   test('processing duration keeps the newest 10000 samples', () {
     final subject = accumulator();
     for (var index = 0; index <= 10000; index++) {
@@ -366,6 +448,7 @@ void main() {
         bestHoldSeconds: 5,
         currentPhase: 'HOLDING',
         isHolding: true,
+        signalRoles: HoldContracts.plankFamily.signalRoles,
         presentedHoldFeedbackCode: HoldFeedbackCode.preparePosition,
         holdDiagnostics: HoldDiagnosticsSnapshot(
           phase: HoldPhase.ready,
@@ -398,7 +481,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 3);
+    expect(json['schema_version'], 4);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['camera_frame_count'], 0);

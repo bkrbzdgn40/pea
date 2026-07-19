@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
@@ -188,6 +189,10 @@ void main() {
             HoldSignal.alignment,
             HoldSignal.support,
           },
+          signalRoles: _testHoldSignalRoles(const <HoldSignal>{
+            HoldSignal.alignment,
+            HoldSignal.support,
+          }),
         ),
         holdSide: HoldSide.left,
       );
@@ -315,6 +320,10 @@ void main() {
             HoldSignal.compression,
             HoldSignal.armExtension,
           },
+          signalRoles: _testHoldSignalRoles(const <HoldSignal>{
+            HoldSignal.compression,
+            HoldSignal.armExtension,
+          }),
         ),
         holdSide: HoldSide.left,
       );
@@ -383,6 +392,15 @@ void main() {
       },
     );
   });
+}
+
+Map<HoldSignal, Set<AnalysisSignalRole>> _testHoldSignalRoles(
+  Iterable<HoldSignal> signals,
+) {
+  return <HoldSignal, Set<AnalysisSignalRole>>{
+    for (final signal in signals)
+      signal: <AnalysisSignalRole>{AnalysisSignalRole.detection},
+  };
 }
 
 ExerciseConfig _holdConfig() {

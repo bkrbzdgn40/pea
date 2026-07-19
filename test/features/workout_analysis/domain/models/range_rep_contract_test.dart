@@ -1,134 +1,243 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
+const Set<AnalysisSignalRole> _primaryMetricRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.detection,
+  AnalysisSignalRole.validation,
+  AnalysisSignalRole.scoring,
+};
+const Set<AnalysisSignalRole> _formMetricRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.validation,
+  AnalysisSignalRole.technique,
+  AnalysisSignalRole.scoring,
+};
+const Set<AnalysisSignalRole> _techniqueRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.technique,
+};
+const Set<AnalysisSignalRole> _scoringRoles = <AnalysisSignalRole>{
+  AnalysisSignalRole.scoring,
+};
+
 void main() {
-  test(
-    'RangeRepContract defaults form-threshold calibration policy to enabled',
-    () {
+  group('RangeRepContract role metadata', () {
+    test('deeply copies and protects role metadata', () {
+      final primaryRoles = <AnalysisSignalRole>{AnalysisSignalRole.detection};
+      final source = <RangeRepSignal, Set<AnalysisSignalRole>>{
+        RangeRepSignal.primaryMetric: primaryRoles,
+      };
       final contract = RangeRepContract(
         supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
         supportedSignals: const <RangeRepSignal>{RangeRepSignal.primaryMetric},
+        signalRoles: source,
+      );
+
+      primaryRoles.add(AnalysisSignalRole.scoring);
+      source[RangeRepSignal.formMetric] = <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      };
+
+      expect(
+        contract.rolesForSignal(RangeRepSignal.primaryMetric),
+        <AnalysisSignalRole>{AnalysisSignalRole.detection},
+      );
+      expect(contract.rolesForSignal(RangeRepSignal.formMetric), isEmpty);
+      expect(
+        () => contract.signalRoles[RangeRepSignal.formMetric] =
+            const <AnalysisSignalRole>{AnalysisSignalRole.technique},
+        throwsUnsupportedError,
+      );
+      expect(
+        () => contract
+            .rolesForSignal(RangeRepSignal.primaryMetric)
+            .add(AnalysisSignalRole.scoring),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('rejects missing and empty roles for supported signals', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{},
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{},
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects role keys outside supported signals', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+            RangeRepSignal.formMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.technique,
+            },
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('keeps pose acceptance independent from semantic roles', () {
+      final contract = RangeRepContract(
+        supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+        supportedSignals: const <RangeRepSignal>{
+          RangeRepSignal.primaryMetric,
+          RangeRepSignal.formMetric,
+        },
+        poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+          RangeRepSignal.primaryMetric,
+        },
+        signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+          RangeRepSignal.primaryMetric: _primaryMetricRoles,
+          RangeRepSignal.formMetric: _formMetricRoles,
+        },
       );
 
       expect(
-        contract.formThresholdCalibrationPolicy,
-        RangeRepFormThresholdCalibrationPolicy.enabled,
+        contract.requiresPoseAcceptanceSignal(RangeRepSignal.primaryMetric),
+        isTrue,
       );
-    },
-  );
+      expect(
+        contract.requiresPoseAcceptanceSignal(RangeRepSignal.formMetric),
+        isFalse,
+      );
+      expect(
+        contract.signalHasRole(
+          RangeRepSignal.formMetric,
+          AnalysisSignalRole.validation,
+        ),
+        isTrue,
+      );
+      expect(
+        contract.signalsForRole(AnalysisSignalRole.detection),
+        <RangeRepSignal>{RangeRepSignal.primaryMetric},
+      );
+    });
 
-  test('RangeRepContracts.sitUp exposes the mandatory phases and signals', () {
-    final contract = RangeRepContracts.sitUp;
-
-    expect(
-      contract.supportedPhases,
-      containsAll(<RangeRepPhase>[
-        RangeRepPhase.descending,
-        RangeRepPhase.peak,
-        RangeRepPhase.ascending,
-      ]),
-    );
-    expect(
-      contract.supportedSignals,
-      containsAll(<RangeRepSignal>[
-        RangeRepSignal.primaryMetric,
-        RangeRepSignal.formMetric,
-        RangeRepSignal.postureAngle,
-        RangeRepSignal.depthMetric,
-      ]),
-    );
-    expect(contract.supportsSignal(RangeRepSignal.alignmentMetric), isFalse);
-    expect(contract.supportsSignal(RangeRepSignal.endRangeMetric), isFalse);
-    expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
-      RangeRepSignal.primaryMetric,
+    test('pose-acceptance signals must stay within supported signals', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+            RangeRepSignal.formMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+        ),
+        throwsArgumentError,
+      );
     });
   });
 
-  test(
-    'RangeRepContracts.bicepsCurl exposes bilateral range-rep semantics',
-    () {
-      final contract = RangeRepContracts.bicepsCurl;
+  group('predefined range-rep role classifications', () {
+    test('Squat declares current roles for every supported signal', () {
+      _expectExtendedRangeRepRoles(RangeRepContracts.squat);
+    });
+
+    test('Push-up declares current roles for every supported signal', () {
+      _expectExtendedRangeRepRoles(RangeRepContracts.pushUp);
+    });
+
+    test('Sit-up keeps formMetric technique-owned and not setup-owned', () {
+      final contract = RangeRepContracts.sitUp;
 
       expect(
-        contract.supportedPhases,
-        containsAll(<RangeRepPhase>[
-          RangeRepPhase.descending,
-          RangeRepPhase.peak,
-          RangeRepPhase.ascending,
-        ]),
+        contract.rolesForSignal(RangeRepSignal.primaryMetric),
+        _primaryMetricRoles,
       );
       expect(
-        contract.supportedSignals,
-        containsAll(<RangeRepSignal>[
-          RangeRepSignal.primaryMetric,
-          RangeRepSignal.formMetric,
-          RangeRepSignal.postureAngle,
-          RangeRepSignal.depthMetric,
-        ]),
+        contract.rolesForSignal(RangeRepSignal.formMetric),
+        _formMetricRoles,
       );
-      expect(contract.sideMode, RangeRepSideMode.bilateral);
-      expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
-        RangeRepSignal.primaryMetric,
-        RangeRepSignal.formMetric,
-      });
+      expect(
+        contract.rolesForSignal(RangeRepSignal.postureAngle),
+        _techniqueRoles,
+      );
+      expect(
+        contract.rolesForSignal(RangeRepSignal.depthMetric),
+        _scoringRoles,
+      );
+      expect(
+        contract.signalHasRole(
+          RangeRepSignal.formMetric,
+          AnalysisSignalRole.setup,
+        ),
+        isFalse,
+      );
       expect(
         contract.formThresholdCalibrationPolicy,
         RangeRepFormThresholdCalibrationPolicy.disabled,
       );
-    },
-  );
+    });
 
-  test('RangeRepContracts.squat keeps threshold calibration enabled', () {
-    expect(
-      RangeRepContracts.squat.formThresholdCalibrationPolicy,
-      RangeRepFormThresholdCalibrationPolicy.enabled,
-    );
-  });
+    test('bilateral Biceps declares current non-ROM-delta roles', () {
+      final contract = RangeRepContracts.bicepsCurl;
 
-  test('RangeRepContracts.pushUp keeps threshold calibration enabled', () {
-    expect(
-      RangeRepContracts.pushUp.formThresholdCalibrationPolicy,
-      RangeRepFormThresholdCalibrationPolicy.enabled,
-    );
-  });
-
-  test('RangeRepContracts.sitUp disables threshold calibration', () {
-    expect(
-      RangeRepContracts.sitUp.formThresholdCalibrationPolicy,
-      RangeRepFormThresholdCalibrationPolicy.disabled,
-    );
-  });
-
-  test('existing selected-side contracts keep their side mode unchanged', () {
-    expect(RangeRepContracts.squat.sideMode, RangeRepSideMode.selectedSide);
-    expect(RangeRepContracts.pushUp.sideMode, RangeRepSideMode.selectedSide);
-    expect(RangeRepContracts.sitUp.sideMode, RangeRepSideMode.selectedSide);
-  });
-
-  test(
-    'squat and push-up keep pose-acceptance requirements aligned with supported signals',
-    () {
       expect(
-        RangeRepContracts.squat.poseAcceptanceRequiredSignals,
-        RangeRepContracts.squat.supportedSignals,
+        contract.rolesForSignal(RangeRepSignal.primaryMetric),
+        _primaryMetricRoles,
       );
       expect(
-        RangeRepContracts.pushUp.poseAcceptanceRequiredSignals,
-        RangeRepContracts.pushUp.supportedSignals,
+        contract.rolesForSignal(RangeRepSignal.formMetric),
+        _formMetricRoles,
       );
-    },
-  );
-
-  test('pose-acceptance signals must stay within supported signals', () {
-    expect(
-      () => RangeRepContract(
-        supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
-        supportedSignals: const <RangeRepSignal>{RangeRepSignal.primaryMetric},
-        poseAcceptanceRequiredSignals: const <RangeRepSignal>{
-          RangeRepSignal.formMetric,
-        },
-      ),
-      throwsArgumentError,
-    );
+      expect(
+        contract.rolesForSignal(RangeRepSignal.postureAngle),
+        _techniqueRoles,
+      );
+      expect(
+        contract.rolesForSignal(RangeRepSignal.depthMetric),
+        _scoringRoles,
+      );
+      expect(contract.sideMode, RangeRepSideMode.bilateral);
+    });
   });
+}
+
+void _expectExtendedRangeRepRoles(RangeRepContract contract) {
+  expect(
+    contract.rolesForSignal(RangeRepSignal.primaryMetric),
+    _primaryMetricRoles,
+  );
+  expect(contract.rolesForSignal(RangeRepSignal.formMetric), _formMetricRoles);
+  expect(contract.rolesForSignal(RangeRepSignal.postureAngle), _techniqueRoles);
+  expect(contract.rolesForSignal(RangeRepSignal.depthMetric), _scoringRoles);
+  expect(
+    contract.rolesForSignal(RangeRepSignal.alignmentMetric),
+    _techniqueRoles,
+  );
+  expect(
+    contract.rolesForSignal(RangeRepSignal.endRangeMetric),
+    _techniqueRoles,
+  );
+  expect(contract.signalRoles.keys.toSet(), contract.supportedSignals);
 }

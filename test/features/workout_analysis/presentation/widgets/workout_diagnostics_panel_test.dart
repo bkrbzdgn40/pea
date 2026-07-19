@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagnostics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -35,6 +37,43 @@ void main() {
     expect(find.text('Schema version'), findsOneWidget);
     expect(find.text('Elapsed time'), findsOneWidget);
     expect(find.text('5 sn'), findsOneWidget);
+  });
+
+  testWidgets('active range-rep signal roles render in canonical order', (
+    tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () =>
+          _snapshot(rangeRepSignalRoles: RangeRepContracts.sitUp.signalRoles),
+      onReset: () {},
+    );
+
+    expect(find.text('Signal roles'), findsOneWidget);
+    expect(find.text('primaryMetric roles'), findsOneWidget);
+    expect(find.text('detection, validation, scoring'), findsOneWidget);
+    expect(find.text('formMetric roles'), findsOneWidget);
+    expect(find.text('validation, technique, scoring'), findsOneWidget);
+    expect(find.text('alignment roles'), findsNothing);
+  });
+
+  testWidgets('active hold roles render without range-rep leakage', (
+    tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(
+        analysisKind: 'hold',
+        holdSignalRoles: HoldContracts.plankFamily.signalRoles,
+      ),
+      onReset: () {},
+    );
+
+    expect(find.text('alignment roles'), findsOneWidget);
+    expect(find.text('support roles'), findsOneWidget);
+    expect(find.text('extension roles'), findsOneWidget);
+    expect(find.text('detection, validation, technique'), findsNWidgets(3));
+    expect(find.text('primaryMetric roles'), findsNothing);
   });
 
   testWidgets('hold typed state alanlarini gosterir', (tester) async {
@@ -239,7 +278,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 3);
+    expect(decoded['schema_version'], 4);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -394,7 +433,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 3,
+  int schemaVersion = 4,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -434,6 +473,10 @@ WorkoutDiagnosticsSnapshot _snapshot({
   HoldSignalValidity? signalValidity,
   bool? isHoldFormBreakGraceActive,
   bool? isHoldVisibilitySuspended,
+  Map<RangeRepSignal, Set<AnalysisSignalRole>> rangeRepSignalRoles =
+      const <RangeRepSignal, Set<AnalysisSignalRole>>{},
+  Map<HoldSignal, Set<AnalysisSignalRole>> holdSignalRoles =
+      const <HoldSignal, Set<AnalysisSignalRole>>{},
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -466,6 +509,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
             activeRepSideSwitchCount: activeRepSideSwitchCount,
             currentSelectedSide: currentSelectedSide,
             lastCalibrationOffsetDegrees: lastCalibrationOffsetDegrees,
+            signalRoles: rangeRepSignalRoles,
           )
         : null,
     holdDiagnostics: analysisKind == 'hold'
@@ -484,6 +528,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
             signalValidity: signalValidity,
             isHoldFormBreakGraceActive: isHoldFormBreakGraceActive,
             isHoldVisibilitySuspended: isHoldVisibilitySuspended,
+            signalRoles: holdSignalRoles,
           )
         : null,
     currentCameraFps: currentCameraFps,
