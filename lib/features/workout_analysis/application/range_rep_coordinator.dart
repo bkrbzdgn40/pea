@@ -9,6 +9,7 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/models/session_calibration_baseline.dart';
+import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/range_rep_diagnostics.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'analysis_frame_builder.dart';
@@ -167,6 +168,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required ExerciseConfig config,
     required RangeRepContract rangeRepContract,
     required RangeRepValidationConfig rangeRepValidationConfig,
+    LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
+        const LegacyRangeRepTechniqueEvaluator(),
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
         const WorkoutAnalysisFrameBuilder(),
     RangeRepBlockedStateBuilder blockedStateBuilder =
@@ -186,6 +189,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }) : _engine = engine,
        _config = config,
        _rangeRepContract = rangeRepContract,
+       _techniqueEvaluator = techniqueEvaluator,
        _analysisFrameBuilder = analysisFrameBuilder,
        _blockedStateBuilder = blockedStateBuilder,
        _calibrationSnapshotBuilder = calibrationSnapshotBuilder,
@@ -216,6 +220,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepAnalysisEngine _engine;
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
+  final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final RangeRepBlockedStateBuilder _blockedStateBuilder;
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder;
@@ -551,7 +556,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       analysisFrame,
       formThresholdResolution,
     );
-    _engine.update(engineFrame);
+    final techniqueAssessment = _techniqueEvaluator.evaluate(
+      formMetric: engineFrame.formMetric,
+      formThreshold: _config.formThreshold,
+    );
+    _engine.updateWithTechniqueAssessment(
+      engineFrame,
+      techniqueAssessment: techniqueAssessment,
+    );
     final completedRepCoreData = _consumeCompletedRepCoreData();
     final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
     final didCompleteRep = completedRepCoreData != null;

@@ -3,6 +3,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 
@@ -311,6 +312,85 @@ void main() {
       );
       expect(violatedEngine.lastRepScore, violatedBreakdown.finalScore);
       expect(violatedEngine.lastRepScore, lessThan(cleanEngine.lastRepScore));
+    });
+  });
+
+  group('RangeRepEngine typed technique assessment path', () {
+    test('empty assessment overrides a below-threshold legacy metric', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      engine.updateWithTechniqueAssessment(
+        _frame(170, 40),
+        techniqueAssessment: RangeRepTechniqueAssessment.empty,
+      );
+
+      expect(engine.isFormBad, isFalse);
+      expect(engine.feedbackCode, isNot(RangeRepFeedbackCode.keepBodyUpright));
+    });
+
+    test('non-empty assessment overrides an above-threshold legacy metric', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutral(clock, engine);
+      engine.updateWithTechniqueAssessment(
+        _frame(170, 60),
+        techniqueAssessment: _techniqueViolationAssessment(),
+      );
+
+      expect(engine.isFormBad, isTrue);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.keepBodyUpright);
+    });
+
+    test('keeps live form clear when the frame starts before arming', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+      final violationAssessment = _techniqueViolationAssessment();
+
+      engine.updateWithTechniqueAssessment(
+        _frame(170, 40),
+        techniqueAssessment: violationAssessment,
+      );
+      clock.advance(_neutralConfirmationWindow);
+      engine.updateWithTechniqueAssessment(
+        _frame(170, 40),
+        techniqueAssessment: violationAssessment,
+      );
+
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.isFormBad, isFalse);
+      expect(engine.feedbackCode, RangeRepFeedbackCode.ready);
+    });
+
+    test('keeps typed violations sticky in rep and phase history', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+
+      _acquireNeutralWithTechniqueAssessment(clock, engine);
+      _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 140);
+      engine.updateWithTechniqueAssessment(
+        _frame(130, 60),
+        techniqueAssessment: _techniqueViolationAssessment(),
+      );
+      _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 90);
+      _confirmTransitionWithTechniqueAssessment(clock, engine, angle: 110);
+      _confirmTransitionWithTechniqueAssessment(
+        clock,
+        engine,
+        angle: 170,
+        confirmationWindow: _neutralConfirmationWindow,
+      );
+
+      final diagnostics = engine.diagnosticsSnapshot;
+      expect(engine.repCount, 1);
+      expect(engine.lastRepScoreBreakdown?.hadFormViolation, isTrue);
+      expect(diagnostics.descendingPhaseQuality.hadFormViolation, isTrue);
+      expect(
+        diagnostics.descendingPhaseAssessment.issues,
+        contains(RangeRepPhaseQualityIssue.formViolation),
+      );
     });
   });
 
@@ -769,6 +849,36 @@ void _acquireNeutral(
   );
 }
 
+void _acquireNeutralWithTechniqueAssessment(
+  _TestClock clock,
+  RangeRepEngine engine,
+) {
+  _confirmTransitionWithTechniqueAssessment(
+    clock,
+    engine,
+    angle: 170,
+    confirmationWindow: _neutralConfirmationWindow,
+  );
+}
+
+void _confirmTransitionWithTechniqueAssessment(
+  _TestClock clock,
+  RangeRepEngine engine, {
+  required double angle,
+  double backAngle = 60,
+  Duration confirmationWindow = _transitionConfirmationWindow,
+}) {
+  engine.updateWithTechniqueAssessment(
+    _frame(angle, backAngle),
+    techniqueAssessment: RangeRepTechniqueAssessment.empty,
+  );
+  clock.advance(confirmationWindow);
+  engine.updateWithTechniqueAssessment(
+    _frame(angle, backAngle),
+    techniqueAssessment: RangeRepTechniqueAssessment.empty,
+  );
+}
+
 void _confirmTransition(
   _TestClock clock,
   RangeRepEngine engine, {
@@ -783,6 +893,18 @@ void _confirmTransition(
 
 AnalysisFrame _frame(double angle, double backAngle) {
   return AnalysisFrame(primaryMetric: angle, formMetric: backAngle);
+}
+
+RangeRepTechniqueAssessment _techniqueViolationAssessment() {
+  return RangeRepTechniqueAssessment(
+    observations: const <RangeRepTechniqueObservation>[
+      RangeRepTechniqueObservation(
+        type: RangeRepTechniqueObservationType.legacyFormThresholdViolation,
+        code: 'legacy_form_threshold_violation',
+        severity: RangeRepTechniqueSeverity.warning,
+      ),
+    ],
+  );
 }
 
 ExerciseConfig _squatConfig({RangeRepPhaseQualityConfig? phaseQuality}) {
