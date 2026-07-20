@@ -54,6 +54,11 @@ service cloud.firestore {
       return value == null || value is timestamp;
     }
 
+    function isNullableUnitInterval(value) {
+      return value == null ||
+        (value is number && value >= 0 && value <= 1);
+    }
+
     function hasSessionFields() {
       return request.resource.data.keys().hasOnly([
         'id',
@@ -166,6 +171,12 @@ service cloud.firestore {
         'switchedSideDuringRep',
         'completedPhaseSequence',
         'selectedSide',
+        'confidence',
+        'primaryRom',
+        'eccentricMillis',
+        'concentricMillis',
+        'techniqueObservations',
+        'coverageQuality',
         'feedback',
         'createdAt',
       ]) &&
@@ -223,6 +234,23 @@ service cloud.firestore {
           request.resource.data.get('completedPhaseSequence', null),
         ) &&
         isNullableString(request.resource.data.get('selectedSide', null)) &&
+        isNullableUnitInterval(request.resource.data.get('confidence', null)) &&
+        isNullableNonNegativeNumber(
+          request.resource.data.get('primaryRom', null),
+        ) &&
+        isNullableNonNegativeInt(
+          request.resource.data.get('eccentricMillis', null),
+        ) &&
+        isNullableNonNegativeInt(
+          request.resource.data.get('concentricMillis', null),
+        ) &&
+        (
+          request.resource.data.get('techniqueObservations', null) == null ||
+          request.resource.data.get('techniqueObservations', null) is list
+        ) &&
+        isNullableUnitInterval(
+          request.resource.data.get('coverageQuality', null),
+        ) &&
         isNullableString(request.resource.data.get('feedback', null));
     }
 

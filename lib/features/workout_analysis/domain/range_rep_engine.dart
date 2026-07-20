@@ -249,6 +249,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   // Compatibility ROM value for the most recently completed repetition.
   double _lastRepRom = 180.0;
+  double _currentRepStartAngle = 180.0;
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
@@ -670,12 +671,17 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
+    final primaryRom = (_currentRepStartAngle - _lastRepRom)
+        .clamp(0.0, 180.0)
+        .toDouble();
     final detectionData = RangeRepCompletedRepDetectionData(
       repIndex: repCount,
       minAngle: _lastRepRom,
       descentDuration: lastDescentTime,
       ascentDuration: lastAscentTime,
       completedPhaseSequence: completedPhaseSequence,
+      startAngle: _currentRepStartAngle,
+      primaryRom: primaryRom,
     );
     if (!tracksCompatibilityTechnique) {
       return _RangeRepCompletionFacts(detectionData: detectionData);
@@ -712,6 +718,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       ascentDuration: detectionData.ascentDuration,
       hadFormViolation: _currentRepHadFormViolation,
       completedPhaseSequence: detectionData.completedPhaseSequence,
+      startAngle: detectionData.startAngle,
+      primaryRom: detectionData.primaryRom,
     );
     lastCompletedRepCoreData = completedRepCoreData;
 
@@ -986,6 +994,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   void _startDetectionRepMetrics(double primaryMetric) {
+    _currentRepStartAngle = primaryMetric;
     _currentRepMinAngle = primaryMetric;
   }
 
@@ -1022,6 +1031,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   void _resetDetectionRepMetrics() {
+    _currentRepStartAngle = 180.0;
     _currentRepMinAngle = 180.0;
     _clearPendingTransition();
   }

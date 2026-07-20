@@ -34,6 +34,18 @@ void main() {
         ascentMillis: 700,
         feedback: 'Daha derine in',
         selectedSideLabel: 'left',
+        confidence: 0.91,
+        primaryRom: 62.0,
+        eccentricMillis: 800,
+        concentricMillis: 700,
+        techniqueObservations: const <Map<String, Object?>>[
+          <String, Object?>{
+            'type': 'torsoSwing',
+            'code': 'biceps_torso_swing_observed',
+            'severity': 'info',
+          },
+        ],
+        coverageQuality: 0.94,
       );
 
       final document = mapper.toDocument(rep: rep, session: session);
@@ -54,6 +66,12 @@ void main() {
       expect(document['minPrimaryMetric'], 98.5);
       expect(document['worstFormMetric'], 53.0);
       expect(document['selectedSide'], 'left');
+      expect(document['confidence'], 0.91);
+      expect(document['primaryRom'], 62.0);
+      expect(document['eccentricMillis'], 800);
+      expect(document['concentricMillis'], 700);
+      expect(document['techniqueObservations'], hasLength(1));
+      expect(document['coverageQuality'], 0.94);
       expect(document['feedback'], 'Daha derine in');
     });
 
@@ -76,6 +94,18 @@ void main() {
         'ascentMillis': 500,
         'feedback': 'Guzel kontrol',
         'selectedSide': 'right',
+        'confidence': 0.88,
+        'primaryRom': 70.0,
+        'eccentricMillis': 600,
+        'concentricMillis': 500,
+        'techniqueObservations': const <Map<String, Object?>>[
+          <String, Object?>{
+            'type': 'torsoSwing',
+            'code': 'biceps_torso_swing_observed',
+            'severity': 'info',
+          },
+        ],
+        'coverageQuality': 0.9,
         'createdAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 0, 3)),
       });
 
@@ -89,6 +119,13 @@ void main() {
       expect(rep.ascentMillis, 500);
       expect(rep.feedback, 'Guzel kontrol');
       expect(rep.selectedSideLabel, 'right');
+      expect(rep.selectedSide, 'right');
+      expect(rep.confidence, 0.88);
+      expect(rep.primaryRom, 70.0);
+      expect(rep.eccentricMillis, 600);
+      expect(rep.concentricMillis, 500);
+      expect(rep.techniqueObservations, hasLength(1));
+      expect(rep.coverageQuality, 0.9);
       expect(rep.recordedAt?.toUtc(), DateTime.utc(2026, 1, 1, 12, 0, 3));
     });
 

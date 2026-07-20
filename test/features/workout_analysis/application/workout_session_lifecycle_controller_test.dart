@@ -6,6 +6,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/reposi
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_session_lifecycle_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 
@@ -129,6 +130,16 @@ void main() {
           switchedSideDuringRep: true,
           completedPhaseSequence: false,
           selectedSideLabel: 'right',
+          confidence: 0.82,
+          primaryRom: 55,
+          coverageQuality: 0.76,
+          techniqueObservations: const <RangeRepTechniqueObservation>[
+            RangeRepTechniqueObservation(
+              type: RangeRepTechniqueObservationType.torsoSwing,
+              code: 'biceps_torso_swing_observed',
+              severity: RangeRepTechniqueSeverity.info,
+            ),
+          ],
         ),
       );
 
@@ -202,6 +213,13 @@ void main() {
       expect(firstRep.switchedSideDuringRep, isTrue);
       expect(firstRep.completedPhaseSequence, isFalse);
       expect(firstRep.selectedSideLabel, 'right');
+      expect(firstRep.selectedSide, 'right');
+      expect(firstRep.confidence, 0.82);
+      expect(firstRep.primaryRom, 55);
+      expect(firstRep.eccentricMillis, 510);
+      expect(firstRep.concentricMillis, 410);
+      expect(firstRep.techniqueObservations, hasLength(1));
+      expect(firstRep.coverageQuality, 0.76);
 
       expect(secondRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 2));
       expect(secondRep.validationStatus, 'valid');
@@ -636,6 +654,11 @@ WorkoutState _rangeRepState({
   bool switchedSideDuringRep = false,
   bool completedPhaseSequence = true,
   String selectedSideLabel = 'left',
+  double? confidence,
+  double? primaryRom,
+  double? coverageQuality,
+  List<RangeRepTechniqueObservation> techniqueObservations =
+      const <RangeRepTechniqueObservation>[],
 }) {
   return WorkoutState.rangeRep(
     feedbackMessage: feedbackMessage,
@@ -643,6 +666,7 @@ WorkoutState _rangeRepState({
       repCount: repCount,
       isFormBad: isFormBad,
       lastRepScore: lastRepScore,
+      techniqueObservations: techniqueObservations,
       calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
         payload: RangeRepWorkoutCalibrationMetrics(
           hasLastRangeRepValidation: true,
@@ -659,6 +683,9 @@ WorkoutState _rangeRepState({
           lastRangeRepSummarySwitchedSideDuringRep: switchedSideDuringRep,
           lastRangeRepSummaryCompletedPhaseSequence: completedPhaseSequence,
           lastRangeRepSummarySelectedSideLabel: selectedSideLabel,
+          lastRangeRepSummaryConfidence: confidence,
+          lastRangeRepSummaryPrimaryRom: primaryRom,
+          lastRangeRepSummaryCoverageQuality: coverageQuality,
         ),
       ),
     ),

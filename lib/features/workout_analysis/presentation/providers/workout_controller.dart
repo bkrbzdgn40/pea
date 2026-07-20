@@ -83,14 +83,20 @@ typedef HoldCoordinatorFactory =
     HoldCoordinator Function({
       required HoldAnalysisEngine engine,
       required ExerciseConfig config,
+      required HoldContract holdContract,
     });
 
 final holdCoordinatorFactoryProvider = Provider<HoldCoordinatorFactory>((ref) {
   return ({
     required HoldAnalysisEngine engine,
     required ExerciseConfig config,
+    required HoldContract holdContract,
   }) {
-    return DefaultHoldCoordinator(engine: engine, config: config);
+    return DefaultHoldCoordinator(
+      engine: engine,
+      config: config,
+      holdContract: holdContract,
+    );
   };
 });
 
@@ -185,6 +191,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _holdCoordinator = holdCoordinatorFactory(
           engine: holdEngine,
           config: _config,
+          holdContract: holdContract,
         );
         break;
       case EngineKind.alternatingRep:
@@ -233,6 +240,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
               hadHoldFormBreak: initialHoldSnapshot.hadHoldFormBreak,
               currentPhase: initialHoldSnapshot.currentPhase,
               calibrationMetrics: initialHoldSnapshot.calibrationMetrics,
+              holdTechniqueAssessment:
+                  initialHoldSnapshot.holdTechniqueAssessment,
+              plankHipDeviation: initialHoldSnapshot.plankHipDeviation,
+              plankShoulderElbowOffset:
+                  initialHoldSnapshot.plankShoulderElbowOffset,
+              hollowShoulderElevation:
+                  initialHoldSnapshot.hollowShoulderElevation,
+              hollowHeelElevation: initialHoldSnapshot.hollowHeelElevation,
             ),
           )
         : WorkoutState.rangeRep(
@@ -594,6 +609,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         lastRepRom: snapshot.lastRepRom,
         currentPhase: snapshot.currentPhase,
         calibrationMetrics: snapshot.calibrationMetrics,
+        techniqueObservations: snapshot.techniqueObservations,
       ),
     );
   }
@@ -617,6 +633,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         hadHoldFormBreak: snapshot.hadHoldFormBreak,
         currentPhase: snapshot.currentPhase,
         calibrationMetrics: snapshot.calibrationMetrics,
+        holdTechniqueAssessment: snapshot.holdTechniqueAssessment,
+        plankHipDeviation: snapshot.plankHipDeviation,
+        plankShoulderElbowOffset: snapshot.plankShoulderElbowOffset,
+        hollowShoulderElevation: snapshot.hollowShoulderElevation,
+        hollowHeelElevation: snapshot.hollowHeelElevation,
       ),
     );
   }

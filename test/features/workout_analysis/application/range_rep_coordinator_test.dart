@@ -153,29 +153,29 @@ void main() {
     });
 
     test(
-      'evaluates the threshold-adjusted metric once and calls only the detection engine API',
+      'keeps calibration correction candidates out of the technique metric and calls only the detection engine API',
       () {
         const cases =
             <
               ({
                 double finalRawMetric,
-                double expectedAdjustedMetric,
+                double expectedTechniqueMetric,
                 bool hasViolation,
               })
             >[
               (
                 finalRawMetric: 49.0,
-                expectedAdjustedMetric: 44.75,
-                hasViolation: true,
+                expectedTechniqueMetric: 49.75,
+                hasViolation: false,
               ),
               (
                 finalRawMetric: 50.0,
-                expectedAdjustedMetric: 45.0,
+                expectedTechniqueMetric: 50.0,
                 hasViolation: false,
               ),
               (
                 finalRawMetric: 51.0,
-                expectedAdjustedMetric: 45.25,
+                expectedTechniqueMetric: 50.25,
                 hasViolation: false,
               ),
             ];
@@ -217,7 +217,7 @@ void main() {
           expect(engine.legacyUpdateCount, 0);
           expect(
             evaluator.formMetrics.last,
-            closeTo(testCase.expectedAdjustedMetric, 0.001),
+            closeTo(testCase.expectedTechniqueMetric, 0.001),
           );
           expect(engine.primaryMetrics.last, closeTo(170.0, 0.001));
           expect(

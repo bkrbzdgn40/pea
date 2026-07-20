@@ -674,8 +674,14 @@ class _FakeHoldFormPolicy implements HoldFormPolicy {
         ),
       ),
       correctiveFeedbackCode: HoldFeedbackCode.correctForm,
-      isValidHoldPosture: isValid,
-      supportsGraceWindow: hasCompleteMetrics && hasActivePosture && !isValid,
+      holdValidity: isValid
+          ? HoldValidityStatus.valid
+          : HoldValidityStatus.invalid,
+      breakDisposition: isValid
+          ? HoldBreakDisposition.continueHold
+          : (hasCompleteMetrics && hasActivePosture
+                ? HoldBreakDisposition.graceEligible
+                : HoldBreakDisposition.breakImmediately),
     );
   }
 }

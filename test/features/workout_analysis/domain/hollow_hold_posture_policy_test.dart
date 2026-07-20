@@ -62,7 +62,7 @@ void main() {
           ),
           isFalse,
         );
-        expect(entryEvaluation.isValidHoldPosture, isFalse);
+        expect(entryEvaluation.isValidHoldPosture, isTrue);
 
         expect(
           sustainEvaluation.targetSignalValues.valueFor(HoldSignal.compression),
@@ -102,7 +102,7 @@ void main() {
         expect(boundaryEvaluation.hasCompleteMetrics, isTrue);
         expect(boundaryEvaluation.isValidHoldPosture, isTrue);
         expect(activeButInvalidEvaluation.hasActivePosture, isTrue);
-        expect(activeButInvalidEvaluation.isValidHoldPosture, isFalse);
+        expect(activeButInvalidEvaluation.isValidHoldPosture, isTrue);
       },
     );
 
@@ -167,7 +167,7 @@ void main() {
       () {
         final evaluation = policy.evaluate(
           _signals(
-            compressionAngle: 170.0,
+            compressionAngle: 171.0,
             armExtensionAngle: 160.0,
             kneeExtensionAngle: 170.0,
           ),
@@ -223,7 +223,7 @@ void main() {
       () {
         final compressionAndArmInvalid = policy.evaluate(
           _signals(
-            compressionAngle: 170.0,
+            compressionAngle: 171.0,
             armExtensionAngle: 119.0,
             kneeExtensionAngle: 170.0,
           ),
@@ -254,7 +254,7 @@ void main() {
       () {
         final compressionOnly = policy.evaluate(
           _signals(
-            compressionAngle: 170.0,
+            compressionAngle: 171.0,
             armExtensionAngle: 160.0,
             kneeExtensionAngle: 170.0,
           ),

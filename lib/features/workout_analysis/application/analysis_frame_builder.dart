@@ -1,4 +1,4 @@
-import '../../../../core/utils/moving_average.dart';
+import '../../../core/utils/moving_average.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_signal_values.dart';

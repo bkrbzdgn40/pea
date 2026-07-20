@@ -47,7 +47,15 @@ class WorkoutRepFirestoreMapper {
       'hadCoverageDrop': rep.hadCoverageDrop,
       'switchedSideDuringRep': rep.switchedSideDuringRep,
       'completedPhaseSequence': rep.completedPhaseSequence,
-      'selectedSide': rep.selectedSideLabel,
+      'selectedSide': rep.selectedSide ?? rep.selectedSideLabel,
+      'confidence': rep.confidence,
+      'primaryRom': rep.primaryRom,
+      'eccentricMillis': rep.eccentricMillis ?? rep.descentMillis,
+      'concentricMillis': rep.concentricMillis ?? rep.ascentMillis,
+      'techniqueObservations': rep.techniqueObservations
+          .map((item) => Map<String, Object?>.from(item))
+          .toList(growable: false),
+      'coverageQuality': rep.coverageQuality,
       'feedback': rep.feedback,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -86,6 +94,12 @@ class WorkoutRepFirestoreMapper {
       'switchedSideDuringRep': data['switchedSideDuringRep'],
       'completedPhaseSequence': data['completedPhaseSequence'],
       'selectedSide': data['selectedSide'],
+      'confidence': data['confidence'],
+      'primaryRom': data['primaryRom'],
+      'eccentricMillis': data['eccentricMillis'],
+      'concentricMillis': data['concentricMillis'],
+      'techniqueObservations': data['techniqueObservations'],
+      'coverageQuality': data['coverageQuality'],
     });
   }
 

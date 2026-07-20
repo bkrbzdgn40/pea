@@ -12,6 +12,10 @@ class RangeRepRepSummary {
     required this.completedPhaseSequence,
     this.selectedSideLabel,
     this.analysisKindLabel,
+    this.startAngle,
+    this.primaryRom,
+    this.confidence,
+    this.coverageQuality,
   });
 
   final int repIndex;
@@ -25,4 +29,8 @@ class RangeRepRepSummary {
   final bool completedPhaseSequence;
   final String? selectedSideLabel;
   final String? analysisKindLabel;
+  final double? startAngle;
+  final double? primaryRom;
+  final double? confidence;
+  final double? coverageQuality;
 }

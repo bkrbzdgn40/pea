@@ -7,12 +7,17 @@ class RangeRepValidationConfig {
     this.minDescentMillis = 250,
     this.minAscentMillis = 200,
     this.allowLowConfidenceOnCoverageLoss = true,
+    this.minAcceptableRomDelta,
   });
 
   final double minAcceptableRomAngle;
   final int minDescentMillis;
   final int minAscentMillis;
   final bool allowLowConfidenceOnCoverageLoss;
+
+  /// Optional delta-based ROM floor. When present, validation uses
+  /// `startAngle - peakAngle` instead of an absolute minimum angle.
+  final double? minAcceptableRomDelta;
 }
 
 /// Standalone range-rep validator used by the runtime validation outcome flow.
@@ -29,7 +34,13 @@ class RangeRepValidationPolicy {
       invalidReasons.add(RangeRepValidationReason.incompletePhase);
     }
 
-    if (summary.minAngle > config.minAcceptableRomAngle) {
+    final minAcceptableRomDelta = config.minAcceptableRomDelta;
+    if (minAcceptableRomDelta != null) {
+      final primaryRom = summary.primaryRom;
+      if (primaryRom == null || primaryRom < minAcceptableRomDelta) {
+        invalidReasons.add(RangeRepValidationReason.insufficientRom);
+      }
+    } else if (summary.minAngle > config.minAcceptableRomAngle) {
       invalidReasons.add(RangeRepValidationReason.insufficientRom);
     }
 

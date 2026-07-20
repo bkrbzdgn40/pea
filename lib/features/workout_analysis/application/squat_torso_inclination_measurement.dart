@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../../../core/utils/image_plane_geometry.dart';
+import '../../../core/utils/image_plane_geometry.dart';
 import 'exercise_metrics.dart';
 import 'pose_landmark_mirror.dart';
 

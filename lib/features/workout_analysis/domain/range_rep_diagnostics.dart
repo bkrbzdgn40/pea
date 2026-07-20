@@ -84,6 +84,8 @@ class RangeRepCompletedRepCoreData {
     required this.ascentDuration,
     required this.hadFormViolation,
     required this.completedPhaseSequence,
+    this.startAngle,
+    this.primaryRom,
   });
 
   final int repIndex;
@@ -93,6 +95,8 @@ class RangeRepCompletedRepCoreData {
   final Duration ascentDuration;
   final bool hadFormViolation;
   final bool completedPhaseSequence;
+  final double? startAngle;
+  final double? primaryRom;
 }
 
 /// Range-rep specific diagnostics used by today's calibration/debug surface.

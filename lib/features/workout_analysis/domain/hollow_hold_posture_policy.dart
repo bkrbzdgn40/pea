@@ -5,13 +5,18 @@ import 'models/hold_contract.dart';
 import 'models/hold_feedback_code.dart';
 import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
+import 'models/hollow_hold_variation.dart';
 
 const double _armExtensionMeasurementToleranceDegrees = 15.0;
 
 class HollowHoldPosturePolicy implements HoldFormPolicy {
-  const HollowHoldPosturePolicy({required this.config});
+  const HollowHoldPosturePolicy({
+    required this.config,
+    this.variationContract = HollowHoldVariationContracts.straightLegOverhead,
+  });
 
   final HollowHoldPostureConfig config;
+  final HollowHoldVariationContract variationContract;
 
   @override
   Duration get breakGraceDuration => config.breakGraceDuration;
@@ -29,9 +34,14 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
   HoldSignalValues targetSignalValues({required bool isHolding}) {
     return HoldSignalValues(
       values: <HoldSignal, double>{
+        // Compression remains a setup/hold reference, not a technique-quality
+        // score. Entry keeps the existing active-posture gate while an active
+        // hold uses the sustain target to decide validity and grace behavior.
         HoldSignal.compression: compressionTargetAngle(isHolding: isHolding),
-        HoldSignal.armExtension: config.armExtensionMinAngle,
-        HoldSignal.kneeExtension: config.kneeExtensionMinAngle,
+        if (variationContract.requiresArmsOverhead)
+          HoldSignal.armExtension: config.armExtensionMinAngle,
+        if (variationContract.requiresStraightKnees)
+          HoldSignal.kneeExtension: config.kneeExtensionMinAngle,
       },
     );
   }
@@ -44,39 +54,61 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
     final compressionAngle = signals.valueFor(HoldSignal.compression);
     final armExtensionAngle = signals.valueFor(HoldSignal.armExtension);
     final kneeExtensionAngle = signals.valueFor(HoldSignal.kneeExtension);
-    final targetCompressionAngle = compressionTargetAngle(isHolding: isHolding);
-    final hasCompleteMetrics =
-        compressionAngle != null &&
-        armExtensionAngle != null &&
-        kneeExtensionAngle != null;
+
     final hasActivePosture =
         compressionAngle != null &&
         compressionAngle <= config.activePostureMaxAngle;
-    final isCompressionValid =
-        hasCompleteMetrics && compressionAngle <= targetCompressionAngle;
+    final isCompressionWithinReference =
+        compressionAngle != null &&
+        compressionAngle <= compressionTargetAngle(isHolding: isHolding);
     final isArmExtensionValid =
-        hasCompleteMetrics &&
+        armExtensionAngle != null &&
         armExtensionAngle >= armExtensionAcceptanceMinAngle;
     final isKneeExtensionValid =
-        hasCompleteMetrics &&
+        kneeExtensionAngle != null &&
         kneeExtensionAngle >= config.kneeExtensionMinAngle;
+
+    final hasCompleteMetrics =
+        compressionAngle != null &&
+        (!variationContract.requiresArmsOverhead ||
+            armExtensionAngle != null) &&
+        (!variationContract.requiresStraightKnees ||
+            kneeExtensionAngle != null);
+    final requiredArmValid =
+        !variationContract.requiresArmsOverhead || isArmExtensionValid;
+    final requiredKneeValid =
+        !variationContract.requiresStraightKnees || isKneeExtensionValid;
+
     final signalValidity = HoldSignalValidity(
       values: <HoldSignal, bool>{
-        HoldSignal.compression: isCompressionValid,
-        HoldSignal.armExtension: isArmExtensionValid,
-        HoldSignal.kneeExtension: isKneeExtensionValid,
+        HoldSignal.compression: isCompressionWithinReference,
+        if (variationContract.requiresArmsOverhead)
+          HoldSignal.armExtension: isArmExtensionValid,
+        if (variationContract.requiresStraightKnees)
+          HoldSignal.kneeExtension: isKneeExtensionValid,
       },
     );
+
+    // R35 keeps variation-owned setup/validation while preserving the legacy
+    // Hollow Hold hysteresis contract. Before a hold starts, active-posture
+    // membership gates entry and the stricter entry target remains diagnostic.
+    // Once holding, the sustain target controls continued validity; compression
+    // drift alone is grace-eligible. None of this turns compression into a
+    // "smaller is better" technique score.
+    final isCompressionValidForState = isHolding
+        ? isCompressionWithinReference
+        : hasActivePosture;
     final isValidHoldPosture =
         hasCompleteMetrics &&
-        isCompressionValid &&
-        isArmExtensionValid &&
-        isKneeExtensionValid;
+        isCompressionValidForState &&
+        requiredArmValid &&
+        requiredKneeValid;
     final supportsGraceWindow =
+        isHolding &&
         hasCompleteMetrics &&
-        !isCompressionValid &&
-        isArmExtensionValid &&
-        isKneeExtensionValid;
+        !isCompressionWithinReference &&
+        requiredArmValid &&
+        requiredKneeValid;
 
     return HoldFormEvaluation(
       hasActivePosture: hasActivePosture,
@@ -88,27 +120,33 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
         signalValidity: signalValidity,
       ),
       correctiveFeedbackCode: _resolveCorrectiveFeedbackCode(
-        isCompressionValid: isCompressionValid,
+        isCompressionWithinReference: isCompressionWithinReference,
         isArmExtensionValid: isArmExtensionValid,
         isKneeExtensionValid: isKneeExtensionValid,
       ),
-      isValidHoldPosture: isValidHoldPosture,
-      supportsGraceWindow: supportsGraceWindow,
+      holdValidity: isValidHoldPosture
+          ? HoldValidityStatus.valid
+          : HoldValidityStatus.invalid,
+      breakDisposition: isValidHoldPosture
+          ? HoldBreakDisposition.continueHold
+          : (supportsGraceWindow
+                ? HoldBreakDisposition.graceEligible
+                : HoldBreakDisposition.breakImmediately),
     );
   }
 
   HoldFeedbackCode _resolveCorrectiveFeedbackCode({
-    required bool isCompressionValid,
+    required bool isCompressionWithinReference,
     required bool isArmExtensionValid,
     required bool isKneeExtensionValid,
   }) {
-    if (!isCompressionValid) {
+    if (!isCompressionWithinReference) {
       return HoldFeedbackCode.increaseHollowCompression;
     }
-    if (!isArmExtensionValid) {
+    if (variationContract.requiresArmsOverhead && !isArmExtensionValid) {
       return HoldFeedbackCode.extendArmsOverhead;
     }
-    if (!isKneeExtensionValid) {
+    if (variationContract.requiresStraightKnees && !isKneeExtensionValid) {
       return HoldFeedbackCode.straightenKnees;
     }
     return HoldFeedbackCode.correctForm;

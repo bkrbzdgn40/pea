@@ -11,6 +11,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_e
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/hollow_hold_variation.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -120,6 +121,21 @@ void main() {
         ),
       );
     });
+
+    test(
+      'creates Hollow Hold engine using variation-owned required signals',
+      () {
+        final engine = factory.create(
+          engineKind: EngineKind.hold,
+          config: _hollowHoldConfig(),
+          holdContract: HoldContracts.hollowHoldForVariation(
+            HollowHoldVariation.tuck,
+          ),
+        );
+
+        expect(engine, isA<HoldEngine>());
+      },
+    );
 
     test('rejects hollow hold creation without hollowHoldPosture config', () {
       expect(
