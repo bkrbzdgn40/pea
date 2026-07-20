@@ -1,6 +1,7 @@
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
 import 'models/hold_contract.dart';
+import 'models/hold_posture_severity.dart';
 import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
 
@@ -10,11 +11,13 @@ class HoldPostureDiagnosticsSnapshot {
   HoldPostureDiagnosticsSnapshot({
     this.hasCompleteMetrics = false,
     this.hasActivePosture = false,
+    this.severity = HoldPostureSeverity.none,
     HoldSignalValidity? signalValidity,
   }) : signalValidity = signalValidity ?? const HoldSignalValidity.empty();
 
   final bool hasCompleteMetrics;
   final bool hasActivePosture;
+  final HoldPostureSeverity severity;
   final HoldSignalValidity signalValidity;
 
   bool? validityFor(HoldSignal signal) => signalValidity.validityFor(signal);
@@ -57,6 +60,8 @@ class HoldDiagnosticsSnapshot {
   final bool isFormBreakGraceActive;
 
   HoldSignalValidity get signalValidity => lastVisiblePosture.signalValidity;
+
+  HoldPostureSeverity get postureSeverity => lastVisiblePosture.severity;
 
   double get bodyLineTargetAngle =>
       targetSignalValues.valueFor(HoldSignal.alignment) ?? 0.0;
