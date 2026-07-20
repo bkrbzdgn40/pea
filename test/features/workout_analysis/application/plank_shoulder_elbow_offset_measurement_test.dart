@@ -113,89 +113,95 @@ void main() {
     });
   });
 
-  test('plank contract moves stacking technique semantics off support angle', () {
-    final contract = HoldContracts.plankFamily;
+  test(
+    'plank contract moves stacking technique semantics off support angle',
+    () {
+      final contract = HoldContracts.plankFamily;
 
-    expect(contract.requiredSignals, contains(HoldSignal.support));
-    expect(
-      contract.rolesForSignal(HoldSignal.support),
-      const <AnalysisSignalRole>{
-        AnalysisSignalRole.detection,
-        AnalysisSignalRole.validation,
-      },
-    );
-    expect(
-      contract.rolesForSignal(HoldSignal.shoulderElbowOffset),
-      const <AnalysisSignalRole>{AnalysisSignalRole.technique},
-    );
-  });
-
-  test('extractor wires shoulder-elbow offset only for explicit plank family', () {
-    final pose = _plankPose();
-    final plankMetrics = extractor.extract(
-      pose,
-      buildPlankConfig(),
-      engineKind: EngineKind.hold,
-      holdContract: HoldContracts.plankFamily,
-      holdSide: HoldSide.left,
-    );
-
-    expect(
-      plankMetrics.holdSignalValues.valueFor(HoldSignal.support),
-      closeTo(90.0, 0.001),
-    );
-    expect(
-      plankMetrics.holdSignalValues.valueFor(HoldSignal.shoulderElbowOffset),
-      closeTo(0.0, 0.001),
-    );
-
-    final nonPlankContract = HoldContract(
-      family: HoldAnalysisFamily.hollowHold,
-      requiredSignals: const <HoldSignal>{
-        HoldSignal.alignment,
-        HoldSignal.support,
-        HoldSignal.extension,
-      },
-      supportedSignals: const <HoldSignal>{
-        HoldSignal.alignment,
-        HoldSignal.support,
-        HoldSignal.extension,
-        HoldSignal.shoulderElbowOffset,
-      },
-      signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
-        HoldSignal.alignment: <AnalysisSignalRole>{
+      expect(contract.requiredSignals, contains(HoldSignal.support));
+      expect(
+        contract.rolesForSignal(HoldSignal.support),
+        const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
           AnalysisSignalRole.validation,
         },
-        HoldSignal.support: <AnalysisSignalRole>{
-          AnalysisSignalRole.validation,
-        },
-        HoldSignal.extension: <AnalysisSignalRole>{
-          AnalysisSignalRole.validation,
-        },
-        HoldSignal.shoulderElbowOffset: <AnalysisSignalRole>{
-          AnalysisSignalRole.technique,
-        },
-      },
-    );
-    final nonPlankMetrics = extractor.extract(
-      pose,
-      buildPlankConfig(),
-      engineKind: EngineKind.hold,
-      holdContract: nonPlankContract,
-      holdSide: HoldSide.left,
-    );
+      );
+      expect(
+        contract.rolesForSignal(HoldSignal.shoulderElbowOffset),
+        const <AnalysisSignalRole>{AnalysisSignalRole.technique},
+      );
+    },
+  );
 
-    expect(
-      nonPlankMetrics.holdSignalValues.hasValue(HoldSignal.support),
-      isTrue,
-    );
-    expect(
-      nonPlankMetrics.holdSignalValues.hasValue(
-        HoldSignal.shoulderElbowOffset,
-      ),
-      isFalse,
-    );
-  });
+  test(
+    'extractor wires shoulder-elbow offset only for explicit plank family',
+    () {
+      final pose = _plankPose();
+      final plankMetrics = extractor.extract(
+        pose,
+        buildPlankConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
+      );
+
+      expect(
+        plankMetrics.holdSignalValues.valueFor(HoldSignal.support),
+        closeTo(90.0, 0.001),
+      );
+      expect(
+        plankMetrics.holdSignalValues.valueFor(HoldSignal.shoulderElbowOffset),
+        closeTo(0.0, 0.001),
+      );
+
+      final nonPlankContract = HoldContract(
+        family: HoldAnalysisFamily.hollowHold,
+        requiredSignals: const <HoldSignal>{
+          HoldSignal.alignment,
+          HoldSignal.support,
+          HoldSignal.extension,
+        },
+        supportedSignals: const <HoldSignal>{
+          HoldSignal.alignment,
+          HoldSignal.support,
+          HoldSignal.extension,
+          HoldSignal.shoulderElbowOffset,
+        },
+        signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+          HoldSignal.alignment: <AnalysisSignalRole>{
+            AnalysisSignalRole.validation,
+          },
+          HoldSignal.support: <AnalysisSignalRole>{
+            AnalysisSignalRole.validation,
+          },
+          HoldSignal.extension: <AnalysisSignalRole>{
+            AnalysisSignalRole.validation,
+          },
+          HoldSignal.shoulderElbowOffset: <AnalysisSignalRole>{
+            AnalysisSignalRole.technique,
+          },
+        },
+      );
+      final nonPlankMetrics = extractor.extract(
+        pose,
+        buildPlankConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: nonPlankContract,
+        holdSide: HoldSide.left,
+      );
+
+      expect(
+        nonPlankMetrics.holdSignalValues.hasValue(HoldSignal.support),
+        isTrue,
+      );
+      expect(
+        nonPlankMetrics.holdSignalValues.hasValue(
+          HoldSignal.shoulderElbowOffset,
+        ),
+        isFalse,
+      );
+    },
+  );
 }
 
 Pose _plankPose() {
