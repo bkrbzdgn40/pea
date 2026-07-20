@@ -38,10 +38,7 @@ class BicepsTorsoInclinationMeasurement {
   double? measureBilateral(Pose pose) {
     final left = measureSide(pose, side: RangeRepSide.left);
     final right = measureSide(pose, side: RangeRepSide.right);
-    final measurements = <double>[
-      if (left != null) left,
-      if (right != null) right,
-    ];
+    final measurements = <double>[?left, ?right];
     if (measurements.isEmpty) {
       return null;
     }
