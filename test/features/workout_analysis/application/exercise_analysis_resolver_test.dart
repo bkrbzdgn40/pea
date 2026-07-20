@@ -10,36 +10,9 @@ void main() {
       expect(resolver.resolveActiveExercise(null), isNull);
     });
 
-    test('keeps supported selections on their canonical exercise type', () {
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.squat),
-        ExerciseType.squat,
-      );
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.plank),
-        ExerciseType.plank,
-      );
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.hollowHold),
-        ExerciseType.hollowHold,
-      );
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.pushUp),
-        ExerciseType.pushUp,
-      );
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.sitUp),
-        ExerciseType.sitUp,
-      );
-      expect(
-        resolver.resolveActiveExercise(ExerciseType.bicepsCurl),
-        ExerciseType.bicepsCurl,
-      );
-    });
-
-    test('returns null for unsupported selections', () {
-      for (final type in const <ExerciseType>[ExerciseType.lunge]) {
-        expect(resolver.resolveActiveExercise(type), isNull);
+    test('keeps every supported selection on its canonical exercise type', () {
+      for (final type in ExerciseType.values) {
+        expect(resolver.resolveActiveExercise(type), type, reason: type.name);
       }
     });
   });

@@ -54,7 +54,24 @@ class ExerciseCatalog {
         ),
         holdContract: HoldContracts.hollowHold,
       ),
-      ExerciseDefinition.unsupported(type: ExerciseType.lunge),
+      ExerciseDefinition.supported(
+        type: ExerciseType.lunge,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/stationary_lunge.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.stationaryLunge,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 20.0,
+          minDescentMillis: 300,
+          minAscentMillis: 250,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
       ExerciseDefinition.supported(
         type: ExerciseType.pushUp,
         engineKind: EngineKind.rangeRep,
@@ -106,6 +123,96 @@ class ExerciseCatalog {
           minAcceptableRomAngle: 110.0,
           minDescentMillis: 250,
           minAscentMillis: 250,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.lyingLegRaise,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/lying_leg_raise.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.lyingLegRaise,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 30.0,
+          minDescentMillis: 300,
+          minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.tricepsDip,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/triceps_dip.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.tricepsDip,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 30.0,
+          minDescentMillis: 250,
+          minAscentMillis: 250,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.romanianDeadlift,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/romanian_deadlift.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.romanianDeadlift,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 25.0,
+          minDescentMillis: 350,
+          minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.lateralRaise,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/lateral_raise.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.unsupported,
+            CameraView.front: CameraViewSupport.preferred,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.lateralRaise,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 35.0,
+          minDescentMillis: 250,
+          minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.shoulderPress,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/shoulder_press.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.unsupported,
+            CameraView.front: CameraViewSupport.preferred,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.shoulderPress,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 25.0,
+          minDescentMillis: 250,
+          minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,
         ),
       ),

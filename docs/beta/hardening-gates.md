@@ -32,11 +32,17 @@ Bir gate'in `PASSED` olması yalnız gate satırında ve bağlı kanıtta tanım
 - Squat: `rangeRep`, selected-side
 - Plank: `hold`, plank family
 - Hollow Hold: `hold`, hollow-hold family
+- Stationary Lunge: `rangeRep`, selected-side
 - Push-up: `rangeRep`, selected-side
 - Sit-up: `rangeRep`, selected-side
 - Biceps Curl: `rangeRep`, bilateral
+- Lying Leg Raise: `rangeRep`, selected-side
+- Triceps Dip: `rangeRep`, selected-side
+- Romanian Deadlift: `rangeRep`, selected-side
+- Lateral Raise: `rangeRep`, bilateral, increasing-to-peak
+- Shoulder Press: `rangeRep`, bilateral, increasing-to-peak
 
-Lunge guide içeriğine sahiptir ancak catalog içinde `unsupported` durumdadır.
+Stationary Lunge ile yeni RangeRep batch hareketleri catalog içinde supported durumdadır; bu destek tarihsel G6/G7 cihaz PASS kapsamını genişletmez.
 
 ### Tarihsel beta hardening kanıt kapsamı
 
@@ -46,7 +52,7 @@ G0-G8 programında gerçek cihaz baseline ve dataset değerlendirmesi aşağıda
 - Push-up
 - Plank
 
-Sit-up, Biceps Curl ve Hollow Hold daha sonra aktif edildi. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
+Sit-up, Biceps Curl, Hollow Hold, Stationary Lunge, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press daha sonra aktif edildi. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
 
 ### Altyapı durumu
 

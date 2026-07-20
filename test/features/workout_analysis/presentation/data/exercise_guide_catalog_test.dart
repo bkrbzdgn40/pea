@@ -15,8 +15,8 @@ void main() {
             .map((content) => content.type)
             .toList(growable: false);
 
-        expect(guideCatalog.contents, hasLength(7));
-        expect(types.toSet(), hasLength(7));
+        expect(guideCatalog.contents, hasLength(ExerciseType.values.length));
+        expect(types.toSet(), hasLength(ExerciseType.values.length));
         expect(types, unorderedEquals(ExerciseType.values));
       },
     );
@@ -46,7 +46,7 @@ void main() {
       final sitUpDefinition = analysisCatalog.definitionFor(ExerciseType.sitUp);
       final sitUpContent = guideCatalog.contentFor(ExerciseType.sitUp);
 
-      expect(lungeDefinition.isAnalysisSupported, isFalse);
+      expect(lungeDefinition.isAnalysisSupported, isTrue);
       expect(lungeContent.type, ExerciseType.lunge);
       expect(lungeContent.subtitle, isNotEmpty);
 

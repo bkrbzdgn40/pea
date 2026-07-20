@@ -1,8 +1,10 @@
 import 'repositories/session_repository.dart';
+import 'exercise_catalog.dart';
 import 'engine_kind.dart';
 import 'hold_session_metrics_collector.dart';
 import 'workout_state.dart';
 import '../domain/models/exercise_type.dart';
+import '../domain/models/range_rep_contract.dart';
 import '../domain/models/workout_rep.dart';
 import '../domain/models/workout_session.dart';
 
@@ -95,13 +97,15 @@ class WorkoutSessionLifecycleController
     required void Function(WorkoutSession? session) publishCompletedSession,
     DateTime Function()? clock,
     HoldSessionMetricsCollector? holdSessionCollector,
+    ExerciseCatalog exerciseCatalog = const ExerciseCatalog(),
   }) : _sessionRepository = sessionRepository,
        _resolveOwnerId = resolveOwnerId,
        _invalidateUserSessionsSnapshot = invalidateUserSessionsSnapshot,
        _publishCompletedSession = publishCompletedSession,
        _clock = clock ?? DateTime.now,
        _holdSessionCollector =
-           holdSessionCollector ?? HoldSessionMetricsCollector();
+           holdSessionCollector ?? HoldSessionMetricsCollector(),
+       _exerciseCatalog = exerciseCatalog;
 
   final SessionRepository _sessionRepository;
   final String? Function() _resolveOwnerId;
@@ -109,6 +113,7 @@ class WorkoutSessionLifecycleController
   final void Function(WorkoutSession? session) _publishCompletedSession;
   final DateTime Function() _clock;
   final HoldSessionMetricsCollector _holdSessionCollector;
+  final ExerciseCatalog _exerciseCatalog;
 
   ExerciseType? _activeSessionExercise;
   DateTime? _sessionStartedAt;
@@ -333,6 +338,21 @@ class WorkoutSessionLifecycleController
       return null;
     }
 
+    final towardPeakMuscleAction = _exerciseCatalog
+        .definitionFor(activeSessionExercise)
+        .analysisRangeRepContract
+        .towardPeakMuscleAction;
+    final towardPeakMillis = metrics.lastRangeRepSummaryDescentMillis;
+    final returnToNeutralMillis = metrics.lastRangeRepSummaryAscentMillis;
+    final eccentricMillis =
+        towardPeakMuscleAction == RangeRepTowardPeakMuscleAction.eccentric
+        ? towardPeakMillis
+        : returnToNeutralMillis;
+    final concentricMillis =
+        towardPeakMuscleAction == RangeRepTowardPeakMuscleAction.concentric
+        ? towardPeakMillis
+        : returnToNeutralMillis;
+
     return WorkoutRep(
       repIndex: repIndex,
       exerciseType: activeSessionExercise.id,
@@ -351,8 +371,8 @@ class WorkoutSessionLifecycleController
       ascentMillis: metrics.lastRangeRepSummaryAscentMillis,
       confidence: metrics.lastRangeRepSummaryConfidence,
       primaryRom: metrics.lastRangeRepSummaryPrimaryRom,
-      eccentricMillis: metrics.lastRangeRepSummaryDescentMillis,
-      concentricMillis: metrics.lastRangeRepSummaryAscentMillis,
+      eccentricMillis: eccentricMillis,
+      concentricMillis: concentricMillis,
       techniqueObservations: rangeRepAnalysis.techniqueObservations
           .map((observation) => observation.toMap())
           .toList(growable: false),

@@ -1,0 +1,32 @@
+{
+  "name": "Romanian Deadlift",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftKnee",
+  "thresholdNeutral": 165.0,
+  "thresholdActive": 150.0,
+  "thresholdPeak": 115.0,
+  "idealDescentSeconds": 1.5,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 140.0,
+  "targetMinAngle": 100.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 350,
+    "minAscendingMillis": 300
+  }
+}

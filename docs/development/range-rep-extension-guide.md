@@ -42,7 +42,7 @@ When adding an exercise-specific extension:
 
 `RangeRepContract.primaryMetricDirection` makes the engine's movement assumption explicit.
 
-The current engine supports `decreasingToPeak` only. An exercise whose primary metric increases from neutral toward peak must not be enabled by tuning thresholds until the detection/core data model becomes direction-aware. The engine factory rejects that contract early instead of silently producing incorrect reps.
+The engine supports both `decreasingToPeak` and `increasingToPeak`. The contract must declare the direction explicitly, threshold ordering is validated by the engine factory, and bilateral primary-metric resolution uses the lagging side according to that direction. Do not fake an increasing movement by reversing threshold meanings.
 
 ## New exercise readiness checklist
 
@@ -52,6 +52,7 @@ A new range-rep exercise should satisfy all of the following before it is marked
 - config asset exists and parses
 - camera-view contract is explicit
 - range-rep contract declares descending, peak, and ascending
+- `towardPeakMuscleAction` matches the exercise so persisted eccentric/concentric tempo is not mislabeled
 - primary metric and current form-metric carrier are declared
 - primary metric direction is supported
 - landmark requirements resolve

@@ -12,7 +12,7 @@ Bu kılavuz, PEA'ya yeni egzersiz eklerken mevcut analiz mimarisini doğru kulla
 
 Bu belge üç farklı işi kapsar:
 
-1. `lunge` gibi kimliği ve rehber içeriği bulunan ancak analiz desteği kapalı bir hareketi etkinleştirmek.
+1. Kimliği ve rehber içeriği bulunan mevcut bir hareketin analiz contract/config yolunu genişletmek.
 2. Kimliği, rehber içeriği ve analiz tanımı henüz bulunmayan tamamen yeni bir hareket eklemek.
 3. Mevcut `rangeRep` veya `hold` ailesine yeni bir exercise-specific contract/config eklemek.
 
@@ -35,17 +35,19 @@ Bu belge üç farklı işi kapsar:
 | Squat | `squat` | Var | Aktif | `rangeRep`, selected-side |
 | Plank | `plank` | Var | Aktif | `hold`, `plank` family |
 | Hollow Hold | `hollow_hold` | Var | Aktif | `hold`, `hollowHold` family |
-| Lunge | `lunge` | Var | Kapalı | Belirlenmeli |
+| Stationary Lunge | `lunge` | Var | Aktif | `rangeRep`, selected-side |
 | Push-up | `push_up` | Var | Aktif | `rangeRep`, selected-side |
 | Sit-up | `sit_up` | Var | Aktif | `rangeRep`, selected-side |
 | Biceps Curl | `biceps_curl` | Var | Aktif | `rangeRep`, bilateral |
+| Lying Leg Raise | `lying_leg_raise` | Var | Aktif | `rangeRep`, selected-side |
+| Triceps Dip | `triceps_dip` | Var | Aktif | `rangeRep`, selected-side |
+| Romanian Deadlift | `romanian_deadlift` | Var | Aktif | `rangeRep`, selected-side |
+| Lateral Raise | `lateral_raise` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
+| Shoulder Press | `shoulder_press` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
 
-Bugün yalnız `lunge` catalog içinde `unsupported` durumdadır.
+Catalog desteği device-validation kanıtı değildir. Yeni eklenen hareketler gerçek cihazda ayrı kabul testi gerektirir.
 
-Sit-up ve Biceps Curl mevcut `RangeRepEngine` ailesini kullanır ancak contract semantiği Squat/Push-up ile birebir aynı değildir:
-
-- Sit-up: pose kabulü için yalnız `primaryMetric` zorunludur ve form-threshold session calibration kapalıdır.
-- Biceps Curl: iki kolu birlikte değerlendiren `RangeRepSideMode.bilateral` kullanır ve form-threshold session calibration kapalıdır.
+`RangeRepEngine` artık hem `decreasingToPeak` hem `increasingToPeak` primary metric yönünü destekler. `bilateral`, dönüşümlü sağ-sol tekrar anlamına gelmez; iki tarafın aynı tekrar içinde eş zamanlı değerlendirilmesidir. Gerçek dönüşümlü tekrarlar için `EngineKind.alternatingRep` ayrı motor ailesidir ve henüz uygulanmamıştır.
 
 Plank ve Hollow Hold ortak `HoldEngine` altyapısını kullanır; family-specific contract ve posture policy ile ayrılır.
 
@@ -63,10 +65,9 @@ Yeni hareket için kod yazmadan önce aşağıdaki soruları cevapla.
    ├─ Hayır -> Mevcut RangeRepEngine uygun değil.
    └─ Evet
        ↓
-2. Ana metric başlangıçta yüksek, aktif fazda düşük ve dönüşte
-   tekrar yüksek olacak şekilde modellenebiliyor mu?
-   ├─ Hayır -> Mevcut RangeRepEngine uygun değil.
-   └─ Evet
+2. Ana metric neutral -> peak yönünde tekdüze olarak azalıyor veya artıyor mu?
+   ├─ Hayır -> Mevcut RangeRepEngine uygun olmayabilir.
+   └─ Evet -> `decreasingToPeak` veya `increasingToPeak` açıkça seç.
        ↓
 3. Tek bir tarafın güvenilir ölçümü tekrar için yeterli mi?
    ├─ Evet -> RangeRepSideMode.selectedSide adayı.
@@ -181,13 +182,13 @@ Kurallar:
 3. Persist edilen ID, guide ve catalog boyunca aynı exercise kimliğini temsil etmelidir.
 4. Kullanıcıya gösterilen başlık değişebilir; persisted ID yalnız estetik gerekçeyle değiştirilmez.
 5. `WorkoutSession.exerciseType` Firestore'a string olarak yazılır. ID değişikliği migration gerektirebilir.
-6. Tamamen yeni hareket için `ExerciseType` kaydı eklenir. Mevcut `lunge` gibi hareketlerde enum tekrar oluşturulmaz.
+6. Tamamen yeni hareket için `ExerciseType` kaydı eklenir. Mevcut kimliği bulunan hareketlerde enum tekrar oluşturulmaz.
 
 ---
 
-## 6. Mevcut unsupported hareketi etkinleştirme
+## 6. Mevcut bir hareketin analiz desteğini etkinleştirme
 
-Bugünkü doğrudan örnek `lunge`dır.
+Bu akış, catalog içinde geçici olarak `unsupported` tutulan gelecekteki hareketler için kullanılabilir.
 
 ### Adımlar
 

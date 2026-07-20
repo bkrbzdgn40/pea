@@ -12,6 +12,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/push_u
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_exercise_analysis_extension_factory.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 void main() {
@@ -84,12 +85,36 @@ void main() {
             reason: '${definition.id} needs the current form metric carrier',
           );
           expect(
-            contract.primaryMetricDirection,
-            RangeRepPrimaryMetricDirection.decreasingToPeak,
+            RangeRepPrimaryMetricDirection.values,
+            contains(contract.primaryMetricDirection),
             reason:
-                '${definition.id} must not silently opt into an unsupported '
-                'primary metric direction',
+                '${definition.id} must declare an explicit metric direction',
           );
+          switch (contract.primaryMetricDirection) {
+            case RangeRepPrimaryMetricDirection.decreasingToPeak:
+              expect(
+                config.thresholdNeutral,
+                greaterThan(config.thresholdActive),
+              );
+              expect(config.thresholdActive, greaterThan(config.thresholdPeak));
+            case RangeRepPrimaryMetricDirection.increasingToPeak:
+              expect(config.thresholdNeutral, lessThan(config.thresholdActive));
+              expect(config.thresholdActive, lessThan(config.thresholdPeak));
+              expect(
+                config.targetMaxAngle,
+                isNotNull,
+                reason:
+                    '${definition.id} increasing metrics need targetMaxAngle',
+              );
+              expect(
+                definition
+                    .analysisRangeRepValidationConfig
+                    .minAcceptableRomDelta,
+                isNotNull,
+                reason:
+                    '${definition.id} increasing metrics must validate ROM as delta',
+              );
+          }
           expect(
             () => extensionFactory.create(contract.extensionProfile),
             returnsNormally,
@@ -97,6 +122,31 @@ void main() {
         }
       },
     );
+
+    test('toward-peak muscle action metadata matches exercise mechanics', () {
+      const concentricTowardPeak = <ExerciseType>{
+        ExerciseType.sitUp,
+        ExerciseType.bicepsCurl,
+        ExerciseType.lyingLegRaise,
+        ExerciseType.lateralRaise,
+        ExerciseType.shoulderPress,
+      };
+
+      for (final definition in catalog.definitions.where(
+        (definition) =>
+            definition.isAnalysisSupported &&
+            definition.engineKind == EngineKind.rangeRep,
+      )) {
+        final expected = concentricTowardPeak.contains(definition.type)
+            ? RangeRepTowardPeakMuscleAction.concentric
+            : RangeRepTowardPeakMuscleAction.eccentric;
+        expect(
+          definition.analysisRangeRepContract.towardPeakMuscleAction,
+          expected,
+          reason: definition.id,
+        );
+      }
+    });
 
     test('extension selection is semantic, not contract identity based', () {
       final copiedPushUpContract = RangeRepContract(
@@ -110,6 +160,7 @@ void main() {
         sideMode: RangeRepContracts.pushUp.sideMode,
         primaryMetricKind: RangeRepContracts.pushUp.primaryMetricKind,
         primaryMetricDirection: RangeRepContracts.pushUp.primaryMetricDirection,
+        towardPeakMuscleAction: RangeRepContracts.pushUp.towardPeakMuscleAction,
         extensionProfile: RangeRepContracts.pushUp.extensionProfile,
       );
 
@@ -123,7 +174,7 @@ void main() {
       );
     });
 
-    test('engine factory rejects unsupported metric direction explicitly', () {
+    test('engine factory accepts increasing metric direction explicitly', () {
       final contract = RangeRepContract(
         supportedPhases: const <RangeRepPhase>{
           RangeRepPhase.descending,
@@ -152,6 +203,7 @@ void main() {
         thresholdNeutral: 20,
         thresholdActive: 60,
         thresholdPeak: 120,
+        targetMaxAngle: 160,
       );
 
       expect(
@@ -159,13 +211,7 @@ void main() {
           config: config,
           rangeRepContract: contract,
         ),
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            contains('decrease'),
-          ),
-        ),
+        returnsNormally,
       );
     });
   });

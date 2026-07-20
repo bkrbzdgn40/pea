@@ -20,18 +20,16 @@ void main() {
         ExerciseType.pushUp,
         ExerciseType.sitUp,
         ExerciseType.bicepsCurl,
+        ExerciseType.lyingLegRaise,
+        ExerciseType.tricepsDip,
+        ExerciseType.romanianDeadlift,
+        ExerciseType.lunge,
+        ExerciseType.lateralRaise,
+        ExerciseType.shoulderPress,
       ]) {
         final definition = catalog.definitionFor(type);
 
         expect(definition.analysisExercise, definition.type);
-      }
-    });
-
-    test('throws StateError for unsupported definitions', () {
-      for (final type in const <ExerciseType>[ExerciseType.lunge]) {
-        final definition = catalog.definitionFor(type);
-
-        expect(() => definition.analysisExercise, throwsA(isA<StateError>()));
       }
     });
   });
@@ -47,16 +45,6 @@ void main() {
           same(definition.cameraViewContract),
         );
       }
-    });
-
-    test('unsupported definitions store no camera contract', () {
-      final definition = catalog.definitionFor(ExerciseType.lunge);
-
-      expect(definition.cameraViewContract, isNull);
-      expect(
-        () => definition.analysisCameraViewContract,
-        throwsA(isA<StateError>()),
-      );
     });
   });
 

@@ -323,6 +323,7 @@ class ExerciseConfig {
   final double idealAscentSeconds;
   final double formThreshold;
   final double targetMinAngle;
+  final double? targetMaxAngle;
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
   final HollowHoldPostureConfig? hollowHoldPosture;
@@ -343,6 +344,7 @@ class ExerciseConfig {
     this.idealAscentSeconds = 1.0,
     this.formThreshold = 45.0,
     this.targetMinAngle = 70.0,
+    this.targetMaxAngle,
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
     this.hollowHoldPosture,
@@ -408,6 +410,7 @@ class ExerciseConfig {
       ),
       formThreshold: reader.requiredDouble('formThreshold', fallback: 0.0),
       targetMinAngle: reader.requiredDouble('targetMinAngle', fallback: 0.0),
+      targetMaxAngle: reader.optionalDouble('targetMaxAngle'),
       tempoPenaltyPerSecond: reader.requiredDouble(
         'tempoPenaltyPerSecond',
         fallback: 0.0,

@@ -60,6 +60,7 @@ class ExerciseMetricsExtractor {
         effectiveRangeRepContract.sideMode == RangeRepSideMode.bilateral
         ? _extractBilateralRangeRepMetrics(
             config,
+            rangeRepContract: effectiveRangeRepContract,
             leftMetrics: leftRangeRepMetrics,
             rightMetrics: rightRangeRepMetrics,
           )
@@ -154,6 +155,7 @@ class ExerciseMetricsExtractor {
 
   RangeRepBilateralMetrics _extractBilateralRangeRepMetrics(
     ExerciseConfig config, {
+    required RangeRepContract rangeRepContract,
     required RangeRepSideMetrics leftMetrics,
     required RangeRepSideMetrics rightMetrics,
   }) {
@@ -165,6 +167,7 @@ class ExerciseMetricsExtractor {
         : null;
     final bilateralPrimaryAngle = _resolveBilateralPrimaryAngle(
       config,
+      direction: rangeRepContract.primaryMetricDirection,
       leftPrimaryAngle: leftPrimaryAngle,
       rightPrimaryAngle: rightPrimaryAngle,
     );
@@ -593,6 +596,7 @@ class ExerciseMetricsExtractor {
 
   double? _resolveBilateralPrimaryAngle(
     ExerciseConfig config, {
+    required RangeRepPrimaryMetricDirection direction,
     required double? leftPrimaryAngle,
     required double? rightPrimaryAngle,
   }) {
@@ -600,13 +604,22 @@ class ExerciseMetricsExtractor {
       return null;
     }
 
-    final laggingArmAngle = math.max(leftPrimaryAngle, rightPrimaryAngle);
-    if (leftPrimaryAngle > config.thresholdNeutral &&
-        rightPrimaryAngle > config.thresholdNeutral) {
-      return laggingArmAngle;
+    switch (direction) {
+      case RangeRepPrimaryMetricDirection.decreasingToPeak:
+        final laggingAngle = math.max(leftPrimaryAngle, rightPrimaryAngle);
+        if (leftPrimaryAngle > config.thresholdNeutral &&
+            rightPrimaryAngle > config.thresholdNeutral) {
+          return laggingAngle;
+        }
+        return laggingAngle.clamp(0.0, config.thresholdNeutral).toDouble();
+      case RangeRepPrimaryMetricDirection.increasingToPeak:
+        final laggingAngle = math.min(leftPrimaryAngle, rightPrimaryAngle);
+        if (leftPrimaryAngle < config.thresholdNeutral &&
+            rightPrimaryAngle < config.thresholdNeutral) {
+          return laggingAngle;
+        }
+        return laggingAngle.clamp(config.thresholdNeutral, 180.0).toDouble();
     }
-
-    return laggingArmAngle.clamp(0.0, config.thresholdNeutral).toDouble();
   }
 
   double _clampAngleScore(double value) {

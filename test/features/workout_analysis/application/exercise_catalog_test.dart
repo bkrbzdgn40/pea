@@ -138,13 +138,20 @@ void main() {
       );
     });
 
-    test('keeps lunge unsupported', () {
+    test('enables stationary lunge as a supported range-rep exercise', () {
       final definition = catalog.definitionFor(ExerciseType.lunge);
 
-      expect(definition.id, ExerciseType.lunge.id);
-      expect(definition.title, ExerciseType.lunge.title);
-      expect(definition.isAnalysisSupported, isFalse);
-      expect(definition.cameraViewContract, isNull);
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(definition.analysisExercise, ExerciseType.lunge);
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(
+        definition.analysisConfigAssetPath,
+        'assets/config/exercises/stationary_lunge.json',
+      );
+      expect(
+        definition.analysisRangeRepContract,
+        same(RangeRepContracts.stationaryLunge),
+      );
     });
 
     test('declares side-only camera support for side-view exercises', () {
@@ -154,6 +161,10 @@ void main() {
         ExerciseType.sitUp,
         ExerciseType.plank,
         ExerciseType.hollowHold,
+        ExerciseType.lunge,
+        ExerciseType.lyingLegRaise,
+        ExerciseType.tricepsDip,
+        ExerciseType.romanianDeadlift,
       ]) {
         final contract = catalog.definitionFor(type).analysisCameraViewContract;
 
@@ -170,20 +181,31 @@ void main() {
       }
     });
 
-    test('declares front-only camera support for bilateral Biceps Curl', () {
-      final contract = catalog
-          .definitionFor(ExerciseType.bicepsCurl)
-          .analysisCameraViewContract;
+    test(
+      'declares front-only camera support for bilateral upper-body exercises',
+      () {
+        for (final type in const <ExerciseType>[
+          ExerciseType.bicepsCurl,
+          ExerciseType.lateralRaise,
+          ExerciseType.shoulderPress,
+        ]) {
+          final contract = catalog
+              .definitionFor(type)
+              .analysisCameraViewContract;
 
-      expect(
-        contract.supportFor(CameraView.side),
-        CameraViewSupport.unsupported,
-      );
-      expect(
-        contract.supportFor(CameraView.front),
-        CameraViewSupport.preferred,
-      );
-    });
+          expect(
+            contract.supportFor(CameraView.side),
+            CameraViewSupport.unsupported,
+            reason: type.name,
+          );
+          expect(
+            contract.supportFor(CameraView.front),
+            CameraViewSupport.preferred,
+            reason: type.name,
+          );
+        }
+      },
+    );
 
     test('stores Squat-specific validation timing', () {
       final definition = catalog.definitionFor(ExerciseType.squat);
@@ -233,19 +255,41 @@ void main() {
       expect(config.allowLowConfidenceOnCoverageLoss, isTrue);
     });
 
-    test(
-      'does not attach a range-rep validation config to hold or unsupported exercises',
-      () {
-        for (final type in const <ExerciseType>[
-          ExerciseType.plank,
-          ExerciseType.hollowHold,
-          ExerciseType.lunge,
-        ]) {
-          final definition = catalog.definitionFor(type);
+    test('new range-rep batch owns ROM-delta validation configs', () {
+      for (final type in const <ExerciseType>[
+        ExerciseType.lunge,
+        ExerciseType.lyingLegRaise,
+        ExerciseType.tricepsDip,
+        ExerciseType.romanianDeadlift,
+        ExerciseType.lateralRaise,
+        ExerciseType.shoulderPress,
+      ]) {
+        final definition = catalog.definitionFor(type);
+        final config = definition.analysisRangeRepValidationConfig;
 
-          expect(definition.rangeRepValidationConfig, isNull);
-        }
-      },
-    );
+        expect(
+          definition.analysisEngineKind,
+          EngineKind.rangeRep,
+          reason: type.name,
+        );
+        expect(config.minAcceptableRomDelta, isNotNull, reason: type.name);
+        expect(
+          config.allowLowConfidenceOnCoverageLoss,
+          isTrue,
+          reason: type.name,
+        );
+      }
+    });
+
+    test('does not attach a range-rep validation config to hold exercises', () {
+      for (final type in const <ExerciseType>[
+        ExerciseType.plank,
+        ExerciseType.hollowHold,
+      ]) {
+        final definition = catalog.definitionFor(type);
+
+        expect(definition.rangeRepValidationConfig, isNull);
+      }
+    });
   });
 }

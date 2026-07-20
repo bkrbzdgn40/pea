@@ -41,6 +41,78 @@ String mapRangeRepFeedbackCodeToMessage(
 }
 
 _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(ExerciseType? exerciseType) {
+  if (exerciseType == ExerciseType.lyingLegRaise) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Bacaklarini kontrollu kaldir...',
+      ascend: 'Bacaklarini kontrollu indir...',
+      formViolation: 'Dizlerini daha duz tut.',
+      controlDescent: 'Kaldirisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ust noktada gecisi sabitle.',
+      maintainForm: 'Dizlerini uzatmayi koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.tricepsDip) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kontrollu asagi in...',
+      ascend: 'Kollarinla yukari it...',
+      formViolation: 'Omuzlarini gereksiz derine zorlama.',
+      controlDescent: 'Inisi kontrollu yap.',
+      controlAscent: 'Yukselisi kontrollu yap.',
+      stabilizeTransition: 'Alt noktada gecisi sabitle.',
+      maintainForm: 'Omuz pozisyonunu koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.romanianDeadlift) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kalca menteşesiyle kontrollu egil...',
+      ascend: 'Kalcalari ileri getirerek kalk...',
+      formViolation: 'Diz acini daha sabit tut.',
+      controlDescent: 'Kalca menteşesini kontrollu yap.',
+      controlAscent: 'Kalkisi kontrollu yap.',
+      stabilizeTransition: 'Alt noktada kontrolu koru.',
+      maintainForm: 'Diz acini ve kalca menteşesini koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.lunge) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kontrollu asagi in...',
+      ascend: 'On bacaginla yukari it...',
+      formViolation: 'Formunu koru.',
+      controlDescent: 'Inisi kontrollu yap.',
+      controlAscent: 'Yukselisi kontrollu yap.',
+      stabilizeTransition: 'Alt noktada dengeyi koru.',
+      maintainForm: 'Dengeni ve diz hattini koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.lateralRaise) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kollarini yana kaldir...',
+      ascend: 'Kontrollu indir...',
+      formViolation: 'Dirseklerini gereksiz bukme.',
+      controlDescent: 'Kaldirisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Omuz hizasinda gecisi sabitle.',
+      maintainForm: 'Dirsek acini koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.shoulderPress) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kollari yukari presle...',
+      ascend: 'Kontrollu baslangica don...',
+      formViolation: 'Formunu koru.',
+      controlDescent: 'Presi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ustte gecisi sabitle.',
+      maintainForm: 'Kollari birlikte hareket ettir.',
+    );
+  }
+
   if (exerciseType == ExerciseType.bicepsCurl) {
     return const _RangeRepFeedbackCopy(
       descend: 'Kollarini yukari cek...',
