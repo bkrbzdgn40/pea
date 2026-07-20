@@ -1,17 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-import 'package:pose_estimation_app/core/utils/moving_average.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/analysis_frame_builder.dart';
-import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/plank_hip_deviation_measurement.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
-import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
 
 void main() {
   const measurement = PlankHipDeviationMeasurement();
+  const extractor = ExerciseMetricsExtractor();
 
   group('PlankHipDeviationMeasurement', () {
     test('returns zero when hip lies on the shoulder-ankle line', () {
@@ -124,14 +124,9 @@ void main() {
     });
   });
 
-  test('analysis frame exposes hip deviation without replacing alignment', () {
-    final metrics = ExerciseMetrics(
-      primaryAngle: 180,
-      formMetric: 90,
-      hasPrimaryAngle: false,
-      hasFormMetric: false,
-      hasPose: true,
-      landmarks: _landmarks(
+  test('extractor wires hip deviation only for the explicit plank family', () {
+    final pose = _pose(
+      _landmarks(
         side: HoldSide.left,
         shoulderX: -1,
         shoulderY: 0,
@@ -140,38 +135,62 @@ void main() {
         ankleX: 1,
         ankleY: 0,
       ),
-      leftRangeRepMetrics: const RangeRepSideMetrics.unavailable(
-        RangeRepSide.left,
-      ),
-      rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
-        RangeRepSide.right,
-      ),
-      holdSignalValues: HoldSignalValues(
-        values: const <HoldSignal, double>{
-          HoldSignal.alignment: 160,
-          HoldSignal.support: 90,
-          HoldSignal.extension: 170,
-        },
-      ),
+    );
+    final plankMetrics = extractor.extract(
+      pose,
+      buildPlankConfig(),
+      engineKind: EngineKind.hold,
+      holdContract: HoldContracts.plankFamily,
       holdSide: HoldSide.left,
     );
 
-    final frame = const WorkoutAnalysisFrameBuilder().build(
-      metrics: metrics,
-      primaryMetricFilter: MovingAverageFilter(windowSize: 5),
-      formMetricFilter: MovingAverageFilter(windowSize: 5),
-      holdSignalFilters: <HoldSignal, MovingAverageFilter>{
-        for (final signal in HoldSignal.values)
-          signal: MovingAverageFilter(windowSize: 5),
-      },
-    );
-
-    expect(frame.holdSignalValues.valueFor(HoldSignal.alignment), 160);
+    expect(plankMetrics.holdSignalValues.hasValue(HoldSignal.alignment), isTrue);
     expect(
-      frame.holdSignalValues.valueFor(HoldSignal.hipDeviation),
+      plankMetrics.holdSignalValues.valueFor(HoldSignal.hipDeviation),
       closeTo(0.25, 0.001),
     );
+
+    final nonPlankContract = HoldContract(
+      family: HoldAnalysisFamily.hollowHold,
+      requiredSignals: const <HoldSignal>{HoldSignal.alignment},
+      supportedSignals: const <HoldSignal>{
+        HoldSignal.alignment,
+        HoldSignal.hipDeviation,
+      },
+      signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+        HoldSignal.alignment: <AnalysisSignalRole>{
+          AnalysisSignalRole.validation,
+        },
+        HoldSignal.hipDeviation: <AnalysisSignalRole>{
+          AnalysisSignalRole.technique,
+        },
+      },
+    );
+    final nonPlankMetrics = extractor.extract(
+      pose,
+      buildPlankConfig(),
+      engineKind: EngineKind.hold,
+      holdContract: nonPlankContract,
+      holdSide: HoldSide.left,
+    );
+
+    expect(
+      nonPlankMetrics.holdSignalValues.hasValue(HoldSignal.alignment),
+      isTrue,
+    );
+    expect(
+      nonPlankMetrics.holdSignalValues.hasValue(HoldSignal.hipDeviation),
+      isFalse,
+    );
   });
+}
+
+Pose _pose(List<PoseLandmark> landmarks) {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      for (final landmark in landmarks) landmark.type: landmark,
+    },
+  );
 }
 
 List<PoseLandmark> _landmarks({
