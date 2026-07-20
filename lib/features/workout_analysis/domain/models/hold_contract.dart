@@ -11,6 +11,7 @@ enum HoldSignal {
   armExtension,
   kneeExtension,
   hipDeviation,
+  shoulderElbowOffset,
 }
 
 /// Immutable contract describing which normalized signals a hold exercise
@@ -112,6 +113,7 @@ abstract final class HoldContracts {
       HoldSignal.support,
       HoldSignal.extension,
       HoldSignal.hipDeviation,
+      HoldSignal.shoulderElbowOffset,
     },
     signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
       HoldSignal.alignment: <AnalysisSignalRole>{
@@ -121,7 +123,6 @@ abstract final class HoldContracts {
       HoldSignal.support: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
       },
       HoldSignal.extension: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
@@ -129,6 +130,9 @@ abstract final class HoldContracts {
         AnalysisSignalRole.technique,
       },
       HoldSignal.hipDeviation: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      HoldSignal.shoulderElbowOffset: <AnalysisSignalRole>{
         AnalysisSignalRole.technique,
       },
     },
