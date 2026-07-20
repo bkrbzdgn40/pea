@@ -1,24 +1,20 @@
 // ignore_for_file: use_super_parameters
 
-import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
-
 import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
-import '../domain/biceps_torso_swing_tracker.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_validation_policy.dart';
-import '../domain/squat_torso_drift_tracker.dart';
 import 'analysis_frame_builder.dart';
-import 'biceps_torso_inclination_measurement.dart';
 import 'calibration_snapshot_builder.dart';
 import 'exercise_metrics.dart';
-import 'push_up_hip_deviation_measurement.dart';
 import 'range_rep_blocked_state_builder.dart';
 import 'range_rep_coordinator_base.dart' as base;
+import 'range_rep_exercise_analysis_extension.dart';
+import 'range_rep_exercise_analysis_extension_factory.dart';
 import 'range_rep_frame_policy.dart';
 import 'range_rep_rep_outcome_tracker.dart';
 import 'range_rep_side_policy.dart';
@@ -26,21 +22,25 @@ import 'range_rep_side_stabilizer.dart';
 import 'range_rep_threshold_bookkeeper.dart';
 import 'range_rep_visibility_policy.dart';
 import 'session_calibration_baseline_accumulator.dart';
-import 'squat_hip_depth_measurement.dart';
-import 'squat_torso_inclination_measurement.dart';
 import 'workout_calibration_metrics_builder.dart';
 
 export 'range_rep_coordinator_base.dart' hide DefaultRangeRepCoordinator;
 
-/// Production range-rep coordinator with push-up and squat-specific
-/// diagnostic and technique-signal wiring layered on top of the established
-/// coordinator behavior.
+/// Production range-rep coordinator.
+///
+/// Generic frame selection, detection, validation, scoring, and persistence
+/// inputs stay in the base coordinator. Exercise-specific biomechanics are
+/// delegated to [RangeRepExerciseAnalysisExtension], preventing this class from
+/// accumulating one `if (exercise == ...)` branch per new exercise.
 class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   DefaultRangeRepCoordinator({
     required RangeRepAnalysisEngine engine,
     required ExerciseConfig config,
     required RangeRepContract rangeRepContract,
     required RangeRepValidationConfig rangeRepValidationConfig,
+    RangeRepExerciseAnalysisExtension? exerciseAnalysisExtension,
+    RangeRepExerciseAnalysisExtensionFactory exerciseAnalysisExtensionFactory =
+        const RangeRepExerciseAnalysisExtensionFactory(),
     LegacyRangeRepScorer scorer = const LegacyRangeRepScorer(),
     LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
         const LegacyRangeRepTechniqueEvaluator(),
@@ -61,12 +61,11 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepRepOutcomeTracker? outcomeTracker,
     SessionCalibrationBaselineAccumulator?
     sessionCalibrationBaselineAccumulator,
-  }) : _isPushUp = identical(rangeRepContract, RangeRepContracts.pushUp),
-       _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
-       _isBicepsCurl = identical(
-         rangeRepContract,
-         RangeRepContracts.bicepsCurl,
-       ),
+  }) : _exerciseAnalysisExtension =
+           exerciseAnalysisExtension ??
+           exerciseAnalysisExtensionFactory.create(
+             rangeRepContract.extensionProfile,
+           ),
        super(
          engine: engine,
          config: config,
@@ -89,44 +88,22 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
              sessionCalibrationBaselineAccumulator,
        );
 
-  final bool _isPushUp;
-  final bool _isSquat;
-  final bool _isBicepsCurl;
-  final BicepsTorsoInclinationMeasurement _bicepsTorsoMeasurement =
-      const BicepsTorsoInclinationMeasurement();
-  final BicepsTorsoSwingTracker _bicepsTorsoSwingTracker =
-      BicepsTorsoSwingTracker();
-  final PushUpHipDeviationMeasurement _pushUpHipDeviationMeasurement =
-      const PushUpHipDeviationMeasurement();
-  final SquatTorsoInclinationMeasurement _torsoMeasurement =
-      const SquatTorsoInclinationMeasurement();
-  final SquatHipDepthMeasurement _hipDepthMeasurement =
-      const SquatHipDepthMeasurement();
-  final SquatTorsoDriftTracker _torsoDriftTracker = SquatTorsoDriftTracker();
-  final List<RangeRepTechniqueObservation> _techniqueObservations =
-      <RangeRepTechniqueObservation>[];
-  double? _currentPushUpHipDeviationMetric;
-  double? _currentSquatHipDepthMetric;
-  double? _currentBicepsRomDelta;
-  double? _latestBicepsNeutralAngle;
-  double? _currentBicepsPeakAngle;
-  String? _previousPhase;
+  final RangeRepExerciseAnalysisExtension _exerciseAnalysisExtension;
 
   List<RangeRepTechniqueObservation> get techniqueObservations =>
-      List<RangeRepTechniqueObservation>.unmodifiable(_techniqueObservations);
+      _exerciseAnalysisExtension.techniqueObservations;
 
-  /// Latest selected-side normalized hip deviation from the shoulder-ankle
-  /// line for an accepted push-up frame. This diagnostic value is not a
-  /// validation or scoring input.
-  double? get currentPushUpHipDeviationMetric =>
-      _currentPushUpHipDeviationMetric;
+  /// Compatibility diagnostic getter for existing push-up UI/tests.
+  double? get currentPushUpHipDeviationMetric => _exerciseAnalysisExtension
+      .diagnosticMetric(RangeRepExtensionDiagnostic.pushUpHipDeviation);
 
-  /// Latest selected-side normalized hip/knee height signal for an accepted
-  /// squat frame. This diagnostic value is not a validation or scoring input.
-  double? get currentSquatHipDepthMetric => _currentSquatHipDepthMetric;
+  /// Compatibility diagnostic getter for existing squat UI/tests.
+  double? get currentSquatHipDepthMetric => _exerciseAnalysisExtension
+      .diagnosticMetric(RangeRepExtensionDiagnostic.squatHipDepth);
 
-  /// Latest start-to-peak bilateral biceps ROM delta in degrees.
-  double? get currentBicepsRomDelta => _currentBicepsRomDelta;
+  /// Compatibility diagnostic getter for existing biceps UI/tests.
+  double? get currentBicepsRomDelta => _exerciseAnalysisExtension
+      .diagnosticMetric(RangeRepExtensionDiagnostic.bicepsRomDelta);
 
   @override
   base.RangeRepCoordinatorFrameResult processFrame({
@@ -146,29 +123,12 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       preferredRangeRepSide: preferredRangeRepSide,
     );
 
-    if (_isPushUp) {
-      _recordPushUpHipDeviation(
-        metrics: metrics,
-        result: result,
-        isAcceptedPoseFrame: isAcceptedPoseFrame,
-      );
-    }
+    _exerciseAnalysisExtension.processFrame(
+      metrics: metrics,
+      result: result,
+      isAcceptedPoseFrame: isAcceptedPoseFrame,
+    );
 
-    if (_isSquat) {
-      _recordSquatHipDepth(
-        metrics: metrics,
-        result: result,
-        isAcceptedPoseFrame: isAcceptedPoseFrame,
-      );
-      if (isAcceptedPoseFrame) {
-        _recordSquatTorsoDrift(metrics: metrics, result: result);
-      }
-    }
-
-    if (_isBicepsCurl && isAcceptedPoseFrame) {
-      _recordBicepsTechnique(metrics: metrics, result: result);
-    }
-    _previousPhase = result.stateSnapshot.currentPhase;
     return _withTechniqueObservations(result);
   }
 
@@ -176,160 +136,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   base.RangeRepCoordinatorStateSnapshot handleLifecycleInterruption({
     String? reason,
   }) {
-    _currentPushUpHipDeviationMetric = null;
-    _currentSquatHipDepthMetric = null;
-    _currentBicepsRomDelta = null;
-    _latestBicepsNeutralAngle = null;
-    _currentBicepsPeakAngle = null;
-    _bicepsTorsoSwingTracker.resetRep(keepNeutral: false);
-    _resetTorsoDrift(clearObservations: true);
-    _previousPhase = null;
+    _exerciseAnalysisExtension.reset();
     return super.handleLifecycleInterruption(reason: reason);
-  }
-
-  void _recordPushUpHipDeviation({
-    required ExerciseMetrics metrics,
-    required base.RangeRepCoordinatorFrameResult result,
-    required bool isAcceptedPoseFrame,
-  }) {
-    if (!isAcceptedPoseFrame) {
-      _currentPushUpHipDeviationMetric = null;
-      return;
-    }
-
-    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
-    _currentPushUpHipDeviationMetric = side == null
-        ? null
-        : _pushUpHipDeviationMeasurement.measure(
-            _poseFrom(metrics.landmarks),
-            side: side,
-          );
-  }
-
-  void _recordSquatHipDepth({
-    required ExerciseMetrics metrics,
-    required base.RangeRepCoordinatorFrameResult result,
-    required bool isAcceptedPoseFrame,
-  }) {
-    if (!isAcceptedPoseFrame) {
-      _currentSquatHipDepthMetric = null;
-      return;
-    }
-
-    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
-    _currentSquatHipDepthMetric = side == null
-        ? null
-        : _hipDepthMeasurement.measure(
-            _poseFrom(metrics.landmarks),
-            side: side,
-          );
-  }
-
-  void _recordSquatTorsoDrift({
-    required ExerciseMetrics metrics,
-    required base.RangeRepCoordinatorFrameResult result,
-  }) {
-    final phase = result.stateSnapshot.currentPhase;
-    if (phase == _previousPhase) {
-      return;
-    }
-
-    final side = _sideFromLabel(result.diagnosticsUpdate.selectedSideLabel);
-    final inclination = side == null
-        ? null
-        : _torsoMeasurement.measure(_poseFrom(metrics.landmarks), side: side);
-
-    switch (phase) {
-      case 'DESCENDING':
-        _resetTorsoDrift(clearObservations: true);
-        _torsoDriftTracker.record(
-          phase: RangeRepTechniquePhase.descending,
-          inclinationDegrees: inclination,
-        );
-        break;
-      case 'PEAK':
-        _torsoDriftTracker.record(
-          phase: RangeRepTechniquePhase.peak,
-          inclinationDegrees: inclination,
-        );
-        _addObservation(
-          _torsoDriftTracker.observeTransition(
-            referencePhase: RangeRepTechniquePhase.descending,
-            measuredPhase: RangeRepTechniquePhase.peak,
-          ),
-        );
-        break;
-      case 'ASCENDING':
-        _torsoDriftTracker.record(
-          phase: RangeRepTechniquePhase.ascending,
-          inclinationDegrees: inclination,
-        );
-        break;
-      case 'NEUTRAL':
-        if (_previousPhase == 'ASCENDING') {
-          _addObservation(
-            _torsoDriftTracker.observeTransition(
-              referencePhase: RangeRepTechniquePhase.peak,
-              measuredPhase: RangeRepTechniquePhase.ascending,
-            ),
-          );
-          _torsoDriftTracker.reset();
-        } else if (_previousPhase == 'DESCENDING' || _previousPhase == 'PEAK') {
-          _resetTorsoDrift(clearObservations: true);
-        }
-        break;
-    }
-  }
-
-  void _recordBicepsTechnique({
-    required ExerciseMetrics metrics,
-    required base.RangeRepCoordinatorFrameResult result,
-  }) {
-    final phase = result.stateSnapshot.currentPhase;
-    final pose = _poseFrom(metrics.landmarks);
-    final torsoInclination = _bicepsTorsoMeasurement.measureBilateral(pose);
-    final primaryAngle =
-        metrics.bilateralRangeRepMetrics?.hasPrimaryAngle == true
-        ? metrics.bilateralRangeRepMetrics!.primaryAngle
-        : null;
-
-    if (phase == 'NEUTRAL') {
-      if (_previousPhase == 'ASCENDING') {
-        final start = _latestBicepsNeutralAngle;
-        final peak = _currentBicepsPeakAngle;
-        if (start != null && peak != null) {
-          _currentBicepsRomDelta = (start - peak).clamp(0.0, 180.0).toDouble();
-        }
-        _bicepsTorsoSwingTracker.resetRep();
-        _currentBicepsPeakAngle = null;
-      }
-      if (primaryAngle != null) {
-        _latestBicepsNeutralAngle = primaryAngle;
-      }
-      _bicepsTorsoSwingTracker.recordNeutral(torsoInclination);
-      return;
-    }
-
-    if (phase == 'DESCENDING' && _previousPhase != 'DESCENDING') {
-      _techniqueObservations.clear();
-      _currentBicepsRomDelta = null;
-      _currentBicepsPeakAngle = null;
-      _bicepsTorsoSwingTracker.resetRep();
-    }
-
-    if (phase == 'PEAK' && _previousPhase != 'PEAK') {
-      if (primaryAngle != null) {
-        _currentBicepsPeakAngle = primaryAngle;
-        final start = _latestBicepsNeutralAngle;
-        if (start != null) {
-          _currentBicepsRomDelta = (start - primaryAngle)
-              .clamp(0.0, 180.0)
-              .toDouble();
-        }
-      }
-      _bicepsTorsoSwingTracker.recordPeak(torsoInclination);
-      _addObservation(_bicepsTorsoSwingTracker.buildObservation());
-    }
   }
 
   base.RangeRepCoordinatorFrameResult _withTechniqueObservations(
@@ -353,35 +161,6 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       shouldResetPoseAcceptance: result.shouldResetPoseAcceptance,
       shouldRecordInvalidPoseAcceptance:
           result.shouldRecordInvalidPoseAcceptance,
-    );
-  }
-
-  RangeRepSide? _sideFromLabel(String? sideLabel) {
-    return switch (sideLabel) {
-      'left' => RangeRepSide.left,
-      'right' => RangeRepSide.right,
-      _ => null,
-    };
-  }
-
-  void _addObservation(RangeRepTechniqueObservation? observation) {
-    if (observation != null) {
-      _techniqueObservations.add(observation);
-    }
-  }
-
-  void _resetTorsoDrift({required bool clearObservations}) {
-    _torsoDriftTracker.reset();
-    if (clearObservations) {
-      _techniqueObservations.clear();
-    }
-  }
-
-  Pose _poseFrom(List<PoseLandmark> landmarks) {
-    return Pose(
-      landmarks: <PoseLandmarkType, PoseLandmark>{
-        for (final landmark in landmarks) landmark.type: landmark,
-      },
     );
   }
 }
