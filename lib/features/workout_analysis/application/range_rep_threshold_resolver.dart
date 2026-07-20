@@ -125,12 +125,12 @@ class RangeRepThresholdResolution {
 
   const RangeRepThresholdResolution.measurementCorrectionCandidate({
     required this.baseThreshold,
-    required double measurementCorrectionOffset,
+    required this.measurementCorrectionOffset,
     this.sampleCount,
     this.baselineSideLabel,
-  }) : techniqueAcceptanceThreshold = baseThreshold,
+  }) : assert(measurementCorrectionOffset != null),
+       techniqueAcceptanceThreshold = baseThreshold,
        isTechniqueThresholdCalibrationApplied = false,
-       measurementCorrectionOffset = measurementCorrectionOffset,
        decisionReason = 'measurement_correction_only';
 
   final double baseThreshold;
