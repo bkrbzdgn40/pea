@@ -3,6 +3,7 @@ import 'hold_form_policy.dart';
 import 'models/exercise_config.dart';
 import 'models/hold_contract.dart';
 import 'models/hold_feedback_code.dart';
+import 'models/hold_posture_severity.dart';
 import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
 
@@ -57,15 +58,15 @@ class HoldPosturePolicy implements HoldFormPolicy {
       },
     );
     final isValidHoldPosture =
-        hasCompleteMetrics &&
-        isBodyAligned &&
-        isArmSupported &&
-        areLegsExtended;
+        hasCompleteMetrics && isBodyAligned && isArmSupported;
     final supportsGraceWindow =
-        hasCompleteMetrics &&
-        !isBodyAligned &&
-        isArmSupported &&
-        areLegsExtended;
+        hasCompleteMetrics && !isBodyAligned && isArmSupported;
+    final severity = _resolveSeverity(
+      hasCompleteMetrics: hasCompleteMetrics,
+      isBodyAligned: isBodyAligned,
+      isArmSupported: isArmSupported,
+      areLegsExtended: areLegsExtended,
+    );
 
     return HoldFormEvaluation(
       hasActivePosture: hasActivePosture,
@@ -74,6 +75,7 @@ class HoldPosturePolicy implements HoldFormPolicy {
       postureDiagnostics: HoldPostureDiagnosticsSnapshot(
         hasActivePosture: hasActivePosture,
         hasCompleteMetrics: hasCompleteMetrics,
+        severity: severity,
         signalValidity: signalValidity,
       ),
       correctiveFeedbackCode: _resolveCorrectiveFeedbackCode(
@@ -84,6 +86,24 @@ class HoldPosturePolicy implements HoldFormPolicy {
       isValidHoldPosture: isValidHoldPosture,
       supportsGraceWindow: supportsGraceWindow,
     );
+  }
+
+  HoldPostureSeverity _resolveSeverity({
+    required bool hasCompleteMetrics,
+    required bool isBodyAligned,
+    required bool isArmSupported,
+    required bool areLegsExtended,
+  }) {
+    if (!hasCompleteMetrics) {
+      return HoldPostureSeverity.none;
+    }
+    if (!isBodyAligned || !isArmSupported) {
+      return HoldPostureSeverity.critical;
+    }
+    if (!areLegsExtended) {
+      return HoldPostureSeverity.warning;
+    }
+    return HoldPostureSeverity.none;
   }
 
   HoldFeedbackCode _resolveCorrectiveFeedbackCode({
