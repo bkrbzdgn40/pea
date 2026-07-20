@@ -88,17 +88,19 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
       },
     );
 
-    // R35: setup/validation is variation-owned. Compression is intentionally
-    // not treated as "smaller is better" technique quality; it only identifies
-    // whether the Hollow Hold posture is active.
+    // R35: setup/validation is variation-owned. Compression remains a
+    // setup/hold-validity reference with the existing grace window, but it is
+    // not treated as a "smaller is better" technique-quality score.
     final isValidHoldPosture =
         hasCompleteMetrics &&
         hasActivePosture &&
+        isCompressionWithinReference &&
         requiredArmValid &&
         requiredKneeValid;
     final supportsGraceWindow =
         hasCompleteMetrics &&
-        !hasActivePosture &&
+        hasActivePosture &&
+        !isCompressionWithinReference &&
         requiredArmValid &&
         requiredKneeValid;
 
@@ -112,7 +114,7 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
         signalValidity: signalValidity,
       ),
       correctiveFeedbackCode: _resolveCorrectiveFeedbackCode(
-        hasActivePosture: hasActivePosture,
+        isCompressionWithinReference: isCompressionWithinReference,
         isArmExtensionValid: isArmExtensionValid,
         isKneeExtensionValid: isKneeExtensionValid,
       ),
@@ -128,11 +130,11 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
   }
 
   HoldFeedbackCode _resolveCorrectiveFeedbackCode({
-    required bool hasActivePosture,
+    required bool isCompressionWithinReference,
     required bool isArmExtensionValid,
     required bool isKneeExtensionValid,
   }) {
-    if (!hasActivePosture) {
+    if (!isCompressionWithinReference) {
       return HoldFeedbackCode.increaseHollowCompression;
     }
     if (variationContract.requiresArmsOverhead && !isArmExtensionValid) {
