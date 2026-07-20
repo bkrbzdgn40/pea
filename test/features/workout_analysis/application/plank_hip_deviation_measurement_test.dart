@@ -144,7 +144,10 @@ void main() {
       holdSide: HoldSide.left,
     );
 
-    expect(plankMetrics.holdSignalValues.hasValue(HoldSignal.alignment), isTrue);
+    expect(
+      plankMetrics.holdSignalValues.hasValue(HoldSignal.alignment),
+      isTrue,
+    );
     expect(
       plankMetrics.holdSignalValues.valueFor(HoldSignal.hipDeviation),
       closeTo(0.25, 0.001),
