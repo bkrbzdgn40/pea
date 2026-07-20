@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
@@ -55,7 +57,7 @@ void main() {
 
       expect(
         measurement.measureLandmarks(landmarks, side: HoldSide.right),
-        closeTo(1 / 5.0.sqrt(), 0.001),
+        closeTo(1 / math.sqrt(5), 0.001),
       );
       expect(
         measurement.measureLandmarks(landmarks, side: HoldSide.left),
@@ -257,8 +259,4 @@ List<PoseLandmark> _shoulderElbowLandmarks({
     buildLandmark(shoulderType, shoulderX, shoulderY, likelihood: 0.95),
     buildLandmark(elbowType, elbowX, elbowY, likelihood: 0.95),
   ];
-}
-
-extension on double {
-  double sqrt() => 2.23606797749979;
 }
