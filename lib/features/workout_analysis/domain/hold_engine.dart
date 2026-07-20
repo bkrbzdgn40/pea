@@ -7,6 +7,7 @@ import 'hold_diagnostics.dart';
 import 'models/analysis_frame.dart';
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
+import 'models/hold_posture_severity.dart';
 
 /// First real non-repetition engine family backed by typed hold diagnostics.
 class HoldEngine implements HoldAnalysisEngine {
@@ -39,7 +40,8 @@ class HoldEngine implements HoldAnalysisEngine {
       case HoldPhase.ready:
         return HoldFeedbackCode.preparePosition;
       case HoldPhase.holding:
-        if (_misalignmentStartedAt != null) {
+        if (_misalignmentStartedAt != null ||
+            _lastVisiblePosture.severity == HoldPostureSeverity.warning) {
           return _currentCorrectiveFeedbackCode();
         }
         return HoldFeedbackCode.holdPosition;
