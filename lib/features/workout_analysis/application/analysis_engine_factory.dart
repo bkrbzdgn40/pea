@@ -90,6 +90,15 @@ class AnalysisEngineFactory {
   }
 
   void _validateRangeRepEngineContract(RangeRepContract contract) {
+    if (contract.primaryMetricDirection !=
+        RangeRepPrimaryMetricDirection.decreasingToPeak) {
+      throw StateError(
+        'Current range-rep engine supports only primary metrics that decrease '
+        'from neutral toward peak. Configure a decreasingToPeak contract or '
+        'add a direction-aware detection adapter before enabling this exercise.',
+      );
+    }
+
     if (!contract.supportsPhase(RangeRepPhase.descending) ||
         !contract.supportsPhase(RangeRepPhase.peak) ||
         !contract.supportsPhase(RangeRepPhase.ascending)) {

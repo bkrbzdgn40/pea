@@ -34,6 +34,20 @@ enum RangeRepSideMode { selectedSide, bilateral }
 /// directional angle convention after that pure inclination measurement.
 enum RangeRepPrimaryMetricKind { jointAngle, imagePlaneInclination }
 
+/// Declares how the primary metric moves from neutral toward the rep peak.
+///
+/// The current production engine supports [decreasingToPeak]. Keeping the
+/// direction explicit prevents new exercises from silently inheriting the
+/// legacy angle-decreases-toward-peak assumption.
+enum RangeRepPrimaryMetricDirection { decreasingToPeak, increasingToPeak }
+
+/// Selects an optional exercise-specific analysis extension layered on top of
+/// the generic range-rep coordinator.
+///
+/// This is semantic metadata, not object identity. A copied contract therefore
+/// keeps the same behavior without relying on `identical(...)`.
+enum RangeRepExtensionProfile { none, squat, pushUp, bicepsCurl }
+
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
 class RangeRepContract {
@@ -46,6 +60,9 @@ class RangeRepContract {
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
     this.primaryMetricKind = RangeRepPrimaryMetricKind.jointAngle,
+    this.primaryMetricDirection =
+        RangeRepPrimaryMetricDirection.decreasingToPeak,
+    this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
        signalRoles = Map<RangeRepSignal, Set<AnalysisSignalRole>>.unmodifiable(
@@ -100,6 +117,8 @@ class RangeRepContract {
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
   final RangeRepPrimaryMetricKind primaryMetricKind;
+  final RangeRepPrimaryMetricDirection primaryMetricDirection;
+  final RangeRepExtensionProfile extensionProfile;
 
   bool supportsPhase(RangeRepPhase phase) {
     return supportedPhases.contains(phase);
@@ -140,6 +159,7 @@ class RangeRepContract {
 /// Predefined range-rep contracts kept separate from runtime wiring.
 abstract final class RangeRepContracts {
   static final RangeRepContract squat = RangeRepContract(
+    extensionProfile: RangeRepExtensionProfile.squat,
     supportedPhases: const <RangeRepPhase>{
       RangeRepPhase.descending,
       RangeRepPhase.peak,
@@ -180,6 +200,7 @@ abstract final class RangeRepContracts {
   );
 
   static final RangeRepContract pushUp = RangeRepContract(
+    extensionProfile: RangeRepExtensionProfile.pushUp,
     supportedPhases: const <RangeRepPhase>{
       RangeRepPhase.descending,
       RangeRepPhase.peak,
@@ -254,6 +275,7 @@ abstract final class RangeRepContracts {
   );
 
   static final RangeRepContract bicepsCurl = RangeRepContract(
+    extensionProfile: RangeRepExtensionProfile.bicepsCurl,
     supportedPhases: const <RangeRepPhase>{
       RangeRepPhase.descending,
       RangeRepPhase.peak,
