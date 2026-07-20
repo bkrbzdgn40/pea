@@ -44,6 +44,34 @@ void main() {
       );
     });
 
+    test('separates supported signals from hard required signals', () {
+      final contract = HoldContract(
+        family: HoldAnalysisFamily.plank,
+        requiredSignals: const <HoldSignal>{HoldSignal.alignment},
+        supportedSignals: const <HoldSignal>{
+          HoldSignal.alignment,
+          HoldSignal.hipDeviation,
+        },
+        signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+          HoldSignal.alignment: <AnalysisSignalRole>{
+            AnalysisSignalRole.validation,
+          },
+          HoldSignal.hipDeviation: <AnalysisSignalRole>{
+            AnalysisSignalRole.technique,
+          },
+        },
+      );
+
+      expect(contract.requiredSignals, const <HoldSignal>{
+        HoldSignal.alignment,
+      });
+      expect(contract.supportsSignal(HoldSignal.hipDeviation), isTrue);
+      expect(
+        contract.signalsForRole(AnalysisSignalRole.technique),
+        const <HoldSignal>{HoldSignal.hipDeviation},
+      );
+    });
+
     test('rejects missing roles and unsupported role keys', () {
       expect(
         () => HoldContract(
@@ -68,16 +96,59 @@ void main() {
         ),
         throwsArgumentError,
       );
+      expect(
+        () => HoldContract(
+          family: HoldAnalysisFamily.plank,
+          requiredSignals: const <HoldSignal>{
+            HoldSignal.alignment,
+            HoldSignal.hipDeviation,
+          },
+          supportedSignals: const <HoldSignal>{HoldSignal.alignment},
+          signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+            HoldSignal.alignment: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+        ),
+        throwsArgumentError,
+      );
     });
   });
 
   group('predefined hold role classifications', () {
-    test('Plank required signals have exactly the legacy hold roles', () {
-      _expectLegacyHoldRoles(HoldContracts.plankFamily, const <HoldSignal>{
+    test('Plank uses hip deviation as its primary technique measurement', () {
+      final contract = HoldContracts.plankFamily;
+
+      expect(contract.requiredSignals, const <HoldSignal>{
         HoldSignal.alignment,
         HoldSignal.support,
         HoldSignal.extension,
       });
+      expect(contract.supportedSignals, const <HoldSignal>{
+        HoldSignal.alignment,
+        HoldSignal.support,
+        HoldSignal.extension,
+        HoldSignal.hipDeviation,
+      });
+      expect(
+        contract.rolesForSignal(HoldSignal.alignment),
+        const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+        },
+      );
+      expect(
+        contract.rolesForSignal(HoldSignal.hipDeviation),
+        const <AnalysisSignalRole>{AnalysisSignalRole.technique},
+      );
+      expect(
+        contract.signalsForRole(AnalysisSignalRole.technique),
+        const <HoldSignal>{
+          HoldSignal.support,
+          HoldSignal.extension,
+          HoldSignal.hipDeviation,
+        },
+      );
     });
 
     test(
@@ -90,6 +161,7 @@ void main() {
           HoldSignal.armExtension,
           HoldSignal.kneeExtension,
         });
+        expect(contract.supportedSignals, contract.requiredSignals);
         expect(contract.signalRoles.keys.toSet(), contract.requiredSignals);
         expect(
           contract.rolesForSignal(HoldSignal.compression),
@@ -134,17 +206,4 @@ void main() {
       },
     );
   });
-}
-
-void _expectLegacyHoldRoles(
-  HoldContract contract,
-  Set<HoldSignal> expectedSignals,
-) {
-  expect(contract.requiredSignals, expectedSignals);
-  expect(contract.signalRoles.keys.toSet(), expectedSignals);
-  for (final signal in expectedSignals) {
-    expect(contract.rolesForSignal(signal), _legacyHoldRoles);
-    expect(contract.signalHasRole(signal, AnalysisSignalRole.setup), isFalse);
-    expect(contract.signalHasRole(signal, AnalysisSignalRole.scoring), isFalse);
-  }
 }
