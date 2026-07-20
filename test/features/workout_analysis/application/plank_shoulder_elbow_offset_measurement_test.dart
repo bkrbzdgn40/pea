@@ -116,43 +116,49 @@ void main() {
     });
   });
 
-  test('plank contract moves stacking technique semantics off support angle', () {
-    final contract = HoldContracts.plankFamily;
+  test(
+    'plank contract moves stacking technique semantics off support angle',
+    () {
+      final contract = HoldContracts.plankFamily;
 
-    expect(contract.requiredSignals, contains(HoldSignal.support));
-    expect(
-      contract.rolesForSignal(HoldSignal.support),
-      const <AnalysisSignalRole>{
-        AnalysisSignalRole.detection,
-        AnalysisSignalRole.validation,
-      },
-    );
-    expect(contract.signalsForRole(AnalysisSignalRole.technique), isEmpty);
-  });
+      expect(contract.requiredSignals, contains(HoldSignal.support));
+      expect(
+        contract.rolesForSignal(HoldSignal.support),
+        const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+        },
+      );
+      expect(contract.signalsForRole(AnalysisSignalRole.technique), isEmpty);
+    },
+  );
 
-  test('generic hold transport stays legacy while plank owns offset measurement', () {
-    final pose = _plankPose();
-    final metrics = extractor.extract(
-      pose,
-      buildPlankConfig(),
-      engineKind: EngineKind.hold,
-      holdContract: HoldContracts.plankFamily,
-      holdSide: HoldSide.left,
-    );
+  test(
+    'generic hold transport stays legacy while plank owns offset measurement',
+    () {
+      final pose = _plankPose();
+      final metrics = extractor.extract(
+        pose,
+        buildPlankConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
+      );
 
-    expect(
-      metrics.holdSignalValues.valueFor(HoldSignal.support),
-      closeTo(90, 0.001),
-    );
-    expect(
-      metrics.holdSignalValues.signals,
-      everyElement(isIn(HoldContracts.plankFamily.requiredSignals)),
-    );
-    expect(
-      measurement.measure(pose, side: HoldSide.left),
-      closeTo(0.0, 0.001),
-    );
-  });
+      expect(
+        metrics.holdSignalValues.valueFor(HoldSignal.support),
+        closeTo(90, 0.001),
+      );
+      expect(
+        metrics.holdSignalValues.signals,
+        everyElement(isIn(HoldContracts.plankFamily.requiredSignals)),
+      );
+      expect(
+        measurement.measure(pose, side: HoldSide.left),
+        closeTo(0.0, 0.001),
+      );
+    },
+  );
 }
 
 Pose _pose(List<PoseLandmark> landmarks) {

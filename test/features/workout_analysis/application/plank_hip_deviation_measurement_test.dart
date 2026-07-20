@@ -126,25 +126,28 @@ void main() {
     });
   });
 
-  test('generic hold transport stays legacy while plank owns hip measurement', () {
-    final pose = _fullPlankPose(hipY: 0.5);
-    final metrics = extractor.extract(
-      pose,
-      buildPlankConfig(),
-      engineKind: EngineKind.hold,
-      holdContract: HoldContracts.plankFamily,
-      holdSide: HoldSide.left,
-    );
+  test(
+    'generic hold transport stays legacy while plank owns hip measurement',
+    () {
+      final pose = _fullPlankPose(hipY: 0.5);
+      final metrics = extractor.extract(
+        pose,
+        buildPlankConfig(),
+        engineKind: EngineKind.hold,
+        holdContract: HoldContracts.plankFamily,
+        holdSide: HoldSide.left,
+      );
 
-    expect(
-      metrics.holdSignalValues.signals,
-      everyElement(isIn(HoldContracts.plankFamily.requiredSignals)),
-    );
-    expect(
-      measurement.measure(pose, side: HoldSide.left),
-      closeTo(0.25, 0.001),
-    );
-  });
+      expect(
+        metrics.holdSignalValues.signals,
+        everyElement(isIn(HoldContracts.plankFamily.requiredSignals)),
+      );
+      expect(
+        measurement.measure(pose, side: HoldSide.left),
+        closeTo(0.25, 0.001),
+      );
+    },
+  );
 }
 
 Pose _pose(List<PoseLandmark> landmarks) {
