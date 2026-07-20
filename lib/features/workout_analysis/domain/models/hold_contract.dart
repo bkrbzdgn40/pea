@@ -126,6 +126,7 @@ abstract final class HoldContracts {
       },
       HoldSignal.extension: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
         AnalysisSignalRole.technique,
       },
       HoldSignal.hipDeviation: <AnalysisSignalRole>{
