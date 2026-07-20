@@ -18,8 +18,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/widge
 const String _missingValue = '\u2014';
 const String _resetButtonText = 'Sayaçları Sıfırla';
 const String _copySuccessText = 'Diagnostics JSON panoya kopyalandı.';
-const String _resetSuccessText =
-    'Diagnostics sayaçları sıfırlandı.';
+const String _resetSuccessText = 'Diagnostics sayaçları sıfırlandı.';
 
 final CameraViewContract _sideViewContract = CameraViewContract(
   views: const <CameraView, CameraViewSupport>{
