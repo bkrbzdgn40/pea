@@ -17,6 +17,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hollow_hold_variation.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_rep_summary.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/plank_technique_analyzer.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
@@ -214,10 +215,7 @@ void main() {
         },
       );
 
-      expect(
-        tuck.evaluate(signals, isHolding: false).isValidHoldPosture,
-        isTrue,
-      );
+      expect(tuck.evaluate(signals, isHolding: false).isValidHoldPosture, isTrue);
       expect(
         straightLeg.evaluate(signals, isHolding: false).isValidHoldPosture,
         isFalse,
@@ -230,7 +228,10 @@ void main() {
 
     test('R34 exposes normalized shoulder and heel elevation measurements', () {
       const measurement = HollowHoldLimbElevationMeasurement();
-      final values = measurement.measure(_hollowPose(), side: HoldSide.left);
+      final values = measurement.measure(
+        _hollowPose(),
+        side: HoldSide.left,
+      );
 
       expect(values.shoulderElevation, isNotNull);
       expect(values.heelElevation, isNotNull);
