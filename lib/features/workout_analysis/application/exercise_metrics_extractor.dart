@@ -13,6 +13,7 @@ import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
+import 'plank_hip_deviation_measurement.dart';
 import 'pose_landmark_mirror.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -26,6 +27,8 @@ class ExerciseMetricsExtractor {
   );
   static const ExerciseLandmarkRequirements _requirements =
       ExerciseLandmarkRequirements();
+  static const PlankHipDeviationMeasurement _plankHipDeviationMeasurement =
+      PlankHipDeviationMeasurement();
 
   ExerciseMetrics extract(
     Pose pose,
@@ -454,6 +457,19 @@ class ExerciseMetricsExtractor {
       );
       if (value != null) {
         values[signal] = value;
+      }
+    }
+
+    if (holdContract.family == HoldAnalysisFamily.plank &&
+        holdContract.supportsSignal(HoldSignal.hipDeviation) &&
+        values.containsKey(HoldSignal.alignment) &&
+        holdSide != null) {
+      final hipDeviation = _plankHipDeviationMeasurement.measureLandmarks(
+        pose.landmarks.values.toList(),
+        side: holdSide,
+      );
+      if (hipDeviation != null) {
+        values[HoldSignal.hipDeviation] = hipDeviation;
       }
     }
 
