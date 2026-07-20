@@ -40,7 +40,7 @@ Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum öz
 
 ## Proje Özeti
 
-PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Güncel `ExerciseCatalog` altı hareketi canlı analiz için destekler: Squat, Plank, Hollow Hold, Push-up, Sit-up ve Biceps Curl. Lunge rehber içeriğine ve kalıcı kimliğe sahiptir, ancak canlı analiz katalogunda desteklenmez.
+PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Güncel `ExerciseCatalog` Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press hareketlerini canlı analiz için tanımlar. Catalog desteği, yeni hareketlerin bütün cihazlarda doğrulandığı anlamına gelmez.
 
 ## Aktif Analiz Desteği
 
@@ -49,10 +49,15 @@ PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz
 | Squat | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
 | Plank | `hold` / `plank` family | Aktif | Anlık hold, en iyi hold, form-break |
 | Hollow Hold | `hold` / `hollowHold` family | Aktif | Anlık hold, en iyi hold, form-break |
-| Lunge | Belirlenmedi | Kapalı | Rehber içeriği |
+| Stationary Lunge | `rangeRep` | Aktif | Tekrar, ROM, tempo |
 | Push-up | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
 | Sit-up | `rangeRep` | Aktif | Tekrar, form skoru, form sinyalleri |
 | Biceps Curl | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol tekrar takibi, form skoru, form sinyalleri |
+| Lying Leg Raise | `rangeRep` | Aktif | Tekrar, hip ROM, diz-ekstansiyon uyarısı |
+| Triceps Dip | `rangeRep` | Aktif | Tekrar, dirsek ROM, omuz-ekstansiyon uyarısı |
+| Romanian Deadlift | `rangeRep` | Aktif | Tekrar, hip-hinge ROM, diz-açısı uyarısı |
+| Lateral Raise | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol, omuz ROM, dirsek uyarısı |
+| Shoulder Press | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol, dirsek ekstansiyon ROM |
 
 ## Engine Aileleri
 
@@ -64,7 +69,7 @@ Temel hareket akışı:
 neutral -> descending -> peak -> ascending -> neutral
 ```
 
-Güncel katalogda Squat, Push-up, Sit-up ve Biceps Curl bu aileyi kullanır.
+Güncel katalogda Squat, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press bu aileyi kullanır.
 
 `RangeRepContract`, bir hareketin:
 
@@ -76,7 +81,7 @@ Güncel katalogda Squat, Push-up, Sit-up ve Biceps Curl bu aileyi kullanır.
 
 belirler.
 
-Squat, Push-up ve Sit-up selected-side akışını kullanır. Biceps Curl ise iki kolu birlikte değerlendiren `bilateral` side mode kullanır. Bilateral analiz, sağ-sol dönüşümlü tekrar anlamına gelmez; iki tarafın aynı tekrar içinde eş zamanlı değerlendirilmesidir.
+Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Triceps Dip ve Romanian Deadlift selected-side akışını kullanır. Biceps Curl, Lateral Raise ve Shoulder Press iki tarafı aynı tekrar içinde birlikte değerlendiren `bilateral` side mode kullanır. Bilateral analiz, sağ-sol dönüşümlü tekrar anlamına gelmez.
 
 ### `hold`
 
@@ -126,8 +131,8 @@ Global ve cross-exercise skor yüzeyleri kaldırılmıştır. Form skoru trendle
 
 Kamera akışı üzerinden ML Kit pose detection çalışır. Pose verisi seçilen hareketin catalog tanımı, config'i ve contract'ı üzerinden ilgili engine ailesine yönlendirilir.
 
-- Squat, Push-up ve Sit-up: selected-side `rangeRep`
-- Biceps Curl: bilateral `rangeRep`
+- Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Triceps Dip ve Romanian Deadlift: selected-side `rangeRep`
+- Biceps Curl, Lateral Raise ve Shoulder Press: bilateral `rangeRep`
 - Plank: `hold` + plank posture policy
 - Hollow Hold: `hold` + hollow-hold posture policy
 
@@ -292,7 +297,7 @@ Session document'ın summary-level olması, rep-level verinin hiç persist edilm
 
 Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 
-- Lunge rehberde bulunur ancak canlı analiz için `unsupported` durumdadır.
+- Stationary Lunge canlı analiz için `rangeRep` olarak tanımlıdır; dönüşümlü lunge hâlâ `alternatingRep` motoru gerektirir.
 - `alternatingRep` engine ailesi henüz uygulanmamıştır.
 - `hold` ailesi Plank ve Hollow Hold ile iki gerçek family örneğine sahiptir; yine de bütün statik egzersizler için config-only genel motor olarak kabul edilmemelidir.
 - Catalog desteği gerçek cihaz kabulü anlamına gelmez; yeni veya sonradan etkinleştirilen egzersizler ayrı cihaz kanıtı gerektirir.

@@ -234,6 +234,7 @@ class _MutableRangeRepPhaseQuality {
 /// Current range-rep engine backing the workout analysis flow.
 class RangeRepEngine implements RangeRepAnalysisEngine {
   final ExerciseConfig config;
+  final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final DateTime Function() _now;
   final LegacyRangeRepScorer _scorer = const LegacyRangeRepScorer();
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator =
@@ -271,6 +272,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   Duration lastAscentTime = Duration.zero;
 
   double _currentRepMinAngle = 180.0;
+  double _currentRepMaxAngle = 0.0;
   double _currentRepWorstBackAngle = 180.0;
   bool _currentRepHadFormViolation = false;
   _PhaseTransition? _pendingTransition;
@@ -284,8 +286,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       _MutableRangeRepPhaseQuality();
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
 
-  RangeRepEngine({required this.config, DateTime Function()? now})
-    : _now = now ?? DateTime.now {
+  RangeRepEngine({
+    required this.config,
+    this.primaryMetricDirection =
+        RangeRepPrimaryMetricDirection.decreasingToPeak,
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now {
     _disarm();
   }
 
@@ -448,7 +454,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     if (!_isArmed) {
       final armedAt = _confirmTransition(
         transition: _PhaseTransition.acquireNeutral,
-        condition: angle > _neutralReturnThreshold,
+        condition: _isNeutralMetric(angle),
         now: now,
       );
       if (armedAt != null) {
@@ -479,7 +485,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       case MovementPhase.neutral:
         final confirmedAt = _confirmTransition(
           transition: _PhaseTransition.startDescending,
-          condition: angle < _descentEntryThreshold,
+          condition: _hasEnteredActiveRange(angle),
           now: now,
         );
         if (confirmedAt != null) {
@@ -514,11 +520,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             hasTechniqueViolation: hasTechniqueViolation,
           );
         }
-        if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
+        _recordPrimaryExtrema(angle);
 
         final peakConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.reachPeak,
-          condition: angle < _peakEntryThreshold,
+          condition: _hasReachedPeakRange(angle),
           now: now,
         );
         if (peakConfirmedAt != null) {
@@ -548,7 +554,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         } else {
           final abortConfirmedAt = _confirmTransition(
             transition: _PhaseTransition.abortToNeutral,
-            condition: angle > _neutralReturnThreshold,
+            condition: _isNeutralMetric(angle),
             now: now,
           );
           if (abortConfirmedAt != null) {
@@ -577,11 +583,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
             hasTechniqueViolation: hasTechniqueViolation,
           );
         }
-        if (angle < _currentRepMinAngle) _currentRepMinAngle = angle;
+        _recordPrimaryExtrema(angle);
 
         final ascentConfirmedAt = _confirmTransition(
           transition: _PhaseTransition.startAscending,
-          condition: angle > _peakExitThreshold,
+          condition: _hasExitedPeakRange(angle),
           now: now,
         );
         if (ascentConfirmedAt != null) {
@@ -621,7 +627,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         }
         final repCompleteAt = _confirmTransition(
           transition: _PhaseTransition.completeRep,
-          condition: angle > _neutralReturnThreshold,
+          condition: _isNeutralMetric(angle),
           now: now,
         );
         if (repCompleteAt != null) {
@@ -671,7 +677,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
-    final primaryRom = (_currentRepStartAngle - _lastRepRom)
+    final peakMetric = _peakMetricForCurrentRep;
+    final primaryRom = (peakMetric - _currentRepStartAngle)
+        .abs()
         .clamp(0.0, 180.0)
         .toDouble();
     final detectionData = RangeRepCompletedRepDetectionData(
@@ -746,10 +754,26 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
     required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
   }) {
-    final romScore = _scorer.calculateRomScore(
-      minAngle: completedRepCoreData.minAngle,
-      targetMinAngle: config.targetMinAngle,
-    );
+    final romScore = switch (primaryMetricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        _scorer.calculateRomScore(
+          minAngle: completedRepCoreData.minAngle,
+          targetMinAngle: config.targetMinAngle,
+        ),
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        _scorer
+            .calculateSaturatingRomScore(
+              achievedRom: completedRepCoreData.primaryRom ?? 0.0,
+              minimumAcceptableRom: 0.0,
+              targetRom:
+                  ((config.targetMaxAngle ?? config.thresholdPeak) -
+                          (completedRepCoreData.startAngle ??
+                              config.thresholdNeutral))
+                      .clamp(0.0, 180.0)
+                      .toDouble(),
+            )
+            .score,
+    };
     final descentSeconds =
         completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
     final descentScore = _scorer.calculateTempoScore(
@@ -996,6 +1020,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   void _startDetectionRepMetrics(double primaryMetric) {
     _currentRepStartAngle = primaryMetric;
     _currentRepMinAngle = primaryMetric;
+    _currentRepMaxAngle = primaryMetric;
   }
 
   void _startCompatibilityRepMetrics(
@@ -1031,8 +1056,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   }
 
   void _resetDetectionRepMetrics() {
-    _currentRepStartAngle = 180.0;
+    _currentRepStartAngle =
+        primaryMetricDirection ==
+            RangeRepPrimaryMetricDirection.decreasingToPeak
+        ? 180.0
+        : 0.0;
     _currentRepMinAngle = 180.0;
+    _currentRepMaxAngle = 0.0;
     _clearPendingTransition();
   }
 
@@ -1052,14 +1082,78 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     }
   }
 
-  double get _descentEntryThreshold =>
-      config.thresholdActive - _descentEntryMargin;
+  double get _descentEntryThreshold => switch (primaryMetricDirection) {
+    RangeRepPrimaryMetricDirection.decreasingToPeak =>
+      config.thresholdActive - _descentEntryMargin,
+    RangeRepPrimaryMetricDirection.increasingToPeak =>
+      config.thresholdActive + _descentEntryMargin,
+  };
 
-  double get _peakEntryThreshold => config.thresholdPeak - _peakEntryMargin;
+  double get _peakEntryThreshold => switch (primaryMetricDirection) {
+    RangeRepPrimaryMetricDirection.decreasingToPeak =>
+      config.thresholdPeak - _peakEntryMargin,
+    RangeRepPrimaryMetricDirection.increasingToPeak =>
+      config.thresholdPeak + _peakEntryMargin,
+  };
 
-  double get _peakExitThreshold => config.thresholdPeak + _peakExitMargin;
+  double get _peakExitThreshold => switch (primaryMetricDirection) {
+    RangeRepPrimaryMetricDirection.decreasingToPeak =>
+      config.thresholdPeak + _peakExitMargin,
+    RangeRepPrimaryMetricDirection.increasingToPeak =>
+      config.thresholdPeak - _peakExitMargin,
+  };
 
   double get _neutralReturnThreshold => config.thresholdNeutral;
+
+  bool _isNeutralMetric(double value) {
+    return switch (primaryMetricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        value > _neutralReturnThreshold,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        value < _neutralReturnThreshold,
+    };
+  }
+
+  bool _hasEnteredActiveRange(double value) {
+    return switch (primaryMetricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        value < _descentEntryThreshold,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        value > _descentEntryThreshold,
+    };
+  }
+
+  bool _hasReachedPeakRange(double value) {
+    return switch (primaryMetricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        value < _peakEntryThreshold,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        value > _peakEntryThreshold,
+    };
+  }
+
+  bool _hasExitedPeakRange(double value) {
+    return switch (primaryMetricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        value > _peakExitThreshold,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        value < _peakExitThreshold,
+    };
+  }
+
+  void _recordPrimaryExtrema(double value) {
+    if (value < _currentRepMinAngle) {
+      _currentRepMinAngle = value;
+    }
+    if (value > _currentRepMaxAngle) {
+      _currentRepMaxAngle = value;
+    }
+  }
+
+  double get _peakMetricForCurrentRep => switch (primaryMetricDirection) {
+    RangeRepPrimaryMetricDirection.decreasingToPeak => _currentRepMinAngle,
+    RangeRepPrimaryMetricDirection.increasingToPeak => _currentRepMaxAngle,
+  };
 
   String get _phaseGateStatus {
     if (_pendingTransition == null || _pendingTransitionStartedAt == null) {
@@ -1211,20 +1305,36 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required bool wasArmed,
   }) {
     if (!wasArmed) {
-      return primaryMetric > _neutralReturnThreshold;
+      return _isNeutralMetric(primaryMetric);
     }
 
-    switch (frozenPhase) {
-      case MovementPhase.neutral:
-        return primaryMetric > _neutralReturnThreshold;
-      case MovementPhase.descending:
-        return primaryMetric >= _peakEntryThreshold &&
-            primaryMetric < _neutralReturnThreshold;
-      case MovementPhase.peak:
-        return primaryMetric <= _peakExitThreshold;
-      case MovementPhase.ascending:
-        return primaryMetric > _peakExitThreshold &&
-            primaryMetric < _neutralReturnThreshold;
+    switch (primaryMetricDirection) {
+      case RangeRepPrimaryMetricDirection.decreasingToPeak:
+        switch (frozenPhase) {
+          case MovementPhase.neutral:
+            return _isNeutralMetric(primaryMetric);
+          case MovementPhase.descending:
+            return primaryMetric >= _peakEntryThreshold &&
+                primaryMetric < _neutralReturnThreshold;
+          case MovementPhase.peak:
+            return primaryMetric <= _peakExitThreshold;
+          case MovementPhase.ascending:
+            return primaryMetric > _peakExitThreshold &&
+                primaryMetric < _neutralReturnThreshold;
+        }
+      case RangeRepPrimaryMetricDirection.increasingToPeak:
+        switch (frozenPhase) {
+          case MovementPhase.neutral:
+            return _isNeutralMetric(primaryMetric);
+          case MovementPhase.descending:
+            return primaryMetric <= _peakEntryThreshold &&
+                primaryMetric > _neutralReturnThreshold;
+          case MovementPhase.peak:
+            return primaryMetric >= _peakExitThreshold;
+          case MovementPhase.ascending:
+            return primaryMetric < _peakExitThreshold &&
+                primaryMetric > _neutralReturnThreshold;
+        }
     }
   }
 

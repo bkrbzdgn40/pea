@@ -88,14 +88,14 @@ const exerciseGuideContents = [
   ExerciseGuideContent(
     type: ExerciseType.lunge,
     subtitle:
-        'Tek bacak kontrolü, denge ve alt vücut kuvveti için dinamik hareket.',
+        'Sabit adim pozisyonunda tek bacak kontrolu ve alt vucut kuvveti icin hareket.',
     purpose:
-        'Bacaklar arasındaki dengeyi, adım kontrolünü ve kalça-diz hizasını çalıştırır.',
+        'Sabit split stance pozisyonunda on bacagin kontrollu fleksiyon-ekstansiyonunu ve dengeyi calistirir.',
     difficulty: ExerciseDifficulty.intermediate,
     setupSteps: [
       'Ayakta uzun ve dengeli başla.',
-      'Kontrol edebileceğin kadar geniş bir adım at.',
-      'Ön ayağını zemine sağlam yerleştir.',
+      'Ayaklarini rahat bir split stance pozisyonuna al ve adim boyunu sabitle.',
+      'Kameraya yakin bacagini onde tut ve ayagini zemine saglam yerlestir.',
       'Gövdeni dik, bakışını ileriye yakın tut.',
     ],
     tips: [
@@ -105,7 +105,7 @@ const exerciseGuideContents = [
       'Yukarı kalkarken dengeyi bozmadan it.',
     ],
     commonMistakes: [
-      'Adımı çok kısa atmak.',
+      'Tekrarlar arasinda ayak pozisyonunu degistirmek.',
       'Ön dizin içe kaçması.',
       'Gövdenin yana devrilmesi.',
       'Zeminden hızlı ve kontrolsüz sekmek.',
@@ -195,5 +195,144 @@ const exerciseGuideContents = [
     ],
     youtubeUrl: 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
     youtubeSourceLabel: 'Simultaneous standing curl demo',
+  ),
+
+  ExerciseGuideContent(
+    type: ExerciseType.lyingLegRaise,
+    subtitle:
+        'Sirt ustu kalca fleksiyonu ve core kontrolu icin dinamik hareket.',
+    purpose:
+        'Bacaklari birlikte kaldirip indirirken kalca fleksiyonunu ve dizlerin uzatilmis kalmasini izler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Sirt ustu uzan ve tum vucudunu yan kamerada gorunecek sekilde kadraja al.',
+      'Bacaklarini birlikte ve dizlerini rahatca uzatilmis tut.',
+      'Baslangicta bacaklarini zemine yakin, govdenle ayni hatta konumla.',
+      'Belinde agri olursa hareket araligini azalt veya hareketi birak.',
+    ],
+    tips: [
+      'Bacaklari tek parca gibi kontrollu kaldir.',
+      'Dizlerini gereksiz bukmeden rahat bir hareket araligi kullan.',
+      'Inisi yercekimiyle birakmak yerine kontrollu tamamla.',
+      'Bel kontrolunu kaybetmeden hareket et.',
+    ],
+    commonMistakes: [
+      'Dizleri belirgin bukmek.',
+      'Bacaklari momentumla savurmak.',
+      'Inisi kontrolsuz hizlandirmak.',
+      'Bel rahatsizligina ragmen hareket araligini zorlamak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=JB2oyawG9KI',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.tricepsDip,
+    subtitle:
+        'Paralel bar uzerinde dirsek ekstansiyonu odakli ust vucut itis hareketi.',
+    purpose:
+        'Dirsek fleksiyon-ekstansiyonunu ana tekrar sinyali olarak izler ve asiri omuz ekstansiyonuna karsi form uyarisi verebilir.',
+    difficulty: ExerciseDifficulty.advanced,
+    setupSteps: [
+      'Paralel barlarda ust pozisyonda kollarini kontrollu uzat.',
+      'Kamerayi yandan, omuz-dirsek-bilek hattini gorecek sekilde yerlestir.',
+      'Gogsu ve omuzlari rahat bir pozisyonda tut.',
+      'Omuz agrisi varsa derinligi zorlamadan hareketi birak.',
+    ],
+    tips: [
+      'Dirsekleri bukerek kontrollu asagi in.',
+      'Omuzlari gereksiz yere cok geriye tasima.',
+      'Alt noktadan kontrollu sekilde yukari it.',
+      'Tekrarlar boyunca ayni derinligi korumaya calis.',
+    ],
+    commonMistakes: [
+      'Omuzlari asiri derine zorlamak.',
+      'Alt noktada kontrolsuz sekmek.',
+      'Yarim dirsek hareket araligiyla tekrar yapmak.',
+      'Goruntu disina cikacak kadar one-arkaya sallanmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=2z8JmcrW-As',
+    youtubeSourceLabel: 'Bar dip technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.romanianDeadlift,
+    subtitle:
+        'Kalca menteşesi ve posterior chain kontrolu icin dinamik kuvvet hareketi.',
+    purpose:
+        'Ana hareketi kalca acisindan izler; diz acisinin tekrar boyunca gorece sabit kalmasini form sinyali olarak kullanir.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Ayakta dik basla ve kamerayi tam yandan yerlestir.',
+      'Dizlerini hafif buk ve bu aciyi hareket boyunca buyuk olcude sabit tut.',
+      'Kalcalarini geriye gondererek govdeyi kalcadan katla.',
+      'Agirligi bacaklara yakin bir hatta tut.',
+    ],
+    tips: [
+      'Hareketi dizlerden cok kalcadan baslat.',
+      'Diz bukulmesini tekrar boyunca belirgin artirma.',
+      'Kontrol edebildigin kalca fleksiyonunda don.',
+      'Yukari gelirken kalcalari ileri getir ve govdeyi tamamla.',
+    ],
+    commonMistakes: [
+      'Hareketi squata cevirip dizleri fazla bukmek.',
+      'Agirligi govdeden uzaklastirmak.',
+      'Alt noktayi zorlamak icin bel pozisyonunu kaybetmek.',
+      'Kalca menteşesi yerine sadece govdeyi egmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=2SHsk9AzdjA',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.lateralRaise,
+    subtitle: 'Omuz abdüksiyonu icin kontrollu iki kol kaldirma hareketi.',
+    purpose:
+        'Iki kolun yana kaldirilmasini birlikte izler; omuz acisi ana sinyal, dirsek uzatilmisligi form sinyalidir.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya onden bak ve iki omuz-dirsek-bilek hattini kadraja al.',
+      'Kollarini yanlarda rahat bir sekilde baslat.',
+      'Dirsekleri kilitlemeden hafif yumusak ama buyuk olcude uzatilmis tut.',
+      'Iki kolu ayni anda hareket ettirmeye hazirlan.',
+    ],
+    tips: [
+      'Kollari kontrollu sekilde yana kaldir.',
+      'Omuz hizasi civarinda gereksiz yuksekligi zorlamadan don.',
+      'Dirsek acini tekrar boyunca buyuk olcude koru.',
+      'Agirligi savurmadan kontrollu indir.',
+    ],
+    commonMistakes: [
+      'Dirsekleri belirgin bukerek hareketi kisaltmak.',
+      'Kollari omuz hizasinin cok ustune savurmak.',
+      'Govdeden momentum almak.',
+      'Iki kolu farkli hizlarda hareket ettirmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.shoulderPress,
+    subtitle: 'Iki kol overhead press icin dirsek ekstansiyonu odakli hareket.',
+    purpose:
+        'Iki dirsegin birlikte acilmasini ana tekrar sinyali olarak izler ve kontrollu press-donus dongusunu sayar.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Kameraya onden bak ve iki omuz-dirsek-bilek hattini kadraja al.',
+      'Dirsekleri alt baslangic pozisyonunda rahatca buk.',
+      'Iki kolu ayni anda yukari preslemeye hazirlan.',
+      'Bas ve govde pozisyonunu gereksiz hareket ettirmeden sabit tut.',
+    ],
+    tips: [
+      'Iki kolu birlikte yukari presle.',
+      'Ustte dirsekleri kontrollu uzat.',
+      'Baslangic pozisyonuna yavasca geri don.',
+      'Tekrarlar arasinda ayni alt pozisyonu koru.',
+    ],
+    commonMistakes: [
+      'Kollari farkli zamanlarda preslemek.',
+      'Yarim dirsek hareket araligiyla tekrar yapmak.',
+      'Agirligi kontrolsuz dusurmek.',
+      'Govdeyi belirgin savurarak momentum kullanmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
+    youtubeSourceLabel: 'Technique reference',
   ),
 ];

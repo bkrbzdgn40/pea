@@ -964,15 +964,30 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }) {
     final startAngle = completedRepCoreData.startAngle;
     final primaryRom = completedRepCoreData.primaryRom;
+    final configuredMinimumRomDelta =
+        _rangeRepValidationConfig.minAcceptableRomDelta;
     final minimumAcceptableRom = startAngle == null
         ? null
-        : (_rangeRepValidationConfig.minAcceptableRomDelta ??
-              (startAngle - _rangeRepValidationConfig.minAcceptableRomAngle)
-                  .clamp(0.0, 180.0)
-                  .toDouble());
+        : configuredMinimumRomDelta ??
+              switch (_rangeRepContract.primaryMetricDirection) {
+                RangeRepPrimaryMetricDirection.decreasingToPeak =>
+                  (startAngle - _rangeRepValidationConfig.minAcceptableRomAngle)
+                      .clamp(0.0, 180.0)
+                      .toDouble(),
+                RangeRepPrimaryMetricDirection.increasingToPeak => null,
+              };
     final targetRom = startAngle == null
         ? null
-        : (startAngle - _config.targetMinAngle).clamp(0.0, 180.0).toDouble();
+        : switch (_rangeRepContract.primaryMetricDirection) {
+            RangeRepPrimaryMetricDirection.decreasingToPeak =>
+              (startAngle - _config.targetMinAngle)
+                  .clamp(0.0, 180.0)
+                  .toDouble(),
+            RangeRepPrimaryMetricDirection.increasingToPeak =>
+              ((_config.targetMaxAngle ?? _config.thresholdPeak) - startAngle)
+                  .clamp(0.0, 180.0)
+                  .toDouble(),
+          };
     final romResult =
         primaryRom == null || minimumAcceptableRom == null || targetRom == null
         ? null
@@ -983,10 +998,23 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
           );
     final romScore =
         romResult?.score ??
-        _scorer.calculateRomScore(
-          minAngle: completedRepCoreData.minAngle,
-          targetMinAngle: _config.targetMinAngle,
-        );
+        switch (_rangeRepContract.primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            _scorer.calculateRomScore(
+              minAngle: completedRepCoreData.minAngle,
+              targetMinAngle: _config.targetMinAngle,
+            ),
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            primaryRom == null || targetRom == null
+                ? 0.0
+                : _scorer
+                      .calculateSaturatingRomScore(
+                        achievedRom: primaryRom,
+                        minimumAcceptableRom: 0.0,
+                        targetRom: targetRom,
+                      )
+                      .score,
+        };
     final descentSeconds =
         completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
     final descentScore = _scorer.calculateTempoScore(

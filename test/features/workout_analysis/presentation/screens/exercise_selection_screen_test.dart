@@ -107,34 +107,42 @@ void main() {
     },
   );
 
-  testWidgets('lunge remains unsupported and only shows the guide snackbar', (
-    tester,
-  ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final observer = RecordingNavigatorObserver();
+  testWidgets(
+    'stationary lunge card is analysis-active and starts the permission flow',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final observer = RecordingNavigatorObserver();
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: const ExerciseSelectionScreen(),
-          navigatorObservers: <NavigatorObserver>[observer],
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: const ExerciseSelectionScreen(),
+            navigatorObservers: <NavigatorObserver>[observer],
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    final pushCountBeforeTap = observer.pushCount;
+      final pushCountBeforeTap = observer.pushCount;
 
-    await tester.tap(find.text('Lunge'));
-    await tester.pump();
+      await tester.scrollUntilVisible(find.text('Stationary Lunge'), 300);
+      await tester.pumpAndSettle();
 
-    expect(observer.pushCount, pushCountBeforeTap);
-    expect(container.read(selectedExerciseProvider), isNull);
-    expect(find.textContaining('rehber'), findsOneWidget);
-    expect(find.byType(SnackBar), findsOneWidget);
-  });
+      expect(find.text('Stationary Lunge'), findsOneWidget);
+      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+
+      await tester.tap(find.text('Stationary Lunge'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(observer.pushCount, pushCountBeforeTap + 1);
+      expect(container.read(selectedExerciseProvider), ExerciseType.lunge);
+      expect(find.byType(CameraPermissionScreen), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'biceps curl card is analysis-active and starts the permission flow',

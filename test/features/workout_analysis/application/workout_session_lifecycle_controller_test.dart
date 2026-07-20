@@ -315,6 +315,10 @@ void main() {
       expect(rep.score, 88);
       expect(rep.minPrimaryMetric, 84);
       expect(rep.worstFormMetric, 120);
+      expect(rep.descentMillis, 410);
+      expect(rep.ascentMillis, 360);
+      expect(rep.eccentricMillis, 360);
+      expect(rep.concentricMillis, 410);
       expect(rep.feedback, 'Sit-up tamamlandi');
     },
   );

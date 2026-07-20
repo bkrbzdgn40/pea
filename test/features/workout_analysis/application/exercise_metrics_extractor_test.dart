@@ -797,6 +797,31 @@ void main() {
       );
     });
 
+    group('increasing-direction bilateral metrics', () {
+      test('lateral raise waits for the lagging shoulder angle', () {
+        final config = _loadConfig(
+          'assets/config/exercises/lateral_raise.json',
+        );
+        final metrics = extractor.extract(
+          _lateralRaisePose(leftShoulderAngle: 90, rightShoulderAngle: 45),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.lateralRaise,
+        );
+
+        expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(90.0, 0.001));
+        expect(metrics.rightRangeRepMetrics.primaryAngle, closeTo(45.0, 0.001));
+        expect(
+          metrics.bilateralRangeRepMetrics?.primaryAngle,
+          closeTo(45.0, 0.001),
+        );
+        expect(
+          metrics.bilateralRangeRepMetrics?.syncScore,
+          closeTo(135.0, 0.001),
+        );
+      });
+    });
+
     group('hold metrics', () {
       test(
         'valid left plank geometry emits expected hold angles and preserves pose metadata',
@@ -1313,6 +1338,72 @@ Pose _rangeRepPose({
   };
 
   return Pose(landmarks: landmarks);
+}
+
+Pose _lateralRaisePose({
+  required double leftShoulderAngle,
+  required double rightShoulderAngle,
+}) {
+  PoseLandmark point(PoseLandmarkType type, double x, double y) =>
+      _landmark(type, x, y);
+
+  final leftRadians = leftShoulderAngle * math.pi / 180.0;
+  final rightRadians = rightShoulderAngle * math.pi / 180.0;
+  final leftShoulder = const math.Point<double>(0, 0);
+  final rightShoulder = const math.Point<double>(4, 0);
+  final leftElbow = math.Point<double>(
+    leftShoulder.x + math.sin(leftRadians),
+    leftShoulder.y + math.cos(leftRadians),
+  );
+  final rightElbow = math.Point<double>(
+    rightShoulder.x - math.sin(rightRadians),
+    rightShoulder.y + math.cos(rightRadians),
+  );
+  final leftWrist = math.Point<double>(
+    2 * leftElbow.x - leftShoulder.x,
+    2 * leftElbow.y - leftShoulder.y,
+  );
+  final rightWrist = math.Point<double>(
+    2 * rightElbow.x - rightShoulder.x,
+    2 * rightElbow.y - rightShoulder.y,
+  );
+
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: point(
+        PoseLandmarkType.leftShoulder,
+        leftShoulder.x,
+        leftShoulder.y,
+      ),
+      PoseLandmarkType.leftElbow: point(
+        PoseLandmarkType.leftElbow,
+        leftElbow.x,
+        leftElbow.y,
+      ),
+      PoseLandmarkType.leftWrist: point(
+        PoseLandmarkType.leftWrist,
+        leftWrist.x,
+        leftWrist.y,
+      ),
+      PoseLandmarkType.leftHip: point(PoseLandmarkType.leftHip, 0, 1),
+      PoseLandmarkType.rightShoulder: point(
+        PoseLandmarkType.rightShoulder,
+        rightShoulder.x,
+        rightShoulder.y,
+      ),
+      PoseLandmarkType.rightElbow: point(
+        PoseLandmarkType.rightElbow,
+        rightElbow.x,
+        rightElbow.y,
+      ),
+      PoseLandmarkType.rightWrist: point(
+        PoseLandmarkType.rightWrist,
+        rightWrist.x,
+        rightWrist.y,
+      ),
+      PoseLandmarkType.rightHip: point(PoseLandmarkType.rightHip, 4, 1),
+    },
+  );
 }
 
 Pose _futureTemplatePose() {

@@ -23,8 +23,12 @@ class AnalysisEngineFactory {
     required RangeRepContract rangeRepContract,
     DateTime Function()? now,
   }) {
-    _validateRangeRepEngineContract(rangeRepContract);
-    return RangeRepEngine(config: config, now: now);
+    _validateRangeRepEngineContract(rangeRepContract, config);
+    return RangeRepEngine(
+      config: config,
+      primaryMetricDirection: rangeRepContract.primaryMetricDirection,
+      now: now,
+    );
   }
 
   HoldAnalysisEngine createHold({
@@ -89,16 +93,10 @@ class AnalysisEngineFactory {
     }
   }
 
-  void _validateRangeRepEngineContract(RangeRepContract contract) {
-    if (contract.primaryMetricDirection !=
-        RangeRepPrimaryMetricDirection.decreasingToPeak) {
-      throw StateError(
-        'Current range-rep engine supports only primary metrics that decrease '
-        'from neutral toward peak. Configure a decreasingToPeak contract or '
-        'add a direction-aware detection adapter before enabling this exercise.',
-      );
-    }
-
+  void _validateRangeRepEngineContract(
+    RangeRepContract contract,
+    ExerciseConfig config,
+  ) {
     if (!contract.supportsPhase(RangeRepPhase.descending) ||
         !contract.supportsPhase(RangeRepPhase.peak) ||
         !contract.supportsPhase(RangeRepPhase.ascending)) {
@@ -114,6 +112,27 @@ class AnalysisEngineFactory {
         'Current range-rep engine requires primaryMetric and formMetric '
         'signals in the range-rep contract.',
       );
+    }
+
+    switch (contract.primaryMetricDirection) {
+      case RangeRepPrimaryMetricDirection.decreasingToPeak:
+        if (!(config.thresholdNeutral > config.thresholdActive &&
+            config.thresholdActive > config.thresholdPeak)) {
+          throw StateError(
+            'decreasingToPeak range-rep config requires '
+            'thresholdNeutral > thresholdActive > thresholdPeak.',
+          );
+        }
+        break;
+      case RangeRepPrimaryMetricDirection.increasingToPeak:
+        if (!(config.thresholdNeutral < config.thresholdActive &&
+            config.thresholdActive < config.thresholdPeak)) {
+          throw StateError(
+            'increasingToPeak range-rep config requires '
+            'thresholdNeutral < thresholdActive < thresholdPeak.',
+          );
+        }
+        break;
     }
   }
 

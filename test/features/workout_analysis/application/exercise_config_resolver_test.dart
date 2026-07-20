@@ -62,15 +62,15 @@ void main() {
       ]);
     });
 
-    test('rejects unsupported exercises before loading a config', () async {
+    test('loads the stationary lunge config asset path', () async {
       final source = _FakeExerciseConfigSource(_sampleConfig());
       final resolver = ExerciseConfigResolver(source: source);
 
-      expect(
-        () => resolver.resolve(ExerciseType.lunge),
-        throwsA(isA<StateError>()),
-      );
-      expect(source.loadedAssetPaths, isEmpty);
+      await resolver.resolve(ExerciseType.lunge);
+
+      expect(source.loadedAssetPaths, <String>[
+        'assets/config/exercises/stationary_lunge.json',
+      ]);
     });
   });
 }

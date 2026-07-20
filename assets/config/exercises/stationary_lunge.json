@@ -1,0 +1,30 @@
+{
+  "name": "Stationary Lunge",
+  "primaryJoint": "leftKnee",
+  "joint1": "leftHip",
+  "joint2": "leftAnkle",
+  "thresholdNeutral": 160.0,
+  "thresholdActive": 145.0,
+  "thresholdPeak": 115.0,
+  "idealDescentSeconds": 1.2,
+  "idealAscentSeconds": 1.0,
+  "formThreshold": 0.0,
+  "targetMinAngle": 100.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "source": "primaryMetric"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 300,
+    "minAscendingMillis": 250
+  }
+}
