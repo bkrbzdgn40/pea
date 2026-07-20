@@ -34,8 +34,9 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
   HoldSignalValues targetSignalValues({required bool isHolding}) {
     return HoldSignalValues(
       values: <HoldSignal, double>{
-        // Compression remains a detection/setup reference, not a technique
-        // quality score. It is retained here for diagnostics and entry UX.
+        // Compression remains a setup/hold reference, not a technique-quality
+        // score. Entry keeps the existing active-posture gate while an active
+        // hold uses the sustain target to decide validity and grace behavior.
         HoldSignal.compression: compressionTargetAngle(isHolding: isHolding),
         if (variationContract.requiresArmsOverhead)
           HoldSignal.armExtension: config.armExtensionMinAngle,
@@ -88,18 +89,22 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
       },
     );
 
-    // R35: setup/validation is variation-owned. Compression remains a
-    // setup/hold-validity reference with the existing grace window, but it is
-    // not treated as a "smaller is better" technique-quality score.
+    // R35 keeps variation-owned setup/validation while preserving the legacy
+    // Hollow Hold hysteresis contract. Before a hold starts, active-posture
+    // membership gates entry and the stricter entry target remains diagnostic.
+    // Once holding, the sustain target controls continued validity; compression
+    // drift alone is grace-eligible. None of this turns compression into a
+    // "smaller is better" technique score.
+    final isCompressionValidForState =
+        isHolding ? isCompressionWithinReference : hasActivePosture;
     final isValidHoldPosture =
         hasCompleteMetrics &&
-        hasActivePosture &&
-        isCompressionWithinReference &&
+        isCompressionValidForState &&
         requiredArmValid &&
         requiredKneeValid;
     final supportsGraceWindow =
+        isHolding &&
         hasCompleteMetrics &&
-        hasActivePosture &&
         !isCompressionWithinReference &&
         requiredArmValid &&
         requiredKneeValid;
