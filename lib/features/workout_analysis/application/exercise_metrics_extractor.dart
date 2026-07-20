@@ -14,6 +14,7 @@ import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
 import 'plank_hip_deviation_measurement.dart';
+import 'plank_shoulder_elbow_offset_measurement.dart';
 import 'pose_landmark_mirror.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -29,6 +30,8 @@ class ExerciseMetricsExtractor {
       ExerciseLandmarkRequirements();
   static const PlankHipDeviationMeasurement _plankHipDeviationMeasurement =
       PlankHipDeviationMeasurement();
+  static const PlankShoulderElbowOffsetMeasurement
+  _plankShoulderElbowOffsetMeasurement = PlankShoulderElbowOffsetMeasurement();
 
   ExerciseMetrics extract(
     Pose pose,
@@ -470,6 +473,16 @@ class ExerciseMetricsExtractor {
       );
       if (hipDeviation != null) {
         values[HoldSignal.hipDeviation] = hipDeviation;
+      }
+    }
+
+    if (holdContract.family == HoldAnalysisFamily.plank &&
+        holdContract.supportsSignal(HoldSignal.shoulderElbowOffset) &&
+        holdSide != null) {
+      final shoulderElbowOffset = _plankShoulderElbowOffsetMeasurement
+          .measureLandmarks(pose.landmarks.values.toList(), side: holdSide);
+      if (shoulderElbowOffset != null) {
+        values[HoldSignal.shoulderElbowOffset] = shoulderElbowOffset;
       }
     }
 
