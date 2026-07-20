@@ -95,8 +95,9 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
     // Once holding, the sustain target controls continued validity; compression
     // drift alone is grace-eligible. None of this turns compression into a
     // "smaller is better" technique score.
-    final isCompressionValidForState =
-        isHolding ? isCompressionWithinReference : hasActivePosture;
+    final isCompressionValidForState = isHolding
+        ? isCompressionWithinReference
+        : hasActivePosture;
     final isValidHoldPosture =
         hasCompleteMetrics &&
         isCompressionValidForState &&

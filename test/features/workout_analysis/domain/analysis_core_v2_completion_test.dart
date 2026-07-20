@@ -215,7 +215,10 @@ void main() {
         },
       );
 
-      expect(tuck.evaluate(signals, isHolding: false).isValidHoldPosture, isTrue);
+      expect(
+        tuck.evaluate(signals, isHolding: false).isValidHoldPosture,
+        isTrue,
+      );
       expect(
         straightLeg.evaluate(signals, isHolding: false).isValidHoldPosture,
         isFalse,
@@ -228,10 +231,7 @@ void main() {
 
     test('R34 exposes normalized shoulder and heel elevation measurements', () {
       const measurement = HollowHoldLimbElevationMeasurement();
-      final values = measurement.measure(
-        _hollowPose(),
-        side: HoldSide.left,
-      );
+      final values = measurement.measure(_hollowPose(), side: HoldSide.left);
 
       expect(values.shoulderElevation, isNotNull);
       expect(values.heelElevation, isNotNull);

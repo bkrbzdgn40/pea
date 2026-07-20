@@ -110,7 +110,7 @@ void main() {
     expect(find.text('alignment roles'), findsOneWidget);
     expect(find.text('support roles'), findsOneWidget);
     expect(find.text('extension roles'), findsOneWidget);
-    expect(find.text('detection, validation, technique'), findsNWidgets(3));
+    expect(find.text('detection, validation'), findsNWidgets(3));
     expect(find.text('primaryMetric roles'), findsNothing);
   });
 
