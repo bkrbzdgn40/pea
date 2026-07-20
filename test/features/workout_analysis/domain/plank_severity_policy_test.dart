@@ -13,21 +13,24 @@ void main() {
   final policy = HoldPosturePolicy(config: _config().resolvedHoldPosture);
 
   group('plank severity policy', () {
-    test('leg extension failure is warning-level and does not invalidate hold', () {
-      final evaluation = policy.evaluate(
-        _signals(alignment: 170, support: 90, extension: 164),
-        isHolding: true,
-      );
+    test(
+      'leg extension failure is warning-level and does not invalidate hold',
+      () {
+        final evaluation = policy.evaluate(
+          _signals(alignment: 170, support: 90, extension: 164),
+          isHolding: true,
+        );
 
-      expect(evaluation.isValidHoldPosture, isTrue);
-      expect(evaluation.supportsGraceWindow, isFalse);
-      expect(
-        evaluation.postureDiagnostics.severity,
-        HoldPostureSeverity.warning,
-      );
-      expect(evaluation.postureDiagnostics.areLegsExtended, isFalse);
-      expect(evaluation.correctiveFeedbackCode, HoldFeedbackCode.extendLegs);
-    });
+        expect(evaluation.isValidHoldPosture, isTrue);
+        expect(evaluation.supportsGraceWindow, isFalse);
+        expect(
+          evaluation.postureDiagnostics.severity,
+          HoldPostureSeverity.warning,
+        );
+        expect(evaluation.postureDiagnostics.areLegsExtended, isFalse);
+        expect(evaluation.correctiveFeedbackCode, HoldFeedbackCode.extendLegs);
+      },
+    );
 
     test('alignment failure remains critical and grace-eligible', () {
       final evaluation = policy.evaluate(

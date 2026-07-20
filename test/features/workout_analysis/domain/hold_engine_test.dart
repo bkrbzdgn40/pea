@@ -407,21 +407,24 @@ void main() {
       });
     }
 
-    test('leg extension warning keeps the hold active with corrective feedback', () {
-      final clock = _TestClock();
-      final engine = _plankEngine(now: clock.now);
+    test(
+      'leg extension warning keeps the hold active with corrective feedback',
+      () {
+        final clock = _TestClock();
+        final engine = _plankEngine(now: clock.now);
 
-      engine.update(_validHoldFrame());
-      clock.advance(const Duration(milliseconds: 100));
-      engine.update(_legsNotExtendedFrame());
+        engine.update(_validHoldFrame());
+        clock.advance(const Duration(milliseconds: 100));
+        engine.update(_legsNotExtendedFrame());
 
-      expect(engine.phaseLabel, 'HOLDING');
-      expect(engine.feedbackCode, HoldFeedbackCode.extendLegs);
-      expect(engine.feedback, HoldFeedbackCode.extendLegs.code);
-      expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
-      expect(engine.diagnosticsSnapshot.isHolding, isTrue);
-      expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
-    });
+        expect(engine.phaseLabel, 'HOLDING');
+        expect(engine.feedbackCode, HoldFeedbackCode.extendLegs);
+        expect(engine.feedback, HoldFeedbackCode.extendLegs.code);
+        expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
+        expect(engine.diagnosticsSnapshot.isHolding, isTrue);
+        expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+      },
+    );
 
     test('continuous valid plank still accumulates over 30 seconds', () {
       final clock = _TestClock();
