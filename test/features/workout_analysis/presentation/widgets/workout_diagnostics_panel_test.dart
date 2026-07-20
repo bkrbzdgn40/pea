@@ -16,10 +16,10 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
-const String _resetButtonText = 'Saya\u00e7lar\u0131 S\u0131f\u0131rla';
-const String _copySuccessText = 'Diagnostics JSON panoya kopyaland\u0131.';
+const String _resetButtonText = 'Sayaçları Sıfırla';
+const String _copySuccessText = 'Diagnostics JSON panoya kopyalandı.';
 const String _resetSuccessText =
-    'Diagnostics saya\u00e7lar\u0131 s\u0131f\u0131rland\u0131.';
+    'Diagnostics sayaçları sıfırlandı.';
 
 final CameraViewContract _sideViewContract = CameraViewContract(
   views: const <CameraView, CameraViewSupport>{
@@ -111,9 +111,10 @@ void main() {
     expect(find.text('support roles'), findsOneWidget);
     expect(find.text('extension roles'), findsOneWidget);
     expect(find.text('hipDeviation roles'), findsOneWidget);
-    expect(find.text('detection, validation'), findsOneWidget);
-    expect(find.text('detection, validation, technique'), findsNWidgets(2));
-    expect(find.text('technique'), findsOneWidget);
+    expect(find.text('shoulderElbowOffset roles'), findsOneWidget);
+    expect(find.text('detection, validation'), findsNWidgets(2));
+    expect(find.text('detection, validation, technique'), findsOneWidget);
+    expect(find.text('technique'), findsNWidgets(2));
     expect(find.text('primaryMetric roles'), findsNothing);
   });
 
