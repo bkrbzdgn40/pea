@@ -116,7 +116,7 @@ void main() {
   });
 
   group('predefined hold role classifications', () {
-    test('Plank uses hip deviation as its primary technique measurement', () {
+    test('Plank uses physical deviation signals for technique semantics', () {
       final contract = HoldContracts.plankFamily;
 
       expect(contract.requiredSignals, const <HoldSignal>{
@@ -129,9 +129,17 @@ void main() {
         HoldSignal.support,
         HoldSignal.extension,
         HoldSignal.hipDeviation,
+        HoldSignal.shoulderElbowOffset,
       });
       expect(
         contract.rolesForSignal(HoldSignal.alignment),
+        const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+        },
+      );
+      expect(
+        contract.rolesForSignal(HoldSignal.support),
         const <AnalysisSignalRole>{
           AnalysisSignalRole.detection,
           AnalysisSignalRole.validation,
@@ -142,11 +150,15 @@ void main() {
         const <AnalysisSignalRole>{AnalysisSignalRole.technique},
       );
       expect(
+        contract.rolesForSignal(HoldSignal.shoulderElbowOffset),
+        const <AnalysisSignalRole>{AnalysisSignalRole.technique},
+      );
+      expect(
         contract.signalsForRole(AnalysisSignalRole.technique),
         const <HoldSignal>{
-          HoldSignal.support,
           HoldSignal.extension,
           HoldSignal.hipDeviation,
+          HoldSignal.shoulderElbowOffset,
         },
       );
     });
