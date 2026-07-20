@@ -1,6 +1,8 @@
 import 'models/range_rep_rep_summary.dart';
 import 'models/range_rep_validation_result.dart';
 
+export 'models/range_rep_validation_result.dart';
+
 class RangeRepValidationConfig {
   const RangeRepValidationConfig({
     this.minAcceptableRomAngle = 110.0,
