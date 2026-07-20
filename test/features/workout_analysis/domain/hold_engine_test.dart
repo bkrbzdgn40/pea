@@ -191,6 +191,8 @@ void main() {
       engine.update(_validHoldFrame());
 
       gapControl.beginVisibilityGap();
+      expect(engine.diagnosticsSnapshot.isVisibilitySuspended, isTrue);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
       clock.advance(const Duration(milliseconds: 1200));
 
       final result = gapControl.resumeAfterVisibilityGap();
@@ -386,11 +388,6 @@ void main() {
             frame: _armUnsupportedFrame(),
             expectedFeedbackCode: HoldFeedbackCode.adjustElbowSupport,
           ),
-          (
-            name: 'leg extension failure breaks with leg-priority feedback',
-            frame: _legsNotExtendedFrame(),
-            expectedFeedbackCode: HoldFeedbackCode.extendLegs,
-          ),
         ]) {
       test(scenario.name, () {
         final clock = _TestClock();
@@ -409,6 +406,22 @@ void main() {
         expect(engine.diagnosticsSnapshot.hadFormBreak, isTrue);
       });
     }
+
+    test('leg extension warning keeps the hold active with corrective feedback', () {
+      final clock = _TestClock();
+      final engine = _plankEngine(now: clock.now);
+
+      engine.update(_validHoldFrame());
+      clock.advance(const Duration(milliseconds: 100));
+      engine.update(_legsNotExtendedFrame());
+
+      expect(engine.phaseLabel, 'HOLDING');
+      expect(engine.feedbackCode, HoldFeedbackCode.extendLegs);
+      expect(engine.feedback, HoldFeedbackCode.extendLegs.code);
+      expect(engine.diagnosticsSnapshot.phase, HoldPhase.holding);
+      expect(engine.diagnosticsSnapshot.isHolding, isTrue);
+      expect(engine.diagnosticsSnapshot.hadFormBreak, isFalse);
+    });
 
     test('continuous valid plank still accumulates over 30 seconds', () {
       final clock = _TestClock();
