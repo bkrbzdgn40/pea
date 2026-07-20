@@ -1,3 +1,43 @@
+import '../legacy_range_rep_scorer.dart';
+
+enum RepScoreComponentKind { rom, tempo, technique, consistency, confidence }
+
+class RepScoreComponents {
+  const RepScoreComponents({
+    required this.rom,
+    required this.tempo,
+    required this.technique,
+    required this.consistency,
+    required this.confidence,
+  });
+
+  final double rom;
+  final double tempo;
+  final double technique;
+  final double consistency;
+  final double confidence;
+}
+
+class RepScorePenaltyTrace {
+  const RepScorePenaltyTrace({
+    required this.component,
+    required this.code,
+    required this.evidenceCode,
+    required this.penaltyPoints,
+    this.observedValue,
+    this.referenceValue,
+    this.observationUnit,
+  });
+
+  final RepScoreComponentKind component;
+  final String code;
+  final String evidenceCode;
+  final double penaltyPoints;
+  final double? observedValue;
+  final double? referenceValue;
+  final String? observationUnit;
+}
+
 /// Rep-level scoring diagnostics captured when a full repetition completes.
 class RepScoreBreakdown {
   const RepScoreBreakdown({
@@ -11,6 +51,10 @@ class RepScoreBreakdown {
     required this.hadFormViolation,
     required this.runtimeBaseScore,
     required this.finalScore,
+    this.primaryRom,
+    this.romRegion,
+    this.scoreComponents,
+    this.penaltyTraces = const <RepScorePenaltyTrace>[],
     this.depthScore,
     this.postureScore,
     this.stabilityScore,
@@ -32,6 +76,21 @@ class RepScoreBreakdown {
   final bool hadFormViolation;
   final double runtimeBaseScore;
   final double finalScore;
+
+  /// Core v2 ROM-delta measurement where available.
+  final double? primaryRom;
+
+  /// Explicit R29 saturation region. Null only for legacy callers that do not
+  /// yet provide enough information to derive ROM delta.
+  final RangeRepRomRegion? romRegion;
+
+  /// Explainable R30 component view. The final score intentionally retains the
+  /// legacy calculation until a later product decision changes weighting.
+  final RepScoreComponents? scoreComponents;
+
+  /// R31 traceability: each applied penalty points at concrete evidence.
+  final List<RepScorePenaltyTrace> penaltyTraces;
+
   final double? depthScore;
   final double? postureScore;
   final double? stabilityScore;

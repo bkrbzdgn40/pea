@@ -7,7 +7,9 @@ import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
+import '../domain/models/hold_technique_assessment.dart';
 import '../domain/models/session_calibration_baseline.dart';
+import '../domain/models/range_rep_technique_assessment.dart';
 import 'engine_kind.dart';
 
 class RangeRepWorkoutCalibrationMetrics {
@@ -75,6 +77,9 @@ class RangeRepWorkoutCalibrationMetrics {
     this.rangeRepInvalidCount = 0,
     this.hasLastRangeRepSummary = false,
     this.lastRangeRepSummaryMinAngle,
+    this.lastRangeRepSummaryPrimaryRom,
+    this.lastRangeRepSummaryConfidence,
+    this.lastRangeRepSummaryCoverageQuality,
     this.lastRangeRepSummaryWorstFormMetric,
     this.lastRangeRepSummaryDescentMillis,
     this.lastRangeRepSummaryAscentMillis,
@@ -170,6 +175,9 @@ class RangeRepWorkoutCalibrationMetrics {
   final int rangeRepInvalidCount;
   final bool hasLastRangeRepSummary;
   final double? lastRangeRepSummaryMinAngle;
+  final double? lastRangeRepSummaryPrimaryRom;
+  final double? lastRangeRepSummaryConfidence;
+  final double? lastRangeRepSummaryCoverageQuality;
   final double? lastRangeRepSummaryWorstFormMetric;
   final int? lastRangeRepSummaryDescentMillis;
   final int? lastRangeRepSummaryAscentMillis;
@@ -419,6 +427,12 @@ class WorkoutCalibrationMetrics {
   bool get hasLastRangeRepSummary => _rangeRep?.hasLastRangeRepSummary ?? false;
   double? get lastRangeRepSummaryMinAngle =>
       _rangeRep?.lastRangeRepSummaryMinAngle;
+  double? get lastRangeRepSummaryPrimaryRom =>
+      _rangeRep?.lastRangeRepSummaryPrimaryRom;
+  double? get lastRangeRepSummaryConfidence =>
+      _rangeRep?.lastRangeRepSummaryConfidence;
+  double? get lastRangeRepSummaryCoverageQuality =>
+      _rangeRep?.lastRangeRepSummaryCoverageQuality;
   double? get lastRangeRepSummaryWorstFormMetric =>
       _rangeRep?.lastRangeRepSummaryWorstFormMetric;
   int? get lastRangeRepSummaryDescentMillis =>
@@ -493,6 +507,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     this.lastRepRom = 0.0,
     this.currentPhase = 'NEUTRAL',
     this.calibrationMetrics = const WorkoutCalibrationMetrics.rangeRep(),
+    this.techniqueObservations = const <RangeRepTechniqueObservation>[],
   });
 
   final int repCount;
@@ -506,6 +521,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   final String currentPhase;
   @override
   final WorkoutCalibrationMetrics calibrationMetrics;
+  final List<RangeRepTechniqueObservation> techniqueObservations;
 
   @override
   EngineKind get analysisKind => EngineKind.rangeRep;
@@ -518,6 +534,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     double? lastRepRom,
     String? currentPhase,
     WorkoutCalibrationMetrics? calibrationMetrics,
+    List<RangeRepTechniqueObservation>? techniqueObservations,
   }) {
     return RangeRepWorkoutAnalysisState(
       repCount: repCount ?? this.repCount,
@@ -527,6 +544,8 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
       lastRepRom: lastRepRom ?? this.lastRepRom,
       currentPhase: currentPhase ?? this.currentPhase,
       calibrationMetrics: calibrationMetrics ?? this.calibrationMetrics,
+      techniqueObservations:
+          techniqueObservations ?? this.techniqueObservations,
     );
   }
 }
@@ -535,6 +554,10 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   static const Object _selectedHoldSideUnset = Object();
   static const Object _holdFeedbackCodeUnset = Object();
   static const Object _holdEnginePhaseUnset = Object();
+  static const Object _plankHipDeviationUnset = Object();
+  static const Object _plankShoulderElbowOffsetUnset = Object();
+  static const Object _hollowShoulderElevationUnset = Object();
+  static const Object _hollowHeelElevationUnset = Object();
 
   const HoldWorkoutAnalysisState({
     this.isFormBad = false,
@@ -549,6 +572,11 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     this.hadHoldFormBreak = false,
     this.currentPhase = 'READY',
     this.calibrationMetrics = const WorkoutCalibrationMetrics.hold(),
+    this.holdTechniqueAssessment = HoldTechniqueAssessment.empty,
+    this.plankHipDeviation,
+    this.plankShoulderElbowOffset,
+    this.hollowShoulderElevation,
+    this.hollowHeelElevation,
   });
 
   @override
@@ -567,6 +595,11 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   final String currentPhase;
   @override
   final WorkoutCalibrationMetrics calibrationMetrics;
+  final HoldTechniqueAssessment holdTechniqueAssessment;
+  final double? plankHipDeviation;
+  final double? plankShoulderElbowOffset;
+  final double? hollowShoulderElevation;
+  final double? hollowHeelElevation;
 
   @override
   EngineKind get analysisKind => EngineKind.hold;
@@ -584,6 +617,11 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     bool? hadHoldFormBreak,
     String? currentPhase,
     WorkoutCalibrationMetrics? calibrationMetrics,
+    HoldTechniqueAssessment? holdTechniqueAssessment,
+    Object? plankHipDeviation = _plankHipDeviationUnset,
+    Object? plankShoulderElbowOffset = _plankShoulderElbowOffsetUnset,
+    Object? hollowShoulderElevation = _hollowShoulderElevationUnset,
+    Object? hollowHeelElevation = _hollowHeelElevationUnset,
   }) {
     return HoldWorkoutAnalysisState(
       isFormBad: isFormBad ?? this.isFormBad,
@@ -605,6 +643,22 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
       hadHoldFormBreak: hadHoldFormBreak ?? this.hadHoldFormBreak,
       currentPhase: currentPhase ?? this.currentPhase,
       calibrationMetrics: calibrationMetrics ?? this.calibrationMetrics,
+      holdTechniqueAssessment:
+          holdTechniqueAssessment ?? this.holdTechniqueAssessment,
+      plankHipDeviation: plankHipDeviation == _plankHipDeviationUnset
+          ? this.plankHipDeviation
+          : plankHipDeviation as double?,
+      plankShoulderElbowOffset:
+          plankShoulderElbowOffset == _plankShoulderElbowOffsetUnset
+          ? this.plankShoulderElbowOffset
+          : plankShoulderElbowOffset as double?,
+      hollowShoulderElevation:
+          hollowShoulderElevation == _hollowShoulderElevationUnset
+          ? this.hollowShoulderElevation
+          : hollowShoulderElevation as double?,
+      hollowHeelElevation: hollowHeelElevation == _hollowHeelElevationUnset
+          ? this.hollowHeelElevation
+          : hollowHeelElevation as double?,
     );
   }
 }

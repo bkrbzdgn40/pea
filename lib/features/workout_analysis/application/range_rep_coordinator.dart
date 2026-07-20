@@ -5,6 +5,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
+import '../domain/biceps_torso_swing_tracker.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
@@ -12,6 +13,7 @@ import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_validation_policy.dart';
 import '../domain/squat_torso_drift_tracker.dart';
 import 'analysis_frame_builder.dart';
+import 'biceps_torso_inclination_measurement.dart';
 import 'calibration_snapshot_builder.dart';
 import 'exercise_metrics.dart';
 import 'push_up_hip_deviation_measurement.dart';
@@ -61,6 +63,10 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     sessionCalibrationBaselineAccumulator,
   }) : _isPushUp = identical(rangeRepContract, RangeRepContracts.pushUp),
        _isSquat = identical(rangeRepContract, RangeRepContracts.squat),
+       _isBicepsCurl = identical(
+         rangeRepContract,
+         RangeRepContracts.bicepsCurl,
+       ),
        super(
          engine: engine,
          config: config,
@@ -85,6 +91,11 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
 
   final bool _isPushUp;
   final bool _isSquat;
+  final bool _isBicepsCurl;
+  final BicepsTorsoInclinationMeasurement _bicepsTorsoMeasurement =
+      const BicepsTorsoInclinationMeasurement();
+  final BicepsTorsoSwingTracker _bicepsTorsoSwingTracker =
+      BicepsTorsoSwingTracker();
   final PushUpHipDeviationMeasurement _pushUpHipDeviationMeasurement =
       const PushUpHipDeviationMeasurement();
   final SquatTorsoInclinationMeasurement _torsoMeasurement =
@@ -96,6 +107,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       <RangeRepTechniqueObservation>[];
   double? _currentPushUpHipDeviationMetric;
   double? _currentSquatHipDepthMetric;
+  double? _currentBicepsRomDelta;
+  double? _latestBicepsNeutralAngle;
+  double? _currentBicepsPeakAngle;
   String? _previousPhase;
 
   List<RangeRepTechniqueObservation> get techniqueObservations =>
@@ -110,6 +124,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   /// Latest selected-side normalized hip/knee height signal for an accepted
   /// squat frame. This diagnostic value is not a validation or scoring input.
   double? get currentSquatHipDepthMetric => _currentSquatHipDepthMetric;
+
+  /// Latest start-to-peak bilateral biceps ROM delta in degrees.
+  double? get currentBicepsRomDelta => _currentBicepsRomDelta;
 
   @override
   base.RangeRepCoordinatorFrameResult processFrame({
@@ -147,8 +164,12 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
         _recordSquatTorsoDrift(metrics: metrics, result: result);
       }
     }
+
+    if (_isBicepsCurl && isAcceptedPoseFrame) {
+      _recordBicepsTechnique(metrics: metrics, result: result);
+    }
     _previousPhase = result.stateSnapshot.currentPhase;
-    return result;
+    return _withTechniqueObservations(result);
   }
 
   @override
@@ -157,6 +178,10 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
   }) {
     _currentPushUpHipDeviationMetric = null;
     _currentSquatHipDepthMetric = null;
+    _currentBicepsRomDelta = null;
+    _latestBicepsNeutralAngle = null;
+    _currentBicepsPeakAngle = null;
+    _bicepsTorsoSwingTracker.resetRep(keepNeutral: false);
     _resetTorsoDrift(clearObservations: true);
     _previousPhase = null;
     return super.handleLifecycleInterruption(reason: reason);
@@ -254,6 +279,81 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
         }
         break;
     }
+  }
+
+  void _recordBicepsTechnique({
+    required ExerciseMetrics metrics,
+    required base.RangeRepCoordinatorFrameResult result,
+  }) {
+    final phase = result.stateSnapshot.currentPhase;
+    final pose = _poseFrom(metrics.landmarks);
+    final torsoInclination = _bicepsTorsoMeasurement.measureBilateral(pose);
+    final primaryAngle =
+        metrics.bilateralRangeRepMetrics?.hasPrimaryAngle == true
+        ? metrics.bilateralRangeRepMetrics!.primaryAngle
+        : null;
+
+    if (phase == 'NEUTRAL') {
+      if (_previousPhase == 'ASCENDING') {
+        final start = _latestBicepsNeutralAngle;
+        final peak = _currentBicepsPeakAngle;
+        if (start != null && peak != null) {
+          _currentBicepsRomDelta = (start - peak).clamp(0.0, 180.0).toDouble();
+        }
+        _bicepsTorsoSwingTracker.resetRep();
+        _currentBicepsPeakAngle = null;
+      }
+      if (primaryAngle != null) {
+        _latestBicepsNeutralAngle = primaryAngle;
+      }
+      _bicepsTorsoSwingTracker.recordNeutral(torsoInclination);
+      return;
+    }
+
+    if (phase == 'DESCENDING' && _previousPhase != 'DESCENDING') {
+      _techniqueObservations.clear();
+      _currentBicepsRomDelta = null;
+      _currentBicepsPeakAngle = null;
+      _bicepsTorsoSwingTracker.resetRep();
+    }
+
+    if (phase == 'PEAK' && _previousPhase != 'PEAK') {
+      if (primaryAngle != null) {
+        _currentBicepsPeakAngle = primaryAngle;
+        final start = _latestBicepsNeutralAngle;
+        if (start != null) {
+          _currentBicepsRomDelta = (start - primaryAngle)
+              .clamp(0.0, 180.0)
+              .toDouble();
+        }
+      }
+      _bicepsTorsoSwingTracker.recordPeak(torsoInclination);
+      _addObservation(_bicepsTorsoSwingTracker.buildObservation());
+    }
+  }
+
+  base.RangeRepCoordinatorFrameResult _withTechniqueObservations(
+    base.RangeRepCoordinatorFrameResult result,
+  ) {
+    final snapshot = result.stateSnapshot;
+    return base.RangeRepCoordinatorFrameResult(
+      stateSnapshot: base.RangeRepCoordinatorStateSnapshot(
+        landmarks: snapshot.landmarks,
+        repCount: snapshot.repCount,
+        isFormBad: snapshot.isFormBad,
+        currentAngle: snapshot.currentAngle,
+        lastRepScore: snapshot.lastRepScore,
+        lastRepRom: snapshot.lastRepRom,
+        currentPhase: snapshot.currentPhase,
+        calibrationMetrics: snapshot.calibrationMetrics,
+        feedbackDirective: snapshot.feedbackDirective,
+        techniqueObservations: techniqueObservations,
+      ),
+      diagnosticsUpdate: result.diagnosticsUpdate,
+      shouldResetPoseAcceptance: result.shouldResetPoseAcceptance,
+      shouldRecordInvalidPoseAcceptance:
+          result.shouldRecordInvalidPoseAcceptance,
+    );
   }
 
   RangeRepSide? _sideFromLabel(String? sideLabel) {

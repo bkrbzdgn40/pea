@@ -195,9 +195,14 @@ void main() {
           holdCoordinatorFactoryProvider.overrideWithValue(({
             required HoldAnalysisEngine engine,
             required ExerciseConfig config,
+            required HoldContract holdContract,
           }) {
             spyCoordinator = _SpyHoldCoordinator(
-              inner: DefaultHoldCoordinator(engine: engine, config: config),
+              inner: DefaultHoldCoordinator(
+                engine: engine,
+                config: config,
+                holdContract: holdContract,
+              ),
             );
             return spyCoordinator;
           }),
@@ -250,9 +255,14 @@ void main() {
             holdCoordinatorFactoryProvider.overrideWithValue(({
               required HoldAnalysisEngine engine,
               required ExerciseConfig config,
+              required HoldContract holdContract,
             }) {
               spyCoordinator = _SpyHoldCoordinator(
-                inner: DefaultHoldCoordinator(engine: engine, config: config),
+                inner: DefaultHoldCoordinator(
+                  engine: engine,
+                  config: config,
+                  holdContract: holdContract,
+                ),
               );
               return spyCoordinator;
             }),
@@ -315,9 +325,14 @@ void main() {
             holdCoordinatorFactoryProvider.overrideWithValue(({
               required HoldAnalysisEngine engine,
               required ExerciseConfig config,
+              required HoldContract holdContract,
             }) {
               spyCoordinator = _SpyHoldCoordinator(
-                inner: DefaultHoldCoordinator(engine: engine, config: config),
+                inner: DefaultHoldCoordinator(
+                  engine: engine,
+                  config: config,
+                  holdContract: holdContract,
+                ),
               );
               return spyCoordinator;
             }),
@@ -359,9 +374,14 @@ void main() {
             holdCoordinatorFactoryProvider.overrideWithValue(({
               required HoldAnalysisEngine engine,
               required ExerciseConfig config,
+              required HoldContract holdContract,
             }) {
               spyCoordinator = _SpyHoldCoordinator(
-                inner: DefaultHoldCoordinator(engine: engine, config: config),
+                inner: DefaultHoldCoordinator(
+                  engine: engine,
+                  config: config,
+                  holdContract: holdContract,
+                ),
               );
               return spyCoordinator;
             }),

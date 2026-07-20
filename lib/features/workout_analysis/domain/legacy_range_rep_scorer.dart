@@ -1,11 +1,68 @@
+enum RangeRepRomRegion { insufficient, acceptable, targetReached }
+
+class RangeRepRomScoreResult {
+  const RangeRepRomScoreResult({
+    required this.region,
+    required this.score,
+    required this.achievedRom,
+    required this.minimumAcceptableRom,
+    required this.targetRom,
+  });
+
+  final RangeRepRomRegion region;
+  final double score;
+  final double achievedRom;
+  final double minimumAcceptableRom;
+  final double targetRom;
+}
+
 class LegacyRangeRepScorer {
   const LegacyRangeRepScorer();
 
+  /// Compatibility scoring for angle-based exercises. The score saturates at
+  /// 100 once the target minimum angle is reached or exceeded.
   double calculateRomScore({
     required double minAngle,
     required double targetMinAngle,
   }) {
     return (100 - (minAngle - targetMinAngle)).clamp(0, 100).toDouble();
+  }
+
+  /// Explicit ROM-delta scoring used by Core v2 diagnostics.
+  ///
+  /// The legacy numeric score curve is preserved by expressing the same
+  /// target-relative deficit in ROM space. Extra ROM beyond [targetRom] never
+  /// awards more than 100 points.
+  RangeRepRomScoreResult calculateSaturatingRomScore({
+    required double achievedRom,
+    required double minimumAcceptableRom,
+    required double targetRom,
+  }) {
+    final normalizedAchievedRom = achievedRom.clamp(0.0, 180.0).toDouble();
+    final normalizedMinimum = minimumAcceptableRom.clamp(0.0, 180.0).toDouble();
+    final normalizedTarget = targetRom
+        .clamp(normalizedMinimum, 180.0)
+        .toDouble();
+
+    final region = normalizedAchievedRom >= normalizedTarget
+        ? RangeRepRomRegion.targetReached
+        : normalizedAchievedRom >= normalizedMinimum
+        ? RangeRepRomRegion.acceptable
+        : RangeRepRomRegion.insufficient;
+
+    final score = normalizedTarget <= 0
+        ? 100.0
+        : (100.0 - (normalizedTarget - normalizedAchievedRom))
+              .clamp(0.0, 100.0)
+              .toDouble();
+
+    return RangeRepRomScoreResult(
+      region: region,
+      score: score,
+      achievedRom: normalizedAchievedRom,
+      minimumAcceptableRom: normalizedMinimum,
+      targetRom: normalizedTarget,
+    );
   }
 
   double calculateTempoScore({

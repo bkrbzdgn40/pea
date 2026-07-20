@@ -16,6 +16,10 @@ class RangeRepRepOutcomeTracker {
   bool _activeRangeRepHadCoverageDrop = false;
   bool _activeRangeRepSwitchedSideDuringRep = false;
   String? _activeRangeRepSelectedSideLabel;
+  int _activeRangeRepObservedFrameCount = 0;
+  int _activeRangeRepCoveredFrameCount = 0;
+  double _activeRangeRepConfidenceTotal = 0.0;
+  int _activeRangeRepConfidenceSampleCount = 0;
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
   RangeRepValidationResult? _lastRangeRepValidationResult;
   int? _lastRangeRepValidatedRepIndex;
@@ -32,19 +36,37 @@ class RangeRepRepOutcomeTracker {
   int get rangeRepLowConfidenceCount => _rangeRepLowConfidenceCount;
   int get rangeRepInvalidCount => _rangeRepInvalidCount;
 
+  double? get activeRepConfidence => _activeRangeRepConfidenceSampleCount == 0
+      ? null
+      : _activeRangeRepConfidenceTotal / _activeRangeRepConfidenceSampleCount;
+
+  double? get activeRepCoverageQuality => _activeRangeRepObservedFrameCount == 0
+      ? null
+      : _activeRangeRepCoveredFrameCount / _activeRangeRepObservedFrameCount;
+
   void trackRepContext({
     required EngineKind engineKind,
     required RangeRepDiagnosticsSnapshot diagnostics,
     required String? selectedSideLabel,
     bool markCoverageDrop = false,
+    double? frameConfidence,
   }) {
     if (engineKind != EngineKind.rangeRep ||
         !_isRangeRepRepContextActive(diagnostics)) {
       return;
     }
 
+    _activeRangeRepObservedFrameCount += 1;
     if (markCoverageDrop) {
       _activeRangeRepHadCoverageDrop = true;
+    } else {
+      _activeRangeRepCoveredFrameCount += 1;
+    }
+    if (frameConfidence != null) {
+      _activeRangeRepConfidenceTotal += frameConfidence
+          .clamp(0.0, 1.0)
+          .toDouble();
+      _activeRangeRepConfidenceSampleCount += 1;
     }
 
     if (selectedSideLabel == null) {
@@ -80,6 +102,10 @@ class RangeRepRepOutcomeTracker {
       completedPhaseSequence: completedRepCoreData.completedPhaseSequence,
       selectedSideLabel: _activeRangeRepSelectedSideLabel,
       analysisKindLabel: analysisKindLabel,
+      startAngle: completedRepCoreData.startAngle,
+      primaryRom: completedRepCoreData.primaryRom,
+      confidence: activeRepConfidence,
+      coverageQuality: activeRepCoverageQuality,
     );
     final validationOutcome = RangeRepValidationOutcome(
       summary: summaryCandidate,
@@ -107,6 +133,10 @@ class RangeRepRepOutcomeTracker {
     _activeRangeRepHadCoverageDrop = false;
     _activeRangeRepSwitchedSideDuringRep = false;
     _activeRangeRepSelectedSideLabel = null;
+    _activeRangeRepObservedFrameCount = 0;
+    _activeRangeRepCoveredFrameCount = 0;
+    _activeRangeRepConfidenceTotal = 0.0;
+    _activeRangeRepConfidenceSampleCount = 0;
     if (clearCandidate) {
       _lastRangeRepRepSummaryCandidate = null;
       _lastRangeRepValidationResult = null;

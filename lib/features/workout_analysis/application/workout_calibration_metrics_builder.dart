@@ -169,6 +169,10 @@ class WorkoutCalibrationMetricsBuilder {
         rangeRepInvalidCount: rangeRepInvalidCount,
         hasLastRangeRepSummary: lastSummaryCandidate != null,
         lastRangeRepSummaryMinAngle: lastSummaryCandidate?.minAngle,
+        lastRangeRepSummaryPrimaryRom: lastSummaryCandidate?.primaryRom,
+        lastRangeRepSummaryConfidence: lastSummaryCandidate?.confidence,
+        lastRangeRepSummaryCoverageQuality:
+            lastSummaryCandidate?.coverageQuality,
         lastRangeRepSummaryWorstFormMetric:
             lastSummaryCandidate?.worstFormMetric,
         lastRangeRepSummaryDescentMillis:

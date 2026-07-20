@@ -2,39 +2,42 @@ import 'dart:math' as math;
 
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../../../core/utils/image_plane_geometry.dart';
+import '../../../core/utils/image_plane_geometry.dart';
 import '../domain/models/hold_side.dart';
+import 'pose_landmark_mirror.dart';
 
 /// Measures selected-side plank hip deviation from the shoulder-to-ankle line
-/// in the 2D image plane.
+/// in the 2D image plane, normalized by the shoulder-to-ankle segment length.
 ///
-/// The result is an unsigned, dimensionless deviation normalized by the
-/// shoulder-to-ankle segment length. It intentionally carries no validation,
-/// severity, scoring, or coaching threshold semantics.
+/// This is a physical, dimensionless measurement only. It deliberately does
+/// not assign sag/pike direction, severity, validation, hold-break, scoring, or
+/// coaching semantics.
 class PlankHipDeviationMeasurement {
   const PlankHipDeviationMeasurement();
 
-  double? measureLandmarks(
-    List<PoseLandmark> landmarks, {
+  double? measure(
+    Pose pose, {
     required HoldSide side,
+    HoldSide referenceSide = HoldSide.left,
   }) {
-    final landmarksByType = <PoseLandmarkType, PoseLandmark>{
-      for (final landmark in landmarks) landmark.type: landmark,
-    };
-    final isLeft = side == HoldSide.left;
-    final shoulder =
-        landmarksByType[isLeft
-            ? PoseLandmarkType.leftShoulder
-            : PoseLandmarkType.rightShoulder];
-    final hip =
-        landmarksByType[isLeft
-            ? PoseLandmarkType.leftHip
-            : PoseLandmarkType.rightHip];
-    final ankle =
-        landmarksByType[isLeft
-            ? PoseLandmarkType.leftAnkle
-            : PoseLandmarkType.rightAnkle];
-
+    final shoulderType = resolveHoldLandmarkForSide(
+      configuredLandmark: PoseLandmarkType.leftShoulder,
+      referenceSide: referenceSide,
+      targetSide: side,
+    );
+    final hipType = resolveHoldLandmarkForSide(
+      configuredLandmark: PoseLandmarkType.leftHip,
+      referenceSide: referenceSide,
+      targetSide: side,
+    );
+    final ankleType = resolveHoldLandmarkForSide(
+      configuredLandmark: PoseLandmarkType.leftAnkle,
+      referenceSide: referenceSide,
+      targetSide: side,
+    );
+    final shoulder = pose.landmarks[shoulderType];
+    final hip = pose.landmarks[hipType];
+    final ankle = pose.landmarks[ankleType];
     if (shoulder == null || hip == null || ankle == null) {
       return null;
     }

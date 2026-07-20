@@ -71,6 +71,9 @@ class RangeRepThresholdBookkeeper {
       case 'offset_too_small':
         _offsetTooSmallCount++;
         break;
+      case 'measurement_correction_only':
+        // R28: correction candidates do not rewrite technique thresholds.
+        break;
       case 'disabled_by_contract':
         // Intentional: diagnostics schema has no dedicated disabled counter.
         break;

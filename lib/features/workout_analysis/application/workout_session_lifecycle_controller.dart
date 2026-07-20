@@ -349,6 +349,15 @@ class WorkoutSessionLifecycleController
       worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
       descentMillis: metrics.lastRangeRepSummaryDescentMillis,
       ascentMillis: metrics.lastRangeRepSummaryAscentMillis,
+      confidence: metrics.lastRangeRepSummaryConfidence,
+      primaryRom: metrics.lastRangeRepSummaryPrimaryRom,
+      eccentricMillis: metrics.lastRangeRepSummaryDescentMillis,
+      concentricMillis: metrics.lastRangeRepSummaryAscentMillis,
+      techniqueObservations: rangeRepAnalysis.techniqueObservations
+          .map((observation) => observation.toMap())
+          .toList(growable: false),
+      selectedSide: metrics.lastRangeRepSummarySelectedSideLabel,
+      coverageQuality: metrics.lastRangeRepSummaryCoverageQuality,
       feedback: next.feedbackMessage,
       hadFormViolation: metrics.lastRangeRepSummaryHadFormViolation,
       hadCoverageDrop: metrics.lastRangeRepSummaryHadCoverageDrop,

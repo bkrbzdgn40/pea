@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../../../core/utils/angle_calculator.dart';
-import '../../../../core/utils/image_plane_geometry.dart';
+import '../../../core/utils/angle_calculator.dart';
+import '../../../core/utils/image_plane_geometry.dart';
 import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
@@ -13,8 +13,6 @@ import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
-import 'plank_hip_deviation_measurement.dart';
-import 'plank_shoulder_elbow_offset_measurement.dart';
 import 'pose_landmark_mirror.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -28,10 +26,6 @@ class ExerciseMetricsExtractor {
   );
   static const ExerciseLandmarkRequirements _requirements =
       ExerciseLandmarkRequirements();
-  static const PlankHipDeviationMeasurement _plankHipDeviationMeasurement =
-      PlankHipDeviationMeasurement();
-  static const PlankShoulderElbowOffsetMeasurement
-  _plankShoulderElbowOffsetMeasurement = PlankShoulderElbowOffsetMeasurement();
 
   ExerciseMetrics extract(
     Pose pose,
@@ -460,29 +454,6 @@ class ExerciseMetricsExtractor {
       );
       if (value != null) {
         values[signal] = value;
-      }
-    }
-
-    if (holdContract.family == HoldAnalysisFamily.plank &&
-        holdContract.supportsSignal(HoldSignal.hipDeviation) &&
-        values.containsKey(HoldSignal.alignment) &&
-        holdSide != null) {
-      final hipDeviation = _plankHipDeviationMeasurement.measureLandmarks(
-        pose.landmarks.values.toList(),
-        side: holdSide,
-      );
-      if (hipDeviation != null) {
-        values[HoldSignal.hipDeviation] = hipDeviation;
-      }
-    }
-
-    if (holdContract.family == HoldAnalysisFamily.plank &&
-        holdContract.supportsSignal(HoldSignal.shoulderElbowOffset) &&
-        holdSide != null) {
-      final shoulderElbowOffset = _plankShoulderElbowOffsetMeasurement
-          .measureLandmarks(pose.landmarks.values.toList(), side: holdSide);
-      if (shoulderElbowOffset != null) {
-        values[HoldSignal.shoulderElbowOffset] = shoulderElbowOffset;
       }
     }
 

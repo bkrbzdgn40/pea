@@ -1,6 +1,6 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../../../core/utils/moving_average.dart';
+import '../../../core/utils/moving_average.dart';
 import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
@@ -14,6 +14,7 @@ import '../domain/models/range_rep_confirmed_transition.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_engine_frame_result.dart';
 import '../domain/models/range_rep_feedback_code.dart';
+import '../domain/models/range_rep_technique_assessment.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/range_rep_analysis_engine.dart';
@@ -58,6 +59,7 @@ class RangeRepCoordinatorStateSnapshot {
     required this.currentPhase,
     required this.calibrationMetrics,
     required this.feedbackDirective,
+    this.techniqueObservations = const <RangeRepTechniqueObservation>[],
   });
 
   final List<PoseLandmark>? landmarks;
@@ -69,6 +71,7 @@ class RangeRepCoordinatorStateSnapshot {
   final String currentPhase;
   final WorkoutCalibrationMetrics calibrationMetrics;
   final RangeRepFeedbackDirective feedbackDirective;
+  final List<RangeRepTechniqueObservation> techniqueObservations;
 }
 
 class RangeRepCoordinatorDiagnosticsUpdate {
@@ -165,6 +168,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }) : _engine = engine,
        _config = config,
        _rangeRepContract = rangeRepContract,
+       _rangeRepValidationConfig = rangeRepValidationConfig,
        _scorer = scorer,
        _techniqueEvaluator = techniqueEvaluator,
        _techniqueHistoryTracker =
@@ -202,6 +206,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepAnalysisEngine _engine;
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
+  final RangeRepValidationConfig _rangeRepValidationConfig;
   final LegacyRangeRepScorer _scorer;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final LegacyRangeRepTechniqueHistoryTracker _techniqueHistoryTracker;
@@ -538,6 +543,10 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     _trackRepContext(
       diagnostics: preUpdateDiagnostics,
       selectedSide: frameAssessment.selection.selectedSide,
+      frameConfidence: frameAssessment.selectedMetrics is RangeRepSideMetrics
+          ? (frameAssessment.selectedMetrics as RangeRepSideMetrics)
+                .sideConfidence
+          : null,
     );
     final analysisFrame = _buildAnalysisFrame(
       metrics: metrics,
@@ -609,8 +618,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
 
     final calibrationMetrics = _buildCalibrationMetrics(
-      currentFormMetric: analysisFrame.formMetric,
-      currentPrimaryMetric: analysisFrame.primaryMetric,
+      currentFormMetric: engineFrame.formMetric,
+      currentPrimaryMetric: engineFrame.primaryMetric,
       thresholdValue: formThresholdResolution.effectiveThreshold,
       currentTorsoAngle: selectedFormSignals?.torsoAngle,
       currentDepthMetric: selectedFormSignals?.depthMetric,
@@ -868,18 +877,16 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     AnalysisFrame frame,
     RangeRepThresholdResolution resolution,
   ) {
-    final offsetCandidate = resolution.offsetCandidate;
-    if (!resolution.isApplied || offsetCandidate == null) {
-      return frame;
-    }
-
-    return AnalysisFrame(
-      primaryMetric: frame.primaryMetric,
-      formMetric: frame.formMetric - offsetCandidate,
-      bodyLineAngle: frame.bodyLineAngle,
-      armSupportAngle: frame.armSupportAngle,
-      legExtensionAngle: frame.legExtensionAngle,
+    // R28 deliberately does not treat a user's initial calibration posture as
+    // a trusted measurement-error reference. A correction candidate remains
+    // observable in diagnostics, but it cannot rewrite the exercise-owned
+    // technique measurement or acceptance threshold without an independent
+    // measurement-correction source.
+    assert(
+      resolution.techniqueAcceptanceThreshold == resolution.baseThreshold,
+      'Calibration must not rewrite the technique acceptance threshold.',
     );
+    return frame;
   }
 
   void _applyLiveTechniqueFeedback({
@@ -941,6 +948,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return RangeRepCompletedRepCoreData(
       repIndex: detectionData.repIndex,
       minAngle: detectionData.minAngle,
+      startAngle: detectionData.startAngle,
+      primaryRom: detectionData.primaryRom,
       worstFormMetric: techniqueData.worstFormMetric,
       descentDuration: detectionData.descentDuration,
       ascentDuration: detectionData.ascentDuration,
@@ -953,10 +962,31 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepCompletedRepCoreData completedRepCoreData,
     required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
   }) {
-    final romScore = _scorer.calculateRomScore(
-      minAngle: completedRepCoreData.minAngle,
-      targetMinAngle: _config.targetMinAngle,
-    );
+    final startAngle = completedRepCoreData.startAngle;
+    final primaryRom = completedRepCoreData.primaryRom;
+    final minimumAcceptableRom = startAngle == null
+        ? null
+        : (_rangeRepValidationConfig.minAcceptableRomDelta ??
+              (startAngle - _rangeRepValidationConfig.minAcceptableRomAngle)
+                  .clamp(0.0, 180.0)
+                  .toDouble());
+    final targetRom = startAngle == null
+        ? null
+        : (startAngle - _config.targetMinAngle).clamp(0.0, 180.0).toDouble();
+    final romResult =
+        primaryRom == null || minimumAcceptableRom == null || targetRom == null
+        ? null
+        : _scorer.calculateSaturatingRomScore(
+            achievedRom: primaryRom,
+            minimumAcceptableRom: minimumAcceptableRom,
+            targetRom: targetRom,
+          );
+    final romScore =
+        romResult?.score ??
+        _scorer.calculateRomScore(
+          minAngle: completedRepCoreData.minAngle,
+          targetMinAngle: _config.targetMinAngle,
+        );
     final descentSeconds =
         completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
     final descentScore = _scorer.calculateTempoScore(
@@ -986,13 +1016,15 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
             ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
           );
+    final descendingPhaseFlagged =
+        postUpdateDiagnostics.descendingPhaseAssessment.status ==
+        RangeRepPhaseQualityStatus.flagged;
+    final ascendingPhaseFlagged =
+        postUpdateDiagnostics.ascendingPhaseAssessment.status ==
+        RangeRepPhaseQualityStatus.flagged;
     final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
-      descendingPhaseFlagged:
-          postUpdateDiagnostics.descendingPhaseAssessment.status ==
-          RangeRepPhaseQualityStatus.flagged,
-      ascendingPhaseFlagged:
-          postUpdateDiagnostics.ascendingPhaseAssessment.status ==
-          RangeRepPhaseQualityStatus.flagged,
+      descendingPhaseFlagged: descendingPhaseFlagged,
+      ascendingPhaseFlagged: ascendingPhaseFlagged,
     );
     final baseScore = _scorer.calculateBaseScore(
       romScore: romScore,
@@ -1009,9 +1041,109 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       phaseAdjustedScore: phaseAdjustedScore,
     );
 
+    final consistencyScore = (100.0 - (phaseQualityPenalty ?? 0.0))
+        .clamp(0.0, 100.0)
+        .toDouble();
+    final scoreComponents = RepScoreComponents(
+      rom: romScore,
+      tempo: tempoScore,
+      technique: completedRepCoreData.hadFormViolation ? 50.0 : 100.0,
+      consistency: consistencyScore,
+      confidence: ((_outcomeTracker.activeRepConfidence ?? 1.0) * 100.0)
+          .clamp(0.0, 100.0)
+          .toDouble(),
+    );
+    final penaltyTraces = <RepScorePenaltyTrace>[];
+    if (romScore < 100.0) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.rom,
+          code: 'rom_target_shortfall',
+          evidenceCode: primaryRom == null
+              ? 'minimum_primary_angle_observation'
+              : 'primary_rom_observation',
+          penaltyPoints: 100.0 - romScore,
+          observedValue: primaryRom ?? completedRepCoreData.minAngle,
+          referenceValue: targetRom ?? _config.targetMinAngle,
+          observationUnit: 'degrees',
+        ),
+      );
+    }
+    if (descentScore < 100.0) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.tempo,
+          code: 'descent_tempo_deviation',
+          evidenceCode: 'eccentric_duration_observation',
+          penaltyPoints: 100.0 - descentScore,
+          observedValue: descentSeconds,
+          referenceValue: _config.idealDescentSeconds,
+          observationUnit: 'seconds',
+        ),
+      );
+    }
+    if (ascentScore < 100.0) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.tempo,
+          code: 'ascent_tempo_deviation',
+          evidenceCode: 'concentric_duration_observation',
+          penaltyPoints: 100.0 - ascentScore,
+          observedValue: ascentSeconds,
+          referenceValue: _config.idealAscentSeconds,
+          observationUnit: 'seconds',
+        ),
+      );
+    }
+    if (completedRepCoreData.hadFormViolation) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.technique,
+          code: 'legacy_form_penalty',
+          evidenceCode: 'legacy_form_threshold_violation',
+          penaltyPoints: 50.0,
+          observedValue: completedRepCoreData.worstFormMetric,
+          referenceValue: _config.formThreshold,
+          observationUnit: 'degrees',
+        ),
+      );
+    }
+    if (descendingPhaseFlagged) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.consistency,
+          code: 'descending_phase_quality_penalty',
+          evidenceCode:
+              postUpdateDiagnostics.descendingPhaseAssessment.issues.isEmpty
+              ? 'descending_phase_quality_flagged'
+              : postUpdateDiagnostics.descendingPhaseAssessment.issues
+                    .map((issue) => issue.name)
+                    .join(','),
+          penaltyPoints: 5.0,
+        ),
+      );
+    }
+    if (ascendingPhaseFlagged) {
+      penaltyTraces.add(
+        RepScorePenaltyTrace(
+          component: RepScoreComponentKind.consistency,
+          code: 'ascending_phase_quality_penalty',
+          evidenceCode:
+              postUpdateDiagnostics.ascendingPhaseAssessment.issues.isEmpty
+              ? 'ascending_phase_quality_flagged'
+              : postUpdateDiagnostics.ascendingPhaseAssessment.issues
+                    .map((issue) => issue.name)
+                    .join(','),
+          penaltyPoints: 5.0,
+        ),
+      );
+    }
+
     _lastRepScore = finalScore;
     _lastRepScoreBreakdown = RepScoreBreakdown(
       minAngle: completedRepCoreData.minAngle,
+      primaryRom: primaryRom,
+      romRegion: romResult?.region,
       romScore: romScore,
       descentSeconds: descentSeconds,
       descentScore: descentScore,
@@ -1021,9 +1153,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hadFormViolation: completedRepCoreData.hadFormViolation,
       runtimeBaseScore: baseScore,
       finalScore: finalScore,
+      scoreComponents: scoreComponents,
+      penaltyTraces: List<RepScorePenaltyTrace>.unmodifiable(penaltyTraces),
       depthScore: depthScore,
       descentControlScore: descentControlScore,
       ascentControlScore: ascentControlScore,
+      consistencyScore: consistencyScore,
       weightedBaseScore: weightedBaseScore,
       phaseQualityPenalty: phaseQualityPenalty,
       phaseAdjustedScore: phaseAdjustedScore,
@@ -1213,12 +1348,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepDiagnosticsSnapshot diagnostics,
     required RangeRepSide? selectedSide,
     bool markCoverageDrop = false,
+    double? frameConfidence,
   }) {
     _outcomeTracker.trackRepContext(
       engineKind: EngineKind.rangeRep,
       diagnostics: diagnostics,
       selectedSideLabel: _rangeRepSideLabel(selectedSide),
       markCoverageDrop: markCoverageDrop,
+      frameConfidence: frameConfidence,
     );
   }
 

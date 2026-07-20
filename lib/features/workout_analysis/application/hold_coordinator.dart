@@ -1,6 +1,6 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../../../core/utils/moving_average.dart';
+import '../../../core/utils/moving_average.dart';
 import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_diagnostics.dart';
 import '../domain/models/analysis_frame.dart';
@@ -11,11 +11,16 @@ import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
+import '../domain/models/hold_technique_assessment.dart';
+import '../domain/plank_technique_analyzer.dart';
 import 'analysis_frame_builder.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
 import 'hold_side_policy.dart';
 import 'hold_side_stabilizer.dart';
+import 'hollow_hold_limb_elevation_measurement.dart';
+import 'plank_hip_deviation_measurement.dart';
+import 'plank_shoulder_elbow_offset_measurement.dart';
 import 'pose_quality_policy.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
@@ -36,6 +41,11 @@ class HoldCoordinatorStateSnapshot {
     required this.currentPhase,
     required this.calibrationMetrics,
     required this.feedbackFallbackMessage,
+    this.holdTechniqueAssessment = HoldTechniqueAssessment.empty,
+    this.plankHipDeviation,
+    this.plankShoulderElbowOffset,
+    this.hollowShoulderElevation,
+    this.hollowHeelElevation,
   });
 
   final List<PoseLandmark>? landmarks;
@@ -52,6 +62,11 @@ class HoldCoordinatorStateSnapshot {
   final String currentPhase;
   final WorkoutCalibrationMetrics calibrationMetrics;
   final String feedbackFallbackMessage;
+  final HoldTechniqueAssessment holdTechniqueAssessment;
+  final double? plankHipDeviation;
+  final double? plankShoulderElbowOffset;
+  final double? hollowShoulderElevation;
+  final double? hollowHeelElevation;
 }
 
 class HoldCoordinatorDiagnosticsUpdate {
@@ -99,17 +114,22 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   DefaultHoldCoordinator({
     required HoldAnalysisEngine engine,
     required ExerciseConfig config,
+    required HoldContract holdContract,
     WorkoutAnalysisFrameBuilder analysisFrameBuilder =
         const WorkoutAnalysisFrameBuilder(),
     WorkoutCalibrationMetricsBuilder calibrationMetricsBuilder =
         const WorkoutCalibrationMetricsBuilder(),
     HoldSideStabilizer? holdSideStabilizer,
   }) : _engine = engine,
+       _holdContract = holdContract,
+       _config = config,
        _analysisFrameBuilder = analysisFrameBuilder,
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
        _holdSideStabilizer = holdSideStabilizer ?? HoldSideStabilizer();
 
   final HoldAnalysisEngine _engine;
+  final HoldContract _holdContract;
+  final ExerciseConfig _config;
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
   final HoldSideStabilizer _holdSideStabilizer;
@@ -124,6 +144,39 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         for (final signal in HoldSignal.values)
           signal: MovingAverageFilter(windowSize: 5),
       };
+
+  final PlankHipDeviationMeasurement _plankHipDeviationMeasurement =
+      const PlankHipDeviationMeasurement();
+  final PlankShoulderElbowOffsetMeasurement
+  _plankShoulderElbowOffsetMeasurement =
+      const PlankShoulderElbowOffsetMeasurement();
+  final PlankTechniqueAnalyzer _plankTechniqueAnalyzer =
+      const PlankTechniqueAnalyzer();
+  final HollowHoldLimbElevationMeasurement _hollowHoldLimbElevationMeasurement =
+      const HollowHoldLimbElevationMeasurement();
+  double? _currentPlankHipDeviationMetric;
+  double? _currentPlankShoulderElbowOffsetMetric;
+  double? _currentHollowShoulderElevationMetric;
+  double? _currentHollowHeelElevationMetric;
+  HoldTechniqueAssessment _holdTechniqueAssessment =
+      HoldTechniqueAssessment.empty;
+
+  /// Latest normalized plank hip-line deviation. This is the primary plank
+  /// technique measurement and is not a pose-acceptance or hold-validity gate.
+  double? get currentPlankHipDeviationMetric => _currentPlankHipDeviationMetric;
+
+  /// Latest normalized side-view shoulder/elbow stacking offset.
+  double? get currentPlankShoulderElbowOffsetMetric =>
+      _currentPlankShoulderElbowOffsetMetric;
+
+  HoldTechniqueAssessment get holdTechniqueAssessment =>
+      _holdTechniqueAssessment;
+
+  double? get currentHollowShoulderElevationMetric =>
+      _currentHollowShoulderElevationMetric;
+
+  double? get currentHollowHeelElevationMetric =>
+      _currentHollowHeelElevationMetric;
 
   HoldSide? _selectedHoldSide;
   HoldSide? _briefGapFrozenHoldSide;
@@ -231,6 +284,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     _engine.interrupt(reason: reason);
     _hasAcceptedPoseForAnalysis = false;
     _resetHoldMetricFilters();
+    _resetExerciseSpecificTechnique();
     _resetHoldSideSelection();
     final holdDiagnostics = _holdDiagnosticsSnapshot();
     return _rememberStateSnapshot(
@@ -253,6 +307,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   HoldCoordinatorFrameResult _processInvalidFrame({
     required ExerciseMetrics metrics,
   }) {
+    _resetExerciseSpecificTechnique();
     final lockedHoldSide = requiredHoldSideForAssessment();
     if (lockedHoldSide != null) {
       _beginHoldVisibilityGap();
@@ -345,6 +400,7 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       );
       _engine.update(analysisFrame);
       final holdDiagnostics = _holdDiagnosticsSnapshot();
+      _updateExerciseSpecificTechnique(metrics: metrics);
       if (_didHoldAttemptEndAfterUpdate(
         before: preUpdateHoldDiagnostics,
         after: holdDiagnostics,
@@ -410,6 +466,78 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     );
     _hasAcceptedPoseForAnalysis = true;
     return result;
+  }
+
+  void _updateExerciseSpecificTechnique({required ExerciseMetrics metrics}) {
+    final side = _currentHoldSideForState();
+    if (side == null) {
+      _resetExerciseSpecificTechnique();
+      return;
+    }
+
+    final pose = Pose(
+      landmarks: <PoseLandmarkType, PoseLandmark>{
+        for (final landmark in metrics.landmarks) landmark.type: landmark,
+      },
+    );
+    final referenceSide = _configHoldReferenceSide();
+
+    switch (_holdContract.family) {
+      case HoldAnalysisFamily.plank:
+        _currentHollowShoulderElevationMetric = null;
+        _currentHollowHeelElevationMetric = null;
+        _currentPlankHipDeviationMetric = _plankHipDeviationMeasurement.measure(
+          pose,
+          side: side,
+          referenceSide: referenceSide,
+        );
+        _currentPlankShoulderElbowOffsetMetric =
+            _plankShoulderElbowOffsetMeasurement.measure(
+              pose,
+              side: side,
+              referenceSide: referenceSide,
+            );
+
+        _holdTechniqueAssessment = _plankTechniqueAnalyzer.assess(
+          hipDeviation: _currentPlankHipDeviationMetric,
+          shoulderElbowOffset: _currentPlankShoulderElbowOffsetMetric,
+          kneeExtensionAngle: metrics.holdSignalValues.valueFor(
+            HoldSignal.extension,
+          ),
+          legacySignalValidity: _holdDiagnosticsSnapshot().signalValidity,
+        );
+        break;
+      case HoldAnalysisFamily.hollowHold:
+        _currentPlankHipDeviationMetric = null;
+        _currentPlankShoulderElbowOffsetMetric = null;
+        _holdTechniqueAssessment = HoldTechniqueAssessment.empty;
+        final measurements = _hollowHoldLimbElevationMeasurement.measure(
+          pose,
+          side: side,
+          referenceSide: referenceSide,
+        );
+        final variation = _holdContract.hollowHoldVariation;
+        _currentHollowShoulderElevationMetric =
+            variation?.usesShoulderElevation == true
+            ? measurements.shoulderElevation
+            : null;
+        _currentHollowHeelElevationMetric = variation?.usesHeelElevation == true
+            ? measurements.heelElevation
+            : null;
+        break;
+    }
+  }
+
+  HoldSide _configHoldReferenceSide() {
+    return _config.holdSignals?.referenceSide ?? HoldSide.left;
+  }
+
+  void _resetExerciseSpecificTechnique() {
+    _currentPlankHipDeviationMetric = null;
+    _currentPlankShoulderElbowOffsetMetric = null;
+    _currentHollowShoulderElevationMetric = null;
+    _currentHollowHeelElevationMetric = null;
+    _holdTechniqueAssessment = HoldTechniqueAssessment.empty;
   }
 
   HoldDiagnosticsSnapshot _holdDiagnosticsSnapshot() {
@@ -510,6 +638,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       calibrationMetrics: calibrationMetrics,
       feedbackFallbackMessage:
           (holdFeedbackCode ?? HoldFeedbackCode.preparePosition).code,
+      holdTechniqueAssessment: _holdTechniqueAssessment,
+      plankHipDeviation: _currentPlankHipDeviationMetric,
+      plankShoulderElbowOffset: _currentPlankShoulderElbowOffsetMetric,
+      hollowShoulderElevation: _currentHollowShoulderElevationMetric,
+      hollowHeelElevation: _currentHollowHeelElevationMetric,
     );
     _lastPublishedStateSnapshot = snapshot;
     return snapshot;

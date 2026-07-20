@@ -1365,9 +1365,14 @@ void main() {
         holdCoordinatorFactoryProvider.overrideWithValue(({
           required HoldAnalysisEngine engine,
           required ExerciseConfig config,
+          required HoldContract holdContract,
         }) {
           spyCoordinator = _SpyHoldCoordinator(
-            inner: DefaultHoldCoordinator(engine: engine, config: config),
+            inner: DefaultHoldCoordinator(
+              engine: engine,
+              config: config,
+              holdContract: holdContract,
+            ),
           );
           return spyCoordinator;
         }),
@@ -1432,11 +1437,16 @@ void main() {
           holdCoordinatorFactoryProvider.overrideWithValue(({
             required HoldAnalysisEngine engine,
             required ExerciseConfig config,
+            required HoldContract holdContract,
           }) {
             expect(engine, isA<HoldEngine>());
             expect(config.name, 'Hollow Hold');
             spyCoordinator = _SpyHoldCoordinator(
-              inner: DefaultHoldCoordinator(engine: engine, config: config),
+              inner: DefaultHoldCoordinator(
+                engine: engine,
+                config: config,
+                holdContract: holdContract,
+              ),
             );
             return spyCoordinator;
           }),

@@ -689,8 +689,6 @@ String _formatHoldSignalTarget(HoldSignal signal, double value) {
     case HoldSignal.compression:
       return '<= $formattedValue';
     case HoldSignal.support:
-    case HoldSignal.hipDeviation:
-    case HoldSignal.shoulderElbowOffset:
       return formattedValue;
   }
 }

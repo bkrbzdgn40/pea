@@ -1,4 +1,4 @@
-import '../../../../core/utils/moving_average.dart';
+import '../../../core/utils/moving_average.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
 import 'range_rep_frame_policy.dart';

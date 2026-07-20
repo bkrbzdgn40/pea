@@ -18,6 +18,13 @@ class WorkoutRep {
     this.switchedSideDuringRep = false,
     this.completedPhaseSequence = false,
     this.selectedSideLabel,
+    this.confidence,
+    this.primaryRom,
+    this.eccentricMillis,
+    this.concentricMillis,
+    this.techniqueObservations = const <Map<String, Object?>>[],
+    this.selectedSide,
+    this.coverageQuality,
   });
 
   final int repIndex;
@@ -37,6 +44,13 @@ class WorkoutRep {
   final bool switchedSideDuringRep;
   final bool completedPhaseSequence;
   final String? selectedSideLabel;
+  final double? confidence;
+  final double? primaryRom;
+  final int? eccentricMillis;
+  final int? concentricMillis;
+  final List<Map<String, Object?>> techniqueObservations;
+  final String? selectedSide;
+  final double? coverageQuality;
 
   /// Stable Firestore document id for persisted reps.
   String get stableId {
@@ -87,6 +101,15 @@ class WorkoutRep {
       'switchedSideDuringRep': switchedSideDuringRep,
       'completedPhaseSequence': completedPhaseSequence,
       'selectedSideLabel': selectedSideLabel,
+      'confidence': confidence,
+      'primaryRom': primaryRom,
+      'eccentricMillis': eccentricMillis,
+      'concentricMillis': concentricMillis,
+      'techniqueObservations': techniqueObservations
+          .map((item) => Map<String, Object?>.from(item))
+          .toList(growable: false),
+      'selectedSide': selectedSide ?? selectedSideLabel,
+      'coverageQuality': coverageQuality,
     };
   }
 
@@ -119,6 +142,19 @@ class WorkoutRep {
       selectedSideLabel:
           _readNullableString(map, 'selectedSideLabel') ??
           _readNullableString(map, 'selectedSide'),
+      confidence: _readNullableDouble(map, 'confidence'),
+      primaryRom: _readNullableDouble(map, 'primaryRom'),
+      eccentricMillis:
+          _readNullableInt(map, 'eccentricMillis') ??
+          _readNullableInt(map, 'descentMillis'),
+      concentricMillis:
+          _readNullableInt(map, 'concentricMillis') ??
+          _readNullableInt(map, 'ascentMillis'),
+      techniqueObservations: _readMapList(map, 'techniqueObservations'),
+      selectedSide:
+          _readNullableString(map, 'selectedSide') ??
+          _readNullableString(map, 'selectedSideLabel'),
+      coverageQuality: _readNullableDouble(map, 'coverageQuality'),
     );
   }
 }
@@ -211,6 +247,21 @@ List<String> _readStringList(Map<String, Object?> map, String key) {
   }
 
   throw FormatException('Expected list for "$key".');
+}
+
+List<Map<String, Object?>> _readMapList(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return const <Map<String, Object?>>[];
+  }
+  if (value is Iterable) {
+    return List<Map<String, Object?>>.unmodifiable(
+      value.whereType<Map>().map(
+        (item) => Map<String, Object?>.from(item.cast<String, Object?>()),
+      ),
+    );
+  }
+  throw FormatException('Expected map list for "$key".');
 }
 
 bool _readBoolOrDefault(Map<String, Object?> map, String key, bool fallback) {

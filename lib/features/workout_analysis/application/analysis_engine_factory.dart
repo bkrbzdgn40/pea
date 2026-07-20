@@ -42,7 +42,7 @@ class AnalysisEngineFactory {
       case HoldAnalysisFamily.hollowHold:
         _validateHollowHoldEngineContract(holdContract, config);
         return HoldEngine(
-          posturePolicy: _createHollowHoldPosturePolicy(config),
+          posturePolicy: _createHollowHoldPosturePolicy(config, holdContract),
           now: now,
         );
     }
@@ -130,11 +130,7 @@ class AnalysisEngineFactory {
     _validateRequiredHoldSignals(
       contract: contract,
       config: config,
-      requiredSignals: const <HoldSignal>[
-        HoldSignal.compression,
-        HoldSignal.armExtension,
-        HoldSignal.kneeExtension,
-      ],
+      requiredSignals: contract.requiredSignals,
     );
 
     if (config.hollowHoldPosture == null) {
@@ -179,7 +175,10 @@ class AnalysisEngineFactory {
     return HoldPosturePolicy(config: config.resolvedHoldPosture);
   }
 
-  HoldFormPolicy _createHollowHoldPosturePolicy(ExerciseConfig config) {
+  HoldFormPolicy _createHollowHoldPosturePolicy(
+    ExerciseConfig config,
+    HoldContract holdContract,
+  ) {
     final hollowHoldPosture = config.hollowHoldPosture;
     if (hollowHoldPosture == null) {
       throw StateError(
@@ -188,6 +187,16 @@ class AnalysisEngineFactory {
       );
     }
 
-    return HollowHoldPosturePolicy(config: hollowHoldPosture);
+    final variationContract = holdContract.hollowHoldVariation;
+    if (variationContract == null) {
+      throw StateError(
+        'Hollow Hold analysis requires an explicit variation contract.',
+      );
+    }
+
+    return HollowHoldPosturePolicy(
+      config: hollowHoldPosture,
+      variationContract: variationContract,
+    );
   }
 }

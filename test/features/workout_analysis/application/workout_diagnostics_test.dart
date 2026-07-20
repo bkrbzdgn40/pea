@@ -455,7 +455,7 @@ void main() {
       'armExtension',
       'kneeExtension',
     ]);
-    expect(serialized['compression'], <String>['detection']);
+    expect(serialized['compression'], <String>['detection', 'setup']);
     expect(serialized, isNot(contains(HoldSignal.alignment.name)));
     expect(json['range_rep_signal_roles'], isNull);
   });

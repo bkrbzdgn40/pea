@@ -38,30 +38,34 @@ void main() {
     },
   );
 
-  test('squat bookkeeper keeps the applied calibration bookkeeping intact', () {
-    final config = buildSquatConfig();
-    final bookkeeper = RangeRepThresholdBookkeeper(
-      analysisKind: 'rangeRep',
-      config: config,
-      formThresholdCalibrationPolicy:
-          RangeRepContracts.squat.formThresholdCalibrationPolicy,
-    );
-
-    final resolution = bookkeeper.resolve(
-      baseThreshold: config.formThreshold,
-      sessionCalibrationBaseline: const SessionCalibrationBaseline(
+  test(
+    'squat bookkeeper records correction candidate without applying threshold',
+    () {
+      final config = buildSquatConfig();
+      final bookkeeper = RangeRepThresholdBookkeeper(
         analysisKind: 'rangeRep',
-        sampleCount: 3,
-        selectedSideLabel: 'left',
-        formMetricBaseline: 52.0,
-      ),
-      selectedRangeRepSide: 'left',
-    );
+        config: config,
+        formThresholdCalibrationPolicy:
+            RangeRepContracts.squat.formThresholdCalibrationPolicy,
+      );
 
-    expect(resolution.effectiveThreshold, 50.0);
-    expect(resolution.isApplied, isTrue);
-    expect(resolution.decisionReason, 'applied');
-    expect(bookkeeper.decisionCount, 1);
-    expect(bookkeeper.appliedCount, 1);
-  });
+      final resolution = bookkeeper.resolve(
+        baseThreshold: config.formThreshold,
+        sessionCalibrationBaseline: const SessionCalibrationBaseline(
+          analysisKind: 'rangeRep',
+          sampleCount: 3,
+          selectedSideLabel: 'left',
+          formMetricBaseline: 52.0,
+        ),
+        selectedRangeRepSide: 'left',
+      );
+
+      expect(resolution.effectiveThreshold, config.formThreshold);
+      expect(resolution.isApplied, isFalse);
+      expect(resolution.offsetCandidate, 5.0);
+      expect(resolution.decisionReason, 'measurement_correction_only');
+      expect(bookkeeper.decisionCount, 1);
+      expect(bookkeeper.appliedCount, 0);
+    },
+  );
 }

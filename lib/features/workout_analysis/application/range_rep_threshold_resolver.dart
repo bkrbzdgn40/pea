@@ -2,7 +2,12 @@ import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/session_calibration_baseline.dart';
 
-/// Resolves the effective range-rep form threshold from session calibration.
+/// Resolves range-rep calibration semantics without allowing an observed
+/// starting posture to redefine the exercise's technique acceptance threshold.
+///
+/// A compatible calibration baseline may expose a bounded measurement-
+/// correction candidate for diagnostics/future sensor correction. The
+/// technique threshold itself remains owned by the exercise contract/config.
 class RangeRepThresholdResolver {
   const RangeRepThresholdResolver({
     this.minCalibrationBaselineSamplesForThresholdOffset = 3,
@@ -36,14 +41,7 @@ class RangeRepThresholdResolver {
       );
     }
 
-    if (baseline == null) {
-      return RangeRepThresholdResolution.fallback(
-        baseThreshold: baseThreshold,
-        decisionReason: 'no_baseline',
-      );
-    }
-
-    if (baseline.analysisKind != analysisKind) {
+    if (baseline == null || baseline.analysisKind != analysisKind) {
       return RangeRepThresholdResolution.fallback(
         baseThreshold: baseThreshold,
         decisionReason: 'no_baseline',
@@ -81,13 +79,13 @@ class RangeRepThresholdResolver {
       );
     }
 
-    final offset = (baseline.formMetricBaseline! - baseThreshold)
+    final correctionCandidate = (baseline.formMetricBaseline! - baseThreshold)
         .clamp(
           -maxCalibrationThresholdOffsetMagnitude,
           maxCalibrationThresholdOffsetMagnitude,
         )
         .toDouble();
-    if (offset.abs() < minCalibrationThresholdOffsetMagnitude) {
+    if (correctionCandidate.abs() < minCalibrationThresholdOffsetMagnitude) {
       return RangeRepThresholdResolution.fallback(
         baseThreshold: baseThreshold,
         decisionReason: 'offset_too_small',
@@ -96,12 +94,9 @@ class RangeRepThresholdResolver {
       );
     }
 
-    return RangeRepThresholdResolution(
+    return RangeRepThresholdResolution.measurementCorrectionCandidate(
       baseThreshold: baseThreshold,
-      effectiveThreshold: config.resolveFormThreshold(offset: offset),
-      isApplied: true,
-      offsetCandidate: offset,
-      decisionReason: 'applied',
+      measurementCorrectionOffset: correctionCandidate,
       sampleCount: sampleCount,
       baselineSideLabel: baselineSideLabel,
     );
@@ -111,9 +106,9 @@ class RangeRepThresholdResolver {
 class RangeRepThresholdResolution {
   const RangeRepThresholdResolution({
     required this.baseThreshold,
-    required this.effectiveThreshold,
-    required this.isApplied,
-    this.offsetCandidate,
+    required this.techniqueAcceptanceThreshold,
+    required this.isTechniqueThresholdCalibrationApplied,
+    this.measurementCorrectionOffset,
     required this.decisionReason,
     this.sampleCount,
     this.baselineSideLabel,
@@ -124,15 +119,38 @@ class RangeRepThresholdResolution {
     required this.decisionReason,
     this.sampleCount,
     this.baselineSideLabel,
-  }) : effectiveThreshold = baseThreshold,
-       isApplied = false,
-       offsetCandidate = null;
+  }) : techniqueAcceptanceThreshold = baseThreshold,
+       isTechniqueThresholdCalibrationApplied = false,
+       measurementCorrectionOffset = null;
+
+  const RangeRepThresholdResolution.measurementCorrectionCandidate({
+    required this.baseThreshold,
+    required double measurementCorrectionOffset,
+    this.sampleCount,
+    this.baselineSideLabel,
+  }) : techniqueAcceptanceThreshold = baseThreshold,
+       isTechniqueThresholdCalibrationApplied = false,
+       measurementCorrectionOffset = measurementCorrectionOffset,
+       decisionReason = 'measurement_correction_only';
 
   final double baseThreshold;
-  final double effectiveThreshold;
-  final bool isApplied;
-  final double? offsetCandidate;
+
+  /// Exercise-owned technique threshold. Calibration never rewrites this value.
+  final double techniqueAcceptanceThreshold;
+
+  /// Candidate correction for measurement-space calibration. It is not treated
+  /// as proof that the user's calibration posture was correct technique.
+  final double? measurementCorrectionOffset;
+  final bool isTechniqueThresholdCalibrationApplied;
   final String decisionReason;
   final int? sampleCount;
   final String? baselineSideLabel;
+
+  bool get hasMeasurementCorrectionCandidate =>
+      measurementCorrectionOffset != null;
+
+  // Compatibility aliases retained while diagnostics migrate terminology.
+  double get effectiveThreshold => techniqueAcceptanceThreshold;
+  bool get isApplied => isTechniqueThresholdCalibrationApplied;
+  double? get offsetCandidate => measurementCorrectionOffset;
 }

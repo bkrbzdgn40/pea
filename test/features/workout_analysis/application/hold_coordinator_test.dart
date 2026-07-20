@@ -120,6 +120,7 @@ void main() {
           ),
         ),
         config: _plankConfig(),
+        holdContract: HoldContracts.plankFamily,
       );
 
       final result = coordinator.processFrame(
@@ -276,7 +277,11 @@ DefaultHoldCoordinator _buildCoordinator(_TestClock clock) {
     now: clock.now,
   );
 
-  return DefaultHoldCoordinator(engine: engine, config: config);
+  return DefaultHoldCoordinator(
+    engine: engine,
+    config: config,
+    holdContract: HoldContracts.plankFamily,
+  );
 }
 
 HoldCoordinatorFrameResult _processAcceptedHoldFrame(

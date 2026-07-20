@@ -5,6 +5,8 @@ class RangeRepCompletedRepDetectionData {
     required this.descentDuration,
     required this.ascentDuration,
     required this.completedPhaseSequence,
+    this.startAngle,
+    this.primaryRom,
   });
 
   final int repIndex;
@@ -12,4 +14,6 @@ class RangeRepCompletedRepDetectionData {
   final Duration descentDuration;
   final Duration ascentDuration;
   final bool completedPhaseSequence;
+  final double? startAngle;
+  final double? primaryRom;
 }

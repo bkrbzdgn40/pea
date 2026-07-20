@@ -37,7 +37,7 @@ void main() {
   );
 
   test(
-    'squat calibration policy keeps the existing baseline offset behavior',
+    'squat calibration exposes correction without changing technique acceptance',
     () {
       final config = buildSquatConfig();
 
@@ -56,15 +56,15 @@ void main() {
         selectedRangeRepSide: 'left',
       );
 
-      expect(resolution.isApplied, isTrue);
+      expect(resolution.isApplied, isFalse);
       expect(resolution.offsetCandidate, 5.0);
-      expect(resolution.effectiveThreshold, 50.0);
-      expect(resolution.decisionReason, 'applied');
+      expect(resolution.effectiveThreshold, config.formThreshold);
+      expect(resolution.decisionReason, 'measurement_correction_only');
     },
   );
 
   test(
-    'push-up calibration policy keeps the existing baseline offset behavior',
+    'push-up calibration exposes correction without changing technique acceptance',
     () {
       final config = loadExerciseConfig('assets/config/exercises/push_up.json');
 
@@ -83,10 +83,10 @@ void main() {
         selectedRangeRepSide: 'left',
       );
 
-      expect(resolution.isApplied, isTrue);
+      expect(resolution.isApplied, isFalse);
       expect(resolution.offsetCandidate, 5.0);
-      expect(resolution.effectiveThreshold, 155.0);
-      expect(resolution.decisionReason, 'applied');
+      expect(resolution.effectiveThreshold, config.formThreshold);
+      expect(resolution.decisionReason, 'measurement_correction_only');
     },
   );
 }

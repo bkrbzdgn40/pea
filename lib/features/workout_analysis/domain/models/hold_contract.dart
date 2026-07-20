@@ -1,4 +1,5 @@
 import 'analysis_signal_role.dart';
+import 'hollow_hold_variation.dart';
 
 enum HoldAnalysisFamily { plank, hollowHold }
 
@@ -10,22 +11,17 @@ enum HoldSignal {
   compression,
   armExtension,
   kneeExtension,
-  hipDeviation,
-  shoulderElbowOffset,
 }
 
 /// Immutable contract describing which normalized signals a hold exercise
-/// supports and which of those signals are required for pose acceptance.
+/// supports.
 class HoldContract {
   HoldContract({
     required this.family,
     required Iterable<HoldSignal> requiredSignals,
-    Iterable<HoldSignal>? supportedSignals,
     required Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles,
+    this.hollowHoldVariation,
   }) : requiredSignals = Set<HoldSignal>.unmodifiable(requiredSignals),
-       supportedSignals = Set<HoldSignal>.unmodifiable(
-         supportedSignals ?? requiredSignals,
-       ),
        signalRoles = Map<HoldSignal, Set<AnalysisSignalRole>>.unmodifiable(
          <HoldSignal, Set<AnalysisSignalRole>>{
            for (final signal in HoldSignal.values)
@@ -35,53 +31,50 @@ class HoldContract {
                ),
          },
        ) {
-    final unsupportedRequiredSignals = this.requiredSignals.difference(
-      this.supportedSignals,
-    );
-    if (unsupportedRequiredSignals.isNotEmpty) {
-      throw ArgumentError.value(
-        unsupportedRequiredSignals,
-        'requiredSignals',
-        'Required signals must be a subset of supportedSignals.',
+    if (family == HoldAnalysisFamily.hollowHold &&
+        hollowHoldVariation == null) {
+      throw ArgumentError(
+        'Hollow Hold contracts require an explicit variation contract.',
+      );
+    }
+    if (family != HoldAnalysisFamily.hollowHold &&
+        hollowHoldVariation != null) {
+      throw ArgumentError(
+        'Only Hollow Hold contracts may define a hollowHoldVariation.',
       );
     }
 
-    final missingRoleSignals = this.supportedSignals.where(
+    final missingRoleSignals = this.requiredSignals.where(
       (signal) => rolesForSignal(signal).isEmpty,
     );
     if (missingRoleSignals.isNotEmpty) {
       throw ArgumentError.value(
         missingRoleSignals.toSet(),
         'signalRoles',
-        'Every supported signal must have at least one semantic role.',
+        'Every required signal must have at least one semantic role.',
       );
     }
 
     final unsupportedRoleSignals = this.signalRoles.keys.toSet().difference(
-      this.supportedSignals,
+      this.requiredSignals,
     );
     if (unsupportedRoleSignals.isNotEmpty) {
       throw ArgumentError.value(
         unsupportedRoleSignals,
         'signalRoles',
-        'Role metadata may only describe supported signals.',
+        'Role metadata may only describe required signals.',
       );
     }
   }
 
   final HoldAnalysisFamily family;
+  final HollowHoldVariationContract? hollowHoldVariation;
 
-  /// Signals that must be available for the existing hold acceptance path.
   final Set<HoldSignal> requiredSignals;
-
-  /// Signals the analysis family can produce, including diagnostic/technique
-  /// signals that are not hard pose-acceptance requirements.
-  final Set<HoldSignal> supportedSignals;
-
   final Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles;
 
   bool supportsSignal(HoldSignal signal) {
-    return supportedSignals.contains(signal);
+    return requiredSignals.contains(signal);
   }
 
   Set<AnalysisSignalRole> rolesForSignal(HoldSignal signal) {
@@ -94,7 +87,7 @@ class HoldContract {
 
   Set<HoldSignal> signalsForRole(AnalysisSignalRole role) {
     return Set<HoldSignal>.unmodifiable(
-      supportedSignals.where((signal) => signalHasRole(signal, role)),
+      HoldSignal.values.where((signal) => signalHasRole(signal, role)),
     );
   }
 }
@@ -108,14 +101,10 @@ abstract final class HoldContracts {
       HoldSignal.support,
       HoldSignal.extension,
     },
-    supportedSignals: const <HoldSignal>{
-      HoldSignal.alignment,
-      HoldSignal.support,
-      HoldSignal.extension,
-      HoldSignal.hipDeviation,
-      HoldSignal.shoulderElbowOffset,
-    },
     signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+      // Legacy angular gates remain detection/hold-validation inputs.
+      // Core v2 plank technique is owned by derived physical measurements,
+      // so these signals no longer masquerade as technique observations.
       HoldSignal.alignment: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
@@ -127,38 +116,44 @@ abstract final class HoldContracts {
       HoldSignal.extension: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
-      },
-      HoldSignal.hipDeviation: <AnalysisSignalRole>{
-        AnalysisSignalRole.technique,
-      },
-      HoldSignal.shoulderElbowOffset: <AnalysisSignalRole>{
-        AnalysisSignalRole.technique,
       },
     },
   );
 
-  static final HoldContract hollowHold = HoldContract(
-    family: HoldAnalysisFamily.hollowHold,
-    requiredSignals: const <HoldSignal>{
-      HoldSignal.compression,
-      HoldSignal.armExtension,
-      HoldSignal.kneeExtension,
-    },
-    signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
-      HoldSignal.compression: <AnalysisSignalRole>{
-        AnalysisSignalRole.detection,
-      },
-      HoldSignal.armExtension: <AnalysisSignalRole>{
-        AnalysisSignalRole.detection,
-        AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
-      },
-      HoldSignal.kneeExtension: <AnalysisSignalRole>{
-        AnalysisSignalRole.detection,
-        AnalysisSignalRole.validation,
-        AnalysisSignalRole.technique,
-      },
-    },
+  static final HoldContract hollowHold = hollowHoldForVariation(
+    HollowHoldVariation.straightLegOverhead,
   );
+
+  static HoldContract hollowHoldForVariation(HollowHoldVariation variation) {
+    final variationContract = HollowHoldVariationContracts.forVariation(
+      variation,
+    );
+    final requiredSignals = <HoldSignal>{
+      HoldSignal.compression,
+      if (variationContract.requiresArmsOverhead) HoldSignal.armExtension,
+      if (variationContract.requiresStraightKnees) HoldSignal.kneeExtension,
+    };
+
+    return HoldContract(
+      family: HoldAnalysisFamily.hollowHold,
+      hollowHoldVariation: variationContract,
+      requiredSignals: requiredSignals,
+      signalRoles: <HoldSignal, Set<AnalysisSignalRole>>{
+        HoldSignal.compression: const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.setup,
+        },
+        if (variationContract.requiresArmsOverhead)
+          HoldSignal.armExtension: const <AnalysisSignalRole>{
+            AnalysisSignalRole.setup,
+            AnalysisSignalRole.validation,
+          },
+        if (variationContract.requiresStraightKnees)
+          HoldSignal.kneeExtension: const <AnalysisSignalRole>{
+            AnalysisSignalRole.setup,
+            AnalysisSignalRole.validation,
+          },
+      },
+    );
+  }
 }

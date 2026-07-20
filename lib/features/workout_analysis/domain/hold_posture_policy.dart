@@ -81,8 +81,14 @@ class HoldPosturePolicy implements HoldFormPolicy {
         isArmSupported: isArmSupported,
         areLegsExtended: areLegsExtended,
       ),
-      isValidHoldPosture: isValidHoldPosture,
-      supportsGraceWindow: supportsGraceWindow,
+      holdValidity: isValidHoldPosture
+          ? HoldValidityStatus.valid
+          : HoldValidityStatus.invalid,
+      breakDisposition: isValidHoldPosture
+          ? HoldBreakDisposition.continueHold
+          : (supportsGraceWindow
+                ? HoldBreakDisposition.graceEligible
+                : HoldBreakDisposition.breakImmediately),
     );
   }
 
