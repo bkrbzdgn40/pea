@@ -26,7 +26,7 @@ class AssessmentSelectionScreen extends ConsumerWidget {
           _AssessmentCard(
             title: 'Squat Değerlendirmesi',
             subtitle:
-                'Yan görünümde en derin pozisyondaki diz fleksiyonu, derinlik ve gövde eğimi.',
+                'Yan görünümde izlenen taraftaki diz fleksiyonu, derinlik ve gövde eğimi.',
             icon: Icons.accessibility_new_rounded,
             onTap: () => _openAssessment(
               context,

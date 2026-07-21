@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/assessment_pose_quality_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/assessment_models.dart';
 
@@ -16,14 +17,15 @@ void main() {
 
       expect(assessment.isAccepted, isTrue);
       expect(assessment.rejectionReason, isNull);
-      expect(assessment.requiredLandmarkCount, 8);
-      expect(assessment.acceptedLandmarkCount, 8);
+      expect(assessment.requiredLandmarkCount, 4);
+      expect(assessment.acceptedLandmarkCount, 4);
     });
 
-    test('rejects an assessment pose with a missing required landmark', () {
-      final landmarks = Map<PoseLandmarkType, PoseLandmark>.from(
-        _squatPose().landmarks,
-      )..remove(PoseLandmarkType.rightAnkle);
+    test('rejects squat only when neither side has a complete chain', () {
+      final landmarks =
+          Map<PoseLandmarkType, PoseLandmark>.from(_squatPose().landmarks)
+            ..remove(PoseLandmarkType.leftAnkle)
+            ..remove(PoseLandmarkType.rightAnkle);
 
       final assessment = policy.assess(
         pose: Pose(landmarks: landmarks),
@@ -37,11 +39,12 @@ void main() {
       );
     });
 
-    test('rejects a low-confidence required landmark', () {
+    test('rejects low confidence when both side chains are unreliable', () {
       final assessment = policy.assess(
         pose: _squatPose(
           likelihoodOverrides: const <PoseLandmarkType, double>{
             PoseLandmarkType.leftAnkle: 0.49,
+            PoseLandmarkType.rightAnkle: 0.49,
           },
         ),
         type: AssessmentType.squat,
@@ -53,6 +56,28 @@ void main() {
         PoseRejectionReason.lowLandmarkLikelihood,
       );
     });
+
+    test(
+      'accepts a side-profile squat when only the near side is reliable',
+      () {
+        final assessment = policy.assess(
+          pose: _squatPose(
+            likelihoodOverrides: const <PoseLandmarkType, double>{
+              PoseLandmarkType.rightShoulder: 0.30,
+              PoseLandmarkType.rightHip: 0.30,
+              PoseLandmarkType.rightKnee: 0.30,
+              PoseLandmarkType.rightAnkle: 0.30,
+            },
+          ),
+          type: AssessmentType.squat,
+        );
+
+        expect(assessment.isAccepted, isTrue);
+        expect(assessment.preferredRangeRepSide, RangeRepSide.left);
+        expect(assessment.requiredLandmarkCount, 4);
+        expect(assessment.acceptedLandmarkCount, 4);
+      },
+    );
 
     test(
       'rejects low mean confidence even when every landmark clears minimum',

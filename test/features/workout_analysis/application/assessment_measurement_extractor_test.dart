@@ -27,8 +27,30 @@ void main() {
       expect(observation.torsoInclinationDegrees, closeTo(0, 1e-9));
     });
 
+    test('extracts a complete squat from one selected side profile', () {
+      final observation = extractor.extractSquat(
+        _pose(<PoseLandmarkType, (double, double)>{
+          PoseLandmarkType.leftShoulder: (-1, 0),
+          PoseLandmarkType.leftHip: (-1, 2),
+          PoseLandmarkType.leftKnee: (0, 2),
+          PoseLandmarkType.leftAnkle: (0, 3),
+          PoseLandmarkType.rightShoulder: (1, 0),
+          PoseLandmarkType.rightHip: (1, 2),
+          PoseLandmarkType.rightKnee: (1, 4),
+          PoseLandmarkType.rightAnkle: (1, 6),
+        }),
+        side: AssessmentSide.left,
+      );
+
+      expect(observation.isComplete, isTrue);
+      expect(observation.leftKneeAngleDegrees, closeTo(90, 1e-9));
+      expect(observation.rightKneeAngleDegrees, isNull);
+      expect(observation.hipDepthRatio, closeTo(0, 1e-9));
+      expect(observation.torsoInclinationDegrees, closeTo(0, 1e-9));
+    });
+
     test(
-      'keeps squat measurement incomplete when a required landmark is absent',
+      'keeps squat incomplete while preserving available partial measurements',
       () {
         final observation = extractor.extractSquat(
           _pose(<PoseLandmarkType, (double, double)>{
@@ -39,8 +61,10 @@ void main() {
         );
 
         expect(observation.isComplete, isFalse);
+        expect(observation.leftKneeAngleDegrees, closeTo(180, 1e-9));
         expect(observation.rightKneeAngleDegrees, isNull);
-        expect(observation.hipDepthRatio, isNull);
+        expect(observation.hipDepthRatio, closeTo(1, 1e-9));
+        expect(observation.torsoInclinationDegrees, isNull);
       },
     );
 

@@ -46,6 +46,33 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
+  testWidgets('takes ownership when camera controller is already streaming', (
+    tester,
+  ) async {
+    final state = AssessmentLiveState(
+      snapshot: const AssessmentSnapshot(
+        type: AssessmentType.squat,
+        phase: AssessmentPhase.active,
+        sampleCount: 0,
+        isReadyToComplete: false,
+        readinessProgress: 0,
+        result: null,
+      ),
+      feedbackMessage: 'Squat yap.',
+      progressMessage: 'Hareket ilerlemesi: %0',
+    );
+    final harness = await _pumpScreen(
+      tester,
+      selection: const AssessmentSelection(type: AssessmentType.squat),
+      initialState: state,
+    );
+    addTearDown(harness.dispose);
+
+    expect(harness.cameraController.stopImageStreamCallCount, 1);
+    expect(harness.cameraController.startImageStreamCallCount, 1);
+    expect(harness.cameraController.value.isStreamingImages, isTrue);
+  });
+
   testWidgets('insufficient result hides partial metrics and offers retry', (
     tester,
   ) async {
@@ -79,7 +106,7 @@ void main() {
 
     expect(find.text('Yetersiz ölçüm'), findsOneWidget);
     expect(find.text('Tekrar Dene'), findsOneWidget);
-    expect(find.text('Diz fleksiyonu (ortalama)'), findsNothing);
+    expect(find.text('Diz fleksiyonu'), findsNothing);
     expect(find.text('Diz farkı'), findsNothing);
 
     await tester.tap(find.text('Tekrar Dene'));
@@ -94,8 +121,8 @@ void main() {
       sampleCount: 10,
       hasSufficientData: true,
       leftKneeFlexionDegrees: 96,
-      rightKneeFlexionDegrees: 90,
-      kneeFlexionAsymmetryDegrees: 6,
+      rightKneeFlexionDegrees: null,
+      kneeFlexionAsymmetryDegrees: null,
       deepestHipDepthRatio: -0.1,
       torsoInclinationAtDeepestDegrees: 18,
     );
@@ -119,8 +146,8 @@ void main() {
     addTearDown(harness.dispose);
 
     expect(find.text('Değerlendirme sonucu'), findsOneWidget);
-    expect(find.text('Diz fleksiyonu (ortalama)'), findsOneWidget);
-    expect(find.text('93.0°'), findsOneWidget);
+    expect(find.text('Diz fleksiyonu'), findsOneWidget);
+    expect(find.text('96.0°'), findsOneWidget);
     expect(find.text('Diz farkı'), findsNothing);
     expect(find.text('Sol diz fleksiyonu'), findsNothing);
     expect(find.text('Sağ diz fleksiyonu'), findsNothing);
@@ -231,6 +258,9 @@ class _FakeCameraController extends CameraController {
     );
   }
 
+  int startImageStreamCallCount = 0;
+  int stopImageStreamCallCount = 0;
+
   @override
   Widget buildPreview() => const SizedBox.expand();
 
@@ -238,11 +268,13 @@ class _FakeCameraController extends CameraController {
   Future<void> startImageStream(
     void Function(CameraImage image) onLatestImageAvailable,
   ) async {
+    startImageStreamCallCount += 1;
     value = value.copyWith(isStreamingImages: true);
   }
 
   @override
   Future<void> stopImageStream() async {
+    stopImageStreamCallCount += 1;
     value = value.copyWith(isStreamingImages: false);
   }
 
