@@ -31,20 +31,6 @@ enum ExerciseAnalysisEngine {
   stability,
 }
 
-/// Stable, high-level metric identifiers declared by an exercise.
-///
-/// The Day 2 Metric Registry will own concrete metric definitions. Day 1 keeps
-/// only the exercise-to-metric declaration here so the catalog is already the
-/// single capability source.
-enum ExerciseMetricId {
-  repetitionCount,
-  holdDuration,
-  primaryMovement,
-  form,
-  rangeOfMotion,
-  tempo,
-}
-
 /// Feedback rule families an exercise declares support for.
 ///
 /// Concrete rule evaluation belongs to the later Form Rule Engine roadmap

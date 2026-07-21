@@ -6,6 +6,7 @@ import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
 import 'exercise_definition_metadata.dart';
+import 'exercise_metric_registry.dart';
 
 /// Central exercise metadata source for analysis capability.
 class ExerciseCatalog {
