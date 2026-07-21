@@ -27,11 +27,11 @@ class ExerciseSelectionScreen extends ConsumerWidget {
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          itemCount: guideCatalog.contents.length,
+          itemCount: catalog.definitions.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            final content = guideCatalog.contents[index];
-            final definition = catalog.definitionFor(content.type);
+            final definition = catalog.definitions[index];
+            final content = guideCatalog.contentFor(definition.type);
             return _ExerciseSelectionCard(
               content: content,
               isAnalysisSupported: definition.isAnalysisSupported,
