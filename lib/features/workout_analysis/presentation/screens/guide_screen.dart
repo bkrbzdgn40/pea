@@ -20,11 +20,16 @@ class _GuideScreenState extends State<GuideScreen> {
   Widget build(BuildContext context) {
     const catalog = ExerciseCatalog();
     const guideCatalog = ExerciseGuideCatalog();
-    final contents = _selectedDifficulty == null
-        ? guideCatalog.contents
-        : guideCatalog.contents
-              .where((content) => content.difficulty == _selectedDifficulty)
-              .toList();
+    final definitions = catalog.definitions
+        .where((definition) {
+          if (_selectedDifficulty == null) {
+            return true;
+          }
+
+          return guideCatalog.contentFor(definition.type).difficulty ==
+              _selectedDifficulty;
+        })
+        .toList(growable: false);
 
     return AppScaffoldShell(
       title: 'Hareket Rehberi',
@@ -39,15 +44,15 @@ class _GuideScreenState extends State<GuideScreen> {
             },
           ),
           Expanded(
-            child: contents.isEmpty
+            child: definitions.isEmpty
                 ? const _GuideEmptyState()
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    itemCount: contents.length,
+                    itemCount: definitions.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final content = contents[index];
-                      final definition = catalog.definitionFor(content.type);
+                      final definition = definitions[index];
+                      final content = guideCatalog.contentFor(definition.type);
 
                       return _ExerciseGuideCard(
                         content: content,

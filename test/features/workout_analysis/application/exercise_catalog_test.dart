@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition_metadata.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
@@ -30,6 +31,102 @@ void main() {
         expect(definition.id, type.id);
         expect(definition.title, type.title);
       }
+    });
+
+    test('declares complete centralized capabilities for every exercise', () {
+      for (final definition in catalog.definitions) {
+        expect(definition.analysisEngines, isNotEmpty, reason: definition.id);
+        expect(definition.metricIds, isNotEmpty, reason: definition.id);
+        expect(definition.feedbackRuleIds, isNotEmpty, reason: definition.id);
+        expect(
+          definition.sessionSummaryFields,
+          isNotEmpty,
+          reason: definition.id,
+        );
+      }
+    });
+
+    test('keeps tracking type aligned with the primary runtime engine', () {
+      for (final definition in catalog.definitions) {
+        switch (definition.analysisEngineKind) {
+          case EngineKind.rangeRep:
+            expect(
+              definition.trackingType,
+              ExerciseTrackingType.repetitions,
+              reason: definition.id,
+            );
+            expect(
+              definition.usesAnalysisEngine(ExerciseAnalysisEngine.rangeRep),
+              isTrue,
+              reason: definition.id,
+            );
+            break;
+          case EngineKind.alternatingRep:
+            expect(
+              definition.trackingType,
+              ExerciseTrackingType.repetitions,
+              reason: definition.id,
+            );
+            expect(
+              definition.usesAnalysisEngine(
+                ExerciseAnalysisEngine.alternatingRep,
+              ),
+              isTrue,
+              reason: definition.id,
+            );
+            break;
+          case EngineKind.hold:
+            expect(
+              definition.trackingType,
+              ExerciseTrackingType.hold,
+              reason: definition.id,
+            );
+            expect(
+              definition.usesAnalysisEngine(ExerciseAnalysisEngine.hold),
+              isTrue,
+              reason: definition.id,
+            );
+            break;
+        }
+      }
+    });
+
+    test('declares canonical movement patterns in the central catalog', () {
+      const expectedPatterns = <ExerciseType, ExerciseMovementPattern>{
+        ExerciseType.squat: ExerciseMovementPattern.squat,
+        ExerciseType.plank: ExerciseMovementPattern.coreHold,
+        ExerciseType.hollowHold: ExerciseMovementPattern.coreHold,
+        ExerciseType.lunge: ExerciseMovementPattern.lunge,
+        ExerciseType.pushUp: ExerciseMovementPattern.horizontalPush,
+        ExerciseType.sitUp: ExerciseMovementPattern.trunkFlexion,
+        ExerciseType.bicepsCurl: ExerciseMovementPattern.elbowFlexion,
+        ExerciseType.lyingLegRaise: ExerciseMovementPattern.hipFlexion,
+        ExerciseType.tricepsDip: ExerciseMovementPattern.elbowExtension,
+        ExerciseType.romanianDeadlift: ExerciseMovementPattern.hipHinge,
+        ExerciseType.lateralRaise: ExerciseMovementPattern.shoulderAbduction,
+        ExerciseType.shoulderPress: ExerciseMovementPattern.verticalPush,
+      };
+
+      for (final entry in expectedPatterns.entries) {
+        expect(
+          catalog.definitionFor(entry.key).movementPattern,
+          entry.value,
+          reason: entry.key.id,
+        );
+      }
+    });
+
+    test('exposes immutable capability collections', () {
+      final definition = catalog.definitionFor(ExerciseType.squat);
+
+      expect(
+        () => definition.analysisEngines.add(ExerciseAnalysisEngine.tempo),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => definition.metricIds.add(ExerciseMetricId.holdDuration),
+        throwsUnsupportedError,
+      );
     });
 
     test(
