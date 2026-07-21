@@ -84,7 +84,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context, true);
             },
             icon: const Icon(Icons.replay_rounded),
             label: const Text('Tekrar Dene'),

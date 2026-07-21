@@ -323,7 +323,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     await _setLiveAnalysisScreenAwake(false);
     if (!mounted) return;
-    await Navigator.push(
+    final retryRequested = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
     );
@@ -331,11 +331,16 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (!mounted) return;
 
     sessionLifecycle.completeFinishFlow();
-    setState(() {});
 
-    if (_hasAnalysisSelection()) {
+    if (retryRequested == true && _hasAnalysisSelection()) {
+      // Only an explicit retry starts a fresh analysis session. A normal
+      // summary dismiss keeps the completed-session guard intact.
+      _startSessionLifecycle();
+      ref.invalidate(workoutControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
     }
+
+    setState(() {});
   }
 
   Future<bool> _finishPlannedExerciseSession(WorkoutState workoutState) async {
