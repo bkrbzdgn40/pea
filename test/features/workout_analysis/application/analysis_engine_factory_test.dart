@@ -9,6 +9,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analys
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/stability_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
@@ -339,6 +340,18 @@ void main() {
 
       expect(engine, isA<HoldEngine>());
     });
+
+    test(
+      'hold factory composition exposes the supplemental stability engine',
+      () {
+        final HoldAnalysisEngine engine = factory.createHold(
+          config: plankConfig,
+          holdContract: HoldContracts.plankFamily,
+        );
+
+        expect(engine, isA<StabilityMetricsSource<HoldSignal>>());
+      },
+    );
 
     test(
       'creates a hold engine for a valid hollow hold contract and config',

@@ -4,6 +4,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_diagno
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_form_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_posture_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/stability_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
@@ -128,6 +129,85 @@ void main() {
         engine.diagnosticsSnapshot.currentHoldSeconds,
         closeTo(2.0, 0.001),
       );
+    });
+
+    test('keeps hold stability unmeasured until two valid samples exist', () {
+      final engine = HoldEngine(
+        posturePolicy: HoldPosturePolicy(
+          config: _plankConfig().resolvedHoldPosture,
+        ),
+        stabilityConfig: const StabilityEngineConfig(
+          standardDeviationAtZeroScore: 10.0,
+        ),
+      );
+
+      engine.update(_validHoldFrame());
+
+      expect(engine.currentStability, isNotNull);
+      expect(engine.currentStability!.sampleCount, 1);
+      expect(engine.currentStability!.stabilityScore, isNull);
+      expect(engine.diagnosticsSnapshot.currentStabilityScore, isNull);
+      expect(engine.diagnosticsSnapshot.sessionStabilityScore, isNull);
+
+      engine.update(_validHoldFrame());
+
+      expect(engine.currentStability!.stabilityScore, 100.0);
+      expect(engine.diagnosticsSnapshot.currentStabilityScore, 100.0);
+      expect(engine.diagnosticsSnapshot.sessionStabilityScore, 100.0);
+    });
+
+    test('finalizes stability when an active hold ends', () {
+      final engine = HoldEngine(
+        posturePolicy: HoldPosturePolicy(
+          config: _plankConfig().resolvedHoldPosture,
+        ),
+        stabilityConfig: const StabilityEngineConfig(
+          standardDeviationAtZeroScore: 10.0,
+        ),
+      );
+
+      engine.update(
+        _holdFrame(
+          bodyLineAngle: 170.0,
+          armSupportAngle: 90.0,
+          legExtensionAngle: 170.0,
+        ),
+      );
+      engine.update(
+        _holdFrame(
+          bodyLineAngle: 168.0,
+          armSupportAngle: 92.0,
+          legExtensionAngle: 168.0,
+        ),
+      );
+      engine.update(_armUnsupportedFrame());
+
+      expect(engine.currentStability, isNull);
+      expect(engine.lastCompletedStability, isNotNull);
+      expect(engine.lastCompletedStability!.sampleCount, 2);
+      expect(engine.lastCompletedStability!.averageStandardDeviation, 1.0);
+      expect(engine.lastCompletedStability!.stabilityScore, 90.0);
+      expect(engine.diagnosticsSnapshot.lastCompletedStabilityScore, 90.0);
+      expect(engine.diagnosticsSnapshot.sessionStabilityScore, 90.0);
+    });
+
+    test('interrupt preserves session stability and reset clears it', () {
+      final engine = _plankEngine();
+
+      engine.update(_validHoldFrame());
+      engine.update(_validHoldFrame());
+      engine.interrupt(reason: 'app paused');
+
+      expect(engine.currentStability, isNull);
+      expect(engine.lastCompletedStability, isNotNull);
+      expect(engine.stabilitySessionSummary.sampleCount, 2);
+      expect(engine.stabilitySessionSummary.stabilityScore, 100.0);
+
+      engine.reset();
+
+      expect(engine.lastCompletedStability, isNull);
+      expect(engine.stabilitySessionSummary.sampleCount, 0);
+      expect(engine.stabilitySessionSummary.stabilityScore, isNull);
     });
 
     test('short visibility gap excludes hidden hold time', () {

@@ -7,15 +7,24 @@ import 'hold_diagnostics.dart';
 import 'models/analysis_frame.dart';
 import 'models/hold_feedback_code.dart';
 import 'models/hold_phase.dart';
+import 'models/hold_contract.dart';
+import 'models/hold_signal_values.dart';
+import 'stability_engine.dart';
 
 /// First real non-repetition engine family backed by typed hold diagnostics.
-class HoldEngine implements HoldAnalysisEngine {
-  HoldEngine({required HoldFormPolicy posturePolicy, DateTime Function()? now})
-    : _now = now ?? DateTime.now,
-      _posturePolicy = posturePolicy;
+class HoldEngine
+    implements HoldAnalysisEngine, StabilityMetricsSource<HoldSignal> {
+  HoldEngine({
+    required HoldFormPolicy posturePolicy,
+    DateTime Function()? now,
+    StabilityEngineConfig stabilityConfig = const StabilityEngineConfig(),
+  }) : _now = now ?? DateTime.now,
+       _posturePolicy = posturePolicy,
+       _stabilityEngine = StabilityEngine<HoldSignal>(config: stabilityConfig);
 
   final DateTime Function() _now;
   final HoldFormPolicy _posturePolicy;
+  final StabilityEngine<HoldSignal> _stabilityEngine;
 
   HoldPhase _phase = HoldPhase.ready;
   DateTime? _holdStartedAt;
@@ -32,6 +41,18 @@ class HoldEngine implements HoldAnalysisEngine {
       HoldPostureDiagnosticsSnapshot();
   HoldFeedbackCode _lastCorrectiveFeedbackCodeValue =
       HoldFeedbackCode.correctForm;
+
+  @override
+  StabilitySummary<HoldSignal>? get currentStability =>
+      _stabilityEngine.currentWindowSummary;
+
+  @override
+  StabilitySummary<HoldSignal>? get lastCompletedStability =>
+      _stabilityEngine.lastCompletedWindow;
+
+  @override
+  StabilitySummary<HoldSignal> get stabilitySessionSummary =>
+      _stabilityEngine.sessionSummary;
 
   @override
   HoldFeedbackCode get feedbackCode {
@@ -68,6 +89,9 @@ class HoldEngine implements HoldAnalysisEngine {
     feedbackCode: feedbackCode,
     lastVisiblePosture: _lastVisiblePosture,
     isFormBreakGraceActive: _misalignmentStartedAt != null,
+    currentStabilityScore: currentStability?.stabilityScore,
+    lastCompletedStabilityScore: lastCompletedStability?.stabilityScore,
+    sessionStabilityScore: stabilitySessionSummary.stabilityScore,
   );
 
   @override
@@ -83,7 +107,7 @@ class HoldEngine implements HoldAnalysisEngine {
 
     if (evaluation.isValidHoldPosture) {
       _misalignmentStartedAt = null;
-      _startOrContinueHold(now);
+      _startOrContinueHold(now, frame.holdSignalValues);
       return;
     }
 
@@ -110,11 +134,12 @@ class HoldEngine implements HoldAnalysisEngine {
     _currentHoldSeconds = 0.0;
   }
 
-  void _startOrContinueHold(DateTime now) {
+  void _startOrContinueHold(DateTime now, HoldSignalValues signals) {
     if (_phase != HoldPhase.holding || _holdStartedAt == null) {
       _holdStartedAt = now;
       _currentHoldSeconds = 0.0;
       _hadFormBreak = false;
+      _stabilityEngine.beginWindow();
     } else {
       _currentHoldSeconds =
           now.difference(_holdStartedAt!).inMilliseconds / 1000.0;
@@ -122,6 +147,7 @@ class HoldEngine implements HoldAnalysisEngine {
 
     _phase = HoldPhase.holding;
     _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    _stabilityEngine.recordSample(signals.asMap());
   }
 
   void _stopActiveHoldIfNeeded() {
@@ -130,6 +156,7 @@ class HoldEngine implements HoldAnalysisEngine {
     }
 
     _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    _stabilityEngine.endWindow();
     _holdStartedAt = null;
     _currentHoldSeconds = 0.0;
   }
@@ -140,6 +167,7 @@ class HoldEngine implements HoldAnalysisEngine {
     }
 
     _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+    _stabilityEngine.endWindow();
     _holdStartedAt = null;
     _currentHoldSeconds = 0.0;
     _misalignmentStartedAt = null;
@@ -195,6 +223,9 @@ class HoldEngine implements HoldAnalysisEngine {
   void interrupt({String? reason}) {
     if (_phase == HoldPhase.holding) {
       _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
+      _stabilityEngine.endWindow();
+    } else {
+      _stabilityEngine.abandonWindow();
     }
 
     _holdStartedAt = null;
@@ -219,5 +250,6 @@ class HoldEngine implements HoldAnalysisEngine {
     _lastVisibleFrameAt = null;
     _misalignmentStartedAt = null;
     _visibilityGapWindow.reset();
+    _stabilityEngine.reset();
   }
 }

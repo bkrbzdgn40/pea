@@ -138,6 +138,45 @@ void main() {
       }
     });
 
+    test('declares stability capability and summary for hold exercises', () {
+      for (final definition in catalog.definitions.where(
+        (definition) => definition.trackingType == ExerciseTrackingType.hold,
+      )) {
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.stability),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.declaresMetric(ExerciseMetricId.stability),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.includesSummaryField(
+            ExerciseSessionSummaryField.stabilityScore,
+          ),
+          isTrue,
+          reason: definition.id,
+        );
+      }
+
+      for (final definition in catalog.definitions.where(
+        (definition) => definition.trackingType != ExerciseTrackingType.hold,
+      )) {
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.stability),
+          isFalse,
+          reason: definition.id,
+        );
+        expect(
+          definition.declaresMetric(ExerciseMetricId.stability),
+          isFalse,
+          reason: definition.id,
+        );
+      }
+    });
+
     test('declares alternating-rep capability for the lunge family', () {
       final lunge = catalog.definitionFor(ExerciseType.lunge);
 

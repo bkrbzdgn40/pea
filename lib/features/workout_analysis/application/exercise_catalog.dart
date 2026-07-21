@@ -25,7 +25,10 @@ class ExerciseCatalog {
     ExerciseAnalysisEngine.symmetry,
   };
   static const Set<ExerciseAnalysisEngine> _holdAnalysisEngines =
-      <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.hold};
+      <ExerciseAnalysisEngine>{
+        ExerciseAnalysisEngine.hold,
+        ExerciseAnalysisEngine.stability,
+      };
 
   static const Set<ExerciseMetricId> _rangeRepMetricIds = <ExerciseMetricId>{
     ExerciseMetricId.repetitionCount,
@@ -39,6 +42,7 @@ class ExerciseCatalog {
   static const Set<ExerciseMetricId> _holdMetricIds = <ExerciseMetricId>{
     ExerciseMetricId.holdDuration,
     ExerciseMetricId.form,
+    ExerciseMetricId.stability,
   };
 
   static const Set<ExerciseFeedbackRuleId> _rangeRepFeedbackRuleIds =
@@ -73,6 +77,7 @@ class ExerciseCatalog {
       <ExerciseSessionSummaryField>{
         ExerciseSessionSummaryField.holdDuration,
         ExerciseSessionSummaryField.averageScore,
+        ExerciseSessionSummaryField.stabilityScore,
         ExerciseSessionSummaryField.sessionDuration,
       };
 
