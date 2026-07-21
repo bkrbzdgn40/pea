@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
@@ -29,27 +31,28 @@ class _WorkoutPlanSetupScreenState
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final definitions = _catalog.definitions
         .where((definition) => definition.isAnalysisSupported)
         .toList(growable: false);
 
     return AppScaffoldShell(
-      title: 'Planlı Antrenman',
+      title: localizations.plannedWorkout,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Hareketleri seç. Her dinamik hareket 10 tekrar, hold hareketi 30 saniye olarak başlar. Set tamamlanınca sonraki adıma sen geçersin.',
+          Text(
+            localizations.plannedWorkoutIntro,
             style: TextStyle(color: Colors.white60, height: 1.4),
           ),
           const SizedBox(height: 16),
           AppSurfaceCard(
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Round sayısı',
+                    localizations.roundCount,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -82,6 +85,7 @@ class _WorkoutPlanSetupScreenState
                   exercise: definition.type,
                   trackingType: definition.trackingType,
                   selected: _selected.contains(definition.type),
+                  localizations: localizations,
                   onChanged: (selected) {
                     setState(() {
                       if (selected) {
@@ -101,8 +105,8 @@ class _WorkoutPlanSetupScreenState
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(
               _selected.isEmpty
-                  ? 'En az bir hareket seç'
-                  : '${_selected.length} hareketle başla',
+                  ? localizations.selectAtLeastOneExercise
+                  : localizations.startWithExerciseCount(_selected.length),
             ),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(54),
@@ -145,19 +149,21 @@ class _ExercisePlanTile extends StatelessWidget {
     required this.exercise,
     required this.trackingType,
     required this.selected,
+    required this.localizations,
     required this.onChanged,
   });
 
   final ExerciseType exercise;
   final ExerciseTrackingType trackingType;
   final bool selected;
+  final AppLocalizations localizations;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final targetLabel = trackingType == ExerciseTrackingType.hold
-        ? '30 saniye hold'
-        : '10 tekrar';
+        ? localizations.thirtySecondHold
+        : localizations.tenReps;
     return AppSurfaceCard(
       padding: EdgeInsets.zero,
       borderColor: selected
@@ -169,14 +175,14 @@ class _ExercisePlanTile extends StatelessWidget {
         activeColor: Colors.greenAccent,
         checkColor: Colors.black,
         title: Text(
-          exercise.title,
+          localizations.exerciseTitle(exercise.id),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w800,
           ),
         ),
         subtitle: Text(
-          '1 set • $targetLabel',
+          localizations.targetSetLabel(targetLabel),
           style: const TextStyle(color: Colors.white60),
         ),
         controlAffinity: ListTileControlAffinity.trailing,

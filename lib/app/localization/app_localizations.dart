@@ -96,6 +96,10 @@ class AppLocalizations {
   );
   String get exerciseDistribution =>
       pick(tr: 'Egzersiz Dağılımı', en: 'Exercise Distribution');
+  String get exerciseDistributionSubtitle => pick(
+    tr: 'Oturumlarının hareketlere göre dağılımı',
+    en: 'How your sessions are distributed across exercises',
+  );
   String get exerciseDistributionEmpty => pick(
     tr: 'Kaydedilen oturumların hareket dağılımı burada toplanır.',
     en: 'The exercise distribution of saved sessions will appear here.',
@@ -394,8 +398,20 @@ class AppLocalizations {
   String get techniqueTips => pick(tr: 'Teknik İpuçları', en: 'Technique Tips');
   String get commonMistakes =>
       pick(tr: 'Yaygın Hatalar', en: 'Common Mistakes');
-  String source(String label) =>
-      pick(tr: 'Kaynak: $label', en: 'Source: $label');
+  String source(String label) {
+    final localizedLabel = isTurkish
+        ? switch (label) {
+            'Technique reference' => 'Teknik referans',
+            'Beginner technique video' => 'Başlangıç teknik videosu',
+            'Simultaneous standing curl demo' =>
+              'Eş zamanlı ayakta biseps büküş demosu',
+            'Bar dip technique reference' => 'Paralel bar dip teknik referansı',
+            _ => label,
+          }
+        : label;
+    return pick(tr: 'Kaynak: $localizedLabel', en: 'Source: $localizedLabel');
+  }
+
   String get watchOnYoutube =>
       pick(tr: 'YouTube’da İzle', en: 'Watch on YouTube');
   String get videoLinkOpenFailed => pick(
@@ -449,6 +465,472 @@ class AppLocalizations {
             .join(' '),
     };
   }
+
+  // Workout / assessment / session surfaces
+  String get close => pick(tr: 'Kapat', en: 'Close');
+  String get back => pick(tr: 'Geri Dön', en: 'Go Back');
+  String get openSettings => pick(tr: 'Ayarları Aç', en: 'Open Settings');
+  String get checking => pick(tr: 'Kontrol Ediliyor', en: 'Checking');
+  String get grantCameraPermission =>
+      pick(tr: 'Kamera İzni Ver', en: 'Grant Camera Permission');
+  String get cameraPermission =>
+      pick(tr: 'Kamera İzni', en: 'Camera Permission');
+  String get cameraPermissionRequired =>
+      pick(tr: 'Kamera İzni Gerekli', en: 'Camera Permission Required');
+  String get cameraPermissionRestrictedMessage => pick(
+    tr: 'Bu cihazda kamera izni kısıtlanmış görünüyor. Devam etmek için cihaz ayarlarını kontrol et.',
+    en: 'Camera access appears to be restricted on this device. Check the device settings to continue.',
+  );
+  String get cameraPermissionPermanentlyDeniedMessage => pick(
+    tr: 'Kamera izni kalıcı olarak kapalı. Analize devam etmek için telefon ayarlarından kamera iznini açman gerekiyor.',
+    en: 'Camera permission is permanently disabled. Enable camera access in your phone settings to continue the analysis.',
+  );
+  String get cameraPermissionDeniedMessage => pick(
+    tr: 'Kamera izni verilmedi. Hazır olduğunda tekrar deneyebilirsin; izin verilene kadar burada güvenli şekilde bekleyeceğiz.',
+    en: 'Camera permission was not granted. You can try again when you are ready; the app will wait here until permission is available.',
+  );
+  String get cameraPermissionPromptMessage => pick(
+    tr: 'Analize başlamadan önce kamera iznine ihtiyacımız var. İzin istemek için aşağıdaki butona dokun.',
+    en: 'Camera permission is required before analysis can start. Tap the button below to request access.',
+  );
+  String get cameraPermissionRationale => pick(
+    tr: 'Vücut eklemlerini algılamak, hareket formunu analiz etmek ve tekrarları gerçek zamanlı saymak için kamera izni gerekiyor.',
+    en: 'Camera access is required to detect body joints, analyze movement form, and count repetitions in real time.',
+  );
+  String get cameraDetectsJoints =>
+      pick(tr: 'Vücut eklemlerini algılar.', en: 'Detects body joints.');
+  String get cameraEvaluatesForm => pick(
+    tr: 'Hareket formunu gerçek zamanlı değerlendirir.',
+    en: 'Evaluates movement form in real time.',
+  );
+  String get cameraCountsReps => pick(
+    tr: 'Doğru tekrarları saymaya yardımcı olur.',
+    en: 'Helps count valid repetitions.',
+  );
+  String get cameraPrivacyNotice => pick(
+    tr: 'Görüntüler kesinlikle depolanmaz veya bir yere gönderilmez.',
+    en: 'Camera images are never stored or sent anywhere.',
+  );
+  String get selectExerciseBeforeCameraTitle => pick(
+    tr: 'Analiz için hareket seç',
+    en: 'Choose an exercise for analysis',
+  );
+  String get selectExerciseBeforeCameraMessage => pick(
+    tr: 'Kamera izni akışına girmeden önce hangi hareketi analiz etmek istediğini seçmelisin.',
+    en: 'Choose the exercise you want to analyze before entering the camera permission flow.',
+  );
+  String get preparation => pick(tr: 'Hazırlık', en: 'Preparation');
+  String get selectExerciseBeforePreparationTitle => pick(
+    tr: 'Hazırlıktan önce hareket seç',
+    en: 'Choose an exercise before preparation',
+  );
+  String get selectExerciseBeforePreparationMessage => pick(
+    tr: 'Kalibrasyon ve analiz adımlarına geçmeden önce geçerli bir hareket seçimi gerekiyor.',
+    en: 'A valid exercise selection is required before calibration and analysis can begin.',
+  );
+  String preparationForExercise(String exerciseName) => pick(
+    tr: '$exerciseName analizi öncesi',
+    en: 'Before $exerciseName analysis',
+  );
+  String get preparationSubtitle => pick(
+    tr: 'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.',
+    en: 'Complete a quick preparation check for more reliable results.',
+  );
+  String unsupportedExerciseFallback(String selected, String active) => pick(
+    tr: '$selected henüz aktif analiz için desteklenmiyor. Şimdilik $active analizi ile devam edebilirsin.',
+    en: '$selected is not supported for active analysis yet. You can continue with $active analysis for now.',
+  );
+  String get preparationTipStablePhone => pick(
+    tr: 'Telefonu sabit bir yere koy.',
+    en: 'Place the phone on a stable surface.',
+  );
+  String get preparationTipFullBody => pick(
+    tr: 'Tüm vücudun kamerada görünsün.',
+    en: 'Keep your whole body visible in the camera.',
+  );
+  String get preparationTipLighting => pick(
+    tr: 'Ortam ışığı yeterli olsun.',
+    en: 'Make sure the lighting is sufficient.',
+  );
+  String get preparationTipControlledMovement => pick(
+    tr: 'Hareketi kontrollü yap.',
+    en: 'Perform the movement with control.',
+  );
+  String get analysisConfigLoadFailed => pick(
+    tr: 'Analiz yapılandırması yüklenemedi.',
+    en: 'Analysis configuration could not be loaded.',
+  );
+  String get analysisConfigLoading => pick(
+    tr: 'Analiz yapılandırması hazırlanıyor...',
+    en: 'Preparing analysis configuration...',
+  );
+  String get analysisConfigRequiredMessage => pick(
+    tr: 'Egzersiz ayarları hazır olmadan canlı analiz başlatılamaz.',
+    en: 'Live analysis cannot start until the exercise configuration is ready.',
+  );
+
+  // Assessment surfaces
+  String get assessmentMode =>
+      pick(tr: 'Değerlendirme Modu', en: 'Assessment Mode');
+  String get assessmentDisclaimer => pick(
+    tr: 'Bu sonuçlar kamera tabanlı ürün ölçümleridir; klinik tanı veya tıbbi değerlendirme değildir.',
+    en: 'These results are camera-based product measurements; they are not a clinical diagnosis or medical assessment.',
+  );
+  String assessmentTitle(String typeName) {
+    return switch (typeName) {
+      'squat' => pick(tr: 'Squat Değerlendirmesi', en: 'Squat Assessment'),
+      'balance' => pick(tr: 'Denge Değerlendirmesi', en: 'Balance Assessment'),
+      'shoulderMobility' => pick(
+        tr: 'Omuz Elevasyon Değerlendirmesi',
+        en: 'Shoulder Elevation Assessment',
+      ),
+      _ => typeName,
+    };
+  }
+
+  String get squatAssessmentSubtitle => pick(
+    tr: 'Yan görünümde izlenen taraftaki diz fleksiyonu, derinlik ve gövde eğimi.',
+    en: 'Knee flexion, depth, and torso inclination measured from the tracked side view.',
+  );
+  String get balanceAssessmentSubtitle => pick(
+    tr: 'Ön görünümde kesintisiz tek ayak duruşu ve görüntü düzlemindeki salınımdan türetilen stabilite.',
+    en: 'Continuous single-leg stance and stability derived from sway in the image plane from a front view.',
+  );
+  String get shoulderAssessmentSubtitle => pick(
+    tr: 'Ön görünümde iki yana kol elevasyonu, sağ-sol farkı ve yanal gövde eğimi.',
+    en: 'Bilateral arm elevation, left-right difference, and lateral torso inclination from a front view.',
+  );
+  String get chooseStandingFoot =>
+      pick(tr: 'Duruş ayağını seç', en: 'Choose the standing foot');
+  String get leftFoot => pick(tr: 'Sol ayak', en: 'Left foot');
+  String get rightFoot => pick(tr: 'Sağ ayak', en: 'Right foot');
+  String get assessmentCameraPermissionRequired => pick(
+    tr: 'Değerlendirme için kamera izni gerekli.',
+    en: 'Camera permission is required for the assessment.',
+  );
+  String get chooseAssessmentFirst => pick(
+    tr: 'Önce bir değerlendirme seçmelisin.',
+    en: 'Choose an assessment first.',
+  );
+  String cameraOpenFailed(Object error) => pick(
+    tr: 'Kamera açılamadı: $error',
+    en: 'Camera could not be opened: $error',
+  );
+  String get viewResult => pick(tr: 'Sonucu Gör', en: 'View Result');
+  String validSamples(int count) =>
+      pick(tr: 'Geçerli örnek: $count', en: 'Valid samples: $count');
+  String get assessmentResult =>
+      pick(tr: 'Değerlendirme sonucu', en: 'Assessment Result');
+  String get insufficientMeasurement =>
+      pick(tr: 'Yetersiz ölçüm', en: 'Insufficient Measurement');
+  String get insufficientMeasurementDescription => pick(
+    tr: 'Güvenilir bir sonuç göstermek için yeterli ve kesintisiz ölçüm alınamadı. Pozisyonunu düzenleyip tekrar deneyebilirsin.',
+    en: 'There was not enough continuous measurement data to show a reliable result. Adjust your position and try again.',
+  );
+  String get yes => pick(tr: 'Evet', en: 'Yes');
+  String get no => pick(tr: 'Hayır', en: 'No');
+  String get kneeFlexion => pick(tr: 'Diz fleksiyonu', en: 'Knee flexion');
+  String get hipReachedKneeHeight =>
+      pick(tr: 'Kalça diz seviyesine indi', en: 'Hip reached knee height');
+  String get torsoInclination =>
+      pick(tr: 'Gövde eğimi', en: 'Torso inclination');
+  String get stabilityScore =>
+      pick(tr: 'Stabilite skoru', en: 'Stability score');
+  String get continuousStanceDuration =>
+      pick(tr: 'Kesintisiz duruş süresi', en: 'Continuous stance duration');
+  String get leftMaximumElevation =>
+      pick(tr: 'Sol maksimum elevasyon', en: 'Left maximum elevation');
+  String get rightMaximumElevation =>
+      pick(tr: 'Sağ maksimum elevasyon', en: 'Right maximum elevation');
+  String get leftRightDifference =>
+      pick(tr: 'Sağ-sol farkı', en: 'Left-right difference');
+  String get leftMaximumLateralTorsoInclination => pick(
+    tr: 'Sol maksimumda yanal gövde eğimi',
+    en: 'Lateral torso inclination at left maximum',
+  );
+  String get rightMaximumLateralTorsoInclination => pick(
+    tr: 'Sağ maksimumda yanal gövde eğimi',
+    en: 'Lateral torso inclination at right maximum',
+  );
+  String secondsValue(double seconds) => pick(
+    tr: '${seconds.toStringAsFixed(1)} sn',
+    en: '${seconds.toStringAsFixed(1)} s',
+  );
+
+  // Session history / report
+  String get historyRequiresAnalysis => pick(
+    tr: 'Geçmiş oturumları görmek için önce bir analiz başlat.',
+    en: 'Start an analysis first to view session history.',
+  );
+  String get historyLoadFailed => pick(
+    tr: 'Geçmiş oturumlar yüklenemedi. Lütfen tekrar dene.',
+    en: 'Session history could not be loaded. Please try again.',
+  );
+  String get historyLoadMoreFailed => pick(
+    tr: 'Daha fazla oturum yüklenemedi. Lütfen tekrar dene.',
+    en: 'More sessions could not be loaded. Please try again.',
+  );
+  String get historyUnavailable =>
+      pick(tr: 'Geçmiş yüklenemedi', en: 'History unavailable');
+  String get noSessionsYet =>
+      pick(tr: 'Henüz oturum yok', en: 'No sessions yet');
+  String get savedWorkoutsAppearHere => pick(
+    tr: 'Kaydedilmiş antrenmanların burada görünecek.',
+    en: 'Your saved workouts will appear here.',
+  );
+  String get loadMore => pick(tr: 'Daha Fazla Yükle', en: 'Load More');
+  String get duration => pick(tr: 'Süre', en: 'Duration');
+  String get totalHold => pick(tr: 'Toplam Tutuş', en: 'Total Hold');
+  String get bestHold => pick(tr: 'En İyi Tutuş', en: 'Best Hold');
+  String get interruptions => pick(tr: 'Kesinti', en: 'Breaks');
+  String get reps => pick(tr: 'Tekrar', en: 'Reps');
+  String get averageScoreShort => pick(tr: 'Ort. Skor', en: 'Avg. Score');
+  String get bestShort => pick(tr: 'En İyi', en: 'Best');
+  String get warnings => pick(tr: 'Uyarı', en: 'Warnings');
+  String get sessionReport => pick(tr: 'Oturum Raporu', en: 'Session Report');
+  String get repDetailsLoadFailed => pick(
+    tr: 'Tekrar detayları yüklenemedi. Lütfen tekrar dene.',
+    en: 'Rep details could not be loaded. Please try again.',
+  );
+  String get analysis => pick(tr: 'Analiz', en: 'Analysis');
+  String get totalReps => pick(tr: 'Toplam Tekrar', en: 'Total Reps');
+  String get averageScore => pick(tr: 'Ortalama Skor', en: 'Average Score');
+  String get scoreView => pick(tr: 'Skor Görünümü', en: 'Score View');
+  String get holdSummary => pick(tr: 'Tutuş Özeti', en: 'Hold Summary');
+  String get reportSummary => pick(tr: 'Rapor Özeti', en: 'Report Summary');
+  String get recommendations => pick(tr: 'Öneriler', en: 'Recommendations');
+  String get repDetails => pick(tr: 'Tekrar Detayları', en: 'Rep Details');
+  String get noRepDetails => pick(
+    tr: 'Bu oturumda tekrar detayları kaydedilmemiş. Eski oturumlarda yalnızca özet veriler bulunabilir.',
+    en: 'Rep details were not saved for this session. Older sessions may contain summary data only.',
+  );
+  String get showingCachedRepDetails => pick(
+    tr: 'Güncel detaylar alınamadı; eldeki kayıt gösteriliyor.',
+    en: 'Fresh details could not be loaded; the available saved data is shown.',
+  );
+  String get status => pick(tr: 'Durum', en: 'Status');
+  String get score => pick(tr: 'Skor', en: 'Score');
+  String get side => pick(tr: 'Taraf', en: 'Side');
+  String get primaryMetric => pick(tr: 'Birincil Metrik', en: 'Primary Metric');
+  String get worstForm => pick(tr: 'En Kötü Form', en: 'Worst Form');
+  String get descentAscent => pick(tr: 'İniş / Çıkış', en: 'Descent / Ascent');
+  String repNumber(int index) => pick(tr: 'Tekrar $index', en: 'Rep $index');
+  String primaryIssue(String issue) =>
+      pick(tr: 'Birincil sorun: $issue', en: 'Primary issue: $issue');
+  String feedbackLabel(String feedback) =>
+      pick(tr: 'Geri bildirim: $feedback', en: 'Feedback: $feedback');
+  String get valid => pick(tr: 'Geçerli', en: 'Valid');
+  String get lowConfidence => pick(tr: 'Düşük Güven', en: 'Low Confidence');
+  String get invalid => pick(tr: 'Geçersiz', en: 'Invalid');
+  String get uncertain => pick(tr: 'Belirsiz', en: 'Unknown');
+  String get rangeRep => pick(tr: 'Tekrar Analizi', en: 'Range Rep');
+  String get left => pick(tr: 'Sol', en: 'Left');
+  String get right => pick(tr: 'Sağ', en: 'Right');
+  String get insufficientRangeOfMotion =>
+      pick(tr: 'Yetersiz hareket açıklığı', en: 'Insufficient range of motion');
+  String get excessiveDescentSpeed =>
+      pick(tr: 'İniş çok hızlı', en: 'Descent too fast');
+  String get excessiveAscentSpeed =>
+      pick(tr: 'Çıkış çok hızlı', en: 'Ascent too fast');
+  String get persistentFormBreak =>
+      pick(tr: 'Kalıcı form bozulması', en: 'Persistent form break');
+  String get coverageLoss =>
+      pick(tr: 'Görünürlük kaybı', en: 'Visibility loss');
+  String get sideSwitchDuringRep =>
+      pick(tr: 'Tekrar içinde taraf değişimi', en: 'Side switch during rep');
+  String get incompletePhase =>
+      pick(tr: 'Eksik faz tamamlanması', en: 'Incomplete phase');
+  String get bestScore => pick(tr: 'En İyi Skor', en: 'Best Score');
+  String get lowestScore => pick(tr: 'En Düşük Skor', en: 'Lowest Score');
+  String get validReps => pick(tr: 'Geçerli', en: 'Valid');
+  String get invalidReps => pick(tr: 'Geçersiz', en: 'Invalid');
+  String get formWarnings => pick(tr: 'Form Uyarısı', en: 'Form Warnings');
+  String get formViolations => pick(tr: 'Form İhlali', en: 'Form Violations');
+  String get visibilityLoss =>
+      pick(tr: 'Görünürlük Kaybı', en: 'Visibility Loss');
+  String get sideChanges => pick(tr: 'Taraf Değişimi', en: 'Side Changes');
+
+  // Score trend
+  String formScoreTrend(String exerciseName) => pick(
+    tr: '$exerciseName Form Skoru Trendi',
+    en: '$exerciseName Form Score Trend',
+  );
+  String get viewDetails => pick(tr: 'Detayı Gör', en: 'View Details');
+  String formScoreChangeSubtitle(String exerciseName) => pick(
+    tr: '$exerciseName oturumlarındaki form skoru değişimi',
+    en: 'Form score change across $exerciseName sessions',
+  );
+  String get noFormScoreToChart => pick(
+    tr: 'Henüz çizilecek form skoru yok.',
+    en: 'There is no form score to chart yet.',
+  );
+  String get formScoreDataUnavailable => pick(
+    tr: 'Form skoru verisi alınamadı.',
+    en: 'Form score data could not be loaded.',
+  );
+  String get tryAgainLater => pick(
+    tr: 'Biraz sonra tekrar deneyebilirsin.',
+    en: 'Try again in a moment.',
+  );
+  String formScoreTrendUnavailable(String exerciseName) => pick(
+    tr: '$exerciseName form skoru trendi hazırlanamadı.',
+    en: 'The form score trend for $exerciseName could not be prepared.',
+  );
+  String formScoreTrendEmpty(String exerciseName) => pick(
+    tr: '$exerciseName için henüz form skoru trendi yok.',
+    en: 'There is no form score trend for $exerciseName yet.',
+  );
+  String get formScoreTrendEmptyDetail => pick(
+    tr: 'Bu egzersizde form skoru üreten analizler tamamlandığında değişim burada görünür.',
+    en: 'The trend will appear here after analyses that produce a form score are completed for this exercise.',
+  );
+  String formScoreTrendChronological(String exerciseName) => pick(
+    tr: '$exerciseName oturumlarının tarih sırasına göre form skoru değişimi.',
+    en: 'Form score change across $exerciseName sessions in chronological order.',
+  );
+  String get session => pick(tr: 'Oturum', en: 'Sessions');
+  String get latestFormScore =>
+      pick(tr: 'Son Form Skoru', en: 'Latest Form Score');
+  String get bestFormScore =>
+      pick(tr: 'En İyi Form Skoru', en: 'Best Form Score');
+
+  // Planned workout
+  String get plannedWorkoutIntro => pick(
+    tr: 'Hareketleri seç. Her dinamik hareket 10 tekrar, hold hareketi 30 saniye olarak başlar. Set tamamlanınca sonraki adıma sen geçersin.',
+    en: 'Choose your exercises. Each dynamic exercise starts at 10 reps and each hold exercise at 30 seconds. You advance to the next step after completing a set.',
+  );
+  String get roundCount => pick(tr: 'Tur sayısı', en: 'Number of rounds');
+  String get selectAtLeastOneExercise =>
+      pick(tr: 'En az bir hareket seç', en: 'Select at least one exercise');
+  String startWithExerciseCount(int count) => pick(
+    tr: '$count hareketle başla',
+    en: 'Start with $count ${count == 1 ? 'exercise' : 'exercises'}',
+  );
+  String get thirtySecondHold =>
+      pick(tr: '30 saniye tutuş', en: '30-second hold');
+  String get tenReps => pick(tr: '10 tekrar', en: '10 reps');
+  String targetSetLabel(String target) =>
+      pick(tr: '1 set • $target', en: '1 set • $target');
+  String get workoutSummary =>
+      pick(tr: 'Antrenman Özeti', en: 'Workout Summary');
+  String get noCompletedPlan => pick(
+    tr: 'Tamamlanmış bir plan bulunamadı.',
+    en: 'No completed workout plan was found.',
+  );
+  String get planCompleted => pick(tr: 'Plan tamamlandı', en: 'Plan completed');
+  String get completedSets => pick(tr: 'Tamamlanan set', en: 'Completed sets');
+  String get totalDuration => pick(tr: 'Toplam süre', en: 'Total duration');
+  String get returnHome => pick(tr: 'Ana Sayfaya Dön', en: 'Return Home');
+  String workoutAggregateSummary({
+    required int sets,
+    required int reps,
+    required String holdDuration,
+  }) => pick(
+    tr: '$sets set • $reps tekrar • $holdDuration tutuş',
+    en: '$sets sets • $reps reps • $holdDuration hold',
+  );
+
+  // Workout summary / live analysis chrome
+  String get sessionDataMissing =>
+      pick(tr: 'Oturum verisi bulunamadı', en: 'Session data not found');
+  String get sessionDataMissingDetail =>
+      pick(tr: 'Oturum verisi bulunamadı.', en: 'Session data was not found.');
+  String exerciseSummary(String exerciseName) =>
+      pick(tr: '$exerciseName özeti', en: '$exerciseName summary');
+  String get summaryAppearsAfterAnalysis => pick(
+    tr: 'Canlı analiz tamamlandığında oturum özeti burada görünür.',
+    en: 'The session summary will appear here after live analysis is completed.',
+  );
+  String get summaryUsesRecordedValues => pick(
+    tr: 'Canlı analizden oluşturulan gerçek oturum değerleri.',
+    en: 'Recorded session values generated by live analysis.',
+  );
+  String get preparing => pick(tr: 'Hazırlanıyor...', en: 'Preparing...');
+  String get exerciseType => pick(tr: 'Egzersiz tipi', en: 'Exercise type');
+  String get formBreaks => pick(tr: 'Form kesintisi', en: 'Form breaks');
+  String get validRep => pick(tr: 'Geçerli tekrar', en: 'Valid reps');
+  String get invalidRep => pick(tr: 'Geçersiz tekrar', en: 'Invalid reps');
+  String get formWarning => pick(tr: 'Form uyarısı', en: 'Form warnings');
+  String get workoutSummaryTotalHold =>
+      pick(tr: 'Toplam tutuş', en: 'Total hold');
+  String get workoutSummaryBestHold =>
+      pick(tr: 'En iyi tutuş', en: 'Best hold');
+  String get workoutSummaryFormBreaks =>
+      pick(tr: 'Form kesintisi', en: 'Form breaks');
+  String get workoutSummaryTotalReps =>
+      pick(tr: 'Toplam tekrar', en: 'Total reps');
+  String get workoutSummaryAverageScore =>
+      pick(tr: 'Ortalama skor', en: 'Average score');
+  String get workoutSummaryBestScore =>
+      pick(tr: 'En iyi skor', en: 'Best score');
+  String get workoutSummaryValidReps =>
+      pick(tr: 'Geçerli tekrar', en: 'Valid reps');
+  String get workoutSummaryInvalidReps =>
+      pick(tr: 'Geçersiz tekrar', en: 'Invalid reps');
+  String get averageRom => pick(tr: 'Ortalama ROM', en: 'Average ROM');
+  String get averageTempo => pick(tr: 'Ortalama tempo', en: 'Average tempo');
+  String get fastestRep => pick(tr: 'En hızlı tekrar', en: 'Fastest rep');
+  String get slowestRep => pick(tr: 'En yavaş tekrar', en: 'Slowest rep');
+  String get tempoConsistency =>
+      pick(tr: 'Tempo tutarlılığı', en: 'Tempo consistency');
+  String get leftReps => pick(tr: 'Sol tekrar', en: 'Left reps');
+  String get rightReps => pick(tr: 'Sağ tekrar', en: 'Right reps');
+  String get averageRomDifference =>
+      pick(tr: 'Ortalama ROM farkı', en: 'Average ROM difference');
+  String get asymmetryScore =>
+      pick(tr: 'Asimetri skoru', en: 'Asymmetry score');
+  String get finish => pick(tr: 'Bitir', en: 'Finish');
+  String get endWorkout => pick(tr: 'Antrenmanı Bitir', en: 'End Workout');
+  String get continueLabel => pick(tr: 'Devam', en: 'Continue');
+  String get holdMetric => pick(tr: 'TUTUŞ', en: 'HOLD');
+  String get repMetric => pick(tr: 'TEKRAR', en: 'REPS');
+  String get bestMetric => pick(tr: 'EN İYİ', en: 'BEST');
+  String get scoreMetric => pick(tr: 'SKOR', en: 'SCORE');
+  String get angleMetric => pick(tr: 'AÇI', en: 'ANGLE');
+  String get tempoMetric => 'TEMPO';
+  String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
+  String get asymmetryMetric => pick(tr: 'ASİMETRİ', en: 'ASYMMETRY');
+  String liveStatusLine(String phase, String fps) => pick(
+    tr: 'DURUM: $phase | ANALİZ FPS: $fps',
+    en: 'STATUS: $phase | ANALYSIS FPS: $fps',
+  );
+  String plannedWorkoutProgress({
+    required int round,
+    required int totalRounds,
+    required int set,
+    required int totalSets,
+  }) => pick(
+    tr: 'Tur $round/$totalRounds • Set $set/$totalSets',
+    en: 'Round $round/$totalRounds • Set $set/$totalSets',
+  );
+  String repetitionProgress(int current, int target) =>
+      pick(tr: '$current / $target tekrar', en: '$current / $target reps');
+  String get finalSetCompleted =>
+      pick(tr: 'Son set tamamlandı.', en: 'Final set completed.');
+  String get setCompletedContinue => pick(
+    tr: 'Set tamamlandı. Hazır olduğunda devam et.',
+    en: 'Set completed. Continue when you are ready.',
+  );
+  String get liveAnalysisSelectionTitle => pick(
+    tr: 'Canlı analize girmek için hareket seç',
+    en: 'Choose an exercise to enter live analysis',
+  );
+  String get liveAnalysisSelectionMessage => pick(
+    tr: 'Canlı analiz ekranı yalnızca geçerli bir hareket seçiminden sonra açılabilir.',
+    en: 'The live analysis screen can only be opened after a valid exercise is selected.',
+  );
+  String get cameraRecovering => pick(
+    tr: 'Kamera yeniden hazırlanıyor...',
+    en: 'Preparing the camera again...',
+  );
+  String get cameraPermissionFallbackBody => pick(
+    tr: 'Analize devam etmek için kamera iznini kontrol et.',
+    en: 'Check camera permission to continue the analysis.',
+  );
+  String get checkPermission =>
+      pick(tr: 'İzni Kontrol Et', en: 'Check Permission');
+  String errorWithDetail(Object error) =>
+      pick(tr: 'Hata: $error', en: 'Error: $error');
 
   String weekdayShort(int weekday) {
     const tr = <String>['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];

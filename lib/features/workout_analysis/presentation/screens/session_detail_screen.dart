@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../domain/models/session_report.dart';
@@ -25,7 +27,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   late WorkoutSession _session;
   List<WorkoutRep>? _reps;
   bool _isLoadingRepDetails = true;
-  String? _repLoadError;
+  bool _repLoadFailed = false;
 
   @override
   void initState() {
@@ -44,7 +46,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
     setState(() {
       _isLoadingRepDetails = true;
-      _repLoadError = null;
+      _repLoadFailed = false;
     });
 
     try {
@@ -78,18 +80,19 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
       setState(() {
         _isLoadingRepDetails = false;
-        _repLoadError = 'Tekrar detayları yüklenemedi. Lütfen tekrar dene.';
+        _repLoadFailed = true;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final reps = _reps ?? const <WorkoutRep>[];
     final report = SessionReport.fromSession(session: _session, reps: reps);
 
     return AppScaffoldShell(
-      title: 'Oturum Raporu',
+      title: localizations.sessionReport,
       showDrawer: false,
       padding: EdgeInsets.zero,
       body: SingleChildScrollView(
@@ -110,7 +113,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             _RepDetailsCard(
               reps: _reps,
               isLoading: _isLoadingRepDetails,
-              errorMessage: _repLoadError,
+              hasLoadError: _repLoadFailed,
               onRetry: _loadSessionDetails,
             ),
           ],
@@ -139,18 +142,27 @@ class _SessionSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final chips = <MapEntry<String, String>>[
-      MapEntry('Analiz', _analysisKindLabel(session.analysisKind)),
-      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
       MapEntry(
-        report.isHoldSession ? 'Toplam Hold' : 'Toplam Tekrar',
+        localizations.analysis,
+        _analysisKindLabel(localizations, session.analysisKind),
+      ),
+      MapEntry(
+        localizations.duration,
+        WorkoutPresentationFormatter.duration(session.duration),
+      ),
+      MapEntry(
+        report.isHoldSession
+            ? localizations.totalHold
+            : localizations.totalReps,
         report.isHoldSession
             ? WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds)
             : report.totalReps.toString(),
       ),
       if (!report.isHoldSession && report.hasScoreData)
         MapEntry(
-          'Ortalama Skor',
+          localizations.averageScore,
           WorkoutPresentationFormatter.compactScore(report.averageScore),
         ),
     ];
@@ -179,9 +191,7 @@ class _SessionSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      WorkoutPresentationFormatter.exerciseTitle(
-                        session.exerciseType,
-                      ),
+                      localizations.exerciseTitle(session.exerciseType),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -223,10 +233,17 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = _overviewMetrics(session: session, report: report);
+    final localizations = AppLocalizations.of(context);
+    final metrics = _overviewMetrics(
+      localizations: localizations,
+      session: session,
+      report: report,
+    );
 
     return _SectionCard(
-      title: report.isHoldSession ? 'Hold Özeti' : 'Skor Görünümü',
+      title: report.isHoldSession
+          ? localizations.holdSummary
+          : localizations.scoreView,
       child: LayoutBuilder(
         builder: (context, constraints) {
           const spacing = 10.0;
@@ -261,7 +278,7 @@ class _ReportSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Rapor Özeti',
+      title: AppLocalizations.of(context).reportSummary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -297,7 +314,7 @@ class _RecommendationsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Öneriler',
+      title: AppLocalizations.of(context).recommendations,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: report.recommendations
@@ -312,21 +329,22 @@ class _RepDetailsCard extends StatelessWidget {
   const _RepDetailsCard({
     required this.reps,
     required this.isLoading,
-    required this.errorMessage,
+    required this.hasLoadError,
     required this.onRetry,
   });
 
   final List<WorkoutRep>? reps;
   final bool isLoading;
-  final String? errorMessage;
+  final bool hasLoadError;
   final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final hasReps = reps != null && reps!.isNotEmpty;
 
     return _SectionCard(
-      title: 'Tekrar Detayları',
+      title: localizations.repDetails,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -337,12 +355,12 @@ class _RepDetailsCard extends StatelessWidget {
                 child: CircularProgressIndicator(color: Colors.greenAccent),
               ),
             )
-          else if (!hasReps && errorMessage != null)
+          else if (!hasReps && hasLoadError)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  errorMessage!,
+                  localizations.repDetailsLoadFailed,
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 12),
@@ -352,13 +370,13 @@ class _RepDetailsCard extends StatelessWidget {
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white24),
                   ),
-                  child: const Text('Tekrar Dene'),
+                  child: Text(localizations.retry),
                 ),
               ],
             )
           else if (!hasReps)
-            const Text(
-              'Bu oturumda tekrar detayları kaydedilmemiş. Eski oturumlarda yalnızca özet veriler bulunabilir.',
+            Text(
+              localizations.noRepDetails,
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
@@ -366,9 +384,9 @@ class _RepDetailsCard extends StatelessWidget {
               ),
             )
           else ...[
-            if (errorMessage != null) ...[
-              const Text(
-                'Güncel detaylar alınamadı; eldeki kayıt gösteriliyor.',
+            if (hasLoadError) ...[
+              Text(
+                localizations.showingCachedRepDetails,
                 style: TextStyle(
                   color: Colors.amberAccent,
                   fontSize: 13,
@@ -400,14 +418,24 @@ class _RepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final detailMetrics = <MapEntry<String, String>>[
-      MapEntry('Durum', _repStatusLabel(rep)),
-      MapEntry('Skor', _formatOptionalScore(rep.score)),
-      MapEntry('Süre', _formatRepDuration(rep)),
-      MapEntry('Taraf', _formatSideLabel(rep.selectedSideLabel)),
-      MapEntry('Birincil Metrik', _formatOptionalMetric(rep.minPrimaryMetric)),
-      MapEntry('En Kötü Form', _formatOptionalMetric(rep.worstFormMetric)),
-      MapEntry('İniş / Çıkış', _formatRepTempo(rep)),
+      MapEntry(localizations.status, _repStatusLabel(localizations, rep)),
+      MapEntry(localizations.score, _formatOptionalScore(rep.score)),
+      MapEntry(localizations.duration, _formatRepDuration(rep)),
+      MapEntry(
+        localizations.side,
+        _formatSideLabel(localizations, rep.selectedSideLabel),
+      ),
+      MapEntry(
+        localizations.primaryMetric,
+        _formatOptionalMetric(rep.minPrimaryMetric),
+      ),
+      MapEntry(
+        localizations.worstForm,
+        _formatOptionalMetric(rep.worstFormMetric),
+      ),
+      MapEntry(localizations.descentAscent, _formatRepTempo(rep)),
     ];
 
     return Container(
@@ -424,7 +452,7 @@ class _RepTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Tekrar ${rep.repIndex}',
+                  localizations.repNumber(rep.repIndex),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -445,7 +473,7 @@ class _RepTile extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  _repStatusLabel(rep),
+                  _repStatusLabel(localizations, rep),
                   style: TextStyle(
                     color: _repStatusColor(rep),
                     fontSize: 12,
@@ -469,14 +497,16 @@ class _RepTile extends StatelessWidget {
           if (rep.primaryValidationReason != null) ...[
             const SizedBox(height: 10),
             Text(
-              'Birincil sorun: ${_formatIssueLabel(rep.primaryValidationReason!)}',
+              localizations.primaryIssue(
+                _formatIssueLabel(localizations, rep.primaryValidationReason!),
+              ),
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ],
           if (rep.feedback != null && rep.feedback!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Feedback: ${rep.feedback!}',
+              localizations.feedbackLabel(rep.feedback!),
               style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],
@@ -681,72 +711,86 @@ class _RepMetricPill extends StatelessWidget {
 }
 
 List<MapEntry<String, String>> _overviewMetrics({
+  required AppLocalizations localizations,
   required WorkoutSession session,
   required SessionReport report,
 }) {
   if (report.isHoldSession) {
     return <MapEntry<String, String>>[
-      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
       MapEntry(
-        'Toplam Hold',
+        localizations.duration,
+        WorkoutPresentationFormatter.duration(session.duration),
+      ),
+      MapEntry(
+        localizations.totalHold,
         WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds),
       ),
       MapEntry(
-        'En İyi Hold',
+        localizations.bestHold,
         WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds),
       ),
-      MapEntry('Form Kesintisi', report.formBreakCount.toString()),
+      MapEntry(localizations.formBreaks, report.formBreakCount.toString()),
     ];
   }
 
   final metrics = <MapEntry<String, String>>[
-    MapEntry('Toplam Tekrar', report.totalReps.toString()),
-    MapEntry('Geçerli', report.validReps.toString()),
-    MapEntry('Geçersiz', report.invalidReps.toString()),
+    MapEntry(localizations.totalReps, report.totalReps.toString()),
+    MapEntry(localizations.valid, report.validReps.toString()),
+    MapEntry(localizations.invalid, report.invalidReps.toString()),
     if (report.unknownReps > 0)
-      MapEntry('Belirsiz', report.unknownReps.toString()),
+      MapEntry(localizations.uncertain, report.unknownReps.toString()),
     MapEntry(
-      'Ortalama Skor',
+      localizations.averageScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.averageScore)
           : '--',
     ),
     MapEntry(
-      'En İyi Skor',
+      localizations.bestScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.bestScore)
           : '--',
     ),
     MapEntry(
-      'En Düşük Skor',
+      localizations.lowestScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.worstScore)
           : '--',
     ),
-    MapEntry('Form Uyarısı', report.formWarningCount.toString()),
+    MapEntry(localizations.formWarnings, report.formWarningCount.toString()),
   ];
 
   if (report.formViolationCount > 0) {
-    metrics.add(MapEntry('Form İhlali', report.formViolationCount.toString()));
+    metrics.add(
+      MapEntry(
+        localizations.formViolations,
+        report.formViolationCount.toString(),
+      ),
+    );
   }
   if (report.coverageDropCount > 0) {
     metrics.add(
-      MapEntry('Görünürlük Kaybı', report.coverageDropCount.toString()),
+      MapEntry(
+        localizations.visibilityLoss,
+        report.coverageDropCount.toString(),
+      ),
     );
   }
   if (report.sideSwitchCount > 0) {
-    metrics.add(MapEntry('Taraf Değişimi', report.sideSwitchCount.toString()));
+    metrics.add(
+      MapEntry(localizations.sideChanges, report.sideSwitchCount.toString()),
+    );
   }
 
   return metrics;
 }
 
-String _repStatusLabel(WorkoutRep rep) {
+String _repStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
   return switch (rep.validationStatus) {
-    'valid' => 'Geçerli',
-    'low confidence' => 'Düşük Güven',
-    'invalid' => 'Geçersiz',
-    _ => 'Belirsiz',
+    'valid' => localizations.valid,
+    'low confidence' => localizations.lowConfidence,
+    'invalid' => localizations.invalid,
+    _ => localizations.uncertain,
   };
 }
 
@@ -759,10 +803,10 @@ Color _repStatusColor(WorkoutRep rep) {
   };
 }
 
-String _analysisKindLabel(String analysisKind) {
+String _analysisKindLabel(AppLocalizations localizations, String analysisKind) {
   return switch (analysisKind) {
     'hold' => 'Hold',
-    'rangeRep' => 'Range Rep',
+    'rangeRep' => localizations.rangeRep,
     _ => analysisKind,
   };
 }
@@ -799,31 +843,31 @@ String _formatRepTempo(WorkoutRep rep) {
   return '$descent / $ascent';
 }
 
-String _formatSideLabel(String? value) {
+String _formatSideLabel(AppLocalizations localizations, String? value) {
   return switch (value) {
-    'left' => 'Sol',
-    'right' => 'Sağ',
+    'left' => localizations.left,
+    'right' => localizations.right,
     null => '--',
     _ => value,
   };
 }
 
-String _formatIssueLabel(String value) {
+String _formatIssueLabel(AppLocalizations localizations, String value) {
   switch (value) {
     case 'insufficient rom':
-      return 'Yetersiz hareket açıklığı';
+      return localizations.insufficientRangeOfMotion;
     case 'excessive descent speed':
-      return 'İniş çok hızlı';
+      return localizations.excessiveDescentSpeed;
     case 'excessive ascent speed':
-      return 'Çıkış çok hızlı';
+      return localizations.excessiveAscentSpeed;
     case 'persistent form break':
-      return 'Kalıcı form bozulması';
+      return localizations.persistentFormBreak;
     case 'coverage loss':
-      return 'Görünürlük kaybı';
+      return localizations.coverageLoss;
     case 'side switch during rep':
-      return 'Tekrar içinde taraf değişimi';
+      return localizations.sideSwitchDuringRep;
     case 'incomplete phase':
-      return 'Eksik faz tamamlanması';
+      return localizations.incompletePhase;
     default:
       return value;
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 class AnalysisSelectionRequiredView extends StatelessWidget {
   const AnalysisSelectionRequiredView({
     super.key,
@@ -56,7 +58,7 @@ class AnalysisSelectionRequiredView extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: onSelectExercise,
                   icon: const Icon(Icons.playlist_add_check_rounded),
-                  label: const Text('Hareket Sec'),
+                  label: Text(AppLocalizations.of(context).selectExercise),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.greenAccent,
                     foregroundColor: Colors.black,

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
@@ -11,6 +13,8 @@ import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../providers/session_repository_provider.dart';
 import 'session_detail_screen.dart';
+
+enum _HistoryMessage { requiresAnalysis, loadFailed, loadMoreFailed }
 
 class SessionHistoryScreen extends ConsumerStatefulWidget {
   const SessionHistoryScreen({super.key});
@@ -27,8 +31,8 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   bool _isInitialLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
-  String? _errorMessage;
-  String? _emptyMessage;
+  _HistoryMessage? _errorMessage;
+  _HistoryMessage? _emptyMessage;
   ProviderSubscription<String?>? _userIdSubscription;
   String? _loadedOwnerId;
   String? _loadingOwnerId;
@@ -89,7 +93,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
-        _emptyMessage = 'Gecmis oturumlari gormek icin once bir analiz baslat.';
+        _emptyMessage = _HistoryMessage.requiresAnalysis;
       });
       return;
     }
@@ -118,7 +122,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
-        _errorMessage = 'Gecmis oturumlar yuklenemedi. Lutfen tekrar dene.';
+        _errorMessage = _HistoryMessage.loadFailed;
       });
     }
   }
@@ -154,21 +158,22 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
       setState(() {
         _isLoadingMore = false;
-        _errorMessage = 'Daha fazla oturum yuklenemedi. Lutfen tekrar dene.';
+        _errorMessage = _HistoryMessage.loadMoreFailed;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return AppScaffoldShell(
-      title: 'Gecmis Oturumlar',
+      title: localizations.sessionHistory,
       currentPage: AppDestination.sessionHistory,
-      body: _buildBody(),
+      body: _buildBody(localizations),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppLocalizations localizations) {
     if (_isInitialLoading) {
       return const AppLoadingView();
     }
@@ -176,9 +181,9 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     if (_errorMessage != null && _sessions.isEmpty) {
       return AppErrorView(
         icon: Icons.history_toggle_off_rounded,
-        title: 'Gecmis yuklenemedi',
-        message: _errorMessage!,
-        actionLabel: 'Tekrar Dene',
+        title: localizations.historyUnavailable,
+        message: _historyMessage(localizations, _errorMessage!),
+        actionLabel: localizations.retry,
         onAction: () => unawaited(_loadInitialSessions()),
       );
     }
@@ -187,9 +192,10 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       return AppEmptyView(
         centered: true,
         icon: Icons.history_rounded,
-        title: 'Henuz oturum yok',
-        message:
-            _emptyMessage ?? 'Kaydedilmis antrenmanlarin burada gorunecek.',
+        title: localizations.noSessionsYet,
+        message: _emptyMessage == null
+            ? localizations.savedWorkoutsAppearHere
+            : _historyMessage(localizations, _emptyMessage!),
       );
     }
 
@@ -212,7 +218,10 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                     ),
                   );
                 },
-                child: _SessionCard(session: session),
+                child: _SessionCard(
+                  session: session,
+                  localizations: localizations,
+                ),
               );
             },
           ),
@@ -220,7 +229,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         if (_errorMessage != null) ...[
           const SizedBox(height: 12),
           Text(
-            _errorMessage!,
+            _historyMessage(localizations, _errorMessage!),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
@@ -241,7 +250,9 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.expand_more_rounded),
-            label: Text(_isLoadingMore ? 'Yukleniyor' : 'Daha Fazla Yukle'),
+            label: Text(
+              _isLoadingMore ? localizations.loading : localizations.loadMore,
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
@@ -257,48 +268,66 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   }
 }
 
+String _historyMessage(
+  AppLocalizations localizations,
+  _HistoryMessage message,
+) {
+  return switch (message) {
+    _HistoryMessage.requiresAnalysis => localizations.historyRequiresAnalysis,
+    _HistoryMessage.loadFailed => localizations.historyLoadFailed,
+    _HistoryMessage.loadMoreFailed => localizations.historyLoadMoreFailed,
+  };
+}
+
 class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session});
+  const _SessionCard({required this.session, required this.localizations});
 
   final WorkoutSession session;
+  final AppLocalizations localizations;
 
   @override
   Widget build(BuildContext context) {
     final metrics = session.isHoldSession
         ? <MapEntry<String, String>>[
             MapEntry(
-              'Sure',
+              localizations.duration,
               WorkoutPresentationFormatter.duration(session.duration),
             ),
             MapEntry(
-              'Toplam Hold',
+              localizations.totalHold,
               WorkoutPresentationFormatter.holdDuration(
                 session.totalHoldSeconds,
               ),
             ),
             MapEntry(
-              'En Iyi Hold',
+              localizations.bestHold,
               WorkoutPresentationFormatter.holdDuration(
                 session.bestHoldSeconds,
               ),
             ),
-            MapEntry('Kesinti', session.formBreakCount.toString()),
+            MapEntry(
+              localizations.interruptions,
+              session.formBreakCount.toString(),
+            ),
           ]
         : <MapEntry<String, String>>[
             MapEntry(
-              'Sure',
+              localizations.duration,
               WorkoutPresentationFormatter.duration(session.duration),
             ),
-            MapEntry('Tekrar', session.totalReps.toString()),
+            MapEntry(localizations.reps, session.totalReps.toString()),
             MapEntry(
-              'Ort. Skor',
+              localizations.averageScoreShort,
               WorkoutPresentationFormatter.roundedScore(session.averageScore),
             ),
             MapEntry(
-              'En Iyi',
+              localizations.bestShort,
               WorkoutPresentationFormatter.roundedScore(session.bestScore),
             ),
-            MapEntry('Uyari', session.formWarningCount.toString()),
+            MapEntry(
+              localizations.warnings,
+              session.formWarningCount.toString(),
+            ),
           ];
 
     return AppSurfaceCard(
@@ -311,9 +340,7 @@ class _SessionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  WorkoutPresentationFormatter.exerciseTitle(
-                    session.exerciseType,
-                  ),
+                  localizations.exerciseTitle(session.exerciseType),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,

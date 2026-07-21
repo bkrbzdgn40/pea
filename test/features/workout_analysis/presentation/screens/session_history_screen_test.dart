@@ -56,7 +56,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Push Up'), findsOneWidget);
+      expect(find.text('Şınav'), findsOneWidget);
       expect(find.text('1:05'), findsOneWidget);
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.text('Ort. Skor'), findsOneWidget);
@@ -64,7 +64,7 @@ void main() {
 
       final pushCountBeforeTap = observer.pushCount;
 
-      await tester.tap(find.text('Push Up'));
+      await tester.tap(find.text('Şınav'));
       await tester.pumpAndSettle();
 
       expect(observer.pushCount, pushCountBeforeTap + 1);
@@ -90,9 +90,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Henuz oturum yok'), findsOneWidget);
+    expect(find.text('Henüz oturum yok'), findsOneWidget);
     expect(
-      find.text('Kaydedilmis antrenmanlarin burada gorunecek.'),
+      find.text('Kaydedilmiş antrenmanların burada görünecek.'),
       findsOneWidget,
     );
   });
@@ -129,7 +129,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Biceps Curl'), findsOneWidget);
+      expect(find.text('Biseps Curl'), findsOneWidget);
     },
   );
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
@@ -139,48 +141,49 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     );
   }
 
-  String get _message {
+  String _messageFor(AppLocalizations localizations) {
     final status = _status;
 
     if (status?.isRestricted == true) {
-      return 'Bu cihazda kamera izni kısıtlanmış görünüyor. Devam etmek için cihaz ayarlarını kontrol et.';
+      return localizations.cameraPermissionRestrictedMessage;
     }
 
     if (status?.isPermanentlyDenied == true) {
-      return 'Kamera izni kalıcı olarak kapalı. Analize devam etmek için telefon ayarlarından kamera iznini açman gerekiyor.';
+      return localizations.cameraPermissionPermanentlyDeniedMessage;
     }
 
     if (status?.isDenied == true && _hasRequestedPermission) {
-      return 'Kamera izni verilmedi. Hazır olduğunda tekrar deneyebilirsin; izin verilene kadar burada güvenli şekilde bekleyeceğiz.';
+      return localizations.cameraPermissionDeniedMessage;
     }
 
     if (status?.isDenied == true) {
-      return 'Analize başlamadan önce kamera iznine ihtiyacımız var. İzin istemek için aşağıdaki butona dokun.';
+      return localizations.cameraPermissionPromptMessage;
     }
 
-    return 'Vücut eklemlerini algılamak, hareket formunu analiz etmek ve tekrarları gerçek zamanlı saymak için kamera izni gerekiyor.';
+    return localizations.cameraPermissionRationale;
   }
 
-  String get _primaryLabel {
+  String _primaryLabelFor(AppLocalizations localizations) {
     final status = _status;
 
     if (_isBlocked) {
-      return 'Ayarları Aç';
+      return localizations.openSettings;
     }
 
     if (_isChecking) {
-      return 'Kontrol Ediliyor';
+      return localizations.checking;
     }
 
     if (status?.isDenied == true && _hasRequestedPermission) {
-      return 'Tekrar Dene';
+      return localizations.retry;
     }
 
-    return 'Kamera İzni Ver';
+    return localizations.grantCameraPermission;
   }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
@@ -188,14 +191,13 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
       return Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          title: const Text('Kamera Izni'),
+          title: Text(localizations.cameraPermission),
           backgroundColor: Colors.black,
           elevation: 0,
         ),
         body: AnalysisSelectionRequiredView(
-          title: 'Analiz icin hareket sec',
-          message:
-              'Kamera izni akisina girmeden once hangi hareketi analiz etmek istedigini secmelisin.',
+          title: localizations.selectExerciseBeforeCameraTitle,
+          message: localizations.selectExerciseBeforeCameraMessage,
           onSelectExercise: _goToExerciseSelection,
         ),
       );
@@ -204,7 +206,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Kamera İzni'),
+        title: Text(localizations.cameraPermission),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
@@ -231,8 +233,8 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                       size: 42,
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Kamera İzni Gerekli',
+                    Text(
+                      localizations.cameraPermissionRequired,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 27,
@@ -242,7 +244,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _message,
+                      _messageFor(localizations),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.72),
                         fontSize: 16,
@@ -250,19 +252,10 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const _PermissionBenefit(
-                      text: 'Vücut eklemlerini algılar.',
-                    ),
-                    const _PermissionBenefit(
-                      text: 'Hareket formunu gerçek zamanlı değerlendirir.',
-                    ),
-                    const _PermissionBenefit(
-                      text: 'Doğru tekrarları saymaya yardımcı olur.',
-                    ),
-                    const _PermissionBenefit(
-                      text:
-                          'Görüntüler kesinlikle depolanmaz veya bir yere gönderilmez',
-                    ),
+                    _PermissionBenefit(text: localizations.cameraDetectsJoints),
+                    _PermissionBenefit(text: localizations.cameraEvaluatesForm),
+                    _PermissionBenefit(text: localizations.cameraCountsReps),
+                    _PermissionBenefit(text: localizations.cameraPrivacyNotice),
                   ],
                 ),
               ),
@@ -280,7 +273,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                             ? Icons.settings_outlined
                             : Icons.camera_alt_outlined,
                       ),
-                label: Text(_primaryLabel),
+                label: Text(_primaryLabelFor(localizations)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,
                   foregroundColor: Colors.black,
@@ -299,7 +292,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Geri Dön'),
+                child: Text(localizations.back),
               ),
               const Spacer(flex: 2),
             ],

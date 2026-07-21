@@ -5,6 +5,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../application/exercise_catalog.dart';
 import '../data/exercise_guide_catalog.dart';
+import '../data/localized_exercise_guide_content.dart';
 import '../models/exercise_guide_content.dart';
 
 class GuideScreen extends StatefulWidget {
@@ -54,7 +55,10 @@ class _GuideScreenState extends State<GuideScreen> {
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final definition = definitions[index];
-                      final content = guideCatalog.contentFor(definition.type);
+                      final content = localizedExerciseGuideContent(
+                        content: guideCatalog.contentFor(definition.type),
+                        isTurkish: localizations.isTurkish,
+                      );
 
                       return _ExerciseGuideCard(
                         content: content,

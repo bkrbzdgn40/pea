@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../application/exercise_metric_registry.dart';
@@ -46,14 +48,15 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final session = ref.watch(completedSessionProvider);
     final completedMetrics = ref.watch(completedSessionMetricsProvider);
     final summaryValues = session == null
         ? const <MapEntry<String, String>>[]
-        : _summaryValues(session, completedMetrics);
+        : _summaryValues(localizations, session, completedMetrics);
 
     return AppScaffoldShell(
-      title: 'Antrenman Özeti',
+      title: localizations.workoutSummary,
       showDrawer: false,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       body: Column(
@@ -67,8 +70,10 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               children: [
                 Text(
                   session == null
-                      ? 'Oturum verisi bulunamadı'
-                      : '${WorkoutPresentationFormatter.exerciseTitle(session.exerciseType)} özeti',
+                      ? localizations.sessionDataMissing
+                      : localizations.exerciseSummary(
+                          localizations.exerciseTitle(session.exerciseType),
+                        ),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 27,
@@ -78,8 +83,8 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
                 const SizedBox(height: 10),
                 Text(
                   session == null
-                      ? 'Canlı analiz tamamlandığında oturum özeti burada görünür.'
-                      : 'Canlı analizden oluşturulan gerçek oturum değerleri.',
+                      ? localizations.summaryAppearsAfterAnalysis
+                      : localizations.summaryUsesRecordedValues,
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 15,
@@ -121,7 +126,9 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.replay_rounded),
-            label: Text(_isRetrying ? 'Hazırlanıyor...' : 'Tekrar Dene'),
+            label: Text(
+              _isRetrying ? localizations.preparing : localizations.retry,
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.greenAccent,
               foregroundColor: Colors.black,
@@ -142,7 +149,7 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               );
             },
             icon: const Icon(Icons.home_outlined),
-            label: const Text('Ana Sayfa'),
+            label: Text(localizations.home),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
@@ -165,7 +172,7 @@ class _MissingSessionView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Oturum verisi bulunamadı.',
+        AppLocalizations.of(context).sessionDataMissingDetail,
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.72),
           fontSize: 16,
@@ -212,6 +219,7 @@ class _SummaryValueCard extends StatelessWidget {
 }
 
 List<MapEntry<String, String>> _summaryValues(
+  AppLocalizations localizations,
   WorkoutSession session,
   WorkoutLiveMetricsSnapshot? liveMetrics,
 ) {
@@ -222,18 +230,21 @@ List<MapEntry<String, String>> _summaryValues(
   if (session.isHoldSession) {
     final values = <MapEntry<String, String>>[
       MapEntry(
-        'Egzersiz tipi',
-        WorkoutPresentationFormatter.exerciseTitle(session.exerciseType),
+        localizations.exerciseType,
+        localizations.exerciseTitle(session.exerciseType),
       ),
       MapEntry(
-        'Toplam hold',
+        localizations.workoutSummaryTotalHold,
         WorkoutPresentationFormatter.holdDuration(session.totalHoldSeconds),
       ),
       MapEntry(
-        'En iyi hold',
+        localizations.workoutSummaryBestHold,
         WorkoutPresentationFormatter.holdDuration(session.bestHoldSeconds),
       ),
-      MapEntry('Form kesintisi', session.formBreakCount.toString()),
+      MapEntry(
+        localizations.workoutSummaryFormBreaks,
+        session.formBreakCount.toString(),
+      ),
     ];
 
     final stability = _resolvedMetricValue(
@@ -242,34 +253,48 @@ List<MapEntry<String, String>> _summaryValues(
       ExerciseMetricRegistry.stability,
     );
     if (stability != null) {
-      values.add(MapEntry('Stabilite skoru', stability.toStringAsFixed(0)));
+      values.add(
+        MapEntry(localizations.stabilityScore, stability.toStringAsFixed(0)),
+      );
     }
 
     values.add(
-      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
+      MapEntry(
+        localizations.duration,
+        WorkoutPresentationFormatter.duration(session.duration),
+      ),
     );
     return values;
   }
 
   final values = <MapEntry<String, String>>[
     MapEntry(
-      'Egzersiz tipi',
-      WorkoutPresentationFormatter.exerciseTitle(session.exerciseType),
+      localizations.exerciseType,
+      localizations.exerciseTitle(session.exerciseType),
     ),
-    MapEntry('Toplam tekrar', session.totalReps.toString()),
     MapEntry(
-      'Ortalama skor',
+      localizations.workoutSummaryTotalReps,
+      session.totalReps.toString(),
+    ),
+    MapEntry(
+      localizations.workoutSummaryAverageScore,
       WorkoutPresentationFormatter.roundedScore(session.averageScore),
     ),
     MapEntry(
-      'En iyi skor',
+      localizations.workoutSummaryBestScore,
       WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
     if (session.validReps > 0 || session.invalidReps > 0) ...[
-      MapEntry('Geçerli tekrar', session.validReps.toString()),
-      MapEntry('Geçersiz tekrar', session.invalidReps.toString()),
+      MapEntry(
+        localizations.workoutSummaryValidReps,
+        session.validReps.toString(),
+      ),
+      MapEntry(
+        localizations.workoutSummaryInvalidReps,
+        session.invalidReps.toString(),
+      ),
     ],
-    MapEntry('Form uyarısı', session.formWarningCount.toString()),
+    MapEntry(localizations.formWarning, session.formWarningCount.toString()),
   ];
 
   final averageRom = _resolvedMetricValue(
@@ -278,7 +303,9 @@ List<MapEntry<String, String>> _summaryValues(
     ExerciseMetricRegistry.rangeOfMotion,
   );
   if (averageRom != null) {
-    values.add(MapEntry('Ortalama ROM', '${averageRom.toStringAsFixed(1)}°'));
+    values.add(
+      MapEntry(localizations.averageRom, '${averageRom.toStringAsFixed(1)}°'),
+    );
   }
 
   final averageTempo = _resolvedMetricValue(
@@ -287,29 +314,51 @@ List<MapEntry<String, String>> _summaryValues(
     ExerciseMetricRegistry.tempo,
   );
   if (averageTempo != null) {
-    values.add(MapEntry('Ortalama tempo', _formatDuration(averageTempo)));
+    values.add(
+      MapEntry(
+        localizations.averageTempo,
+        _formatDuration(localizations, averageTempo),
+      ),
+    );
   }
 
   final fastest = liveMetrics?.fastestRepDuration;
   final slowest = liveMetrics?.slowestRepDuration;
   if (fastest != null) {
-    values.add(MapEntry('En hızlı tekrar', _formatDuration(fastest)));
+    values.add(
+      MapEntry(
+        localizations.fastestRep,
+        _formatDuration(localizations, fastest),
+      ),
+    );
   }
   if (slowest != null) {
-    values.add(MapEntry('En yavaş tekrar', _formatDuration(slowest)));
+    values.add(
+      MapEntry(
+        localizations.slowestRep,
+        _formatDuration(localizations, slowest),
+      ),
+    );
   }
 
   final tempoConsistency = liveMetrics?.tempoConsistencyScore;
   if (tempoConsistency != null) {
     values.add(
-      MapEntry('Tempo tutarlılığı', tempoConsistency.toStringAsFixed(0)),
+      MapEntry(
+        localizations.tempoConsistency,
+        tempoConsistency.toStringAsFixed(0),
+      ),
     );
   }
 
   if (liveMetrics?.hasBilateralRepCounts ?? false) {
     values
-      ..add(MapEntry('Sol tekrar', liveMetrics!.leftRepCount.toString()))
-      ..add(MapEntry('Sağ tekrar', liveMetrics.rightRepCount.toString()));
+      ..add(
+        MapEntry(localizations.leftReps, liveMetrics!.leftRepCount.toString()),
+      )
+      ..add(
+        MapEntry(localizations.rightReps, liveMetrics.rightRepCount.toString()),
+      );
   }
 
   final romDifference = _resolvedMetricValue(
@@ -319,7 +368,10 @@ List<MapEntry<String, String>> _summaryValues(
   );
   if (romDifference != null) {
     values.add(
-      MapEntry('Ortalama ROM farkı', '${romDifference.toStringAsFixed(1)}°'),
+      MapEntry(
+        localizations.averageRomDifference,
+        '${romDifference.toStringAsFixed(1)}°',
+      ),
     );
   }
 
@@ -329,11 +381,16 @@ List<MapEntry<String, String>> _summaryValues(
     ExerciseMetricRegistry.asymmetryScore,
   );
   if (asymmetry != null) {
-    values.add(MapEntry('Asimetri skoru', asymmetry.toStringAsFixed(0)));
+    values.add(
+      MapEntry(localizations.asymmetryScore, asymmetry.toStringAsFixed(0)),
+    );
   }
 
   values.add(
-    MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
+    MapEntry(
+      localizations.duration,
+      WorkoutPresentationFormatter.duration(session.duration),
+    ),
   );
   return values;
 }
@@ -347,10 +404,10 @@ T? _resolvedMetricValue<T extends Object>(
       fallbackMetrics.valueFor(definition);
 }
 
-String _formatDuration(Duration duration) {
+String _formatDuration(AppLocalizations localizations, Duration duration) {
   final milliseconds = duration.inMilliseconds;
   if (milliseconds < 1000) {
     return '$milliseconds ms';
   }
-  return '${(milliseconds / 1000).toStringAsFixed(1)} sn';
+  return localizations.secondsValue(milliseconds / 1000);
 }

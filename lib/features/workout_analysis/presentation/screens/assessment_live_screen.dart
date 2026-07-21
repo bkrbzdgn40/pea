@@ -4,6 +4,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../domain/models/assessment_models.dart';
 import '../providers/assessment_live_controller.dart';
 import '../providers/camera_provider.dart';
@@ -36,13 +38,14 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final selection = ref.watch(selectedAssessmentProvider);
     if (selection == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
           child: Text(
-            'Önce bir değerlendirme seçmelisin.',
+            localizations.chooseAssessmentFirst,
             style: TextStyle(color: Colors.white),
           ),
         ),
@@ -93,7 +96,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                 left: 72,
                 right: 72,
                 child: Text(
-                  _assessmentTitle(selection.type),
+                  _assessmentTitle(localizations, selection.type),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
@@ -112,6 +115,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                   feedback: liveState.feedbackMessage,
                   progressMessage: liveState.progressMessage,
                   progress: liveState.snapshot.readinessProgress,
+                  localizations: localizations,
                 ),
               ),
               Positioned(
@@ -127,6 +131,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                               .retry();
                         },
                         onClose: () => Navigator.pop(context),
+                        localizations: localizations,
                       )
                     : ElevatedButton.icon(
                         onPressed: liveState.snapshot.isReadyToComplete
@@ -140,7 +145,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                               }
                             : null,
                         icon: const Icon(Icons.check_circle_outline_rounded),
-                        label: const Text('Sonucu Gör'),
+                        label: Text(localizations.viewResult),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.greenAccent,
                           foregroundColor: Colors.black,
@@ -156,7 +161,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Kamera açılamadı: $error',
+              localizations.cameraOpenFailed(error),
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.center,
             ),
@@ -238,12 +243,14 @@ class _AssessmentStatusCard extends StatelessWidget {
     required this.feedback,
     required this.progressMessage,
     required this.progress,
+    required this.localizations,
   });
 
   final int sampleCount;
   final String feedback;
   final String progressMessage;
   final double progress;
+  final AppLocalizations localizations;
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +289,7 @@ class _AssessmentStatusCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            'Geçerli örnek: $sampleCount',
+            localizations.validSamples(sampleCount),
             style: const TextStyle(color: Colors.white60, fontSize: 12),
           ),
         ],
@@ -296,17 +303,19 @@ class _AssessmentResultCard extends StatelessWidget {
     required this.result,
     required this.onRetry,
     required this.onClose,
+    required this.localizations,
   });
 
   final AssessmentResult result;
   final VoidCallback onRetry;
   final VoidCallback onClose;
+  final AppLocalizations localizations;
 
   @override
   Widget build(BuildContext context) {
     final hasSufficientData = result.hasSufficientData;
     final values = hasSufficientData
-        ? _resultValues(result)
+        ? _resultValues(localizations, result)
         : const <MapEntry<String, String>>[];
     return Container(
       constraints: const BoxConstraints(maxHeight: 380),
@@ -325,7 +334,9 @@ class _AssessmentResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            hasSufficientData ? 'Değerlendirme sonucu' : 'Yetersiz ölçüm',
+            hasSufficientData
+                ? localizations.assessmentResult
+                : localizations.insufficientMeasurement,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -334,8 +345,8 @@ class _AssessmentResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (!hasSufficientData)
-            const Text(
-              'Güvenilir bir sonuç göstermek için yeterli ve kesintisiz ölçüm alınamadı. Pozisyonunu düzenleyip tekrar deneyebilirsin.',
+            Text(
+              localizations.insufficientMeasurementDescription,
               style: TextStyle(color: Colors.white70, height: 1.4),
             )
           else
@@ -374,31 +385,30 @@ class _AssessmentResultCard extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tekrar Dene'),
+              label: Text(localizations.retry),
             ),
             const SizedBox(height: 8),
           ],
-          OutlinedButton(onPressed: onClose, child: const Text('Kapat')),
+          OutlinedButton(onPressed: onClose, child: Text(localizations.close)),
         ],
       ),
     );
   }
 }
 
-String _assessmentTitle(AssessmentType type) {
-  return switch (type) {
-    AssessmentType.squat => 'Squat Değerlendirmesi',
-    AssessmentType.balance => 'Denge Değerlendirmesi',
-    AssessmentType.shoulderMobility => 'Omuz Elevasyon Değerlendirmesi',
-  };
+String _assessmentTitle(AppLocalizations localizations, AssessmentType type) {
+  return localizations.assessmentTitle(type.name);
 }
 
-List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
+List<MapEntry<String, String>> _resultValues(
+  AppLocalizations localizations,
+  AssessmentResult result,
+) {
   switch (result) {
     case SquatAssessmentResult squat:
       return <MapEntry<String, String>>[
         MapEntry(
-          'Diz fleksiyonu',
+          localizations.kneeFlexion,
           _degrees(
             _averageAvailable(
               squat.leftKneeFlexionDegrees,
@@ -407,43 +417,46 @@ List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
           ),
         ),
         MapEntry(
-          'Kalça diz seviyesine indi',
+          localizations.hipReachedKneeHeight,
           switch (squat.reachedHipAtOrBelowKneeHeight) {
-            true => 'Evet',
-            false => 'Hayır',
+            true => localizations.yes,
+            false => localizations.no,
             null => '—',
           },
         ),
         MapEntry(
-          'Gövde eğimi',
+          localizations.torsoInclination,
           _degrees(squat.torsoInclinationAtDeepestDegrees),
         ),
       ];
     case BalanceAssessmentResult balance:
       return <MapEntry<String, String>>[
-        MapEntry('Stabilite skoru', _score(balance.stabilityScore)),
+        MapEntry(localizations.stabilityScore, _score(balance.stabilityScore)),
         MapEntry(
-          'Kesintisiz duruş süresi',
-          _assessmentDuration(balance.observedDuration),
+          localizations.continuousStanceDuration,
+          _assessmentDuration(localizations, balance.observedDuration),
         ),
       ];
     case ShoulderMobilityAssessmentResult shoulder:
       return <MapEntry<String, String>>[
         MapEntry(
-          'Sol maksimum elevasyon',
+          localizations.leftMaximumElevation,
           _degrees(shoulder.leftMaximumElevationDegrees),
         ),
         MapEntry(
-          'Sağ maksimum elevasyon',
+          localizations.rightMaximumElevation,
           _degrees(shoulder.rightMaximumElevationDegrees),
         ),
-        MapEntry('Sağ-sol farkı', _degrees(shoulder.sideDifferenceDegrees)),
         MapEntry(
-          'Sol maksimumda yanal gövde eğimi',
+          localizations.leftRightDifference,
+          _degrees(shoulder.sideDifferenceDegrees),
+        ),
+        MapEntry(
+          localizations.leftMaximumLateralTorsoInclination,
           _degrees(shoulder.torsoInclinationAtLeftMaximumDegrees),
         ),
         MapEntry(
-          'Sağ maksimumda yanal gövde eğimi',
+          localizations.rightMaximumLateralTorsoInclination,
           _degrees(shoulder.torsoInclinationAtRightMaximumDegrees),
         ),
       ];
@@ -462,7 +475,7 @@ String _degrees(double? value) =>
 String _score(double? value) =>
     value == null ? '—' : '${value.toStringAsFixed(0)} / 100';
 
-String _assessmentDuration(Duration duration) {
+String _assessmentDuration(AppLocalizations localizations, Duration duration) {
   final seconds = duration.inMilliseconds / 1000;
-  return '${seconds.toStringAsFixed(1)} sn';
+  return localizations.secondsValue(seconds);
 }

@@ -50,7 +50,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Push Up'), findsOneWidget);
+      expect(find.text('Şınav'), findsOneWidget);
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.textContaining('1:05'), findsWidgets);
       expect(find.text('89.6'), findsNWidgets(4));
@@ -88,7 +88,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.text('Biceps Curl'), findsOneWidget);
+      expect(find.text('Biseps Curl'), findsOneWidget);
       expect(find.text('06.01.2024 10:15'), findsOneWidget);
     },
   );

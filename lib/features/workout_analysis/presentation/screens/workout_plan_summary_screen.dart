@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../providers/workout_plan_session_provider.dart';
@@ -10,13 +12,14 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     final snapshot = ref.watch(workoutPlanSessionProvider).snapshot;
     if (snapshot == null) {
-      return const AppScaffoldShell(
-        title: 'Antrenman Özeti',
+      return AppScaffoldShell(
+        title: localizations.workoutSummary,
         body: Center(
           child: Text(
-            'Tamamlanmış bir plan bulunamadı.',
+            localizations.noCompletedPlan,
             style: TextStyle(color: Colors.white70),
           ),
         ),
@@ -25,7 +28,7 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
 
     final summary = snapshot.summary;
     return AppScaffoldShell(
-      title: 'Antrenman Özeti',
+      title: localizations.workoutSummary,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       body: ListView(
         children: [
@@ -33,8 +36,8 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Plan tamamlandı',
+                Text(
+                  localizations.planCompleted,
                   style: TextStyle(
                     color: Colors.greenAccent,
                     fontSize: 24,
@@ -43,19 +46,19 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 _SummaryRow(
-                  label: 'Tamamlanan set',
+                  label: localizations.completedSets,
                   value: '${summary.completedSets} / ${summary.totalSets}',
                 ),
                 _SummaryRow(
-                  label: 'Toplam tekrar',
+                  label: localizations.workoutSummaryTotalReps,
                   value: summary.totalRepetitions.toString(),
                 ),
                 _SummaryRow(
-                  label: 'Toplam hold',
+                  label: localizations.workoutSummaryTotalHold,
                   value: _formatDuration(summary.totalHoldDuration),
                 ),
                 _SummaryRow(
-                  label: 'Toplam süre',
+                  label: localizations.totalDuration,
                   value: _formatDuration(summary.elapsed),
                 ),
               ],
@@ -68,7 +71,7 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    aggregate.exercise.title,
+                    localizations.exerciseTitle(aggregate.exercise.id),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 17,
@@ -77,7 +80,13 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${aggregate.completedSets} set • ${aggregate.totalRepetitions} tekrar • ${_formatDuration(aggregate.totalHoldDuration)} hold',
+                    localizations.workoutAggregateSummary(
+                      sets: aggregate.completedSets,
+                      reps: aggregate.totalRepetitions,
+                      holdDuration: _formatDuration(
+                        aggregate.totalHoldDuration,
+                      ),
+                    ),
                     style: const TextStyle(color: Colors.white60),
                   ),
                 ],
@@ -95,7 +104,7 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
               backgroundColor: Colors.greenAccent,
               foregroundColor: Colors.black,
             ),
-            child: const Text('Ana Sayfaya Dön'),
+            child: Text(localizations.returnHome),
           ),
         ],
       ),

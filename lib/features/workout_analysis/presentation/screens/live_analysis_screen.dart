@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../application/engine_kind.dart';
 import '../../application/exercise_metric_registry.dart';
 import '../../application/workout_engine.dart';
@@ -485,6 +487,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
@@ -492,9 +495,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       return Scaffold(
         backgroundColor: Colors.black,
         body: AnalysisSelectionRequiredView(
-          title: 'Canli analize girmek icin hareket sec',
-          message:
-              'Canli analiz ekrani yalnizca gecerli bir hareket seciminden sonra acilabilir.',
+          title: localizations.liveAnalysisSelectionTitle,
+          message: localizations.liveAnalysisSelectionMessage,
           onSelectExercise: _goToExerciseSelectionScreen,
         ),
       );
@@ -591,7 +593,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       : () => unawaited(_finishSession(workoutState)),
                   icon: const Icon(Icons.stop_circle_outlined, size: 18),
                   label: Text(
-                    workoutPlanState.hasPlan ? 'Antrenmanı Bitir' : 'Bitir',
+                    workoutPlanState.hasPlan
+                        ? localizations.endWorkout
+                        : localizations.finish,
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
@@ -651,7 +655,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         SizedBox(
                           width: cardWidth,
                           child: _MetricCard(
-                            label: isHoldAnalysis ? 'HOLD' : 'TEKRAR',
+                            label: isHoldAnalysis
+                                ? localizations.holdMetric
+                                : localizations.repMetric,
                             value: isHoldAnalysis
                                 ? formatHoldSeconds(
                                     workoutState.currentHoldSeconds,
@@ -678,7 +684,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         SizedBox(
                           width: cardWidth,
                           child: _MetricCard(
-                            label: isHoldAnalysis ? 'EN IYI' : 'SKOR',
+                            label: isHoldAnalysis
+                                ? localizations.bestMetric
+                                : localizations.scoreMetric,
                             value: isHoldAnalysis
                                 ? formatHoldSeconds(
                                     workoutState.bestHoldSeconds,
@@ -762,7 +770,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'DURUM: ${workoutState.currentPhase} | ANALİZ FPS: ${workoutState.analysisFps.toStringAsFixed(0)}',
+                      localizations.liveStatusLine(
+                        workoutState.currentPhase,
+                        workoutState.analysisFps.toStringAsFixed(0),
+                      ),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         letterSpacing: 2,
@@ -786,7 +797,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          return Center(child: Text('Hata: $error'));
+          return Center(child: Text(localizations.errorWithDetail(error)));
         },
       ),
     );
@@ -846,8 +857,12 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final target = snapshot.targetRepetitions != null
-        ? '${snapshot.currentRepetitions} / ${snapshot.targetRepetitions} tekrar'
+        ? localizations.repetitionProgress(
+            snapshot.currentRepetitions,
+            snapshot.targetRepetitions!,
+          )
         : '${_formatPlanDuration(snapshot.currentHoldDuration)} / ${_formatPlanDuration(snapshot.targetHoldDuration ?? Duration.zero)}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -863,7 +878,12 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Round ${snapshot.roundNumber}/${snapshot.totalRounds} • Set ${snapshot.setNumber}/${snapshot.setsInCurrentExercise}',
+                  localizations.plannedWorkoutProgress(
+                    round: snapshot.roundNumber,
+                    totalRounds: snapshot.totalRounds,
+                    set: snapshot.setNumber,
+                    totalSets: snapshot.setsInCurrentExercise,
+                  ),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -904,6 +924,7 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final isFinalSet = snapshot.completedSets >= snapshot.totalSets;
     return Container(
       padding: const EdgeInsets.all(14),
@@ -919,8 +940,8 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
           Expanded(
             child: Text(
               isFinalSet
-                  ? 'Son set tamamlandı.'
-                  : 'Set tamamlandı. Hazır olduğunda devam et.',
+                  ? localizations.finalSetCompleted
+                  : localizations.setCompletedContinue,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -934,7 +955,9 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
               backgroundColor: Colors.greenAccent,
               foregroundColor: Colors.black,
             ),
-            child: Text(isFinalSet ? 'Bitir' : 'Devam'),
+            child: Text(
+              isFinalSet ? localizations.finish : localizations.continueLabel,
+            ),
           ),
         ],
       ),
@@ -953,14 +976,14 @@ class _ExerciseConfigLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Colors.greenAccent),
-          SizedBox(height: 16),
+          const CircularProgressIndicator(color: Colors.greenAccent),
+          const SizedBox(height: 16),
           Text(
-            'Analiz yapilandirmasi hazirlaniyor...',
+            AppLocalizations.of(context).analysisConfigLoading,
             style: TextStyle(color: Colors.white70, fontSize: 15),
           ),
         ],
@@ -984,8 +1007,8 @@ class _ExerciseConfigErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.tune_rounded, color: Colors.greenAccent, size: 42),
             const SizedBox(height: 16),
-            const Text(
-              'Analiz yapilandirmasi yuklenemedi',
+            Text(
+              AppLocalizations.of(context).analysisConfigLoadFailed,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -995,7 +1018,7 @@ class _ExerciseConfigErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Egzersiz ayarlari hazir olmadan canli analiz baslatilamaz.',
+              AppLocalizations.of(context).analysisConfigRequiredMessage,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.72),
                 fontSize: 15,
@@ -1007,7 +1030,7 @@ class _ExerciseConfigErrorView extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tekrar Dene'),
+              label: Text(AppLocalizations.of(context).retry),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.greenAccent,
                 foregroundColor: Colors.black,
@@ -1032,7 +1055,7 @@ class _CameraRecoveryView extends StatelessWidget {
           const CircularProgressIndicator(color: Colors.greenAccent),
           const SizedBox(height: 16),
           Text(
-            'Kamera yeniden hazırlanıyor...',
+            AppLocalizations.of(context).cameraRecovering,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.78),
               fontSize: 15,
@@ -1063,8 +1086,8 @@ class _CameraPermissionFallback extends StatelessWidget {
               size: 42,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Kamera izni gerekli',
+            Text(
+              AppLocalizations.of(context).cameraPermissionRequired,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -1074,7 +1097,7 @@ class _CameraPermissionFallback extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Analize devam etmek için kamera iznini kontrol et.',
+              AppLocalizations.of(context).cameraPermissionFallbackBody,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.72),
                 fontSize: 15,
@@ -1086,7 +1109,7 @@ class _CameraPermissionFallback extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onPressed,
               icon: const Icon(Icons.lock_open_outlined),
-              label: const Text('İzni Kontrol Et'),
+              label: Text(AppLocalizations.of(context).checkPermission),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.greenAccent,
                 foregroundColor: Colors.black,
@@ -1156,6 +1179,7 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final items = <MapEntry<String, String>>[];
     final session = metrics.sessionMetrics;
     final frame = metrics.frameMetrics;
@@ -1163,14 +1187,20 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
     final primary = frame.valueFor(ExerciseMetricRegistry.primaryMovement);
     if (primary != null) {
       items.add(
-        MapEntry<String, String>('AÇI', '${primary.toStringAsFixed(0)}°'),
+        MapEntry<String, String>(
+          localizations.angleMetric,
+          '${primary.toStringAsFixed(0)}°',
+        ),
       );
     }
 
     final tempo = session.valueFor(ExerciseMetricRegistry.tempo);
     if (tempo != null) {
       items.add(
-        MapEntry<String, String>('TEMPO', _formatMetricDuration(tempo)),
+        MapEntry<String, String>(
+          localizations.tempoMetric,
+          _formatMetricDuration(localizations, tempo),
+        ),
       );
     }
 
@@ -1179,14 +1209,20 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
         session.valueFor(ExerciseMetricRegistry.stability);
     if (stability != null) {
       items.add(
-        MapEntry<String, String>('STABİLİTE', stability.toStringAsFixed(0)),
+        MapEntry<String, String>(
+          localizations.stabilityMetric,
+          stability.toStringAsFixed(0),
+        ),
       );
     }
 
     final asymmetry = session.valueFor(ExerciseMetricRegistry.asymmetryScore);
     if (asymmetry != null) {
       items.add(
-        MapEntry<String, String>('ASİMETRİ', asymmetry.toStringAsFixed(0)),
+        MapEntry<String, String>(
+          localizations.asymmetryMetric,
+          asymmetry.toStringAsFixed(0),
+        ),
       );
     }
 
@@ -1238,11 +1274,14 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
   }
 }
 
-String _formatMetricDuration(Duration duration) {
+String _formatMetricDuration(
+  AppLocalizations localizations,
+  Duration duration,
+) {
   if (duration.inMilliseconds < 1000) {
     return '${duration.inMilliseconds} ms';
   }
-  return '${(duration.inMilliseconds / 1000).toStringAsFixed(1)} sn';
+  return localizations.secondsValue(duration.inMilliseconds / 1000);
 }
 
 class _CalibrationDebugPanel extends StatelessWidget {

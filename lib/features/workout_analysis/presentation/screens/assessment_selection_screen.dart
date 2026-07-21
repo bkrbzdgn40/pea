@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../domain/models/assessment_models.dart';
@@ -13,20 +15,20 @@ class AssessmentSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     return AppScaffoldShell(
-      title: 'Değerlendirme Modu',
+      title: localizations.assessmentMode,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       body: ListView(
         children: [
-          const Text(
-            'Bu sonuçlar kamera tabanlı ürün ölçümleridir; klinik tanı veya tıbbi değerlendirme değildir.',
+          Text(
+            localizations.assessmentDisclaimer,
             style: TextStyle(color: Colors.white60, height: 1.4),
           ),
           const SizedBox(height: 16),
           _AssessmentCard(
-            title: 'Squat Değerlendirmesi',
-            subtitle:
-                'Yan görünümde izlenen taraftaki diz fleksiyonu, derinlik ve gövde eğimi.',
+            title: localizations.assessmentTitle('squat'),
+            subtitle: localizations.squatAssessmentSubtitle,
             icon: Icons.accessibility_new_rounded,
             onTap: () => _openAssessment(
               context,
@@ -36,17 +38,15 @@ class AssessmentSelectionScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _AssessmentCard(
-            title: 'Denge Değerlendirmesi',
-            subtitle:
-                'Ön görünümde kesintisiz tek ayak duruşu ve görüntü düzlemindeki salınımdan türetilen stabilite.',
+            title: localizations.assessmentTitle('balance'),
+            subtitle: localizations.balanceAssessmentSubtitle,
             icon: Icons.balance_rounded,
             onTap: () => _showBalanceSidePicker(context, ref),
           ),
           const SizedBox(height: 12),
           _AssessmentCard(
-            title: 'Omuz Elevasyon Değerlendirmesi',
-            subtitle:
-                'Ön görünümde iki yana kol elevasyonu, sağ-sol farkı ve yanal gövde eğimi.',
+            title: localizations.assessmentTitle('shoulderMobility'),
+            subtitle: localizations.shoulderAssessmentSubtitle,
             icon: Icons.sports_gymnastics_rounded,
             onTap: () => _openAssessment(
               context,
@@ -63,6 +63,7 @@ class AssessmentSelectionScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final localizations = AppLocalizations.of(context);
     final side = await showModalBottomSheet<AssessmentSide>(
       context: context,
       backgroundColor: const Color(0xFF151515),
@@ -73,8 +74,8 @@ class AssessmentSelectionScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Duruş ayağını seç',
+              Text(
+                localizations.chooseStandingFoot,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -84,12 +85,12 @@ class AssessmentSelectionScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, AssessmentSide.left),
-                child: const Text('Sol ayak'),
+                child: Text(localizations.leftFoot),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, AssessmentSide.right),
-                child: const Text('Sağ ayak'),
+                child: Text(localizations.rightFoot),
               ),
             ],
           ),
@@ -120,8 +121,10 @@ class AssessmentSelectionScreen extends ConsumerWidget {
     }
     if (!status.isGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Değerlendirme için kamera izni gerekli.'),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).assessmentCameraPermissionRequired,
+          ),
         ),
       );
       return;
