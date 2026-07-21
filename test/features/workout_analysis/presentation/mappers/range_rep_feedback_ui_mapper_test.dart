@@ -124,6 +124,37 @@ void main() {
     );
   });
 
+  test('Day 11 increasing-direction exercises use physical movement copy', () {
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        exerciseType: ExerciseType.calfRaise,
+      ),
+      'Topuklarini kontrollu kaldir...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        exerciseType: ExerciseType.frontRaise,
+      ),
+      'Kollarini kontrollu one kaldir...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        exerciseType: ExerciseType.gluteBridge,
+      ),
+      'Kalcani kontrollu yukari kaldir...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        exerciseType: ExerciseType.jumpingJack,
+      ),
+      'Kollarini ve bacaklarini ac...',
+    );
+  });
+
   test('biceps curl keeps elbow-control form feedback', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

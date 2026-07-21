@@ -1,0 +1,33 @@
+{
+  "name": "Wall Sit",
+  "primaryJoint": "leftKnee",
+  "joint1": "leftHip",
+  "joint2": "leftAnkle",
+  "wallSitPosture": {
+    "activeKneeMaxAngle": 130.0,
+    "kneeMinAngle": 80.0,
+    "kneeMaxAngle": 120.0,
+    "hipMinAngle": 70.0,
+    "hipMaxAngle": 120.0,
+    "torsoMinAngle": 155.0,
+    "breakGraceMillis": 500
+  },
+  "holdSignals": {
+    "referenceSide": "left",
+    "kneeFlexion": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    },
+    "hipFlexion": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftKnee"
+    },
+    "torsoAlignment": {
+      "first": "leftEar",
+      "middle": "leftShoulder",
+      "last": "leftHip"
+    }
+  }
+}

@@ -168,6 +168,90 @@ void main() {
       },
     );
 
+    test('Day 11 range-rep exercises use the shared increasing lifecycle', () {
+      final scenarios =
+          <
+            ({
+              ExerciseConfig config,
+              RangeRepContract contract,
+              double neutral,
+              double active,
+              double peak,
+              double returning,
+            })
+          >[
+            (
+              config: _increasingRangeRepConfig(
+                name: 'Calf Raise',
+                neutral: 85,
+                active: 100,
+                peak: 115,
+              ),
+              contract: RangeRepContracts.calfRaise,
+              neutral: 80,
+              active: 105,
+              peak: 120,
+              returning: 100,
+            ),
+            (
+              config: _increasingRangeRepConfig(
+                name: 'Front Raise',
+                neutral: 15,
+                active: 35,
+                peak: 80,
+              ),
+              contract: RangeRepContracts.frontRaise,
+              neutral: 10,
+              active: 45,
+              peak: 90,
+              returning: 50,
+            ),
+            (
+              config: _increasingRangeRepConfig(
+                name: 'Glute Bridge',
+                neutral: 105,
+                active: 125,
+                peak: 155,
+              ),
+              contract: RangeRepContracts.gluteBridge,
+              neutral: 100,
+              active: 135,
+              peak: 160,
+              returning: 130,
+            ),
+            (
+              config: _increasingRangeRepConfig(
+                name: 'Jumping Jack',
+                neutral: 20,
+                active: 55,
+                peak: 135,
+              ),
+              contract: RangeRepContracts.jumpingJack,
+              neutral: 15,
+              active: 70,
+              peak: 145,
+              returning: 70,
+            ),
+          ];
+
+      for (final scenario in scenarios) {
+        final clock = _RangeRepTestClock();
+        final engine = factory.createRangeRep(
+          config: scenario.config,
+          rangeRepContract: scenario.contract,
+          now: clock.now,
+        );
+
+        _confirmRangeRepMetric(clock, engine, scenario.neutral, 120);
+        _confirmRangeRepMetric(clock, engine, scenario.active, 100);
+        _confirmRangeRepMetric(clock, engine, scenario.peak, 100);
+        _confirmRangeRepMetric(clock, engine, scenario.returning, 100);
+        _confirmRangeRepMetric(clock, engine, scenario.neutral, 120);
+
+        expect(engine.repCount, 1, reason: scenario.config.name);
+      }
+    });
+
     test('rejects hold creation without a contract', () {
       expect(
         () => factory.create(engineKind: EngineKind.hold, config: plankConfig),
@@ -365,6 +449,30 @@ void main() {
       },
     );
 
+    test('creates a hold engine for the Day 11 side plank contract', () {
+      final HoldAnalysisEngine engine = factory.createHold(
+        config: plankConfig,
+        holdContract: HoldContracts.sidePlank,
+      );
+
+      expect(engine, isA<HoldEngine>());
+    });
+
+    test('creates a hold engine for a valid wall sit contract and config', () {
+      final HoldAnalysisEngine engine = factory.createHold(
+        config: _wallSitConfig(),
+        holdContract: HoldContracts.wallSit,
+      );
+
+      expect(engine, isA<HoldEngine>());
+      expect(
+        engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+          HoldSignal.kneeFlexion,
+        ),
+        100.0,
+      );
+    });
+
     test('factory wiring injects the plank posture policy targets', () {
       final HoldAnalysisEngine engine = factory.createHold(
         config: plankConfig,
@@ -536,6 +644,23 @@ Map<HoldSignal, Set<AnalysisSignalRole>> _testHoldSignalRoles(
   };
 }
 
+ExerciseConfig _increasingRangeRepConfig({
+  required String name,
+  required double neutral,
+  required double active,
+  required double peak,
+}) {
+  return ExerciseConfig(
+    name: name,
+    primaryJoint: PoseLandmarkType.leftShoulder,
+    joint1: PoseLandmarkType.leftElbow,
+    joint2: PoseLandmarkType.leftHip,
+    thresholdNeutral: neutral,
+    thresholdActive: active,
+    thresholdPeak: peak,
+  );
+}
+
 ExerciseConfig _holdConfig({
   bool includeHoldSignals = true,
   Set<HoldSignal> missingSignals = const <HoldSignal>{},
@@ -585,6 +710,47 @@ ExerciseConfig _holdConfig({
       breakGraceDuration: Duration(milliseconds: 300),
     ),
     holdSignals: holdSignals,
+  );
+}
+
+ExerciseConfig _wallSitConfig() {
+  return ExerciseConfig(
+    name: 'Wall Sit',
+    primaryJoint: PoseLandmarkType.leftKnee,
+    joint1: PoseLandmarkType.leftHip,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 130.0,
+    thresholdActive: 120.0,
+    thresholdPeak: 0.0,
+    wallSitPosture: const WallSitPostureConfig(
+      activeKneeMaxAngle: 130.0,
+      kneeMinAngle: 80.0,
+      kneeMaxAngle: 120.0,
+      hipMinAngle: 70.0,
+      hipMaxAngle: 120.0,
+      torsoMinAngle: 155.0,
+      breakGraceDuration: Duration(milliseconds: 500),
+    ),
+    holdSignals: HoldSignalExtractionConfig(
+      referenceSide: HoldSide.left,
+      definitions: const <HoldSignal, PoseAngleLandmarks>{
+        HoldSignal.kneeFlexion: PoseAngleLandmarks(
+          first: PoseLandmarkType.leftHip,
+          middle: PoseLandmarkType.leftKnee,
+          last: PoseLandmarkType.leftAnkle,
+        ),
+        HoldSignal.hipFlexion: PoseAngleLandmarks(
+          first: PoseLandmarkType.leftShoulder,
+          middle: PoseLandmarkType.leftHip,
+          last: PoseLandmarkType.leftKnee,
+        ),
+        HoldSignal.torsoAlignment: PoseAngleLandmarks(
+          first: PoseLandmarkType.leftEar,
+          middle: PoseLandmarkType.leftShoulder,
+          last: PoseLandmarkType.leftHip,
+        ),
+      },
+    ),
   );
 }
 

@@ -822,7 +822,52 @@ void main() {
       });
     });
 
+    test('jumping jack exposes synchronized bilateral arm and leg signals', () {
+      final config = _loadConfig('assets/config/exercises/jumping_jack.json');
+      final metrics = extractor.extract(
+        _jumpingJackPose(leftShoulderAngle: 120, rightShoulderAngle: 100),
+        config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.jumpingJack,
+      );
+
+      expect(metrics.leftRangeRepMetrics.primaryAngle, closeTo(120.0, 0.001));
+      expect(metrics.rightRangeRepMetrics.primaryAngle, closeTo(100.0, 0.001));
+      expect(
+        metrics.bilateralRangeRepMetrics?.primaryAngle,
+        closeTo(100.0, 0.001),
+      );
+      expect(
+        metrics.bilateralRangeRepMetrics?.formMetric,
+        closeTo(135.0, 0.001),
+      );
+    });
+
     group('hold metrics', () {
+      test('wall sit extracts knee, hip, and torso hold signals', () {
+        final config = _loadConfig('assets/config/exercises/wall_sit.json');
+        final metrics = extractor.extract(
+          _wallSitPose(),
+          config,
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.wallSit,
+          holdSide: HoldSide.left,
+        );
+
+        expect(
+          metrics.holdSignalValues.valueFor(HoldSignal.kneeFlexion),
+          closeTo(90.0, 0.001),
+        );
+        expect(
+          metrics.holdSignalValues.valueFor(HoldSignal.hipFlexion),
+          closeTo(90.0, 0.001),
+        );
+        expect(
+          metrics.holdSignalValues.valueFor(HoldSignal.torsoAlignment),
+          closeTo(180.0, 0.001),
+        );
+      });
+
       test(
         'valid left plank geometry emits expected hold angles and preserves pose metadata',
         () {
@@ -1402,6 +1447,91 @@ Pose _lateralRaisePose({
         rightWrist.y,
       ),
       PoseLandmarkType.rightHip: point(PoseLandmarkType.rightHip, 4, 1),
+    },
+  );
+}
+
+Pose _jumpingJackPose({
+  required double leftShoulderAngle,
+  required double rightShoulderAngle,
+}) {
+  final leftRadians = leftShoulderAngle * math.pi / 180.0;
+  final rightRadians = rightShoulderAngle * math.pi / 180.0;
+  const leftShoulder = math.Point<double>(-1, 0);
+  const rightShoulder = math.Point<double>(1, 0);
+  const leftHip = math.Point<double>(-1, 1);
+  const rightHip = math.Point<double>(1, 1);
+
+  final leftElbow = math.Point<double>(
+    leftShoulder.x + math.sin(leftRadians),
+    leftShoulder.y + math.cos(leftRadians),
+  );
+  final rightElbow = math.Point<double>(
+    rightShoulder.x - math.sin(rightRadians),
+    rightShoulder.y + math.cos(rightRadians),
+  );
+  const diagonal = 0.7071067811865476;
+  const leftKnee = math.Point<double>(-1 - diagonal, 1 + diagonal);
+  const rightKnee = math.Point<double>(1 + diagonal, 1 + diagonal);
+
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        leftShoulder.x,
+        leftShoulder.y,
+      ),
+      PoseLandmarkType.leftElbow: _landmark(
+        PoseLandmarkType.leftElbow,
+        leftElbow.x,
+        leftElbow.y,
+      ),
+      PoseLandmarkType.leftHip: _landmark(
+        PoseLandmarkType.leftHip,
+        leftHip.x,
+        leftHip.y,
+      ),
+      PoseLandmarkType.leftKnee: _landmark(
+        PoseLandmarkType.leftKnee,
+        leftKnee.x,
+        leftKnee.y,
+      ),
+      PoseLandmarkType.rightShoulder: _landmark(
+        PoseLandmarkType.rightShoulder,
+        rightShoulder.x,
+        rightShoulder.y,
+      ),
+      PoseLandmarkType.rightElbow: _landmark(
+        PoseLandmarkType.rightElbow,
+        rightElbow.x,
+        rightElbow.y,
+      ),
+      PoseLandmarkType.rightHip: _landmark(
+        PoseLandmarkType.rightHip,
+        rightHip.x,
+        rightHip.y,
+      ),
+      PoseLandmarkType.rightKnee: _landmark(
+        PoseLandmarkType.rightKnee,
+        rightKnee.x,
+        rightKnee.y,
+      ),
+    },
+  );
+}
+
+Pose _wallSitPose() {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftEar: _landmark(PoseLandmarkType.leftEar, -2, 0),
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        -1,
+        0,
+      ),
+      PoseLandmarkType.leftHip: _landmark(PoseLandmarkType.leftHip, 0, 0),
+      PoseLandmarkType.leftKnee: _landmark(PoseLandmarkType.leftKnee, 0, 1),
+      PoseLandmarkType.leftAnkle: _landmark(PoseLandmarkType.leftAnkle, 1, 1),
     },
   );
 }

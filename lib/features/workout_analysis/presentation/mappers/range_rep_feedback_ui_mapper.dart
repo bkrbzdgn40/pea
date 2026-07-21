@@ -89,6 +89,54 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(ExerciseType? exerciseType) {
     );
   }
 
+  if (exerciseType == ExerciseType.calfRaise) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Topuklarini kontrollu kaldir...',
+      ascend: 'Topuklarini kontrollu indir...',
+      formViolation: 'Diz hattini daha sabit tut.',
+      controlDescent: 'Yukselisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ust noktada dengeyi koru.',
+      maintainForm: 'Diz hattini sabit tut.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.frontRaise) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kollarini kontrollu one kaldir...',
+      ascend: 'Kollarini kontrollu indir...',
+      formViolation: 'Dirseklerini gereksiz bukme.',
+      controlDescent: 'Kaldirisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ust noktada gecisi sabitle.',
+      maintainForm: 'Dirsek acini koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.gluteBridge) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kalcani kontrollu yukari kaldir...',
+      ascend: 'Kalcani kontrollu indir...',
+      formViolation: 'Formunu koru.',
+      controlDescent: 'Yukselisi kontrollu yap.',
+      controlAscent: 'Inisi kontrollu yap.',
+      stabilizeTransition: 'Ust noktada gecisi sabitle.',
+      maintainForm: 'Kalca kontrolunu koru.',
+    );
+  }
+
+  if (exerciseType == ExerciseType.jumpingJack) {
+    return const _RangeRepFeedbackCopy(
+      descend: 'Kollarini ve bacaklarini ac...',
+      ascend: 'Kontrollu baslangica don...',
+      formViolation: 'Bacaklarini yeterince ac.',
+      controlDescent: 'Acilisi kontrollu yap.',
+      controlAscent: 'Donusu kontrollu yap.',
+      stabilizeTransition: 'Ust noktada ritmi koru.',
+      maintainForm: 'Kol ve bacak acilimini birlikte koru.',
+    );
+  }
+
   if (exerciseType == ExerciseType.lateralRaise) {
     return const _RangeRepFeedbackCopy(
       descend: 'Kollarini yana kaldir...',

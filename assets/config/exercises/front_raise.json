@@ -1,0 +1,33 @@
+{
+  "name": "Front Raise",
+  "primaryJoint": "leftShoulder",
+  "joint1": "leftElbow",
+  "joint2": "leftHip",
+  "thresholdNeutral": 15.0,
+  "thresholdActive": 35.0,
+  "thresholdPeak": 80.0,
+  "idealDescentSeconds": 1.2,
+  "idealAscentSeconds": 1.0,
+  "formThreshold": 155.0,
+  "targetMinAngle": 0.0,
+  "targetMaxAngle": 95.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftShoulder",
+      "middle": "leftElbow",
+      "last": "leftWrist"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 250
+  }
+}

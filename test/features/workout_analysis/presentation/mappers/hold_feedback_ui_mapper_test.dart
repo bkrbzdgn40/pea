@@ -23,6 +23,14 @@ void main() {
         message: 'Kollari Bas Ustune Uzat',
       ),
       (code: HoldFeedbackCode.straightenKnees, message: 'Dizleri Duzlestir'),
+      (
+        code: HoldFeedbackCode.adjustWallSitDepth,
+        message: 'Duvar Oturusu Derinligini Ayarla',
+      ),
+      (
+        code: HoldFeedbackCode.alignWallSitTorso,
+        message: 'Govdeyi Duvara Hizala',
+      ),
       (code: HoldFeedbackCode.correctForm, message: 'Formu Duzelt'),
     ];
 

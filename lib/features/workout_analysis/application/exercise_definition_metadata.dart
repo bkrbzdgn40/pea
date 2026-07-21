@@ -12,6 +12,12 @@ enum ExerciseMovementPattern {
   hipHinge,
   shoulderAbduction,
   verticalPush,
+  anklePlantarFlexion,
+  shoulderFlexion,
+  hipExtension,
+  squatHold,
+  sideCoreHold,
+  fullBodyAbduction,
 }
 
 /// Declares whether an exercise is tracked as repetitions or as a timed hold.

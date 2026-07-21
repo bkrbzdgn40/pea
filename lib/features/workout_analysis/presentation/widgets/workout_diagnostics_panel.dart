@@ -685,9 +685,13 @@ String _formatHoldSignalTarget(HoldSignal signal, double value) {
     case HoldSignal.extension:
     case HoldSignal.armExtension:
     case HoldSignal.kneeExtension:
+    case HoldSignal.torsoAlignment:
       return '>= $formattedValue';
     case HoldSignal.compression:
       return '<= $formattedValue';
+    case HoldSignal.kneeFlexion:
+    case HoldSignal.hipFlexion:
+      return '~ $formattedValue';
     case HoldSignal.support:
       return formattedValue;
   }

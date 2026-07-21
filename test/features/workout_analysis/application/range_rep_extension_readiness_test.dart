@@ -130,6 +130,10 @@ void main() {
         ExerciseType.lyingLegRaise,
         ExerciseType.lateralRaise,
         ExerciseType.shoulderPress,
+        ExerciseType.calfRaise,
+        ExerciseType.frontRaise,
+        ExerciseType.gluteBridge,
+        ExerciseType.jumpingJack,
       };
 
       for (final definition in catalog.definitions.where(

@@ -1,0 +1,33 @@
+{
+  "name": "Side Plank",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftAnkle",
+  "holdPosture": {
+    "activePostureAngle": 155.0,
+    "bodyLineEntryAngle": 165.0,
+    "bodyLineSustainAngle": 162.0,
+    "armSupportMinAngle": 60.0,
+    "armSupportMaxAngle": 120.0,
+    "legExtensionMinAngle": 160.0,
+    "breakGraceMillis": 350
+  },
+  "holdSignals": {
+    "referenceSide": "left",
+    "alignment": {
+      "first": "leftShoulder",
+      "middle": "leftHip",
+      "last": "leftAnkle"
+    },
+    "support": {
+      "first": "leftShoulder",
+      "middle": "leftElbow",
+      "last": "leftWrist"
+    },
+    "extension": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    }
+  }
+}

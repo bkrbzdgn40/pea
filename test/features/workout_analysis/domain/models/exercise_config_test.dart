@@ -233,6 +233,45 @@ void main() {
       },
     );
 
+    test('parses the Day 11 range-rep exercise configs', () {
+      const expectations = <String, String>{
+        'assets/config/exercises/calf_raise.json': 'Calf Raise',
+        'assets/config/exercises/front_raise.json': 'Front Raise',
+        'assets/config/exercises/glute_bridge.json': 'Glute Bridge',
+        'assets/config/exercises/jumping_jack.json': 'Jumping Jack',
+      };
+
+      for (final entry in expectations.entries) {
+        final config = _loadConfig(entry.key);
+        expect(config.name, entry.value);
+        expect(config.rangeRepSignals, isNotNull);
+        expect(config.targetMaxAngle, isNotNull);
+      }
+    });
+
+    test('parses wall-sit and side-plank hold configs', () {
+      final wallSit = _loadConfig('assets/config/exercises/wall_sit.json');
+      expect(wallSit.wallSitPosture, isNotNull);
+      expect(wallSit.wallSitPosture?.activeKneeMaxAngle, 130.0);
+      expect(wallSit.wallSitPosture?.kneeMinAngle, 80.0);
+      expect(wallSit.wallSitPosture?.kneeMaxAngle, 120.0);
+      expect(
+        wallSit.holdSignals?.definitionFor(HoldSignal.kneeFlexion)?.middle,
+        PoseLandmarkType.leftKnee,
+      );
+      expect(
+        wallSit.holdSignals?.definitionFor(HoldSignal.torsoAlignment)?.middle,
+        PoseLandmarkType.leftShoulder,
+      );
+
+      final sidePlank = _loadConfig('assets/config/exercises/side_plank.json');
+      expect(sidePlank.holdPosture, isNotNull);
+      expect(
+        sidePlank.holdSignals?.definitionFor(HoldSignal.alignment)?.middle,
+        PoseLandmarkType.leftHip,
+      );
+    });
+
     test('keeps legacy squat configs without rangeRepSignals valid', () {
       final config = ExerciseConfig.fromMap(<String, dynamic>{
         'name': 'Legacy Squat',

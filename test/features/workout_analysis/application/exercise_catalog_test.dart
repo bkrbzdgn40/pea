@@ -228,6 +228,12 @@ void main() {
         ExerciseType.romanianDeadlift: ExerciseMovementPattern.hipHinge,
         ExerciseType.lateralRaise: ExerciseMovementPattern.shoulderAbduction,
         ExerciseType.shoulderPress: ExerciseMovementPattern.verticalPush,
+        ExerciseType.calfRaise: ExerciseMovementPattern.anklePlantarFlexion,
+        ExerciseType.frontRaise: ExerciseMovementPattern.shoulderFlexion,
+        ExerciseType.gluteBridge: ExerciseMovementPattern.hipExtension,
+        ExerciseType.wallSit: ExerciseMovementPattern.squatHold,
+        ExerciseType.sidePlank: ExerciseMovementPattern.sideCoreHold,
+        ExerciseType.jumpingJack: ExerciseMovementPattern.fullBodyAbduction,
       };
 
       for (final entry in expectedPatterns.entries) {
@@ -237,6 +243,53 @@ void main() {
           reason: entry.key.id,
         );
       }
+    });
+
+    test('registers the Day 11 exercise package on the intended engines', () {
+      final rangeRepExpectations = <ExerciseType, RangeRepContract>{
+        ExerciseType.calfRaise: RangeRepContracts.calfRaise,
+        ExerciseType.frontRaise: RangeRepContracts.frontRaise,
+        ExerciseType.gluteBridge: RangeRepContracts.gluteBridge,
+        ExerciseType.jumpingJack: RangeRepContracts.jumpingJack,
+      };
+
+      for (final entry in rangeRepExpectations.entries) {
+        final definition = catalog.definitionFor(entry.key);
+        expect(definition.analysisEngineKind, EngineKind.rangeRep);
+        expect(definition.analysisRangeRepContract, same(entry.value));
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.tempo),
+          isTrue,
+        );
+      }
+
+      final gluteBridge = catalog.definitionFor(ExerciseType.gluteBridge);
+      expect(
+        gluteBridge.declaresFeedbackRule(
+          ExerciseFeedbackRuleId.movementProgress,
+        ),
+        isTrue,
+      );
+      expect(
+        gluteBridge.declaresFeedbackRule(ExerciseFeedbackRuleId.formCorrection),
+        isFalse,
+      );
+
+      final wallSit = catalog.definitionFor(ExerciseType.wallSit);
+      expect(wallSit.analysisEngineKind, EngineKind.hold);
+      expect(wallSit.analysisHoldContract, same(HoldContracts.wallSit));
+      expect(
+        wallSit.usesAnalysisEngine(ExerciseAnalysisEngine.stability),
+        isTrue,
+      );
+
+      final sidePlank = catalog.definitionFor(ExerciseType.sidePlank);
+      expect(sidePlank.analysisEngineKind, EngineKind.hold);
+      expect(sidePlank.analysisHoldContract, same(HoldContracts.sidePlank));
+      expect(
+        sidePlank.usesAnalysisEngine(ExerciseAnalysisEngine.stability),
+        isTrue,
+      );
     });
 
     test('exposes immutable capability collections', () {

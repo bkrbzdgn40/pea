@@ -10,7 +10,13 @@ enum ExerciseType {
   tricepsDip(id: 'triceps_dip', title: 'Triceps Dip'),
   romanianDeadlift(id: 'romanian_deadlift', title: 'Romanian Deadlift'),
   lateralRaise(id: 'lateral_raise', title: 'Lateral Raise'),
-  shoulderPress(id: 'shoulder_press', title: 'Shoulder Press');
+  shoulderPress(id: 'shoulder_press', title: 'Shoulder Press'),
+  calfRaise(id: 'calf_raise', title: 'Calf Raise'),
+  frontRaise(id: 'front_raise', title: 'Front Raise'),
+  gluteBridge(id: 'glute_bridge', title: 'Glute Bridge'),
+  wallSit(id: 'wall_sit', title: 'Wall Sit'),
+  sidePlank(id: 'side_plank', title: 'Side Plank'),
+  jumpingJack(id: 'jumping_jack', title: 'Jumping Jack');
 
   const ExerciseType({required this.id, required this.title});
 

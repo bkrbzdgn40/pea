@@ -1,0 +1,33 @@
+{
+  "name": "Jumping Jack",
+  "primaryJoint": "leftShoulder",
+  "joint1": "leftElbow",
+  "joint2": "leftHip",
+  "thresholdNeutral": 20.0,
+  "thresholdActive": 55.0,
+  "thresholdPeak": 135.0,
+  "idealDescentSeconds": 0.6,
+  "idealAscentSeconds": 0.6,
+  "formThreshold": 105.0,
+  "targetMinAngle": 0.0,
+  "targetMaxAngle": 165.0,
+  "tempoPenaltyPerSecond": 25.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftKnee",
+      "middle": "leftHip",
+      "last": "rightHip"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 150,
+    "minAscendingMillis": 150
+  }
+}
