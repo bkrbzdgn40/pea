@@ -45,6 +45,46 @@ void main() {
       closeTo(45, 0.001),
     );
   });
+
+  test('publishes centralized tempo facts and session summary', () {
+    final clock = _Clock();
+    final engine = RangeRepEngine(
+      config: ExerciseConfig(
+        name: 'Shoulder Press Tempo Test',
+        primaryJoint: PoseLandmarkType.leftElbow,
+        joint1: PoseLandmarkType.leftShoulder,
+        joint2: PoseLandmarkType.leftWrist,
+        thresholdNeutral: 70,
+        thresholdActive: 100,
+        thresholdPeak: 150,
+        targetMaxAngle: 165,
+      ),
+      primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+      towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+      now: clock.now,
+    );
+
+    _confirm(clock, engine, 60, 120);
+    _confirm(clock, engine, 110, 100);
+    _confirm(clock, engine, 160, 100);
+    _confirm(clock, engine, 130, 100);
+    final completionResult = _confirm(clock, engine, 60, 120);
+
+    final tempo = completionResult.completedTempo;
+    expect(tempo, isNotNull);
+    expect(tempo!.concentricDuration.inMilliseconds, 100);
+    expect(tempo.bottomPauseDuration.inMilliseconds, 100);
+    expect(tempo.eccentricDuration.inMilliseconds, 100);
+    expect(tempo.topPauseDuration.inMilliseconds, 120);
+    expect(tempo.totalRepDuration.inMilliseconds, 300);
+
+    final sessionTempo = engine.tempoSessionSummary;
+    expect(sessionTempo.repCount, 1);
+    expect(sessionTempo.averageRepDuration.inMilliseconds, 300);
+    expect(sessionTempo.fastestRepDuration.inMilliseconds, 300);
+    expect(sessionTempo.slowestRepDuration.inMilliseconds, 300);
+    expect(sessionTempo.consistencyScore, 100);
+  });
 }
 
 RangeRepEngineFrameResult _confirm(

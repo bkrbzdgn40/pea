@@ -92,6 +92,52 @@ void main() {
       }
     });
 
+    test('declares tempo capability and summary fields for rep exercises', () {
+      for (final definition in catalog.definitions.where(
+        (definition) =>
+            definition.trackingType == ExerciseTrackingType.repetitions,
+      )) {
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.tempo),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.declaresMetric(ExerciseMetricId.tempo),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.includesSummaryField(
+            ExerciseSessionSummaryField.averageTempo,
+          ),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.includesSummaryField(
+            ExerciseSessionSummaryField.fastestRep,
+          ),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.includesSummaryField(
+            ExerciseSessionSummaryField.slowestRep,
+          ),
+          isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.includesSummaryField(
+            ExerciseSessionSummaryField.tempoConsistency,
+          ),
+          isTrue,
+          reason: definition.id,
+        );
+      }
+    });
+
     test('declares alternating-rep capability for the lunge family', () {
       final lunge = catalog.definitionFor(ExerciseType.lunge);
 

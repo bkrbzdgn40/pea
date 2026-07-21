@@ -1,4 +1,5 @@
 import 'generic_rep_engine.dart';
+import 'tempo_engine.dart';
 
 /// Canonical body sides tracked by [AlternatingRepEngine].
 enum AlternatingRepSide { left, right }
@@ -35,6 +36,7 @@ class AlternatingRepCompletedRep {
     required this.totalRepIndex,
     required this.rom,
     required this.tempo,
+    this.tempoBreakdown,
   });
 
   final AlternatingRepSide side;
@@ -42,6 +44,7 @@ class AlternatingRepCompletedRep {
   final int totalRepIndex;
   final double rom;
   final Duration tempo;
+  final TempoRepResult? tempoBreakdown;
 }
 
 /// Per-frame result from [AlternatingRepEngine].
@@ -68,23 +71,32 @@ class AlternatingRepEngineFrameResult {
 /// deliberately stays independent from pose extraction, UI state, persistence,
 /// and technique scoring. Callers provide already-extracted primary movement
 /// metrics for either or both sides.
-class AlternatingRepEngine {
+class AlternatingRepEngine implements TempoMetricsSource {
   AlternatingRepEngine({
     required GenericRepEngineConfig repConfig,
+    TempoTowardPeakAction towardPeakAction = TempoTowardPeakAction.eccentric,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _leftEngine = GenericRepEngine(config: repConfig, now: () => _frameNow);
     _rightEngine = GenericRepEngine(config: repConfig, now: () => _frameNow);
+    _leftTempoEngine = TempoEngine(towardPeakAction: towardPeakAction);
+    _rightTempoEngine = TempoEngine(towardPeakAction: towardPeakAction);
   }
 
   final DateTime Function() _now;
   late final GenericRepEngine _leftEngine;
   late final GenericRepEngine _rightEngine;
+  late final TempoEngine _leftTempoEngine;
+  late final TempoEngine _rightTempoEngine;
+  final TempoSessionAccumulator _tempoSessionAccumulator =
+      TempoSessionAccumulator();
   late DateTime _frameNow;
 
   AlternatingRepSide? activeSide;
   AlternatingRepSide? lastCompletedSide;
   int totalRepCount = 0;
+  @override
+  TempoRepResult? lastCompletedTempo;
 
   DateTime? _activeRepStartedAt;
   final _leftAccumulator = _AlternatingRepStatsAccumulator();
@@ -100,6 +112,14 @@ class AlternatingRepEngine {
   double get rightAverageRom => _rightAccumulator.averageRom;
   Duration get leftAverageTempo => _leftAccumulator.averageTempo;
   Duration get rightAverageTempo => _rightAccumulator.averageTempo;
+
+  @override
+  TempoSessionSummary get tempoSessionSummary =>
+      _tempoSessionAccumulator.summary;
+  TempoSessionSummary get leftTempoSessionSummary =>
+      _leftTempoEngine.sessionSummary;
+  TempoSessionSummary get rightTempoSessionSummary =>
+      _rightTempoEngine.sessionSummary;
 
   int get repCountDifference => (leftRepCount - rightRepCount).abs();
   double get averageRomDifference => (leftAverageRom - rightAverageRom).abs();
@@ -137,6 +157,13 @@ class AlternatingRepEngine {
         ? null
         : _rightEngine.update(primaryMetric: rightPrimaryMetric);
 
+    if (leftResult != null) {
+      _leftTempoEngine.process(leftResult);
+    }
+    if (rightResult != null) {
+      _rightTempoEngine.process(rightResult);
+    }
+
     final startedSide = _resolveStartedSide(
       leftResult: leftResult,
       rightResult: rightResult,
@@ -148,6 +175,7 @@ class AlternatingRepEngine {
       activeSide = startedSide;
       _activeRepStartedAt = _frameNow;
       _engineFor(startedSide.opposite).clearActiveRepContext();
+      _tempoEngineFor(startedSide.opposite).interrupt();
     }
 
     return AlternatingRepEngineFrameResult(
@@ -161,6 +189,8 @@ class AlternatingRepEngine {
   void interrupt() {
     _leftEngine.clearActiveRepContext();
     _rightEngine.clearActiveRepContext();
+    _leftTempoEngine.interrupt();
+    _rightTempoEngine.interrupt();
     activeSide = null;
     _activeRepStartedAt = null;
   }
@@ -169,11 +199,15 @@ class AlternatingRepEngine {
   void reset() {
     _leftEngine.reset();
     _rightEngine.reset();
+    _leftTempoEngine.reset();
+    _rightTempoEngine.reset();
+    _tempoSessionAccumulator.reset();
     _leftAccumulator.reset();
     _rightAccumulator.reset();
     activeSide = null;
     lastCompletedSide = null;
     totalRepCount = 0;
+    lastCompletedTempo = null;
     _activeRepStartedAt = null;
   }
 
@@ -196,6 +230,7 @@ class AlternatingRepEngine {
     }
 
     final result = _engineFor(side).update(primaryMetric: metric);
+    final completedTempo = _tempoEngineFor(side).process(result);
     if (result.repAborted) {
       activeSide = null;
       _activeRepStartedAt = null;
@@ -215,9 +250,14 @@ class AlternatingRepEngine {
     }
 
     final startedAt = _activeRepStartedAt ?? _frameNow;
-    var tempo = _frameNow.difference(startedAt);
-    if (tempo.isNegative) {
-      tempo = Duration.zero;
+    var fallbackTempo = _frameNow.difference(startedAt);
+    if (fallbackTempo.isNegative) {
+      fallbackTempo = Duration.zero;
+    }
+    final tempo = completedTempo?.totalRepDuration ?? fallbackTempo;
+    if (completedTempo != null) {
+      lastCompletedTempo = completedTempo;
+      _tempoSessionAccumulator.record(completedTempo);
     }
 
     final accumulator = _accumulatorFor(side);
@@ -231,6 +271,7 @@ class AlternatingRepEngine {
       totalRepIndex: totalRepCount,
       rom: completedRep.rom,
       tempo: tempo,
+      tempoBreakdown: completedTempo,
     );
 
     activeSide = null;
@@ -287,6 +328,11 @@ class AlternatingRepEngine {
   GenericRepEngine _engineFor(AlternatingRepSide side) => switch (side) {
     AlternatingRepSide.left => _leftEngine,
     AlternatingRepSide.right => _rightEngine,
+  };
+
+  TempoEngine _tempoEngineFor(AlternatingRepSide side) => switch (side) {
+    AlternatingRepSide.left => _leftTempoEngine,
+    AlternatingRepSide.right => _rightTempoEngine,
   };
 
   _AlternatingRepStatsAccumulator _accumulatorFor(AlternatingRepSide side) =>

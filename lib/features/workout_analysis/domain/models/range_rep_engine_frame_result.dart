@@ -1,4 +1,5 @@
 import '../range_rep_diagnostics.dart';
+import '../tempo_engine.dart';
 import 'range_rep_completed_rep_detection_data.dart';
 import 'range_rep_confirmed_transition.dart';
 import 'range_rep_contract.dart';
@@ -12,6 +13,7 @@ class RangeRepEngineFrameResult {
     this.completedRepDetectionData,
     this.completedRepCoreData,
     this.confirmedTransition,
+    this.completedTempo,
     List<RangeRepPhase> observedRepPhases = const <RangeRepPhase>[],
   }) : observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
 
@@ -22,6 +24,7 @@ class RangeRepEngineFrameResult {
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
   final RangeRepConfirmedTransition? confirmedTransition;
+  final TempoRepResult? completedTempo;
   final List<RangeRepPhase> observedRepPhases;
 
   bool get didCompleteRep => completedRepDetectionData != null;
