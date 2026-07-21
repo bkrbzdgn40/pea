@@ -7,20 +7,26 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../application/engine_kind.dart';
+import '../../application/exercise_metric_registry.dart';
+import '../../application/workout_engine.dart';
+import '../../application/workout_live_metrics.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
+import '../providers/completed_session_metrics_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/workout_controller.dart';
+import '../providers/workout_plan_session_provider.dart';
 import '../providers/workout_session_lifecycle_controller_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/pose_painter.dart';
 import '../widgets/workout_diagnostics_panel.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
+import 'workout_plan_summary_screen.dart';
 import 'workout_summary_screen.dart';
 
 /// Runs the live camera analysis session and handles camera lifecycle recovery.
@@ -94,7 +100,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     _workoutStateSubscription ??= ref.listenManual<WorkoutState>(
       workoutControllerProvider,
-      (_, next) => sessionLifecycle.collect(next),
+      (_, next) {
+        sessionLifecycle.collect(next);
+        final activeExercise = ref.read(activeAnalysisExerciseProvider);
+        if (activeExercise != null) {
+          ref
+              .read(workoutPlanSessionProvider.notifier)
+              .observe(exercise: activeExercise, workoutState: next);
+        }
+      },
     );
   }
 
@@ -112,6 +126,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       return;
     }
 
+    ref.read(completedSessionMetricsProvider.notifier).state = null;
     sessionLifecycle.startSession(exercise: activeExercise);
   }
 
@@ -253,6 +268,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     setState(() {});
 
+    final completedMetrics = ref
+        .read(workoutControllerProvider.notifier)
+        .liveMetricsSnapshot();
+
     await _stopImageStreamIfNeeded();
     if (!mounted) return;
 
@@ -292,6 +311,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
         break;
     }
 
+    if (ref.read(workoutPlanSessionProvider).hasPlan) {
+      ref.read(workoutPlanSessionProvider.notifier).reset();
+    }
+    ref.read(completedSessionMetricsProvider.notifier).state = completedMetrics;
+
     await _setLiveAnalysisScreenAwake(false);
     if (!mounted) return;
     await Navigator.push(
@@ -306,6 +330,93 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     if (_hasAnalysisSelection()) {
       unawaited(_setLiveAnalysisScreenAwake(true));
+    }
+  }
+
+  Future<bool> _finishPlannedExerciseSession(WorkoutState workoutState) async {
+    final sessionLifecycle = _sessionLifecycle;
+    if (sessionLifecycle == null || !sessionLifecycle.beginFinish()) {
+      return false;
+    }
+
+    setState(() {});
+    final result = await sessionLifecycle.finishSession(
+      finalState: workoutState,
+    );
+    if (!mounted) {
+      return false;
+    }
+    setState(() {});
+
+    switch (result.failure) {
+      case FinishWorkoutSessionFailure.missingOwner:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Antrenman adımı kaydedilemedi: kullanıcı bulunamadı.',
+            ),
+          ),
+        );
+        return false;
+      case FinishWorkoutSessionFailure.missingExercise:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aktif antrenman hareketi bulunamadı.')),
+        );
+        return false;
+      case FinishWorkoutSessionFailure.persistenceFailure:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Antrenman adımı kaydedilemedi.')),
+        );
+        return false;
+      case FinishWorkoutSessionFailure.alreadyFinishing:
+      case FinishWorkoutSessionFailure.alreadySaved:
+        return false;
+      case null:
+        return true;
+    }
+  }
+
+  Future<void> _advancePlannedWorkout(WorkoutState workoutState) async {
+    final planState = ref.read(workoutPlanSessionProvider);
+    if (!planState.isSetCompleted) {
+      return;
+    }
+
+    final activeExercise = ref.read(activeAnalysisExerciseProvider);
+    final planController = ref.read(workoutPlanSessionProvider.notifier);
+    final nextExercise = planController.nextExerciseAfterCompletedSet;
+    final changesExercise =
+        nextExercise == null || nextExercise != activeExercise;
+
+    if (changesExercise) {
+      await _stopImageStreamIfNeeded();
+      if (!mounted) {
+        return;
+      }
+      final saved = await _finishPlannedExerciseSession(workoutState);
+      if (!saved || !mounted) {
+        return;
+      }
+      _sessionLifecycle?.completeFinishFlow();
+    }
+
+    final nextSnapshot = planController.advance();
+    if (nextSnapshot.isWorkoutCompleted) {
+      await _setLiveAnalysisScreenAwake(false);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WorkoutPlanSummaryScreen()),
+      );
+      return;
+    }
+
+    if (changesExercise && nextExercise != null) {
+      ref.read(completedSessionMetricsProvider.notifier).state = null;
+      ref.read(selectedExerciseProvider.notifier).state = nextExercise;
+      _sessionLifecycle?.startSession(exercise: nextExercise);
     }
   }
 
@@ -375,6 +486,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     final cameraState = ref.watch(cameraProvider);
     final workoutState = ref.watch(workoutControllerProvider);
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final workoutPlanState = ref.watch(workoutPlanSessionProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
@@ -430,7 +543,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       ? null
                       : () => unawaited(_finishSession(workoutState)),
                   icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                  label: const Text('Bitir'),
+                  label: Text(
+                    workoutPlanState.hasPlan ? 'Antrenmanı Bitir' : 'Bitir',
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.black54,
@@ -530,9 +645,25 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   },
                 ),
               ),
+              Positioned(
+                top: topInset + 152,
+                left: 20,
+                right: 20,
+                child: _LiveCanonicalMetricsBar(metrics: liveMetrics),
+              ),
+              if (workoutPlanState.snapshot != null &&
+                  !workoutPlanState.isWorkoutCompleted)
+                Positioned(
+                  top: topInset + 208,
+                  left: 20,
+                  right: 20,
+                  child: _PlannedWorkoutProgressBar(
+                    snapshot: workoutPlanState.snapshot!,
+                  ),
+                ),
               if (_showCalibrationPanel)
                 Positioned(
-                  top: topInset + 152,
+                  top: topInset + (workoutPlanState.hasPlan ? 280 : 208),
                   left: 20,
                   right: 20,
                   child: _CalibrationDebugPanel(
@@ -548,6 +679,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 right: 20,
                 child: Column(
                   children: [
+                    if (workoutPlanState.isSetCompleted) ...[
+                      _WorkoutSetCompletedCard(
+                        snapshot: workoutPlanState.snapshot!,
+                        onAdvance: () =>
+                            unawaited(_advancePlannedWorkout(workoutState)),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -651,6 +790,115 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       _markCameraRecovering();
     });
   }
+}
+
+class _PlannedWorkoutProgressBar extends StatelessWidget {
+  const _PlannedWorkoutProgressBar({required this.snapshot});
+
+  final WorkoutEngineSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = snapshot.targetRepetitions != null
+        ? '${snapshot.currentRepetitions} / ${snapshot.targetRepetitions} tekrar'
+        : '${_formatPlanDuration(snapshot.currentHoldDuration)} / ${_formatPlanDuration(snapshot.targetHoldDuration ?? Duration.zero)}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Round ${snapshot.roundNumber}/${snapshot.totalRounds} • Set ${snapshot.setNumber}/${snapshot.setsInCurrentExercise}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                target,
+                style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          LinearProgressIndicator(
+            value: snapshot.progress,
+            minHeight: 5,
+            backgroundColor: Colors.white12,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutSetCompletedCard extends StatelessWidget {
+  const _WorkoutSetCompletedCard({
+    required this.snapshot,
+    required this.onAdvance,
+  });
+
+  final WorkoutEngineSnapshot snapshot;
+  final VoidCallback onAdvance;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFinalSet = snapshot.completedSets >= snapshot.totalSets;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xE6112A20),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.greenAccent),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isFinalSet
+                  ? 'Son set tamamlandı.'
+                  : 'Set tamamlandı. Hazır olduğunda devam et.',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: onAdvance,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.greenAccent,
+              foregroundColor: Colors.black,
+            ),
+            child: Text(isFinalSet ? 'Bitir' : 'Devam'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatPlanDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
 }
 
 class _ExerciseConfigLoadingView extends StatelessWidget {
@@ -852,6 +1100,102 @@ class _MetricCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LiveCanonicalMetricsBar extends StatelessWidget {
+  const _LiveCanonicalMetricsBar({required this.metrics});
+
+  final WorkoutLiveMetricsSnapshot metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <MapEntry<String, String>>[];
+    final session = metrics.sessionMetrics;
+    final frame = metrics.frameMetrics;
+
+    final primary = frame.valueFor(ExerciseMetricRegistry.primaryMovement);
+    if (primary != null) {
+      items.add(
+        MapEntry<String, String>('AÇI', '${primary.toStringAsFixed(0)}°'),
+      );
+    }
+
+    final tempo = session.valueFor(ExerciseMetricRegistry.tempo);
+    if (tempo != null) {
+      items.add(
+        MapEntry<String, String>('TEMPO', _formatMetricDuration(tempo)),
+      );
+    }
+
+    final stability =
+        frame.valueFor(ExerciseMetricRegistry.stability) ??
+        session.valueFor(ExerciseMetricRegistry.stability);
+    if (stability != null) {
+      items.add(
+        MapEntry<String, String>('STABİLİTE', stability.toStringAsFixed(0)),
+      );
+    }
+
+    final asymmetry = session.valueFor(ExerciseMetricRegistry.asymmetryScore);
+    if (asymmetry != null) {
+      items.add(
+        MapEntry<String, String>('ASİMETRİ', asymmetry.toStringAsFixed(0)),
+      );
+    }
+
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        children: [
+          for (var index = 0; index < items.take(3).length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    items[index].key,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    items[index].value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _formatMetricDuration(Duration duration) {
+  if (duration.inMilliseconds < 1000) {
+    return '${duration.inMilliseconds} ms';
+  }
+  return '${(duration.inMilliseconds / 1000).toStringAsFixed(1)} sn';
 }
 
 class _CalibrationDebugPanel extends StatelessWidget {

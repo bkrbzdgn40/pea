@@ -12,6 +12,7 @@ enum ExerciseMetricId {
   rangeOfMotion,
   tempo,
   symmetry,
+  asymmetryScore,
   stability,
   repDuration,
 }
@@ -248,6 +249,18 @@ abstract final class ExerciseMetricRegistry {
         },
       );
 
+  static const ExerciseMetricDefinition<double> asymmetryScore =
+      ExerciseMetricDefinition<double>(
+        id: ExerciseMetricId.asymmetryScore,
+        key: 'asymmetry_score',
+        family: ExerciseMetricFamily.symmetry,
+        unit: ExerciseMetricUnit.score,
+        scopes: <ExerciseMetricScope>{
+          ExerciseMetricScope.repetition,
+          ExerciseMetricScope.session,
+        },
+      );
+
   static const ExerciseMetricDefinition<double> stability =
       ExerciseMetricDefinition<double>(
         id: ExerciseMetricId.stability,
@@ -283,6 +296,7 @@ abstract final class ExerciseMetricRegistry {
           rangeOfMotion,
           tempo,
           symmetry,
+          asymmetryScore,
           stability,
           repDuration,
         ],

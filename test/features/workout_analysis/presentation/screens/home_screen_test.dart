@@ -68,6 +68,8 @@ void main() {
       expect(find.text('Skor Trendi'), findsNothing);
       expect(find.text('Haftalık Hedef'), findsOneWidget);
       expect(find.text('Başarılar'), findsOneWidget);
+      expect(find.text('Planlı Antrenman'), findsOneWidget);
+      expect(find.text('Değerlendirme'), findsOneWidget);
     },
   );
 

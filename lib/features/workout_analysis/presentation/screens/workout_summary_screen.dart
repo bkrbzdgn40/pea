@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../application/exercise_metric_registry.dart';
+import '../../application/workout_live_metrics.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
+import '../providers/completed_session_metrics_provider.dart';
 import '../providers/completed_session_provider.dart';
 import 'home_screen.dart';
 
@@ -14,9 +17,10 @@ class WorkoutSummaryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(completedSessionProvider);
+    final completedMetrics = ref.watch(completedSessionMetricsProvider);
     final summaryValues = session == null
         ? const <MapEntry<String, String>>[]
-        : _summaryValues(session);
+        : _summaryValues(session, completedMetrics);
 
     return AppScaffoldShell(
       title: 'Antrenman Özeti',
@@ -59,16 +63,22 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           Expanded(
             child: session == null
                 ? const _MissingSessionView()
-                : ListView.separated(
-                    itemCount: summaryValues.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final entry = summaryValues[index];
-                      return _SummaryValueCard(
-                        label: entry.key,
-                        value: entry.value,
-                      );
-                    },
+                : SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < summaryValues.length;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(height: 10),
+                          _SummaryValueCard(
+                            label: summaryValues[index].key,
+                            value: summaryValues[index].value,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
           ),
           const SizedBox(height: 16),
@@ -167,9 +177,16 @@ class _SummaryValueCard extends StatelessWidget {
   }
 }
 
-List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
+List<MapEntry<String, String>> _summaryValues(
+  WorkoutSession session,
+  WorkoutLiveMetricsSnapshot? liveMetrics,
+) {
+  final fallbackMetrics = const WorkoutSessionMetricSnapshotBuilder().build(
+    session,
+  );
+
   if (session.isHoldSession) {
-    return <MapEntry<String, String>>[
+    final values = <MapEntry<String, String>>[
       MapEntry(
         'Egzersiz tipi',
         WorkoutPresentationFormatter.exerciseTitle(session.exerciseType),
@@ -183,11 +200,24 @@ List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
         WorkoutPresentationFormatter.holdDuration(session.bestHoldSeconds),
       ),
       MapEntry('Form kesintisi', session.formBreakCount.toString()),
-      MapEntry('Sure', WorkoutPresentationFormatter.duration(session.duration)),
     ];
+
+    final stability = _resolvedMetricValue(
+      liveMetrics,
+      fallbackMetrics,
+      ExerciseMetricRegistry.stability,
+    );
+    if (stability != null) {
+      values.add(MapEntry('Stabilite skoru', stability.toStringAsFixed(0)));
+    }
+
+    values.add(
+      MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
+    );
+    return values;
   }
 
-  return <MapEntry<String, String>>[
+  final values = <MapEntry<String, String>>[
     MapEntry(
       'Egzersiz tipi',
       WorkoutPresentationFormatter.exerciseTitle(session.exerciseType),
@@ -201,7 +231,92 @@ List<MapEntry<String, String>> _summaryValues(WorkoutSession session) {
       'En iyi skor',
       WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
+    if (session.validReps > 0 || session.invalidReps > 0) ...[
+      MapEntry('Geçerli tekrar', session.validReps.toString()),
+      MapEntry('Geçersiz tekrar', session.invalidReps.toString()),
+    ],
     MapEntry('Form uyarısı', session.formWarningCount.toString()),
-    MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
   ];
+
+  final averageRom = _resolvedMetricValue(
+    liveMetrics,
+    fallbackMetrics,
+    ExerciseMetricRegistry.rangeOfMotion,
+  );
+  if (averageRom != null) {
+    values.add(MapEntry('Ortalama ROM', '${averageRom.toStringAsFixed(1)}°'));
+  }
+
+  final averageTempo = _resolvedMetricValue(
+    liveMetrics,
+    fallbackMetrics,
+    ExerciseMetricRegistry.tempo,
+  );
+  if (averageTempo != null) {
+    values.add(MapEntry('Ortalama tempo', _formatDuration(averageTempo)));
+  }
+
+  final fastest = liveMetrics?.fastestRepDuration;
+  final slowest = liveMetrics?.slowestRepDuration;
+  if (fastest != null) {
+    values.add(MapEntry('En hızlı tekrar', _formatDuration(fastest)));
+  }
+  if (slowest != null) {
+    values.add(MapEntry('En yavaş tekrar', _formatDuration(slowest)));
+  }
+
+  final tempoConsistency = liveMetrics?.tempoConsistencyScore;
+  if (tempoConsistency != null) {
+    values.add(
+      MapEntry('Tempo tutarlılığı', tempoConsistency.toStringAsFixed(0)),
+    );
+  }
+
+  if (liveMetrics?.hasBilateralRepCounts ?? false) {
+    values
+      ..add(MapEntry('Sol tekrar', liveMetrics!.leftRepCount.toString()))
+      ..add(MapEntry('Sağ tekrar', liveMetrics.rightRepCount.toString()));
+  }
+
+  final romDifference = _resolvedMetricValue(
+    liveMetrics,
+    fallbackMetrics,
+    ExerciseMetricRegistry.symmetry,
+  );
+  if (romDifference != null) {
+    values.add(
+      MapEntry('Ortalama ROM farkı', '${romDifference.toStringAsFixed(1)}°'),
+    );
+  }
+
+  final asymmetry = _resolvedMetricValue(
+    liveMetrics,
+    fallbackMetrics,
+    ExerciseMetricRegistry.asymmetryScore,
+  );
+  if (asymmetry != null) {
+    values.add(MapEntry('Asimetri skoru', asymmetry.toStringAsFixed(0)));
+  }
+
+  values.add(
+    MapEntry('Süre', WorkoutPresentationFormatter.duration(session.duration)),
+  );
+  return values;
+}
+
+T? _resolvedMetricValue<T extends Object>(
+  WorkoutLiveMetricsSnapshot? liveMetrics,
+  ExerciseMetricSnapshot fallbackMetrics,
+  ExerciseMetricDefinition<T> definition,
+) {
+  return liveMetrics?.sessionMetrics.valueFor(definition) ??
+      fallbackMetrics.valueFor(definition);
+}
+
+String _formatDuration(Duration duration) {
+  final milliseconds = duration.inMilliseconds;
+  if (milliseconds < 1000) {
+    return '$milliseconds ms';
+  }
+  return '${(milliseconds / 1000).toStringAsFixed(1)} sn';
 }

@@ -38,7 +38,11 @@ class ExerciseCatalog {
     ExerciseMetricId.tempo,
   };
   static const Set<ExerciseMetricId> _alternatingRepMetricIds =
-      <ExerciseMetricId>{..._rangeRepMetricIds, ExerciseMetricId.symmetry};
+      <ExerciseMetricId>{
+        ..._rangeRepMetricIds,
+        ExerciseMetricId.symmetry,
+        ExerciseMetricId.asymmetryScore,
+      };
   static const Set<ExerciseMetricId> _holdMetricIds = <ExerciseMetricId>{
     ExerciseMetricId.holdDuration,
     ExerciseMetricId.form,
