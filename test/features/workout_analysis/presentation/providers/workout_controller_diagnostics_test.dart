@@ -2,12 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/feedback_delivery_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/feedback_delivery_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 
@@ -15,13 +17,16 @@ void main() {
   late ProviderContainer container;
   late WorkoutController controller;
   late ProviderSubscription<WorkoutState> controllerSubscription;
+  late _RecordingFeedbackDelivery feedbackDelivery;
 
   setUp(() {
+    feedbackDelivery = _RecordingFeedbackDelivery();
     container = ProviderContainer(
       overrides: <Override>[
         activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
         exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
         poseDetectorProvider.overrideWith((ref) => _FakePoseDetector()),
+        feedbackDeliveryProvider.overrideWithValue(feedbackDelivery),
       ],
     );
     addTearDown(container.dispose);
@@ -57,6 +62,18 @@ void main() {
     expect(snapshot.currentPhase, state.currentPhase);
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.analysisAttemptCount, 0);
+  });
+
+  test('published range-rep feedback is forwarded to the delivery port', () {
+    controller.processExerciseMetricsForTesting(
+      metrics: const ExerciseMetrics.noPose(),
+      now: DateTime.utc(2030, 1, 1),
+    );
+
+    expect(feedbackDelivery.cues, hasLength(1));
+    expect(feedbackDelivery.cues.single.id, startsWith('range:'));
+    expect(feedbackDelivery.cues.single.message, isNotEmpty);
+    expect(feedbackDelivery.cues.single.kind, FeedbackDeliveryKind.blocking);
   });
 
   test('no-pose metrics preserve the existing waiting state behavior', () {
@@ -312,4 +329,26 @@ Future<void> _pumpFrames(
     await Future<void>.delayed(frameSpacing);
     timeline.advance(frameSpacing);
   }
+}
+
+class _RecordingFeedbackDelivery implements FeedbackDeliveryPort {
+  final List<FeedbackDeliveryCue> cues = <FeedbackDeliveryCue>[];
+
+  @override
+  Future<FeedbackDeliveryResult> deliver(FeedbackDeliveryCue cue) async {
+    cues.add(cue);
+    return FeedbackDeliveryResult(
+      disposition: FeedbackDeliveryDisposition.delivered,
+      cue: cue,
+      hapticPattern: FeedbackHapticPattern.none,
+    );
+  }
+
+  @override
+  void reset() {
+    cues.clear();
+  }
+
+  @override
+  Future<void> stop() async {}
 }

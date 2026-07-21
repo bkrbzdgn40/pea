@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
+import '../../application/feedback_delivery_controller.dart';
 import '../../application/hold_coordinator.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
 import '../../application/pose_quality_policy.dart';
@@ -19,6 +22,7 @@ import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/hold_contract.dart';
+import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/range_rep_analysis_engine.dart';
@@ -27,6 +31,7 @@ import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
+import 'feedback_delivery_provider.dart';
 import 'pose_provider.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
@@ -125,12 +130,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
+  late final FeedbackDeliveryPort _feedbackDelivery;
 
   @override
   WorkoutState build() {
     // Recreating this provider starts a fresh analysis session and filter state.
     ref.watch(poseDetectorProvider);
     _clock = ref.watch(workoutClockProvider);
+    _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
+    _feedbackDelivery.reset();
     final framePosePipelineFactory = ref.watch(
       workoutFramePosePipelineFactoryProvider,
     );
@@ -594,11 +602,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _publishRangeRepState(RangeRepCoordinatorStateSnapshot snapshot) {
+    final feedbackCode = snapshot.feedbackDirective.feedbackCode;
+    final feedbackMessage = _mapRangeRepFeedbackCodeToMessage(feedbackCode);
     state = WorkoutState.rangeRep(
       landmarks: snapshot.landmarks,
-      feedbackMessage: snapshot.feedbackDirective.resolve(
-        mapFeedbackCode: _mapRangeRepFeedbackCodeToMessage,
-      ),
+      feedbackMessage: feedbackMessage,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
       analysis: RangeRepWorkoutAnalysisState(
@@ -612,12 +620,22 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         techniqueObservations: snapshot.techniqueObservations,
       ),
     );
+    unawaited(
+      _feedbackDelivery.deliver(
+        FeedbackDeliveryCue(
+          id: 'range:${feedbackCode.code}',
+          message: feedbackMessage,
+          kind: _deliveryKindForRangeRepFeedback(feedbackCode),
+        ),
+      ),
+    );
   }
 
   void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
+    final feedbackMessage = _resolveHoldFeedbackMessage(snapshot);
     state = WorkoutState.hold(
       landmarks: snapshot.landmarks,
-      feedbackMessage: _resolveHoldFeedbackMessage(snapshot),
+      feedbackMessage: feedbackMessage,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
       analysis: HoldWorkoutAnalysisState(
@@ -638,6 +656,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         plankShoulderElbowOffset: snapshot.plankShoulderElbowOffset,
         hollowShoulderElevation: snapshot.hollowShoulderElevation,
         hollowHeelElevation: snapshot.hollowHeelElevation,
+      ),
+    );
+    unawaited(
+      _feedbackDelivery.deliver(
+        _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
       ),
     );
   }
@@ -798,6 +821,61 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       code,
       exerciseType: _activeExercise,
     );
+  }
+
+  FeedbackDeliveryKind _deliveryKindForRangeRepFeedback(
+    RangeRepFeedbackCode code,
+  ) {
+    return switch (code) {
+      RangeRepFeedbackCode.waitForBody ||
+      RangeRepFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
+      RangeRepFeedbackCode.awaitNeutral ||
+      RangeRepFeedbackCode.ready => FeedbackDeliveryKind.status,
+      RangeRepFeedbackCode.descend ||
+      RangeRepFeedbackCode.ascend ||
+      RangeRepFeedbackCode.repCompleted ||
+      RangeRepFeedbackCode.repIncomplete => FeedbackDeliveryKind.movement,
+      RangeRepFeedbackCode.legacyFormThresholdViolation ||
+      RangeRepFeedbackCode.controlDescent ||
+      RangeRepFeedbackCode.controlAscent ||
+      RangeRepFeedbackCode.stabilizeTransition ||
+      RangeRepFeedbackCode.maintainForm => FeedbackDeliveryKind.corrective,
+    };
+  }
+
+  FeedbackDeliveryCue _holdFeedbackDeliveryCue(
+    HoldCoordinatorStateSnapshot snapshot, {
+    required String feedbackMessage,
+  }) {
+    final feedbackCode = snapshot.holdFeedbackCode;
+    if (feedbackCode == null) {
+      return FeedbackDeliveryCue(
+        id: 'hold:fallback:$feedbackMessage',
+        message: feedbackMessage,
+        kind: FeedbackDeliveryKind.status,
+      );
+    }
+
+    return FeedbackDeliveryCue(
+      id: 'hold:${feedbackCode.code}',
+      message: feedbackMessage,
+      kind: _deliveryKindForHoldFeedback(feedbackCode),
+    );
+  }
+
+  FeedbackDeliveryKind _deliveryKindForHoldFeedback(HoldFeedbackCode code) {
+    return switch (code) {
+      HoldFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
+      HoldFeedbackCode.preparePosition ||
+      HoldFeedbackCode.holdPosition => FeedbackDeliveryKind.status,
+      HoldFeedbackCode.alignHips ||
+      HoldFeedbackCode.adjustElbowSupport ||
+      HoldFeedbackCode.extendLegs ||
+      HoldFeedbackCode.increaseHollowCompression ||
+      HoldFeedbackCode.extendArmsOverhead ||
+      HoldFeedbackCode.straightenKnees ||
+      HoldFeedbackCode.correctForm => FeedbackDeliveryKind.corrective,
+    };
   }
 
   void handleLifecycleInterruption({String? reason}) {
