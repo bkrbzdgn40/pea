@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../providers/settings_provider.dart';
 
@@ -12,9 +13,10 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsState = ref.watch(settingsControllerProvider);
+    final localizations = AppLocalizations.of(context);
 
     return AppScaffoldShell(
-      title: 'Ayarlar',
+      title: localizations.settings,
       currentPage: AppDestination.settings,
       padding: EdgeInsets.zero,
       body: settingsState.when(
@@ -23,13 +25,41 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
               _SettingsSection(
-                title: 'Kamera',
+                title: localizations.language,
+                children: [
+                  _SettingsDropdownTile<AppLanguage>(
+                    title: localizations.appLanguage,
+                    value: settings.language,
+                    values: AppLanguage.values,
+                    labelFor: (language) => switch (language) {
+                      AppLanguage.turkish => localizations.turkish,
+                      AppLanguage.english => localizations.english,
+                    },
+                    onChanged: (language) {
+                      if (language == null) return;
+
+                      unawaited(
+                        ref
+                            .read(settingsControllerProvider.notifier)
+                            .setLanguage(language),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _SettingsSection(
+                title: localizations.camera,
                 children: [
                   _SettingsDropdownTile<WorkoutCameraPreference>(
-                    title: 'Kamera tercihi',
+                    title: localizations.cameraPreference,
                     value: settings.cameraPreference,
                     values: WorkoutCameraPreference.values,
-                    labelFor: (preference) => preference.label,
+                    labelFor: (preference) => switch (preference) {
+                      WorkoutCameraPreference.front =>
+                        localizations.frontCamera,
+                      WorkoutCameraPreference.back => localizations.backCamera,
+                    },
                     onChanged: (preference) {
                       if (preference == null) return;
 
@@ -42,10 +72,14 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const Divider(height: 1, color: Colors.white12),
                   _SettingsDropdownTile<WorkoutCameraQuality>(
-                    title: 'Görüntü kalitesi',
+                    title: localizations.imageQuality,
                     value: settings.cameraQuality,
                     values: WorkoutCameraQuality.values,
-                    labelFor: (quality) => quality.label,
+                    labelFor: (quality) => switch (quality) {
+                      WorkoutCameraQuality.low => localizations.low,
+                      WorkoutCameraQuality.medium => localizations.medium,
+                      WorkoutCameraQuality.high => localizations.high,
+                    },
                     onChanged: (quality) {
                       if (quality == null) return;
 
@@ -79,9 +113,9 @@ class SettingsScreen extends ConsumerWidget {
                     size: 40,
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Ayarlar yüklenemedi',
-                    style: TextStyle(
+                  Text(
+                    localizations.settingsLoadFailed,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -91,7 +125,7 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () => ref.invalidate(settingsControllerProvider),
-                    child: const Text('Tekrar dene'),
+                    child: Text(localizations.retry),
                   ),
                 ],
               ),

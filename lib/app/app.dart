@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'theme/app_theme.dart';
 import '../features/auth/presentation/screens/auth_bootstrap_gate.dart';
+import '../features/workout_analysis/presentation/providers/settings_provider.dart';
+import 'localization/app_localizations.dart';
+import 'theme/app_theme.dart';
 
-class PoseAnalysisApp extends StatelessWidget {
+class PoseAnalysisApp extends ConsumerWidget {
   const PoseAnalysisApp({super.key});
 
   @override
-  // MaterialApp seviyesindeki temel uygulama ayarlarını kurar ve açılışta
-  // kullanıcı oturumunu hazırlayan kapıyı başlangıç ekranı olarak verir.
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settingsState = ref.watch(settingsControllerProvider);
+    final language = settingsState.valueOrNull?.language ?? AppLanguage.turkish;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PEA',
       theme: AppTheme.dark,
+      locale: Locale(language.languageCode),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const AuthBootstrapGate(),
     );
   }
