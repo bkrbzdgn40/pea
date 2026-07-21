@@ -149,6 +149,32 @@ void main() {
       expect(lunge.analysisEngineKind, EngineKind.rangeRep);
     });
 
+    test('declares symmetry only for the alternating-capable lunge family', () {
+      final lunge = catalog.definitionFor(ExerciseType.lunge);
+
+      expect(lunge.usesAnalysisEngine(ExerciseAnalysisEngine.symmetry), isTrue);
+      expect(lunge.declaresMetric(ExerciseMetricId.symmetry), isTrue);
+      expect(
+        lunge.includesSummaryField(ExerciseSessionSummaryField.asymmetryScore),
+        isTrue,
+      );
+
+      for (final definition in catalog.definitions.where(
+        (definition) => definition.type != ExerciseType.lunge,
+      )) {
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.symmetry),
+          isFalse,
+          reason: definition.id,
+        );
+        expect(
+          definition.declaresMetric(ExerciseMetricId.symmetry),
+          isFalse,
+          reason: definition.id,
+        );
+      }
+    });
+
     test('declares canonical movement patterns in the central catalog', () {
       const expectedPatterns = <ExerciseType, ExerciseMovementPattern>{
         ExerciseType.squat: ExerciseMovementPattern.squat,

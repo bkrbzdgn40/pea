@@ -72,6 +72,35 @@ void main() {
       expect(engine.rightTempoSessionSummary.repCount, 0);
     });
 
+    test('feeds completed side reps into the shared symmetry engine', () {
+      final clock = _AlternatingRepTestClock();
+      final engine = _buildEngine(clock);
+
+      final left = _completeLeftRep(engine, clock, peak: 100);
+      final afterLeft = engine.symmetrySessionSummary;
+
+      expect(left.symmetryComparison, isNull);
+      expect(afterLeft.leftRepCount, 1);
+      expect(afterLeft.rightRepCount, 0);
+      expect(afterLeft.romSymmetryScore, isNull);
+      expect(afterLeft.tempoSymmetryScore, isNull);
+
+      final right = _completeRightRep(engine, clock, peak: 95);
+      final comparison = right.symmetryComparison;
+      final summary = engine.symmetrySessionSummary;
+
+      expect(comparison, isNotNull);
+      expect(comparison!.pairIndex, 1);
+      expect(engine.lastCompletedSymmetryPair, same(comparison));
+      expect(summary.leftRepCount, 1);
+      expect(summary.rightRepCount, 1);
+      expect(summary.pairedRepCount, 1);
+      expect(summary.repCountSymmetryScore, 100);
+      expect(summary.romSymmetryScore, isNotNull);
+      expect(summary.tempoSymmetryScore, isNotNull);
+      expect(summary.overallSymmetryScore, isNotNull);
+    });
+
     test(
       'interrupt clears only active context and preserves completed stats',
       () {
@@ -108,6 +137,8 @@ void main() {
       expect(engine.rightRepCount, 0);
       expect(engine.leftAverageRom, 0);
       expect(engine.rightAverageTempo, Duration.zero);
+      expect(engine.lastCompletedSymmetryPair, isNull);
+      expect(engine.symmetrySessionSummary.overallSymmetryScore, isNull);
     });
   });
 }
