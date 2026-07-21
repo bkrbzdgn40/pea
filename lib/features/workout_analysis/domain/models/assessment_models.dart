@@ -150,12 +150,27 @@ class AssessmentSnapshot {
     required this.type,
     required this.phase,
     required this.sampleCount,
+    required this.isReadyToComplete,
+    required this.readinessProgress,
     required this.result,
+    this.continuousEvidenceDuration,
   });
 
   final AssessmentType type;
   final AssessmentPhase phase;
   final int sampleCount;
+
+  /// Whether the current evidence satisfies the product-level completion gate.
+  /// This is a capture-readiness signal, not a clinical validity claim.
+  final bool isReadyToComplete;
+
+  /// Normalized 0-1 progress toward the current assessment evidence gate.
+  final double readinessProgress;
+
+  /// Continuous accepted evidence duration when the assessment has a temporal
+  /// requirement, such as single-leg balance. Null for non-temporal modes.
+  final Duration? continuousEvidenceDuration;
+
   final AssessmentResult? result;
 
   bool get isActive => phase == AssessmentPhase.active;

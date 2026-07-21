@@ -122,6 +122,7 @@ void main() {
         config: const AssessmentEngineConfig(
           minimumBalanceSamples: 2,
           minimumBalanceDuration: Duration(seconds: 1),
+          balanceContinuityGraceDuration: Duration(seconds: 2),
         ),
       )..start(balanceSide: AssessmentSide.left);
 
@@ -145,6 +146,7 @@ void main() {
         config: const AssessmentEngineConfig(
           minimumBalanceSamples: 2,
           minimumBalanceDuration: Duration(seconds: 1),
+          balanceContinuityGraceDuration: Duration(seconds: 2),
         ),
       )..start(balanceSide: AssessmentSide.left);
 
@@ -181,6 +183,7 @@ void main() {
         config: const AssessmentEngineConfig(
           minimumBalanceSamples: 2,
           minimumBalanceDuration: Duration(seconds: 1),
+          balanceContinuityGraceDuration: Duration(seconds: 2),
         ),
       )..start(balanceSide: AssessmentSide.left);
 
@@ -218,6 +221,7 @@ void main() {
         config: const AssessmentEngineConfig(
           minimumBalanceSamples: 2,
           minimumBalanceDuration: Duration(seconds: 5),
+          balanceContinuityGraceDuration: Duration(seconds: 2),
         ),
       )..start(balanceSide: AssessmentSide.left);
 
@@ -254,6 +258,7 @@ void main() {
         config: const AssessmentEngineConfig(
           minimumBalanceSamples: 2,
           minimumBalanceDuration: Duration(seconds: 1),
+          balanceContinuityGraceDuration: Duration(seconds: 2),
           balanceStandardDeviationAtZeroScore: 0.10,
         ),
       )..start(balanceSide: AssessmentSide.right);
@@ -283,6 +288,190 @@ void main() {
       expect(result.stabilityScore, closeTo(0, 1e-9));
       expect(result.shoulderSwayStandardDeviation, closeTo(0.1, 1e-9));
       expect(result.hipSwayStandardDeviation, closeTo(0.1, 1e-9));
+    });
+
+    test('balance foot-down frame restarts continuous evidence window', () {
+      final engine = AssessmentEngine(
+        type: AssessmentType.balance,
+        config: const AssessmentEngineConfig(
+          minimumBalanceSamples: 2,
+          minimumBalanceDuration: Duration(milliseconds: 100),
+          balanceContinuityGraceDuration: Duration(milliseconds: 500),
+        ),
+      )..start(balanceSide: AssessmentSide.left);
+
+      engine
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 0,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 100,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 200,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.0,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 300,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 400,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        );
+
+      expect(engine.snapshot.sampleCount, 2);
+      expect(
+        engine.snapshot.continuousEvidenceDuration,
+        const Duration(milliseconds: 100),
+      );
+      expect(engine.snapshot.isReadyToComplete, isTrue);
+
+      final result = engine.complete() as BalanceAssessmentResult;
+      expect(result.sampleCount, 2);
+      expect(result.rejectedSampleCount, 1);
+      expect(result.observedDuration, const Duration(milliseconds: 100));
+    });
+
+    test('long pose-quality gap restarts balance evidence window', () {
+      final engine = AssessmentEngine(
+        type: AssessmentType.balance,
+        config: const AssessmentEngineConfig(
+          minimumBalanceSamples: 2,
+          minimumBalanceDuration: Duration(milliseconds: 100),
+          balanceContinuityGraceDuration: Duration(milliseconds: 500),
+        ),
+      )..start(balanceSide: AssessmentSide.left);
+
+      engine
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 0,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 100,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        );
+
+      engine
+        ..markInputUnavailable(
+          capturedAt: DateTime.utc(2026, 1, 1, 0, 0, 0, 200),
+        )
+        ..markInputUnavailable(
+          capturedAt: DateTime.utc(2026, 1, 1, 0, 0, 0, 700),
+        );
+
+      expect(engine.snapshot.sampleCount, 0);
+      expect(engine.snapshot.isReadyToComplete, isFalse);
+      expect(engine.snapshot.readinessProgress, 0);
+    });
+
+    test('short pose-quality gap preserves balance continuity', () {
+      final engine = AssessmentEngine(
+        type: AssessmentType.balance,
+        config: const AssessmentEngineConfig(
+          minimumBalanceSamples: 3,
+          minimumBalanceDuration: Duration(milliseconds: 500),
+          balanceContinuityGraceDuration: Duration(milliseconds: 500),
+        ),
+      )..start(balanceSide: AssessmentSide.left);
+
+      engine
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 0,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        )
+        ..observe(
+          _balanceAt(
+            side: AssessmentSide.left,
+            millisecond: 100,
+            shoulderX: 1.0,
+            hipX: 1.0,
+            clearance: 0.2,
+          ),
+        );
+
+      final unavailable = engine.markInputUnavailable(
+        capturedAt: DateTime.utc(2026, 1, 1, 0, 0, 0, 200),
+      );
+      expect(unavailable.isReadyToComplete, isFalse);
+
+      engine.observe(
+        _balanceAt(
+          side: AssessmentSide.left,
+          millisecond: 500,
+          shoulderX: 1.0,
+          hipX: 1.0,
+          clearance: 0.2,
+        ),
+      );
+
+      expect(engine.snapshot.sampleCount, 3);
+      expect(
+        engine.snapshot.continuousEvidenceDuration,
+        const Duration(milliseconds: 500),
+      );
+      expect(engine.snapshot.isReadyToComplete, isTrue);
+      expect(engine.snapshot.readinessProgress, 1);
+    });
+
+    test('squat snapshot exposes readiness before completion', () {
+      final engine = AssessmentEngine(type: AssessmentType.squat)..start();
+
+      for (final angle in <double>[170, 150, 130, 150, 170]) {
+        engine.observe(
+          _squat(
+            leftKneeAngle: angle,
+            rightKneeAngle: angle,
+            depth: (angle - 130) / 100,
+          ),
+        );
+      }
+
+      expect(engine.snapshot.isReadyToComplete, isTrue);
+      expect(engine.snapshot.readinessProgress, 1);
     });
 
     test('shoulder mobility keeps independent maxima for both sides', () {
@@ -431,6 +620,26 @@ SquatAssessmentObservation _squat({
     rightKneeAngleDegrees: rightKneeAngle,
     hipDepthRatio: depth,
     torsoInclinationDegrees: torso,
+  );
+}
+
+BalanceAssessmentObservation _balanceAt({
+  required AssessmentSide side,
+  required int millisecond,
+  required double shoulderX,
+  required double hipX,
+  required double clearance,
+}) {
+  return BalanceAssessmentObservation(
+    side: side,
+    capturedAt: DateTime.utc(
+      2026,
+      1,
+      1,
+    ).add(Duration(milliseconds: millisecond)),
+    shoulderCenterXNormalized: shoulderX,
+    hipCenterXNormalized: hipX,
+    raisedFootClearanceRatio: clearance,
   );
 }
 

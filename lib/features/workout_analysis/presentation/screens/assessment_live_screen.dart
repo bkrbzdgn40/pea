@@ -107,6 +107,8 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                 child: _AssessmentStatusCard(
                   sampleCount: liveState.snapshot.sampleCount,
                   feedback: liveState.feedbackMessage,
+                  progressMessage: liveState.progressMessage,
+                  progress: liveState.snapshot.readinessProgress,
                 ),
               ),
               Positioned(
@@ -116,17 +118,26 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                 child: liveState.snapshot.isCompleted
                     ? _AssessmentResultCard(
                         result: liveState.snapshot.result!,
+                        onRetry: () {
+                          ref
+                              .read(assessmentLiveControllerProvider.notifier)
+                              .retry();
+                        },
                         onClose: () => Navigator.pop(context),
                       )
                     : ElevatedButton.icon(
-                        onPressed: () async {
-                          await _stopImageStream();
-                          ref
-                              .read(assessmentLiveControllerProvider.notifier)
-                              .complete();
-                        },
+                        onPressed: liveState.snapshot.isReadyToComplete
+                            ? () async {
+                                await _stopImageStream();
+                                ref
+                                    .read(
+                                      assessmentLiveControllerProvider.notifier,
+                                    )
+                                    .complete();
+                              }
+                            : null,
                         icon: const Icon(Icons.check_circle_outline_rounded),
-                        label: const Text('Değerlendirmeyi Bitir'),
+                        label: const Text('Sonucu Gör'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.greenAccent,
                           foregroundColor: Colors.black,
@@ -195,10 +206,14 @@ class _AssessmentStatusCard extends StatelessWidget {
   const _AssessmentStatusCard({
     required this.sampleCount,
     required this.feedback,
+    required this.progressMessage,
+    required this.progress,
   });
 
   final int sampleCount;
   final String feedback;
+  final String progressMessage;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +235,22 @@ class _AssessmentStatusCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0).toDouble(),
+            minHeight: 5,
+            backgroundColor: Colors.white12,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            progressMessage,
+            style: const TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
           Text(
             'Geçerli örnek: $sampleCount',
             style: const TextStyle(color: Colors.white60, fontSize: 12),
@@ -232,30 +262,40 @@ class _AssessmentStatusCard extends StatelessWidget {
 }
 
 class _AssessmentResultCard extends StatelessWidget {
-  const _AssessmentResultCard({required this.result, required this.onClose});
+  const _AssessmentResultCard({
+    required this.result,
+    required this.onRetry,
+    required this.onClose,
+  });
 
   final AssessmentResult result;
+  final VoidCallback onRetry;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final values = _resultValues(result);
+    final hasSufficientData = result.hasSufficientData;
+    final values = hasSufficientData
+        ? _resultValues(result)
+        : const <MapEntry<String, String>>[];
     return Container(
-      constraints: const BoxConstraints(maxHeight: 360),
+      constraints: const BoxConstraints(maxHeight: 380),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xEE111111),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: hasSufficientData
+              ? Colors.greenAccent.withValues(alpha: 0.5)
+              : Colors.orangeAccent.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            result.hasSufficientData
-                ? 'Değerlendirme sonucu'
-                : 'Yetersiz ölçüm',
+            hasSufficientData ? 'Değerlendirme sonucu' : 'Yetersiz ölçüm',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -263,38 +303,52 @@ class _AssessmentResultCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final entry in values)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: const TextStyle(color: Colors.white60),
+          if (!hasSufficientData)
+            const Text(
+              'Güvenilir bir sonuç göstermek için yeterli ve kesintisiz ölçüm alınamadı. Pozisyonunu düzenleyip tekrar deneyebilirsin.',
+              style: TextStyle(color: Colors.white70, height: 1.4),
+            )
+          else
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final entry in values)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(color: Colors.white60),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          entry.value,
-                          style: const TextStyle(
-                            color: Colors.greenAccent,
-                            fontWeight: FontWeight.w800,
+                          const SizedBox(width: 12),
+                          Text(
+                            entry.value,
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 12),
-          ElevatedButton(onPressed: onClose, child: const Text('Kapat')),
+          if (!hasSufficientData) ...[
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tekrar Dene'),
+            ),
+            const SizedBox(height: 8),
+          ],
+          OutlinedButton(onPressed: onClose, child: const Text('Kapat')),
         ],
       ),
     );
@@ -305,7 +359,7 @@ String _assessmentTitle(AssessmentType type) {
   return switch (type) {
     AssessmentType.squat => 'Squat Değerlendirmesi',
     AssessmentType.balance => 'Denge Değerlendirmesi',
-    AssessmentType.shoulderMobility => 'Omuz Mobilitesi',
+    AssessmentType.shoulderMobility => 'Omuz Elevasyon Değerlendirmesi',
   };
 }
 
@@ -313,12 +367,14 @@ List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
   switch (result) {
     case SquatAssessmentResult squat:
       return <MapEntry<String, String>>[
-        MapEntry('Sol diz fleksiyonu', _degrees(squat.leftKneeFlexionDegrees)),
-        MapEntry('Sağ diz fleksiyonu', _degrees(squat.rightKneeFlexionDegrees)),
-        MapEntry('Diz farkı', _degrees(squat.kneeFlexionAsymmetryDegrees)),
         MapEntry(
-          'Kalça derinlik oranı',
-          squat.deepestHipDepthRatio?.toStringAsFixed(3) ?? '—',
+          'Diz fleksiyonu (ortalama)',
+          _degrees(
+            _averageNullable(
+              squat.leftKneeFlexionDegrees,
+              squat.rightKneeFlexionDegrees,
+            ),
+          ),
         ),
         MapEntry(
           'Kalça diz seviyesine indi',
@@ -337,42 +393,44 @@ List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
       return <MapEntry<String, String>>[
         MapEntry('Stabilite skoru', _score(balance.stabilityScore)),
         MapEntry(
-          'Ortalama sway',
-          balance.averageSwayStandardDeviation?.toStringAsFixed(3) ?? '—',
-        ),
-        MapEntry('Geçerli örnek', balance.sampleCount.toString()),
-        MapEntry('Reddedilen örnek', balance.rejectedSampleCount.toString()),
-        MapEntry(
-          'Gözlem süresi',
+          'Kesintisiz duruş süresi',
           _assessmentDuration(balance.observedDuration),
         ),
       ];
     case ShoulderMobilityAssessmentResult shoulder:
       return <MapEntry<String, String>>[
         MapEntry(
-          'Sol maksimum',
+          'Sol maksimum elevasyon',
           _degrees(shoulder.leftMaximumElevationDegrees),
         ),
         MapEntry(
-          'Sağ maksimum',
+          'Sağ maksimum elevasyon',
           _degrees(shoulder.rightMaximumElevationDegrees),
         ),
         MapEntry('Sağ-sol farkı', _degrees(shoulder.sideDifferenceDegrees)),
         MapEntry(
-          'Sol maksimumda gövde eğimi',
+          'Sol maksimumda yanal gövde eğimi',
           _degrees(shoulder.torsoInclinationAtLeftMaximumDegrees),
         ),
         MapEntry(
-          'Sağ maksimumda gövde eğimi',
+          'Sağ maksimumda yanal gövde eğimi',
           _degrees(shoulder.torsoInclinationAtRightMaximumDegrees),
         ),
       ];
   }
 }
 
+double? _averageNullable(double? left, double? right) {
+  if (left == null || right == null) {
+    return null;
+  }
+  return (left + right) / 2.0;
+}
+
 String _degrees(double? value) =>
     value == null ? '—' : '${value.toStringAsFixed(1)}°';
-String _score(double? value) => value == null ? '—' : value.toStringAsFixed(0);
+String _score(double? value) =>
+    value == null ? '—' : '${value.toStringAsFixed(0)} / 100';
 
 String _assessmentDuration(Duration duration) {
   final seconds = duration.inMilliseconds / 1000;
