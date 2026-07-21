@@ -124,12 +124,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   double _cameraFps = 0.0;
   double _analysisFps = 0.0;
 
-  late final EngineKind _engineKind;
-  late final ExerciseType _activeExercise;
-  late final DateTime Function() _clock;
-  late final ExerciseConfig _config;
-  late final RangeRepContract? _rangeRepContract;
-  late final HoldContract? _holdContract;
+  // Riverpod may rerun build() on the same Notifier instance when watched
+  // dependencies change (for example when a planned workout advances from a
+  // rep exercise to a hold exercise). These values therefore describe the
+  // current analysis build, not immutable lifetime state of the notifier.
+  late EngineKind _engineKind;
+  late ExerciseType _activeExercise;
+  late DateTime Function() _clock;
+  late ExerciseConfig _config;
+  late RangeRepContract? _rangeRepContract;
+  late HoldContract? _holdContract;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
@@ -143,11 +147,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
-  late final FeedbackDeliveryPort _feedbackDelivery;
+  late FeedbackDeliveryPort _feedbackDelivery;
 
   @override
   WorkoutState build() {
-    // Recreating this provider starts a fresh analysis session and filter state.
+    // Rebuilding analysis dependencies starts a fresh analysis engine/filter
+    // state. Riverpod can rerun build() on this same Notifier instance.
     ref.watch(poseDetectorProvider);
     _clock = ref.watch(workoutClockProvider);
     _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
