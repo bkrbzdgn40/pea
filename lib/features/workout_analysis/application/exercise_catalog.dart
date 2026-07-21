@@ -14,6 +14,11 @@ class ExerciseCatalog {
 
   static const Set<ExerciseAnalysisEngine> _rangeRepAnalysisEngines =
       <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.rangeRep};
+  static const Set<ExerciseAnalysisEngine>
+  _alternatingCapableRangeRepAnalysisEngines = <ExerciseAnalysisEngine>{
+    ExerciseAnalysisEngine.rangeRep,
+    ExerciseAnalysisEngine.alternatingRep,
+  };
   static const Set<ExerciseAnalysisEngine> _holdAnalysisEngines =
       <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.hold};
 
@@ -121,7 +126,7 @@ class ExerciseCatalog {
         type: ExerciseType.lunge,
         movementPattern: ExerciseMovementPattern.lunge,
         trackingType: ExerciseTrackingType.repetitions,
-        analysisEngines: _rangeRepAnalysisEngines,
+        analysisEngines: _alternatingCapableRangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
         sessionSummaryFields: _rangeRepSummaryFields,

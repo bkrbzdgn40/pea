@@ -1,4 +1,6 @@
 import '../domain/analysis_engine.dart';
+import '../domain/alternating_rep_engine.dart';
+import '../domain/generic_rep_engine.dart';
 import '../domain/hold_form_policy.dart';
 import '../domain/hold_analysis_engine.dart';
 import '../domain/hold_engine.dart';
@@ -13,8 +15,9 @@ import 'engine_kind.dart';
 
 /// Creates the engine used by today's analysis pipeline.
 ///
-/// Range-rep and hold are now real engine families. Alternating-rep stays
-/// explicit until that family is implemented for real.
+/// Range-rep, alternating-rep, and hold have dedicated typed creation paths.
+/// The generic [create] surface remains limited to single-frame engine families;
+/// alternating-rep uses [createAlternatingRep] because it consumes both sides.
 class AnalysisEngineFactory {
   const AnalysisEngineFactory();
 
@@ -27,6 +30,30 @@ class AnalysisEngineFactory {
     return RangeRepEngine(
       config: config,
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
+      now: now,
+    );
+  }
+
+  AlternatingRepEngine createAlternatingRep({
+    required ExerciseConfig config,
+    required RangeRepContract rangeRepContract,
+    double minimumRom = 0.0,
+    DateTime Function()? now,
+  }) {
+    _validateRangeRepEngineContract(rangeRepContract, config);
+    return AlternatingRepEngine(
+      repConfig: GenericRepEngineConfig(
+        neutralThreshold: config.thresholdNeutral,
+        activeThreshold: config.thresholdActive,
+        peakThreshold: config.thresholdPeak,
+        direction: switch (rangeRepContract.primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            GenericRepMetricDirection.decreasingToPeak,
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            GenericRepMetricDirection.increasingToPeak,
+        },
+        minimumRom: minimumRom,
+      ),
       now: now,
     );
   }
@@ -87,8 +114,8 @@ class AnalysisEngineFactory {
         );
       case EngineKind.alternatingRep:
         throw StateError(
-          'EngineKind $engineKind is not implemented for analysis engine '
-          'creation.',
+          'EngineKind $engineKind requires the side-aware '
+          'createAlternatingRep(...) factory path.',
         );
     }
   }

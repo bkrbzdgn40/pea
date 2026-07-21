@@ -4,6 +4,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/analys
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/alternating_rep_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
@@ -44,6 +45,15 @@ void main() {
     thresholdNeutral: 160.0,
     thresholdActive: 130.0,
     thresholdPeak: 90.0,
+  );
+  final lungeConfig = ExerciseConfig(
+    name: 'Stationary Lunge',
+    primaryJoint: PoseLandmarkType.leftKnee,
+    joint1: PoseLandmarkType.leftHip,
+    joint2: PoseLandmarkType.leftAnkle,
+    thresholdNeutral: 160.0,
+    thresholdActive: 145.0,
+    thresholdPeak: 115.0,
   );
   final plankConfig = _holdConfig();
   final hollowHoldConfig = _hollowHoldConfig();
@@ -432,21 +442,75 @@ void main() {
       expect(engine, isA<HoldAnalysisEngine>());
     });
 
-    test('keeps alternating-rep unimplemented', () {
-      expect(
-        () => factory.create(
-          engineKind: EngineKind.alternatingRep,
-          config: squatConfig,
-        ),
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            contains('alternatingRep'),
-          ),
-        ),
+    test('runs the lunge family through the alternating-rep engine', () {
+      final clock = _RangeRepTestClock();
+      final engine = factory.createAlternatingRep(
+        config: lungeConfig,
+        rangeRepContract: RangeRepContracts.stationaryLunge,
+        minimumRom: 20.0,
+        now: clock.now,
       );
+
+      _confirmAlternatingMetrics(
+        clock,
+        engine,
+        left: 170,
+        right: 170,
+        milliseconds: 120,
+      );
+      _confirmAlternatingMetrics(
+        clock,
+        engine,
+        left: 135,
+        right: 170,
+        milliseconds: 100,
+      );
+      _confirmAlternatingMetrics(
+        clock,
+        engine,
+        left: 100,
+        right: 170,
+        milliseconds: 100,
+      );
+      _confirmAlternatingMetrics(
+        clock,
+        engine,
+        left: 130,
+        right: 170,
+        milliseconds: 100,
+      );
+      _confirmAlternatingMetrics(
+        clock,
+        engine,
+        left: 170,
+        right: 170,
+        milliseconds: 120,
+      );
+
+      expect(engine, isA<AlternatingRepEngine>());
+      expect(engine.leftRepCount, 1);
+      expect(engine.rightRepCount, 0);
+      expect(engine.lastCompletedSide, AlternatingRepSide.left);
     });
+
+    test(
+      'generic creation keeps alternating-rep on the side-aware factory path',
+      () {
+        expect(
+          () => factory.create(
+            engineKind: EngineKind.alternatingRep,
+            config: lungeConfig,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('side-aware'),
+            ),
+          ),
+        );
+      },
+    );
   });
 }
 
@@ -563,6 +627,18 @@ ExerciseConfig _hollowHoldConfig({
         : null,
     holdSignals: holdSignals,
   );
+}
+
+void _confirmAlternatingMetrics(
+  _RangeRepTestClock clock,
+  AlternatingRepEngine engine, {
+  required double left,
+  required double right,
+  required int milliseconds,
+}) {
+  engine.update(leftPrimaryMetric: left, rightPrimaryMetric: right);
+  clock.advance(Duration(milliseconds: milliseconds));
+  engine.update(leftPrimaryMetric: left, rightPrimaryMetric: right);
 }
 
 void _confirmRangeRepMetric(
