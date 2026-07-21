@@ -419,6 +419,8 @@ void main() {
       await tester.tap(find.text('Tekrar Dene'));
       await tester.pumpAndSettle();
 
+      expect(harness.sessionRepository.savedSessions, isEmpty);
+
       final restartedState = harness.container.read(workoutControllerProvider);
       final restartedLifecycle = harness.container
           .read(workoutSessionLifecycleControllerProvider)
@@ -441,7 +443,7 @@ void main() {
         secondPushCount + 1,
       );
 
-      expect(harness.sessionRepository.savedSessions, hasLength(2));
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
     },
   );
 
@@ -1220,7 +1222,11 @@ class _FakeSessionRepository implements SessionRepository {
   Future<void> deleteSession({
     required String ownerId,
     required String sessionId,
-  }) async {}
+  }) async {
+    savedSessions.removeWhere(
+      (session) => session.ownerId == ownerId && session.id == sessionId,
+    );
+  }
 }
 
 class _FakeAuthRepository implements AuthRepository {
