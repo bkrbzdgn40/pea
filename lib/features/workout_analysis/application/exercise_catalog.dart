@@ -13,11 +13,15 @@ class ExerciseCatalog {
   const ExerciseCatalog();
 
   static const Set<ExerciseAnalysisEngine> _rangeRepAnalysisEngines =
-      <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.rangeRep};
+      <ExerciseAnalysisEngine>{
+        ExerciseAnalysisEngine.rangeRep,
+        ExerciseAnalysisEngine.tempo,
+      };
   static const Set<ExerciseAnalysisEngine>
   _alternatingCapableRangeRepAnalysisEngines = <ExerciseAnalysisEngine>{
     ExerciseAnalysisEngine.rangeRep,
     ExerciseAnalysisEngine.alternatingRep,
+    ExerciseAnalysisEngine.tempo,
   };
   static const Set<ExerciseAnalysisEngine> _holdAnalysisEngines =
       <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.hold};
@@ -51,6 +55,10 @@ class ExerciseCatalog {
         ExerciseSessionSummaryField.validRepetitions,
         ExerciseSessionSummaryField.invalidRepetitions,
         ExerciseSessionSummaryField.averageScore,
+        ExerciseSessionSummaryField.averageTempo,
+        ExerciseSessionSummaryField.fastestRep,
+        ExerciseSessionSummaryField.slowestRep,
+        ExerciseSessionSummaryField.tempoConsistency,
         ExerciseSessionSummaryField.sessionDuration,
       };
   static const Set<ExerciseSessionSummaryField> _holdSummaryFields =

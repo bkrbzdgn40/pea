@@ -14,6 +14,7 @@ import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
 import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
+import 'tempo_engine.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
@@ -57,6 +58,7 @@ class _RangeRepLifecycleFacts {
     required this.completedRepCoreData,
     required this.confirmedTransition,
     required List<RangeRepPhase> observedRepPhases,
+    this.completedTempo,
   }) : observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
 
   final bool repStarted;
@@ -65,6 +67,7 @@ class _RangeRepLifecycleFacts {
   final RangeRepCompletedRepCoreData? completedRepCoreData;
   final RangeRepConfirmedTransition? confirmedTransition;
   final List<RangeRepPhase> observedRepPhases;
+  final TempoRepResult? completedTempo;
 }
 
 class _RangeRepCompletionFacts {
@@ -195,7 +198,7 @@ class _MutableRangeRepPhaseQuality {
 }
 
 /// Current range-rep engine backing the workout analysis flow.
-class RangeRepEngine implements RangeRepAnalysisEngine {
+class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   final ExerciseConfig config;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final DateTime Function() _now;
@@ -239,6 +242,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   double _currentRepWorstBackAngle = 180.0;
   bool _currentRepHadFormViolation = false;
   late final GenericRepEngine _genericRepEngine;
+  late final TempoEngine _tempoEngine;
   String? _lastConfirmedTransitionLabel;
   final _MutableRangeRepPhaseQuality _descendingPhaseQuality =
       _MutableRangeRepPhaseQuality();
@@ -252,6 +256,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required this.config,
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
+    RangeRepTowardPeakMuscleAction towardPeakMuscleAction =
+        RangeRepTowardPeakMuscleAction.eccentric,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _genericRepEngine = GenericRepEngine(
@@ -268,8 +274,22 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       ),
       now: _now,
     );
+    _tempoEngine = TempoEngine(
+      towardPeakAction: switch (towardPeakMuscleAction) {
+        RangeRepTowardPeakMuscleAction.eccentric =>
+          TempoTowardPeakAction.eccentric,
+        RangeRepTowardPeakMuscleAction.concentric =>
+          TempoTowardPeakAction.concentric,
+      },
+    );
     _disarm();
   }
+
+  @override
+  TempoRepResult? get lastCompletedTempo => _tempoEngine.lastCompletedRep;
+
+  @override
+  TempoSessionSummary get tempoSessionSummary => _tempoEngine.sessionSummary;
 
   @override
   double get lastRepRom => _lastRepRom;
@@ -418,6 +438,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       completedRepCoreData: lifecycleFacts.completedRepCoreData,
       confirmedTransition: lifecycleFacts.confirmedTransition,
       observedRepPhases: lifecycleFacts.observedRepPhases,
+      completedTempo: lifecycleFacts.completedTempo,
     );
   }
 
@@ -429,6 +450,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     required bool calculateCompatibilityScore,
   }) {
     final genericResult = _genericRepEngine.update(primaryMetric: angle);
+    final completedTempo = _tempoEngine.process(genericResult);
     final transition = genericResult.confirmedTransition;
     final stateBefore = _movementPhaseFor(genericResult.phaseBeforeUpdate);
 
@@ -609,6 +631,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
       completedRepCoreData: completedRepCoreData,
       confirmedTransition: confirmedTransition,
       observedRepPhases: observedRepPhases,
+      completedTempo: completedTempo,
     );
   }
 
@@ -1126,6 +1149,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
   @override
   void reset() {
     _genericRepEngine.reset();
+    _tempoEngine.reset();
     repCount = _genericRepEngine.repCount;
     lastRepScore = 0;
     lastRepScoreBreakdown = null;
@@ -1146,6 +1170,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
 
   void _disarm() {
     _genericRepEngine.clearActiveRepContext();
+    _tempoEngine.interrupt();
     _isArmed = _genericRepEngine.isArmed;
     state = _movementPhaseFor(_genericRepEngine.phase);
     repCount = _genericRepEngine.repCount;
@@ -1187,6 +1212,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine {
     if (gapDuration <= Duration.zero) {
       return;
     }
+
+    _tempoEngine.shiftActiveTiming(gapDuration);
 
     switch (state) {
       case MovementPhase.neutral:

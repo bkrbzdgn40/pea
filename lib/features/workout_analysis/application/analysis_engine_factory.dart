@@ -11,6 +11,7 @@ import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_engine.dart';
+import '../domain/tempo_engine.dart';
 import 'engine_kind.dart';
 
 /// Creates the engine used by today's analysis pipeline.
@@ -30,6 +31,7 @@ class AnalysisEngineFactory {
     return RangeRepEngine(
       config: config,
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
+      towardPeakMuscleAction: rangeRepContract.towardPeakMuscleAction,
       now: now,
     );
   }
@@ -54,6 +56,12 @@ class AnalysisEngineFactory {
         },
         minimumRom: minimumRom,
       ),
+      towardPeakAction: switch (rangeRepContract.towardPeakMuscleAction) {
+        RangeRepTowardPeakMuscleAction.eccentric =>
+          TempoTowardPeakAction.eccentric,
+        RangeRepTowardPeakMuscleAction.concentric =>
+          TempoTowardPeakAction.concentric,
+      },
       now: now,
     );
   }

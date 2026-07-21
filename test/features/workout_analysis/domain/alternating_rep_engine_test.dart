@@ -65,6 +65,11 @@ void main() {
       expect(completed.totalRepIndex, 1);
       expect(completed.rom, greaterThan(0));
       expect(completed.tempo, greaterThan(Duration.zero));
+      expect(completed.tempoBreakdown, isNotNull);
+      expect(completed.tempo, completed.tempoBreakdown!.totalRepDuration);
+      expect(engine.tempoSessionSummary.repCount, 1);
+      expect(engine.leftTempoSessionSummary.repCount, 1);
+      expect(engine.rightTempoSessionSummary.repCount, 0);
     });
 
     test(

@@ -44,5 +44,9 @@ enum ExerciseSessionSummaryField {
   invalidRepetitions,
   holdDuration,
   averageScore,
+  averageTempo,
+  fastestRep,
+  slowestRep,
+  tempoConsistency,
   sessionDuration,
 }
