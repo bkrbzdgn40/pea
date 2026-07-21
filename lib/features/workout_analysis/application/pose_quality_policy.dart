@@ -118,8 +118,15 @@ class PoseQualityPolicy {
   PoseQualityAssessment assessRequirementSet({
     required Pose pose,
     required ExerciseLandmarkRequirementSet requirementSet,
+    RangeRepSide? side,
+    HoldSide? holdSide,
   }) {
-    return _assessRequirementSet(pose: pose, requirementSet: requirementSet);
+    return _assessRequirementSet(
+      pose: pose,
+      requirementSet: requirementSet,
+      side: side,
+      holdSide: holdSide,
+    );
   }
 
   PoseQualityAssessment assess({

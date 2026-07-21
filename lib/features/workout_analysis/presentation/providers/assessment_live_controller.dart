@@ -6,6 +6,7 @@ import '../../application/assessment_engine.dart';
 import '../../application/assessment_measurement_extractor.dart';
 import '../../application/assessment_pose_quality_policy.dart';
 import '../../application/common_frame_pose_pipeline.dart';
+import '../../application/exercise_metrics.dart';
 import '../../application/pose_quality_policy.dart';
 import '../../domain/models/assessment_models.dart';
 import 'pose_provider.dart';
@@ -57,6 +58,11 @@ class AssessmentLiveController
 
   @override
   AssessmentLiveState build() {
+    // Keep the auto-disposed ML Kit detector alive for the full assessment
+    // session. WorkoutController owns the same dependency this way; using
+    // only ref.read(...) from frame callbacks can leave the detector without
+    // a listener and allow Riverpod to dispose it between frames.
+    ref.watch(poseDetectorProvider);
     final selection = ref.watch(selectedAssessmentProvider);
     if (selection == null) {
       throw StateError('Assessment mode requires a selected assessment.');
@@ -131,7 +137,11 @@ class AssessmentLiveController
         return;
       }
       final pose = result.selectedPose!;
-      final observation = _observationFor(pose, capturedAt: now);
+      final observation = _observationFor(
+        pose,
+        capturedAt: now,
+        poseAssessment: result.selectedAssessment!,
+      );
       final snapshot = _engine.observe(observation);
       state = _stateFor(
         snapshot: snapshot,
@@ -212,9 +222,17 @@ class AssessmentLiveController
   AssessmentObservation _observationFor(
     Pose pose, {
     required DateTime capturedAt,
+    required PoseQualityAssessment poseAssessment,
   }) {
     return switch (_selection.type) {
-      AssessmentType.squat => _extractor.extractSquat(pose),
+      AssessmentType.squat => _extractor.extractSquat(
+        pose,
+        side: switch (poseAssessment.preferredRangeRepSide) {
+          RangeRepSide.left => AssessmentSide.left,
+          RangeRepSide.right => AssessmentSide.right,
+          null => null,
+        },
+      ),
       AssessmentType.balance => _extractor.extractBalance(
         pose,
         side: _selection.balanceSide!,
@@ -267,7 +285,7 @@ class AssessmentLiveController
   String _instructionFor(AssessmentSelection selection) {
     return switch (selection.type) {
       AssessmentType.squat =>
-        'Kameraya yandan dön. Tüm vücudun kadrajdayken kontrollü bir squat yap ve tekrar ayağa kalk.',
+        'Kameraya sol veya sağ yanını dön. Tüm vücudun kadrajdayken kontrollü bir squat yap ve tekrar ayağa kalk.',
       AssessmentType.balance =>
         'Kameraya önden dön. Tüm vücudun kadrajdayken seçilen ayağın üzerinde kesintisiz sabit kal.',
       AssessmentType.shoulderMobility =>

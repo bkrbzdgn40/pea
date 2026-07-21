@@ -25,7 +25,7 @@ class AssessmentEngineConfig {
   /// This is a product-level evidence threshold, not a clinical cutoff.
   final int minimumSquatSamples;
 
-  /// Minimum observed bilateral-average knee-angle excursion required to
+  /// Minimum observed tracked knee-angle excursion required to
   /// establish that meaningful squat movement occurred during the capture.
   /// This is a product heuristic rather than a diagnostic ROM threshold.
   final double minimumSquatKneeAngleRangeDegrees;
@@ -217,19 +217,22 @@ class AssessmentEngine {
       return;
     }
 
-    final leftKneeAngle = observation.leftKneeAngleDegrees!;
-    final rightKneeAngle = observation.rightKneeAngleDegrees!;
+    final leftKneeAngle = observation.leftKneeAngleDegrees;
+    final rightKneeAngle = observation.rightKneeAngleDegrees;
     final hipDepthRatio = observation.hipDepthRatio!;
     final torsoInclination = observation.torsoInclinationDegrees!;
-    if (!leftKneeAngle.isFinite ||
-        !rightKneeAngle.isFinite ||
+    final kneeAngles = <double>[?leftKneeAngle, ?rightKneeAngle];
+    if (kneeAngles.isEmpty ||
+        kneeAngles.any((angle) => !angle.isFinite) ||
         !hipDepthRatio.isFinite ||
         !torsoInclination.isFinite) {
       return;
     }
 
     _squatSampleCount += 1;
-    final averageKneeAngle = (leftKneeAngle + rightKneeAngle) / 2.0;
+    final averageKneeAngle =
+        kneeAngles.reduce((first, second) => first + second) /
+        kneeAngles.length;
     _minimumSquatAverageKneeAngle = _minimumOf(
       _minimumSquatAverageKneeAngle,
       averageKneeAngle,
@@ -344,8 +347,10 @@ class AssessmentEngine {
       );
     }
 
-    final leftFlexion = 180.0 - deepest.leftKneeAngleDegrees!;
-    final rightFlexion = 180.0 - deepest.rightKneeAngleDegrees!;
+    final leftKneeAngle = deepest.leftKneeAngleDegrees;
+    final rightKneeAngle = deepest.rightKneeAngleDegrees;
+    final leftFlexion = leftKneeAngle == null ? null : 180.0 - leftKneeAngle;
+    final rightFlexion = rightKneeAngle == null ? null : 180.0 - rightKneeAngle;
     final minimumAverageKneeAngle = _minimumSquatAverageKneeAngle;
     final maximumAverageKneeAngle = _maximumSquatAverageKneeAngle;
     final observedKneeAngleRange =
@@ -360,7 +365,9 @@ class AssessmentEngine {
       hasSufficientData: hasSufficientData,
       leftKneeFlexionDegrees: leftFlexion,
       rightKneeFlexionDegrees: rightFlexion,
-      kneeFlexionAsymmetryDegrees: (leftFlexion - rightFlexion).abs(),
+      kneeFlexionAsymmetryDegrees: leftFlexion == null || rightFlexion == null
+          ? null
+          : (leftFlexion - rightFlexion).abs(),
       deepestHipDepthRatio: deepest.hipDepthRatio,
       torsoInclinationAtDeepestDegrees: deepest.torsoInclinationDegrees,
     );

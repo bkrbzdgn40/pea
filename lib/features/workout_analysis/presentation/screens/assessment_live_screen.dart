@@ -21,11 +21,14 @@ class AssessmentLiveScreen extends ConsumerStatefulWidget {
 class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
   CameraController? _streamController;
   bool _startingStream = false;
+  bool _ownsImageStream = false;
 
   @override
   void dispose() {
     final controller = _streamController;
-    if (controller != null && controller.value.isStreamingImages) {
+    if (_ownsImageStream &&
+        controller != null &&
+        controller.value.isStreamingImages) {
       unawaited(controller.stopImageStream());
     }
     super.dispose();
@@ -165,37 +168,64 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
 
   void _ensureImageStream(CameraController controller) {
     if (_startingStream ||
-        controller.value.isStreamingImages ||
         ref.read(assessmentLiveControllerProvider).snapshot.isCompleted) {
       return;
     }
+    if (_ownsImageStream &&
+        identical(_streamController, controller) &&
+        controller.value.isStreamingImages) {
+      return;
+    }
+
     _startingStream = true;
     _streamController = controller;
-    unawaited(
-      controller
-          .startImageStream((image) {
-            unawaited(
-              ref
-                  .read(assessmentLiveControllerProvider.notifier)
-                  .processCameraImage(
-                    image,
-                    controller.description.sensorOrientation,
-                  ),
-            );
-          })
-          .whenComplete(() {
-            _startingStream = false;
-          }),
-    );
+    unawaited(_claimImageStream(controller));
+  }
+
+  Future<void> _claimImageStream(CameraController controller) async {
+    try {
+      // CameraController supports a single image-stream callback. A controller
+      // can survive route transitions while still streaming to the previous
+      // screen, which leaves assessment preview visible but starves this
+      // controller of frames. Take explicit ownership before attaching the
+      // assessment callback.
+      if (controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+      }
+
+      if (!mounted ||
+          ref.read(assessmentLiveControllerProvider).snapshot.isCompleted) {
+        return;
+      }
+
+      await controller.startImageStream((image) {
+        unawaited(
+          ref
+              .read(assessmentLiveControllerProvider.notifier)
+              .processCameraImage(
+                image,
+                controller.description.sensorOrientation,
+              ),
+        );
+      });
+      _ownsImageStream = true;
+    } catch (_) {
+      _ownsImageStream = false;
+    } finally {
+      _startingStream = false;
+    }
   }
 
   Future<void> _stopImageStream() async {
     final controller = _streamController;
-    if (controller == null || !controller.value.isStreamingImages) {
+    if (!_ownsImageStream ||
+        controller == null ||
+        !controller.value.isStreamingImages) {
       return;
     }
     try {
       await controller.stopImageStream();
+      _ownsImageStream = false;
     } catch (_) {
       // Keep assessment completion usable during camera teardown races.
     }
@@ -368,9 +398,9 @@ List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
     case SquatAssessmentResult squat:
       return <MapEntry<String, String>>[
         MapEntry(
-          'Diz fleksiyonu (ortalama)',
+          'Diz fleksiyonu',
           _degrees(
-            _averageNullable(
+            _averageAvailable(
               squat.leftKneeFlexionDegrees,
               squat.rightKneeFlexionDegrees,
             ),
@@ -420,11 +450,11 @@ List<MapEntry<String, String>> _resultValues(AssessmentResult result) {
   }
 }
 
-double? _averageNullable(double? left, double? right) {
-  if (left == null || right == null) {
-    return null;
+double? _averageAvailable(double? left, double? right) {
+  if (left != null && right != null) {
+    return (left + right) / 2.0;
   }
-  return (left + right) / 2.0;
+  return left ?? right;
 }
 
 String _degrees(double? value) =>

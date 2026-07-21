@@ -24,8 +24,7 @@ final class SquatAssessmentObservation extends AssessmentObservation {
   final double? torsoInclinationDegrees;
 
   bool get isComplete =>
-      leftKneeAngleDegrees != null &&
-      rightKneeAngleDegrees != null &&
+      (leftKneeAngleDegrees != null || rightKneeAngleDegrees != null) &&
       hipDepthRatio != null &&
       torsoInclinationDegrees != null;
 }

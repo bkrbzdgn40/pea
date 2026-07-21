@@ -15,37 +15,60 @@ import '../domain/models/assessment_models.dart';
 class AssessmentMeasurementExtractor {
   const AssessmentMeasurementExtractor();
 
-  SquatAssessmentObservation extractSquat(Pose pose) {
-    final leftKneeAngle = _jointAngle(
-      pose,
-      first: PoseLandmarkType.leftHip,
-      middle: PoseLandmarkType.leftKnee,
-      last: PoseLandmarkType.leftAnkle,
-    );
-    final rightKneeAngle = _jointAngle(
-      pose,
-      first: PoseLandmarkType.rightHip,
-      middle: PoseLandmarkType.rightKnee,
-      last: PoseLandmarkType.rightAnkle,
-    );
-    final leftDepth = _hipDepthRatio(
-      pose,
-      hipType: PoseLandmarkType.leftHip,
-      kneeType: PoseLandmarkType.leftKnee,
-      ankleType: PoseLandmarkType.leftAnkle,
-    );
-    final rightDepth = _hipDepthRatio(
-      pose,
-      hipType: PoseLandmarkType.rightHip,
-      kneeType: PoseLandmarkType.rightKnee,
-      ankleType: PoseLandmarkType.rightAnkle,
-    );
+  SquatAssessmentObservation extractSquat(Pose pose, {AssessmentSide? side}) {
+    final useLeft = side == null || side == AssessmentSide.left;
+    final useRight = side == null || side == AssessmentSide.right;
+    final leftKneeAngle = useLeft
+        ? _jointAngle(
+            pose,
+            first: PoseLandmarkType.leftHip,
+            middle: PoseLandmarkType.leftKnee,
+            last: PoseLandmarkType.leftAnkle,
+          )
+        : null;
+    final rightKneeAngle = useRight
+        ? _jointAngle(
+            pose,
+            first: PoseLandmarkType.rightHip,
+            middle: PoseLandmarkType.rightKnee,
+            last: PoseLandmarkType.rightAnkle,
+          )
+        : null;
+    final leftDepth = useLeft
+        ? _hipDepthRatio(
+            pose,
+            hipType: PoseLandmarkType.leftHip,
+            kneeType: PoseLandmarkType.leftKnee,
+            ankleType: PoseLandmarkType.leftAnkle,
+          )
+        : null;
+    final rightDepth = useRight
+        ? _hipDepthRatio(
+            pose,
+            hipType: PoseLandmarkType.rightHip,
+            kneeType: PoseLandmarkType.rightKnee,
+            ankleType: PoseLandmarkType.rightAnkle,
+          )
+        : null;
+    final torsoInclination = switch (side) {
+      AssessmentSide.left => _sideTorsoInclination(
+        pose,
+        shoulderType: PoseLandmarkType.leftShoulder,
+        hipType: PoseLandmarkType.leftHip,
+      ),
+      AssessmentSide.right => _sideTorsoInclination(
+        pose,
+        shoulderType: PoseLandmarkType.rightShoulder,
+        hipType: PoseLandmarkType.rightHip,
+      ),
+      null => _torsoInclination(pose),
+    };
 
     return SquatAssessmentObservation(
       leftKneeAngleDegrees: leftKneeAngle,
       rightKneeAngleDegrees: rightKneeAngle,
-      hipDepthRatio: _averageNullable(leftDepth, rightDepth),
-      torsoInclinationDegrees: _torsoInclination(pose),
+      hipDepthRatio: _averageAvailable(leftDepth, rightDepth),
+      torsoInclinationDegrees: torsoInclination,
     );
   }
 
@@ -166,6 +189,19 @@ class AssessmentMeasurementExtractor {
     return (knee.y - hip.y) / normalizationLength;
   }
 
+  double? _sideTorsoInclination(
+    Pose pose, {
+    required PoseLandmarkType shoulderType,
+    required PoseLandmarkType hipType,
+  }) {
+    final shoulder = pose.landmarks[shoulderType];
+    final hip = pose.landmarks[hipType];
+    if (shoulder == null || hip == null) {
+      return null;
+    }
+    return imagePlaneInclination(_point(shoulder), _point(hip));
+  }
+
   double? _torsoInclination(Pose pose) {
     final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
@@ -201,10 +237,10 @@ class AssessmentMeasurementExtractor {
     return math.sqrt((dx * dx) + (dy * dy));
   }
 
-  double? _averageNullable(double? left, double? right) {
-    if (left == null || right == null) {
-      return null;
+  double? _averageAvailable(double? left, double? right) {
+    if (left != null && right != null) {
+      return (left + right) / 2.0;
     }
-    return (left + right) / 2.0;
+    return left ?? right;
   }
 }

@@ -90,12 +90,38 @@ void main() {
       expect(result.hasSufficientData, isTrue);
     });
 
+    test(
+      'squat assessment accepts meaningful single-side profile evidence',
+      () {
+        final engine = AssessmentEngine(type: AssessmentType.squat)..start();
+
+        for (final angle in <double>[170, 150, 130, 150, 170]) {
+          engine.observe(
+            SquatAssessmentObservation(
+              leftKneeAngleDegrees: angle,
+              rightKneeAngleDegrees: null,
+              hipDepthRatio: (angle - 130) / 100,
+              torsoInclinationDegrees: 12,
+            ),
+          );
+        }
+
+        final result = engine.complete() as SquatAssessmentResult;
+
+        expect(result.sampleCount, 5);
+        expect(result.hasSufficientData, isTrue);
+        expect(result.leftKneeFlexionDegrees, 50);
+        expect(result.rightKneeFlexionDegrees, isNull);
+        expect(result.kneeFlexionAsymmetryDegrees, isNull);
+      },
+    );
+
     test('squat assessment ignores incomplete samples without fake zeroes', () {
       final engine = AssessmentEngine(type: AssessmentType.squat)..start();
 
       engine.observe(
         const SquatAssessmentObservation(
-          leftKneeAngleDegrees: 90,
+          leftKneeAngleDegrees: null,
           rightKneeAngleDegrees: null,
           hipDepthRatio: -0.1,
           torsoInclinationDegrees: 15,
