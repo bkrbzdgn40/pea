@@ -26,7 +26,7 @@ class AssessmentSelectionScreen extends ConsumerWidget {
           _AssessmentCard(
             title: 'Squat Değerlendirmesi',
             subtitle:
-                'Yan görünümde diz fleksiyonu, sağ-sol farkı, derinlik ve gövde eğimi.',
+                'Yan görünümde en derin pozisyondaki diz fleksiyonu, derinlik ve gövde eğimi.',
             icon: Icons.accessibility_new_rounded,
             onTap: () => _openAssessment(
               context,
@@ -38,15 +38,15 @@ class AssessmentSelectionScreen extends ConsumerWidget {
           _AssessmentCard(
             title: 'Denge Değerlendirmesi',
             subtitle:
-                'Ön görünümde tek ayak duruşu ve normalize image-plane sway ölçümü.',
+                'Ön görünümde kesintisiz tek ayak duruşu ve görüntü düzlemindeki salınımdan türetilen stabilite.',
             icon: Icons.balance_rounded,
             onTap: () => _showBalanceSidePicker(context, ref),
           ),
           const SizedBox(height: 12),
           _AssessmentCard(
-            title: 'Omuz Mobilitesi',
+            title: 'Omuz Elevasyon Değerlendirmesi',
             subtitle:
-                'Ön görünümde sağ-sol maksimum elevation ve gövde kompansasyonu.',
+                'Ön görünümde iki yana kol elevasyonu, sağ-sol farkı ve yanal gövde eğimi.',
             icon: Icons.sports_gymnastics_rounded,
             onTap: () => _openAssessment(
               context,

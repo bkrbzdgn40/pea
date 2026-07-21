@@ -7,6 +7,7 @@ class AssessmentEngineConfig {
     this.minimumSquatKneeAngleRangeDegrees = 20.0,
     this.minimumBalanceSamples = 10,
     this.minimumBalanceDuration = const Duration(seconds: 5),
+    this.balanceContinuityGraceDuration = const Duration(milliseconds: 500),
     this.minimumRaisedFootClearanceRatio = 0.10,
     this.balanceStandardDeviationAtZeroScore = 0.10,
     this.minimumShoulderMobilitySamples = 5,
@@ -35,6 +36,11 @@ class AssessmentEngineConfig {
   /// Minimum accepted one-leg-stance observation duration. This is a product
   /// evidence threshold rather than a diagnostic standard.
   final Duration minimumBalanceDuration;
+
+  /// Grace allowed for short detector / pose-quality gaps before a continuous
+  /// balance evidence window is abandoned. This is a product capture tolerance,
+  /// not a clinical stance-interruption threshold.
+  final Duration balanceContinuityGraceDuration;
 
   /// Minimum image-plane ankle-height separation used to accept a frame as a
   /// one-leg stance sample. The value is normalized by torso length.
@@ -65,7 +71,8 @@ class AssessmentEngine {
   AssessmentEngine({
     required this.type,
     this.config = const AssessmentEngineConfig(),
-  }) : _balanceStability = StabilityEngine<BalanceAssessmentSignal>(
+  }) : assert(!config.balanceContinuityGraceDuration.isNegative),
+       _balanceStability = StabilityEngine<BalanceAssessmentSignal>(
          config: StabilityEngineConfig(
            minimumSamplesPerSignal: 2,
            standardDeviationAtZeroScore:
@@ -89,6 +96,7 @@ class AssessmentEngine {
   int _balanceRejectedSampleCount = 0;
   DateTime? _balanceFirstCapturedAt;
   DateTime? _balanceLastCapturedAt;
+  DateTime? _balanceInputUnavailableSince;
 
   int _shoulderSampleCount = 0;
   double? _leftMaximumElevation;
@@ -148,6 +156,32 @@ class AssessmentEngine {
         break;
     }
 
+    return _buildSnapshot();
+  }
+
+  /// Marks a period where camera input cannot be trusted for continuous
+  /// evidence. Short gaps are tolerated, while longer gaps reset the active
+  /// balance window so disconnected stance segments cannot be combined.
+  AssessmentSnapshot markInputUnavailable({required DateTime capturedAt}) {
+    if (_phase != AssessmentPhase.active || type != AssessmentType.balance) {
+      return _buildSnapshot();
+    }
+
+    final currentSampleCount =
+        _balanceStability.currentWindowSummary?.sampleCount ?? 0;
+    if (currentSampleCount == 0) {
+      _balanceInputUnavailableSince = capturedAt;
+      return _buildSnapshot();
+    }
+
+    _balanceInputUnavailableSince ??= capturedAt;
+    final unavailableDuration = capturedAt.difference(
+      _balanceInputUnavailableSince!,
+    );
+    if (unavailableDuration.compareTo(config.balanceContinuityGraceDuration) >=
+        0) {
+      _restartBalanceEvidenceWindow();
+    }
     return _buildSnapshot();
   }
 
@@ -232,9 +266,35 @@ class AssessmentEngine {
 
     if (!isAccepted) {
       _balanceRejectedSampleCount += 1;
+      _restartBalanceEvidenceWindow();
       return;
     }
 
+    final unavailableSince = _balanceInputUnavailableSince;
+    if (unavailableSince != null) {
+      final unavailableDuration = observation.capturedAt.difference(
+        unavailableSince,
+      );
+      if (unavailableDuration.compareTo(
+            config.balanceContinuityGraceDuration,
+          ) >=
+          0) {
+        _restartBalanceEvidenceWindow();
+      } else {
+        _balanceInputUnavailableSince = null;
+      }
+    }
+
+    final lastCapturedAt = _balanceLastCapturedAt;
+    if (lastCapturedAt != null &&
+        observation.capturedAt
+                .difference(lastCapturedAt)
+                .compareTo(config.balanceContinuityGraceDuration) >
+            0) {
+      _restartBalanceEvidenceWindow();
+    }
+
+    _balanceInputUnavailableSince = null;
     _balanceFirstCapturedAt ??= observation.capturedAt;
     _balanceLastCapturedAt = observation.capturedAt;
     _balanceStability.recordSample(<BalanceAssessmentSignal, double>{
@@ -372,13 +432,104 @@ class AssessmentEngine {
             (_result is BalanceAssessmentResult ? _result!.sampleCount : 0),
       AssessmentType.shoulderMobility => _shoulderSampleCount,
     };
+    final readiness = _buildReadiness(sampleCount: sampleCount);
 
     return AssessmentSnapshot(
       type: type,
       phase: _phase,
       sampleCount: sampleCount,
+      isReadyToComplete: readiness.isReady,
+      readinessProgress: readiness.progress,
+      continuousEvidenceDuration: readiness.continuousEvidenceDuration,
       result: _result,
     );
+  }
+
+  _AssessmentReadiness _buildReadiness({required int sampleCount}) {
+    if (_phase == AssessmentPhase.completed) {
+      return _AssessmentReadiness(
+        isReady: _result?.hasSufficientData ?? false,
+        progress: _result?.hasSufficientData == true ? 1.0 : 0.0,
+        continuousEvidenceDuration: _result is BalanceAssessmentResult
+            ? (_result! as BalanceAssessmentResult).observedDuration
+            : null,
+      );
+    }
+
+    switch (type) {
+      case AssessmentType.squat:
+        final minimum = _minimumSquatAverageKneeAngle;
+        final maximum = _maximumSquatAverageKneeAngle;
+        final observedRange = minimum == null || maximum == null
+            ? 0.0
+            : maximum - minimum;
+        final sampleProgress = _ratio(sampleCount, config.minimumSquatSamples);
+        final rangeProgress = _ratioDouble(
+          observedRange,
+          config.minimumSquatKneeAngleRangeDegrees,
+        );
+        return _AssessmentReadiness(
+          isReady:
+              sampleCount >= config.minimumSquatSamples &&
+              observedRange >= config.minimumSquatKneeAngleRangeDegrees,
+          progress: sampleProgress < rangeProgress
+              ? sampleProgress
+              : rangeProgress,
+        );
+      case AssessmentType.balance:
+        final duration = _currentBalanceDuration;
+        final sampleProgress = _ratio(
+          sampleCount,
+          config.minimumBalanceSamples,
+        );
+        final durationProgress = _durationRatio(
+          duration,
+          config.minimumBalanceDuration,
+        );
+        return _AssessmentReadiness(
+          isReady:
+              _balanceInputUnavailableSince == null &&
+              sampleCount >= config.minimumBalanceSamples &&
+              duration.compareTo(config.minimumBalanceDuration) >= 0,
+          progress: sampleProgress < durationProgress
+              ? sampleProgress
+              : durationProgress,
+          continuousEvidenceDuration: duration,
+        );
+      case AssessmentType.shoulderMobility:
+        final leftRange = _movementRange(
+          minimum: _leftMinimumElevation,
+          maximum: _leftMaximumElevation,
+        );
+        final rightRange = _movementRange(
+          minimum: _rightMinimumElevation,
+          maximum: _rightMaximumElevation,
+        );
+        final sampleProgress = _ratio(
+          sampleCount,
+          config.minimumShoulderMobilitySamples,
+        );
+        final leftProgress = _ratioDouble(
+          leftRange,
+          config.minimumShoulderElevationRangeDegrees,
+        );
+        final rightProgress = _ratioDouble(
+          rightRange,
+          config.minimumShoulderElevationRangeDegrees,
+        );
+        final movementProgress = leftProgress < rightProgress
+            ? leftProgress
+            : rightProgress;
+        return _AssessmentReadiness(
+          isReady:
+              sampleCount >= config.minimumShoulderMobilitySamples &&
+              leftRange >= config.minimumShoulderElevationRangeDegrees &&
+              rightRange >= config.minimumShoulderElevationRangeDegrees,
+          progress: sampleProgress < movementProgress
+              ? sampleProgress
+              : movementProgress,
+        );
+    }
   }
 
   void _clearAccumulators() {
@@ -389,6 +540,7 @@ class AssessmentEngine {
     _balanceRejectedSampleCount = 0;
     _balanceFirstCapturedAt = null;
     _balanceLastCapturedAt = null;
+    _balanceInputUnavailableSince = null;
     _shoulderSampleCount = 0;
     _leftMaximumElevation = null;
     _rightMaximumElevation = null;
@@ -396,6 +548,56 @@ class AssessmentEngine {
     _rightMinimumElevation = null;
     _torsoAtLeftMaximum = null;
     _torsoAtRightMaximum = null;
+  }
+
+  Duration get _currentBalanceDuration {
+    final first = _balanceFirstCapturedAt;
+    final last = _balanceLastCapturedAt;
+    if (first == null || last == null) {
+      return Duration.zero;
+    }
+    final duration = last.difference(first);
+    return duration.isNegative ? Duration.zero : duration;
+  }
+
+  void _restartBalanceEvidenceWindow() {
+    if (_balanceStability.isWindowActive) {
+      _balanceStability.abandonWindow();
+    }
+    _balanceStability.beginWindow();
+    _balanceFirstCapturedAt = null;
+    _balanceLastCapturedAt = null;
+    _balanceInputUnavailableSince = null;
+  }
+
+  double _movementRange({required double? minimum, required double? maximum}) {
+    if (minimum == null || maximum == null) {
+      return 0.0;
+    }
+    return maximum - minimum;
+  }
+
+  double _ratio(int value, int target) {
+    if (target <= 0) {
+      return 1.0;
+    }
+    return (value / target).clamp(0.0, 1.0).toDouble();
+  }
+
+  double _ratioDouble(double value, double target) {
+    if (target <= 0.0) {
+      return 1.0;
+    }
+    return (value / target).clamp(0.0, 1.0).toDouble();
+  }
+
+  double _durationRatio(Duration value, Duration target) {
+    if (target.compareTo(Duration.zero) <= 0) {
+      return 1.0;
+    }
+    return (value.inMicroseconds / target.inMicroseconds)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   double _minimumOf(double? current, double candidate) {
@@ -411,4 +613,16 @@ class AssessmentEngine {
     }
     return current;
   }
+}
+
+class _AssessmentReadiness {
+  const _AssessmentReadiness({
+    required this.isReady,
+    required this.progress,
+    this.continuousEvidenceDuration,
+  });
+
+  final bool isReady;
+  final double progress;
+  final Duration? continuousEvidenceDuration;
 }

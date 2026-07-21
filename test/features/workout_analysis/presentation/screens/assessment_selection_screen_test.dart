@@ -12,7 +12,9 @@ void main() {
 
     expect(find.text('Squat Değerlendirmesi'), findsOneWidget);
     expect(find.text('Denge Değerlendirmesi'), findsOneWidget);
-    expect(find.text('Omuz Mobilitesi'), findsOneWidget);
+    expect(find.text('Omuz Elevasyon Değerlendirmesi'), findsOneWidget);
     expect(find.textContaining('klinik tanı'), findsOneWidget);
+    expect(find.textContaining('normalize image-plane'), findsNothing);
+    expect(find.textContaining('gövde kompansasyonu'), findsNothing);
   });
 }
