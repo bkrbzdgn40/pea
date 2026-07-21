@@ -40,6 +40,9 @@ class HoldDiagnosticsSnapshot {
     HoldSignalValues? targetSignalValues,
     HoldPostureDiagnosticsSnapshot? lastVisiblePosture,
     this.isFormBreakGraceActive = false,
+    this.currentStabilityScore,
+    this.lastCompletedStabilityScore,
+    this.sessionStabilityScore,
   }) : targetSignalValues =
            targetSignalValues ?? const HoldSignalValues.empty(),
        lastVisiblePosture =
@@ -55,6 +58,11 @@ class HoldDiagnosticsSnapshot {
   final HoldSignalValues targetSignalValues;
   final HoldPostureDiagnosticsSnapshot lastVisiblePosture;
   final bool isFormBreakGraceActive;
+
+  /// Stability is unmeasured until enough valid hold samples exist.
+  final double? currentStabilityScore;
+  final double? lastCompletedStabilityScore;
+  final double? sessionStabilityScore;
 
   HoldSignalValidity get signalValidity => lastVisiblePosture.signalValidity;
 
