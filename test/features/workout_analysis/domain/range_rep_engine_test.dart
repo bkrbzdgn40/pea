@@ -577,6 +577,33 @@ void main() {
       expect(engine.feedbackCode, RangeRepFeedbackCode.keepBodyUpright);
     });
 
+    test('corrective feedback outranks a simultaneous movement cue', () {
+      final clock = _TestClock();
+      final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+      final violationAssessment = _techniqueViolationAssessment();
+
+      _acquireNeutralWithTechniqueAssessment(clock, engine);
+      engine.updateWithTechniqueAssessment(
+        _frame(140, 60),
+        techniqueAssessment: violationAssessment,
+      );
+      clock.advance(_transitionConfirmationWindow);
+      final result = engine.updateWithTechniqueAssessment(
+        _frame(140, 60),
+        techniqueAssessment: violationAssessment,
+      );
+
+      expect(
+        result.confirmedTransition?.type,
+        RangeRepConfirmedTransitionType.startDescending,
+      );
+      expect(engine.isFormBad, isTrue);
+      expect(
+        engine.feedbackCode,
+        RangeRepFeedbackCode.legacyFormThresholdViolation,
+      );
+    });
+
     test('keeps live form clear when the frame starts before arming', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);

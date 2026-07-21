@@ -426,14 +426,14 @@ void main() {
       expect(startedDescending.stateSnapshot.isFormBad, isTrue);
       expect(
         startedDescending.stateSnapshot.feedbackDirective.feedbackCode,
-        RangeRepFeedbackCode.descend,
+        RangeRepFeedbackCode.keepBodyUpright,
       );
 
       final reachedPeak = next();
       expect(reachedPeak.stateSnapshot.isFormBad, isTrue);
       expect(
         reachedPeak.stateSnapshot.feedbackDirective.feedbackCode,
-        RangeRepFeedbackCode.ascend,
+        RangeRepFeedbackCode.keepBodyUpright,
       );
 
       next();
