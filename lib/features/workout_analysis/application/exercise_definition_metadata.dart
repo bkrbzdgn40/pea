@@ -48,5 +48,6 @@ enum ExerciseSessionSummaryField {
   fastestRep,
   slowestRep,
   tempoConsistency,
+  asymmetryScore,
   sessionDuration,
 }

@@ -1,4 +1,5 @@
 import 'generic_rep_engine.dart';
+import 'symmetry_engine.dart';
 import 'tempo_engine.dart';
 
 /// Canonical body sides tracked by [AlternatingRepEngine].
@@ -37,6 +38,7 @@ class AlternatingRepCompletedRep {
     required this.rom,
     required this.tempo,
     this.tempoBreakdown,
+    this.symmetryComparison,
   });
 
   final AlternatingRepSide side;
@@ -45,6 +47,9 @@ class AlternatingRepCompletedRep {
   final double rom;
   final Duration tempo;
   final TempoRepResult? tempoBreakdown;
+
+  /// Pair-level symmetry facts when this completion closes a left/right pair.
+  final SymmetryRepResult? symmetryComparison;
 }
 
 /// Per-frame result from [AlternatingRepEngine].
@@ -71,7 +76,8 @@ class AlternatingRepEngineFrameResult {
 /// deliberately stays independent from pose extraction, UI state, persistence,
 /// and technique scoring. Callers provide already-extracted primary movement
 /// metrics for either or both sides.
-class AlternatingRepEngine implements TempoMetricsSource {
+class AlternatingRepEngine
+    implements TempoMetricsSource, SymmetryMetricsSource {
   AlternatingRepEngine({
     required GenericRepEngineConfig repConfig,
     TempoTowardPeakAction towardPeakAction = TempoTowardPeakAction.eccentric,
@@ -90,6 +96,7 @@ class AlternatingRepEngine implements TempoMetricsSource {
   late final TempoEngine _rightTempoEngine;
   final TempoSessionAccumulator _tempoSessionAccumulator =
       TempoSessionAccumulator();
+  final SymmetryEngine _symmetryEngine = SymmetryEngine();
   late DateTime _frameNow;
 
   AlternatingRepSide? activeSide;
@@ -121,13 +128,19 @@ class AlternatingRepEngine implements TempoMetricsSource {
   TempoSessionSummary get rightTempoSessionSummary =>
       _rightTempoEngine.sessionSummary;
 
-  int get repCountDifference => (leftRepCount - rightRepCount).abs();
-  double get averageRomDifference => (leftAverageRom - rightAverageRom).abs();
-  Duration get averageTempoDifference => Duration(
-    milliseconds:
-        (leftAverageTempo.inMilliseconds - rightAverageTempo.inMilliseconds)
-            .abs(),
-  );
+  @override
+  SymmetryRepResult? get lastCompletedSymmetryPair =>
+      _symmetryEngine.lastCompletedSymmetryPair;
+
+  @override
+  SymmetrySessionSummary get symmetrySessionSummary =>
+      _symmetryEngine.symmetrySessionSummary;
+
+  int get repCountDifference => symmetrySessionSummary.repCountDifference;
+  double get averageRomDifference =>
+      symmetrySessionSummary.averageRomDifference ?? 0.0;
+  Duration get averageTempoDifference =>
+      symmetrySessionSummary.averageTempoDifference ?? Duration.zero;
 
   /// Processes the latest left/right primary movement metrics.
   ///
@@ -202,6 +215,7 @@ class AlternatingRepEngine implements TempoMetricsSource {
     _leftTempoEngine.reset();
     _rightTempoEngine.reset();
     _tempoSessionAccumulator.reset();
+    _symmetryEngine.reset();
     _leftAccumulator.reset();
     _rightAccumulator.reset();
     activeSide = null;
@@ -262,6 +276,15 @@ class AlternatingRepEngine implements TempoMetricsSource {
 
     final accumulator = _accumulatorFor(side);
     accumulator.record(rom: completedRep.rom, tempo: tempo);
+    final symmetryComparison = _symmetryEngine.record(
+      side: switch (side) {
+        AlternatingRepSide.left => SymmetrySide.left,
+        AlternatingRepSide.right => SymmetrySide.right,
+      },
+      sideRepIndex: accumulator.repCount,
+      rom: completedRep.rom,
+      tempo: tempo,
+    );
     totalRepCount++;
     lastCompletedSide = side;
 
@@ -272,6 +295,7 @@ class AlternatingRepEngine implements TempoMetricsSource {
       rom: completedRep.rom,
       tempo: tempo,
       tempoBreakdown: completedTempo,
+      symmetryComparison: symmetryComparison,
     );
 
     activeSide = null;

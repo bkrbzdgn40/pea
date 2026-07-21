@@ -22,6 +22,7 @@ class ExerciseCatalog {
     ExerciseAnalysisEngine.rangeRep,
     ExerciseAnalysisEngine.alternatingRep,
     ExerciseAnalysisEngine.tempo,
+    ExerciseAnalysisEngine.symmetry,
   };
   static const Set<ExerciseAnalysisEngine> _holdAnalysisEngines =
       <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.hold};
@@ -33,6 +34,8 @@ class ExerciseCatalog {
     ExerciseMetricId.rangeOfMotion,
     ExerciseMetricId.tempo,
   };
+  static const Set<ExerciseMetricId> _alternatingRepMetricIds =
+      <ExerciseMetricId>{..._rangeRepMetricIds, ExerciseMetricId.symmetry};
   static const Set<ExerciseMetricId> _holdMetricIds = <ExerciseMetricId>{
     ExerciseMetricId.holdDuration,
     ExerciseMetricId.form,
@@ -60,6 +63,11 @@ class ExerciseCatalog {
         ExerciseSessionSummaryField.slowestRep,
         ExerciseSessionSummaryField.tempoConsistency,
         ExerciseSessionSummaryField.sessionDuration,
+      };
+  static const Set<ExerciseSessionSummaryField> _alternatingRepSummaryFields =
+      <ExerciseSessionSummaryField>{
+        ..._rangeRepSummaryFields,
+        ExerciseSessionSummaryField.asymmetryScore,
       };
   static const Set<ExerciseSessionSummaryField> _holdSummaryFields =
       <ExerciseSessionSummaryField>{
@@ -135,9 +143,9 @@ class ExerciseCatalog {
         movementPattern: ExerciseMovementPattern.lunge,
         trackingType: ExerciseTrackingType.repetitions,
         analysisEngines: _alternatingCapableRangeRepAnalysisEngines,
-        metricIds: _rangeRepMetricIds,
+        metricIds: _alternatingRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _alternatingRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/stationary_lunge.json',
         cameraViewContract: CameraViewContract(
