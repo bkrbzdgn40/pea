@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/score_trend_detail_screen.dart';
 
+import '../../../../support/presentation_test_support.dart';
 import '../../../../support/workout_statistics_test_support.dart';
 
 void main() {
@@ -50,15 +49,12 @@ void main() {
         source: UserSessionsSnapshotSource.real,
       );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
-          ],
-          child: const MaterialApp(
-            home: ScoreTrendDetailScreen(exercise: ExerciseType.squat),
-          ),
-        ),
+      await pumpTestApp(
+        tester,
+        home: const ScoreTrendDetailScreen(exercise: ExerciseType.squat),
+        overrides: [
+          userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+        ],
       );
       await tester.pumpAndSettle();
 
@@ -94,15 +90,12 @@ void main() {
       source: UserSessionsSnapshotSource.real,
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
-        ],
-        child: const MaterialApp(
-          home: ScoreTrendDetailScreen(exercise: ExerciseType.plank),
-        ),
-      ),
+    await pumpTestApp(
+      tester,
+      home: const ScoreTrendDetailScreen(exercise: ExerciseType.plank),
+      overrides: [
+        userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+      ],
     );
     await tester.pumpAndSettle();
 

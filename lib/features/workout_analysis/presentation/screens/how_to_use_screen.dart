@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 
 class HowToUseScreen extends StatelessWidget {
@@ -7,39 +8,41 @@ class HowToUseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return AppScaffoldShell(
-      title: 'Nasıl Kullanılır',
+      title: localizations.howToUse,
       currentPage: AppDestination.howToUse,
       padding: EdgeInsets.zero,
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: const [
+        children: [
           _IntroCard(),
           SizedBox(height: 14),
-          _SectionTitle('Kısa Akış'),
+          _SectionTitle(localizations.quickFlow),
           SizedBox(height: 10),
           _StepCard(
             number: '1',
-            title: 'Hareketi seç',
-            subtitle: 'Analiz için hazır olan hareketle devam et.',
+            title: localizations.chooseExerciseStep,
+            subtitle: localizations.chooseExerciseStepBody,
           ),
           _StepCard(
             number: '2',
-            title: 'Kamerayı konumla',
-            subtitle: 'Vücudun kadrajda net görünsün, telefon sabit kalsın.',
+            title: localizations.positionCameraStep,
+            subtitle: localizations.positionCameraStepBody,
           ),
           _StepCard(
             number: '3',
-            title: 'Analizi başlat',
-            subtitle: 'Hareketi kontrollü yap, anlık geri bildirimi takip et.',
+            title: localizations.startAnalysisStep,
+            subtitle: localizations.startAnalysisStepBody,
           ),
           _StepCard(
             number: '4',
-            title: 'Özetini incele',
-            subtitle: 'Oturum sonunda skorunu ve tekrarlarını gözden geçir.',
+            title: localizations.reviewSummaryStep,
+            subtitle: localizations.reviewSummaryStepBody,
           ),
           SizedBox(height: 14),
-          _SectionTitle('Küçük İpuçları'),
+          _SectionTitle(localizations.smallTips),
           SizedBox(height: 10),
           _TipsCard(),
         ],
@@ -60,23 +63,30 @@ class _IntroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_outline_rounded, color: Colors.greenAccent),
-          SizedBox(height: 14),
+          const Icon(
+            Icons.lightbulb_outline_rounded,
+            color: Colors.greenAccent,
+          ),
+          const SizedBox(height: 14),
           Text(
-            'Antrenmanını daha okunur hale getir',
-            style: TextStyle(
+            AppLocalizations.of(context).howToUseIntroTitle,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 21,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Bu uygulama, hareket formunu kameradan takip ederek tekrar, skor ve temel geri bildirim üretir. Oturum sonunda sonuçlarını kaydeder, böylece ilerlemeni sonradan inceleyebilirsin.',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
+            AppLocalizations.of(context).howToUseIntroBody,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.35,
+            ),
           ),
         ],
       ),
@@ -187,12 +197,12 @@ class _TipsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white12),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _TipRow(text: 'Tüm vücudun kadrajda görünsün.'),
-          _TipRow(text: 'Telefon mümkün olduğunca sabit dursun.'),
-          _TipRow(text: 'Işık yeterli olsun, arka plan sade kalsın.'),
-          _TipRow(text: 'Hareketi hızlı değil, kontrollü yap.'),
+          _TipRow(text: AppLocalizations.of(context).tipFullBodyVisible),
+          _TipRow(text: AppLocalizations.of(context).tipStableCamera),
+          _TipRow(text: AppLocalizations.of(context).tipLighting),
+          _TipRow(text: AppLocalizations.of(context).tipControlledMovement),
         ],
       ),
     );

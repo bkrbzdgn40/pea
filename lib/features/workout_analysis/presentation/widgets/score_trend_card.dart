@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../models/home_dashboard_data.dart';
 
@@ -22,6 +24,7 @@ class ScoreTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final chartPoints = points.where(_isValidPoint).toList(growable: false);
     final bounds = chartPoints.isEmpty
         ? null
@@ -38,7 +41,7 @@ class ScoreTrendCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '$exerciseTitle Form Skoru Trendi',
+                  localizations.formScoreTrend(exerciseTitle),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -47,8 +50,8 @@ class ScoreTrendCard extends StatelessWidget {
                 ),
               ),
               if (onTap != null) ...[
-                const Text(
-                  'Detayı Gör',
+                Text(
+                  localizations.viewDetails,
                   style: TextStyle(
                     color: Colors.greenAccent,
                     fontSize: 12,
@@ -66,7 +69,7 @@ class ScoreTrendCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            subtitle ?? '$exerciseTitle oturumlarındaki form skoru değişimi',
+            subtitle ?? localizations.formScoreChangeSubtitle(exerciseTitle),
             style: const TextStyle(color: Colors.white60, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -182,8 +185,8 @@ class _ScoreTrendPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white10),
       ),
-      child: const Text(
-        'Henüz çizilecek form skoru yok.',
+      child: Text(
+        AppLocalizations.of(context).noFormScoreToChart,
         style: TextStyle(color: Colors.white54, fontSize: 13),
       ),
     );

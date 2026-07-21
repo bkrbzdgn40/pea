@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_header_list_view.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
@@ -15,17 +16,17 @@ class AchievementsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     final achievementsState = ref.watch(achievementsProvider);
 
     return AppScaffoldShell(
-      title: 'Başarılar',
+      title: localizations.achievements,
       showDrawer: false,
       padding: EdgeInsets.zero,
       body: AsyncStateView<AchievementsState>(
         value: achievementsState,
-        errorBuilder: (context, error, stackTrace) => const AppErrorView(
-          message: 'Başarılar yüklenemedi. Lütfen daha sonra tekrar dene.',
-        ),
+        errorBuilder: (context, error, stackTrace) =>
+            AppErrorView(message: localizations.achievementsLoadFailed),
         dataBuilder: (context, state) => _AchievementsList(state: state),
       ),
     );
@@ -60,25 +61,35 @@ class _AchievementsHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppSurfaceCard(
+    final localizations = AppLocalizations.of(context);
+
+    return AppSurfaceCard(
       padding: AppSpacing.headerSurfacePadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.emoji_events_rounded, color: Colors.greenAccent, size: 34),
-          SizedBox(height: 14),
+          const Icon(
+            Icons.emoji_events_rounded,
+            color: Colors.greenAccent,
+            size: 34,
+          ),
+          const SizedBox(height: 14),
           Text(
-            'İlerlemeni ve açılan rozetleri burada göreceksin',
-            style: TextStyle(
+            localizations.achievementsHeaderTitle,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Analizlerini tamamladıkça rozetlerin burada açılır.',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
+            localizations.achievementsHeaderSubtitle,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.35,
+            ),
           ),
         ],
       ),
@@ -93,11 +104,10 @@ class _AchievementsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final message = switch (source) {
-      AchievementsDataSource.error =>
-        'Rozetler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
-      _ => 'İlk analizini tamamladığında rozetlerin burada görünür.',
-    };
+    final localizations = AppLocalizations.of(context);
+    final message = localizations.achievementsEmptyMessage(
+      source == AchievementsDataSource.error,
+    );
 
     return AppEmptyView(message: message, icon: Icons.emoji_events_outlined);
   }
@@ -110,6 +120,7 @@ class _AchievementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final foregroundColor = achievement.isUnlocked
         ? Colors.greenAccent
         : Colors.white54;
@@ -146,7 +157,10 @@ class _AchievementCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        achievement.title,
+                        localizations.achievementTitle(
+                          achievement.id,
+                          fallback: achievement.title,
+                        ),
                         style: TextStyle(
                           color: textColor,
                           fontSize: 18,
@@ -155,7 +169,10 @@ class _AchievementCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        achievement.requirementText,
+                        localizations.achievementRequirement(
+                          achievement.id,
+                          fallback: achievement.requirementText,
+                        ),
                         style: TextStyle(
                           color: foregroundColor,
                           fontSize: 12,
@@ -167,7 +184,9 @@ class _AchievementCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  achievement.isUnlocked ? 'Açık' : 'Kilitli',
+                  achievement.isUnlocked
+                      ? localizations.open
+                      : localizations.locked,
                   style: TextStyle(
                     color: foregroundColor,
                     fontSize: 12,
@@ -178,7 +197,10 @@ class _AchievementCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              achievement.description,
+              localizations.achievementDescription(
+                achievement.id,
+                fallback: achievement.description,
+              ),
               style: TextStyle(color: textColor, fontSize: 13, height: 1.3),
             ),
             const SizedBox(height: 14),

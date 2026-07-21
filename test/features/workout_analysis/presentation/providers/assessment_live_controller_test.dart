@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/asse
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/assessment_live_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_assessment_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/settings_provider.dart';
 
 void main() {
   group('AssessmentLiveController', () {
@@ -46,6 +47,24 @@ void main() {
       expect(state.snapshot.readinessProgress, 0);
       expect(state.feedbackMessage, contains('sol veya sağ yanını dön'));
       expect(state.progressMessage, 'Hareket ilerlemesi: %0');
+    });
+
+    test('uses English runtime guidance when English is selected', () {
+      final container = ProviderContainer(
+        overrides: <Override>[
+          runtimeAppLanguageProvider.overrideWith((ref) => AppLanguage.english),
+          selectedAssessmentProvider.overrideWith(
+            (ref) => const AssessmentSelection(type: AssessmentType.squat),
+          ),
+          poseDetectorProvider.overrideWith((ref) => _FakePoseDetector()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = container.read(assessmentLiveControllerProvider);
+
+      expect(state.feedbackMessage, contains('left or right side'));
+      expect(state.progressMessage, 'Movement progress: 0%');
     });
 
     test('complete stays active when readiness gate is not satisfied', () {

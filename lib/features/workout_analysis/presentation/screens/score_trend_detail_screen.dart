@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../domain/models/exercise_type.dart';
 import '../providers/exercise_score_trend_provider.dart';
@@ -14,18 +16,20 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
+    final exerciseTitle = localizations.exerciseTitle(exercise.id);
     final trendState = ref.watch(exerciseScoreTrendProvider(exercise));
 
     return AppScaffoldShell(
-      title: '${exercise.title} Form Skoru Trendi',
+      title: localizations.formScoreTrend(exerciseTitle),
       currentPage: null,
       body: trendState.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: Colors.greenAccent),
         ),
-        error: (_, _) => const _ScoreTrendEmptyState(
-          message: 'Form skoru verisi alınamadı.',
-          detail: 'Biraz sonra tekrar deneyebilirsin.',
+        error: (_, _) => _ScoreTrendEmptyState(
+          message: localizations.formScoreDataUnavailable,
+          detail: localizations.tryAgainLater,
         ),
         data: (trendData) {
           if (!trendData.hasRealData) {
@@ -34,11 +38,11 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
 
             return _ScoreTrendEmptyState(
               message: didFail
-                  ? '${exercise.title} form skoru trendi hazırlanamadı.'
-                  : '${exercise.title} için henüz form skoru trendi yok.',
+                  ? localizations.formScoreTrendUnavailable(exerciseTitle)
+                  : localizations.formScoreTrendEmpty(exerciseTitle),
               detail: didFail
-                  ? 'Biraz sonra tekrar deneyebilirsin.'
-                  : 'Bu egzersizde form skoru üreten analizler tamamlandığında değişim burada görünür.',
+                  ? localizations.tryAgainLater
+                  : localizations.formScoreTrendEmptyDetail,
             );
           }
 
@@ -49,11 +53,12 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ScoreTrendCard(
-                  exerciseTitle: exercise.title,
+                  exerciseTitle: exerciseTitle,
                   points: trendData.detailPoints(),
                   chartHeight: 300,
-                  subtitle:
-                      '${exercise.title} oturumlarının tarih sırasına göre form skoru değişimi.',
+                  subtitle: localizations.formScoreTrendChronological(
+                    exerciseTitle,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 LayoutBuilder(
@@ -74,15 +79,15 @@ class ScoreTrendDetailScreen extends ConsumerWidget {
                       children:
                           [
                                 _TrendSummaryTile(
-                                  label: 'Oturum',
+                                  label: localizations.session,
                                   value: trendData.samples.length.toString(),
                                 ),
                                 _TrendSummaryTile(
-                                  label: 'Son Form Skoru',
+                                  label: localizations.latestFormScore,
                                   value: lastScore.round().toString(),
                                 ),
                                 _TrendSummaryTile(
-                                  label: 'En İyi Form Skoru',
+                                  label: localizations.bestFormScore,
                                   value: trendData.bestAverageScore
                                       .round()
                                       .toString(),

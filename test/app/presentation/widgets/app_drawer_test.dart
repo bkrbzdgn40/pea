@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
@@ -17,7 +18,12 @@ void main() {
       AppDestination.settings,
     ]);
     expect(
-      AppDestination.values.map((destination) => destination.label).toSet(),
+      AppDestination.values
+          .map(
+            (destination) =>
+                destination.label(const AppLocalizations(Locale('tr'))),
+          )
+          .toSet(),
       <String>{
         'Ana Sayfa',
         'Nasıl Kullanılır',
@@ -25,6 +31,22 @@ void main() {
         'Geçmiş Oturumlar',
         'Hareket Rehberi',
         'Ayarlar',
+      },
+    );
+    expect(
+      AppDestination.values
+          .map(
+            (destination) =>
+                destination.label(const AppLocalizations(Locale('en'))),
+          )
+          .toSet(),
+      <String>{
+        'Home',
+        'How to Use',
+        'Select Exercise',
+        'Session History',
+        'Exercise Guide',
+        'Settings',
       },
     );
     expect(
@@ -69,6 +91,7 @@ void main() {
       await pumpTestApp(
         tester,
         navigatorObservers: [observer],
+        locale: const Locale('tr'),
         home: Scaffold(
           appBar: AppBar(title: const Text('Drawer Host')),
           drawer: const AppDrawer(currentPage: AppDestination.home),
@@ -77,7 +100,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byIcon(Icons.menu).first);
       await tester.pumpAndSettle();
 
       final selectedTile = tester.widget<ListTile>(
@@ -104,6 +127,7 @@ void main() {
       await pumpTestApp(
         tester,
         navigatorObservers: [observer],
+        locale: const Locale('tr'),
         home: Scaffold(
           appBar: AppBar(title: const Text('Drawer Host')),
           drawer: const AppDrawer(currentPage: AppDestination.howToUse),
@@ -112,7 +136,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byIcon(Icons.menu).first);
       await tester.pumpAndSettle();
 
       final selectedTile = tester.widget<ListTile>(
@@ -137,6 +161,7 @@ void main() {
       await pumpTestApp(
         tester,
         navigatorObservers: [observer],
+        locale: const Locale('tr'),
         home: Scaffold(
           appBar: AppBar(title: const Text('Drawer Host')),
           drawer: const AppDrawer(
@@ -147,7 +172,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.tap(find.byIcon(Icons.menu).first);
       await tester.pumpAndSettle();
 
       final pushCountAfterOpening = observer.pushCount;
@@ -169,6 +194,7 @@ void main() {
     await pumpTestApp(
       tester,
       navigatorObservers: [observer],
+      locale: const Locale('tr'),
       home: Scaffold(
         appBar: AppBar(title: const Text('Drawer Host')),
         drawer: const AppDrawer(currentPage: AppDestination.howToUse),
@@ -177,7 +203,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.tap(find.byIcon(Icons.menu).first);
     await tester.pumpAndSettle();
 
     final pushCountAfterOpening = observer.pushCount;

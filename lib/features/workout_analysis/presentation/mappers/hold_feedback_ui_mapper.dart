@@ -1,30 +1,67 @@
+import '../../../../app/localization/app_localizations.dart';
 import '../../domain/models/hold_feedback_code.dart';
 
-String mapHoldFeedbackCodeToMessage(HoldFeedbackCode code) {
+String mapHoldFeedbackCodeToMessage(
+  HoldFeedbackCode code, {
+  required AppLocalizations localizations,
+}) {
   switch (code) {
     case HoldFeedbackCode.preparePosition:
-      return 'Pozisyonu Hazirla';
+      return localizations.pick(
+        tr: 'Pozisyonu hazırla.',
+        en: 'Prepare your position.',
+      );
     case HoldFeedbackCode.holdPosition:
-      return 'Pozisyonu Koru';
+      return localizations.pick(
+        tr: 'Pozisyonu koru.',
+        en: 'Hold the position.',
+      );
     case HoldFeedbackCode.bodyNotVisible:
-      return 'Vucut net gorunmuyor.';
+      return localizations.pick(
+        tr: 'Vücut net görünmüyor.',
+        en: 'Body is not clearly visible.',
+      );
     case HoldFeedbackCode.alignHips:
-      return 'Kalcayi Hizala';
+      return localizations.pick(tr: 'Kalçanı hizala.', en: 'Align your hips.');
     case HoldFeedbackCode.adjustElbowSupport:
-      return 'Dirsek Destegini Duzelt';
+      return localizations.pick(
+        tr: 'Dirsek desteğini düzelt.',
+        en: 'Adjust your elbow support.',
+      );
     case HoldFeedbackCode.extendLegs:
-      return 'Dizleri Kaldir';
+      return localizations.pick(
+        tr: 'Bacaklarını uzat.',
+        en: 'Extend your legs.',
+      );
     case HoldFeedbackCode.increaseHollowCompression:
-      return 'Govdeyi Biraz Daha Toparla';
+      return localizations.pick(
+        tr: 'Gövdeni biraz daha toparla.',
+        en: 'Tighten your hollow position a little more.',
+      );
     case HoldFeedbackCode.extendArmsOverhead:
-      return 'Kollari Bas Ustune Uzat';
+      return localizations.pick(
+        tr: 'Kollarını baş üstüne uzat.',
+        en: 'Extend your arms overhead.',
+      );
     case HoldFeedbackCode.straightenKnees:
-      return 'Dizleri Duzlestir';
+      return localizations.pick(
+        tr: 'Dizlerini düzleştir.',
+        en: 'Straighten your knees.',
+      );
     case HoldFeedbackCode.adjustWallSitDepth:
-      return 'Duvar Oturusu Derinligini Ayarla';
+      return localizations.pick(
+        tr: 'Duvar oturuşu derinliğini ayarla.',
+        en: 'Adjust your wall sit depth.',
+      );
     case HoldFeedbackCode.alignWallSitTorso:
-      return 'Govdeyi Duvara Hizala';
+      return localizations.pick(
+        tr: 'Gövdeni duvara hizala.',
+        en: 'Align your torso with the wall.',
+      );
     case HoldFeedbackCode.correctForm:
-      return 'Formu Duzelt';
+      return localizations.pick(
+        tr: 'Formunu düzelt.',
+        en: 'Correct your form.',
+      );
   }
 }

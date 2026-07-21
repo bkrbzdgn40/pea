@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../workout_analysis/presentation/screens/home_screen.dart';
 import '../providers/auth_bootstrap_provider.dart';
 
@@ -11,12 +12,13 @@ class AuthBootstrapGate extends ConsumerWidget {
   // Uygulama açılır açılmaz auth bootstrap durumunu dinler ve kullanıcı hazırsa
   // ana ekrana, değilse yüklenme ya da hata görünümüne yönlendirir.
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     final bootstrapState = ref.watch(authBootstrapProvider);
 
     return bootstrapState.when(
       loading: () => const _AuthBootstrapLoadingView(),
       error: (error, _) => _AuthBootstrapErrorView(
-        message: 'Kullanıcı oturumu hazırlanamadı.',
+        message: localizations.sessionPreparationFailed,
         onRetry: () => ref.invalidate(authBootstrapProvider),
       ),
       data: (state) {
@@ -25,7 +27,7 @@ class AuthBootstrapGate extends ConsumerWidget {
         }
 
         return _AuthBootstrapErrorView(
-          message: state.errorMessage ?? 'Kullanıcı oturumu hazırlanamadı.',
+          message: localizations.sessionPreparationFailed,
           onRetry: () => ref.invalidate(authBootstrapProvider),
         );
       },
@@ -39,18 +41,20 @@ class _AuthBootstrapLoadingView extends StatelessWidget {
   @override
   // Auth bootstrap çalışırken kullanıcıya siyah temalı basit bir yüklenme ekranı gösterir.
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final localizations = AppLocalizations.of(context);
+
+    return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Colors.greenAccent),
-              SizedBox(height: 18),
+              const CircularProgressIndicator(color: Colors.greenAccent),
+              const SizedBox(height: 18),
               Text(
-                'Oturum hazırlanıyor...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                localizations.preparingSession,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
             ],
           ),
@@ -69,6 +73,8 @@ class _AuthBootstrapErrorView extends StatelessWidget {
   @override
   // Oturum hazırlığı başarısız olduğunda hata mesajını ve yeniden deneme aksiyonunu gösterir.
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -100,7 +106,7 @@ class _AuthBootstrapErrorView extends StatelessWidget {
                     backgroundColor: Colors.greenAccent,
                     foregroundColor: Colors.black,
                   ),
-                  child: const Text('Tekrar Dene'),
+                  child: Text(localizations.retry),
                 ),
               ],
             ),

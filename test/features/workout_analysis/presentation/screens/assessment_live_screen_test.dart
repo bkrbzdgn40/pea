@@ -2,8 +2,10 @@
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/assessment_models.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/assessment_live_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
@@ -37,7 +39,11 @@ void main() {
       ),
       initialState: state,
     );
-    addTearDown(harness.dispose);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
 
     expect(find.text('Kesintisiz duruş: 2.0 / 5.0 sn'), findsOneWidget);
     final button = tester.widget<ElevatedButton>(
@@ -66,7 +72,11 @@ void main() {
       selection: const AssessmentSelection(type: AssessmentType.squat),
       initialState: state,
     );
-    addTearDown(harness.dispose);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
 
     expect(harness.cameraController.stopImageStreamCallCount, 1);
     expect(harness.cameraController.startImageStreamCallCount, 1);
@@ -102,7 +112,11 @@ void main() {
       selection: const AssessmentSelection(type: AssessmentType.squat),
       initialState: state,
     );
-    addTearDown(harness.dispose);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
 
     expect(find.text('Yetersiz ölçüm'), findsOneWidget);
     expect(find.text('Tekrar Dene'), findsOneWidget);
@@ -143,7 +157,11 @@ void main() {
       selection: const AssessmentSelection(type: AssessmentType.squat),
       initialState: state,
     );
-    addTearDown(harness.dispose);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
 
     expect(find.text('Değerlendirme sonucu'), findsOneWidget);
     expect(find.text('Diz fleksiyonu'), findsOneWidget);
@@ -191,7 +209,16 @@ Future<_ScreenHarness> _pumpScreen(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: AssessmentLiveScreen()),
+      child: MaterialApp(
+        locale: const Locale('tr'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const AssessmentLiveScreen(),
+      ),
     ),
   );
   await tester.pump();

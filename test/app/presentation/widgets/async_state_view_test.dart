@@ -38,7 +38,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Veriler yuklenemedi.'), findsOneWidget);
+    expect(find.text('Data could not be loaded.'), findsOneWidget);
   });
 
   testWidgets('dispatches AsyncData to the data builder', (

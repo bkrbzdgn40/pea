@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../localization/app_localizations.dart';
 import '../../theme/app_design_tokens.dart';
 import '../../../features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
 import '../../../features/workout_analysis/presentation/screens/guide_screen.dart';
@@ -11,49 +12,43 @@ import 'app_surface_card.dart';
 
 enum AppDestination {
   home(
-    label: 'Ana Sayfa',
     icon: Icons.home_rounded,
     builder: _buildHome,
     suppressPushWhenCurrent: true,
   ),
   howToUse(
-    label: 'Nasıl Kullanılır',
     icon: Icons.help_outline_rounded,
     builder: _buildHowToUse,
     suppressPushWhenCurrent: true,
   ),
   exerciseSelection(
-    label: 'Hareket Seç',
     icon: Icons.directions_run_rounded,
     builder: _buildExerciseSelection,
   ),
-  sessionHistory(
-    label: 'Geçmiş Oturumlar',
-    icon: Icons.history_rounded,
-    builder: _buildSessionHistory,
-  ),
-  guide(
-    label: 'Hareket Rehberi',
-    icon: Icons.menu_book_rounded,
-    builder: _buildGuide,
-  ),
-  settings(
-    label: 'Ayarlar',
-    icon: Icons.settings_rounded,
-    builder: _buildSettings,
-  );
+  sessionHistory(icon: Icons.history_rounded, builder: _buildSessionHistory),
+  guide(icon: Icons.menu_book_rounded, builder: _buildGuide),
+  settings(icon: Icons.settings_rounded, builder: _buildSettings);
 
   const AppDestination({
-    required this.label,
     required this.icon,
     required this.builder,
     this.suppressPushWhenCurrent = false,
   });
 
-  final String label;
   final IconData icon;
   final WidgetBuilder builder;
   final bool suppressPushWhenCurrent;
+
+  String label(AppLocalizations localizations) {
+    return switch (this) {
+      AppDestination.home => localizations.home,
+      AppDestination.howToUse => localizations.howToUse,
+      AppDestination.exerciseSelection => localizations.selectExercise,
+      AppDestination.sessionHistory => localizations.sessionHistory,
+      AppDestination.guide => localizations.exerciseGuide,
+      AppDestination.settings => localizations.settings,
+    };
+  }
 
   static Widget _buildHome(BuildContext context) => const HomeScreen();
 
@@ -77,6 +72,8 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return Drawer(
       child: SafeArea(
         child: Padding(
@@ -84,18 +81,18 @@ class AppDrawer extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AppSurfaceCard(
+              AppSurfaceCard(
                 padding: AppSpacing.headerSurfacePadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.fitness_center_rounded,
                       color: AppColors.accent,
                       size: 30,
                     ),
-                    SizedBox(height: 12),
-                    Text(
+                    const SizedBox(height: 12),
+                    const Text(
                       'Pose Analysis',
                       style: TextStyle(
                         color: Colors.white,
@@ -103,10 +100,13 @@ class AppDrawer extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Antrenman menüsü',
-                      style: TextStyle(color: Colors.white60, fontSize: 13),
+                      localizations.workoutMenu,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -123,7 +123,7 @@ class AppDrawer extends StatelessWidget {
                         .map(
                           (destination) => _DrawerItem(
                             icon: destination.icon,
-                            label: destination.label,
+                            label: destination.label(localizations),
                             isSelected: currentPage == destination,
                             onTap: () => _open(
                               context,

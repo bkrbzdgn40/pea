@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -11,15 +13,15 @@ import 'live_analysis_screen.dart';
 class CalibrationScreen extends ConsumerWidget {
   const CalibrationScreen({super.key});
 
-  static const List<String> _guidanceItems = [
-    'Telefonu sabit bir yere koy.',
-    'Tum vucudun kamerada gorunsun.',
-    'Ortam isigi yeterli olsun.',
-    'Hareketi kontrollu yap.',
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
+    final guidanceItems = <String>[
+      localizations.preparationTipStablePhone,
+      localizations.preparationTipFullBody,
+      localizations.preparationTipLighting,
+      localizations.preparationTipControlledMovement,
+    ];
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
@@ -27,14 +29,13 @@ class CalibrationScreen extends ConsumerWidget {
       return Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          title: const Text('Hazirlik'),
+          title: Text(localizations.preparation),
           backgroundColor: Colors.black,
           elevation: 0,
         ),
         body: AnalysisSelectionRequiredView(
-          title: 'Hazirliktan once hareket sec',
-          message:
-              'Kalibrasyon ve analiz adimlarina gecmeden once gecerli bir hareket secimi gerekiyor.',
+          title: localizations.selectExerciseBeforePreparationTitle,
+          message: localizations.selectExerciseBeforePreparationMessage,
           onSelectExercise: () {
             Navigator.pushReplacement(
               context,
@@ -50,19 +51,24 @@ class CalibrationScreen extends ConsumerWidget {
     final configState = ref.watch(exerciseConfigProvider);
     final isFallback = selectedExercise != activeExercise;
     final isConfigReady = configState.hasValue;
-    final title = '${activeExercise.title} analizi oncesi';
-    final description =
-        'Daha dogru sonuclar icin kisa bir hazirlik kontrolu yap.';
-    final ctaLabel = '${activeExercise.title} analizine basla';
+    final activeExerciseTitle = localizations.exerciseTitle(activeExercise.id);
+    final selectedExerciseTitle = localizations.exerciseTitle(
+      selectedExercise.id,
+    );
+    final title = localizations.preparationForExercise(activeExerciseTitle);
+    final description = localizations.preparationSubtitle;
+    final ctaLabel = localizations.startExerciseAnalysis(activeExerciseTitle);
     final fallbackMessage = isFallback
-        ? '${selectedExercise.title} henuz aktif analiz icin desteklenmiyor. '
-              'Simdilik ${activeExercise.title} analizi ile devam edebilirsin.'
+        ? localizations.unsupportedExerciseFallback(
+            selectedExerciseTitle,
+            activeExerciseTitle,
+          )
         : null;
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Hazirlik'),
+        title: Text(localizations.preparation),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
@@ -121,9 +127,9 @@ class CalibrationScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Analiz yapilandirmasi yuklenemedi.',
+                          localizations.analysisConfigLoadFailed,
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
@@ -133,7 +139,7 @@ class CalibrationScreen extends ConsumerWidget {
                       ),
                       TextButton(
                         onPressed: () => ref.invalidate(exerciseConfigProvider),
-                        child: const Text('Tekrar Dene'),
+                        child: Text(localizations.retry),
                       ),
                     ],
                   ),
@@ -148,7 +154,7 @@ class CalibrationScreen extends ConsumerWidget {
                   border: Border.all(color: Colors.white12),
                 ),
                 child: Column(
-                  children: _guidanceItems
+                  children: guidanceItems
                       .map(
                         (item) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -200,7 +206,7 @@ class CalibrationScreen extends ConsumerWidget {
                 label: Text(
                   isConfigReady
                       ? ctaLabel
-                      : 'Analiz yapilandirmasi hazirlaniyor',
+                      : localizations.analysisConfigLoading,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent,

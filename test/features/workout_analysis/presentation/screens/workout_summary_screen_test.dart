@@ -39,7 +39,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Push Up özeti'), findsOneWidget);
+    expect(find.text('Şınav özeti'), findsOneWidget);
     expect(find.text('Toplam tekrar'), findsOneWidget);
     expect(find.text('Ortalama skor'), findsOneWidget);
 
@@ -84,7 +84,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Biceps Curl özeti'), findsOneWidget);
+      expect(find.text('Biseps Curl özeti'), findsOneWidget);
       expect(find.text('Toplam tekrar'), findsOneWidget);
     },
   );
@@ -249,7 +249,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('Workout Analysis'), findsOneWidget);
+    expect(find.text('Antrenman Analizi'), findsOneWidget);
   });
 }
 

@@ -59,11 +59,15 @@ class ExerciseScoreTrendData {
     return samples.sublist(samples.length - limit);
   }
 
-  List<ScoreTrendPoint> latestPoints({int limit = 7}) {
+  List<ScoreTrendPoint> latestPoints({
+    int limit = 7,
+    String Function(DateTime dateTime)? weekdayLabel,
+  }) {
+    final resolveWeekdayLabel = weekdayLabel ?? _weekdayLabel;
     return [
       for (final sample in latestSamples(limit: limit))
         ScoreTrendPoint(
-          label: _weekdayLabel(sample.startedAt.toLocal()),
+          label: resolveWeekdayLabel(sample.startedAt.toLocal()),
           score: sample.score,
         ),
     ];

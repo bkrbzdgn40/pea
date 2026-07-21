@@ -2,7 +2,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../domain/models/exercise_type.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/exercise_score_trend_provider.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -23,6 +25,7 @@ class ExerciseDistributionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final trendData = selectedExercise == null
         ? null
@@ -35,22 +38,24 @@ class ExerciseDistributionCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Egzersiz Dağılımı',
-                style: TextStyle(
+              Text(
+                localizations.exerciseDistribution,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Oturumlarının hareketlere göre dağılımı',
-                style: TextStyle(color: Colors.white60, fontSize: 13),
+              Text(
+                localizations.exerciseDistributionSubtitle,
+                style: const TextStyle(color: Colors.white60, fontSize: 13),
               ),
               const SizedBox(height: 16),
               if (items.isEmpty)
-                const _DistributionPlaceholder()
+                _DistributionPlaceholder(
+                  message: localizations.exerciseDistributionEmpty,
+                )
               else
                 LayoutBuilder(
                   builder: (context, constraints) {
@@ -83,7 +88,14 @@ class ExerciseDistributionCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         for (var i = 0; i < items.length; i++) ...[
-                          _LegendItem(item: items[i], color: _colorForIndex(i)),
+                          _LegendItem(
+                            item: items[i],
+                            color: _colorForIndex(i),
+                            label: _localizedExerciseLabel(
+                              localizations,
+                              items[i].label,
+                            ),
+                          ),
                           if (i != items.length - 1) const SizedBox(height: 10),
                         ],
                       ],
@@ -110,8 +122,11 @@ class ExerciseDistributionCard extends ConsumerWidget {
         if (selectedExercise != null && trendData?.hasRealData == true) ...[
           const SizedBox(height: 14),
           ScoreTrendCard(
-            exerciseTitle: selectedExercise.title,
-            points: trendData!.latestPoints(),
+            exerciseTitle: localizations.exerciseTitle(selectedExercise.id),
+            points: trendData!.latestPoints(
+              weekdayLabel: (dateTime) =>
+                  localizations.weekdayShort(dateTime.weekday),
+            ),
             onTap: () {
               Navigator.push(
                 context,
@@ -132,8 +147,19 @@ class ExerciseDistributionCard extends ConsumerWidget {
   }
 }
 
+String _localizedExerciseLabel(AppLocalizations localizations, String label) {
+  for (final exercise in ExerciseType.values) {
+    if (exercise.title == label || exercise.id == label) {
+      return localizations.exerciseTitle(exercise.id);
+    }
+  }
+  return label;
+}
+
 class _DistributionPlaceholder extends StatelessWidget {
-  const _DistributionPlaceholder();
+  const _DistributionPlaceholder({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -144,14 +170,17 @@ class _DistributionPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white10),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.pie_chart_outline_rounded, color: Colors.greenAccent),
-          SizedBox(width: 12),
+          const Icon(
+            Icons.pie_chart_outline_rounded,
+            color: Colors.greenAccent,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Kaydedilen analizler arttıkça dağılım burada oluşur.',
-              style: TextStyle(color: Colors.white60, fontSize: 13),
+              message,
+              style: const TextStyle(color: Colors.white60, fontSize: 13),
             ),
           ),
         ],
@@ -161,10 +190,15 @@ class _DistributionPlaceholder extends StatelessWidget {
 }
 
 class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.item, required this.color});
+  const _LegendItem({
+    required this.item,
+    required this.color,
+    required this.label,
+  });
 
   final ExerciseDistributionItem item;
   final Color color;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +212,7 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            item.label,
+            label,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,

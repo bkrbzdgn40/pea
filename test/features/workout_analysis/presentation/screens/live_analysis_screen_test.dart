@@ -2,8 +2,10 @@
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/auth/application/repositories/auth_repository.dart';
 import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
@@ -919,6 +921,13 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        locale: const Locale('tr'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: const LiveAnalysisScreen(),
         navigatorObservers: <NavigatorObserver>[navigationObserver],
       ),

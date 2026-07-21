@@ -12,7 +12,7 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
   if (!permissionStatus.isGranted) {
     throw CameraException(
       'cameraPermission',
-      'Kamera izni olmadan analiz başlatılamaz.',
+      ref.read(appLocalizationsProvider).cameraPermissionAnalysisRequired,
     );
   }
 

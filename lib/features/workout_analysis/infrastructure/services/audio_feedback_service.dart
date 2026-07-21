@@ -5,23 +5,28 @@ import '../../application/feedback_delivery_controller.dart';
 
 /// Platform text-to-speech adapter for live workout feedback.
 class AudioFeedbackService implements VoiceFeedbackOutput {
-  AudioFeedbackService({FlutterTts? flutterTts})
-    : _flutterTts = flutterTts ?? FlutterTts();
+  AudioFeedbackService({
+    FlutterTts? flutterTts,
+    String Function()? languageTagResolver,
+  }) : _flutterTts = flutterTts ?? FlutterTts(),
+       _languageTagResolver = languageTagResolver ?? (() => 'tr-TR');
 
   final FlutterTts _flutterTts;
-  bool _isConfigured = false;
+  final String Function() _languageTagResolver;
+  String? _configuredLanguageTag;
 
   Future<void> _ensureConfigured() async {
-    if (_isConfigured) {
+    final languageTag = _languageTagResolver();
+    if (_configuredLanguageTag == languageTag) {
       return;
     }
 
     try {
-      await _flutterTts.setLanguage('tr-TR');
+      await _flutterTts.setLanguage(languageTag);
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
-      _isConfigured = true;
+      _configuredLanguageTag = languageTag;
     } on MissingPluginException {
       // Unit/widget tests do not register the native TTS plugin.
     } on PlatformException {

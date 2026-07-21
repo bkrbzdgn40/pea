@@ -11,6 +11,7 @@ import '../../application/pose_quality_policy.dart';
 import '../../domain/models/assessment_models.dart';
 import 'pose_provider.dart';
 import 'selected_assessment_provider.dart';
+import 'settings_provider.dart';
 
 class AssessmentLiveState {
   const AssessmentLiveState({
@@ -106,7 +107,9 @@ class AssessmentLiveController
         case FramePosePipelineResultKind.converterDrop:
           _publishUnavailableInput(
             capturedAt: now,
-            feedbackMessage: 'Kare analiz edilemedi. Pozisyonunu koru.',
+            feedbackMessage: ref
+                .read(appLocalizationsProvider)
+                .assessmentFrameAnalysisFailed,
           );
           return;
         case FramePosePipelineResultKind.noPose:
@@ -126,7 +129,9 @@ class AssessmentLiveController
         case FramePosePipelineResultKind.pendingAcceptance:
           _publishUnavailableInput(
             capturedAt: now,
-            feedbackMessage: 'Pozisyonunu kısa süre sabit tut.',
+            feedbackMessage: ref
+                .read(appLocalizationsProvider)
+                .assessmentHoldPositionBriefly,
           );
           return;
         case FramePosePipelineResultKind.accepted:
@@ -154,7 +159,9 @@ class AssessmentLiveController
     } catch (_) {
       _publishUnavailableInput(
         capturedAt: now,
-        feedbackMessage: 'Kare analiz edilemedi. Pozisyonunu koru.',
+        feedbackMessage: ref
+            .read(appLocalizationsProvider)
+            .assessmentFrameAnalysisFailed,
       );
     } finally {
       _framePosePipeline.finishCameraFrame();
@@ -167,8 +174,9 @@ class AssessmentLiveController
     }
     if (!state.snapshot.isReadyToComplete) {
       state = state.copyWith(
-        feedbackMessage:
-            'Ölçüm henüz hazır değil. Yönergeyi tamamlamaya devam et.',
+        feedbackMessage: ref
+            .read(appLocalizationsProvider)
+            .assessmentNotReadyFeedback,
       );
       return null;
     }
@@ -177,8 +185,8 @@ class AssessmentLiveController
     state = _stateFor(
       snapshot: _engine.snapshot,
       feedbackMessage: result.hasSufficientData
-          ? 'Değerlendirme tamamlandı.'
-          : 'Sonuç için yeterli ölçüm toplanamadı.',
+          ? ref.read(appLocalizationsProvider).assessmentCompletedFeedback
+          : ref.read(appLocalizationsProvider).assessmentInsufficientFeedback,
       landmarks: state.landmarks,
     );
     return result;
@@ -249,7 +257,7 @@ class AssessmentLiveController
     required AssessmentSnapshot snapshot,
   }) {
     if (snapshot.isReadyToComplete) {
-      return 'Ölçüm hazır. Sonucu görmek için aşağıdaki düğmeye dokun.';
+      return ref.read(appLocalizationsProvider).assessmentReadyFeedback;
     }
 
     if (observation case BalanceAssessmentObservation balance) {
@@ -258,7 +266,7 @@ class AssessmentLiveController
           clearance == null ||
           !clearance.isFinite ||
           clearance < _engine.config.minimumRaisedFootClearanceRatio) {
-        return 'Tek ayak duruşu bozuldu. Süre yeniden başladı.';
+        return ref.read(appLocalizationsProvider).balanceStanceResetFeedback;
       }
     }
 
@@ -267,42 +275,57 @@ class AssessmentLiveController
 
   String _progressMessage(AssessmentSnapshot snapshot) {
     if (snapshot.isReadyToComplete) {
-      return 'Ölçüm hazır';
+      return ref.read(appLocalizationsProvider).assessmentReady;
     }
 
     switch (snapshot.type) {
       case AssessmentType.squat:
-        return 'Hareket ilerlemesi: %${(snapshot.readinessProgress * 100).round()}';
+        return ref
+            .read(appLocalizationsProvider)
+            .assessmentMovementProgress(
+              (snapshot.readinessProgress * 100).round(),
+            );
       case AssessmentType.balance:
         final elapsed = snapshot.continuousEvidenceDuration ?? Duration.zero;
         final target = _engine.config.minimumBalanceDuration;
-        return 'Kesintisiz duruş: ${_seconds(elapsed)} / ${_seconds(target)} sn';
+        return ref
+            .read(appLocalizationsProvider)
+            .assessmentContinuousStanceProgress(
+              _seconds(elapsed),
+              _seconds(target),
+            );
       case AssessmentType.shoulderMobility:
-        return 'Elevasyon ilerlemesi: %${(snapshot.readinessProgress * 100).round()}';
+        return ref
+            .read(appLocalizationsProvider)
+            .assessmentElevationProgress(
+              (snapshot.readinessProgress * 100).round(),
+            );
     }
   }
 
   String _instructionFor(AssessmentSelection selection) {
     return switch (selection.type) {
       AssessmentType.squat =>
-        'Kameraya sol veya sağ yanını dön. Tüm vücudun kadrajdayken kontrollü bir squat yap ve tekrar ayağa kalk.',
+        ref.read(appLocalizationsProvider).squatAssessmentInstruction,
       AssessmentType.balance =>
-        'Kameraya önden dön. Tüm vücudun kadrajdayken seçilen ayağın üzerinde kesintisiz sabit kal.',
+        ref.read(appLocalizationsProvider).balanceAssessmentInstruction,
       AssessmentType.shoulderMobility =>
-        'Kameraya önden dön. Dirseklerini mümkün olduğunca düz tutarak kollarını gövdenin yanından iki yana doğru kontrollü biçimde kaldır.',
+        ref.read(appLocalizationsProvider).shoulderAssessmentInstruction,
     };
   }
 
   String _poseQualityFeedback(PoseRejectionReason? reason) {
     if (reason == PoseRejectionReason.lowLandmarkLikelihood ||
         reason == PoseRejectionReason.lowMeanLikelihood) {
-      return 'Görüntü yeterince net değil. Işığı artır ve tüm vücudunu görünür tut.';
+      return ref.read(appLocalizationsProvider).poseQualityLowConfidence;
     }
     if (reason == PoseRejectionReason.nonFiniteCoordinate ||
         reason == PoseRejectionReason.degenerateGeometry) {
-      return 'Pozisyon ölçülemiyor. Kameradan biraz uzaklaşıp tüm vücudunu kadraja al.';
+      return ref.read(appLocalizationsProvider).poseQualityGeometryUnavailable;
     }
-    return 'Tüm vücudunu kadraja al ve gerekli eklemleri görünür tut.';
+    return ref
+        .read(appLocalizationsProvider)
+        .poseQualityKeepRequiredJointsVisible;
   }
 
   String _seconds(Duration duration) {

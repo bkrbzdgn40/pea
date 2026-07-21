@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/app/theme/app_theme.dart';
 import 'package:pose_estimation_app/features/auth/application/repositories/auth_repository.dart';
 import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
@@ -172,12 +174,20 @@ Future<void> pumpTestApp(
   required Widget home,
   List<Override> overrides = const <Override>[],
   List<NavigatorObserver> navigatorObservers = const <NavigatorObserver>[],
+  Locale? locale,
 }) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: overrides,
       child: MaterialApp(
         theme: AppTheme.dark,
+        locale: locale ?? const Locale('tr'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         navigatorObservers: navigatorObservers,
         home: home,
       ),

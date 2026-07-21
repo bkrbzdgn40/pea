@@ -87,10 +87,10 @@ void main() {
       expect(hollowDefinition.isAnalysisSupported, isTrue);
       expect(hollowDefinition.analysisEngineKind.name, 'hold');
       expect(hollowContent.type, ExerciseType.hollowHold);
-      expect(hollowContent.setupSteps.join(' '), contains('Sirt ustu uzan'));
+      expect(hollowContent.setupSteps.join(' '), contains('Sırt üstü uzan'));
       expect(
         hollowContent.tips.join(' '),
-        contains('Kollari kulaklara yakin uzat'),
+        contains('Kolları kulaklara yakın uzat'),
       );
     });
   });

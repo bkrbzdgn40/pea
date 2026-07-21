@@ -45,6 +45,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          locale: const Locale('en'),
           home: const ExerciseSelectionScreen(),
           navigatorObservers: <NavigatorObserver>[observer],
         ),
@@ -59,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sit-up'), findsOneWidget);
-    expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+    expect(find.text('Analysis active'), findsAtLeastNWidgets(1));
 
     await tester.tap(find.text('Sit-up'));
     await tester.pump();
@@ -81,6 +82,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            locale: const Locale('en'),
             home: const ExerciseSelectionScreen(),
             navigatorObservers: <NavigatorObserver>[observer],
           ),
@@ -95,7 +97,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Hollow Hold'), findsOneWidget);
-      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+      expect(find.text('Analysis active'), findsAtLeastNWidgets(1));
 
       await tester.tap(find.text('Hollow Hold'));
       await tester.pump();
@@ -118,6 +120,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            locale: const Locale('en'),
             home: const ExerciseSelectionScreen(),
             navigatorObservers: <NavigatorObserver>[observer],
           ),
@@ -132,7 +135,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Stationary Lunge'), findsOneWidget);
-      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+      expect(find.text('Analysis active'), findsAtLeastNWidgets(1));
 
       await tester.tap(find.text('Stationary Lunge'));
       await tester.pump();
@@ -155,6 +158,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            locale: const Locale('en'),
             home: const ExerciseSelectionScreen(),
             navigatorObservers: <NavigatorObserver>[observer],
           ),
@@ -169,7 +173,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Biceps Curl'), findsOneWidget);
-      expect(find.text('Analiz aktif'), findsAtLeastNWidgets(1));
+      expect(find.text('Analysis active'), findsAtLeastNWidgets(1));
 
       await tester.tap(find.text('Biceps Curl'));
       await tester.pump();

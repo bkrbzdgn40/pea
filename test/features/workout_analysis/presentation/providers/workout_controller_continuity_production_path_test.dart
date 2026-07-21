@@ -285,7 +285,7 @@ void main() {
         expect(state.isHoldVisibilitySuspended, isFalse);
         expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
         expect(state.holdEnginePhase, HoldPhase.ready);
-        expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+        expect(state.feedbackMessage, 'Pozisyonu hazırla.');
         expect(state.currentPhase, 'READY');
         expect(state.hadHoldFormBreak, isFalse);
 
@@ -353,7 +353,7 @@ void main() {
         expect(state.isHoldVisibilitySuspended, isFalse);
         expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
         expect(state.holdEnginePhase, HoldPhase.ready);
-        expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+        expect(state.feedbackMessage, 'Pozisyonu hazırla.');
         expect(state.currentPhase, 'READY');
         expect(state.hadHoldFormBreak, isFalse);
       },
@@ -411,7 +411,7 @@ void main() {
         expect(state.isHoldVisibilitySuspended, isFalse);
         expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
         expect(state.holdEnginePhase, HoldPhase.ready);
-        expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+        expect(state.feedbackMessage, 'Pozisyonu hazırla.');
         expect(state.currentPhase, 'READY');
 
         clock.advance(const Duration(seconds: 10));

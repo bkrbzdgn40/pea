@@ -1,43 +1,49 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum WorkoutCameraPreference { front, back }
+import '../../../../app/localization/app_localizations.dart';
 
-extension WorkoutCameraPreferenceLabel on WorkoutCameraPreference {
-  String get label {
-    return switch (this) {
-      WorkoutCameraPreference.front => 'Ön kamera',
-      WorkoutCameraPreference.back => 'Arka kamera',
-    };
-  }
+enum AppLanguage {
+  turkish('tr'),
+  english('en');
+
+  const AppLanguage(this.languageCode);
+
+  final String languageCode;
 }
+
+final runtimeAppLanguageProvider = StateProvider<AppLanguage>(
+  (ref) => AppLanguage.turkish,
+);
+
+final appLocalizationsProvider = Provider<AppLocalizations>((ref) {
+  final language = ref.watch(runtimeAppLanguageProvider);
+  return AppLocalizations(Locale(language.languageCode));
+});
+
+enum WorkoutCameraPreference { front, back }
 
 enum WorkoutCameraQuality { low, medium, high }
 
-extension WorkoutCameraQualityLabel on WorkoutCameraQuality {
-  String get label {
-    return switch (this) {
-      WorkoutCameraQuality.low => 'Düşük',
-      WorkoutCameraQuality.medium => 'Orta',
-      WorkoutCameraQuality.high => 'Yüksek',
-    };
-  }
-}
-
 class WorkoutSettings {
   const WorkoutSettings({
+    this.language = AppLanguage.turkish,
     this.cameraPreference = WorkoutCameraPreference.front,
     this.cameraQuality = WorkoutCameraQuality.low,
   });
 
+  final AppLanguage language;
   final WorkoutCameraPreference cameraPreference;
   final WorkoutCameraQuality cameraQuality;
 
   WorkoutSettings copyWith({
+    AppLanguage? language,
     WorkoutCameraPreference? cameraPreference,
     WorkoutCameraQuality? cameraQuality,
   }) {
     return WorkoutSettings(
+      language: language ?? this.language,
       cameraPreference: cameraPreference ?? this.cameraPreference,
       cameraQuality: cameraQuality ?? this.cameraQuality,
     );
@@ -50,14 +56,15 @@ final settingsControllerProvider =
     );
 
 class SettingsController extends AsyncNotifier<WorkoutSettings> {
+  static const _languageKey = 'settings.language';
   static const _cameraPreferenceKey = 'settings.cameraPreference';
   static const _cameraQualityKey = 'settings.cameraQuality';
 
   @override
   Future<WorkoutSettings> build() async {
     final preferences = await SharedPreferences.getInstance();
-
-    return WorkoutSettings(
+    final settings = WorkoutSettings(
+      language: _appLanguageFromName(preferences.getString(_languageKey)),
       cameraPreference: _cameraPreferenceFromName(
         preferences.getString(_cameraPreferenceKey),
       ),
@@ -65,6 +72,18 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
         preferences.getString(_cameraQualityKey),
       ),
     );
+    ref.read(runtimeAppLanguageProvider.notifier).state = settings.language;
+    return settings;
+  }
+
+  Future<void> setLanguage(AppLanguage language) async {
+    final updated = (state.valueOrNull ?? const WorkoutSettings()).copyWith(
+      language: language,
+    );
+
+    ref.read(runtimeAppLanguageProvider.notifier).state = language;
+    state = AsyncData(updated);
+    await _save(updated);
   }
 
   Future<void> setCameraPreference(WorkoutCameraPreference preference) async {
@@ -88,12 +107,20 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
   Future<void> _save(WorkoutSettings settings) async {
     final preferences = await SharedPreferences.getInstance();
 
+    await preferences.setString(_languageKey, settings.language.name);
     await preferences.setString(
       _cameraPreferenceKey,
       settings.cameraPreference.name,
     );
     await preferences.setString(_cameraQualityKey, settings.cameraQuality.name);
   }
+}
+
+AppLanguage _appLanguageFromName(String? name) {
+  return AppLanguage.values.firstWhere(
+    (language) => language.name == name,
+    orElse: () => AppLanguage.turkish,
+  );
 }
 
 WorkoutCameraPreference _cameraPreferenceFromName(String? name) {

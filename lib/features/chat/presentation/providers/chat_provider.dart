@@ -2,17 +2,22 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
+import '../../../workout_analysis/presentation/providers/settings_provider.dart';
 import '../../application/repositories/chat_repository.dart';
 import '../../infrastructure/repositories/demo_chat_repository.dart';
 import '../models/chat_message.dart';
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
-  return const DemoChatRepository();
+  return DemoChatRepository(localizations: ref.watch(appLocalizationsProvider));
 });
 
 final chatControllerProvider = StateNotifierProvider<ChatController, ChatState>(
   (ref) {
-    final controller = ChatController(ref.watch(chatRepositoryProvider));
+    final controller = ChatController(
+      ref.watch(chatRepositoryProvider),
+      ref.watch(appLocalizationsProvider),
+    );
     unawaited(controller.loadInitialMessages());
     return controller;
   },
@@ -48,9 +53,11 @@ class ChatState {
 }
 
 class ChatController extends StateNotifier<ChatState> {
-  ChatController(this._repository) : super(const ChatState());
+  ChatController(this._repository, this._localizations)
+    : super(const ChatState());
 
   final ChatRepository _repository;
+  final AppLocalizations _localizations;
 
   Future<void> loadInitialMessages() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -61,7 +68,7 @@ class ChatController extends StateNotifier<ChatState> {
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Mesajlar yüklenemedi. Lütfen tekrar dene.',
+        errorMessage: _localizations.messagesLoadFailed,
       );
     }
   }
@@ -93,7 +100,7 @@ class ChatController extends StateNotifier<ChatState> {
     } catch (_) {
       state = state.copyWith(
         isSending: false,
-        errorMessage: 'Mesaj gönderilemedi. Lütfen tekrar dene.',
+        errorMessage: _localizations.messageSendFailed,
       );
     }
   }

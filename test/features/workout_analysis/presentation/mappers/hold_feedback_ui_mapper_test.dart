@@ -1,41 +1,66 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/hold_feedback_ui_mapper.dart';
 
 void main() {
-  test('maps every hold feedback code to the existing Turkish UI message', () {
+  const tr = AppLocalizations(Locale('tr'));
+  const en = AppLocalizations(Locale('en'));
+
+  test('maps every hold feedback code to Turkish UI copy', () {
     final scenarios = <({HoldFeedbackCode code, String message})>[
-      (code: HoldFeedbackCode.preparePosition, message: 'Pozisyonu Hazirla'),
-      (code: HoldFeedbackCode.holdPosition, message: 'Pozisyonu Koru'),
-      (code: HoldFeedbackCode.bodyNotVisible, message: 'Vucut net gorunmuyor.'),
-      (code: HoldFeedbackCode.alignHips, message: 'Kalcayi Hizala'),
+      (code: HoldFeedbackCode.preparePosition, message: 'Pozisyonu hazırla.'),
+      (code: HoldFeedbackCode.holdPosition, message: 'Pozisyonu koru.'),
+      (code: HoldFeedbackCode.bodyNotVisible, message: 'Vücut net görünmüyor.'),
+      (code: HoldFeedbackCode.alignHips, message: 'Kalçanı hizala.'),
       (
         code: HoldFeedbackCode.adjustElbowSupport,
-        message: 'Dirsek Destegini Duzelt',
+        message: 'Dirsek desteğini düzelt.',
       ),
-      (code: HoldFeedbackCode.extendLegs, message: 'Dizleri Kaldir'),
+      (code: HoldFeedbackCode.extendLegs, message: 'Bacaklarını uzat.'),
       (
         code: HoldFeedbackCode.increaseHollowCompression,
-        message: 'Govdeyi Biraz Daha Toparla',
+        message: 'Gövdeni biraz daha toparla.',
       ),
       (
         code: HoldFeedbackCode.extendArmsOverhead,
-        message: 'Kollari Bas Ustune Uzat',
+        message: 'Kollarını baş üstüne uzat.',
       ),
-      (code: HoldFeedbackCode.straightenKnees, message: 'Dizleri Duzlestir'),
+      (code: HoldFeedbackCode.straightenKnees, message: 'Dizlerini düzleştir.'),
       (
         code: HoldFeedbackCode.adjustWallSitDepth,
-        message: 'Duvar Oturusu Derinligini Ayarla',
+        message: 'Duvar oturuşu derinliğini ayarla.',
       ),
       (
         code: HoldFeedbackCode.alignWallSitTorso,
-        message: 'Govdeyi Duvara Hizala',
+        message: 'Gövdeni duvara hizala.',
       ),
-      (code: HoldFeedbackCode.correctForm, message: 'Formu Duzelt'),
+      (code: HoldFeedbackCode.correctForm, message: 'Formunu düzelt.'),
     ];
 
     for (final scenario in scenarios) {
-      expect(mapHoldFeedbackCodeToMessage(scenario.code), scenario.message);
+      expect(
+        mapHoldFeedbackCodeToMessage(scenario.code, localizations: tr),
+        scenario.message,
+      );
     }
+  });
+
+  test('maps hold feedback to English UI copy', () {
+    expect(
+      mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.holdPosition,
+        localizations: en,
+      ),
+      'Hold the position.',
+    );
+    expect(
+      mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.extendLegs,
+        localizations: en,
+      ),
+      'Extend your legs.',
+    );
   });
 }

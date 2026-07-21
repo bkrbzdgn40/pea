@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../application/exercise_catalog.dart';
 import '../data/exercise_guide_catalog.dart';
+import '../data/localized_exercise_guide_content.dart';
 import '../models/exercise_guide_content.dart';
 
 class GuideScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class _GuideScreenState extends State<GuideScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     const catalog = ExerciseCatalog();
     const guideCatalog = ExerciseGuideCatalog();
     final definitions = catalog.definitions
@@ -32,7 +35,7 @@ class _GuideScreenState extends State<GuideScreen> {
         .toList(growable: false);
 
     return AppScaffoldShell(
-      title: 'Hareket Rehberi',
+      title: localizations.exerciseGuide,
       currentPage: AppDestination.guide,
       padding: EdgeInsets.zero,
       body: Column(
@@ -52,7 +55,10 @@ class _GuideScreenState extends State<GuideScreen> {
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final definition = definitions[index];
-                      final content = guideCatalog.contentFor(definition.type);
+                      final content = localizedExerciseGuideContent(
+                        content: guideCatalog.contentFor(definition.type),
+                        isTurkish: localizations.isTurkish,
+                      );
 
                       return _ExerciseGuideCard(
                         content: content,
@@ -84,14 +90,16 @@ class _DifficultyFilter extends StatelessWidget {
       child: Row(
         children: [
           _FilterChipButton(
-            label: 'Tümü',
+            label: AppLocalizations.of(context).all,
             isSelected: selectedDifficulty == null,
             onTap: () => onChanged(null),
           ),
           for (final difficulty in ExerciseDifficulty.values) ...[
             const SizedBox(width: 8),
             _FilterChipButton(
-              label: difficulty.label,
+              label: AppLocalizations.of(
+                context,
+              ).difficultyLabel(difficulty.name),
               isSelected: selectedDifficulty == difficulty,
               onTap: () => onChanged(difficulty),
             ),
@@ -162,7 +170,7 @@ class _ExerciseGuideCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                content.title,
+                AppLocalizations.of(context).exerciseTitle(content.type.id),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 19,
@@ -174,9 +182,17 @@ class _ExerciseGuideCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  _GuideBadge(label: content.difficulty.label, isActive: false),
+                  _GuideBadge(
+                    label: AppLocalizations.of(
+                      context,
+                    ).difficultyLabel(content.difficulty.name),
+                    isActive: false,
+                  ),
                   if (isAnalysisSupported)
-                    const _GuideBadge(label: 'Analiz aktif', isActive: true),
+                    _GuideBadge(
+                      label: AppLocalizations.of(context).analysisActive,
+                      isActive: true,
+                    ),
                 ],
               ),
             ],
@@ -193,14 +209,23 @@ class _ExerciseGuideCard extends StatelessWidget {
             ),
           ),
           children: [
-            _GuideTextBlock(title: 'Amaç', text: content.purpose),
-            const SizedBox(height: 14),
-            _GuideSection(title: 'Kurulum', items: content.setupSteps),
-            const SizedBox(height: 14),
-            _GuideSection(title: 'Teknik İpuçları', items: content.tips),
+            _GuideTextBlock(
+              title: AppLocalizations.of(context).purpose,
+              text: content.purpose,
+            ),
             const SizedBox(height: 14),
             _GuideSection(
-              title: 'Yaygın Hatalar',
+              title: AppLocalizations.of(context).setup,
+              items: content.setupSteps,
+            ),
+            const SizedBox(height: 14),
+            _GuideSection(
+              title: AppLocalizations.of(context).techniqueTips,
+              items: content.tips,
+            ),
+            const SizedBox(height: 14),
+            _GuideSection(
+              title: AppLocalizations.of(context).commonMistakes,
               items: content.commonMistakes,
             ),
             const SizedBox(height: 16),
@@ -340,7 +365,7 @@ class _VideoButton extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final sourceLabel = Text(
-            'Kaynak: ${content.youtubeSourceLabel}',
+            AppLocalizations.of(context).source(content.youtubeSourceLabel),
             style: const TextStyle(
               color: Colors.white60,
               fontSize: 12,
@@ -350,7 +375,7 @@ class _VideoButton extends StatelessWidget {
           final button = TextButton.icon(
             onPressed: () => _openVideo(context, content.youtubeUrl),
             icon: const Icon(Icons.open_in_new_rounded, size: 16),
-            label: const Text('YouTube’da İzle'),
+            label: Text(AppLocalizations.of(context).watchOnYoutube),
             style: TextButton.styleFrom(
               foregroundColor: Colors.greenAccent,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -390,7 +415,9 @@ class _VideoButton extends StatelessWidget {
 
     if (!didLaunch && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video bağlantısı açılamadı.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).videoLinkOpenFailed),
+        ),
       );
     }
   }
@@ -411,10 +438,10 @@ class _GuideEmptyState extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white12),
           ),
-          child: const Text(
-            'Bu zorlukta rehber içeriği bulunamadı.',
+          child: Text(
+            AppLocalizations.of(context).noGuideContentForDifficulty,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
         ),
       ),

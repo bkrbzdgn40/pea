@@ -230,6 +230,65 @@ void main() {
 
     expect(playIconSurface, findsOneWidget);
   });
+
+  testWidgets('translates the primary Home surface to English', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      locale: const Locale('en'),
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => GoalsState(
+            source: GoalsDataSource.real,
+            goals: const [
+              WorkoutGoal(
+                id: 'weekly_analysis_count',
+                title: 'Haftalık 5 analiz',
+                targetValue: 5,
+                currentValue: 3,
+                unit: 'analiz',
+                description: 'Bu hafta en az 5 canlı analiz tamamla.',
+                isCompleted: false,
+              ),
+            ],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: const [
+              Achievement(
+                id: 'first_analysis',
+                title: 'İlk Analiz',
+                description: 'İlk canlı analiz oturumunu tamamladın.',
+                isUnlocked: true,
+                progress: 1,
+                requirementText: '1 analiz tamamla',
+              ),
+            ],
+          ),
+        ),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.pushUp),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.text('Workout Analysis'), findsOneWidget);
+    expect(find.text('Start Push-up analysis'), findsOneWidget);
+    expect(find.text('Selected exercise: Push-up'), findsOneWidget);
+    expect(find.text('Exercise Guide'), findsOneWidget);
+    expect(find.text('Session History'), findsOneWidget);
+    expect(find.text('Planned Workout'), findsOneWidget);
+    expect(find.text('Assessment'), findsOneWidget);
+    expect(find.text('Weekly Goal'), findsOneWidget);
+    expect(find.text('Achievements'), findsOneWidget);
+    expect(find.text('First Analysis'), findsOneWidget);
+    expect(find.text('1 analiz tamamla'), findsNothing);
+    expect(find.text('Complete 1 analysis'), findsOneWidget);
+  });
 }
 
 HomeDashboardData _mixedDashboardData() {

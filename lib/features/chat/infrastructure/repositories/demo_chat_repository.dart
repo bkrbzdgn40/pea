@@ -1,8 +1,12 @@
+import '../../../../app/localization/app_localizations.dart';
 import '../../application/repositories/chat_repository.dart';
 import '../../presentation/models/chat_message.dart';
 
 class DemoChatRepository implements ChatRepository {
-  const DemoChatRepository();
+  const DemoChatRepository({required AppLocalizations localizations})
+    : _localizations = localizations;
+
+  final AppLocalizations _localizations;
 
   @override
   Future<List<ChatMessage>> loadInitialMessages() async {
@@ -11,15 +15,13 @@ class DemoChatRepository implements ChatRepository {
     return [
       ChatMessage(
         id: 'coach_welcome',
-        text:
-            'Merhaba, ben AI Coach. Form, squat tekniği veya antrenman planı hakkında kısa öneriler verebilirim.',
+        text: _localizations.coachWelcomeMessage,
         isFromCoach: true,
         createdAt: now,
       ),
       ChatMessage(
         id: 'coach_hint',
-        text:
-            'Canlı analiz verilerin geliştikçe burada daha kişisel öneriler görebileceksin.',
+        text: _localizations.coachPersonalizationHint,
         isFromCoach: true,
         createdAt: now,
       ),
@@ -42,17 +44,20 @@ class DemoChatRepository implements ChatRepository {
     final normalized = text.toLowerCase();
 
     if (normalized.contains('squat')) {
-      return 'Squat için dizlerini ayak parmaklarınla aynı hatta tutmaya ve inişi kontrollü yapmaya odaklan.';
+      return _localizations.coachSquatReply;
     }
 
     if (normalized.contains('form')) {
-      return 'Formu düzeltmek için tekrar hızını biraz düşür, gövdeni sabit tut ve hareket aralığını koru.';
+      return _localizations.coachFormReply;
     }
 
-    if (normalized.contains('program') || normalized.contains('antrenman')) {
-      return 'Bugün kısa bir plan iyi olabilir: ısınma, 3 kontrollü set ve set aralarında yeterli dinlenme.';
+    if (normalized.contains('program') ||
+        normalized.contains('antrenman') ||
+        normalized.contains('workout') ||
+        normalized.contains('plan')) {
+      return _localizations.coachPlanReply;
     }
 
-    return 'İyi gidiyorsun. Kısa, kontrollü setlerle form kalitesini korumaya devam et.';
+    return _localizations.coachDefaultReply;
   }
 }
