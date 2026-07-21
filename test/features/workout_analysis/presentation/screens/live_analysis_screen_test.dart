@@ -9,6 +9,8 @@ import 'package:pose_estimation_app/features/auth/application/repositories/auth_
 import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/repositories/session_repository.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -18,6 +20,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/work
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_metrics_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
@@ -47,6 +50,81 @@ void main() {
   tearDown(() {
     wakelockPlusPlatformInstance = originalWakelockPlatform;
   });
+
+  testWidgets(
+    'starting another live session clears stale metrics after route build',
+    (tester) async {
+      final detector = _QueuedPoseDetector();
+      final sessionRepository = _FakeSessionRepository();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
+          exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
+          poseDetectorProvider.overrideWith((ref) => detector),
+          authRepositoryProvider.overrideWithValue(
+            const _FakeAuthRepository(currentUserId: 'test-user'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(sessionRepository),
+          cameraProvider.overrideWith(
+            (ref) async => throw CameraException('test', 'camera unavailable'),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final staleMetrics = WorkoutLiveMetricsSnapshot(
+        frameMetrics: ExerciseMetricSnapshotBuilder(
+          scope: ExerciseMetricScope.frame,
+        ).build(),
+        sessionMetrics: ExerciseMetricSnapshotBuilder(
+          scope: ExerciseMetricScope.session,
+        ).build(),
+      );
+      container.read(completedSessionMetricsProvider.notifier).state =
+          staleMetrics;
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(completedSessionMetricsProvider);
+                return Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LiveAnalysisScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Start another session'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start another session'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(container.read(completedSessionMetricsProvider), isNull);
+      expect(
+        container
+            .read(workoutSessionLifecycleControllerProvider)
+            .currentStateSnapshot()
+            .activeSessionExercise,
+        ExerciseType.squat,
+      );
+    },
+  );
 
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
     tester,
