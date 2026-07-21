@@ -19,7 +19,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Workout Analysis'), findsOneWidget);
+    expect(find.text('Antrenman Analizi'), findsOneWidget);
     expect(find.text('AI Coach'), findsOneWidget);
   });
 }

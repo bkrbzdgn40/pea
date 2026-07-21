@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
@@ -31,19 +32,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final chatState = ref.watch(chatControllerProvider);
 
     return AppScaffoldShell(
-      title: 'AI Coach',
+      title: localizations.aiCoach,
       showDrawer: false,
       padding: EdgeInsets.zero,
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 4, 20, 14),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
             child: Text(
-              'Form, tempo ve antrenman önerileri için demo sohbet alanı.',
-              style: TextStyle(color: Colors.white60, fontSize: 13),
+              localizations.aiCoachSubtitle,
+              style: const TextStyle(color: Colors.white60, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           ),
@@ -160,7 +162,7 @@ class _ChatInput extends StatelessWidget {
                 }
               },
               decoration: InputDecoration(
-                hintText: 'Coach’a bir soru yaz...',
+                hintText: AppLocalizations.of(context).coachInputHint,
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: const Color(0xFF151515),

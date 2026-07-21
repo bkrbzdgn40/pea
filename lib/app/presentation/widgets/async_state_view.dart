@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../localization/app_localizations.dart';
 import 'app_state_views.dart';
 
 typedef AsyncDataBuilder<T> = Widget Function(BuildContext context, T data);
@@ -27,7 +28,7 @@ class AsyncStateView<T> extends StatelessWidget {
       loading: () => loadingBuilder?.call(context) ?? const AppLoadingView(),
       error: (error, stackTrace) =>
           errorBuilder?.call(context, error, stackTrace) ??
-          const AppErrorView(message: 'Veriler yuklenemedi.'),
+          AppErrorView(message: AppLocalizations.of(context).dataLoadFailed),
       data: (data) => dataBuilder(context, data),
     );
   }

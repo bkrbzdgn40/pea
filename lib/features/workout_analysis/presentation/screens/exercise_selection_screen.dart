@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_definition.dart';
 import '../data/exercise_guide_catalog.dart';
@@ -13,13 +14,14 @@ class ExerciseSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     const catalog = ExerciseCatalog();
     const guideCatalog = ExerciseGuideCatalog();
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Hareket Seç'),
+        title: Text(localizations.selectExercise),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -49,12 +51,9 @@ class ExerciseSelectionScreen extends ConsumerWidget {
     ExerciseDefinition definition,
   ) {
     if (!definition.isAnalysisSupported) {
+      final localizations = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Bu hareket şu an analiz için aktif değil. Rehberden inceleyebilirsin.',
-          ),
-        ),
+        SnackBar(content: Text(localizations.exerciseNotActiveForAnalysis)),
       );
       return;
     }
@@ -119,7 +118,7 @@ class _ExerciseSelectionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    content.title,
+                    AppLocalizations.of(context).exerciseTitle(content.type.id),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -137,7 +136,9 @@ class _ExerciseSelectionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    isActive ? 'Analiz aktif' : 'Şimdilik rehber içeriği',
+                    isActive
+                        ? AppLocalizations.of(context).analysisActive
+                        : AppLocalizations.of(context).guideOnlyForNow,
                     style: TextStyle(
                       color: isActive ? Colors.greenAccent : Colors.white54,
                       fontSize: 12,

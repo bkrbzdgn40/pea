@@ -43,7 +43,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Haftalik 5 analiz'), findsOneWidget);
+    expect(find.text('Haftalık 5 analiz'), findsOneWidget);
   });
 
   testWidgets('shows the shared error state when loading goals fails', (
@@ -107,7 +107,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Haftalik 5 analiz'), findsOneWidget);
+    expect(find.text('Haftalık 5 analiz'), findsOneWidget);
     expect(find.text('Tamamlandı'), findsOneWidget);
     expect(find.text('%100'), findsOneWidget);
     expect(

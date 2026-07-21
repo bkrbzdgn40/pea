@@ -181,7 +181,7 @@ Future<void> pumpTestApp(
       overrides: overrides,
       child: MaterialApp(
         theme: AppTheme.dark,
-        locale: locale,
+        locale: locale ?? const Locale('tr'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
           GlobalMaterialLocalizations.delegate,

@@ -44,7 +44,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.text('Ilk Analiz'), findsOneWidget);
+      expect(find.text('İlk Analiz'), findsOneWidget);
     },
   );
 
@@ -107,7 +107,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Ilk Analiz'), findsOneWidget);
+    expect(find.text('İlk Analiz'), findsOneWidget);
     expect(find.text('Açık'), findsOneWidget);
     expect(find.text('Kilitli'), findsOneWidget);
     expect(

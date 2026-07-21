@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
@@ -31,6 +32,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
     final dashboardData =
         ref.watch(homeDashboardProvider).valueOrNull ??
         HomeDashboardData.fallback();
@@ -43,7 +45,7 @@ class HomeScreen extends ConsumerWidget {
     final selectedExercise = ref.watch(selectedExerciseProvider);
 
     return AppScaffoldShell(
-      title: 'Workout Analysis',
+      title: localizations.workoutAnalysis,
       currentPage: AppDestination.home,
       padding: EdgeInsets.zero,
       actions: [
@@ -125,8 +127,8 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             if (goalPreview == null)
               HomeFeaturePreviewCard(
-                title: 'Haftalık Hedef',
-                subtitle: 'İlk analizinden sonra hedeflerin burada şekillenir.',
+                title: localizations.weeklyGoal,
+                subtitle: localizations.weeklyGoalEmpty,
                 icon: Icons.flag_rounded,
                 onTap: () {
                   Navigator.push(
@@ -137,12 +139,15 @@ class HomeScreen extends ConsumerWidget {
               )
             else
               HomeFeaturePreviewCard(
-                title: 'Haftalık Hedef',
-                subtitle: goalPreview.title,
+                title: localizations.weeklyGoal,
+                subtitle: localizations.goalTitle(
+                  goalPreview.id,
+                  fallback: goalPreview.title,
+                ),
                 icon: Icons.flag_rounded,
                 progress: goalPreview.progress,
                 trailingText:
-                    '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${goalPreview.unit}',
+                    '${_formatGoalValue(goalPreview.currentValue)} / ${_formatGoalValue(goalPreview.targetValue)} ${localizations.goalUnit(goalPreview.id, fallback: goalPreview.unit)}',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -153,8 +158,8 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             if (achievementPreview == null)
               HomeFeaturePreviewCard(
-                title: 'Başarılar',
-                subtitle: 'Rozetlerin analizlerin tamamlandıkça açılır.',
+                title: localizations.achievements,
+                subtitle: localizations.achievementsEmptyPreview,
                 icon: Icons.emoji_events_rounded,
                 onTap: () {
                   Navigator.push(
@@ -167,12 +172,20 @@ class HomeScreen extends ConsumerWidget {
               )
             else
               HomeFeaturePreviewCard(
-                title: 'Başarılar',
-                subtitle: achievementPreview.title,
+                title: localizations.achievements,
+                subtitle: localizations.achievementTitle(
+                  achievementPreview.id,
+                  fallback: achievementPreview.title,
+                ),
                 icon: Icons.emoji_events_rounded,
-                badgeText: achievementPreview.isUnlocked ? 'Açık' : null,
+                badgeText: achievementPreview.isUnlocked
+                    ? localizations.open
+                    : null,
                 progress: achievementPreview.normalizedProgress,
-                trailingText: achievementPreview.requirementText,
+                trailingText: localizations.achievementRequirement(
+                  achievementPreview.id,
+                  fallback: achievementPreview.requirementText,
+                ),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -188,19 +201,17 @@ class HomeScreen extends ConsumerWidget {
                 items: dashboardData.exerciseDistribution,
               )
             else
-              const _HomeInsightPlaceholderCard(
-                title: 'Egzersiz Dağılımı',
-                subtitle:
-                    'Kaydedilen oturumların hareket dağılımı burada toplanır.',
+              _HomeInsightPlaceholderCard(
+                title: localizations.exerciseDistribution,
+                subtitle: localizations.exerciseDistributionEmpty,
                 icon: Icons.pie_chart_rounded,
               ),
             const SizedBox(height: 14),
             HomeFeaturePreviewCard(
-              title: 'AI Coach',
-              subtitle:
-                  'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
+              title: localizations.aiCoach,
+              subtitle: localizations.aiCoachComingSoonDescription,
               icon: Icons.auto_awesome_rounded,
-              badgeText: 'Yakında',
+              badgeText: localizations.comingSoon,
               onTap: () {
                 Navigator.push(
                   context,
@@ -220,7 +231,8 @@ class _HomeGreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final greeting = _HomeGreetingData.current();
+    final localizations = AppLocalizations.of(context);
+    final greeting = _HomeGreetingData.current(localizations);
 
     return AppSurfaceCard(
       padding: const EdgeInsets.all(20),
@@ -255,9 +267,9 @@ class _HomeGreetingCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 7),
-                const Text(
-                  'Bugünkü formunu takip etmeye hazır mısın?',
-                  style: TextStyle(
+                Text(
+                  localizations.homeReadyPrompt,
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 15,
                     height: 1.3,
@@ -283,35 +295,35 @@ class _HomeGreetingData {
   final IconData icon;
   final Color accentColor;
 
-  static _HomeGreetingData current() {
+  static _HomeGreetingData current(AppLocalizations localizations) {
     final hour = DateTime.now().hour;
 
     if (hour >= 5 && hour < 12) {
-      return const _HomeGreetingData(
-        title: 'Günaydın',
+      return _HomeGreetingData(
+        title: localizations.greetingForHour(hour),
         icon: Icons.wb_sunny_rounded,
         accentColor: Color(0xFFFFD54F),
       );
     }
 
     if (hour >= 12 && hour < 17) {
-      return const _HomeGreetingData(
-        title: 'İyi öğlenler',
+      return _HomeGreetingData(
+        title: localizations.greetingForHour(hour),
         icon: Icons.sunny,
         accentColor: Color(0xFFFFA726),
       );
     }
 
     if (hour >= 17 && hour < 22) {
-      return const _HomeGreetingData(
-        title: 'İyi akşamlar',
+      return _HomeGreetingData(
+        title: localizations.greetingForHour(hour),
         icon: Icons.wb_twilight_rounded,
         accentColor: Color(0xFFAB47BC),
       );
     }
 
-    return const _HomeGreetingData(
-      title: 'İyi geceler',
+    return _HomeGreetingData(
+      title: localizations.greetingForHour(hour),
       icon: Icons.nightlight_round,
       accentColor: Color(0xFF5C6BC0),
     );
@@ -339,18 +351,22 @@ class _HomeActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final exerciseTitle = selectedExercise == null
+        ? null
+        : localizations.exerciseTitle(selectedExercise!.id);
     final primaryTitle = selectedExercise == null
-        ? 'Hareket seç ve analize başla'
-        : '${selectedExercise!.title} analizine başla';
+        ? localizations.chooseExerciseAndStart
+        : localizations.startExerciseAnalysis(exerciseTitle!);
     final primarySubtitle = selectedExercise == null
-        ? 'İlk adımda hangi hareketi analiz edeceğini seç.'
-        : 'Tek dokunuşla izin ve hazırlık akışına geç.';
+        ? localizations.chooseExerciseFirstStep
+        : localizations.continueToPreparation;
     final selectionTitle = selectedExercise == null
-        ? 'Hareket Seç'
-        : 'Hareketi Değiştir';
+        ? localizations.selectExercise
+        : localizations.changeExercise;
     final selectionSubtitle = selectedExercise == null
-        ? 'Desteklenen hareketleri gör'
-        : 'Farklı bir analiz hattı seç';
+        ? localizations.viewSupportedExercises
+        : localizations.chooseDifferentAnalysis;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -386,26 +402,26 @@ class _HomeActionGrid extends StatelessWidget {
                 ),
                 _HomeActionCard(
                   icon: Icons.menu_book_rounded,
-                  title: 'Hareket Rehberi',
-                  subtitle: 'Teknik ipuçları ve hatalar',
+                  title: localizations.exerciseGuide,
+                  subtitle: localizations.techniqueTipsAndMistakes,
                   onTap: onOpenGuide,
                 ),
                 _HomeActionCard(
                   icon: Icons.history_rounded,
-                  title: 'Geçmiş Oturumlar',
-                  subtitle: 'Kaydedilmiş analizler',
+                  title: localizations.sessionHistory,
+                  subtitle: localizations.savedAnalyses,
                   onTap: onOpenHistory,
                 ),
                 _HomeActionCard(
                   icon: Icons.fitness_center_rounded,
-                  title: 'Planlı Antrenman',
-                  subtitle: 'Set, round ve hedef akışı',
+                  title: localizations.plannedWorkout,
+                  subtitle: localizations.plannedWorkoutSubtitle,
                   onTap: onOpenWorkoutPlan,
                 ),
                 _HomeActionCard(
                   icon: Icons.monitor_heart_rounded,
-                  title: 'Değerlendirme',
-                  subtitle: 'Squat, denge ve omuz ölçümü',
+                  title: localizations.assessment,
+                  subtitle: localizations.assessmentSubtitle,
                   onTap: onOpenAssessment,
                 ),
               ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
@@ -428,7 +444,11 @@ class _SelectedExerciseSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final hasSelection = selectedExercise != null;
+    final exerciseTitle = selectedExercise == null
+        ? null
+        : localizations.exerciseTitle(selectedExercise!.id);
 
     return AppSurfaceCard(
       padding: const EdgeInsets.all(14),
@@ -460,8 +480,8 @@ class _SelectedExerciseSummary extends StatelessWidget {
               children: [
                 Text(
                   hasSelection
-                      ? 'Seçili hareket: ${selectedExercise!.title}'
-                      : 'Henüz hareket seçilmedi',
+                      ? localizations.selectedExercise(exerciseTitle!)
+                      : localizations.noExerciseSelected,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -471,8 +491,8 @@ class _SelectedExerciseSummary extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   hasSelection
-                      ? 'Hızlı başlatma bu hareket üzerinden devam eder.'
-                      : 'Hızlı başlatma için önce analiz edeceğin hareketi seç.',
+                      ? localizations.quickStartUsesSelection
+                      : localizations.quickStartNeedsSelection,
                   style: const TextStyle(
                     color: Colors.white60,
                     fontSize: 12,
@@ -485,7 +505,9 @@ class _SelectedExerciseSummary extends StatelessWidget {
           const SizedBox(width: 10),
           TextButton(
             onPressed: onChangeExercise,
-            child: Text(hasSelection ? 'Değiştir' : 'Seç'),
+            child: Text(
+              hasSelection ? localizations.change : localizations.select,
+            ),
           ),
         ],
       ),
@@ -589,29 +611,35 @@ class _HomeProgressEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppSurfaceCard(
+    final localizations = AppLocalizations.of(context);
+
+    return AppSurfaceCard(
       padding: AppSpacing.headerSurfacePadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.insights_rounded, color: Colors.greenAccent, size: 28),
-          SizedBox(width: 14),
+          const Icon(
+            Icons.insights_rounded,
+            color: Colors.greenAccent,
+            size: 28,
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'İlerlemen burada birikecek',
-                  style: TextStyle(
+                  localizations.progressWillAppearHere,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 7),
+                const SizedBox(height: 7),
                 Text(
-                  'İlk analizini tamamladığında oturumların ve haftalık özetin burada görünür.',
-                  style: TextStyle(
+                  localizations.firstAnalysisProgressDescription,
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     height: 1.35,
@@ -688,6 +716,8 @@ class _DashboardStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 10.0;
@@ -698,11 +728,11 @@ class _DashboardStats extends StatelessWidget {
           runSpacing: spacing,
           children: [
             _DashboardStatCard(
-              label: 'Toplam Analiz',
+              label: localizations.totalAnalyses,
               value: data.totalAnalyses.toString(),
             ),
             _DashboardStatCard(
-              label: 'Bu Hafta',
+              label: localizations.thisWeek,
               value: data.thisWeekCount.toString(),
             ),
           ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),

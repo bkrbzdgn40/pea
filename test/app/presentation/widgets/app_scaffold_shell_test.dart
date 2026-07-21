@@ -25,7 +25,13 @@ void main() {
     expect(find.text('Kabuk'), findsOneWidget);
     expect(find.byKey(bodyKey), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
-    expect(find.byTooltip('Open navigation menu'), findsOneWidget);
+    final materialLocalizations = MaterialLocalizations.of(
+      tester.element(find.byType(AppScaffoldShell)),
+    );
+    expect(
+      find.byTooltip(materialLocalizations.openAppDrawerTooltip),
+      findsOneWidget,
+    );
 
     expect(
       find.byWidgetPredicate(
@@ -50,6 +56,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No Drawer'), findsOneWidget);
-    expect(find.byTooltip('Open navigation menu'), findsNothing);
+    final materialLocalizations = MaterialLocalizations.of(
+      tester.element(find.byType(AppScaffoldShell)),
+    );
+    expect(
+      find.byTooltip(materialLocalizations.openAppDrawerTooltip),
+      findsNothing,
+    );
   });
 }
