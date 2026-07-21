@@ -65,7 +65,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           );
       _sessionLifecycle = ref.read(workoutSessionLifecycleControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
-      _startSessionLifecycle();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_hasAnalysisSelection()) {
+          return;
+        }
+        _startSessionLifecycle();
+      });
       if (ref.read(exerciseConfigProvider).hasValue) {
         _attachWorkoutStateSubscription();
       }
