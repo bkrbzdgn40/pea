@@ -1,3 +1,4 @@
+import 'feedback_arbitration_engine.dart';
 import 'hold_diagnostics.dart';
 import 'hold_form_policy.dart';
 import 'models/exercise_config.dart';
@@ -7,9 +8,14 @@ import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
 
 class HoldPosturePolicy implements HoldFormPolicy {
-  const HoldPosturePolicy({required this.config});
+  const HoldPosturePolicy({
+    required this.config,
+    FeedbackArbitrationEngine feedbackArbitrationEngine =
+        const FeedbackArbitrationEngine(),
+  }) : _feedbackArbitrationEngine = feedbackArbitrationEngine;
 
   final HoldPostureConfig config;
+  final FeedbackArbitrationEngine _feedbackArbitrationEngine;
 
   @override
   Duration get breakGraceDuration => config.breakGraceDuration;
@@ -97,15 +103,29 @@ class HoldPosturePolicy implements HoldFormPolicy {
     required bool isArmSupported,
     required bool areLegsExtended,
   }) {
-    if (!isBodyAligned) {
-      return HoldFeedbackCode.alignHips;
-    }
-    if (!isArmSupported) {
-      return HoldFeedbackCode.adjustElbowSupport;
-    }
-    if (!areLegsExtended) {
-      return HoldFeedbackCode.extendLegs;
-    }
-    return HoldFeedbackCode.correctForm;
+    final decision = _feedbackArbitrationEngine.arbitrate<HoldFeedbackCode>(
+      candidates: <FeedbackCandidate<HoldFeedbackCode>>[
+        if (!isBodyAligned)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'plank_align_hips',
+            value: HoldFeedbackCode.alignHips,
+            priority: FeedbackPriority.corrective,
+          ),
+        if (!isArmSupported)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'plank_adjust_elbow_support',
+            value: HoldFeedbackCode.adjustElbowSupport,
+            priority: FeedbackPriority.corrective,
+          ),
+        if (!areLegsExtended)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'plank_extend_legs',
+            value: HoldFeedbackCode.extendLegs,
+            priority: FeedbackPriority.corrective,
+          ),
+      ],
+    );
+
+    return decision.selectedValue ?? HoldFeedbackCode.correctForm;
   }
 }

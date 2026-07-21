@@ -1,6 +1,7 @@
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../core/utils/moving_average.dart';
+import '../domain/feedback_arbitration_engine.dart';
 import '../domain/legacy_range_rep_scorer.dart';
 import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
@@ -210,6 +211,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final LegacyRangeRepScorer _scorer;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final LegacyRangeRepTechniqueHistoryTracker _techniqueHistoryTracker;
+  final FeedbackArbitrationEngine _feedbackArbitrationEngine =
+      const FeedbackArbitrationEngine();
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final RangeRepBlockedStateBuilder _blockedStateBuilder;
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder;
@@ -576,10 +579,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final engineResult = _engine.updateDetectionFrame(
       primaryMetric: engineFrame.primaryMetric,
     );
-    _applyLiveTechniqueFeedback(
-      engineResult: engineResult,
-      hasTechniqueViolation: hasTechniqueViolation,
-    );
     final completedTechniqueData = _techniqueHistoryTracker.recordFrame(
       engineResult: engineResult,
       primaryMetric: engineFrame.primaryMetric,
@@ -594,8 +593,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       _lastCompletedRepCoreData = completedRepCoreData;
     }
     final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
-    _applyLifecycleFeedback(
+    _applyFeedbackArbitration(
       engineResult: engineResult,
+      hasTechniqueViolation: hasTechniqueViolation,
       phaseFeedbackCandidate:
           _currentTechniqueHistorySnapshot().phaseFeedbackCandidate,
     );
@@ -889,47 +889,78 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return frame;
   }
 
-  void _applyLiveTechniqueFeedback({
+  void _applyFeedbackArbitration({
     required RangeRepEngineFrameResult engineResult,
     required bool hasTechniqueViolation,
+    required RangeRepFeedbackCode? phaseFeedbackCandidate,
   }) {
-    if (!engineResult.wasArmedAtFrameStart) {
-      _isFormBad = false;
-      _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
-      return;
-    }
+    final wasArmedAtFrameStart = engineResult.wasArmedAtFrameStart;
+    _isFormBad = wasArmedAtFrameStart && hasTechniqueViolation;
 
-    _isFormBad = hasTechniqueViolation;
-    if (hasTechniqueViolation) {
-      _currentFeedbackCode = RangeRepFeedbackCode.keepBodyUpright;
-    }
+    final lifecycleCandidate = _lifecycleFeedbackCandidate(
+      engineResult: engineResult,
+      phaseFeedbackCandidate: phaseFeedbackCandidate,
+    );
+    final baseCandidate =
+        lifecycleCandidate ??
+        (wasArmedAtFrameStart
+            ? _currentFeedbackCode
+            : RangeRepFeedbackCode.awaitNeutral);
+    final decision = _feedbackArbitrationEngine.arbitrate<RangeRepFeedbackCode>(
+      candidates: <FeedbackCandidate<RangeRepFeedbackCode>>[
+        FeedbackCandidate<RangeRepFeedbackCode>(
+          id: 'range_rep_base_${baseCandidate.code}',
+          value: baseCandidate,
+          priority: _priorityForRangeRepFeedback(baseCandidate),
+        ),
+        if (wasArmedAtFrameStart && hasTechniqueViolation)
+          const FeedbackCandidate<RangeRepFeedbackCode>(
+            id: 'range_rep_live_form_correction',
+            value: RangeRepFeedbackCode.legacyFormThresholdViolation,
+            priority: FeedbackPriority.corrective,
+          ),
+      ],
+    );
+
+    _currentFeedbackCode = decision.selectedValue ?? baseCandidate;
   }
 
-  void _applyLifecycleFeedback({
+  RangeRepFeedbackCode? _lifecycleFeedbackCandidate({
     required RangeRepEngineFrameResult engineResult,
     required RangeRepFeedbackCode? phaseFeedbackCandidate,
   }) {
-    switch (engineResult.confirmedTransition?.type) {
-      case null:
-        return;
-      case RangeRepConfirmedTransitionType.acquireNeutral:
-        _currentFeedbackCode = RangeRepFeedbackCode.ready;
-        break;
-      case RangeRepConfirmedTransitionType.startDescending:
-        _currentFeedbackCode = RangeRepFeedbackCode.descend;
-        break;
-      case RangeRepConfirmedTransitionType.reachPeak:
-      case RangeRepConfirmedTransitionType.startAscending:
-        _currentFeedbackCode = RangeRepFeedbackCode.ascend;
-        break;
-      case RangeRepConfirmedTransitionType.abortToNeutral:
-        _currentFeedbackCode = RangeRepFeedbackCode.repIncomplete;
-        break;
-      case RangeRepConfirmedTransitionType.completeRep:
-        _currentFeedbackCode =
-            phaseFeedbackCandidate ?? RangeRepFeedbackCode.repCompleted;
-        break;
-    }
+    return switch (engineResult.confirmedTransition?.type) {
+      null => null,
+      RangeRepConfirmedTransitionType.acquireNeutral =>
+        RangeRepFeedbackCode.ready,
+      RangeRepConfirmedTransitionType.startDescending =>
+        RangeRepFeedbackCode.descend,
+      RangeRepConfirmedTransitionType.reachPeak => RangeRepFeedbackCode.ascend,
+      RangeRepConfirmedTransitionType.startAscending =>
+        RangeRepFeedbackCode.ascend,
+      RangeRepConfirmedTransitionType.abortToNeutral =>
+        RangeRepFeedbackCode.repIncomplete,
+      RangeRepConfirmedTransitionType.completeRep =>
+        phaseFeedbackCandidate ?? RangeRepFeedbackCode.repCompleted,
+    };
+  }
+
+  FeedbackPriority _priorityForRangeRepFeedback(RangeRepFeedbackCode code) {
+    return switch (code) {
+      RangeRepFeedbackCode.awaitNeutral ||
+      RangeRepFeedbackCode.ready => FeedbackPriority.status,
+      RangeRepFeedbackCode.waitForBody ||
+      RangeRepFeedbackCode.bodyNotVisible => FeedbackPriority.systemState,
+      RangeRepFeedbackCode.descend ||
+      RangeRepFeedbackCode.ascend ||
+      RangeRepFeedbackCode.repCompleted ||
+      RangeRepFeedbackCode.repIncomplete => FeedbackPriority.movement,
+      RangeRepFeedbackCode.legacyFormThresholdViolation ||
+      RangeRepFeedbackCode.controlDescent ||
+      RangeRepFeedbackCode.controlAscent ||
+      RangeRepFeedbackCode.stabilizeTransition ||
+      RangeRepFeedbackCode.maintainForm => FeedbackPriority.corrective,
+    };
   }
 
   RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({

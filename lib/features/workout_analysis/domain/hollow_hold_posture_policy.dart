@@ -1,3 +1,4 @@
+import 'feedback_arbitration_engine.dart';
 import 'hold_diagnostics.dart';
 import 'hold_form_policy.dart';
 import 'models/exercise_config.dart';
@@ -13,10 +14,13 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
   const HollowHoldPosturePolicy({
     required this.config,
     this.variationContract = HollowHoldVariationContracts.straightLegOverhead,
-  });
+    FeedbackArbitrationEngine feedbackArbitrationEngine =
+        const FeedbackArbitrationEngine(),
+  }) : _feedbackArbitrationEngine = feedbackArbitrationEngine;
 
   final HollowHoldPostureConfig config;
   final HollowHoldVariationContract variationContract;
+  final FeedbackArbitrationEngine _feedbackArbitrationEngine;
 
   @override
   Duration get breakGraceDuration => config.breakGraceDuration;
@@ -140,15 +144,29 @@ class HollowHoldPosturePolicy implements HoldFormPolicy {
     required bool isArmExtensionValid,
     required bool isKneeExtensionValid,
   }) {
-    if (!isCompressionWithinReference) {
-      return HoldFeedbackCode.increaseHollowCompression;
-    }
-    if (variationContract.requiresArmsOverhead && !isArmExtensionValid) {
-      return HoldFeedbackCode.extendArmsOverhead;
-    }
-    if (variationContract.requiresStraightKnees && !isKneeExtensionValid) {
-      return HoldFeedbackCode.straightenKnees;
-    }
-    return HoldFeedbackCode.correctForm;
+    final decision = _feedbackArbitrationEngine.arbitrate<HoldFeedbackCode>(
+      candidates: <FeedbackCandidate<HoldFeedbackCode>>[
+        if (!isCompressionWithinReference)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'hollow_increase_compression',
+            value: HoldFeedbackCode.increaseHollowCompression,
+            priority: FeedbackPriority.corrective,
+          ),
+        if (variationContract.requiresArmsOverhead && !isArmExtensionValid)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'hollow_extend_arms_overhead',
+            value: HoldFeedbackCode.extendArmsOverhead,
+            priority: FeedbackPriority.corrective,
+          ),
+        if (variationContract.requiresStraightKnees && !isKneeExtensionValid)
+          const FeedbackCandidate<HoldFeedbackCode>(
+            id: 'hollow_straighten_knees',
+            value: HoldFeedbackCode.straightenKnees,
+            priority: FeedbackPriority.corrective,
+          ),
+      ],
+    );
+
+    return decision.selectedValue ?? HoldFeedbackCode.correctForm;
   }
 }

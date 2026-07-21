@@ -1,4 +1,5 @@
 import 'analysis_visibility_gap_window.dart';
+import 'feedback_arbitration_engine.dart';
 import 'generic_rep_engine.dart';
 import 'legacy_range_rep_phase_quality_policy.dart';
 import 'legacy_range_rep_scorer.dart';
@@ -207,6 +208,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       const LegacyRangeRepTechniqueEvaluator();
   final LegacyRangeRepPhaseQualityPolicy _phaseQualityPolicy =
       const LegacyRangeRepPhaseQualityPolicy();
+  final FeedbackArbitrationEngine _feedbackArbitrationEngine =
+      const FeedbackArbitrationEngine();
 
   MovementPhase state = MovementPhase.neutral;
   bool _isArmed = false;
@@ -428,6 +431,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       hasTechniqueViolation: hasTechniqueViolation,
       tracksCompatibilityTechnique: tracksCompatibilityTechnique,
       calculateCompatibilityScore: calculateCompatibilityScore,
+    );
+    _arbitrateLiveFeedback(
+      hasTechniqueViolation:
+          tracksCompatibilityTechnique &&
+          wasArmedAtFrameStart &&
+          hasTechniqueViolation,
     );
     return RangeRepEngineFrameResult(
       wasArmedAtFrameStart: wasArmedAtFrameStart,
@@ -1049,12 +1058,52 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   void _checkForm(bool hasTechniqueViolation) {
     // Live feedback uses the current frame; final scoring uses rep-level history.
-    if (hasTechniqueViolation) {
-      isFormBad = true;
-      _setFeedback(RangeRepFeedbackCode.keepBodyUpright);
-    } else {
-      isFormBad = false;
+    // User-facing selection happens after lifecycle processing so movement and
+    // corrective candidates can be arbitrated together instead of whichever
+    // setter happened to run last winning implicitly.
+    isFormBad = hasTechniqueViolation;
+  }
+
+  void _arbitrateLiveFeedback({required bool hasTechniqueViolation}) {
+    final currentFeedbackCode = _feedbackCode;
+    final candidates = <FeedbackCandidate<RangeRepFeedbackCode>>[
+      if (currentFeedbackCode != null)
+        FeedbackCandidate<RangeRepFeedbackCode>(
+          id: 'range_rep_current_${currentFeedbackCode.code}',
+          value: currentFeedbackCode,
+          priority: _priorityForRangeRepFeedback(currentFeedbackCode),
+        ),
+      if (hasTechniqueViolation)
+        const FeedbackCandidate<RangeRepFeedbackCode>(
+          id: 'range_rep_live_form_correction',
+          value: RangeRepFeedbackCode.legacyFormThresholdViolation,
+          priority: FeedbackPriority.corrective,
+        ),
+    ];
+    final selected = _feedbackArbitrationEngine
+        .arbitrate<RangeRepFeedbackCode>(candidates: candidates)
+        .selectedValue;
+    if (selected != null) {
+      _setFeedback(selected);
     }
+  }
+
+  FeedbackPriority _priorityForRangeRepFeedback(RangeRepFeedbackCode code) {
+    return switch (code) {
+      RangeRepFeedbackCode.awaitNeutral ||
+      RangeRepFeedbackCode.ready => FeedbackPriority.status,
+      RangeRepFeedbackCode.waitForBody ||
+      RangeRepFeedbackCode.bodyNotVisible => FeedbackPriority.systemState,
+      RangeRepFeedbackCode.descend ||
+      RangeRepFeedbackCode.ascend ||
+      RangeRepFeedbackCode.repCompleted ||
+      RangeRepFeedbackCode.repIncomplete => FeedbackPriority.movement,
+      RangeRepFeedbackCode.legacyFormThresholdViolation ||
+      RangeRepFeedbackCode.controlDescent ||
+      RangeRepFeedbackCode.controlAscent ||
+      RangeRepFeedbackCode.stabilizeTransition ||
+      RangeRepFeedbackCode.maintainForm => FeedbackPriority.corrective,
+    };
   }
 
   void _recordPrimaryExtrema(double value) {
