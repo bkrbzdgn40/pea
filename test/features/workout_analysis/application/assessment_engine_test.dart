@@ -11,7 +11,13 @@ void main() {
     });
 
     test('squat assessment keeps the deepest complete sample', () {
-      final engine = AssessmentEngine(type: AssessmentType.squat)..start();
+      final engine = AssessmentEngine(
+        type: AssessmentType.squat,
+        config: const AssessmentEngineConfig(
+          minimumSquatSamples: 3,
+          minimumSquatKneeAngleRangeDegrees: 15,
+        ),
+      )..start();
 
       engine
         ..observe(
@@ -44,6 +50,44 @@ void main() {
       expect(result.deepestHipDepthRatio, -0.10);
       expect(result.torsoInclinationAtDeepestDegrees, 22);
       expect(result.reachedHipAtOrBelowKneeHeight, isTrue);
+    });
+
+    test('squat assessment requires meaningful movement evidence', () {
+      final engine = AssessmentEngine(type: AssessmentType.squat)..start();
+
+      for (var index = 0; index < 5; index++) {
+        engine.observe(
+          _squat(
+            leftKneeAngle: 165.0 - index,
+            rightKneeAngle: 165.0 - index,
+            depth: 0.4 - (index * 0.01),
+          ),
+        );
+      }
+
+      final result = engine.complete() as SquatAssessmentResult;
+
+      expect(result.sampleCount, 5);
+      expect(result.hasSufficientData, isFalse);
+    });
+
+    test('default squat evidence gate accepts a meaningful movement range', () {
+      final engine = AssessmentEngine(type: AssessmentType.squat)..start();
+
+      for (final angle in <double>[170, 150, 130, 150, 170]) {
+        engine.observe(
+          _squat(
+            leftKneeAngle: angle,
+            rightKneeAngle: angle,
+            depth: (angle - 130) / 100,
+          ),
+        );
+      }
+
+      final result = engine.complete() as SquatAssessmentResult;
+
+      expect(result.sampleCount, 5);
+      expect(result.hasSufficientData, isTrue);
     });
 
     test('squat assessment ignores incomplete samples without fake zeroes', () {
@@ -242,8 +286,13 @@ void main() {
     });
 
     test('shoulder mobility keeps independent maxima for both sides', () {
-      final engine = AssessmentEngine(type: AssessmentType.shoulderMobility)
-        ..start();
+      final engine = AssessmentEngine(
+        type: AssessmentType.shoulderMobility,
+        config: const AssessmentEngineConfig(
+          minimumShoulderMobilitySamples: 3,
+          minimumShoulderElevationRangeDegrees: 20,
+        ),
+      )..start();
 
       engine
         ..observe(
@@ -278,6 +327,49 @@ void main() {
       expect(result.torsoInclinationAtLeftMaximumDegrees, 12);
       expect(result.torsoInclinationAtRightMaximumDegrees, 18);
     });
+
+    test('shoulder mobility requires bilateral movement evidence', () {
+      final engine = AssessmentEngine(type: AssessmentType.shoulderMobility)
+        ..start();
+
+      for (var index = 0; index < 5; index++) {
+        engine.observe(
+          ShoulderMobilityAssessmentObservation(
+            leftElevationDegrees: 120 + index.toDouble(),
+            rightElevationDegrees: 125 + index.toDouble(),
+            torsoInclinationDegrees: 5,
+          ),
+        );
+      }
+
+      final result = engine.complete() as ShoulderMobilityAssessmentResult;
+
+      expect(result.sampleCount, 5);
+      expect(result.hasSufficientData, isFalse);
+    });
+
+    test(
+      'default shoulder evidence gate accepts bilateral elevation range',
+      () {
+        final engine = AssessmentEngine(type: AssessmentType.shoulderMobility)
+          ..start();
+
+        for (final elevation in <double>[20, 60, 100, 140, 160]) {
+          engine.observe(
+            ShoulderMobilityAssessmentObservation(
+              leftElevationDegrees: elevation,
+              rightElevationDegrees: elevation + 5,
+              torsoInclinationDegrees: 5,
+            ),
+          );
+        }
+
+        final result = engine.complete() as ShoulderMobilityAssessmentResult;
+
+        expect(result.sampleCount, 5);
+        expect(result.hasSufficientData, isTrue);
+      },
+    );
 
     test('shoulder mobility preserves missing-side evidence as null', () {
       final engine = AssessmentEngine(type: AssessmentType.shoulderMobility)

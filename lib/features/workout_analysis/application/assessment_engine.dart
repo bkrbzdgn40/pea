@@ -3,13 +3,31 @@ import '../domain/stability_engine.dart';
 
 class AssessmentEngineConfig {
   const AssessmentEngineConfig({
+    this.minimumSquatSamples = 5,
+    this.minimumSquatKneeAngleRangeDegrees = 20.0,
     this.minimumBalanceSamples = 10,
     this.minimumBalanceDuration = const Duration(seconds: 5),
     this.minimumRaisedFootClearanceRatio = 0.10,
     this.balanceStandardDeviationAtZeroScore = 0.10,
-  }) : assert(minimumBalanceSamples >= 2),
+    this.minimumShoulderMobilitySamples = 5,
+    this.minimumShoulderElevationRangeDegrees = 20.0,
+  }) : assert(minimumSquatSamples >= 2),
+       assert(minimumSquatKneeAngleRangeDegrees > 0.0),
+       assert(minimumBalanceSamples >= 2),
        assert(minimumRaisedFootClearanceRatio >= 0.0),
-       assert(balanceStandardDeviationAtZeroScore > 0.0);
+       assert(balanceStandardDeviationAtZeroScore > 0.0),
+       assert(minimumShoulderMobilitySamples >= 2),
+       assert(minimumShoulderElevationRangeDegrees > 0.0);
+
+  /// Minimum number of complete squat frames required before the deepest
+  /// sample is considered representative enough to report as sufficient.
+  /// This is a product-level evidence threshold, not a clinical cutoff.
+  final int minimumSquatSamples;
+
+  /// Minimum observed bilateral-average knee-angle excursion required to
+  /// establish that meaningful squat movement occurred during the capture.
+  /// This is a product heuristic rather than a diagnostic ROM threshold.
+  final double minimumSquatKneeAngleRangeDegrees;
 
   /// Product-level evidence threshold, not a clinical cutoff.
   final int minimumBalanceSamples;
@@ -26,6 +44,14 @@ class AssessmentEngineConfig {
   /// This score is a product heuristic and must not be presented as a clinical
   /// balance score.
   final double balanceStandardDeviationAtZeroScore;
+
+  /// Minimum number of shoulder-mobility frames required before maxima are
+  /// considered sufficiently observed. Product evidence threshold only.
+  final int minimumShoulderMobilitySamples;
+
+  /// Minimum observed elevation excursion required independently on both
+  /// sides. This verifies meaningful movement, not clinical shoulder ROM.
+  final double minimumShoulderElevationRangeDegrees;
 }
 
 enum BalanceAssessmentSignal { shoulderCenterX, hipCenterX }
@@ -57,6 +83,8 @@ class AssessmentEngine {
 
   int _squatSampleCount = 0;
   SquatAssessmentObservation? _deepestSquat;
+  double? _minimumSquatAverageKneeAngle;
+  double? _maximumSquatAverageKneeAngle;
 
   int _balanceRejectedSampleCount = 0;
   DateTime? _balanceFirstCapturedAt;
@@ -65,6 +93,8 @@ class AssessmentEngine {
   int _shoulderSampleCount = 0;
   double? _leftMaximumElevation;
   double? _rightMaximumElevation;
+  double? _leftMinimumElevation;
+  double? _rightMinimumElevation;
   double? _torsoAtLeftMaximum;
   double? _torsoAtRightMaximum;
 
@@ -153,7 +183,27 @@ class AssessmentEngine {
       return;
     }
 
+    final leftKneeAngle = observation.leftKneeAngleDegrees!;
+    final rightKneeAngle = observation.rightKneeAngleDegrees!;
+    final hipDepthRatio = observation.hipDepthRatio!;
+    final torsoInclination = observation.torsoInclinationDegrees!;
+    if (!leftKneeAngle.isFinite ||
+        !rightKneeAngle.isFinite ||
+        !hipDepthRatio.isFinite ||
+        !torsoInclination.isFinite) {
+      return;
+    }
+
     _squatSampleCount += 1;
+    final averageKneeAngle = (leftKneeAngle + rightKneeAngle) / 2.0;
+    _minimumSquatAverageKneeAngle = _minimumOf(
+      _minimumSquatAverageKneeAngle,
+      averageKneeAngle,
+    );
+    _maximumSquatAverageKneeAngle = _maximumOf(
+      _maximumSquatAverageKneeAngle,
+      averageKneeAngle,
+    );
     final currentDeepest = _deepestSquat;
     if (currentDeepest == null ||
         observation.hipDepthRatio! < currentDeepest.hipDepthRatio!) {
@@ -202,19 +252,21 @@ class AssessmentEngine {
 
     _shoulderSampleCount += 1;
     final left = observation.leftElevationDegrees;
-    if (left != null &&
-        left.isFinite &&
-        (_leftMaximumElevation == null || left > _leftMaximumElevation!)) {
-      _leftMaximumElevation = left;
-      _torsoAtLeftMaximum = observation.torsoInclinationDegrees;
+    if (left != null && left.isFinite) {
+      _leftMinimumElevation = _minimumOf(_leftMinimumElevation, left);
+      if (_leftMaximumElevation == null || left > _leftMaximumElevation!) {
+        _leftMaximumElevation = left;
+        _torsoAtLeftMaximum = observation.torsoInclinationDegrees;
+      }
     }
 
     final right = observation.rightElevationDegrees;
-    if (right != null &&
-        right.isFinite &&
-        (_rightMaximumElevation == null || right > _rightMaximumElevation!)) {
-      _rightMaximumElevation = right;
-      _torsoAtRightMaximum = observation.torsoInclinationDegrees;
+    if (right != null && right.isFinite) {
+      _rightMinimumElevation = _minimumOf(_rightMinimumElevation, right);
+      if (_rightMaximumElevation == null || right > _rightMaximumElevation!) {
+        _rightMaximumElevation = right;
+        _torsoAtRightMaximum = observation.torsoInclinationDegrees;
+      }
     }
   }
 
@@ -234,9 +286,18 @@ class AssessmentEngine {
 
     final leftFlexion = 180.0 - deepest.leftKneeAngleDegrees!;
     final rightFlexion = 180.0 - deepest.rightKneeAngleDegrees!;
+    final minimumAverageKneeAngle = _minimumSquatAverageKneeAngle;
+    final maximumAverageKneeAngle = _maximumSquatAverageKneeAngle;
+    final observedKneeAngleRange =
+        minimumAverageKneeAngle == null || maximumAverageKneeAngle == null
+        ? 0.0
+        : maximumAverageKneeAngle - minimumAverageKneeAngle;
+    final hasSufficientData =
+        _squatSampleCount >= config.minimumSquatSamples &&
+        observedKneeAngleRange >= config.minimumSquatKneeAngleRangeDegrees;
     return SquatAssessmentResult(
       sampleCount: _squatSampleCount,
-      hasSufficientData: true,
+      hasSufficientData: hasSufficientData,
       leftKneeFlexionDegrees: leftFlexion,
       rightKneeFlexionDegrees: rightFlexion,
       kneeFlexionAsymmetryDegrees: (leftFlexion - rightFlexion).abs(),
@@ -278,9 +339,21 @@ class AssessmentEngine {
   ShoulderMobilityAssessmentResult _buildShoulderMobilityResult() {
     final left = _leftMaximumElevation;
     final right = _rightMaximumElevation;
+    final leftMinimum = _leftMinimumElevation;
+    final rightMinimum = _rightMinimumElevation;
+    final leftRange = left == null || leftMinimum == null
+        ? 0.0
+        : left - leftMinimum;
+    final rightRange = right == null || rightMinimum == null
+        ? 0.0
+        : right - rightMinimum;
+    final hasSufficientData =
+        _shoulderSampleCount >= config.minimumShoulderMobilitySamples &&
+        leftRange >= config.minimumShoulderElevationRangeDegrees &&
+        rightRange >= config.minimumShoulderElevationRangeDegrees;
     return ShoulderMobilityAssessmentResult(
       sampleCount: _shoulderSampleCount,
-      hasSufficientData: left != null && right != null,
+      hasSufficientData: hasSufficientData,
       leftMaximumElevationDegrees: left,
       rightMaximumElevationDegrees: right,
       sideDifferenceDegrees: left == null || right == null
@@ -311,13 +384,31 @@ class AssessmentEngine {
   void _clearAccumulators() {
     _squatSampleCount = 0;
     _deepestSquat = null;
+    _minimumSquatAverageKneeAngle = null;
+    _maximumSquatAverageKneeAngle = null;
     _balanceRejectedSampleCount = 0;
     _balanceFirstCapturedAt = null;
     _balanceLastCapturedAt = null;
     _shoulderSampleCount = 0;
     _leftMaximumElevation = null;
     _rightMaximumElevation = null;
+    _leftMinimumElevation = null;
+    _rightMinimumElevation = null;
     _torsoAtLeftMaximum = null;
     _torsoAtRightMaximum = null;
+  }
+
+  double _minimumOf(double? current, double candidate) {
+    if (current == null || candidate < current) {
+      return candidate;
+    }
+    return current;
+  }
+
+  double _maximumOf(double? current, double candidate) {
+    if (current == null || candidate > current) {
+      return candidate;
+    }
+    return current;
   }
 }

@@ -112,6 +112,16 @@ class PoseQualityPolicy {
 
   final ExerciseLandmarkRequirements _requirements;
 
+  /// Applies the shared runtime pose-quality gate to an explicit landmark
+  /// requirement set. This keeps non-exercise flows, such as assessment mode,
+  /// on the same confidence and geometry semantics as workout analysis.
+  PoseQualityAssessment assessRequirementSet({
+    required Pose pose,
+    required ExerciseLandmarkRequirementSet requirementSet,
+  }) {
+    return _assessRequirementSet(pose: pose, requirementSet: requirementSet);
+  }
+
   PoseQualityAssessment assess({
     required Pose pose,
     required ExerciseConfig config,

@@ -2,10 +2,12 @@ import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import '../../application/assessment_pose_quality_policy.dart';
 import '../../application/assessment_engine.dart';
 import '../../application/assessment_measurement_extractor.dart';
+import '../../application/common_frame_pose_pipeline.dart';
+import '../../application/pose_quality_policy.dart';
 import '../../domain/models/assessment_models.dart';
-import '../../infrastructure/converters/input_image_converter.dart';
 import 'pose_provider.dart';
 import 'selected_assessment_provider.dart';
 
@@ -42,12 +44,12 @@ class AssessmentLiveController
     extends AutoDisposeNotifier<AssessmentLiveState> {
   final AssessmentMeasurementExtractor _extractor =
       const AssessmentMeasurementExtractor();
-  final InputImageConverter _inputImageConverter = const InputImageConverter();
+  final AssessmentPoseQualityPolicy _poseQualityPolicy =
+      const AssessmentPoseQualityPolicy();
 
   late AssessmentSelection _selection;
   late AssessmentEngine _engine;
-  bool _isProcessing = false;
-  DateTime? _lastAnalysisAt;
+  late WorkoutFramePosePipeline _framePosePipeline;
 
   @override
   AssessmentLiveState build() {
@@ -57,9 +59,8 @@ class AssessmentLiveController
     }
     _selection = selection;
     _engine = AssessmentEngine(type: selection.type);
+    _framePosePipeline = WorkoutFramePosePipeline();
     final snapshot = _engine.start(balanceSide: selection.balanceSide);
-    _isProcessing = false;
-    _lastAnalysisAt = null;
     return AssessmentLiveState(
       snapshot: snapshot,
       feedbackMessage: _instructionFor(selection),
@@ -72,38 +73,56 @@ class AssessmentLiveController
     DateTime? capturedAt,
   }) async {
     final now = capturedAt ?? DateTime.now();
-    if (_isProcessing || state.snapshot.isCompleted) {
-      return;
-    }
-    final lastAnalysisAt = _lastAnalysisAt;
-    if (lastAnalysisAt != null &&
-        now.difference(lastAnalysisAt) < const Duration(milliseconds: 100)) {
+    if (state.snapshot.isCompleted) {
       return;
     }
 
-    _isProcessing = true;
-    _lastAnalysisAt = now;
+    final gate = _framePosePipeline.prepareCameraFrame(now: now);
+    if (gate != FrameProcessingGateDecision.proceed) {
+      return;
+    }
+
     try {
-      final inputImage = _inputImageConverter.convert(image, sensorOrientation);
-      if (inputImage == null) {
-        return;
-      }
       final detector = ref.read(poseDetectorProvider);
-      final poses = await detector.processImage(inputImage);
-      if (poses.isEmpty) {
-        state = AssessmentLiveState(
-          snapshot: state.snapshot,
-          feedbackMessage: 'Vücudunu kadraja al.',
-        );
-        return;
+      final result = await _framePosePipeline.processCameraFrame(
+        image: image,
+        sensorOrientation: sensorOrientation,
+        detector: detector,
+        assessPose: (pose) =>
+            _poseQualityPolicy.assess(pose: pose, type: _selection.type),
+      );
+
+      switch (result.kind) {
+        case FramePosePipelineResultKind.converterDrop:
+          return;
+        case FramePosePipelineResultKind.noPose:
+          state = AssessmentLiveState(
+            snapshot: state.snapshot,
+            feedbackMessage: _poseQualityFeedback(null),
+          );
+          return;
+        case FramePosePipelineResultKind.rejected:
+          state = AssessmentLiveState(
+            snapshot: state.snapshot,
+            feedbackMessage: _poseQualityFeedback(
+              result.selectedAssessment?.rejectionReason,
+            ),
+          );
+          return;
+        case FramePosePipelineResultKind.pendingAcceptance:
+          state = AssessmentLiveState(
+            snapshot: state.snapshot,
+            feedbackMessage: 'Pozisyonunu kısa süre sabit tut.',
+          );
+          return;
+        case FramePosePipelineResultKind.accepted:
+          break;
       }
 
-      final pose = poses.reduce(
-        (current, candidate) =>
-            candidate.landmarks.length > current.landmarks.length
-            ? candidate
-            : current,
-      );
+      if (state.snapshot.isCompleted) {
+        return;
+      }
+      final pose = result.selectedPose!;
       final observation = _observationFor(pose, capturedAt: now);
       final snapshot = _engine.observe(observation);
       state = AssessmentLiveState(
@@ -117,7 +136,7 @@ class AssessmentLiveController
         feedbackMessage: 'Kare analiz edilemedi. Pozisyonunu koru.',
       );
     } finally {
-      _isProcessing = false;
+      _framePosePipeline.finishCameraFrame();
     }
   }
 
@@ -154,10 +173,24 @@ class AssessmentLiveController
 
   String _instructionFor(AssessmentSelection selection) {
     return switch (selection.type) {
-      AssessmentType.squat => 'Kontrollü çömel ve tekrar ayağa kalk.',
-      AssessmentType.balance => 'Seçilen ayağın üzerinde sabit kal.',
+      AssessmentType.squat =>
+        'Kameraya yandan dön. Tüm vücudun kadrajdayken kontrollü çömel ve tekrar ayağa kalk.',
+      AssessmentType.balance =>
+        'Kameraya önden dön. Tüm vücudun kadrajdayken seçilen ayağın üzerinde sabit kal.',
       AssessmentType.shoulderMobility =>
-        'Kollarını kontrollü biçimde mümkün olduğunca yukarı kaldır.',
+        'Kameraya önden dön. İki kolun da görünürken kollarını aşağıdan başlayarak kontrollü biçimde yukarı kaldır.',
     };
+  }
+
+  String _poseQualityFeedback(PoseRejectionReason? reason) {
+    if (reason == PoseRejectionReason.lowLandmarkLikelihood ||
+        reason == PoseRejectionReason.lowMeanLikelihood) {
+      return 'Görüntü yeterince net değil. Işığı artır ve tüm vücudunu görünür tut.';
+    }
+    if (reason == PoseRejectionReason.nonFiniteCoordinate ||
+        reason == PoseRejectionReason.degenerateGeometry) {
+      return 'Pozisyon ölçülemiyor. Kameradan biraz uzaklaşıp tüm vücudunu kadraja al.';
+    }
+    return 'Tüm vücudunu kadraja al ve gerekli eklemleri görünür tut.';
   }
 }
