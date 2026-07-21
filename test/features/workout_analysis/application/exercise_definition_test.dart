@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition_metadata.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
@@ -73,6 +74,12 @@ void main() {
       expect(
         () => ExerciseDefinition.supported(
           type: ExerciseType.squat,
+          movementPattern: ExerciseMovementPattern.squat,
+          trackingType: ExerciseTrackingType.repetitions,
+          analysisEngines: _rangeRepEngines,
+          metricIds: _rangeRepMetrics,
+          feedbackRuleIds: _rangeRepFeedbackRules,
+          sessionSummaryFields: _rangeRepSummaryFields,
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/squat.json',
           cameraViewContract: _sideViewContract(),
@@ -86,6 +93,12 @@ void main() {
       expect(
         () => ExerciseDefinition.supported(
           type: ExerciseType.plank,
+          movementPattern: ExerciseMovementPattern.coreHold,
+          trackingType: ExerciseTrackingType.hold,
+          analysisEngines: _holdEngines,
+          metricIds: _holdMetrics,
+          feedbackRuleIds: _holdFeedbackRules,
+          sessionSummaryFields: _holdSummaryFields,
           engineKind: EngineKind.hold,
           configAssetPath: 'assets/config/exercises/plank.json',
           cameraViewContract: _sideViewContract(),
@@ -106,3 +119,27 @@ CameraViewContract _sideViewContract() {
     },
   );
 }
+
+const Set<ExerciseAnalysisEngine> _rangeRepEngines = <ExerciseAnalysisEngine>{
+  ExerciseAnalysisEngine.rangeRep,
+};
+const Set<ExerciseAnalysisEngine> _holdEngines = <ExerciseAnalysisEngine>{
+  ExerciseAnalysisEngine.hold,
+};
+const Set<ExerciseMetricId> _rangeRepMetrics = <ExerciseMetricId>{
+  ExerciseMetricId.repetitionCount,
+  ExerciseMetricId.primaryMovement,
+};
+const Set<ExerciseMetricId> _holdMetrics = <ExerciseMetricId>{
+  ExerciseMetricId.holdDuration,
+  ExerciseMetricId.form,
+};
+const Set<ExerciseFeedbackRuleId> _rangeRepFeedbackRules =
+    <ExerciseFeedbackRuleId>{ExerciseFeedbackRuleId.movementProgress};
+const Set<ExerciseFeedbackRuleId> _holdFeedbackRules = <ExerciseFeedbackRuleId>{
+  ExerciseFeedbackRuleId.holdProgress,
+};
+const Set<ExerciseSessionSummaryField> _rangeRepSummaryFields =
+    <ExerciseSessionSummaryField>{ExerciseSessionSummaryField.repetitionCount};
+const Set<ExerciseSessionSummaryField> _holdSummaryFields =
+    <ExerciseSessionSummaryField>{ExerciseSessionSummaryField.holdDuration};

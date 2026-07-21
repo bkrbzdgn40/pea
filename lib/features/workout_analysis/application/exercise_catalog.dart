@@ -5,15 +5,65 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
+import 'exercise_definition_metadata.dart';
 
 /// Central exercise metadata source for analysis capability.
 class ExerciseCatalog {
   const ExerciseCatalog();
 
+  static const Set<ExerciseAnalysisEngine> _rangeRepAnalysisEngines =
+      <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.rangeRep};
+  static const Set<ExerciseAnalysisEngine> _holdAnalysisEngines =
+      <ExerciseAnalysisEngine>{ExerciseAnalysisEngine.hold};
+
+  static const Set<ExerciseMetricId> _rangeRepMetricIds = <ExerciseMetricId>{
+    ExerciseMetricId.repetitionCount,
+    ExerciseMetricId.primaryMovement,
+    ExerciseMetricId.form,
+    ExerciseMetricId.rangeOfMotion,
+    ExerciseMetricId.tempo,
+  };
+  static const Set<ExerciseMetricId> _holdMetricIds = <ExerciseMetricId>{
+    ExerciseMetricId.holdDuration,
+    ExerciseMetricId.form,
+  };
+
+  static const Set<ExerciseFeedbackRuleId> _rangeRepFeedbackRuleIds =
+      <ExerciseFeedbackRuleId>{
+        ExerciseFeedbackRuleId.movementProgress,
+        ExerciseFeedbackRuleId.formCorrection,
+      };
+  static const Set<ExerciseFeedbackRuleId> _holdFeedbackRuleIds =
+      <ExerciseFeedbackRuleId>{
+        ExerciseFeedbackRuleId.holdProgress,
+        ExerciseFeedbackRuleId.formCorrection,
+      };
+
+  static const Set<ExerciseSessionSummaryField> _rangeRepSummaryFields =
+      <ExerciseSessionSummaryField>{
+        ExerciseSessionSummaryField.repetitionCount,
+        ExerciseSessionSummaryField.validRepetitions,
+        ExerciseSessionSummaryField.invalidRepetitions,
+        ExerciseSessionSummaryField.averageScore,
+        ExerciseSessionSummaryField.sessionDuration,
+      };
+  static const Set<ExerciseSessionSummaryField> _holdSummaryFields =
+      <ExerciseSessionSummaryField>{
+        ExerciseSessionSummaryField.holdDuration,
+        ExerciseSessionSummaryField.averageScore,
+        ExerciseSessionSummaryField.sessionDuration,
+      };
+
   static final List<ExerciseDefinition> _definitions = List.unmodifiable(
     <ExerciseDefinition>[
       ExerciseDefinition.supported(
         type: ExerciseType.squat,
+        movementPattern: ExerciseMovementPattern.squat,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/squat.json',
         cameraViewContract: CameraViewContract(
@@ -32,6 +82,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.plank,
+        movementPattern: ExerciseMovementPattern.coreHold,
+        trackingType: ExerciseTrackingType.hold,
+        analysisEngines: _holdAnalysisEngines,
+        metricIds: _holdMetricIds,
+        feedbackRuleIds: _holdFeedbackRuleIds,
+        sessionSummaryFields: _holdSummaryFields,
         engineKind: EngineKind.hold,
         configAssetPath: 'assets/config/exercises/plank.json',
         cameraViewContract: CameraViewContract(
@@ -44,6 +100,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.hollowHold,
+        movementPattern: ExerciseMovementPattern.coreHold,
+        trackingType: ExerciseTrackingType.hold,
+        analysisEngines: _holdAnalysisEngines,
+        metricIds: _holdMetricIds,
+        feedbackRuleIds: _holdFeedbackRuleIds,
+        sessionSummaryFields: _holdSummaryFields,
         engineKind: EngineKind.hold,
         configAssetPath: 'assets/config/exercises/hollow_hold.json',
         cameraViewContract: CameraViewContract(
@@ -56,6 +118,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.lunge,
+        movementPattern: ExerciseMovementPattern.lunge,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/stationary_lunge.json',
         cameraViewContract: CameraViewContract(
@@ -74,6 +142,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.pushUp,
+        movementPattern: ExerciseMovementPattern.horizontalPush,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/push_up.json',
         cameraViewContract: CameraViewContract(
@@ -92,6 +166,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.sitUp,
+        movementPattern: ExerciseMovementPattern.trunkFlexion,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/sit_up.json',
         cameraViewContract: CameraViewContract(
@@ -110,6 +190,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.bicepsCurl,
+        movementPattern: ExerciseMovementPattern.elbowFlexion,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/biceps_curl.json',
         cameraViewContract: CameraViewContract(
@@ -128,6 +214,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.lyingLegRaise,
+        movementPattern: ExerciseMovementPattern.hipFlexion,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/lying_leg_raise.json',
         cameraViewContract: CameraViewContract(
@@ -146,6 +238,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.tricepsDip,
+        movementPattern: ExerciseMovementPattern.elbowExtension,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/triceps_dip.json',
         cameraViewContract: CameraViewContract(
@@ -164,6 +262,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.romanianDeadlift,
+        movementPattern: ExerciseMovementPattern.hipHinge,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/romanian_deadlift.json',
         cameraViewContract: CameraViewContract(
@@ -182,6 +286,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.lateralRaise,
+        movementPattern: ExerciseMovementPattern.shoulderAbduction,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/lateral_raise.json',
         cameraViewContract: CameraViewContract(
@@ -200,6 +310,12 @@ class ExerciseCatalog {
       ),
       ExerciseDefinition.supported(
         type: ExerciseType.shoulderPress,
+        movementPattern: ExerciseMovementPattern.verticalPush,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/shoulder_press.json',
         cameraViewContract: CameraViewContract(
