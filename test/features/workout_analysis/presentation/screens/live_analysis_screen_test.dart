@@ -379,6 +379,75 @@ void main() {
   );
 
   testWidgets(
+    'returning from summary restarts live analysis with clean state and allows another finish',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        showFinishButton: true,
+      );
+      addTearDown(harness.dispose);
+
+      await tester.runAsync(() async {
+        await _completeCleanRangeRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      expect(harness.container.read(workoutControllerProvider).repCount, 1);
+      final initialPushCount = harness.navigationObserver.pushCount;
+
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        initialPushCount + 1,
+      );
+
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      expect(harness.container.read(completedSessionProvider), isNotNull);
+      expect(
+        harness.container.read(completedSessionMetricsProvider),
+        isNotNull,
+      );
+
+      await tester.tap(find.text('Tekrar Dene'));
+      await tester.pumpAndSettle();
+
+      expect(harness.sessionRepository.savedSessions, isEmpty);
+
+      final restartedState = harness.container.read(workoutControllerProvider);
+      final restartedLifecycle = harness.container
+          .read(workoutSessionLifecycleControllerProvider)
+          .currentStateSnapshot();
+
+      expect(restartedState.repCount, 0);
+      expect(restartedState.lastRepScore, 0);
+      expect(harness.container.read(completedSessionProvider), isNull);
+      expect(harness.container.read(completedSessionMetricsProvider), isNull);
+      expect(restartedLifecycle.activeSessionExercise, ExerciseType.squat);
+      expect(restartedLifecycle.hasSavedSession, isFalse);
+      expect(restartedLifecycle.isFinishing, isFalse);
+
+      final secondPushCount = harness.navigationObserver.pushCount;
+      await tester.tap(find.text('Bitir'));
+      await tester.pump();
+      await _pumpUntilRoutePush(
+        tester,
+        harness.navigationObserver,
+        secondPushCount + 1,
+      );
+
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+    },
+  );
+
+  testWidgets(
     'finishing a completed range-rep session saves the production rep summary',
     (tester) async {
       final harness = await _pumpLiveAnalysisScreen(
@@ -1153,7 +1222,11 @@ class _FakeSessionRepository implements SessionRepository {
   Future<void> deleteSession({
     required String ownerId,
     required String sessionId,
-  }) async {}
+  }) async {
+    savedSessions.removeWhere(
+      (session) => session.ownerId == ownerId && session.id == sessionId,
+    );
+  }
 }
 
 class _FakeAuthRepository implements AuthRepository {

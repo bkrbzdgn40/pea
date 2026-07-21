@@ -11,11 +11,41 @@ import '../providers/completed_session_metrics_provider.dart';
 import '../providers/completed_session_provider.dart';
 import 'home_screen.dart';
 
-class WorkoutSummaryScreen extends ConsumerWidget {
-  const WorkoutSummaryScreen({super.key});
+class WorkoutSummaryScreen extends ConsumerStatefulWidget {
+  const WorkoutSummaryScreen({super.key, this.onRetryRequested});
+
+  final Future<bool> Function()? onRetryRequested;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkoutSummaryScreen> createState() =>
+      _WorkoutSummaryScreenState();
+}
+
+class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
+  bool _isRetrying = false;
+
+  Future<void> _retry() async {
+    if (_isRetrying) {
+      return;
+    }
+
+    setState(() => _isRetrying = true);
+    final onRetryRequested = widget.onRetryRequested;
+    final canRetry = onRetryRequested == null ? true : await onRetryRequested();
+    if (!mounted) {
+      return;
+    }
+
+    if (canRetry) {
+      Navigator.pop(context, true);
+      return;
+    }
+
+    setState(() => _isRetrying = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(completedSessionProvider);
     final completedMetrics = ref.watch(completedSessionMetricsProvider);
     final summaryValues = session == null
@@ -83,11 +113,15 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.replay_rounded),
-            label: const Text('Tekrar Dene'),
+            onPressed: _isRetrying ? null : _retry,
+            icon: _isRetrying
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.replay_rounded),
+            label: Text(_isRetrying ? 'Hazırlanıyor...' : 'Tekrar Dene'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.greenAccent,
               foregroundColor: Colors.black,

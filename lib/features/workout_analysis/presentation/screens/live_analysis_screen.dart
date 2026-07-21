@@ -263,6 +263,39 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
+  Future<bool> _discardCompletedSessionForRetry() async {
+    final sessionLifecycle = _sessionLifecycle;
+    if (!mounted || sessionLifecycle == null) {
+      return false;
+    }
+
+    final result = await sessionLifecycle.discardSavedSession();
+    if (!mounted) {
+      return false;
+    }
+
+    switch (result.failure) {
+      case DiscardWorkoutSessionFailure.noSavedSession:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Silinecek tamamlanmış oturum bulunamadı.'),
+          ),
+        );
+        return false;
+      case DiscardWorkoutSessionFailure.persistenceFailure:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Önceki oturum silinemedi. Tekrar deneme başlatılmadı.',
+            ),
+          ),
+        );
+        return false;
+      case null:
+        return true;
+    }
+  }
+
   Future<void> _finishSession(WorkoutState workoutState) async {
     final sessionLifecycle = _sessionLifecycle;
     if (!mounted ||
@@ -323,19 +356,28 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     await _setLiveAnalysisScreenAwake(false);
     if (!mounted) return;
-    await Navigator.push(
+    final retryRequested = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const WorkoutSummaryScreen()),
+      MaterialPageRoute(
+        builder: (_) => WorkoutSummaryScreen(
+          onRetryRequested: _discardCompletedSessionForRetry,
+        ),
+      ),
     );
 
     if (!mounted) return;
 
     sessionLifecycle.completeFinishFlow();
-    setState(() {});
 
-    if (_hasAnalysisSelection()) {
+    if (retryRequested == true && _hasAnalysisSelection()) {
+      // Only an explicit retry starts a fresh analysis session. A normal
+      // summary dismiss keeps the completed-session guard intact.
+      _startSessionLifecycle();
+      ref.invalidate(workoutControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
     }
+
+    setState(() {});
   }
 
   Future<bool> _finishPlannedExerciseSession(WorkoutState workoutState) async {

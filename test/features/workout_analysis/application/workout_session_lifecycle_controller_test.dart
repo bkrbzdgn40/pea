@@ -611,6 +611,46 @@ void main() {
     expect(controller.currentStateSnapshot().isFinishing, isFalse);
   });
 
+  test(
+    'discardSavedSession deletes the persisted session and clears save guard',
+    () async {
+      final repository = _FakeSessionRepository();
+      final publications = <WorkoutSession?>[];
+      var invalidationCount = 0;
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        invalidateUserSessionsSnapshot: () => invalidationCount += 1,
+        publishCompletedSession: publications.add,
+      );
+
+      controller.startSession(exercise: ExerciseType.squat);
+      final state = _rangeRepState(
+        repCount: 1,
+        lastRepScore: 72,
+        validatedRepIndex: 1,
+        validationStatus: 'valid',
+      );
+      controller.collect(state);
+
+      expect(controller.beginFinish(), isTrue);
+      final finishResult = await controller.finishSession(finalState: state);
+
+      expect(finishResult.isSuccess, isTrue);
+      expect(repository.savedSessions, hasLength(1));
+      expect(controller.currentStateSnapshot().hasSavedSession, isTrue);
+
+      final discardResult = await controller.discardSavedSession();
+
+      expect(discardResult.isSuccess, isTrue);
+      expect(repository.deleteCallCount, 1);
+      expect(repository.savedSessions, isEmpty);
+      expect(invalidationCount, 2);
+      expect(controller.currentStateSnapshot().hasSavedSession, isFalse);
+      expect(controller.currentStateSnapshot().isFinishing, isFalse);
+    },
+  );
+
   test('missing exercise fails without saving', () async {
     final repository = _FakeSessionRepository();
     final publications = <WorkoutSession?>[];
@@ -733,6 +773,7 @@ class _MutableClock {
 class _FakeSessionRepository implements SessionRepository {
   final List<WorkoutSession> savedSessions = <WorkoutSession>[];
   var saveCallCount = 0;
+  var deleteCallCount = 0;
   var throwOnSave = false;
   Completer<void>? saveCompleter;
 
@@ -779,5 +820,10 @@ class _FakeSessionRepository implements SessionRepository {
   Future<void> deleteSession({
     required String ownerId,
     required String sessionId,
-  }) async {}
+  }) async {
+    deleteCallCount += 1;
+    savedSessions.removeWhere(
+      (session) => session.ownerId == ownerId && session.id == sessionId,
+    );
+  }
 }
