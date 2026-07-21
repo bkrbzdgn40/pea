@@ -92,6 +92,71 @@ void main() {
       expect(engine, isA<RangeRepEngine>());
     });
 
+    test(
+      'existing range-rep exercises share the configurable rep lifecycle',
+      () {
+        final scenarios =
+            <
+              ({
+                ExerciseConfig config,
+                RangeRepContract contract,
+                double neutral,
+                double active,
+                double peak,
+                double returning,
+              })
+            >[
+              (
+                config: squatConfig,
+                contract: RangeRepContracts.squat,
+                neutral: 170,
+                active: 140,
+                peak: 90,
+                returning: 110,
+              ),
+              (
+                config: pushUpConfig,
+                contract: RangeRepContracts.pushUp,
+                neutral: 175,
+                active: 125,
+                peak: 85,
+                returning: 110,
+              ),
+              (
+                config: sitUpConfig,
+                contract: RangeRepContracts.sitUp,
+                neutral: 170,
+                active: 120,
+                peak: 80,
+                returning: 105,
+              ),
+            ];
+
+        for (final scenario in scenarios) {
+          final clock = _RangeRepTestClock();
+          final engine = factory.createRangeRep(
+            config: scenario.config,
+            rangeRepContract: scenario.contract,
+            now: clock.now,
+          );
+
+          _confirmRangeRepMetric(clock, engine, scenario.neutral, 120);
+          _confirmRangeRepMetric(clock, engine, scenario.active, 100);
+          _confirmRangeRepMetric(clock, engine, scenario.peak, 100);
+          _confirmRangeRepMetric(clock, engine, scenario.returning, 100);
+          _confirmRangeRepMetric(clock, engine, scenario.neutral, 120);
+
+          expect(
+            engine.repCount,
+            1,
+            reason:
+                '${scenario.config.name} should complete through the shared '
+                'generic repetition lifecycle.',
+          );
+        }
+      },
+    );
+
     test('rejects hold creation without a contract', () {
       expect(
         () => factory.create(engineKind: EngineKind.hold, config: plankConfig),
@@ -498,4 +563,25 @@ ExerciseConfig _hollowHoldConfig({
         : null,
     holdSignals: holdSignals,
   );
+}
+
+void _confirmRangeRepMetric(
+  _RangeRepTestClock clock,
+  RangeRepAnalysisEngine engine,
+  double metric,
+  int milliseconds,
+) {
+  engine.updateDetectionFrame(primaryMetric: metric);
+  clock.advance(Duration(milliseconds: milliseconds));
+  engine.updateDetectionFrame(primaryMetric: metric);
+}
+
+class _RangeRepTestClock {
+  DateTime value = DateTime(2026, 1, 1);
+
+  DateTime now() => value;
+
+  void advance(Duration duration) {
+    value = value.add(duration);
+  }
 }
