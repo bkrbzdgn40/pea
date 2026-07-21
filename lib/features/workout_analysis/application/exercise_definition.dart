@@ -5,6 +5,7 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
 import 'exercise_definition_metadata.dart';
+import 'exercise_metric_registry.dart';
 
 /// Central, in-memory exercise contract.
 ///
@@ -41,6 +42,7 @@ class ExerciseDefinition {
        ),
        assert(analysisEngines.isNotEmpty),
        assert(metricIds.isNotEmpty),
+       assert(metricIds.every(ExerciseMetricRegistry.contains)),
        assert(feedbackRuleIds.isNotEmpty),
        assert(sessionSummaryFields.isNotEmpty),
        assert(
@@ -118,6 +120,17 @@ class ExerciseDefinition {
   bool declaresMetric(ExerciseMetricId metricId) {
     return metricIds.contains(metricId);
   }
+
+  bool declaresMetricDefinition<T extends Object>(
+    ExerciseMetricDefinition<T> definition,
+  ) {
+    return declaresMetric(definition.id);
+  }
+
+  Set<ExerciseMetricDefinitionBase> get metricDefinitions =>
+      Set<ExerciseMetricDefinitionBase>.unmodifiable(
+        metricIds.map(ExerciseMetricRegistry.definitionFor),
+      );
 
   bool declaresFeedbackRule(ExerciseFeedbackRuleId feedbackRuleId) {
     return feedbackRuleIds.contains(feedbackRuleId);
@@ -226,6 +239,16 @@ class ExerciseDefinition {
         sessionSummaryFields.isEmpty) {
       throw StateError(
         'Incomplete capability definition registered for $type.',
+      );
+    }
+
+    final unregisteredMetricIds = metricIds
+        .where((metricId) => !ExerciseMetricRegistry.contains(metricId))
+        .toList(growable: false);
+    if (unregisteredMetricIds.isNotEmpty) {
+      throw StateError(
+        'Unregistered metrics declared for $type: '
+        '${unregisteredMetricIds.map((id) => id.name).join(', ')}.',
       );
     }
 

@@ -3,6 +3,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_signal_values.dart';
+import 'exercise_metric_registry.dart';
 
 enum RangeRepSide { left, right }
 
@@ -159,6 +160,23 @@ class ExerciseMetrics {
 
   double? get legExtensionAngle =>
       holdSignalValues.valueFor(HoldSignal.extension);
+
+  /// Canonical frame-level metrics currently exposed by the legacy extractor.
+  ///
+  /// Future engines can add repetition- and session-scoped snapshots without
+  /// changing callers that consume the registry-backed metric contract.
+  ExerciseMetricSnapshot get frameMetricSnapshot {
+    final builder = ExerciseMetricSnapshotBuilder(
+      scope: ExerciseMetricScope.frame,
+    );
+    if (hasPrimaryAngle) {
+      builder.set(ExerciseMetricRegistry.primaryMovement, primaryAngle);
+    }
+    if (hasFormMetric) {
+      builder.set(ExerciseMetricRegistry.form, formMetric);
+    }
+    return builder.build();
+  }
 
   ExerciseMetrics copyWith({
     double? primaryAngle,

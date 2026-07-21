@@ -3,6 +3,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition_metadata.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
