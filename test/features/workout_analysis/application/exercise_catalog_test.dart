@@ -92,6 +92,17 @@ void main() {
       }
     });
 
+    test('declares alternating-rep capability for the lunge family', () {
+      final lunge = catalog.definitionFor(ExerciseType.lunge);
+
+      expect(
+        lunge.usesAnalysisEngine(ExerciseAnalysisEngine.alternatingRep),
+        isTrue,
+      );
+      expect(lunge.usesAnalysisEngine(ExerciseAnalysisEngine.rangeRep), isTrue);
+      expect(lunge.analysisEngineKind, EngineKind.rangeRep);
+    });
+
     test('declares canonical movement patterns in the central catalog', () {
       const expectedPatterns = <ExerciseType, ExerciseMovementPattern>{
         ExerciseType.squat: ExerciseMovementPattern.squat,
