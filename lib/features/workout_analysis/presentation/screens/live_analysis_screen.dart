@@ -279,16 +279,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     switch (result.failure) {
       case DiscardWorkoutSessionFailure.noSavedSession:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Silinecek tamamlanmış oturum bulunamadı.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).noCompletedSessionToDelete,
+            ),
           ),
         );
         return false;
       case DiscardWorkoutSessionFailure.persistenceFailure:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Önceki oturum silinemedi. Tekrar deneme başlatılmadı.',
+              AppLocalizations.of(context).previousSessionDeleteFailed,
             ),
           ),
         );
@@ -325,22 +327,26 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     switch (result.failure) {
       case FinishWorkoutSessionFailure.missingOwner:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Analiz oturumu hazırlanamadı. Lütfen tekrar dene.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).analysisSessionPreparationFailed,
+            ),
           ),
         );
         return;
       case FinishWorkoutSessionFailure.missingExercise:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Analiz icin once gecerli bir hareket secmelisin.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).selectValidExerciseBeforeAnalysis,
+            ),
           ),
         );
         return;
       case FinishWorkoutSessionFailure.persistenceFailure:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Oturum kaydedilemedi. Lütfen tekrar dene.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).sessionSaveFailed),
           ),
         );
         return;
@@ -400,21 +406,25 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     switch (result.failure) {
       case FinishWorkoutSessionFailure.missingOwner:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Antrenman adımı kaydedilemedi: kullanıcı bulunamadı.',
-            ),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).plannedStepMissingUser),
           ),
         );
         return false;
       case FinishWorkoutSessionFailure.missingExercise:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aktif antrenman hareketi bulunamadı.')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).plannedStepMissingExercise,
+            ),
+          ),
         );
         return false;
       case FinishWorkoutSessionFailure.persistenceFailure:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Antrenman adımı kaydedilemedi.')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).plannedStepSaveFailed),
+          ),
         );
         return false;
       case FinishWorkoutSessionFailure.alreadyFinishing:
@@ -759,7 +769,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         ),
                       ),
                       child: Text(
-                        workoutState.feedbackMessage.toUpperCase(),
+                        workoutState.feedbackMessage,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -797,7 +807,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          return Center(child: Text(localizations.errorWithDetail(error)));
+          return Center(child: Text(localizations.cameraOpenFailed(error)));
         },
       ),
     );

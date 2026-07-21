@@ -9,6 +9,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/feedback_delivery_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/settings_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 
 import '../../../../support/workout_analysis_test_support.dart';
@@ -63,6 +64,36 @@ void main() {
       expect(nextState.analysisKind, EngineKind.hold);
     },
   );
+
+  test('uses the active language for live workout feedback', () {
+    final detector = TestQueuedPoseDetector();
+    final clock = TestFakeClock();
+    final container = ProviderContainer(
+      overrides: <Override>[
+        runtimeAppLanguageProvider.overrideWith((ref) => AppLanguage.english),
+        exerciseConfigProvider.overrideWith((ref) => buildSquatConfig()),
+        poseDetectorProvider.overrideWith((ref) => detector),
+        workoutClockProvider.overrideWithValue(clock.now),
+        feedbackDeliveryProvider.overrideWithValue(
+          const _NoopFeedbackDelivery(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+    final subscription = container.listen<WorkoutState>(
+      workoutControllerProvider,
+      (previous, next) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    expect(
+      container.read(workoutControllerProvider).feedbackMessage,
+      'Move to the starting position.',
+    );
+  });
 }
 
 class _NoopFeedbackDelivery implements FeedbackDeliveryPort {

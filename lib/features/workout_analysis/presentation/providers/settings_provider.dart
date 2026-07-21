@@ -1,5 +1,8 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../../app/localization/app_localizations.dart';
 
 enum AppLanguage {
   turkish('tr'),
@@ -9,6 +12,15 @@ enum AppLanguage {
 
   final String languageCode;
 }
+
+final runtimeAppLanguageProvider = StateProvider<AppLanguage>(
+  (ref) => AppLanguage.turkish,
+);
+
+final appLocalizationsProvider = Provider<AppLocalizations>((ref) {
+  final language = ref.watch(runtimeAppLanguageProvider);
+  return AppLocalizations(Locale(language.languageCode));
+});
 
 enum WorkoutCameraPreference { front, back }
 
@@ -51,8 +63,7 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
   @override
   Future<WorkoutSettings> build() async {
     final preferences = await SharedPreferences.getInstance();
-
-    return WorkoutSettings(
+    final settings = WorkoutSettings(
       language: _appLanguageFromName(preferences.getString(_languageKey)),
       cameraPreference: _cameraPreferenceFromName(
         preferences.getString(_cameraPreferenceKey),
@@ -61,6 +72,8 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
         preferences.getString(_cameraQualityKey),
       ),
     );
+    ref.read(runtimeAppLanguageProvider.notifier).state = settings.language;
+    return settings;
   }
 
   Future<void> setLanguage(AppLanguage language) async {
@@ -68,6 +81,7 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
       language: language,
     );
 
+    ref.read(runtimeAppLanguageProvider.notifier).state = language;
     state = AsyncData(updated);
     await _save(updated);
   }

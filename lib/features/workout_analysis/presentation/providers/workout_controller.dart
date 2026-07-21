@@ -38,6 +38,7 @@ import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
 import 'pose_provider.dart';
+import 'settings_provider.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
@@ -991,6 +992,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
     return mapRangeRepFeedbackCodeToMessage(
       code,
+      localizations: ref.read(appLocalizationsProvider),
       exerciseType: _activeExercise,
     );
   }
@@ -1081,10 +1083,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   String _resolveHoldFeedbackMessage(HoldCoordinatorStateSnapshot snapshot) {
     final feedbackCode = snapshot.holdFeedbackCode;
     if (feedbackCode != null) {
-      return mapHoldFeedbackCodeToMessage(feedbackCode);
+      return mapHoldFeedbackCodeToMessage(
+        feedbackCode,
+        localizations: ref.read(appLocalizationsProvider),
+      );
     }
 
-    return snapshot.feedbackFallbackMessage;
+    return mapHoldFeedbackCodeToMessage(
+      HoldFeedbackCode.preparePosition,
+      localizations: ref.read(appLocalizationsProvider),
+    );
   }
 }
 

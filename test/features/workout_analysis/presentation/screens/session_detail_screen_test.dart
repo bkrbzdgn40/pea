@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
@@ -92,4 +93,46 @@ void main() {
       expect(find.text('06.01.2024 10:15'), findsOneWidget);
     },
   );
+
+  testWidgets('localizes stored feedback and report copy in English', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'session-en',
+      ownerId: 'owner-1',
+      exerciseType: 'push_up',
+      startedAt: DateTime(2024, 1, 7, 11),
+      totalReps: 1,
+      averageScore: 90,
+    );
+    final repository = TestSessionRepository(
+      sessionById: {'session-en': session},
+      repsBySessionId: {
+        'session-en': const <WorkoutRep>[
+          WorkoutRep(
+            repIndex: 1,
+            exerciseType: 'push_up',
+            analysisKind: 'rangeRep',
+            validationStatus: 'valid',
+            validationReasons: <String>[],
+            score: 90,
+            feedback: 'Başarılı!',
+          ),
+        ],
+      },
+    );
+
+    await pumpTestApp(
+      tester,
+      locale: const Locale('en'),
+      home: SessionDetailScreen(session: session),
+      overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Push-up'), findsOneWidget);
+    expect(find.textContaining('Feedback: Rep completed!'), findsOneWidget);
+    expect(find.textContaining('1 of 1 reps were valid'), findsOneWidget);
+  });
 }

@@ -11,6 +11,7 @@ import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
+import '../mappers/session_report_ui_mapper.dart';
 import '../providers/session_repository_provider.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
@@ -112,6 +113,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             const SizedBox(height: 14),
             _RepDetailsCard(
               reps: _reps,
+              exerciseId: _session.exerciseType,
               isLoading: _isLoadingRepDetails,
               hasLoadError: _repLoadFailed,
               onRetry: _loadSessionDetails,
@@ -277,25 +279,28 @@ class _ReportSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final issues = localizedSessionReportIssues(localizations, report);
+
     return _SectionCard(
-      title: AppLocalizations.of(context).reportSummary,
+      title: localizations.reportSummary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            report.summaryMessage,
+            localizedSessionReportSummary(localizations, report),
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 14,
               height: 1.4,
             ),
           ),
-          if (report.topIssues.isNotEmpty) ...[
+          if (issues.isNotEmpty) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: report.topIssues
+              children: issues
                   .map((issue) => _IssueChip(label: issue))
                   .toList(growable: false),
             ),
@@ -313,11 +318,17 @@ class _RecommendationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final recommendations = localizedSessionReportRecommendations(
+      localizations,
+      report,
+    );
+
     return _SectionCard(
-      title: AppLocalizations.of(context).recommendations,
+      title: localizations.recommendations,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: report.recommendations
+        children: recommendations
             .map((recommendation) => _RecommendationRow(text: recommendation))
             .toList(growable: false),
       ),
@@ -328,12 +339,14 @@ class _RecommendationsCard extends StatelessWidget {
 class _RepDetailsCard extends StatelessWidget {
   const _RepDetailsCard({
     required this.reps,
+    required this.exerciseId,
     required this.isLoading,
     required this.hasLoadError,
     required this.onRetry,
   });
 
   final List<WorkoutRep>? reps;
+  final String exerciseId;
   final bool isLoading;
   final bool hasLoadError;
   final Future<void> Function() onRetry;
@@ -401,7 +414,7 @@ class _RepDetailsCard extends StatelessWidget {
               itemCount: reps!.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                return _RepTile(rep: reps![index]);
+                return _RepTile(rep: reps![index], exerciseId: exerciseId);
               },
             ),
           ],
@@ -412,9 +425,10 @@ class _RepDetailsCard extends StatelessWidget {
 }
 
 class _RepTile extends StatelessWidget {
-  const _RepTile({required this.rep});
+  const _RepTile({required this.rep, required this.exerciseId});
 
   final WorkoutRep rep;
+  final String exerciseId;
 
   @override
   Widget build(BuildContext context) {
@@ -506,7 +520,13 @@ class _RepTile extends StatelessWidget {
           if (rep.feedback != null && rep.feedback!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              localizations.feedbackLabel(rep.feedback!),
+              localizations.feedbackLabel(
+                localizeStoredWorkoutFeedback(
+                  feedback: rep.feedback!,
+                  exerciseId: exerciseId,
+                  localizations: localizations,
+                ),
+              ),
               style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ],

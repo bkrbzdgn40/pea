@@ -17,6 +17,7 @@ void main() {
     final settings = await container.read(settingsControllerProvider.future);
 
     expect(settings.language, AppLanguage.turkish);
+    expect(container.read(runtimeAppLanguageProvider), AppLanguage.turkish);
   });
 
   test('loads and persists the selected application language', () async {
@@ -28,6 +29,7 @@ void main() {
 
     final initial = await container.read(settingsControllerProvider.future);
     expect(initial.language, AppLanguage.english);
+    expect(container.read(runtimeAppLanguageProvider), AppLanguage.english);
 
     await container
         .read(settingsControllerProvider.notifier)
@@ -37,11 +39,28 @@ void main() {
       container.read(settingsControllerProvider).valueOrNull?.language,
       AppLanguage.turkish,
     );
+    expect(container.read(runtimeAppLanguageProvider), AppLanguage.turkish);
 
     final preferences = await SharedPreferences.getInstance();
     expect(
       preferences.getString('settings.language'),
       AppLanguage.turkish.name,
+    );
+  });
+
+  test('runtime localization follows the selected language', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(appLocalizationsProvider).ttsLanguageTag, 'tr-TR');
+
+    container.read(runtimeAppLanguageProvider.notifier).state =
+        AppLanguage.english;
+
+    expect(container.read(appLocalizationsProvider).ttsLanguageTag, 'en-US');
+    expect(
+      container.read(appLocalizationsProvider).assessmentCompletedFeedback,
+      'Assessment completed.',
     );
   });
 }

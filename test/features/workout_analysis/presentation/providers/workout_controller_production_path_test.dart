@@ -608,7 +608,7 @@ void main() {
         expect(state.currentPhase, 'PEAK');
         expect(state.isFormBad, isFalse);
         expect(state.currentAngle, lessThan(70.0));
-        expect(state.feedbackMessage, isNot('Bacak acini koru.'));
+        expect(state.feedbackMessage, isNot('Bacak açını koru.'));
         expect(metrics.baseFormThreshold, 60.0);
         expect(metrics.effectiveFormThreshold, 60.0);
         expect(metrics.calibrationThresholdOffsetApplied, isFalse);
@@ -724,7 +724,7 @@ void main() {
 
         expect(state.repCount, 1);
         expect(state.currentPhase, 'NEUTRAL');
-        expect(state.feedbackMessage, isNot('Vucut net gorunmuyor.'));
+        expect(state.feedbackMessage, isNot('Vücut net görünmüyor.'));
         expect(diagnostics.rejectedPoseFrameCount, 0);
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
       },
@@ -765,7 +765,7 @@ void main() {
         );
 
         var state = harness.container.read(workoutControllerProvider);
-        expect(state.feedbackMessage, 'Kollarini yukari cek...');
+        expect(state.feedbackMessage, 'Kollarını yukarı çek...');
 
         await _driveUntilPhase(
           harness.controller,
@@ -1481,7 +1481,7 @@ void main() {
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Pozisyonu Koru');
+      expect(state.feedbackMessage, 'Pozisyonu koru.');
 
       for (var index = 0; index < 5 && state.isHolding; index++) {
         clock.advance(const Duration(milliseconds: 150));
@@ -1496,7 +1496,7 @@ void main() {
       expect(state.bestHoldSeconds, greaterThanOrEqualTo(5.0));
       expect(state.holdFeedbackCode, HoldFeedbackCode.extendArmsOverhead);
       expect(state.holdEnginePhase, HoldPhase.broken);
-      expect(state.feedbackMessage, 'Kollari Bas Ustune Uzat');
+      expect(state.feedbackMessage, 'Kollarını baş üstüne uzat.');
     },
   );
 
@@ -1547,7 +1547,7 @@ void main() {
         HoldFeedbackCode.increaseHollowCompression,
       );
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Govdeyi Biraz Daha Toparla');
+      expect(state.feedbackMessage, 'Gövdeni biraz daha toparla.');
       expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isTrue);
       expect(snapshot.isHoldFormBreakGraceActive, isTrue);
     },
@@ -1726,7 +1726,7 @@ void main() {
       expect(state.isHolding, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.straightenKnees);
       expect(state.holdEnginePhase, HoldPhase.broken);
-      expect(state.feedbackMessage, 'Dizleri Duzlestir');
+      expect(state.feedbackMessage, 'Dizlerini düzleştir.');
       expect(state.currentPhase, 'BROKEN');
     },
   );
@@ -1760,7 +1760,7 @@ void main() {
       expect(state.currentHoldSeconds, 0);
       expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+      expect(state.feedbackMessage, 'Vücut net görünmüyor.');
       expect(state.currentPhase, 'WAITING');
       expect(snapshot.acceptedPoseFrameCount, 0);
       expect(snapshot.rejectedPoseFrameCount, 2);
@@ -1799,7 +1799,7 @@ void main() {
     expect(state.currentHoldSeconds, 0);
     expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
     expect(state.holdEnginePhase, HoldPhase.ready);
-    expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+    expect(state.feedbackMessage, 'Vücut net görünmüyor.');
     expect(state.currentPhase, 'WAITING');
     expect(snapshot.acceptedPoseFrameCount, 0);
     expect(snapshot.rejectedPoseFrameCount, 2);
@@ -1835,7 +1835,7 @@ void main() {
       expect(state.lastRepROM, 0);
       expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Pozisyonu Koru');
+      expect(state.feedbackMessage, 'Pozisyonu koru.');
       expect(state.currentPhase, 'HOLDING');
       expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
       expect(state.calibrationMetrics.lastRangeRepValidationStatus, isNull);
@@ -1879,7 +1879,7 @@ void main() {
       expect(state.selectedHoldSide, HoldSide.right);
       expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Pozisyonu Koru');
+      expect(state.feedbackMessage, 'Pozisyonu koru.');
       expect(state.currentPhase, 'HOLDING');
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
       expect(snapshot.acceptedPoseFrameCount, 2);
@@ -1916,7 +1916,7 @@ void main() {
       expect(state.hadHoldFormBreak, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Kalcayi Hizala');
+      expect(state.feedbackMessage, 'Kalçanı hizala.');
       expect(state.currentPhase, 'HOLDING');
       expect(snapshot.lastVisibleHoldPosture, isNotNull);
       expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isFalse);
@@ -1958,7 +1958,7 @@ void main() {
       expect(state.hadHoldFormBreak, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.feedbackMessage, 'Pozisyonu hazırla.');
       expect(state.currentPhase, 'READY');
       expect(snapshot.lastVisibleHoldPosture, isNotNull);
       expect(snapshot.lastVisibleHoldPosture?.hasActivePosture, isFalse);
@@ -2000,7 +2000,7 @@ void main() {
     expect(state.isHolding, isFalse);
     expect(state.holdFeedbackCode, HoldFeedbackCode.alignHips);
     expect(state.holdEnginePhase, HoldPhase.broken);
-    expect(state.feedbackMessage, 'Kalcayi Hizala');
+    expect(state.feedbackMessage, 'Kalçanı hizala.');
     expect(state.currentPhase, 'BROKEN');
   });
 
@@ -2037,7 +2037,7 @@ void main() {
     expect(state.isHolding, isFalse);
     expect(state.holdFeedbackCode, HoldFeedbackCode.adjustElbowSupport);
     expect(state.holdEnginePhase, HoldPhase.broken);
-    expect(state.feedbackMessage, 'Dirsek Destegini Duzelt');
+    expect(state.feedbackMessage, 'Dirsek desteğini düzelt.');
     expect(state.currentPhase, 'BROKEN');
   });
 
@@ -2074,7 +2074,7 @@ void main() {
     expect(state.isHolding, isFalse);
     expect(state.holdFeedbackCode, HoldFeedbackCode.extendLegs);
     expect(state.holdEnginePhase, HoldPhase.broken);
-    expect(state.feedbackMessage, 'Dizleri Kaldir');
+    expect(state.feedbackMessage, 'Bacaklarını uzat.');
     expect(state.currentPhase, 'BROKEN');
   });
 
@@ -2166,7 +2166,7 @@ void main() {
       expect(state.isHoldVisibilitySuspended, isTrue);
       expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+      expect(state.feedbackMessage, 'Vücut net görünmüyor.');
       expect(state.currentPhase, 'WAITING');
 
       clock.advance(const Duration(milliseconds: 50));
@@ -2211,7 +2211,7 @@ void main() {
     expect(state.isHoldVisibilitySuspended, isFalse);
     expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
     expect(state.holdEnginePhase, HoldPhase.holding);
-    expect(state.feedbackMessage, 'Pozisyonu Koru');
+    expect(state.feedbackMessage, 'Pozisyonu koru.');
   });
 
   test(
@@ -2282,7 +2282,7 @@ void main() {
     expect(state.isHoldVisibilitySuspended, isTrue);
     expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
     expect(state.holdEnginePhase, HoldPhase.holding);
-    expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+    expect(state.feedbackMessage, 'Vücut net görünmüyor.');
     clock.advance(const Duration(milliseconds: 50));
     await _analyzeFrame(controller, detector, <Pose>[_plankPose()]);
     clock.advance(const Duration(milliseconds: 50));
@@ -2330,7 +2330,7 @@ void main() {
       expect(state.hadHoldFormBreak, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.feedbackMessage, 'Pozisyonu hazırla.');
       expect(state.currentPhase, 'READY');
 
       clock.advance(const Duration(milliseconds: 100));
@@ -2415,7 +2415,7 @@ void main() {
       expect(state.isHoldVisibilitySuspended, isTrue);
       expect(state.holdFeedbackCode, HoldFeedbackCode.bodyNotVisible);
       expect(state.holdEnginePhase, HoldPhase.holding);
-      expect(state.feedbackMessage, 'Vucut net gorunmuyor.');
+      expect(state.feedbackMessage, 'Vücut net görünmüyor.');
       expect(state.currentPhase, 'WAITING');
     },
   );
@@ -2446,7 +2446,7 @@ void main() {
       expect(state.isHoldVisibilitySuspended, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.feedbackMessage, 'Pozisyonu hazırla.');
       expect(state.currentPhase, 'READY');
       expect(state.hadHoldFormBreak, isFalse);
 
@@ -2496,7 +2496,7 @@ void main() {
       expect(state.isHoldVisibilitySuspended, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.feedbackMessage, 'Pozisyonu hazırla.');
       expect(state.currentPhase, 'READY');
       expect(state.hadHoldFormBreak, isFalse);
     },
@@ -2536,7 +2536,7 @@ void main() {
       expect(state.isHoldVisibilitySuspended, isFalse);
       expect(state.holdFeedbackCode, HoldFeedbackCode.preparePosition);
       expect(state.holdEnginePhase, HoldPhase.ready);
-      expect(state.feedbackMessage, 'Pozisyonu Hazirla');
+      expect(state.feedbackMessage, 'Pozisyonu hazırla.');
       expect(state.currentPhase, 'READY');
 
       clock.advance(const Duration(seconds: 10));

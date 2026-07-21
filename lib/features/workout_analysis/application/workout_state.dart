@@ -683,7 +683,7 @@ class WorkoutState {
 
   const WorkoutState.rangeRep({
     List<PoseLandmark>? landmarks,
-    String feedbackMessage = 'Hazir misin?',
+    String feedbackMessage = '',
     double cameraFps = 0.0,
     double analysisFps = 0.0,
     RangeRepWorkoutAnalysisState analysis =
@@ -698,7 +698,7 @@ class WorkoutState {
 
   const WorkoutState.hold({
     List<PoseLandmark>? landmarks,
-    String feedbackMessage = 'Hazir misin?',
+    String feedbackMessage = '',
     double cameraFps = 0.0,
     double analysisFps = 0.0,
     HoldWorkoutAnalysisState analysis = const HoldWorkoutAnalysisState(),

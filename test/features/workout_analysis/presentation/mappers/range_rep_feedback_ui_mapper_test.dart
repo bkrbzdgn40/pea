@@ -1,9 +1,14 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/range_rep_feedback_ui_mapper.dart';
 
 void main() {
+  const tr = AppLocalizations(Locale('tr'));
+  const en = AppLocalizations(Locale('en'));
+
   test('legacy form threshold feedback code is anatomy-neutral', () {
     expect(
       RangeRepFeedbackCode.legacyFormThresholdViolation.code,
@@ -19,13 +24,15 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.squat,
       ),
-      'Asagi in...',
+      'Aşağı in...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.legacyFormThresholdViolation,
+        localizations: tr,
         exerciseType: ExerciseType.squat,
       ),
       'Formunu koru.',
@@ -36,16 +43,18 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.ascend,
+        localizations: tr,
         exerciseType: ExerciseType.pushUp,
       ),
-      'Yukari...',
+      'Yukarı...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.controlDescent,
+        localizations: tr,
         exerciseType: ExerciseType.pushUp,
       ),
-      'Inisi kontrollu yap.',
+      'İnişi kontrollü yap.',
     );
   });
 
@@ -53,16 +62,18 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Yukari kalk...',
+      'Yukarı kalk...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.controlDescent,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Yukari kalkisi kontrollu yap.',
+      'Yukarı kalkışı kontrollü yap.',
     );
   });
 
@@ -70,23 +81,26 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.ascend,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Kontrollu geri in...',
+      'Kontrollü geri in...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.controlAscent,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Geri inisi kontrollu yap.',
+      'Geri inişi kontrollü yap.',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.stabilizeTransition,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Ustte gecisi sabitle.',
+      'Üstte geçişi sabitle.',
     );
   });
 
@@ -94,13 +108,15 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.legacyFormThresholdViolation,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
-      'Bacak acini koru.',
+      'Bacak açını koru.',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.maintainForm,
+        localizations: tr,
         exerciseType: ExerciseType.sitUp,
       ),
       'Bacak pozisyonunu koru.',
@@ -111,16 +127,18 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Kollarini yukari cek...',
+      'Kollarını yukarı çek...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.ascend,
+        localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Kontrollu indir...',
+      'Kontrollü indir...',
     );
   });
 
@@ -128,30 +146,34 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.calfRaise,
       ),
-      'Topuklarini kontrollu kaldir...',
+      'Topuklarını kontrollü kaldır...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.frontRaise,
       ),
-      'Kollarini kontrollu one kaldir...',
+      'Kollarını kontrollü öne kaldır...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.gluteBridge,
       ),
-      'Kalcani kontrollu yukari kaldir...',
+      'Kalçanı kontrollü yukarı kaldır...',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.descend,
+        localizations: tr,
         exerciseType: ExerciseType.jumpingJack,
       ),
-      'Kollarini ve bacaklarini ac...',
+      'Kollarını ve bacaklarını aç...',
     );
   });
 
@@ -159,16 +181,37 @@ void main() {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.legacyFormThresholdViolation,
+        localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Dirseklerini sabit tut ve kollarini birlikte hareket ettir.',
+      'Dirseklerini sabit tut ve kollarını birlikte hareket ettir.',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.maintainForm,
+        localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
       'Dirseklerini sabit tut.',
+    );
+  });
+
+  test('runtime feedback supports English copy', () {
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.bodyNotVisible,
+        localizations: en,
+        exerciseType: ExerciseType.squat,
+      ),
+      'Body is not clearly visible.',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        localizations: en,
+        exerciseType: ExerciseType.bicepsCurl,
+      ),
+      'Curl your arms up...',
     );
   });
 }

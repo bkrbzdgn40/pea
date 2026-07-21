@@ -891,9 +891,27 @@ class AppLocalizations {
   String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
   String get asymmetryMetric => pick(tr: 'ASİMETRİ', en: 'ASYMMETRY');
   String liveStatusLine(String phase, String fps) => pick(
-    tr: 'DURUM: $phase | ANALİZ FPS: $fps',
-    en: 'STATUS: $phase | ANALYSIS FPS: $fps',
+    tr: 'DURUM: ${workoutPhaseLabel(phase)} | ANALİZ FPS: $fps',
+    en: 'STATUS: ${workoutPhaseLabel(phase)} | ANALYSIS FPS: $fps',
   );
+
+  String workoutPhaseLabel(String phase) {
+    return switch (phase.toUpperCase()) {
+      'AWAITING_NEUTRAL' => pick(
+        tr: 'Başlangıç bekleniyor',
+        en: 'Awaiting start',
+      ),
+      'WAITING' => pick(tr: 'Bekleniyor', en: 'Waiting'),
+      'NEUTRAL' || 'READY' => pick(tr: 'Hazır', en: 'Ready'),
+      'DESCENDING' => pick(tr: 'Hareket', en: 'Movement'),
+      'PEAK' => pick(tr: 'Geçiş', en: 'Transition'),
+      'ASCENDING' => pick(tr: 'Dönüş', en: 'Return'),
+      'HOLDING' => pick(tr: 'Tutuş', en: 'Holding'),
+      'BROKEN' => pick(tr: 'Pozisyon bozuldu', en: 'Position broken'),
+      _ => phase,
+    };
+  }
+
   String plannedWorkoutProgress({
     required int round,
     required int totalRounds,
@@ -931,6 +949,291 @@ class AppLocalizations {
       pick(tr: 'İzni Kontrol Et', en: 'Check Permission');
   String errorWithDetail(Object error) =>
       pick(tr: 'Hata: $error', en: 'Error: $error');
+
+  // Runtime coaching / voice
+  String get ttsLanguageTag => isTurkish ? 'tr-TR' : 'en-US';
+
+  // Live assessment runtime
+  String get assessmentFrameAnalysisFailed => pick(
+    tr: 'Kare analiz edilemedi. Pozisyonunu koru.',
+    en: 'The frame could not be analyzed. Hold your position.',
+  );
+  String get assessmentHoldPositionBriefly => pick(
+    tr: 'Pozisyonunu kısa süre sabit tut.',
+    en: 'Hold your position steady for a moment.',
+  );
+  String get assessmentNotReadyFeedback => pick(
+    tr: 'Ölçüm henüz hazır değil. Yönergeyi tamamlamaya devam et.',
+    en: 'The measurement is not ready yet. Keep following the instruction.',
+  );
+  String get assessmentCompletedFeedback =>
+      pick(tr: 'Değerlendirme tamamlandı.', en: 'Assessment completed.');
+  String get assessmentInsufficientFeedback => pick(
+    tr: 'Sonuç için yeterli ölçüm toplanamadı.',
+    en: 'Not enough measurement data was collected for a result.',
+  );
+  String get assessmentReadyFeedback => pick(
+    tr: 'Ölçüm hazır. Sonucu görmek için aşağıdaki düğmeye dokun.',
+    en: 'The measurement is ready. Tap the button below to view the result.',
+  );
+  String get balanceStanceResetFeedback => pick(
+    tr: 'Tek ayak duruşu bozuldu. Süre yeniden başladı.',
+    en: 'The single-leg stance was interrupted. The timer restarted.',
+  );
+  String get assessmentReady =>
+      pick(tr: 'Ölçüm hazır', en: 'Measurement ready');
+  String assessmentMovementProgress(int percent) => pick(
+    tr: 'Hareket ilerlemesi: %$percent',
+    en: 'Movement progress: $percent%',
+  );
+  String assessmentContinuousStanceProgress(String elapsed, String target) =>
+      pick(
+        tr: 'Kesintisiz duruş: $elapsed / $target sn',
+        en: 'Continuous stance: $elapsed / $target s',
+      );
+  String assessmentElevationProgress(int percent) => pick(
+    tr: 'Elevasyon ilerlemesi: %$percent',
+    en: 'Elevation progress: $percent%',
+  );
+  String get squatAssessmentInstruction => pick(
+    tr: 'Kameraya sol veya sağ yanını dön. Tüm vücudun kadrajdayken kontrollü bir squat yap ve tekrar ayağa kalk.',
+    en: 'Turn your left or right side toward the camera. Keep your whole body in frame, perform one controlled squat, then stand back up.',
+  );
+  String get balanceAssessmentInstruction => pick(
+    tr: 'Kameraya önden dön. Tüm vücudun kadrajdayken seçilen ayağın üzerinde kesintisiz sabit kal.',
+    en: 'Face the camera. Keep your whole body in frame and remain steadily on the selected foot without interruption.',
+  );
+  String get shoulderAssessmentInstruction => pick(
+    tr: 'Kameraya önden dön. Dirseklerini mümkün olduğunca düz tutarak kollarını gövdenin yanından iki yana doğru kontrollü biçimde kaldır.',
+    en: 'Face the camera. Keep your elbows as straight as possible and raise both arms out to the sides with control.',
+  );
+  String get poseQualityLowConfidence => pick(
+    tr: 'Görüntü yeterince net değil. Işığı artır ve tüm vücudunu görünür tut.',
+    en: 'The image is not clear enough. Improve the lighting and keep your whole body visible.',
+  );
+  String get poseQualityGeometryUnavailable => pick(
+    tr: 'Pozisyon ölçülemiyor. Kameradan biraz uzaklaşıp tüm vücudunu kadraja al.',
+    en: 'Your position cannot be measured. Move slightly farther from the camera and keep your whole body in frame.',
+  );
+  String get poseQualityKeepRequiredJointsVisible => pick(
+    tr: 'Tüm vücudunu kadraja al ve gerekli eklemleri görünür tut.',
+    en: 'Keep your whole body in frame and make sure the required joints are visible.',
+  );
+
+  // Runtime errors / retry / persistence
+  String get noCompletedSessionToDelete => pick(
+    tr: 'Silinecek tamamlanmış oturum bulunamadı.',
+    en: 'No completed session was found to delete.',
+  );
+  String get previousSessionDeleteFailed => pick(
+    tr: 'Önceki oturum silinemedi. Tekrar deneme başlatılmadı.',
+    en: 'The previous session could not be deleted. A retry was not started.',
+  );
+  String get analysisSessionPreparationFailed => pick(
+    tr: 'Analiz oturumu hazırlanamadı. Lütfen tekrar dene.',
+    en: 'The analysis session could not be prepared. Please try again.',
+  );
+  String get selectValidExerciseBeforeAnalysis => pick(
+    tr: 'Analiz için önce geçerli bir hareket seçmelisin.',
+    en: 'Choose a valid exercise before starting the analysis.',
+  );
+  String get sessionSaveFailed => pick(
+    tr: 'Oturum kaydedilemedi. Lütfen tekrar dene.',
+    en: 'The session could not be saved. Please try again.',
+  );
+  String get plannedStepMissingUser => pick(
+    tr: 'Antrenman adımı kaydedilemedi: kullanıcı bulunamadı.',
+    en: 'The workout step could not be saved: user not found.',
+  );
+  String get plannedStepMissingExercise => pick(
+    tr: 'Aktif antrenman hareketi bulunamadı.',
+    en: 'The active workout exercise could not be found.',
+  );
+  String get plannedStepSaveFailed => pick(
+    tr: 'Antrenman adımı kaydedilemedi.',
+    en: 'The workout step could not be saved.',
+  );
+  String get cameraPermissionAnalysisRequired => pick(
+    tr: 'Kamera izni olmadan analiz başlatılamaz.',
+    en: 'Analysis cannot start without camera permission.',
+  );
+
+  // Demo coach runtime
+  String get coachWelcomeMessage => pick(
+    tr: 'Merhaba, ben AI Coach. Form, squat tekniği veya antrenman planı hakkında kısa öneriler verebilirim.',
+    en: 'Hi, I am AI Coach. I can give short suggestions about form, squat technique, or workout planning.',
+  );
+  String get coachPersonalizationHint => pick(
+    tr: 'Canlı analiz verilerin geliştikçe burada daha kişisel öneriler görebileceksin.',
+    en: 'As your live analysis data grows, you will see more personalized suggestions here.',
+  );
+  String get coachSquatReply => pick(
+    tr: 'Squat için dizlerini ayak parmaklarınla aynı hatta tutmaya ve inişi kontrollü yapmaya odaklan.',
+    en: 'For squats, keep your knees tracking in line with your toes and focus on a controlled descent.',
+  );
+  String get coachFormReply => pick(
+    tr: 'Formu düzeltmek için tekrar hızını biraz düşür, gövdeni sabit tut ve hareket aralığını koru.',
+    en: 'To improve your form, slow the rep slightly, keep your torso stable, and maintain your range of motion.',
+  );
+  String get coachPlanReply => pick(
+    tr: 'Bugün kısa bir plan iyi olabilir: ısınma, 3 kontrollü set ve set aralarında yeterli dinlenme.',
+    en: 'A short plan could work well today: warm up, complete 3 controlled sets, and rest enough between sets.',
+  );
+  String get coachDefaultReply => pick(
+    tr: 'İyi gidiyorsun. Kısa, kontrollü setlerle form kalitesini korumaya devam et.',
+    en: 'You are doing well. Keep protecting your form quality with short, controlled sets.',
+  );
+
+  // Localized session report copy
+  String get sessionReportSummaryOnly => pick(
+    tr: 'Bu oturumda tekrar detayları yok; yalnızca özet verileri gösteriliyor.',
+    en: 'Rep details are unavailable for this session; only summary data is shown.',
+  );
+  String get sessionReportNoCompletedReps => pick(
+    tr: 'Bu oturumda tamamlanmış tekrar kaydı yok.',
+    en: 'No completed reps were recorded in this session.',
+  );
+  String sessionReportRangeSummary({
+    required int totalReps,
+    required int validReps,
+    required int invalidReps,
+    required int unknownReps,
+    required double averageScore,
+    String? topIssue,
+  }) {
+    if (isTurkish) {
+      final parts = <String>['$totalReps tekrarın $validReps tanesi geçerli'];
+      if (invalidReps > 0) {
+        parts.add('$invalidReps tanesi geçersiz');
+      }
+      if (unknownReps > 0) {
+        parts.add('$unknownReps tanesi belirsiz');
+      }
+      final summary = '${parts.join(', ')}.';
+      if (topIssue != null && topIssue.isNotEmpty) {
+        return '$summary En sık sorun: $topIssue.';
+      }
+      if (averageScore > 0) {
+        return '$summary Ortalama skor ${averageScore.toStringAsFixed(0)}.';
+      }
+      return summary;
+    }
+
+    final parts = <String>['$validReps of $totalReps reps were valid'];
+    if (invalidReps > 0) {
+      parts.add('$invalidReps were invalid');
+    }
+    if (unknownReps > 0) {
+      parts.add('$unknownReps were uncertain');
+    }
+    final summary = '${parts.join(', ')}.';
+    if (topIssue != null && topIssue.isNotEmpty) {
+      return '$summary Most common issue: $topIssue.';
+    }
+    if (averageScore > 0) {
+      return '$summary Average score ${averageScore.toStringAsFixed(0)}.';
+    }
+    return summary;
+  }
+
+  String get holdSessionNoMeaningfulDuration => pick(
+    tr: 'Bu tutuş oturumunda anlamlı tutuş süresi kaydedilmedi.',
+    en: 'No meaningful hold duration was recorded in this hold session.',
+  );
+  String holdSessionSummary({
+    required double totalSeconds,
+    required double bestSeconds,
+  }) => pick(
+    tr: 'Toplam ${totalSeconds.toStringAsFixed(0)} sn tutuş kaydedildi. En iyi tek deneme ${bestSeconds.toStringAsFixed(0)} sn.',
+    en: 'A total of ${totalSeconds.toStringAsFixed(0)} s of holding was recorded. The best single attempt was ${bestSeconds.toStringAsFixed(0)} s.',
+  );
+
+  String localizeReportIssue(String issue) {
+    return switch (issue.toLowerCase()) {
+      'yetersiz hareket açıklığı' ||
+      'insufficient range of motion' => insufficientRangeOfMotion,
+      'iniş çok hızlı' || 'descent too fast' => excessiveDescentSpeed,
+      'çıkış çok hızlı' || 'ascent too fast' => excessiveAscentSpeed,
+      'kalıcı form bozulması' || 'persistent form break' => persistentFormBreak,
+      'görünürlük kaybı' || 'visibility loss' => coverageLoss,
+      'tekrar içinde taraf değişimi' ||
+      'side switch during rep' => sideSwitchDuringRep,
+      'eksik faz tamamlanması' || 'incomplete phase' => incompletePhase,
+      _ => issue,
+    };
+  }
+
+  String localizeReportRecommendation(String recommendation) {
+    return switch (recommendation) {
+      'Daha derin tekrarlar için hareket açıklığını kontrollü biçimde artır.' =>
+        pick(
+          tr: 'Daha derin tekrarlar için hareket açıklığını kontrollü biçimde artır.',
+          en: 'Increase your range of motion gradually and with control for deeper reps.',
+        ),
+      'Tekrarları tam iniş ve tam çıkış döngüsüyle tamamlamaya odaklan.' => pick(
+        tr: 'Tekrarları tam iniş ve tam çıkış döngüsüyle tamamlamaya odaklan.',
+        en: 'Focus on completing each rep through a full descent and ascent cycle.',
+      ),
+      'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.' =>
+        pick(
+          tr: 'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.',
+          en: 'Slow the tempo slightly and keep a steady rhythm to reduce score variation.',
+        ),
+      'Form bozulmasını azaltmak için gövde hizasını ve diz kontrolünü daha sıkı koru.' =>
+        pick(
+          tr: 'Form bozulmasını azaltmak için gövde hizasını ve diz kontrolünü daha sıkı koru.',
+          en: 'Maintain tighter torso alignment and knee control to reduce form breakdowns.',
+        ),
+      'Kamera açısını sabitle; bazı tekrarlarda görünürlük kaybı oluşmuş.' => pick(
+        tr: 'Kamera açısını sabitle; bazı tekrarlarda görünürlük kaybı oluşmuş.',
+        en: 'Keep the camera angle fixed; visibility was lost during some reps.',
+      ),
+      'Set boyunca aynı tarafı daha net gösterecek şekilde pozisyonunu koru.' =>
+        pick(
+          tr: 'Set boyunca aynı tarafı daha net gösterecek şekilde pozisyonunu koru.',
+          en: 'Keep your position consistent so the same side remains clearly visible throughout the set.',
+        ),
+      'Genel kalite dengeli görünüyor; aynı kontrolü koruyarak tekrar sayısını kademeli artır.' =>
+        pick(
+          tr: 'Genel kalite dengeli görünüyor; aynı kontrolü koruyarak tekrar sayısını kademeli artır.',
+          en: 'Overall quality looks balanced; increase your rep count gradually while maintaining the same control.',
+        ),
+      'Form uyarıları görüldüğü için sonraki sette hareket çizgisini daha kontrollü koru.' =>
+        pick(
+          tr: 'Form uyarıları görüldüğü için sonraki sette hareket çizgisini daha kontrollü koru.',
+          en: 'Because form warnings were detected, keep the movement path more controlled in the next set.',
+        ),
+      'Düşük ortalama skorda önce tempo ve tam tekrar kalitesini toparlamak faydalı olur.' =>
+        pick(
+          tr: 'Düşük ortalama skorda önce tempo ve tam tekrar kalitesini toparlamak faydalı olur.',
+          en: 'With a low average score, focus first on tempo and complete rep quality.',
+        ),
+      'Bu rapor özet veriye dayanıyor; benzer bir sonraki sette tekrar detaylarını da incelemek faydalı olur.' =>
+        pick(
+          tr: 'Bu rapor özet veriye dayanıyor; benzer bir sonraki sette tekrar detaylarını da incelemek faydalı olur.',
+          en: 'This report is based on summary data; reviewing rep details in a similar future set may be useful.',
+        ),
+      'Hold boyunca vücut çizgisini daha sabit tut; form kesintileri görülmüş.' =>
+        pick(
+          tr: 'Tutuş boyunca vücut çizgisini daha sabit tut; form kesintileri görülmüş.',
+          en: 'Keep your body line more stable throughout the hold; form breaks were detected.',
+        ),
+      'Kısa ama temiz tekrarlarla en iyi hold süresini kademeli artır.' => pick(
+        tr: 'Kısa ama temiz denemelerle en iyi tutuş süresini kademeli artır.',
+        en: 'Increase your best hold duration gradually with short, clean attempts.',
+      ),
+      'Süre dengeli görünüyor; aynı hizayı koruyarak toplam tutuş süresini artırabilirsin.' =>
+        pick(
+          tr: 'Süre dengeli görünüyor; aynı hizayı koruyarak toplam tutuş süresini artırabilirsin.',
+          en: 'The duration looks balanced; you can increase total hold time while maintaining the same alignment.',
+        ),
+      'Önce pozisyonu kilitle, sonra süreyi azar azar uzat.' => pick(
+        tr: 'Önce pozisyonu sabitle, sonra süreyi azar azar uzat.',
+        en: 'Lock in the position first, then extend the duration gradually.',
+      ),
+      _ => recommendation,
+    };
+  }
 
   String weekdayShort(int weekday) {
     const tr = <String>['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
