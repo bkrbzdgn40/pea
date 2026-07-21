@@ -40,6 +40,7 @@ dependencies:
   permission_handler: ^11.3.1
   wakelock_plus: ^1.4.0
   shared_preferences: ^2.3.2
+  flutter_tts: ^4.2.5
 
   # Yapay Zeka / Pose Estimation (İlerleyen adım için hazır tutuyoruz)
   google_mlkit_pose_detection: ^0.14.1
