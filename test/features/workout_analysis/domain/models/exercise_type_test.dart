@@ -23,6 +23,12 @@ void main() {
       expect(ExerciseType.romanianDeadlift.id, 'romanian_deadlift');
       expect(ExerciseType.lateralRaise.id, 'lateral_raise');
       expect(ExerciseType.shoulderPress.id, 'shoulder_press');
+      expect(ExerciseType.calfRaise.id, 'calf_raise');
+      expect(ExerciseType.frontRaise.id, 'front_raise');
+      expect(ExerciseType.gluteBridge.id, 'glute_bridge');
+      expect(ExerciseType.wallSit.id, 'wall_sit');
+      expect(ExerciseType.sidePlank.id, 'side_plank');
+      expect(ExerciseType.jumpingJack.id, 'jumping_jack');
     });
 
     test('fromIdOrNull resolves every canonical exercise id', () {

@@ -57,6 +57,16 @@ void main() {
             family: HoldFeedbackFamily.correctiveCue,
           ),
           (
+            code: HoldFeedbackCode.adjustWallSitDepth,
+            stableCode: 'adjust_wall_sit_depth',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
+            code: HoldFeedbackCode.alignWallSitTorso,
+            stableCode: 'align_wall_sit_torso',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
             code: HoldFeedbackCode.correctForm,
             stableCode: 'correct_form',
             family: HoldFeedbackFamily.correctiveCue,
@@ -95,6 +105,8 @@ void main() {
         HoldFeedbackCode.increaseHollowCompression,
         HoldFeedbackCode.extendArmsOverhead,
         HoldFeedbackCode.straightenKnees,
+        HoldFeedbackCode.adjustWallSitDepth,
+        HoldFeedbackCode.alignWallSitTorso,
         HoldFeedbackCode.correctForm,
       ],
     );

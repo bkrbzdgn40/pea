@@ -50,6 +50,10 @@ class ExerciseCatalog {
         ExerciseFeedbackRuleId.movementProgress,
         ExerciseFeedbackRuleId.formCorrection,
       };
+  static const Set<ExerciseFeedbackRuleId>
+  _rangeRepMovementOnlyFeedbackRuleIds = <ExerciseFeedbackRuleId>{
+    ExerciseFeedbackRuleId.movementProgress,
+  };
   static const Set<ExerciseFeedbackRuleId> _holdFeedbackRuleIds =
       <ExerciseFeedbackRuleId>{
         ExerciseFeedbackRuleId.holdProgress,
@@ -356,6 +360,139 @@ class ExerciseCatalog {
           minAcceptableRomDelta: 25.0,
           minDescentMillis: 250,
           minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+
+      ExerciseDefinition.supported(
+        type: ExerciseType.calfRaise,
+        movementPattern: ExerciseMovementPattern.anklePlantarFlexion,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/calf_raise.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.calfRaise,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 15.0,
+          minDescentMillis: 200,
+          minAscentMillis: 200,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.frontRaise,
+        movementPattern: ExerciseMovementPattern.shoulderFlexion,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/front_raise.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.frontRaise,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 45.0,
+          minDescentMillis: 250,
+          minAscentMillis: 250,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.gluteBridge,
+        movementPattern: ExerciseMovementPattern.hipExtension,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepMovementOnlyFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/glute_bridge.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.gluteBridge,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 30.0,
+          minDescentMillis: 300,
+          minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.wallSit,
+        movementPattern: ExerciseMovementPattern.squatHold,
+        trackingType: ExerciseTrackingType.hold,
+        analysisEngines: _holdAnalysisEngines,
+        metricIds: _holdMetricIds,
+        feedbackRuleIds: _holdFeedbackRuleIds,
+        sessionSummaryFields: _holdSummaryFields,
+        engineKind: EngineKind.hold,
+        configAssetPath: 'assets/config/exercises/wall_sit.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        holdContract: HoldContracts.wallSit,
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.sidePlank,
+        movementPattern: ExerciseMovementPattern.sideCoreHold,
+        trackingType: ExerciseTrackingType.hold,
+        analysisEngines: _holdAnalysisEngines,
+        metricIds: _holdMetricIds,
+        feedbackRuleIds: _holdFeedbackRuleIds,
+        sessionSummaryFields: _holdSummaryFields,
+        engineKind: EngineKind.hold,
+        configAssetPath: 'assets/config/exercises/side_plank.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.unsupported,
+            CameraView.front: CameraViewSupport.preferred,
+          },
+        ),
+        holdContract: HoldContracts.sidePlank,
+      ),
+      ExerciseDefinition.supported(
+        type: ExerciseType.jumpingJack,
+        movementPattern: ExerciseMovementPattern.fullBodyAbduction,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/jumping_jack.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.unsupported,
+            CameraView.front: CameraViewSupport.preferred,
+          },
+        ),
+        rangeRepContract: RangeRepContracts.jumpingJack,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 80.0,
+          minDescentMillis: 150,
+          minAscentMillis: 150,
           allowLowConfidenceOnCoverageLoss: true,
         ),
       ),

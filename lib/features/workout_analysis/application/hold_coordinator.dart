@@ -525,6 +525,10 @@ class DefaultHoldCoordinator implements HoldCoordinator {
             ? measurements.heelElevation
             : null;
         break;
+      case HoldAnalysisFamily.wallSit:
+      case HoldAnalysisFamily.sidePlank:
+        _resetExerciseSpecificTechnique();
+        break;
     }
   }
 

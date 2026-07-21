@@ -140,6 +140,44 @@ void main() {
       );
     });
 
+    test('Side Plank reuses plank signals without plank family ownership', () {
+      final contract = HoldContracts.sidePlank;
+
+      expect(contract.family, HoldAnalysisFamily.sidePlank);
+      expect(contract.requiredSignals, const <HoldSignal>{
+        HoldSignal.alignment,
+        HoldSignal.support,
+        HoldSignal.extension,
+      });
+      for (final signal in contract.requiredSignals) {
+        expect(
+          contract.signalHasRole(signal, AnalysisSignalRole.technique),
+          isFalse,
+        );
+      }
+    });
+
+    test('Wall Sit owns explicit knee, hip, and torso hold signals', () {
+      final contract = HoldContracts.wallSit;
+
+      expect(contract.family, HoldAnalysisFamily.wallSit);
+      expect(contract.requiredSignals, const <HoldSignal>{
+        HoldSignal.kneeFlexion,
+        HoldSignal.hipFlexion,
+        HoldSignal.torsoAlignment,
+      });
+      for (final signal in contract.requiredSignals) {
+        expect(
+          contract.signalHasRole(signal, AnalysisSignalRole.validation),
+          isTrue,
+        );
+        expect(
+          contract.signalHasRole(signal, AnalysisSignalRole.technique),
+          isTrue,
+        );
+      }
+    });
+
     test(
       'Hollow Hold variations require only their own validation signals',
       () {

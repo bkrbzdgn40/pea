@@ -874,6 +874,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       HoldFeedbackCode.increaseHollowCompression ||
       HoldFeedbackCode.extendArmsOverhead ||
       HoldFeedbackCode.straightenKnees ||
+      HoldFeedbackCode.adjustWallSitDepth ||
+      HoldFeedbackCode.alignWallSitTorso ||
       HoldFeedbackCode.correctForm => FeedbackDeliveryKind.corrective,
     };
   }

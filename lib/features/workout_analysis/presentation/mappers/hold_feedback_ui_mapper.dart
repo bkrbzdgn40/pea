@@ -20,6 +20,10 @@ String mapHoldFeedbackCodeToMessage(HoldFeedbackCode code) {
       return 'Kollari Bas Ustune Uzat';
     case HoldFeedbackCode.straightenKnees:
       return 'Dizleri Duzlestir';
+    case HoldFeedbackCode.adjustWallSitDepth:
+      return 'Duvar Oturusu Derinligini Ayarla';
+    case HoldFeedbackCode.alignWallSitTorso:
+      return 'Govdeyi Duvara Hizala';
     case HoldFeedbackCode.correctForm:
       return 'Formu Duzelt';
   }

@@ -228,6 +228,50 @@ void main() {
       );
       expect(contract.sideMode, RangeRepSideMode.bilateral);
     });
+
+    test(
+      'Day 11 dynamic exercises declare intentional direction and side mode',
+      () {
+        for (final contract in <RangeRepContract>[
+          RangeRepContracts.calfRaise,
+          RangeRepContracts.frontRaise,
+          RangeRepContracts.gluteBridge,
+          RangeRepContracts.jumpingJack,
+        ]) {
+          expect(
+            contract.primaryMetricDirection,
+            RangeRepPrimaryMetricDirection.increasingToPeak,
+          );
+          expect(
+            contract.towardPeakMuscleAction,
+            RangeRepTowardPeakMuscleAction.concentric,
+          );
+        }
+
+        expect(
+          RangeRepContracts.jumpingJack.sideMode,
+          RangeRepSideMode.bilateral,
+        );
+        expect(
+          RangeRepContracts.frontRaise.sideMode,
+          RangeRepSideMode.selectedSide,
+        );
+        expect(
+          RangeRepContracts.gluteBridge.signalHasRole(
+            RangeRepSignal.formMetric,
+            AnalysisSignalRole.technique,
+          ),
+          isFalse,
+        );
+        expect(
+          RangeRepContracts.jumpingJack.signalHasRole(
+            RangeRepSignal.formMetric,
+            AnalysisSignalRole.technique,
+          ),
+          isTrue,
+        );
+      },
+    );
   });
 }
 

@@ -335,4 +335,172 @@ const exerciseGuideContents = [
     youtubeUrl: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
     youtubeSourceLabel: 'Technique reference',
   ),
+
+  ExerciseGuideContent(
+    type: ExerciseType.calfRaise,
+    subtitle:
+        'Baldır kuvveti ve ayak bileği plantar fleksiyonu için kontrollü tekrar hareketi.',
+    purpose:
+        'Topuk yükseltme-alçaltma döngüsünü izler; hareket boyunca diz hattını büyük ölçüde sabit tutmayı hedefler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kamerayı yandan, kalça-diz-ayak bileği-ayak hattını görecek şekilde yerleştir.',
+      'Ayaklarını rahat ve dengeli bir pozisyonda tut.',
+      'Dizlerini kilitlemeden büyük ölçüde uzatılmış başla.',
+      'Topuklarını birlikte ve kontrollü kaldırmaya hazırlan.',
+    ],
+    tips: [
+      'Topukları yukarı taşırken ayak parmakları üzerinde dengeni koru.',
+      'Dizlerini belirgin biçimde bükerek hareketten kaçma.',
+      'Üst noktada kısa ve kontrollü bir duruş yap.',
+      'Aşağı dönüşü yerçekimine bırakmadan tamamla.',
+    ],
+    commonMistakes: [
+      'Dizlerden yaylanmak.',
+      'Topukları çok az kaldırmak.',
+      'Üst noktada dengeyi kaybetmek.',
+      'Aşağı kontrolsüz düşmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=-M4-G8p8fmc',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.frontRaise,
+    subtitle: 'Omuz fleksiyonu için kontrollü öne kol kaldırma hareketi.',
+    purpose:
+        'Kolun öne yükselmesini ve dirsek hattının büyük ölçüde uzatılmış kalmasını izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kamerayı yandan, omuz-dirsek-bilek ve kalça hattını görecek şekilde yerleştir.',
+      'Kollarını gövdenin yanında rahat başlat.',
+      'Dirseklerini kilitlemeden büyük ölçüde uzatılmış tut.',
+      'Gövdeyi savurmadan kolu öne kaldırmaya hazırlan.',
+    ],
+    tips: [
+      'Kolu kontrollü biçimde öne kaldır.',
+      'Omuz hizası civarında gereksiz yüksekliği zorlamadan dön.',
+      'Dirsek açını tekrar boyunca büyük ölçüde koru.',
+      'Aşağı dönüşü yavaş tamamla.',
+    ],
+    commonMistakes: [
+      'Dirseği belirgin bükmek.',
+      'Gövdeyi geriye savurmak.',
+      'Kolu kontrolsüz yukarı fırlatmak.',
+      'Aşağı dönüşü hızlı bırakmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=-t7fuZ0KhDA',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.gluteBridge,
+    subtitle:
+        'Kalça ekstansiyonu ve posterior chain kontrolü için yerde yapılan hareket.',
+    purpose:
+        'Omuz-kalça-diz hattının açılmasını ana tekrar sinyali olarak izler ve kontrollü bridge döngüsünü sayar.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan ve kamerayı tam yandan yerleştir.',
+      'Dizlerini bük, ayaklarını zemine dengeli bas.',
+      'Omuz, kalça, diz ve ayak bileğinin kadrajda olduğundan emin ol.',
+      'Kalçanı kontrollü kaldırmaya hazırlan.',
+    ],
+    tips: [
+      'Kalçayı yukarı iterken gövdeyi kontrollü aç.',
+      'Üst noktada belini aşırı çukurlaştırma.',
+      'Ayaklarını hareket boyunca sabit tut.',
+      'Aşağı dönüşü kontrollü tamamla.',
+    ],
+    commonMistakes: [
+      'Belden aşırı yaylanmak.',
+      'Kalçayı yeterince yükseltmeden yarım tekrar yapmak.',
+      'Ayakları tekrarlar arasında kaydırmak.',
+      'Aşağı kontrolsüz düşmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=wPM8icPu6H8',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.wallSit,
+    subtitle:
+        'Diz ve kalça açısını sabit tutmaya dayalı izometrik alt vücut hareketi.',
+    purpose:
+        'Duvar oturuşunda kontrollü diz derinliği, kalça pozisyonu ve dik gövde hattını sürdürmeyi hedefler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Sırtını duvara ver ve kamerayı yandan yerleştir.',
+      'Ayaklarını duvardan rahat bir mesafeye al.',
+      'Dizlerini kontrollü bükerek oturuş pozisyonuna in.',
+      'Baş, omuz, kalça, diz ve ayak bileğinin kadrajda kalmasını sağla.',
+    ],
+    tips: [
+      'Diz açını rahat ve kontrollü aralıkta sabit tut.',
+      'Gövdeni duvar hattına yakın ve dik koru.',
+      'Ayak tabanlarını zeminde dengeli tut.',
+      'Pozisyon bozuluyorsa süreyi zorlamak yerine çık.',
+    ],
+    commonMistakes: [
+      'Çok yukarıda kalarak hareketi etkisizleştirmek.',
+      'Aşırı derine inip pozisyonu sürdürememek.',
+      'Gövdeyi öne katlamak.',
+      'Ayakları pozisyon boyunca kaydırmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=y-wV4Venusw',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.sidePlank,
+    subtitle:
+        'Yan gövde dayanıklılığı ve lateral core stabilitesi için izometrik hareket.',
+    purpose:
+        'Omuz-kalça-ayak hattını, dirsek desteğini ve uzatılmış bacak pozisyonunu korumayı hedefler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Yan yat ve dirseğini omzunun altına yerleştir.',
+      'Bacaklarını uzat ve ayaklarını üst üste ya da dengeli bir pozisyonda tut.',
+      'Kamerayı gövdenin önünden veya arkasından vücut hattını görecek şekilde yerleştir.',
+      'Kalçanı kaldırarak omuzdan ayak bileğine uzun bir çizgi kur.',
+    ],
+    tips: [
+      'Kalçanın aşağı düşmesine izin verme.',
+      'Dirsek desteğini omuz altında koru.',
+      'Bacak hattını mümkün olduğunca uzun tut.',
+      'Nefesi tutmadan pozisyonu sürdür.',
+    ],
+    commonMistakes: [
+      'Kalçanın zemine doğru sarkması.',
+      'Dirseğin omuzdan çok uzağa kaçması.',
+      'Dizleri belirgin bükmek.',
+      'Gövdeyi öne veya arkaya döndürmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=K2VljzCC16g',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.jumpingJack,
+    subtitle:
+        'Kol ve bacakların eş zamanlı açılıp kapandığı dinamik tam vücut hareketi.',
+    purpose:
+        'İki kolun birlikte yükselmesini ana tekrar sinyali, bacakların yana açılmasını ise form sinyali olarak izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya önden bak ve tüm vücudunu kadraja al.',
+      'Ayaklarını yakın, kollarını yanlarda başlat.',
+      'İki kol ve iki bacağın net göründüğünden emin ol.',
+      'Kollar ve bacakları aynı döngüde açıp kapatmaya hazırlan.',
+    ],
+    tips: [
+      'Kolları ve bacakları aynı anda aç.',
+      'Üst noktada kolları yeterli yüksekliğe taşı.',
+      'Bacak açılımını küçük bir kol hareketiyle taklit etme.',
+      'İnişleri yumuşak ve ritmik tut.',
+    ],
+    commonMistakes: [
+      'Sadece kolları hareket ettirmek.',
+      'Kolları farklı hızlarda kaldırmak.',
+      'Ayakları kontrolsüz ve sert indirmek.',
+      'Tekrarları aceleyle yarım hareket aralığında yapmak.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=c4DAnQ6DtF8',
+    youtubeSourceLabel: 'Technique reference',
+  ),
 ];

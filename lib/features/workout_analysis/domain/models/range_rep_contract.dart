@@ -538,4 +538,156 @@ abstract final class RangeRepContracts {
     sideMode: RangeRepSideMode.bilateral,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
   );
+  static final RangeRepContract calfRaise = RangeRepContract(
+    towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+    },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract frontRaise = RangeRepContract(
+    towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+    },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract gluteBridge = RangeRepContract(
+    towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{AnalysisSignalRole.setup},
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.setup,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+    },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract jumpingJack = RangeRepContract(
+    towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    supportedPhases: const <RangeRepPhase>{
+      RangeRepPhase.descending,
+      RangeRepPhase.peak,
+      RangeRepPhase.ascending,
+    },
+    supportedSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+      RangeRepSignal.postureAngle,
+      RangeRepSignal.depthMetric,
+    },
+    signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+      RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.scoring,
+      },
+      RangeRepSignal.formMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+        AnalysisSignalRole.technique,
+      },
+      RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+        AnalysisSignalRole.scoring,
+      },
+    },
+    poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+      RangeRepSignal.primaryMetric,
+      RangeRepSignal.formMetric,
+    },
+    formThresholdCalibrationPolicy:
+        RangeRepFormThresholdCalibrationPolicy.disabled,
+    sideMode: RangeRepSideMode.bilateral,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
 }

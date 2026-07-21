@@ -309,6 +309,46 @@ class HollowHoldPostureConfig {
   }
 }
 
+class WallSitPostureConfig {
+  const WallSitPostureConfig({
+    required this.activeKneeMaxAngle,
+    required this.kneeMinAngle,
+    required this.kneeMaxAngle,
+    required this.hipMinAngle,
+    required this.hipMaxAngle,
+    required this.torsoMinAngle,
+    required this.breakGraceDuration,
+  });
+
+  final double activeKneeMaxAngle;
+  final double kneeMinAngle;
+  final double kneeMaxAngle;
+  final double hipMinAngle;
+  final double hipMaxAngle;
+  final double torsoMinAngle;
+  final Duration breakGraceDuration;
+
+  factory WallSitPostureConfig.fromMap(Map<String, dynamic> map) {
+    return _fromReader(
+      _StrictConfigMapReader.root('WallSitPostureConfig', map),
+    );
+  }
+
+  static WallSitPostureConfig _fromReader(_StrictConfigMapReader reader) {
+    return WallSitPostureConfig(
+      activeKneeMaxAngle: reader.requiredDouble('activeKneeMaxAngle'),
+      kneeMinAngle: reader.requiredDouble('kneeMinAngle'),
+      kneeMaxAngle: reader.requiredDouble('kneeMaxAngle'),
+      hipMinAngle: reader.requiredDouble('hipMinAngle'),
+      hipMaxAngle: reader.requiredDouble('hipMaxAngle'),
+      torsoMinAngle: reader.requiredDouble('torsoMinAngle'),
+      breakGraceDuration: Duration(
+        milliseconds: reader.requiredInt('breakGraceMillis'),
+      ),
+    );
+  }
+}
+
 class ExerciseConfig {
   final String name;
   final PoseLandmarkType primaryJoint;
@@ -327,6 +367,7 @@ class ExerciseConfig {
   final double tempoPenaltyPerSecond;
   final HoldPostureConfig? holdPosture;
   final HollowHoldPostureConfig? hollowHoldPosture;
+  final WallSitPostureConfig? wallSitPosture;
   final HoldSignalExtractionConfig? holdSignals;
   final RangeRepScoreWeightsConfig? rangeRepScoreWeights;
   final RangeRepPhaseQualityConfig? rangeRepPhaseQuality;
@@ -348,6 +389,7 @@ class ExerciseConfig {
     this.tempoPenaltyPerSecond = 20.0,
     this.holdPosture,
     this.hollowHoldPosture,
+    this.wallSitPosture,
     this.holdSignals,
     this.rangeRepScoreWeights,
     this.rangeRepPhaseQuality,
@@ -377,6 +419,7 @@ class ExerciseConfig {
     final reader = _StrictConfigMapReader.root('ExerciseConfig', map);
     final holdPosture = _readHoldPostureOrNull(reader);
     final hollowHoldPosture = _readHollowHoldPostureOrNull(reader);
+    final wallSitPosture = _readWallSitPostureOrNull(reader);
     final holdSignals = _readHoldSignalsOrNull(reader);
     final rangeRepScoreWeights = _readRangeRepScoreWeightsOrNull(reader);
     final rangeRepPhaseQuality = _readRangeRepPhaseQualityOrNull(reader);
@@ -391,13 +434,15 @@ class ExerciseConfig {
         'thresholdNeutral',
         fallback:
             holdPosture?.activePostureAngle ??
-            hollowHoldPosture?.activePostureMaxAngle,
+            hollowHoldPosture?.activePostureMaxAngle ??
+            wallSitPosture?.activeKneeMaxAngle,
       ),
       thresholdActive: reader.requiredDouble(
         'thresholdActive',
         fallback:
             holdPosture?.bodyLineEntryAngle ??
-            hollowHoldPosture?.compressionEntryMaxAngle,
+            hollowHoldPosture?.compressionEntryMaxAngle ??
+            wallSitPosture?.kneeMaxAngle,
       ),
       thresholdPeak: reader.requiredDouble('thresholdPeak', fallback: 0.0),
       idealDescentSeconds: reader.requiredDouble(
@@ -417,6 +462,7 @@ class ExerciseConfig {
       ),
       holdPosture: holdPosture,
       hollowHoldPosture: hollowHoldPosture,
+      wallSitPosture: wallSitPosture,
       holdSignals: holdSignals,
       rangeRepScoreWeights: rangeRepScoreWeights,
       rangeRepPhaseQuality: rangeRepPhaseQuality,
@@ -453,6 +499,27 @@ class ExerciseConfig {
     });
 
     return HollowHoldPostureConfig._fromReader(hollowHoldPostureReader);
+  }
+
+  static WallSitPostureConfig? _readWallSitPostureOrNull(
+    _StrictConfigMapReader reader,
+  ) {
+    final wallSitPostureReader = reader.optionalObject('wallSitPosture');
+    if (wallSitPostureReader == null) {
+      return null;
+    }
+
+    wallSitPostureReader.expectOnlyKeys(const <String>{
+      'activeKneeMaxAngle',
+      'kneeMinAngle',
+      'kneeMaxAngle',
+      'hipMinAngle',
+      'hipMaxAngle',
+      'torsoMinAngle',
+      'breakGraceMillis',
+    });
+
+    return WallSitPostureConfig._fromReader(wallSitPostureReader);
   }
 
   static HoldSignalExtractionConfig? _readHoldSignalsOrNull(

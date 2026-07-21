@@ -1,7 +1,7 @@
 import 'analysis_signal_role.dart';
 import 'hollow_hold_variation.dart';
 
-enum HoldAnalysisFamily { plank, hollowHold }
+enum HoldAnalysisFamily { plank, hollowHold, wallSit, sidePlank }
 
 /// Canonical signal identifiers that a hold contract may support.
 enum HoldSignal {
@@ -11,6 +11,9 @@ enum HoldSignal {
   compression,
   armExtension,
   kneeExtension,
+  kneeFlexion,
+  hipFlexion,
+  torsoAlignment,
 }
 
 /// Immutable contract describing which normalized signals a hold exercise
@@ -156,4 +159,51 @@ abstract final class HoldContracts {
       },
     );
   }
+
+  static final HoldContract sidePlank = HoldContract(
+    family: HoldAnalysisFamily.sidePlank,
+    requiredSignals: const <HoldSignal>{
+      HoldSignal.alignment,
+      HoldSignal.support,
+      HoldSignal.extension,
+    },
+    signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+      HoldSignal.alignment: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+      },
+      HoldSignal.support: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+      },
+      HoldSignal.extension: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+      },
+    },
+  );
+
+  static final HoldContract wallSit = HoldContract(
+    family: HoldAnalysisFamily.wallSit,
+    requiredSignals: const <HoldSignal>{
+      HoldSignal.kneeFlexion,
+      HoldSignal.hipFlexion,
+      HoldSignal.torsoAlignment,
+    },
+    signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
+      HoldSignal.kneeFlexion: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+      HoldSignal.hipFlexion: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+      HoldSignal.torsoAlignment: <AnalysisSignalRole>{
+        AnalysisSignalRole.validation,
+        AnalysisSignalRole.technique,
+      },
+    },
+  );
 }

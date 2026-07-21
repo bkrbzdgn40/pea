@@ -12,6 +12,7 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_engine.dart';
 import '../domain/tempo_engine.dart';
+import '../domain/wall_sit_posture_policy.dart';
 import 'engine_kind.dart';
 
 /// Creates the engine used by today's analysis pipeline.
@@ -82,6 +83,18 @@ class AnalysisEngineFactory {
         _validateHollowHoldEngineContract(holdContract, config);
         return HoldEngine(
           posturePolicy: _createHollowHoldPosturePolicy(config, holdContract),
+          now: now,
+        );
+      case HoldAnalysisFamily.wallSit:
+        _validateWallSitHoldEngineContract(holdContract, config);
+        return HoldEngine(
+          posturePolicy: _createWallSitPosturePolicy(config),
+          now: now,
+        );
+      case HoldAnalysisFamily.sidePlank:
+        _validatePlankHoldEngineContract(holdContract, config);
+        return HoldEngine(
+          posturePolicy: _createPlankPosturePolicy(config),
           now: now,
         );
     }
@@ -204,6 +217,28 @@ class AnalysisEngineFactory {
     }
   }
 
+  void _validateWallSitHoldEngineContract(
+    HoldContract contract,
+    ExerciseConfig config,
+  ) {
+    _validateRequiredHoldSignals(
+      contract: contract,
+      config: config,
+      requiredSignals: const <HoldSignal>[
+        HoldSignal.kneeFlexion,
+        HoldSignal.hipFlexion,
+        HoldSignal.torsoAlignment,
+      ],
+    );
+
+    if (config.wallSitPosture == null) {
+      throw StateError(
+        'Current hold engine requires wallSitPosture config for wall-sit '
+        'analysis.',
+      );
+    }
+  }
+
   void _validateRequiredHoldSignals({
     required HoldContract contract,
     required ExerciseConfig config,
@@ -261,5 +296,17 @@ class AnalysisEngineFactory {
       config: hollowHoldPosture,
       variationContract: variationContract,
     );
+  }
+
+  HoldFormPolicy _createWallSitPosturePolicy(ExerciseConfig config) {
+    final wallSitPosture = config.wallSitPosture;
+    if (wallSitPosture == null) {
+      throw StateError(
+        'Current hold engine requires wallSitPosture config for wall-sit '
+        'analysis.',
+      );
+    }
+
+    return WallSitPosturePolicy(config: wallSitPosture);
   }
 }
