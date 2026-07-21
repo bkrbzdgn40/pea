@@ -4,7 +4,12 @@ import 'package:pose_estimation_app/features/achievements/presentation/models/ac
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_metrics_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
@@ -81,6 +86,126 @@ void main() {
 
       expect(find.text('Biceps Curl özeti'), findsOneWidget);
       expect(find.text('Toplam tekrar'), findsOneWidget);
+    },
+  );
+
+  testWidgets('renders rich live metrics captured at session completion', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'summary-rich',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'lunge',
+      totalReps: 6,
+      averageScore: 88,
+      bestScore: 94,
+      durationSec: 80,
+    );
+    final frameBuilder = ExerciseMetricSnapshotBuilder(
+      scope: ExerciseMetricScope.frame,
+    );
+    final sessionBuilder =
+        ExerciseMetricSnapshotBuilder(scope: ExerciseMetricScope.session)
+          ..set(ExerciseMetricRegistry.repetitionCount, 6)
+          ..set(ExerciseMetricRegistry.rangeOfMotion, 48.5)
+          ..set(
+            ExerciseMetricRegistry.tempo,
+            const Duration(milliseconds: 1400),
+          )
+          ..set(ExerciseMetricRegistry.symmetry, 6.5)
+          ..set(ExerciseMetricRegistry.asymmetryScore, 12.0);
+    final metrics = WorkoutLiveMetricsSnapshot(
+      frameMetrics: frameBuilder.build(),
+      sessionMetrics: sessionBuilder.build(),
+      leftRepCount: 3,
+      rightRepCount: 3,
+      tempoConsistencyScore: 91,
+      fastestRepDuration: const Duration(milliseconds: 1200),
+      slowestRepDuration: const Duration(milliseconds: 1600),
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [
+        completedSessionProvider.overrideWith((ref) => session),
+        completedSessionMetricsProvider.overrideWith((ref) => metrics),
+      ],
+    );
+    await tester.pump();
+
+    await tester.scrollUntilVisible(find.text('Asimetri skoru'), 200);
+
+    expect(find.text('Ortalama ROM'), findsOneWidget);
+    expect(find.text('Ortalama tempo'), findsOneWidget);
+    expect(find.text('Tempo tutarlılığı'), findsOneWidget);
+    expect(find.text('Sol tekrar'), findsOneWidget);
+    expect(find.text('Sağ tekrar'), findsOneWidget);
+    expect(find.text('Asimetri skoru'), findsOneWidget);
+  });
+
+  testWidgets(
+    'falls back to persisted rep metrics when live snapshot is partial',
+    (WidgetTester tester) async {
+      final startedAt = DateTime(2024, 1, 5, 9, 30);
+      final session = WorkoutSession(
+        id: 'summary-partial-live',
+        ownerId: 'owner-1',
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        startedAt: startedAt,
+        endedAt: startedAt.add(const Duration(seconds: 30)),
+        durationSec: 30,
+        totalReps: 2,
+        averageScore: 90,
+        bestScore: 94,
+        worstScore: 86,
+        validReps: 2,
+        invalidReps: 0,
+        formWarningCount: 0,
+        reps: const <WorkoutRep>[
+          WorkoutRep(
+            repIndex: 1,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            primaryRom: 60,
+            descentMillis: 500,
+            ascentMillis: 700,
+          ),
+          WorkoutRep(
+            repIndex: 2,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            primaryRom: 80,
+            descentMillis: 600,
+            ascentMillis: 800,
+          ),
+        ],
+      );
+      final liveMetrics = WorkoutLiveMetricsSnapshot(
+        frameMetrics: ExerciseMetricSnapshotBuilder(
+          scope: ExerciseMetricScope.frame,
+        ).build(),
+        sessionMetrics: (ExerciseMetricSnapshotBuilder(
+          scope: ExerciseMetricScope.session,
+        )..set(ExerciseMetricRegistry.repetitionCount, 2)).build(),
+        tempoConsistencyScore: 95,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const WorkoutSummaryScreen(),
+        overrides: [
+          completedSessionProvider.overrideWith((ref) => session),
+          completedSessionMetricsProvider.overrideWith((ref) => liveMetrics),
+        ],
+      );
+      await tester.pump();
+
+      await tester.scrollUntilVisible(find.text('Ortalama tempo'), 200);
+      expect(find.text('70.0°'), findsOneWidget);
+      expect(find.text('1.3 sn'), findsOneWidget);
+      expect(find.text('Tempo tutarlılığı'), findsOneWidget);
     },
   );
 

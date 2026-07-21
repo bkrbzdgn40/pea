@@ -193,6 +193,7 @@ void main() {
 
       expect(lunge.usesAnalysisEngine(ExerciseAnalysisEngine.symmetry), isTrue);
       expect(lunge.declaresMetric(ExerciseMetricId.symmetry), isTrue);
+      expect(lunge.declaresMetric(ExerciseMetricId.asymmetryScore), isTrue);
       expect(
         lunge.includesSummaryField(ExerciseSessionSummaryField.asymmetryScore),
         isTrue,
@@ -208,6 +209,11 @@ void main() {
         );
         expect(
           definition.declaresMetric(ExerciseMetricId.symmetry),
+          isFalse,
+          reason: definition.id,
+        );
+        expect(
+          definition.declaresMetric(ExerciseMetricId.asymmetryScore),
           isFalse,
           reason: definition.id,
         );

@@ -9,8 +9,10 @@ import '../../application/analysis_engine_factory.dart';
 import '../../application/common_frame_pose_pipeline.dart';
 import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
+import '../../application/exercise_metric_registry.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/exercise_metrics_extractor.dart';
+import '../../application/exercise_definition_metadata.dart';
 import '../../application/feedback_delivery_controller.dart';
 import '../../application/hold_coordinator.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
@@ -18,6 +20,8 @@ import '../../application/pose_quality_policy.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
+import '../../application/workout_live_metrics.dart';
+import '../../domain/alternating_rep_engine.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
@@ -26,6 +30,7 @@ import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/range_rep_analysis_engine.dart';
+import '../../domain/tempo_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
@@ -38,6 +43,12 @@ import 'pose_provider.dart';
 final workoutControllerProvider =
     AutoDisposeNotifierProvider<WorkoutController, WorkoutState>(() {
       return WorkoutController();
+    });
+
+final workoutLiveMetricsProvider =
+    Provider.autoDispose<WorkoutLiveMetricsSnapshot>((ref) {
+      ref.watch(workoutControllerProvider);
+      return ref.read(workoutControllerProvider.notifier).liveMetricsSnapshot();
     });
 
 final workoutClockProvider = Provider<DateTime Function()>((ref) {
@@ -125,8 +136,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       const ExerciseMetricsExtractor();
   final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
   RangeRepAnalysisEngine? _rangeRepEngine;
+  AlternatingRepEngine? _alternatingRepEngine;
   RangeRepCoordinator? _rangeRepCoordinator;
   HoldCoordinator? _holdCoordinator;
+  ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
@@ -162,6 +175,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         ? definition.analysisHoldContract
         : null;
     _config = ref.watch(exerciseConfigProvider).requireValue;
+    _lastExerciseMetrics = const ExerciseMetrics.noPose();
     switch (_engineKind) {
       case EngineKind.rangeRep:
         final rangeRepContract =
@@ -177,6 +191,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           now: _clock,
         );
         _rangeRepEngine = rangeRepEngine;
+        _alternatingRepEngine =
+            definition.usesAnalysisEngine(ExerciseAnalysisEngine.alternatingRep)
+            ? _engineFactory.createAlternatingRep(
+                config: _config,
+                rangeRepContract: rangeRepContract,
+                minimumRom:
+                    rangeRepValidationConfig.minAcceptableRomDelta ?? 0.0,
+                now: _clock,
+              )
+            : null;
         _rangeRepCoordinator = rangeRepCoordinatorFactory(
           engine: rangeRepEngine,
           config: _config,
@@ -195,6 +219,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           now: _clock,
         );
         _rangeRepEngine = null;
+        _alternatingRepEngine = null;
         _rangeRepCoordinator = null;
         _holdCoordinator = holdCoordinatorFactory(
           engine: holdEngine,
@@ -537,6 +562,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     RangeRepSide? preferredRangeRepSide,
   }) {
+    _lastExerciseMetrics = metrics;
     if (_engineKind == EngineKind.rangeRep) {
       _processRangeRepMetrics(
         metrics: metrics,
@@ -565,6 +591,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
   }) {
+    _processAlternatingRepSidecar(
+      metrics: metrics,
+      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+    );
     final result = _rangeRepCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
@@ -662,6 +692,143 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _feedbackDelivery.deliver(
         _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
       ),
+    );
+  }
+
+  void _processAlternatingRepSidecar({
+    required ExerciseMetrics metrics,
+    required bool isAcceptedPoseFrame,
+  }) {
+    final engine = _alternatingRepEngine;
+    if (engine == null) {
+      return;
+    }
+
+    if (!isAcceptedPoseFrame) {
+      engine.interrupt();
+      return;
+    }
+
+    final left = metrics.leftRangeRepMetrics;
+    final right = metrics.rightRangeRepMetrics;
+    engine.update(
+      leftPrimaryMetric: left.hasPrimaryAngle ? left.primaryAngle : null,
+      rightPrimaryMetric: right.hasPrimaryAngle ? right.primaryAngle : null,
+    );
+  }
+
+  WorkoutLiveMetricsSnapshot liveMetricsSnapshot() {
+    final frameBuilder = ExerciseMetricSnapshotBuilder(
+      scope: ExerciseMetricScope.frame,
+    );
+    if (_lastExerciseMetrics.hasPrimaryAngle) {
+      frameBuilder.set(
+        ExerciseMetricRegistry.primaryMovement,
+        _lastExerciseMetrics.primaryAngle,
+      );
+    }
+    if (_lastExerciseMetrics.hasFormMetric) {
+      frameBuilder.set(
+        ExerciseMetricRegistry.form,
+        _lastExerciseMetrics.formMetric,
+      );
+    }
+
+    final leftMetrics = _lastExerciseMetrics.leftRangeRepMetrics;
+    final rightMetrics = _lastExerciseMetrics.rightRangeRepMetrics;
+    if (_alternatingRepEngine != null &&
+        leftMetrics.hasPrimaryAngle &&
+        rightMetrics.hasPrimaryAngle) {
+      frameBuilder.set(
+        ExerciseMetricRegistry.symmetry,
+        (leftMetrics.primaryAngle - rightMetrics.primaryAngle).abs(),
+      );
+    }
+
+    final sessionBuilder = ExerciseMetricSnapshotBuilder(
+      scope: ExerciseMetricScope.session,
+    );
+    int? leftRepCount;
+    int? rightRepCount;
+    double? tempoConsistencyScore;
+    Duration? fastestRepDuration;
+    Duration? slowestRepDuration;
+
+    if (_engineKind == EngineKind.rangeRep) {
+      sessionBuilder.set(
+        ExerciseMetricRegistry.repetitionCount,
+        state.repCount,
+      );
+
+      final rangeEngine = _rangeRepEngine;
+      final TempoMetricsSource? tempoSource = rangeEngine is TempoMetricsSource
+          ? rangeEngine as TempoMetricsSource
+          : null;
+      if (tempoSource != null) {
+        final tempoSummary = tempoSource.tempoSessionSummary;
+        if (tempoSummary.repCount > 0) {
+          sessionBuilder
+            ..set(ExerciseMetricRegistry.tempo, tempoSummary.averageRepDuration)
+            ..set(
+              ExerciseMetricRegistry.repDuration,
+              tempoSummary.averageRepDuration,
+            );
+          tempoConsistencyScore = tempoSummary.consistencyScore;
+          fastestRepDuration = tempoSummary.fastestRepDuration;
+          slowestRepDuration = tempoSummary.slowestRepDuration;
+        }
+      }
+
+      final alternating = _alternatingRepEngine;
+      if (alternating != null) {
+        final symmetry = alternating.symmetrySessionSummary;
+        leftRepCount = symmetry.leftRepCount;
+        rightRepCount = symmetry.rightRepCount;
+        final romDifference = symmetry.averageRomDifference;
+        if (romDifference != null) {
+          sessionBuilder.set(ExerciseMetricRegistry.symmetry, romDifference);
+        }
+        final asymmetryScore = symmetry.overallAsymmetryScore;
+        if (asymmetryScore != null) {
+          sessionBuilder.set(
+            ExerciseMetricRegistry.asymmetryScore,
+            asymmetryScore,
+          );
+        }
+
+        final totalSideReps = symmetry.leftRepCount + symmetry.rightRepCount;
+        if (totalSideReps > 0) {
+          final weightedRom =
+              ((symmetry.leftAverageRom ?? 0) * symmetry.leftRepCount +
+                  (symmetry.rightAverageRom ?? 0) * symmetry.rightRepCount) /
+              totalSideReps;
+          sessionBuilder.set(ExerciseMetricRegistry.rangeOfMotion, weightedRom);
+        }
+      }
+    } else if (_engineKind == EngineKind.hold) {
+      sessionBuilder.set(
+        ExerciseMetricRegistry.holdDuration,
+        Duration(milliseconds: (state.currentHoldSeconds * 1000).round()),
+      );
+      final holdDiagnostics = _holdCoordinatorOrThrow().diagnosticsSnapshot();
+      final currentStability = holdDiagnostics.currentStabilityScore;
+      if (currentStability != null) {
+        frameBuilder.set(ExerciseMetricRegistry.stability, currentStability);
+      }
+      final sessionStability = holdDiagnostics.sessionStabilityScore;
+      if (sessionStability != null) {
+        sessionBuilder.set(ExerciseMetricRegistry.stability, sessionStability);
+      }
+    }
+
+    return WorkoutLiveMetricsSnapshot(
+      frameMetrics: frameBuilder.build(),
+      sessionMetrics: sessionBuilder.build(),
+      leftRepCount: leftRepCount,
+      rightRepCount: rightRepCount,
+      tempoConsistencyScore: tempoConsistencyScore,
+      fastestRepDuration: fastestRepDuration,
+      slowestRepDuration: slowestRepDuration,
     );
   }
 
@@ -883,6 +1050,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void handleLifecycleInterruption({String? reason}) {
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();
+      _alternatingRepEngine?.interrupt();
       _publishRangeRepState(
         _rangeRepCoordinatorOrThrow().handleLifecycleInterruption(
           reason: reason ?? 'lifecycle interruption',

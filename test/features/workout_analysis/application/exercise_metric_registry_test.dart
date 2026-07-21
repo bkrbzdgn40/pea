@@ -62,6 +62,14 @@ void main() {
         ExerciseMetricFamily.symmetry,
       );
       expect(
+        ExerciseMetricRegistry.asymmetryScore.family,
+        ExerciseMetricFamily.symmetry,
+      );
+      expect(
+        ExerciseMetricRegistry.asymmetryScore.unit,
+        ExerciseMetricUnit.score,
+      );
+      expect(
         ExerciseMetricRegistry.stability.family,
         ExerciseMetricFamily.stability,
       );

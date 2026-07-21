@@ -15,12 +15,15 @@ import '../../domain/models/exercise_type.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../providers/workout_plan_session_provider.dart';
 import '../widgets/exercise_distribution_card.dart';
 import '../widgets/home_feature_preview_card.dart';
+import 'assessment_selection_screen.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'guide_screen.dart';
 import 'session_history_screen.dart';
+import 'workout_plan_setup_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -64,6 +67,7 @@ class HomeScreen extends ConsumerWidget {
             _HomeActionGrid(
               selectedExercise: selectedExercise,
               onStartAnalysis: () {
+                ref.read(workoutPlanSessionProvider.notifier).reset();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -74,6 +78,7 @@ class HomeScreen extends ConsumerWidget {
                 );
               },
               onSelectExercise: () {
+                ref.read(workoutPlanSessionProvider.notifier).reset();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -92,6 +97,22 @@ class HomeScreen extends ConsumerWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const SessionHistoryScreen(),
+                  ),
+                );
+              },
+              onOpenWorkoutPlan: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const WorkoutPlanSetupScreen(),
+                  ),
+                );
+              },
+              onOpenAssessment: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AssessmentSelectionScreen(),
                   ),
                 );
               },
@@ -304,6 +325,8 @@ class _HomeActionGrid extends StatelessWidget {
     required this.onSelectExercise,
     required this.onOpenGuide,
     required this.onOpenHistory,
+    required this.onOpenWorkoutPlan,
+    required this.onOpenAssessment,
   });
 
   final ExerciseType? selectedExercise;
@@ -311,6 +334,8 @@ class _HomeActionGrid extends StatelessWidget {
   final VoidCallback onSelectExercise;
   final VoidCallback onOpenGuide;
   final VoidCallback onOpenHistory;
+  final VoidCallback onOpenWorkoutPlan;
+  final VoidCallback onOpenAssessment;
 
   @override
   Widget build(BuildContext context) {
@@ -370,6 +395,18 @@ class _HomeActionGrid extends StatelessWidget {
                   title: 'Geçmiş Oturumlar',
                   subtitle: 'Kaydedilmiş analizler',
                   onTap: onOpenHistory,
+                ),
+                _HomeActionCard(
+                  icon: Icons.fitness_center_rounded,
+                  title: 'Planlı Antrenman',
+                  subtitle: 'Set, round ve hedef akışı',
+                  onTap: onOpenWorkoutPlan,
+                ),
+                _HomeActionCard(
+                  icon: Icons.monitor_heart_rounded,
+                  title: 'Değerlendirme',
+                  subtitle: 'Squat, denge ve omuz ölçümü',
+                  onTap: onOpenAssessment,
                 ),
               ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
             );
