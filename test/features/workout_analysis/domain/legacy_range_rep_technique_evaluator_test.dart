@@ -23,6 +23,8 @@ void main() {
         RangeRepTechniqueSeverity.warning,
       );
       expect(assessment.observations.single.phase, isNull);
+      expect(assessment.observations.single.measuredValue, 59);
+      expect(assessment.observations.single.referenceValue, 60);
     });
 
     test('returns an empty assessment at the form threshold', () {
