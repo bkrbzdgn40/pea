@@ -4,7 +4,7 @@ Bu belge, R5 gerçek cihaz execution'ında bulunan ve kontrol grubu closure'ın�
 
 ## F1 - Hold visibility lifecycle telemetry eksikliği
 
-- Durum: **IMPLEMENTED - real-device telemetry smoke pending**
+- Durum: **CLOSED - real-device short/long gap telemetry verified**
 - Öncelik: **P0 - R6 hold-family validation öncesi**
 - Katman: Diagnostics / observability
 - Etkilenen alan: Plank ve gelecekte Hollow Hold, Wall Sit, Side Plank
@@ -41,7 +41,29 @@ R6 hardening patch'i mevcut hold lifecycle davranışını değiştirmeden şu s
 
 ### Exit kriteri
 
-Deterministic test + gerçek Plank run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı. Kısa gap'te recovery, uzun gap'te abort ve gap duration alanları gerçek cihaz export'unda doğrulanmadan finding `CLOSED` sayılmaz.
+Deterministic test + gerçek cihaz hold run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı. Kısa gap'te recovery, uzun gap'te abort ve gap duration alanları gerçek cihaz export'unda doğrulanmadan finding `CLOSED` sayılmaz.
+
+### R6 closure kanıtı
+
+SHA-pinned profile build: `036a81f4b65dbd78fb197e5a6f807c7178d90da0`
+
+- Kısa gap: `diagnostics_v6_hollow_hold_20260722_165459.json`
+  - suspend = 1
+  - recovery = 1
+  - abort = 0
+  - last gap = 701 ms
+  - suspended total = 701 ms
+- İlk uzun-gap denemesi: `diagnostics_v6_hollow_hold_20260722_165636.json`
+  - hold continuity kırılması gözlendi ancak yeni event sayaçları oluşmadı
+  - sonuç `INCONCLUSIVE`; closure kanıtı olarak kullanılmadı
+- Tekrarlanan uzun gap: `diagnostics_v6_hollow_hold_20260722_165832.json`
+  - suspend = 1
+  - recovery = 0
+  - abort = 1
+  - last gap = 1669 ms
+  - suspended total = 1669 ms
+
+İkinci long-gap run ve kısa-gap run aynı SHA üzerinde deterministic testlerin beklediği lifecycle semantiğini gerçek cihazda doğrulamıştır. Finding **CLOSED**.
 
 ## F2 - Camera autofocus hunting during static hold/form-break
 

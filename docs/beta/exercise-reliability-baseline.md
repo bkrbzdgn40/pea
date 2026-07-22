@@ -18,10 +18,10 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- Güncel engineering revalidation cihaz kanıtı bulunan: **4**
-- Ayrı exercise-specific cihaz validation bekleyen: **14**
+- Güncel engineering revalidation cihaz kanıtı bulunan: **5**
+- Ayrı exercise-specific cihaz validation bekleyen: **13**
 
-Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl ise R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
@@ -29,7 +29,7 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | --- | --- | --- | --- | --- | --- |
 | Squat | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Plank | `hold` | plank family | n/a | side | R5 Engineering Revalidated |
-| Hollow Hold | `hold` | hollow-hold family | n/a | side | Validation Pending |
+| Hollow Hold | `hold` | hollow-hold family | n/a | side | R6 Engineering Revalidated |
 | Stationary Lunge | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Push-up | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Sit-up | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
@@ -203,7 +203,7 @@ R5 engineering revalidation, commit `f56d921c5e4a6672f3881d5408a0d81302051965` �
 
 R5 sırasında üç açık engineering bulgusu kaydedildi:
 
-1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği. R6 hold-family validation öncesi implementation hardening ile session-level suspend/recovery/abort ve gap-duration telemetry'si eklendi; real-device Plank telemetry smoke doğrulaması closure için beklenir.
+1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği. R6 implementation hardening ile session-level suspend/recovery/abort ve gap-duration telemetry'si eklendi; 701 ms short-gap recovery ve 1669 ms long-gap abort gerçek cihazda doğrulanarak finding kapatıldı.
 2. Static Plank/form-break koşulunda gözlenen camera autofocus hunting.
 3. Push-up positive run'da 12 rep'in 9'unun `excessiveDescentSpeed` nedeniyle `lowConfidence` işaretlenmesi.
 
@@ -211,15 +211,13 @@ Bu bulguların sahipliği ve exit kriterleri `docs/beta/r5-control-group-finding
 
 ## 10. Sonraki Adım
 
-R6 Dalga A'da Biceps Curl engineering revalidation tamamlanmıştır. Sıradaki validation sırası:
+R6 Dalga A'da Biceps Curl ve Hollow Hold engineering revalidation tamamlanmıştır. Sıradaki validation sırası:
 
-1. Hold visibility telemetry hardening real-device Plank smoke
-2. Hollow Hold
-3. Lateral Raise
-4. Front Raise
-5. Wall Sit
+1. Lateral Raise
+2. Front Raise
+3. Wall Sit
 
-Hold visibility telemetry implementation'ı davranış motorunu değiştirmeden session-level lifecycle sayaçlarını ve tamamlanmış gap sürelerini Diagnostics schema v6 export'una ekler. Hollow Hold ve Wall Sit occlusion/recovery kanıtına geçmeden önce kısa ve uzun Plank visibility-gap smoke run'larıyla bu telemetry gerçek cihazda doğrulanmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
+Hold visibility telemetry implementation'ı davranış motorunu değiştirmeden session-level lifecycle sayaçlarını ve tamamlanmış gap sürelerini Diagnostics schema v6 export'una eklemiştir. Gerçek cihaz exit gate'i Hollow Hold üzerinde 701 ms kısa gap recovery ve 1669 ms uzun gap abort kanıtlarıyla tamamlanmış, R5 F1 observability finding'i kapatılmıştır. Hollow Hold da aynı SHA-pinned profile build üzerinde 30 saniye valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla **`R6 Engineering Revalidated`** olarak kapatılmıştır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up ve Biceps Curl tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
 
 Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
 
@@ -230,3 +228,11 @@ R6 Dalga A'nın ilk exercise-specific cihaz validation hedefi Biceps Curl tamaml
 Biceps Curl validation başlamadan önce setup rehberi production camera contract ile hizalanmıştır: `front` preferred, `side` unsupported. Önceki 30-45 derece çapraz kamera önerisi kaldırılmıştır. Bu değişiklik engine threshold'larını veya bilateral counting semantiğini değiştirmez; yalnız test ve kullanıcı kurulumunun gerçek analysis contract ile aynı olmasını sağlar.
 
 Biceps Curl, shallow-ROM false count bulgusunun secondary shoulder-wrist closure PEAK gate ile düzeltilmesi ve fix sonrası 10 shallow → 0, 20 full → 20, one-arm → 0, occlusion, pause/resume ve 5 → 5 persistence kanıtları sonrasında **`R6 Engineering Revalidated`** olarak kapatılmıştır. Tempo-confidence hassasiyeti counting closure'ını bloklamayan açık R6 finding olarak izlenir.
+
+## 12. R6 Dalga A - Hold Visibility ve Hollow Hold Closure
+
+Hold visibility telemetry hardening ve Hollow Hold cihaz validation'ı commit `036a81f4b65dbd78fb197e5a6f807c7178d90da0` üzerinde profile build ile tamamlandı. Ayrıntılı closure kanıtı `docs/beta/r6-wave-a-hollow-hold-results.md`, telemetry tasarım/exit gate'i ise `docs/beta/r6-hold-visibility-telemetry-hardening.md` içinde tutulur.
+
+Gerçek cihazda kısa visibility gap 701 ms olarak `suspend + recovery`, uzun visibility gap ise 1669 ms olarak `suspend + abort` şeklinde ölçüldü. İlk long-gap denemesinde hold continuity kırılmasına rağmen yeni event sayaçları oluşmadığı için run `INCONCLUSIVE` olarak saklandı; aynı SHA'da tekrarlanan ikinci long-gap run exit kriterini karşıladı. Bu nedenle R5 F1 hold visibility observability finding'i **CLOSED** olarak işaretlenmiştir.
+
+Hollow Hold için 30 saniye ground-truth hold tam 30 saniye ölçüldü; invalid/form-break run'ında aktif hold sıfırlandı ve `straighten_knees` feedback'i üretildi; pause/resume sonrasında best hold korunup yeni aktif hold ayrı devam etti; 10 saniyelik persistence kullanıcı tarafından doğrulandı. Protokol execution'ı formal çoklu-run seti değildir; bu nedenle statü **`R6 Engineering Revalidated`** olarak tutulur, formal protocol-complete iddiası yapılmaz.

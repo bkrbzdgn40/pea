@@ -135,3 +135,42 @@ Beklenen:
 - exception = 0
 
 Bu iki run tek JSON üzerinden hold visibility lifecycle'ını açıklayabiliyorsa R5 F1 finding'i kapatılır ve Hollow Hold cihaz validation'ına geçilir.
+
+
+## 7. Real-Device Closure
+
+Real-device exit gate commit `036a81f4b65dbd78fb197e5a6f807c7178d90da0` üzerinde profile build ile çalıştırıldı. Plan metni Plank smoke run öngörüyordu; execution Hollow Hold üzerinde yapıldı. Telemetry generic hold lifecycle'dan üretildiği ve aynı engine/coordinator/diagnostics zincirini kullandığı için bu sapma observability exit kriterini değiştirmez; sapma burada açıkça kayıtlıdır.
+
+### Short gap - PASS
+
+Kanıt: `diagnostics_v6_hollow_hold_20260722_165459.json`
+
+- suspend = 1
+- recovery = 1
+- abort = 0
+- last gap = 701 ms
+- suspended total = 701 ms
+- export anında visibility suspended = false
+- exception = 0
+
+### Long gap - first attempt INCONCLUSIVE
+
+Kanıt: `diagnostics_v6_hollow_hold_20260722_165636.json`
+
+Hold continuity'nin kırıldığı `best_hold_seconds = 6`, `current_hold_seconds = 4` ve pose reacquisition ile uyumlu görünse de yeni hold-visibility event sayaçları sıfır kaldı. Tek JSON bu run'ın lifecycle yolunu açıklamak için yeterli olmadığından run closure kanıtı olarak kullanılmadı.
+
+### Long gap - repeat PASS
+
+Kanıt: `diagnostics_v6_hollow_hold_20260722_165832.json`
+
+- suspend = 1
+- recovery = 0
+- abort = 1
+- last gap = 1669 ms
+- suspended total = 1669 ms
+- `best_hold_seconds = 5`
+- `current_hold_seconds = 4`
+- export anında visibility suspended = false
+- exception = 0
+
+Kısa ve uzun gap yolları gerçek cihazda doğrulandığı için telemetry hardening exit gate'i **PASS** ve R5 F1 finding'i **CLOSED** kabul edilir.
