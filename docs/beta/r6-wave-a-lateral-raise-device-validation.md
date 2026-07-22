@@ -26,12 +26,14 @@ Lateral Raise için güncel production gerçekleri:
 - validation minimum acceptable ROM delta: `35°`
 - minimum toward-peak timing: `250 ms`
 - minimum return timing: `300 ms`
-- form threshold: `150°`
+- form threshold: `145°`
 - coverage loss sırasında low-confidence kabulü: açık
 
 Primary metric her kol için `elbow -> shoulder -> hip` omuz abdüksiyon açısıdır. Bilateral contract `increasing-to-peak` yönünde iki kolun **daha düşük** omuz açısını engine-facing primary metric olarak kullanır. Bu nedenle geride kalan kol PEAK girişini bloke etmelidir.
 
 Form metriği `shoulder -> elbow -> wrist` dirsek açısıdır ve `technique` rolündedir. Bu sinyal counting gate değildir; belirgin dirsek bükülmesi completed rep'i otomatik olarak sıfırlamak yerine teknik kalite/feedback tarafında görünmelidir.
+
+Gerçek cihaz videosunda kabul edilebilir hafif dirsek fleksiyonunun eski `150°` sınırında aralıklı false-positive teknik uyarı ürettiği gözlendi. Lateral Raise'a özel `formThreshold` `145°` olarak hafifçe gevşetildi. Bu değişiklik counting/ROM gate'lerini etkilemez; yalnız teknik uyarının dirsek fleksiyonu toleransını yaklaşık `5°` artırır.
 
 Gerçek cihaz videosunda doğal bilateral dinlenme pozisyonunun yaklaşık `20-30°` aralığında ölçüldüğü ve eski strict `primaryMetric < 20°` neutral kapısının hem ilk `acquireNeutral` hem rep sonundaki `completeRep` geçişini bloke ettiği görüldü. Lateral Raise'a özel `thresholdNeutral` bu nedenle `32°` olarak harden edildi. Effective active entry hâlâ yaklaşık `>38°` olduğu için doğal dinlenme ile aktif hareket başlangıcı arasında yaklaşık `6°` hysteresis/deadband korunur. Bu değişiklik PEAK threshold'unu veya generic range-rep engine davranışını değiştirmez.
 

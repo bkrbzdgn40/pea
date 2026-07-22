@@ -169,6 +169,22 @@ void main() {
       },
     );
 
+    test(
+      'parses the lateral raise asset config with mild elbow-flexion tolerance',
+      () {
+        final config = _loadConfig(
+          'assets/config/exercises/lateral_raise.json',
+        );
+
+        expect(config.name, 'Lateral Raise');
+        expect(config.thresholdNeutral, 32.0);
+        expect(config.thresholdActive, 35.0);
+        expect(config.thresholdPeak, 80.0);
+        expect(config.formThreshold, 145.0);
+        expect(config.targetMaxAngle, 90.0);
+      },
+    );
+
     test('parses the plank asset config without changing hold semantics', () {
       final config = _loadConfig('assets/config/exercises/plank.json');
 
