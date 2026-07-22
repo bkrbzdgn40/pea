@@ -970,6 +970,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     _cameraFps = _cameraFrameCount * 1000 / elapsedMs;
     _analysisFps = _analysisFrameCount * 1000 / elapsedMs;
+    if (_isDiagnosticsEnabled) {
+      _diagnostics.recordLivePerformanceSample(
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
+      );
+    }
 
     _cameraFrameCount = 0;
     _analysisFrameCount = 0;

@@ -227,6 +227,11 @@ class WorkoutDiagnosticsSnapshot {
     this.holdDiagnostics,
     required this.currentCameraFps,
     required this.currentAnalysisFps,
+    required this.fpsSampleCount,
+    required this.cameraFpsP50,
+    required this.cameraFpsP95,
+    required this.analysisFpsP50,
+    required this.analysisFpsP95,
     required this.frameProcessingMsP50,
     required this.frameProcessingMsP95,
     required this.frameProcessingMsMax,
@@ -287,6 +292,11 @@ class WorkoutDiagnosticsSnapshot {
   final HoldWorkoutDiagnostics? holdDiagnostics;
   final double? currentCameraFps;
   final double? currentAnalysisFps;
+  final int fpsSampleCount;
+  final double? cameraFpsP50;
+  final double? cameraFpsP95;
+  final double? analysisFpsP50;
+  final double? analysisFpsP95;
   final int? frameProcessingMsP50;
   final int? frameProcessingMsP95;
   final int? frameProcessingMsMax;
@@ -516,6 +526,11 @@ class WorkoutDiagnosticsSnapshot {
     'last_calibration_offset_degrees': lastCalibrationOffsetDegrees,
     'current_camera_fps': currentCameraFps,
     'current_analysis_fps': currentAnalysisFps,
+    'fps_sample_count': fpsSampleCount,
+    'camera_fps_p50': cameraFpsP50,
+    'camera_fps_p95': cameraFpsP95,
+    'analysis_fps_p50': analysisFpsP50,
+    'analysis_fps_p95': analysisFpsP95,
     'frame_processing_ms_p50': frameProcessingMsP50,
     'frame_processing_ms_p95': frameProcessingMsP95,
     'frame_processing_ms_max': frameProcessingMsMax,
@@ -551,8 +566,8 @@ class WorkoutDiagnosticsSnapshot {
   };
 }
 
-/// Session-level accumulator. Processing samples use a 10,000-item rolling
-/// window and deterministic nearest-rank percentiles.
+/// Session-level accumulator. Processing and FPS samples use a 10,000-item
+/// rolling window and deterministic nearest-rank percentiles.
 class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsAccumulator({
     required DateTime sessionStartedAt,
@@ -602,6 +617,8 @@ class WorkoutDiagnosticsAccumulator {
   final List<double> _minimumRequiredLikelihoodSamples = <double>[];
   final List<double> _meanRequiredLikelihoodSamples = <double>[];
   final List<double> _poseQualityScoreSamples = <double>[];
+  final List<double> _cameraFpsSamples = <double>[];
+  final List<double> _analysisFpsSamples = <double>[];
   final Map<String, int> _poseRejectionReasonCounts = <String, int>{};
 
   int _cameraFrameCount = 0;
@@ -815,6 +832,28 @@ class WorkoutDiagnosticsAccumulator {
     _currentAnalysisFps = analysisFps;
   }
 
+  void recordLivePerformanceSample({
+    required double cameraFps,
+    required double analysisFps,
+  }) {
+    if (!cameraFps.isFinite || cameraFps < 0) {
+      throw ArgumentError.value(
+        cameraFps,
+        'cameraFps',
+        'Must be finite and >= 0',
+      );
+    }
+    if (!analysisFps.isFinite || analysisFps < 0) {
+      throw ArgumentError.value(
+        analysisFps,
+        'analysisFps',
+        'Must be finite and >= 0',
+      );
+    }
+    _appendFiniteNonNegativeSample(_cameraFpsSamples, cameraFps);
+    _appendFiniteNonNegativeSample(_analysisFpsSamples, analysisFps);
+  }
+
   void updateRangeRepState({
     required int repCount,
     required String currentPhase,
@@ -872,6 +911,8 @@ class WorkoutDiagnosticsAccumulator {
     final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.toList()
       ..sort();
     final sortedQualityScores = _poseQualityScoreSamples.toList()..sort();
+    final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
+    final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
       schemaVersion: 6,
       appCommitSha: _appCommitSha,
@@ -942,6 +983,11 @@ class WorkoutDiagnosticsAccumulator {
       holdDiagnostics: _holdDiagnostics,
       currentCameraFps: _currentCameraFps,
       currentAnalysisFps: _currentAnalysisFps,
+      fpsSampleCount: _analysisFpsSamples.length,
+      cameraFpsP50: _nearestRankDouble(sortedCameraFpsSamples, 0.50),
+      cameraFpsP95: _nearestRankDouble(sortedCameraFpsSamples, 0.95),
+      analysisFpsP50: _nearestRankDouble(sortedAnalysisFpsSamples, 0.50),
+      analysisFpsP95: _nearestRankDouble(sortedAnalysisFpsSamples, 0.95),
       frameProcessingMsP50: _nearestRank(sortedDurations, 0.50),
       frameProcessingMsP95: _nearestRank(sortedDurations, 0.95),
       frameProcessingMsMax: sortedDurations.isEmpty
@@ -957,6 +1003,8 @@ class WorkoutDiagnosticsAccumulator {
     _minimumRequiredLikelihoodSamples.clear();
     _meanRequiredLikelihoodSamples.clear();
     _poseQualityScoreSamples.clear();
+    _cameraFpsSamples.clear();
+    _analysisFpsSamples.clear();
     _poseRejectionReasonCounts.clear();
     _cameraFrameCount = 0;
     _analysisAttemptCount = 0;
@@ -1013,6 +1061,13 @@ class WorkoutDiagnosticsAccumulator {
     if (value == null || !value.isFinite) {
       return;
     }
+    if (samples.length == maxProcessingDurationSamples) {
+      samples.removeAt(0);
+    }
+    samples.add(value);
+  }
+
+  void _appendFiniteNonNegativeSample(List<double> samples, double value) {
     if (samples.length == maxProcessingDurationSamples) {
       samples.removeAt(0);
     }
