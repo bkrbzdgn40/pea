@@ -18,10 +18,10 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- Güncel engineering revalidation cihaz kanıtı bulunan: **5**
-- Ayrı exercise-specific cihaz validation bekleyen: **13**
+- Güncel engineering revalidation cihaz kanıtı bulunan: **6**
+- Ayrı exercise-specific cihaz validation bekleyen: **12**
 
-Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. Lateral Raise, doğal bilateral neutral pozisyonun eski strict neutral gate tarafından reddedilmesi ve bilateral sync jitter'ının dirsek feedback semantiğine karışması sorunları minimal hardening ile düzeltildikten sonra positive, static, partial, one-arm, form, occlusion, pause/resume, persistence ve performans cihaz kanıtlarıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
@@ -37,7 +37,7 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | Lying Leg Raise | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Triceps Dip | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Romanian Deadlift | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
+| Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | R6 Engineering Revalidated |
 | Shoulder Press | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
 | Calf Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
 | Front Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |

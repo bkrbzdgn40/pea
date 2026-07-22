@@ -62,3 +62,52 @@ Canlı manifest gerçek execution ile doldurulmuş, her run'ın SHA, diagnostics
 ### Exit kriteri
 
 Sonraki exercise validation'larında closure öncesi planlanan repeat/cycle adetleri eksiksiz uygulanmalı veya sapma oluştuğu anda manifestte işaretlenmelidir.
+
+
+## F3 - Lateral Raise pause/resume occlusion-resync telemetry inflation
+
+- Öncelik: **P1**
+- Katman: Diagnostics / lifecycle observability
+- Etkilenen alan: Range-rep pause/resume telemetry
+- Closure etkisi: Lateral Raise counting ve lifecycle closure'ını bloklamaz
+- Ana kanıt: `diagnostics_v6_lateral_raise_20260722_233003.json`
+- SHA: `d1120a32e870ee4c8efa466e9b0fda3593a2b69d`
+
+### Gözlem
+
+Pause/resume validation run'ında runtime sonucu doğrudur:
+
+- ground truth = 3
+- `rep_count = 3`
+- `completeRep = 3`
+- `valid = 3`
+- `range_rep_abort_count = 0`
+- `analysis_exception_count = 0`
+
+Buna rağmen global visibility/lifecycle telemetry'si:
+
+- `brief_occlusion_count = 20`
+- `brief_occlusion_recovery_count = 1`
+- `brief_occlusion_abort_count = 18`
+- `resync_count = 18`
+- `no_pose_frame_count = 1`
+- `rejected_pose_frame_count = 0`
+
+üretmiştir.
+
+Bu kombinasyon, pause/suspend veya lifecycle reset akışlarının fiziksel occlusion olmayan event'leri global occlusion/resync sayaçlarına taşıyor olabileceğini düşündürür. Tek JSON event zaman çizelgesi taşımadığı için kök neden henüz kanıtlanmış değildir.
+
+### Risk
+
+Runtime rep güvenliği etkilenmemiştir; ancak diagnostics export'u pause/resume run'ını gerçek visibility kaybı gibi gösterebilir. Bu durum gelecekte occlusion reliability analizi ve aggregate telemetry yorumunu yanıltabilir.
+
+### Minimum doğru çözüm yönü
+
+1. pause, resume ve camera lifecycle event'lerinin global occlusion/resync sayaçlarına hangi kod yolundan ulaştığını izole et,
+2. fiziksel pose loss ile intentional lifecycle suspension event'lerini ayrı event sınıflarıyla temsil et,
+3. mevcut range-rep occlusion regression'larını koru,
+4. fix sonrası gerçek `OCC-3` ve `LIFE-3` run'larını karşılaştır.
+
+### Exit kriteri
+
+Pause/resume sırasında fiziksel pose loss yoksa `brief_occlusion_abort_count` ve `resync_count` yalnız gerçek visibility/resync event'lerini yansıtmalı; intentional lifecycle suspension ayrı telemetry ile izlenmelidir.

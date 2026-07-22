@@ -75,11 +75,13 @@ app_commit_sha == test edilen HEAD SHA
 build_mode == "profile"
 exercise_type == "lateral_raise"
 config_asset_path == "assets/config/exercises/lateral_raise.json"
-contract_profile == "rangeRep:lateralRaise"
+contract_profile == "rangeRep:none"
 range_rep_side_mode == "bilateral"
 range_rep_primary_metric_direction == "increasingToPeak"
 analysis_exception_count == 0
 ```
+
+`contract_profile` egzersiz kimliği değil, range-rep exercise-specific analysis extension profilidir. Lateral Raise özel extension kullanmadığı için production diagnostics değeri `rangeRep:none` olmalıdır. Egzersiz kimliği `exercise_type`, `config_asset_path`, `range_rep_side_mode` ve `range_rep_primary_metric_direction` alanlarının birlikte doğrulanmasıyla sabitlenir.
 
 Bu kimlik alanlarından biri yanlışsa run `INVALID` olur.
 
@@ -190,3 +192,28 @@ Lateral Raise ancak zorunlu run'lar tamamlanıp gerçek execution manifestte aç
 Tek bir başarılı positive set yeterli değildir. Özellikle `PARTIAL`, `ONE-ARM`, teknik form, lifecycle ve persistence kanıtları closure'ın parçasıdır.
 
 Validation sırasında gerçek reliability failure bulunursa validation durur, minimal fix uygulanır, yeni SHA-pinned profile build oluşturulur ve fix'in etkilediği kritik run'lar yeni SHA üzerinde tekrarlanır.
+
+
+## 11. Closure Execution Özeti
+
+Final cihaz validation SHA:
+
+`d1120a32e870ee4c8efa466e9b0fda3593a2b69d`
+
+Final SHA üzerinde:
+
+- controlled positive 20/20,
+- static negative 0 phantom rep,
+- 10 shallow bilateral denemede 0 completed rep,
+- 10 one-arm denemede 0 completed bilateral rep,
+- deliberate bent-elbow form run'ında 5/5 `persistentFormBreak`,
+- short occlusion run'ında 3/3 completed rep ve 2/2 recovery,
+- pause/resume run'ında 3/3 valid completed rep,
+- kullanıcı tarafından doğrulanan persistence,
+- provisional performance ve exception safety
+
+kabul edilmiştir.
+
+Pause/resume run'ındaki global `brief_occlusion_*` / `resync_count` sayaçlarının fiziksel visibility olaylarıyla orantısız artması runtime counting/lifecycle sonucunu bozmadı; bu diagnostics semantiği `docs/beta/r6-wave-a-findings.md` içinde P1 olarak izlenir.
+
+Dedicated `PREFLIGHT-1` diagnostics export'u final closure setinde tutulmamıştır; aynı final SHA üzerindeki daha güçlü `POS-20` run'ı build/SHA/config kimliği ve runtime smoke kanıtını kapsar. Persistence için kullanıcı Live/Summary/History eşleşmesini doğrulamış, ancak exact persisted rep değeri closure sohbet kaydında sabitlenmemiştir. Bu nedenle closure `R6 Engineering Revalidated` statüsündedir; formal protocol-complete iddiası yapılmaz.
