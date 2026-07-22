@@ -827,6 +827,96 @@ void main() {
     );
 
     test(
+      'Front Raise uses the preferred visible side for elbow-form feedback',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildFrontRaiseCoordinator(clock);
+
+        for (var index = 0; index < 3; index += 1) {
+          coordinator.processFrame(
+            metrics: _selectedSideMetrics(
+              leftAngle: 10,
+              rightAngle: 10,
+              leftFormMetric: 120,
+              rightFormMetric: 175,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: RangeRepSide.right,
+          );
+          clock.advance(const Duration(milliseconds: 120));
+        }
+
+        final activeResult = coordinator.processFrame(
+          metrics: _selectedSideMetrics(
+            leftAngle: 50,
+            rightAngle: 50,
+            leftFormMetric: 120,
+            rightFormMetric: 175,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.left,
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          activeResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'right',
+        );
+        expect(activeResult.stateSnapshot.isFormBad, isFalse);
+        expect(
+          activeResult.stateSnapshot.calibrationMetrics.currentBackAngle,
+          closeTo(175.0, 0.001),
+        );
+      },
+    );
+
+    test(
+      'uses pose-quality preferred side when selected-side coverage is tied',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        final result = coordinator.processFrame(
+          metrics: _sideFilteredMetrics(
+            leftAngle: 170,
+            rightAngle: 168,
+            leftAvailable: true,
+            rightAvailable: true,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.left,
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          result.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'right',
+        );
+        expect(result.diagnosticsUpdate.selectedSideLabel, 'right');
+        expect(
+          result.stateSnapshot.calibrationMetrics.rangeRepSideSelectionReason,
+          'selected preferred quality',
+        );
+      },
+    );
+
+    test(
       'locks the previously selected side while an active rep context is in progress',
       () {
         final clock = _TestClock();
@@ -1585,6 +1675,14 @@ DefaultRangeRepCoordinator _buildBicepsCoordinator(_TestClock clock) {
   );
 }
 
+DefaultRangeRepCoordinator _buildFrontRaiseCoordinator(_TestClock clock) {
+  return _buildCoordinatorWith(
+    clock,
+    config: loadExerciseConfig('assets/config/exercises/front_raise.json'),
+    contract: RangeRepContracts.frontRaise,
+  );
+}
+
 DefaultRangeRepCoordinator _buildCoordinatorWith(
   _TestClock clock, {
   required ExerciseConfig config,
@@ -1947,6 +2045,41 @@ ExerciseMetrics _bicepsMetricsWithReportedAngle({
       syncScore: 180.0,
       formSignals: bilateral.formSignals,
     ),
+  );
+}
+
+ExerciseMetrics _selectedSideMetrics({
+  required double leftAngle,
+  required double rightAngle,
+  required double leftFormMetric,
+  required double rightFormMetric,
+}) {
+  final leftMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.left,
+    primaryAngle: leftAngle,
+    formMetric: leftFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    sideConfidence: 1.0,
+  );
+  final rightMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.right,
+    primaryAngle: rightAngle,
+    formMetric: rightFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    sideConfidence: 1.0,
+  );
+
+  return ExerciseMetrics(
+    primaryAngle: leftAngle,
+    formMetric: leftFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    hasPose: true,
+    landmarks: const [],
+    leftRangeRepMetrics: leftMetrics,
+    rightRangeRepMetrics: rightMetrics,
   );
 }
 

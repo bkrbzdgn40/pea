@@ -41,6 +41,28 @@ Kol öne kaldırıldığında bilek kadraj dışına çıkmamalıdır. Gövdenin
 
 Önden veya belirgin çapraz kurulum bu validation için kullanılmaz. Böyle bir run protokol dışı kabul edilir ve manifestte `INVALID` olarak işaretlenir.
 
+## 2.1 Preflight Bulgusu ve Selected-Side Hardening
+
+İlk exploratory video önden çekildiği için camera contract dışı ve `INVALID` kabul edilir.
+
+Doğru tam yan retest'te:
+
+- natural neutral yaklaşık `5-13°` aralığında güvenilir biçimde acquire edildi,
+- ilk tam tekrarlar completed rep olarak sayıldı,
+- `thresholdNeutral = 15°` için cihaz kanıtına dayalı bir blocker görülmedi; threshold değiştirilmedi,
+- buna karşılık kabul edilebilir düz dirsek formunda aralıklı false-positive `Dirseklerini gereksiz bükme.` feedback'i ve side-view self-occlusion sırasında visibility kararsızlığı gözlendi.
+
+Kök neden incelemesinde pose-quality katmanının selected-side hareketler için daha yüksek landmark kalitesine sahip tarafı `preferredRangeRepSide` olarak ürettiği, ancak coordinator side-selection yolunun bu tercihi kullanmadığı bulundu. Eşit signal coverage durumunda seçim legacy sol-taraf tie-break'ine düşebiliyor ve arkada kalan/örtüşen kolun dirsek geometrisi teknik feedback'i kirletebiliyordu.
+
+Hardening sonrası selected-side seçim:
+
+1. signal coverage farkını birincil güvenlik kriteri olarak korur,
+2. coverage eşitse pose-quality `preferredRangeRepSide` değerini tie-break olarak kullanır,
+3. mevcut side stabilizer hysteresis'ini korur,
+4. aktif rep side-lock / rep-consistency güvenliğini değiştirmez.
+
+Bu değişiklik Front Raise threshold'larını, peak gate'ini veya counting contract'ını değiştirmez. Amaç yalnız daha güvenilir görünen tarafın primary/form metric kaynağı olmasını sağlamaktır.
+
 ## 3. SHA-Pinned Profile Build
 
 PowerShell:
