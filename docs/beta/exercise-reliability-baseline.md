@@ -169,6 +169,38 @@ Bu telemetry privacy-minimized kalır: raw frame, raw landmark, kullanıcı kiml
 
 R4 runtime rep/hold threshold'larını veya feedback kararlarını değiştirmez. Değişiklik yalnız diagnostics gözlemlenebilirliğini genişletir.
 
-## 9. Sonraki Adım
+## 9. R5 Control-Group Device Revalidation
 
-R4 local gate temizlendikten sonra R5 kapsamında Squat, Push-up ve Plank mevcut device-verified kontrol grubu olarak yeniden doğrulanacaktır. Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
+R5, tarihsel device-verified kontrol grubunu Diagnostics schema v6 altında yeniden doğrular:
+
+1. Squat
+2. Push-up
+3. Plank
+
+R5 cihaz kanıtı `docs/beta/r5-control-group-device-validation.md` protokolünü izler ve sonuçlar `docs/beta/r5-control-group-results-template.csv` şablonuna işlenir.
+
+R5 öncesinde diagnostics performans telemetry'si run-level FPS percentile'larıyla tamamlanmıştır:
+
+- `fps_sample_count`,
+- `camera_fps_p50`,
+- `camera_fps_p95`,
+- `analysis_fps_p50`,
+- `analysis_fps_p95`.
+
+Bu alanlar controller'ın yaklaşık saniyelik FPS hesaplama pencerelerinden örneklenir. Tek bir `current_analysis_fps` değeri provisional `analysis_fps_p50 >= 6` gate'ini değerlendirmek için yeterli kabul edilmez.
+
+R5 run'ları SHA-pinned profile build ile yapılmalıdır. `app_commit_sha == unknown` veya `build_mode != profile` olan run'lar mevcut measurement contract gereği `INVALID` sayılır.
+
+R5 production threshold veya analiz engine semantiğini değiştirmez. Fail sonucu önce camera/setup, pose-quality, metric, lifecycle, side, occlusion, persistence veya performance sınıfına ayrılır; sonra minimum doğru katmana müdahale edilir.
+
+## 10. Sonraki Adım
+
+R5 kontrol grubu yeniden doğrulandıktan sonra R6 kapsamında Dalga A cihaz validation'ına geçilir:
+
+1. Biceps Curl
+2. Hollow Hold
+3. Lateral Raise
+4. Front Raise
+5. Wall Sit
+
+Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.

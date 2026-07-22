@@ -47,6 +47,11 @@ void main() {
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
+    expect(snapshot.fpsSampleCount, 0);
+    expect(snapshot.cameraFpsP50, isNull);
+    expect(snapshot.cameraFpsP95, isNull);
+    expect(snapshot.analysisFpsP50, isNull);
+    expect(snapshot.analysisFpsP95, isNull);
     expect(snapshot.frameProcessingMsP50, isNull);
     expect(snapshot.rangeRepDiagnostics, isNull);
     expect(snapshot.holdDiagnostics, isNull);
@@ -373,6 +378,9 @@ void main() {
     final snapshot = subject.snapshot(now: startedAt);
     expect(snapshot.currentCameraFps, 30);
     expect(snapshot.currentAnalysisFps, 8);
+    expect(snapshot.fpsSampleCount, 0);
+    expect(snapshot.cameraFpsP50, isNull);
+    expect(snapshot.analysisFpsP50, isNull);
     expect(snapshot.rangeRepDiagnostics, isNull);
     expect(snapshot.holdDiagnostics, isNotNull);
     expect(snapshot.sideSwitchCount, 0);
@@ -502,6 +510,35 @@ void main() {
     },
   );
 
+  test('live performance samples expose run-level FPS percentiles', () {
+    final subject = accumulator()
+      ..updateLivePerformance(cameraFps: 31, analysisFps: 7)
+      ..recordLivePerformanceSample(cameraFps: 30, analysisFps: 6)
+      ..recordLivePerformanceSample(cameraFps: 28, analysisFps: 5)
+      ..recordLivePerformanceSample(cameraFps: 32, analysisFps: 8)
+      ..recordLivePerformanceSample(cameraFps: 29, analysisFps: 7);
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final json = snapshot.toJson();
+
+    expect(snapshot.currentCameraFps, 31);
+    expect(snapshot.currentAnalysisFps, 7);
+    expect(snapshot.fpsSampleCount, 4);
+    expect(snapshot.cameraFpsP50, 29);
+    expect(snapshot.cameraFpsP95, 32);
+    expect(snapshot.analysisFpsP50, 6);
+    expect(snapshot.analysisFpsP95, 8);
+    expect(json['fps_sample_count'], 4);
+    expect(json['camera_fps_p50'], 29);
+    expect(json['camera_fps_p95'], 32);
+    expect(json['analysis_fps_p50'], 6);
+    expect(json['analysis_fps_p95'], 8);
+    expect(
+      () => subject.recordLivePerformanceSample(cameraFps: -1, analysisFps: 6),
+      throwsArgumentError,
+    );
+  });
+
   test('processing duration uses deterministic nearest-rank percentiles', () {
     final subject = accumulator();
     for (final ms in <int>[10, 20, 30, 40, 100]) {
@@ -614,6 +651,7 @@ void main() {
         deviceOrientation: 'portraitUp',
       )
       ..recordProcessingDuration(const Duration(milliseconds: 20))
+      ..recordLivePerformanceSample(cameraFps: 30, analysisFps: 7)
       ..updateHoldState(
         currentHoldSeconds: 5,
         bestHoldSeconds: 5,
@@ -642,6 +680,11 @@ void main() {
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.fpsSampleCount, 0);
+    expect(snapshot.cameraFpsP50, isNull);
+    expect(snapshot.cameraFpsP95, isNull);
+    expect(snapshot.analysisFpsP50, isNull);
+    expect(snapshot.analysisFpsP95, isNull);
     expect(snapshot.poseRejectionReasonCounts, isEmpty);
     expect(snapshot.poseQualitySampleCount, 0);
     expect(snapshot.cameraLensDirection, isNull);
@@ -677,6 +720,11 @@ void main() {
     });
     expect(json['side_switch_count'], 0);
     expect(json['active_rep_side_switch_count'], 0);
+    expect(json['fps_sample_count'], 0);
+    expect(json['camera_fps_p50'], isNull);
+    expect(json['camera_fps_p95'], isNull);
+    expect(json['analysis_fps_p50'], isNull);
+    expect(json['analysis_fps_p95'], isNull);
     expect(json['rep_count'], isNull);
     expect(json['current_hold_seconds'], isNull);
     expect(json['best_hold_seconds'], isNull);
