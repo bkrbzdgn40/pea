@@ -2,7 +2,7 @@
 
 Bu belge güncel kapı durumudur. `hardening-baseline.md` tarihsel snapshot olarak değiştirilmez.
 
-> **Kapsam ayrımı:** Aşağıdaki G0-G8 kanıtları, tarihsel beta hardening programında cihaz üzerinde doğrulanan Squat, Push-up ve Plank kapsamına aittir. Güncel `ExerciseCatalog` daha geniştir. Sonradan `supported` yapılan Sit-up, Biceps Curl ve Hollow Hold bu tarihsel cihaz kanıtını otomatik olarak devralmaz.
+> **Kapsam ayrımı:** Aşağıdaki G0-G8 kanıtları, tarihsel beta hardening programında cihaz üzerinde doğrulanan Squat, Push-up ve Plank kapsamına aittir. Güncel `ExerciseCatalog` 18 hareket içerir. Diğer 15 hareket bu tarihsel cihaz kanıtını otomatik olarak devralmaz. Güncel exercise reliability baseline: `docs/beta/exercise-reliability-baseline.md`.
 
 | Gate | Durum | Kanıt | Sonraki koşul |
 | --- | --- | --- | --- |
@@ -41,8 +41,14 @@ Bir gate'in `PASSED` olması yalnız gate satırında ve bağlı kanıtta tanım
 - Romanian Deadlift: `rangeRep`, selected-side
 - Lateral Raise: `rangeRep`, bilateral, increasing-to-peak
 - Shoulder Press: `rangeRep`, bilateral, increasing-to-peak
+- Calf Raise: `rangeRep`, selected-side, increasing-to-peak
+- Front Raise: `rangeRep`, selected-side, increasing-to-peak
+- Glute Bridge: `rangeRep`, selected-side, increasing-to-peak
+- Wall Sit: `hold`, wall-sit family
+- Side Plank: `hold`, side-plank family
+- Jumping Jack: `rangeRep`, bilateral, increasing-to-peak
 
-Stationary Lunge ile yeni RangeRep batch hareketleri catalog içinde supported durumdadır; bu destek tarihsel G6/G7 cihaz PASS kapsamını genişletmez.
+Güncel 18 hareketin tamamı catalog içinde supported durumdadır; bu destek tarihsel G6/G7 cihaz PASS kapsamını genişletmez.
 
 ### Tarihsel beta hardening kanıt kapsamı
 
@@ -52,7 +58,7 @@ G0-G8 programında gerçek cihaz baseline ve dataset değerlendirmesi aşağıda
 - Push-up
 - Plank
 
-Sit-up, Biceps Curl, Hollow Hold, Stationary Lunge, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press daha sonra aktif edildi. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
+Hollow Hold, Stationary Lunge, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack tarihsel üçlü kapsamın dışında kalır. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
 
 ### Altyapı durumu
 

@@ -57,7 +57,7 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 - `Status:` Hybrid
 - `Purpose:` Kullanıcının analiz edeceği hareketi seçmesini ve analiz desteği kapalı hareketleri açık biçimde ayırt etmesini sağlar.
 - `Current data source:` Yerel `ExerciseGuideCatalog` içeriği + merkezi `ExerciseCatalog` support metadata'sı.
-- `Current support truth:` Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press catalog içinde analiz için aktiftir. Yeni batch için gerçek cihaz kabul kanıtı ayrıca toplanmalıdır.
+- `Current support truth:` Güncel `ExerciseCatalog` içindeki 18 canonical hareketin tamamı analiz için aktiftir: Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack. Tarihsel gerçek cihaz kabul kanıtı yalnız Squat, Push-up ve Plank için mevcuttur; diğer 15 hareket exercise-specific validation bekler. Ayrıntılı baseline: `docs/beta/exercise-reliability-baseline.md`.
 - `Behavior:` Catalog içinde unsupported bırakılan gelecekteki hareketler analiz akışını başlatmaz; mevcut canonical hareketlerin tamamı şu anda supported tanımlıdır.
 - `Navigation entry points:` Home ana aksiyonları; drawer içindeki Hareket Seç; geçerli analiz seçimi gerektiğinde recovery akışları.
 - `Future integration notes:` Kartın `Analiz aktif` olması yalnız catalog desteğini ifade eder. Device validation veya biyomekanik kabul kanıtı gibi sunulmamalıdır.
@@ -84,8 +84,8 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 - `Status:` Real
 - `Purpose:` Kamera görüntüsü üzerinden pose detection çalıştırır ve seçilen egzersizin analiz contract/config bilgisine göre gerçek zamanlı tekrar veya hold analizi üretir.
 - `Current data source:` Camera stream, ML Kit Pose Detection, pose-quality/side-selection katmanları, `WorkoutController`, exercise config/contract ve ilgili analysis engine.
-- `Current range-rep support:` Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Triceps Dip ve Romanian Deadlift selected-side; Biceps Curl, Lateral Raise ve Shoulder Press bilateral `rangeRep` kullanır. Primary metric yönü decreasing-to-peak veya increasing-to-peak olabilir.
-- `Current hold support:` Plank ve Hollow Hold ortak `HoldEngine` state machine'ini family-specific contract ve posture policy ile kullanır.
+- `Current range-rep support:` Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Calf Raise, Front Raise ve Glute Bridge selected-side; Biceps Curl, Lateral Raise, Shoulder Press ve Jumping Jack bilateral `rangeRep` kullanır. Primary metric yönü exercise contract'a göre decreasing-to-peak veya increasing-to-peak olabilir.
+- `Current hold support:` Plank, Hollow Hold, Wall Sit ve Side Plank ortak `HoldEngine` state machine'ini family-specific contract ve posture policy ile kullanır.
 - `Unsupported engine note:` `EngineKind.alternatingRep` tanımlıdır ancak factory içinde uygulanmış bir motor değildir.
 - `Navigation entry points:` Preparation ekranı sonrası.
 - `Future integration notes:` Yeni hareket enablement'ı yalnız UI/catalog değişikliği değildir; contract, config, extractor, engine davranışı, diagnostics, persistence ve cihaz kanıtı birlikte değerlendirilmelidir.
