@@ -5,7 +5,7 @@
   "joint2": "leftHip",
   "thresholdNeutral": 15.0,
   "thresholdActive": 35.0,
-  "thresholdPeak": 80.0,
+  "thresholdPeak": 75.0,
   "idealDescentSeconds": 1.2,
   "idealAscentSeconds": 1.0,
   "formThreshold": 145.0,

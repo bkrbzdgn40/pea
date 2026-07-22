@@ -65,6 +65,8 @@ Bu değişiklik Front Raise threshold'larını, peak gate'ini veya counting cont
 
 Selected-side quality hardening sonrası doğru side-view gerçek cihaz retest'inde counting ve lifecycle stabil kaldı; ancak kabul edilebilir hafif dirsek fleksiyonunda aralıklı false-positive `Dirseklerini gereksiz bükme.` feedback'i devam etti. Bu nedenle Front Raise'a özel `formThreshold`, counting/ROM gate'lerine dokunmadan `155° -> 145°` olarak gevşetildi. Bu ayar doğal hafif fleksiyona yaklaşık 10° ek tolerans verir; belirgin kötü dirsek formunun hâlâ `R6-FR-FORM-5` senaryosunda `persistentFormBreak`, low-confidence veya corrective feedback ile yakalanması zorunludur.
 
+Son side-view retest'inde elbow-feedback false positive belirgin biçimde gerilerken, doğal ve kullanıcı açısından kabul edilebilir Front Raise tekrarlarının bir bölümü UI'da yaklaşık `78-81°` peak görmesine rağmen completed rep'e ulaşmadı. Generic engine `peakEntryMargin = 3°` ile strict entry kullandığından `thresholdPeak = 80°` efektif olarak `>83°` gerektiriyordu. Front Raise'a özel `thresholdPeak`, generic engine semantiği değiştirilmeden `80° -> 75°` olarak ayarlandı; yeni efektif peak-entry gate strict `>78°` olur. `thresholdNeutral = 15°`, `thresholdActive = 35°`, `formThreshold = 145°` ve selected-side quality hardening değişmeden kalır. `40-55°` partial-motion negatif testi shallow false-positive rep'leri engelleyen zorunlu kabul kapısı olmaya devam eder.
+
 ## 3. SHA-Pinned Profile Build
 
 PowerShell:

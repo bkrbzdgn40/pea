@@ -267,6 +267,7 @@ void main() {
       final frontRaise = _loadConfig(
         'assets/config/exercises/front_raise.json',
       );
+      expect(frontRaise.thresholdPeak, 75.0);
       expect(frontRaise.formThreshold, 145.0);
     });
 
