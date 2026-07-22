@@ -18,6 +18,8 @@ void main() {
     final accumulator = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'rangeRep',
+      exerciseType: 'squat',
+      configAssetPath: 'assets/config/exercises/squat.json',
       cameraViewContract: CameraViewContract(
         views: const <CameraView, CameraViewSupport>{
           CameraView.side: CameraViewSupport.preferred,

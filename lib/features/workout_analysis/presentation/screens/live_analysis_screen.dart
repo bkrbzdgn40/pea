@@ -837,11 +837,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       unawaited(
         controller
             .startImageStream((image) {
+              final cameraValue = _safeControllerValue(controller);
               ref
                   .read(workoutControllerProvider.notifier)
                   .processCameraImage(
                     image,
                     controller.description.sensorOrientation,
+                    cameraLensDirection:
+                        controller.description.lensDirection.name,
+                    deviceOrientation: cameraValue?.deviceOrientation.name,
                   );
             })
             .catchError((_) {

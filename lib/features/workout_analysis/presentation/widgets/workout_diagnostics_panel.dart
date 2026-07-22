@@ -12,8 +12,16 @@ import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
 import '../../domain/models/range_rep_contract.dart';
+import '../../infrastructure/services/diagnostics_json_file_exporter.dart';
 
 bool get workoutDiagnosticsUiEnabled => kDebugMode || kProfileMode;
+
+typedef DiagnosticsJsonFileExporter =
+    Future<void> Function({
+      required String json,
+      required String fileName,
+      Rect? sharePositionOrigin,
+    });
 
 const String _missingDiagnosticsValue = '\u2014';
 
@@ -22,6 +30,7 @@ class WorkoutDiagnosticsPanel extends StatefulWidget {
     required this.snapshotReader,
     required this.onReset,
     this.copyText,
+    this.exportJsonFile,
     this.refreshInterval = const Duration(milliseconds: 500),
     super.key,
   });
@@ -29,6 +38,7 @@ class WorkoutDiagnosticsPanel extends StatefulWidget {
   final WorkoutDiagnosticsSnapshot Function() snapshotReader;
   final VoidCallback onReset;
   final Future<void> Function(String text)? copyText;
+  final DiagnosticsJsonFileExporter? exportJsonFile;
   final Duration refreshInterval;
 
   @override
@@ -127,6 +137,18 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                               _DiagnosticsRow(
                                 label: 'Analysis kind',
                                 value: snapshot.analysisKind,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Exercise',
+                                value: snapshot.exerciseType,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Contract profile',
+                                value: snapshot.contractProfile,
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Config',
+                                value: snapshot.configAssetPath,
                               ),
                               _DiagnosticsRow(
                                 label: 'Schema version',
@@ -252,6 +274,25 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                 ),
                               ),
                               _DiagnosticsRow(
+                                label: 'Pose quality samples',
+                                value: snapshot.poseQualitySampleCount
+                                    .toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Required likelihood p05',
+                                value: _formatDouble(
+                                  snapshot.minimumRequiredLikelihoodP05,
+                                  suffix: '',
+                                ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Required likelihood p50',
+                                value: _formatDouble(
+                                  snapshot.minimumRequiredLikelihoodP50,
+                                  suffix: '',
+                                ),
+                              ),
+                              _DiagnosticsRow(
                                 label: 'Pose quality status',
                                 value: snapshot.currentPoseQualityStatus,
                               ),
@@ -269,6 +310,14 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                     .toString(),
                               ),
                               _DiagnosticsRow(
+                                label: 'Active-rep resync count',
+                                value: snapshot.activeRepResyncCount.toString(),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Range-rep abort count',
+                                value: snapshot.rangeRepAbortCount.toString(),
+                              ),
+                              _DiagnosticsRow(
                                 label: 'Current selected side',
                                 value: _formatOptionalText(
                                   snapshot.currentSelectedSide,
@@ -284,6 +333,24 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                 value: _formatDouble(
                                   snapshot.currentCameraFps,
                                   suffix: ' fps',
+                                ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Camera lens',
+                                value: _formatOptionalText(
+                                  snapshot.cameraLensDirection,
+                                ),
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Sensor orientation',
+                                value: snapshot.sensorOrientationDegrees == null
+                                    ? _missingDiagnosticsValue
+                                    : '${snapshot.sensorOrientationDegrees}\u00b0',
+                              ),
+                              _DiagnosticsRow(
+                                label: 'Device orientation',
+                                value: _formatOptionalText(
+                                  snapshot.deviceOrientation,
                                 ),
                               ),
                               _DiagnosticsRow(
@@ -469,6 +536,10 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                       child: const Text("JSON'u Kopyala"),
                     ),
                     OutlinedButton(
+                      onPressed: _handleExportJsonFile,
+                      child: const Text('JSON Dosyasını Paylaş'),
+                    ),
+                    OutlinedButton(
                       onPressed: _handleReset,
                       child: const Text(
                         'Saya\u00e7lar\u0131 S\u0131f\u0131rla',
@@ -529,6 +600,33 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
 
   Future<void> _copyWithClipboard(String text) {
     return Clipboard.setData(ClipboardData(text: text));
+  }
+
+  Future<void> _handleExportJsonFile() async {
+    final snapshot = _tryReadSnapshot();
+    if (snapshot == null) {
+      return;
+    }
+    final json = const JsonEncoder.withIndent('  ').convert(snapshot.toJson());
+    final exporter = widget.exportJsonFile ?? shareDiagnosticsJsonFile;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final sharePositionOrigin = renderBox == null
+        ? null
+        : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    try {
+      await exporter(
+        json: json,
+        fileName: _buildDiagnosticsFileName(snapshot),
+        sharePositionOrigin: sharePositionOrigin,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Diagnostics JSON dosyası paylaşılamadı.'),
+        ),
+      );
+    }
   }
 
   void _handleReset() {
@@ -695,6 +793,27 @@ String _formatHoldSignalTarget(HoldSignal signal, double value) {
     case HoldSignal.support:
       return formattedValue;
   }
+}
+
+String _buildDiagnosticsFileName(WorkoutDiagnosticsSnapshot snapshot) {
+  final exercise = _sanitizeFileNamePart(snapshot.exerciseType);
+  final timestamp = _formatFileTimestamp(snapshot.snapshotCreatedAt);
+  return 'diagnostics_v${snapshot.schemaVersion}_${exercise}_$timestamp.json';
+}
+
+String _sanitizeFileNamePart(String value) {
+  final normalized = value.trim().toLowerCase().replaceAll(
+    RegExp(r'[^a-z0-9]+'),
+    '_',
+  );
+  final sanitized = normalized.replaceAll(RegExp(r'^_+|_+$'), '');
+  return sanitized.isEmpty ? 'unknown_exercise' : sanitized;
+}
+
+String _formatFileTimestamp(DateTime value) {
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${value.year}${twoDigits(value.month)}${twoDigits(value.day)}_'
+      '${twoDigits(value.hour)}${twoDigits(value.minute)}${twoDigits(value.second)}';
 }
 
 String _formatOptionalText(String? value) =>

@@ -18,6 +18,8 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/widge
 const String _missingValue = '\u2014';
 const String _resetButtonText = 'Saya\u00e7lar\u0131 S\u0131f\u0131rla';
 const String _copySuccessText = 'Diagnostics JSON panoya kopyaland\u0131.';
+const String _exportButtonText = 'JSON Dosyasını Paylaş';
+const String _exportFailureText = 'Diagnostics JSON dosyası paylaşılamadı.';
 const String _resetSuccessText =
     'Diagnostics saya\u00e7lar\u0131 s\u0131f\u0131rland\u0131.';
 
@@ -49,6 +51,10 @@ void main() {
     expect(find.text('abc123'), findsOneWidget);
     expect(find.text('Analysis kind'), findsOneWidget);
     expect(find.text('rangeRep'), findsOneWidget);
+    expect(find.text('Exercise'), findsOneWidget);
+    expect(find.text('squat'), findsOneWidget);
+    expect(find.text('Contract profile'), findsOneWidget);
+    expect(find.text('rangeRep:squat'), findsOneWidget);
     expect(find.text('Schema version'), findsOneWidget);
     expect(find.text('Elapsed time'), findsOneWidget);
     expect(find.text('5 sn'), findsOneWidget);
@@ -62,6 +68,12 @@ void main() {
       snapshotReader: () =>
           _snapshot(rangeRepSignalRoles: RangeRepContracts.sitUp.signalRoles),
       onReset: () {},
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Signal roles'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
 
     expect(find.text('Signal roles'), findsOneWidget);
@@ -105,6 +117,12 @@ void main() {
         holdSignalRoles: HoldContracts.plankFamily.signalRoles,
       ),
       onReset: () {},
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Signal roles'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
 
     expect(find.text('alignment roles'), findsOneWidget);
@@ -154,8 +172,12 @@ void main() {
       onReset: () {},
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1400));
-    await tester.pumpAndSettle();
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Hold typed state'),
+      300,
+      scrollable: scrollable,
+    );
 
     expect(find.text('Hold typed state'), findsOneWidget);
     expect(find.text('Presented feedback code'), findsOneWidget);
@@ -170,12 +192,24 @@ void main() {
     expect(find.text('right'), findsOneWidget);
     expect(find.text('Metrics complete'), findsOneWidget);
     expect(find.text('Active posture'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('alignment'),
+      200,
+      scrollable: scrollable,
+    );
     expect(find.text('alignment'), findsOneWidget);
     expect(find.text('support'), findsOneWidget);
     expect(find.text('extension'), findsOneWidget);
     expect(find.text('Body aligned'), findsOneWidget);
     expect(find.text('Arm supported'), findsOneWidget);
     expect(find.text('Legs extended'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Visibility suspended'),
+      200,
+      scrollable: scrollable,
+    );
     expect(find.text('Form-break grace active'), findsOneWidget);
     expect(find.text('Visibility suspended'), findsOneWidget);
   });
@@ -229,8 +263,11 @@ void main() {
         onReset: () {},
       );
 
-      await tester.drag(find.byType(ListView), const Offset(0, -1400));
-      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('compression'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
 
       expect(find.text('compression'), findsOneWidget);
       expect(find.text('armExtension'), findsOneWidget);
@@ -316,7 +353,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 5);
+    expect(decoded['schema_version'], 6);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -344,6 +381,56 @@ void main() {
     final expected =
         jsonDecode(jsonEncode(activeSnapshot.toJson())) as Map<String, dynamic>;
     expect(actual, expected);
+  });
+
+  testWidgets(
+    'JSON dosya export callbackine gecerli JSON ve dosya adi gonderir',
+    (tester) async {
+      String? exportedJson;
+      String? exportedFileName;
+      Rect? exportedShareOrigin;
+      final snapshot = _snapshot();
+      await _pumpPanel(
+        tester,
+        snapshotReader: () => snapshot,
+        onReset: () {},
+        exportJsonFile:
+            ({required json, required fileName, sharePositionOrigin}) async {
+              exportedJson = json;
+              exportedFileName = fileName;
+              exportedShareOrigin = sharePositionOrigin;
+            },
+      );
+
+      await tester.tap(find.text(_exportButtonText));
+      await tester.pump();
+
+      final actual = jsonDecode(exportedJson!) as Map<String, dynamic>;
+      final expected =
+          jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
+      expect(actual, expected);
+      expect(exportedFileName, 'diagnostics_v6_squat_20300101_000004.json');
+      expect(exportedShareOrigin, isNotNull);
+    },
+  );
+
+  testWidgets('JSON dosya export hatasi kullaniciya bildirilir', (
+    tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(),
+      onReset: () {},
+      exportJsonFile:
+          ({required json, required fileName, sharePositionOrigin}) async {
+            throw StateError('share failed');
+          },
+    );
+
+    await tester.tap(find.text(_exportButtonText));
+    await tester.pump();
+
+    expect(find.text(_exportFailureText), findsOneWidget);
   });
 
   testWidgets('reset callbacki tam bir kez cagrilir', (tester) async {
@@ -456,6 +543,7 @@ Future<void> _pumpPanel(
   required WorkoutDiagnosticsSnapshot Function() snapshotReader,
   required VoidCallback onReset,
   Future<void> Function(String text)? copyText,
+  DiagnosticsJsonFileExporter? exportJsonFile,
 }) {
   return tester.pumpWidget(
     MaterialApp(
@@ -464,6 +552,7 @@ Future<void> _pumpPanel(
           snapshotReader: snapshotReader,
           onReset: onReset,
           copyText: copyText,
+          exportJsonFile: exportJsonFile,
         ),
       ),
     ),
@@ -471,7 +560,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 5,
+  int schemaVersion = 6,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -526,6 +615,17 @@ WorkoutDiagnosticsSnapshot _snapshot({
     appCommitSha: appCommitSha,
     buildMode: buildMode,
     analysisKind: analysisKind,
+    exerciseType: 'squat',
+    configAssetPath: 'assets/config/exercises/squat.json',
+    configVersionFingerprint:
+        'assets/config/exercises/squat.json@$appCommitSha',
+    contractProfile: analysisKind == 'hold' ? 'hold:plank' : 'rangeRep:squat',
+    rangeRepSideMode: analysisKind == 'rangeRep' ? 'selectedSide' : null,
+    rangeRepPrimaryMetricKind: analysisKind == 'rangeRep' ? 'jointAngle' : null,
+    rangeRepPrimaryMetricDirection: analysisKind == 'rangeRep'
+        ? 'decreasingToPeak'
+        : null,
+    holdAnalysisFamily: analysisKind == 'hold' ? 'plank' : null,
     sessionStartedAt: sessionStartedAt,
     snapshotCreatedAt: snapshotCreatedAt,
     elapsedMs: elapsedMs,

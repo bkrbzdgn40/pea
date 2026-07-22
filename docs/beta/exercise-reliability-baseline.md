@@ -142,6 +142,33 @@ Plank, Hollow Hold, Wall Sit ve Side Plank gerçek asset config ve production ho
 
 Bu gate gerçek cihaz doğruluğu iddiası değildir. Ama cihaz dataset'ine çıkmadan önce lifecycle, threshold topology, validation ve hold-time semantiğinin bütün catalog üzerinde aynı regression kontratıyla korunmasını sağlar.
 
-## 8. Sonraki Adım
+## 8. R4 Exercise-Aware Diagnostics v6
 
-R3 local gate temizlendikten sonra R4 kapsamında exercise-aware diagnostics v6 ele alınacaktır. Gerçek cihaz threshold tuning deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
+R4, gerçek cihaz run'larının yalnız `rangeRep` veya `hold` olarak değil, hangi egzersiz ve hangi analiz kontratıyla üretildiğinin tek JSON snapshot'tan anlaşılabilmesini sağlar.
+
+Diagnostics schema v6 şu run-level bağlamı taşır:
+
+- `exercise_type`,
+- `config_asset_path`,
+- build commit SHA ile birlikte `config_version_fingerprint`,
+- `contract_profile`,
+- range-rep için side mode, primary metric kind ve primary metric direction,
+- hold için analysis family ve varsa Hollow Hold variation,
+- gerçek kullanılan camera lens direction, sensor orientation ve device orientation,
+- pose rejection reason sayaçları,
+- minimum/mean required-landmark likelihood percentile'ları,
+- pose-quality score percentile'ları,
+- range-rep confirmed transition sayaçları,
+- abort sayısı,
+- completed-rep validation status/reason sayaçları,
+- aktif rep context'i sırasında gerçekleşen resync sayısı.
+
+Config fingerprint bir içerik hash'i değildir. Reproducible build içindeki config asset path ile app commit SHA'yı birlikte adresleyerek cihaz kaydının hangi config revision'ına ait olduğunu belirler.
+
+Bu telemetry privacy-minimized kalır: raw frame, raw landmark, kullanıcı kimliği, e-posta, session id, exception message veya stack trace export edilmez.
+
+R4 runtime rep/hold threshold'larını veya feedback kararlarını değiştirmez. Değişiklik yalnız diagnostics gözlemlenebilirliğini genişletir.
+
+## 9. Sonraki Adım
+
+R4 local gate temizlendikten sonra R5 kapsamında Squat, Push-up ve Plank mevcut device-verified kontrol grubu olarak yeniden doğrulanacaktır. Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
