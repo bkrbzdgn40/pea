@@ -108,6 +108,40 @@ Her catalog-supported egzersiz için otomatik audit şu zinciri korumalıdır:
 
 Bu gate runtime threshold veya engine davranışını değiştirmez. Ama yeni exercise/config eklenirken katalog ile gerçek analiz wiring'inin sessizce ayrışmasını test aşamasında durdurur.
 
-## 7. Sonraki Adım
+## 7. R3 Deterministic Reliability Scenario Gate
 
-R2 gate temizlendikten sonra R3 kapsamında 14 `rangeRep` ve 4 `hold` hareket için standardize deterministic reliability scenario harness kurulacaktır. Gerçek cihaz threshold tuning bu deterministic baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
+R3, production threshold veya runtime davranışını değiştirmeden bütün engine aileleri için ortak deterministic davranış kontratı kurar. Gate iki ayrı test paketine ayrılır:
+
+### 14 `rangeRep` hareket
+
+Her catalog-supported range-rep egzersizi gerçek asset config ve production `AnalysisEngineFactory` ile şu senaryolardan geçmelidir:
+
+- peak pozisyonunda session başlangıcı arming veya phantom rep üretmez,
+- active-threshold çevresindeki jitter ve yanlış yöndeki hareket rep başlatmaz,
+- neutral -> active -> peak -> return -> neutral tam lifecycle tam bir rep üretir,
+- peak'e ulaşmayan partial excursion abort edilir ve rep sayılmaz,
+- kısa ve phase-compatible visibility gap aktif rep context'ini korur,
+- hard resync yalnız aktif rep context'ini temizler ve tamamlanmış session rep sayısını korur,
+- reset session rep sayısını temizler ve neutral reacquisition zorunluluğunu geri getirir,
+- exercise-specific validation config yeterli ROM'u kabul eder ve yetersiz ROM'u `insufficientRom` ile reddeder.
+
+R3 ayrıca catalog side-mode kapsamını **10 selected-side + 4 bilateral** olarak sabitler. Selected-side seçim/hysteresis ve aktif-rep side consistency davranışları mevcut `range_rep_side_policy_test.dart` ve `range_rep_side_stabilizer_test.dart` katmanlarında korunur; deterministic engine harness bu policy testlerini kopyalamaz.
+
+### 4 `hold` hareket
+
+Plank, Hollow Hold, Wall Sit ve Side Plank gerçek asset config ve production hold policy ile şu senaryolardan geçmelidir:
+
+- invalid başlangıç posture'u hold süresi başlatmaz,
+- valid posture deterministik olarak süre biriktirir,
+- grace-window içindeki geçici form bozulması recovery ile hold'u korur,
+- kalıcı grace-eligible form bozulması hold'u sonlandırır,
+- kısa visibility gap gizli süreyi toplam hold süresine eklemeden resume eder,
+- 1200 ms visibility freeze sınırındaki kayıp aktif hold'u sonlandırır ve best hold'u korur,
+- gerekli hold signal'larının kaybı aktif hold'u güvenli biçimde durdurur,
+- reset current/best hold state'ini temizler.
+
+Bu gate gerçek cihaz doğruluğu iddiası değildir. Ama cihaz dataset'ine çıkmadan önce lifecycle, threshold topology, validation ve hold-time semantiğinin bütün catalog üzerinde aynı regression kontratıyla korunmasını sağlar.
+
+## 8. Sonraki Adım
+
+R3 local gate temizlendikten sonra R4 kapsamında exercise-aware diagnostics v6 ele alınacaktır. Gerçek cihaz threshold tuning deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
