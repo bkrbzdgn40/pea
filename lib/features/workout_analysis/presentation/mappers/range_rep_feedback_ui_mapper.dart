@@ -405,8 +405,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Lower with control...',
       ),
       formViolation: localizations.pick(
-        tr: 'Dirseklerini sabit tut ve kollarını birlikte hareket ettir.',
-        en: 'Keep your elbows still and move both arms together.',
+        tr: 'Dirseklerini gövdene yakın tut.',
+        en: 'Keep your elbows close to your torso.',
       ),
       controlDescent: localizations.pick(
         tr: 'Yukarı çekişi kontrollü yap.',
@@ -421,8 +421,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Stabilize the transition at the top.',
       ),
       maintainForm: localizations.pick(
-        tr: 'Dirseklerini sabit tut.',
-        en: 'Keep your elbows still.',
+        tr: 'Dirseklerini gövdene yakın tut.',
+        en: 'Keep your elbows close to your torso.',
       ),
     );
   }

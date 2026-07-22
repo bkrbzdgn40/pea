@@ -180,9 +180,16 @@ class ExerciseMetricsExtractor {
     final syncScore = leftPrimaryAngle != null && rightPrimaryAngle != null
         ? _clampAngleScore(180.0 - (leftPrimaryAngle - rightPrimaryAngle).abs())
         : null;
-    final bilateralFormMetric =
-        leftFormScore != null && rightFormScore != null && syncScore != null
-        ? math.min(leftFormScore, math.min(rightFormScore, syncScore))
+    final bilateralFormMetric = leftFormScore != null && rightFormScore != null
+        ? switch (rangeRepContract.bilateralFormPolicy) {
+            RangeRepBilateralFormPolicy.includeSync when syncScore != null =>
+              math.min(leftFormScore, math.min(rightFormScore, syncScore)),
+            RangeRepBilateralFormPolicy.includeSync => null,
+            RangeRepBilateralFormPolicy.sideFormOnly => math.min(
+              leftFormScore,
+              rightFormScore,
+            ),
+          }
         : null;
 
     return RangeRepBilateralMetrics(

@@ -169,3 +169,37 @@ Biceps Curl ancak zorunlu run'lar tamamlanıp gerçek execution manifestte açı
 Tek bir başarılı positive set yeterli değildir. Özellikle `ONE-ARM`, `PARTIAL`, lifecycle ve persistence negatif/güvenlik kanıtları closure'ın parçasıdır.
 
 Bu validation tamamlanmadan production threshold veya bilateral policy tuning yapılmaz.
+
+## 11. Shallow-ROM Reliability Hardening
+
+R6 cihaz videosunda yalnız absolute elbow-angle PEAK eşiğinin shallow curl'ü
+ayırt etmek için yeterli olmadığı doğrulandı. ML pose geometrisi fiziksel olarak
+sığ bir curl sırasında bile elbow angle'ı PEAK eşiğinin altında gösterebildi.
+
+Biceps Curl PEAK artık iki bağımsız koşul ister:
+
+1. Bilateral primary elbow-angle gate geçilmeli.
+2. Her iki wrist, kullanıcının neutral pozisyonundaki shoulder-wrist mesafesine
+   göre yeterince kapanmış olmalı.
+
+Neutral baseline her kol için ayrı tutulur. PEAK sırasında her iki kolun
+`current shoulder-wrist distance / neutral shoulder-wrist distance` oranı
+`<= 0.64` olmalıdır. Bu ikinci kapı elbow landmark'ından bağımsız olarak
+shoulder ve wrist geometrisini kullanır.
+
+Ayrıca Biceps Curl live form metriği artık bilateral elbow-angle sync jitter'ını
+`formViolation` içine katmaz. Generic form uyarısı yalnız iki kolun upper-arm
+posture skorlarının kötüsüne dayanır ve UI metni ölçülen semantiğe uygun olarak
+`Dirseklerini gövdene yakın tut.` şeklindedir.
+
+### Fix sonrası zorunlu tekrar doğrulama
+
+1. 1 temiz full-ROM bilateral rep: `rep_count == 1`
+2. 10 shallow bilateral rep, fiziksel tepe yaklaşık 80-90 derece:
+   `rep_count == 0`, `completeRep == 0`
+3. 20 kontrollü full-ROM bilateral rep: absolute count error `<= 1`
+4. One-arm-only 10 deneme: `rep_count == 0`
+5. Form feedback gözlemi: sabit ve gövdeye yakın dirseklerde sürekli corrective
+   warning görülmemeli.
+
+Bu kapılar geçmeden Biceps Curl `Device Validated` olarak kapatılmaz.

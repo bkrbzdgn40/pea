@@ -227,6 +227,10 @@ void main() {
         _scoringRoles,
       );
       expect(contract.sideMode, RangeRepSideMode.bilateral);
+      expect(
+        contract.bilateralFormPolicy,
+        RangeRepBilateralFormPolicy.sideFormOnly,
+      );
     });
 
     test(

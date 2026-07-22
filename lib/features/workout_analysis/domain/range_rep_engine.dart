@@ -213,6 +213,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   MovementPhase state = MovementPhase.neutral;
   bool _isArmed = false;
+  bool _peakEntryAllowed = true;
   @override
   int repCount = 0;
   bool isFormBad = false;
@@ -379,6 +380,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     );
   }
 
+  @override
+  void setPeakEntryAllowed(bool allowed) {
+    _peakEntryAllowed = allowed;
+  }
+
   /// Legacy compatibility path that retains form, scoring, and feedback state.
   @override
   void update(AnalysisFrame frame) {
@@ -458,7 +464,20 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required bool tracksCompatibilityTechnique,
     required bool calculateCompatibilityScore,
   }) {
-    final genericResult = _genericRepEngine.update(primaryMetric: angle);
+    final detectionMetric =
+        !_peakEntryAllowed &&
+            state == MovementPhase.descending &&
+            switch (primaryMetricDirection) {
+              RangeRepPrimaryMetricDirection.decreasingToPeak =>
+                angle < config.thresholdPeak,
+              RangeRepPrimaryMetricDirection.increasingToPeak =>
+                angle > config.thresholdPeak,
+            }
+        ? config.thresholdActive
+        : angle;
+    final genericResult = _genericRepEngine.update(
+      primaryMetric: detectionMetric,
+    );
     final completedTempo = _tempoEngine.process(genericResult);
     final transition = genericResult.confirmedTransition;
     final stateBefore = _movementPhaseFor(genericResult.phaseBeforeUpdate);
@@ -1218,6 +1237,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _disarm() {
+    _peakEntryAllowed = true;
     _genericRepEngine.clearActiveRepContext();
     _tempoEngine.interrupt();
     _isArmed = _genericRepEngine.isArmed;

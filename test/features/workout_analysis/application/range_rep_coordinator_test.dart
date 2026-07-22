@@ -1234,6 +1234,63 @@ void main() {
     );
 
     test(
+      'biceps peak gate rejects a deep reported angle when wrists remain shallow',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+
+        late RangeRepCoordinatorFrameResult shallowResult;
+        for (var index = 0; index < 4; index++) {
+          shallowResult = coordinator.processFrame(
+            metrics: _bicepsMetricsWithReportedAngle(
+              landmarkAngle: 90,
+              reportedAngle: 58,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: null,
+          );
+          if (index < 3) {
+            clock.advance(const Duration(milliseconds: 90));
+          }
+        }
+
+        final recoveredResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        expect(shallowResult.stateSnapshot.currentPhase, 'DESCENDING');
+        expect(recoveredResult.stateSnapshot.repCount, 0);
+      },
+    );
+
+    test(
       'a lagging arm around 76 degrees still blocks PEAK at the tightened threshold',
       () {
         final clock = _TestClock();
@@ -1843,6 +1900,53 @@ ExerciseMetrics _bicepsMetrics({
     loadExerciseConfig('assets/config/exercises/biceps_curl.json'),
     engineKind: EngineKind.rangeRep,
     rangeRepContract: RangeRepContracts.bicepsCurl,
+  );
+}
+
+ExerciseMetrics _bicepsMetricsWithReportedAngle({
+  required double landmarkAngle,
+  required double reportedAngle,
+}) {
+  final metrics = _bicepsMetrics(
+    leftAngle: landmarkAngle,
+    rightAngle: landmarkAngle,
+  );
+  final left = metrics.leftRangeRepMetrics;
+  final right = metrics.rightRangeRepMetrics;
+  final bilateral = metrics.bilateralRangeRepMetrics!;
+
+  return metrics.copyWith(
+    primaryAngle: reportedAngle,
+    leftRangeRepMetrics: RangeRepSideMetrics(
+      side: RangeRepSide.left,
+      primaryAngle: reportedAngle,
+      formMetric: left.formMetric,
+      hasPrimaryAngle: left.hasPrimaryAngle,
+      hasFormMetric: left.hasFormMetric,
+      sideConfidence: left.sideConfidence,
+      formSignals: left.formSignals,
+    ),
+    rightRangeRepMetrics: RangeRepSideMetrics(
+      side: RangeRepSide.right,
+      primaryAngle: reportedAngle,
+      formMetric: right.formMetric,
+      hasPrimaryAngle: right.hasPrimaryAngle,
+      hasFormMetric: right.hasFormMetric,
+      sideConfidence: right.sideConfidence,
+      formSignals: right.formSignals,
+    ),
+    bilateralRangeRepMetrics: RangeRepBilateralMetrics(
+      primaryAngle: reportedAngle,
+      formMetric: bilateral.formMetric,
+      hasPrimaryAngle: bilateral.hasPrimaryAngle,
+      hasFormMetric: bilateral.hasFormMetric,
+      leftPrimaryAngle: reportedAngle,
+      rightPrimaryAngle: reportedAngle,
+      leftFormScore: bilateral.leftFormScore,
+      rightFormScore: bilateral.rightFormScore,
+      syncScore: 180.0,
+      formSignals: bilateral.formSignals,
+    ),
   );
 }
 

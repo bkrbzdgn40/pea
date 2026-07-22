@@ -24,6 +24,8 @@ enum RangeRepFormThresholdCalibrationPolicy { enabled, disabled }
 
 enum RangeRepSideMode { selectedSide, bilateral }
 
+enum RangeRepBilateralFormPolicy { includeSync, sideFormOnly }
+
 /// Declares how the exercise's primary movement signal is measured.
 ///
 /// [jointAngle] preserves the legacy three-landmark angle configured by
@@ -66,6 +68,7 @@ class RangeRepContract {
     this.formThresholdCalibrationPolicy =
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
+    this.bilateralFormPolicy = RangeRepBilateralFormPolicy.includeSync,
     this.primaryMetricKind = RangeRepPrimaryMetricKind.jointAngle,
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
@@ -124,6 +127,7 @@ class RangeRepContract {
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
+  final RangeRepBilateralFormPolicy bilateralFormPolicy;
   final RangeRepPrimaryMetricKind primaryMetricKind;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final RangeRepTowardPeakMuscleAction towardPeakMuscleAction;
@@ -323,6 +327,7 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
+    bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
   );
 
   static final RangeRepContract lyingLegRaise = RangeRepContract(

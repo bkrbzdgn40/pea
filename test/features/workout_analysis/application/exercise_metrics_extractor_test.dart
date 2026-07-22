@@ -730,7 +730,7 @@ void main() {
       });
 
       test(
-        'bilateral form metric reflects the worse arm or the worse sync score',
+        'biceps bilateral form metric reflects the worse arm but not sync jitter',
         () {
           final config = _loadConfig(
             'assets/config/exercises/biceps_curl.json',
@@ -791,7 +791,7 @@ void main() {
           );
           expect(
             syncWorst.bilateralRangeRepMetrics?.formMetric,
-            closeTo(140.0, 0.001),
+            closeTo(160.0, 0.001),
           );
         },
       );

@@ -177,14 +177,14 @@ void main() {
     );
   });
 
-  test('biceps curl keeps elbow-control form feedback', () {
+  test('biceps curl form feedback matches the upper-arm posture metric', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.legacyFormThresholdViolation,
         localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Dirseklerini sabit tut ve kollarını birlikte hareket ettir.',
+      'Dirseklerini gövdene yakın tut.',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
@@ -192,7 +192,7 @@ void main() {
         localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Dirseklerini sabit tut.',
+      'Dirseklerini gövdene yakın tut.',
     );
   });
 
