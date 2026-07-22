@@ -80,6 +80,9 @@ class RangeRepCoordinatorDiagnosticsUpdate {
     required this.visibilityStatus,
     required this.selectedSideLabel,
     required this.hasActiveRepContext,
+    this.confirmedTransitionCode,
+    this.completedRepValidationStatus,
+    this.completedRepValidationReasons = const <String>[],
     this.recordAcceptedPoseFrame = false,
     this.recordPoseReacquisition = false,
     this.recordBriefOcclusion = false,
@@ -91,6 +94,9 @@ class RangeRepCoordinatorDiagnosticsUpdate {
   final String visibilityStatus;
   final String? selectedSideLabel;
   final bool hasActiveRepContext;
+  final String? confirmedTransitionCode;
+  final String? completedRepValidationStatus;
+  final List<String> completedRepValidationReasons;
   final bool recordAcceptedPoseFrame;
   final bool recordPoseReacquisition;
   final bool recordBriefOcclusion;
@@ -611,6 +617,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       analysisKindLabel: EngineKind.rangeRep.name,
       completedRepCoreData: completedRepCoreData,
     );
+    final completedRepValidationResult = completedRepCoreData == null
+        ? null
+        : _outcomeTracker.lastRangeRepValidationResult;
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
@@ -682,6 +691,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         visibilityStatus: visibilityAssessment.statusLabel,
         selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
         hasActiveRepContext: preUpdateDiagnostics.hasRepContext,
+        confirmedTransitionCode: engineResult.confirmedTransition?.type.name,
+        completedRepValidationStatus: completedRepValidationResult?.status.name,
+        completedRepValidationReasons:
+            completedRepValidationResult?.reasons
+                .map((reason) => reason.name)
+                .toList(growable: false) ??
+            const <String>[],
         recordAcceptedPoseFrame: true,
         recordPoseReacquisition: didReacquire,
         recordBriefOcclusionRecovery: recordBriefOcclusionRecovery,

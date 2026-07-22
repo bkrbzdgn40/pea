@@ -33,14 +33,17 @@ void main() {
   }) => WorkoutDiagnosticsAccumulator(
     sessionStartedAt: startedAt,
     analysisKind: 'rangeRep',
+    exerciseType: 'squat',
+    configAssetPath: 'assets/config/exercises/squat.json',
     cameraViewContract: cameraViewContract ?? sideViewContract,
+    rangeRepContract: RangeRepContracts.squat,
     appCommitSha: 'abc123',
     buildMode: 'debug',
   );
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 5);
+    expect(snapshot.schemaVersion, 6);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -83,6 +86,47 @@ void main() {
     });
   });
 
+  test('schema v6 identifies the exact exercise and contract context', () {
+    final snapshot = accumulator().snapshot(now: startedAt);
+    final json = snapshot.toJson();
+
+    expect(snapshot.schemaVersion, 6);
+    expect(snapshot.exerciseType, 'squat');
+    expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
+    expect(
+      snapshot.configVersionFingerprint,
+      'assets/config/exercises/squat.json@abc123',
+    );
+    expect(snapshot.contractProfile, 'rangeRep:squat');
+    expect(snapshot.rangeRepSideMode, 'selectedSide');
+    expect(snapshot.rangeRepPrimaryMetricKind, 'jointAngle');
+    expect(snapshot.rangeRepPrimaryMetricDirection, 'decreasingToPeak');
+    expect(snapshot.holdAnalysisFamily, isNull);
+    expect(snapshot.holdVariation, isNull);
+    expect(json['exercise_type'], 'squat');
+    expect(json['contract_profile'], 'rangeRep:squat');
+  });
+
+  test('schema v6 identifies hold family and hollow-hold variation', () {
+    final subject = WorkoutDiagnosticsAccumulator(
+      sessionStartedAt: startedAt,
+      analysisKind: 'hold',
+      exerciseType: 'hollow_hold',
+      configAssetPath: 'assets/config/exercises/hollow_hold.json',
+      cameraViewContract: sideViewContract,
+      holdContract: HoldContracts.hollowHold,
+      appCommitSha: 'abc123',
+      buildMode: 'debug',
+    );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    expect(snapshot.contractProfile, 'hold:hollowHold');
+    expect(snapshot.holdAnalysisFamily, 'hollowHold');
+    expect(snapshot.holdVariation, 'straightLegOverhead');
+    expect(snapshot.rangeRepSideMode, isNull);
+    expect(snapshot.rangeRepPrimaryMetricDirection, isNull);
+  });
+
   test(
     'records camera, analysis, throttle, reentrant and converter counts',
     () {
@@ -121,6 +165,18 @@ void main() {
     final subject = accumulator()
       ..recordAcceptedPoseFrame()
       ..recordRejectedPose(rejectionReasonCode: 'low_landmark_likelihood')
+      ..recordRejectedPose(rejectionReasonCode: 'low_landmark_likelihood')
+      ..recordRejectedPose(rejectionReasonCode: 'degenerate_geometry')
+      ..recordPoseQualitySample(
+        minimumRequiredLikelihood: 0.51,
+        meanRequiredLikelihood: 0.70,
+        qualityScore: 0.61,
+      )
+      ..recordPoseQualitySample(
+        minimumRequiredLikelihood: 0.80,
+        meanRequiredLikelihood: 0.90,
+        qualityScore: 0.85,
+      )
       ..recordLowConfidencePose()
       ..recordInvalidPoseGeometry()
       ..recordPoseReacquisition()
@@ -136,7 +192,7 @@ void main() {
     final snapshot = subject.snapshot(now: startedAt);
 
     expect(snapshot.acceptedPoseFrameCount, 1);
-    expect(snapshot.rejectedPoseFrameCount, 1);
+    expect(snapshot.rejectedPoseFrameCount, 3);
     expect(snapshot.lowConfidencePoseFrameCount, 1);
     expect(snapshot.invalidPoseGeometryFrameCount, 1);
     expect(snapshot.poseReacquisitionCount, 1);
@@ -144,6 +200,17 @@ void main() {
     expect(snapshot.briefOcclusionRecoveryCount, 1);
     expect(snapshot.briefOcclusionAbortCount, 1);
     expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
+    expect(snapshot.poseRejectionReasonCounts, <String, int>{
+      'low_landmark_likelihood': 2,
+      'degenerate_geometry': 1,
+    });
+    expect(snapshot.poseQualitySampleCount, 2);
+    expect(snapshot.minimumRequiredLikelihoodP05, 0.51);
+    expect(snapshot.minimumRequiredLikelihoodP50, 0.51);
+    expect(snapshot.meanRequiredLikelihoodP05, 0.70);
+    expect(snapshot.meanRequiredLikelihoodP50, 0.70);
+    expect(snapshot.poseQualityScoreP50, 0.61);
+    expect(snapshot.poseQualityScoreP95, 0.85);
     expect(snapshot.currentPoseQualityStatus, 'rejected');
     expect(snapshot.currentVisibilityStatus, 'brief_freeze');
   });
@@ -151,11 +218,70 @@ void main() {
   test('records exception and resync separately', () {
     final subject = accumulator()
       ..recordAnalysisException()
-      ..recordResync();
+      ..recordResync()
+      ..recordResync(hadActiveRepContext: true);
     final snapshot = subject.snapshot(now: startedAt);
     expect(snapshot.analysisExceptionCount, 1);
-    expect(snapshot.resyncCount, 1);
+    expect(snapshot.resyncCount, 2);
+    expect(snapshot.activeRepResyncCount, 1);
   });
+
+  test('records range-rep transitions, aborts, and validation reasons', () {
+    final subject = accumulator()
+      ..recordRangeRepTransition('acquireNeutral')
+      ..recordRangeRepTransition('startDescending')
+      ..recordRangeRepTransition('abortToNeutral')
+      ..recordRangeRepValidation(
+        statusCode: 'invalid',
+        reasonCodes: const <String>['insufficientRom', 'coverageLoss'],
+      )
+      ..recordRangeRepValidation(
+        statusCode: 'valid',
+        reasonCodes: const <String>[],
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final json = snapshot.toJson();
+
+    expect(snapshot.rangeRepTransitionCount, 3);
+    expect(snapshot.rangeRepAbortCount, 1);
+    expect(snapshot.rangeRepTransitionCounts, <String, int>{
+      'acquireNeutral': 1,
+      'startDescending': 1,
+      'abortToNeutral': 1,
+    });
+    expect(snapshot.rangeRepValidationCount, 2);
+    expect(snapshot.rangeRepValidationStatusCounts, <String, int>{
+      'invalid': 1,
+      'valid': 1,
+    });
+    expect(snapshot.rangeRepValidationReasonCounts, <String, int>{
+      'insufficientRom': 1,
+      'coverageLoss': 1,
+    });
+    expect(snapshot.lastRangeRepConfirmedTransition, 'abortToNeutral');
+    expect(snapshot.lastRangeRepValidationStatus, 'valid');
+    expect(snapshot.lastRangeRepValidationReasons, isEmpty);
+    expect(json['range_rep_abort_count'], 1);
+  });
+
+  test(
+    'records actual camera runtime context separately from camera contract',
+    () {
+      final subject = accumulator()
+        ..updateCameraRuntimeContext(
+          sensorOrientationDegrees: 90,
+          cameraLensDirection: 'front',
+          deviceOrientation: 'landscapeLeft',
+        );
+
+      final snapshot = subject.snapshot(now: startedAt);
+      expect(snapshot.cameraLensDirection, 'front');
+      expect(snapshot.sensorOrientationDegrees, 90);
+      expect(snapshot.deviceOrientation, 'landscapeLeft');
+      expect(snapshot.toJson()['camera_lens_direction'], 'front');
+    },
+  );
 
   test(
     'range-rep diagnostics keep side assignment semantics inside range-rep payload',
@@ -185,7 +311,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 5);
+      expect(json['schema_version'], 6);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -279,7 +405,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 5);
+    expect(json['schema_version'], 6);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -476,6 +602,17 @@ void main() {
     final subject = accumulator()
       ..recordCameraFrame()
       ..recordPoseCount(3)
+      ..recordRejectedPose(rejectionReasonCode: 'low_landmark_likelihood')
+      ..recordPoseQualitySample(
+        minimumRequiredLikelihood: 0.55,
+        meanRequiredLikelihood: 0.70,
+        qualityScore: 0.60,
+      )
+      ..updateCameraRuntimeContext(
+        sensorOrientationDegrees: 90,
+        cameraLensDirection: 'front',
+        deviceOrientation: 'portraitUp',
+      )
       ..recordProcessingDuration(const Duration(milliseconds: 20))
       ..updateHoldState(
         currentHoldSeconds: 5,
@@ -493,16 +630,23 @@ void main() {
         ),
         currentHoldSide: HoldSide.left,
       )
-      ..reset(now: resetAt, analysisKind: 'hold');
+      ..reset(now: resetAt, analysisKind: 'rangeRep');
     final snapshot = subject.snapshot(
       now: resetAt.add(const Duration(seconds: 1)),
     );
     expect(snapshot.sessionStartedAt, resetAt);
-    expect(snapshot.analysisKind, 'hold');
+    expect(snapshot.analysisKind, 'rangeRep');
+    expect(snapshot.exerciseType, 'squat');
+    expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(snapshot.elapsedMs, 1000);
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.poseRejectionReasonCounts, isEmpty);
+    expect(snapshot.poseQualitySampleCount, 0);
+    expect(snapshot.cameraLensDirection, isNull);
+    expect(snapshot.sensorOrientationDegrees, isNull);
+    expect(snapshot.deviceOrientation, isNull);
     expect(snapshot.rangeRepDiagnostics, isNull);
     expect(snapshot.holdDiagnostics, isNull);
     expect(snapshot.repCount, isNull);
@@ -515,9 +659,15 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 5);
+    expect(json['schema_version'], 6);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
+    expect(json['exercise_type'], 'squat');
+    expect(
+      json['config_version_fingerprint'],
+      'assets/config/exercises/squat.json@abc123',
+    );
+    expect(json['contract_profile'], 'rangeRep:squat');
     expect(json['camera_frame_count'], 0);
     expect(json['accepted_pose_frame_count'], 0);
     expect(json['current_pose_quality_status'], 'stable');

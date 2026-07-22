@@ -256,7 +256,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _diagnostics = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: _clock(),
       analysisKind: _engineKind.name,
+      exerciseType: _activeExercise.id,
+      configAssetPath: definition.analysisConfigAssetPath,
       cameraViewContract: definition.analysisCameraViewContract,
+      rangeRepContract: _rangeRepContract,
+      holdContract: _holdContract,
     );
     final initialHoldSnapshot = _engineKind == EngineKind.hold
         ? _holdCoordinatorOrThrow().currentStateSnapshot()
@@ -304,10 +308,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   /// Processes one camera frame and publishes the latest live telemetry.
   Future<void> processCameraImage(
     CameraImage image,
-    int sensorOrientation,
-  ) async {
+    int sensorOrientation, {
+    String? cameraLensDirection,
+    String? deviceOrientation,
+  }) async {
     final now = _clock();
-    if (_isDiagnosticsEnabled) _diagnostics.recordCameraFrame();
+    if (_isDiagnosticsEnabled) {
+      _diagnostics
+        ..recordCameraFrame()
+        ..updateCameraRuntimeContext(
+          sensorOrientationDegrees: sensorOrientation,
+          cameraLensDirection: cameraLensDirection,
+          deviceOrientation: deviceOrientation,
+        );
+    }
     _cameraFrameCount++;
     _updateFpsIfNeeded();
 
@@ -440,6 +454,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   ) {
     if (!_isDiagnosticsEnabled) {
       return;
+    }
+
+    final assessment = result.selectedAssessment;
+    if (assessment != null) {
+      _diagnostics.recordPoseQualitySample(
+        minimumRequiredLikelihood: assessment.minimumRequiredLikelihood,
+        meanRequiredLikelihood: assessment.meanRequiredLikelihood,
+        qualityScore: assessment.qualityScore,
+      );
     }
 
     switch (result.kind) {
@@ -855,7 +878,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _diagnostics.recordBriefOcclusionAbort();
     }
     if (update.recordResync) {
-      _diagnostics.recordResync();
+      _diagnostics.recordResync(
+        hadActiveRepContext: update.hasActiveRepContext,
+      );
     }
     if (update.recordPoseReacquisition) {
       _diagnostics.recordPoseReacquisition();
@@ -868,6 +893,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       selectedSide: update.selectedSideLabel,
       hasActiveRepContext: update.hasActiveRepContext,
     );
+    final transitionCode = update.confirmedTransitionCode;
+    if (transitionCode != null) {
+      _diagnostics.recordRangeRepTransition(transitionCode);
+    }
+    final validationStatus = update.completedRepValidationStatus;
+    if (validationStatus != null) {
+      _diagnostics.recordRangeRepValidation(
+        statusCode: validationStatus,
+        reasonCodes: update.completedRepValidationReasons,
+      );
+    }
   }
 
   void _applyHoldDiagnosticsUpdate(HoldCoordinatorDiagnosticsUpdate update) {

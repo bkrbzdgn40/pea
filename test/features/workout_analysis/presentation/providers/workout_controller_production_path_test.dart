@@ -68,7 +68,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v5',
+      'v6',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -82,12 +82,24 @@ void main() {
         final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 5);
+        expect(snapshot.schemaVersion, 6);
+        expect(snapshot.exerciseType, 'squat');
+        expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
+        expect(snapshot.contractProfile, 'rangeRep:squat');
+        expect(snapshot.rangeRepSideMode, 'selectedSide');
+        expect(snapshot.rangeRepPrimaryMetricDirection, 'decreasingToPeak');
         expect(snapshot.acceptedPoseFrameCount, 0);
         expect(snapshot.rejectedPoseFrameCount, 2);
         expect(snapshot.lowConfidencePoseFrameCount, 2);
         expect(snapshot.lastPoseRejectionReason, 'low_landmark_likelihood');
-        expect(json['schema_version'], 5);
+        expect(snapshot.poseRejectionReasonCounts, <String, int>{
+          'low_landmark_likelihood': 2,
+        });
+        expect(snapshot.poseQualitySampleCount, 2);
+        expect(snapshot.minimumRequiredLikelihoodP50, 0.40);
+        expect(snapshot.meanRequiredLikelihoodP50, 0.40);
+        expect(json['schema_version'], 6);
+        expect(json['exercise_type'], 'squat');
         expect(
           snapshot.cameraViewContract,
           same(
@@ -913,6 +925,7 @@ void main() {
 
         final state = container.read(workoutControllerProvider);
         final metrics = state.calibrationMetrics;
+        final diagnostics = controller.diagnosticsSnapshot();
 
         expect(state.repCount, 1);
         expect(metrics.lastRangeRepValidationStatus, 'valid');
@@ -924,6 +937,14 @@ void main() {
         expect(metrics.hasLastRangeRepSummary, isTrue);
         expect(metrics.lastRangeRepSummaryCompletedPhaseSequence, isTrue);
         expect(metrics.lastRangeRepSummarySelectedSideLabel, 'left');
+        expect(diagnostics.rangeRepAbortCount, 0);
+        expect(diagnostics.rangeRepValidationCount, 1);
+        expect(diagnostics.rangeRepValidationStatusCounts, <String, int>{
+          'valid': 1,
+        });
+        expect(diagnostics.rangeRepValidationReasonCounts, isEmpty);
+        expect(diagnostics.lastRangeRepValidationStatus, 'valid');
+        expect(diagnostics.rangeRepTransitionCounts['completeRep'], 1);
       },
     );
 
@@ -1038,6 +1059,7 @@ void main() {
       expect(snapshot.briefOcclusionAbortCount, 1);
       expect(snapshot.briefOcclusionRecoveryCount, 0);
       expect(snapshot.resyncCount, 1);
+      expect(snapshot.activeRepResyncCount, 1);
     });
 
     test(

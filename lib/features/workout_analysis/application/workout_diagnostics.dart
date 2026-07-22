@@ -28,6 +28,16 @@ class RangeRepWorkoutDiagnostics {
     this.currentPhase,
     this.sideSwitchCount = 0,
     this.activeRepSideSwitchCount = 0,
+    this.activeRepResyncCount = 0,
+    this.transitionCount = 0,
+    this.abortCount = 0,
+    this.validationCount = 0,
+    this.validationStatusCounts = const <String, int>{},
+    this.validationReasonCounts = const <String, int>{},
+    this.transitionCounts = const <String, int>{},
+    this.lastConfirmedTransition,
+    this.lastValidationStatus,
+    this.lastValidationReasons = const <String>[],
     this.currentSelectedSide,
     this.lastCalibrationOffsetDegrees,
     this.signalRoles = const <RangeRepSignal, Set<AnalysisSignalRole>>{},
@@ -37,6 +47,16 @@ class RangeRepWorkoutDiagnostics {
   final String? currentPhase;
   final int sideSwitchCount;
   final int activeRepSideSwitchCount;
+  final int activeRepResyncCount;
+  final int transitionCount;
+  final int abortCount;
+  final int validationCount;
+  final Map<String, int> validationStatusCounts;
+  final Map<String, int> validationReasonCounts;
+  final Map<String, int> transitionCounts;
+  final String? lastConfirmedTransition;
+  final String? lastValidationStatus;
+  final List<String> lastValidationReasons;
   final String? currentSelectedSide;
   final double? lastCalibrationOffsetDegrees;
   final Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles;
@@ -46,6 +66,16 @@ class RangeRepWorkoutDiagnostics {
     Object? currentPhase = _unsetValue,
     int? sideSwitchCount,
     int? activeRepSideSwitchCount,
+    int? activeRepResyncCount,
+    int? transitionCount,
+    int? abortCount,
+    int? validationCount,
+    Object? validationStatusCounts = _unsetValue,
+    Object? validationReasonCounts = _unsetValue,
+    Object? transitionCounts = _unsetValue,
+    Object? lastConfirmedTransition = _unsetValue,
+    Object? lastValidationStatus = _unsetValue,
+    Object? lastValidationReasons = _unsetValue,
     Object? currentSelectedSide = _unsetValue,
     Object? lastCalibrationOffsetDegrees = _unsetValue,
     Object? signalRoles = _unsetValue,
@@ -58,6 +88,32 @@ class RangeRepWorkoutDiagnostics {
       sideSwitchCount: sideSwitchCount ?? this.sideSwitchCount,
       activeRepSideSwitchCount:
           activeRepSideSwitchCount ?? this.activeRepSideSwitchCount,
+      activeRepResyncCount: activeRepResyncCount ?? this.activeRepResyncCount,
+      transitionCount: transitionCount ?? this.transitionCount,
+      abortCount: abortCount ?? this.abortCount,
+      validationCount: validationCount ?? this.validationCount,
+      validationStatusCounts: validationStatusCounts == _unsetValue
+          ? this.validationStatusCounts
+          : Map<String, int>.unmodifiable(
+              validationStatusCounts as Map<String, int>,
+            ),
+      validationReasonCounts: validationReasonCounts == _unsetValue
+          ? this.validationReasonCounts
+          : Map<String, int>.unmodifiable(
+              validationReasonCounts as Map<String, int>,
+            ),
+      transitionCounts: transitionCounts == _unsetValue
+          ? this.transitionCounts
+          : Map<String, int>.unmodifiable(transitionCounts as Map<String, int>),
+      lastConfirmedTransition: lastConfirmedTransition == _unsetValue
+          ? this.lastConfirmedTransition
+          : lastConfirmedTransition as String?,
+      lastValidationStatus: lastValidationStatus == _unsetValue
+          ? this.lastValidationStatus
+          : lastValidationStatus as String?,
+      lastValidationReasons: lastValidationReasons == _unsetValue
+          ? this.lastValidationReasons
+          : List<String>.unmodifiable(lastValidationReasons as List<String>),
       currentSelectedSide: currentSelectedSide == _unsetValue
           ? this.currentSelectedSide
           : currentSelectedSide as String?,
@@ -120,6 +176,15 @@ class WorkoutDiagnosticsSnapshot {
     required this.appCommitSha,
     required this.buildMode,
     required this.analysisKind,
+    required this.exerciseType,
+    required this.configAssetPath,
+    required this.configVersionFingerprint,
+    required this.contractProfile,
+    this.rangeRepSideMode,
+    this.rangeRepPrimaryMetricKind,
+    this.rangeRepPrimaryMetricDirection,
+    this.holdAnalysisFamily,
+    this.holdVariation,
     required this.sessionStartedAt,
     required this.snapshotCreatedAt,
     required this.elapsedMs,
@@ -144,9 +209,20 @@ class WorkoutDiagnosticsSnapshot {
     this.briefOcclusionRecoveryCount = 0,
     this.briefOcclusionAbortCount = 0,
     this.lastPoseRejectionReason,
+    this.poseRejectionReasonCounts = const <String, int>{},
+    this.poseQualitySampleCount = 0,
+    this.minimumRequiredLikelihoodP05,
+    this.minimumRequiredLikelihoodP50,
+    this.meanRequiredLikelihoodP05,
+    this.meanRequiredLikelihoodP50,
+    this.poseQualityScoreP50,
+    this.poseQualityScoreP95,
     this.currentPoseQualityStatus = 'stable',
     this.currentVisibilityStatus = 'stable',
     this.cameraViewContract,
+    this.cameraLensDirection,
+    this.sensorOrientationDegrees,
+    this.deviceOrientation,
     this.rangeRepDiagnostics,
     this.holdDiagnostics,
     required this.currentCameraFps,
@@ -160,6 +236,15 @@ class WorkoutDiagnosticsSnapshot {
   final String appCommitSha;
   final String buildMode;
   final String analysisKind;
+  final String exerciseType;
+  final String configAssetPath;
+  final String configVersionFingerprint;
+  final String contractProfile;
+  final String? rangeRepSideMode;
+  final String? rangeRepPrimaryMetricKind;
+  final String? rangeRepPrimaryMetricDirection;
+  final String? holdAnalysisFamily;
+  final String? holdVariation;
   final DateTime sessionStartedAt;
   final DateTime snapshotCreatedAt;
   final int elapsedMs;
@@ -184,9 +269,20 @@ class WorkoutDiagnosticsSnapshot {
   final int briefOcclusionRecoveryCount;
   final int briefOcclusionAbortCount;
   final String? lastPoseRejectionReason;
+  final Map<String, int> poseRejectionReasonCounts;
+  final int poseQualitySampleCount;
+  final double? minimumRequiredLikelihoodP05;
+  final double? minimumRequiredLikelihoodP50;
+  final double? meanRequiredLikelihoodP05;
+  final double? meanRequiredLikelihoodP50;
+  final double? poseQualityScoreP50;
+  final double? poseQualityScoreP95;
   final String currentPoseQualityStatus;
   final String currentVisibilityStatus;
   final CameraViewContract? cameraViewContract;
+  final String? cameraLensDirection;
+  final int? sensorOrientationDegrees;
+  final String? deviceOrientation;
   final RangeRepWorkoutDiagnostics? rangeRepDiagnostics;
   final HoldWorkoutDiagnostics? holdDiagnostics;
   final double? currentCameraFps;
@@ -207,6 +303,33 @@ class WorkoutDiagnosticsSnapshot {
 
   int get activeRepSideSwitchCount =>
       rangeRepDiagnostics?.activeRepSideSwitchCount ?? 0;
+
+  int get activeRepResyncCount =>
+      rangeRepDiagnostics?.activeRepResyncCount ?? 0;
+
+  int get rangeRepTransitionCount => rangeRepDiagnostics?.transitionCount ?? 0;
+
+  int get rangeRepAbortCount => rangeRepDiagnostics?.abortCount ?? 0;
+
+  int get rangeRepValidationCount => rangeRepDiagnostics?.validationCount ?? 0;
+
+  Map<String, int> get rangeRepTransitionCounts =>
+      rangeRepDiagnostics?.transitionCounts ?? const <String, int>{};
+
+  Map<String, int> get rangeRepValidationStatusCounts =>
+      rangeRepDiagnostics?.validationStatusCounts ?? const <String, int>{};
+
+  Map<String, int> get rangeRepValidationReasonCounts =>
+      rangeRepDiagnostics?.validationReasonCounts ?? const <String, int>{};
+
+  String? get lastRangeRepConfirmedTransition =>
+      rangeRepDiagnostics?.lastConfirmedTransition;
+
+  String? get lastRangeRepValidationStatus =>
+      rangeRepDiagnostics?.lastValidationStatus;
+
+  List<String> get lastRangeRepValidationReasons =>
+      rangeRepDiagnostics?.lastValidationReasons ?? const <String>[];
 
   String? get currentSelectedSide => rangeRepDiagnostics?.currentSelectedSide;
 
@@ -316,6 +439,15 @@ class WorkoutDiagnosticsSnapshot {
     'app_commit_sha': appCommitSha,
     'build_mode': buildMode,
     'analysis_kind': analysisKind,
+    'exercise_type': exerciseType,
+    'config_asset_path': configAssetPath,
+    'config_version_fingerprint': configVersionFingerprint,
+    'contract_profile': contractProfile,
+    'range_rep_side_mode': rangeRepSideMode,
+    'range_rep_primary_metric_kind': rangeRepPrimaryMetricKind,
+    'range_rep_primary_metric_direction': rangeRepPrimaryMetricDirection,
+    'hold_analysis_family': holdAnalysisFamily,
+    'hold_variation': holdVariation,
     'session_started_at': sessionStartedAt.toIso8601String(),
     'snapshot_created_at': snapshotCreatedAt.toIso8601String(),
     'elapsed_ms': elapsedMs,
@@ -340,15 +472,46 @@ class WorkoutDiagnosticsSnapshot {
     'brief_occlusion_recovery_count': briefOcclusionRecoveryCount,
     'brief_occlusion_abort_count': briefOcclusionAbortCount,
     'last_pose_rejection_reason': lastPoseRejectionReason,
+    'pose_rejection_reason_counts': poseRejectionReasonCounts.isEmpty
+        ? null
+        : poseRejectionReasonCounts,
+    'pose_quality_sample_count': poseQualitySampleCount,
+    'minimum_required_likelihood_p05': minimumRequiredLikelihoodP05,
+    'minimum_required_likelihood_p50': minimumRequiredLikelihoodP50,
+    'mean_required_likelihood_p05': meanRequiredLikelihoodP05,
+    'mean_required_likelihood_p50': meanRequiredLikelihoodP50,
+    'pose_quality_score_p50': poseQualityScoreP50,
+    'pose_quality_score_p95': poseQualityScoreP95,
     'current_pose_quality_status': currentPoseQualityStatus,
     'current_visibility_status': currentVisibilityStatus,
     'camera_view_contract': _serializeCameraViewContract(cameraViewContract),
+    'camera_lens_direction': cameraLensDirection,
+    'sensor_orientation_degrees': sensorOrientationDegrees,
+    'device_orientation': deviceOrientation,
     'range_rep_signal_roles': _serializeRangeRepSignalRoles(
       rangeRepSignalRoles,
     ),
     'hold_signal_roles': _serializeHoldSignalRoles(holdSignalRoles),
     'side_switch_count': sideSwitchCount,
     'active_rep_side_switch_count': activeRepSideSwitchCount,
+    'active_rep_resync_count': activeRepResyncCount,
+    'range_rep_transition_count': rangeRepTransitionCount,
+    'range_rep_transition_counts': rangeRepTransitionCounts.isEmpty
+        ? null
+        : rangeRepTransitionCounts,
+    'range_rep_abort_count': rangeRepAbortCount,
+    'range_rep_validation_count': rangeRepValidationCount,
+    'range_rep_validation_status_counts': rangeRepValidationStatusCounts.isEmpty
+        ? null
+        : rangeRepValidationStatusCounts,
+    'range_rep_validation_reason_counts': rangeRepValidationReasonCounts.isEmpty
+        ? null
+        : rangeRepValidationReasonCounts,
+    'last_range_rep_confirmed_transition': lastRangeRepConfirmedTransition,
+    'last_range_rep_validation_status': lastRangeRepValidationStatus,
+    'last_range_rep_validation_reasons': lastRangeRepValidationReasons.isEmpty
+        ? null
+        : lastRangeRepValidationReasons,
     'current_selected_side': currentSelectedSide,
     'last_calibration_offset_degrees': lastCalibrationOffsetDegrees,
     'current_camera_fps': currentCameraFps,
@@ -394,11 +557,28 @@ class WorkoutDiagnosticsAccumulator {
   WorkoutDiagnosticsAccumulator({
     required DateTime sessionStartedAt,
     required String analysisKind,
+    required String exerciseType,
+    required String configAssetPath,
     required CameraViewContract cameraViewContract,
+    RangeRepContract? rangeRepContract,
+    HoldContract? holdContract,
     String appCommitSha = _defaultAppCommitSha,
     String? buildMode,
   }) : _appCommitSha = appCommitSha,
        _buildMode = buildMode ?? workoutDiagnosticsBuildMode,
+       _exerciseType = exerciseType,
+       _configAssetPath = configAssetPath,
+       _contractProfile = rangeRepContract != null
+           ? 'rangeRep:${rangeRepContract.extensionProfile.name}'
+           : holdContract != null
+           ? 'hold:${holdContract.family.name}'
+           : analysisKind,
+       _rangeRepSideMode = rangeRepContract?.sideMode.name,
+       _rangeRepPrimaryMetricKind = rangeRepContract?.primaryMetricKind.name,
+       _rangeRepPrimaryMetricDirection =
+           rangeRepContract?.primaryMetricDirection.name,
+       _holdAnalysisFamily = holdContract?.family.name,
+       _holdVariation = holdContract?.hollowHoldVariation?.variation.name,
        _cameraViewContract = cameraViewContract,
        _sessionStartedAt = sessionStartedAt,
        _analysisKind = analysisKind;
@@ -407,10 +587,22 @@ class WorkoutDiagnosticsAccumulator {
 
   final String _appCommitSha;
   final String _buildMode;
+  final String _exerciseType;
+  final String _configAssetPath;
+  final String _contractProfile;
+  final String? _rangeRepSideMode;
+  final String? _rangeRepPrimaryMetricKind;
+  final String? _rangeRepPrimaryMetricDirection;
+  final String? _holdAnalysisFamily;
+  final String? _holdVariation;
   final CameraViewContract _cameraViewContract;
   late DateTime _sessionStartedAt;
   late String _analysisKind;
   final List<int> _processingDurationMs = <int>[];
+  final List<double> _minimumRequiredLikelihoodSamples = <double>[];
+  final List<double> _meanRequiredLikelihoodSamples = <double>[];
+  final List<double> _poseQualityScoreSamples = <double>[];
+  final Map<String, int> _poseRejectionReasonCounts = <String, int>{};
 
   int _cameraFrameCount = 0;
   int _analysisAttemptCount = 0;
@@ -424,6 +616,7 @@ class WorkoutDiagnosticsAccumulator {
   int _rejectedPoseFrameCount = 0;
   int _lowConfidencePoseFrameCount = 0;
   int _invalidPoseGeometryFrameCount = 0;
+  int _poseQualitySampleCount = 0;
   int _multiPoseFrameCount = 0;
   int _maxPoseCount = 0;
   int _analysisExceptionCount = 0;
@@ -435,6 +628,9 @@ class WorkoutDiagnosticsAccumulator {
   String? _lastPoseRejectionReason;
   String _currentPoseQualityStatus = 'stable';
   String _currentVisibilityStatus = 'stable';
+  String? _cameraLensDirection;
+  int? _sensorOrientationDegrees;
+  String? _deviceOrientation;
   double? _currentCameraFps;
   double? _currentAnalysisFps;
   RangeRepWorkoutDiagnostics? _rangeRepDiagnostics;
@@ -447,7 +643,18 @@ class WorkoutDiagnosticsAccumulator {
   void recordReentrantDrop() => _reentrantDropCount++;
   void recordConverterDrop() => _converterDropCount++;
   void recordAnalysisException() => _analysisExceptionCount++;
-  void recordResync() => _resyncCount++;
+  void recordResync({bool hadActiveRepContext = false}) {
+    _resyncCount++;
+    if (!hadActiveRepContext) {
+      return;
+    }
+    final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
+    _rangeRepDiagnostics = previous.copyWith(
+      activeRepResyncCount: previous.activeRepResyncCount + 1,
+    );
+    _holdDiagnostics = null;
+  }
+
   void recordAcceptedPoseFrame() => _acceptedPoseFrameCount++;
   void recordPoseReacquisition() => _poseReacquisitionCount++;
   void recordBriefOcclusion() => _briefOcclusionCount++;
@@ -465,6 +672,25 @@ class WorkoutDiagnosticsAccumulator {
   void recordRejectedPose({required String rejectionReasonCode}) {
     _rejectedPoseFrameCount++;
     _lastPoseRejectionReason = rejectionReasonCode;
+    _poseRejectionReasonCounts.update(
+      rejectionReasonCode,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void recordPoseQualitySample({
+    double? minimumRequiredLikelihood,
+    double? meanRequiredLikelihood,
+    required double qualityScore,
+  }) {
+    _poseQualitySampleCount++;
+    _appendFiniteSample(
+      _minimumRequiredLikelihoodSamples,
+      minimumRequiredLikelihood,
+    );
+    _appendFiniteSample(_meanRequiredLikelihoodSamples, meanRequiredLikelihood);
+    _appendFiniteSample(_poseQualityScoreSamples, qualityScore);
   }
 
   void recordLowConfidencePose() => _lowConfidencePoseFrameCount++;
@@ -483,6 +709,61 @@ class WorkoutDiagnosticsAccumulator {
 
   void updateVisibilityStatus(String status) {
     _currentVisibilityStatus = status;
+  }
+
+  void updateCameraRuntimeContext({
+    required int sensorOrientationDegrees,
+    String? cameraLensDirection,
+    String? deviceOrientation,
+  }) {
+    _sensorOrientationDegrees = sensorOrientationDegrees;
+    if (cameraLensDirection != null) {
+      _cameraLensDirection = cameraLensDirection;
+    }
+    if (deviceOrientation != null) {
+      _deviceOrientation = deviceOrientation;
+    }
+  }
+
+  void recordRangeRepTransition(String transitionCode) {
+    final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
+    final transitionCounts = Map<String, int>.from(previous.transitionCounts);
+    transitionCounts.update(
+      transitionCode,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    _rangeRepDiagnostics = previous.copyWith(
+      transitionCount: previous.transitionCount + 1,
+      abortCount:
+          previous.abortCount + (transitionCode == 'abortToNeutral' ? 1 : 0),
+      transitionCounts: transitionCounts,
+      lastConfirmedTransition: transitionCode,
+    );
+    _holdDiagnostics = null;
+  }
+
+  void recordRangeRepValidation({
+    required String statusCode,
+    required List<String> reasonCodes,
+  }) {
+    final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
+    final statusCounts = Map<String, int>.from(previous.validationStatusCounts);
+    statusCounts.update(statusCode, (count) => count + 1, ifAbsent: () => 1);
+
+    final reasonCounts = Map<String, int>.from(previous.validationReasonCounts);
+    for (final reasonCode in reasonCodes) {
+      reasonCounts.update(reasonCode, (count) => count + 1, ifAbsent: () => 1);
+    }
+
+    _rangeRepDiagnostics = previous.copyWith(
+      validationCount: previous.validationCount + 1,
+      validationStatusCounts: statusCounts,
+      validationReasonCounts: reasonCounts,
+      lastValidationStatus: statusCode,
+      lastValidationReasons: reasonCodes,
+    );
+    _holdDiagnostics = null;
   }
 
   /// The first non-null side is an assignment, not a switch. Repeating a side
@@ -586,11 +867,25 @@ class WorkoutDiagnosticsAccumulator {
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
+    final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples.toList()
+      ..sort();
+    final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.toList()
+      ..sort();
+    final sortedQualityScores = _poseQualityScoreSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 5,
+      schemaVersion: 6,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
+      exerciseType: _exerciseType,
+      configAssetPath: _configAssetPath,
+      configVersionFingerprint: '$_configAssetPath@$_appCommitSha',
+      contractProfile: _contractProfile,
+      rangeRepSideMode: _rangeRepSideMode,
+      rangeRepPrimaryMetricKind: _rangeRepPrimaryMetricKind,
+      rangeRepPrimaryMetricDirection: _rangeRepPrimaryMetricDirection,
+      holdAnalysisFamily: _holdAnalysisFamily,
+      holdVariation: _holdVariation,
       sessionStartedAt: _sessionStartedAt,
       snapshotCreatedAt: now,
       elapsedMs: now.difference(_sessionStartedAt).inMilliseconds,
@@ -615,9 +910,34 @@ class WorkoutDiagnosticsAccumulator {
       briefOcclusionRecoveryCount: _briefOcclusionRecoveryCount,
       briefOcclusionAbortCount: _briefOcclusionAbortCount,
       lastPoseRejectionReason: _lastPoseRejectionReason,
+      poseRejectionReasonCounts: Map<String, int>.unmodifiable(
+        _poseRejectionReasonCounts,
+      ),
+      poseQualitySampleCount: _poseQualitySampleCount,
+      minimumRequiredLikelihoodP05: _nearestRankDouble(
+        sortedMinimumLikelihoods,
+        0.05,
+      ),
+      minimumRequiredLikelihoodP50: _nearestRankDouble(
+        sortedMinimumLikelihoods,
+        0.50,
+      ),
+      meanRequiredLikelihoodP05: _nearestRankDouble(
+        sortedMeanLikelihoods,
+        0.05,
+      ),
+      meanRequiredLikelihoodP50: _nearestRankDouble(
+        sortedMeanLikelihoods,
+        0.50,
+      ),
+      poseQualityScoreP50: _nearestRankDouble(sortedQualityScores, 0.50),
+      poseQualityScoreP95: _nearestRankDouble(sortedQualityScores, 0.95),
       currentPoseQualityStatus: _currentPoseQualityStatus,
       currentVisibilityStatus: _currentVisibilityStatus,
       cameraViewContract: _cameraViewContract,
+      cameraLensDirection: _cameraLensDirection,
+      sensorOrientationDegrees: _sensorOrientationDegrees,
+      deviceOrientation: _deviceOrientation,
       rangeRepDiagnostics: _rangeRepDiagnostics,
       holdDiagnostics: _holdDiagnostics,
       currentCameraFps: _currentCameraFps,
@@ -634,6 +954,10 @@ class WorkoutDiagnosticsAccumulator {
     _sessionStartedAt = now;
     _analysisKind = analysisKind;
     _processingDurationMs.clear();
+    _minimumRequiredLikelihoodSamples.clear();
+    _meanRequiredLikelihoodSamples.clear();
+    _poseQualityScoreSamples.clear();
+    _poseRejectionReasonCounts.clear();
     _cameraFrameCount = 0;
     _analysisAttemptCount = 0;
     _analysisCompletedCount = 0;
@@ -646,6 +970,7 @@ class WorkoutDiagnosticsAccumulator {
     _rejectedPoseFrameCount = 0;
     _lowConfidencePoseFrameCount = 0;
     _invalidPoseGeometryFrameCount = 0;
+    _poseQualitySampleCount = 0;
     _multiPoseFrameCount = 0;
     _maxPoseCount = 0;
     _analysisExceptionCount = 0;
@@ -657,6 +982,9 @@ class WorkoutDiagnosticsAccumulator {
     _lastPoseRejectionReason = null;
     _currentPoseQualityStatus = 'stable';
     _currentVisibilityStatus = 'stable';
+    _cameraLensDirection = null;
+    _sensorOrientationDegrees = null;
+    _deviceOrientation = null;
     _currentCameraFps = null;
     _currentAnalysisFps = null;
     _rangeRepDiagnostics = null;
@@ -670,6 +998,25 @@ class WorkoutDiagnosticsAccumulator {
       sortedValues.length,
     );
     return sortedValues[rank - 1];
+  }
+
+  double? _nearestRankDouble(List<double> sortedValues, double percentile) {
+    if (sortedValues.isEmpty) return null;
+    final rank = (percentile * sortedValues.length).ceil().clamp(
+      1,
+      sortedValues.length,
+    );
+    return sortedValues[rank - 1];
+  }
+
+  void _appendFiniteSample(List<double> samples, double? value) {
+    if (value == null || !value.isFinite) {
+      return;
+    }
+    if (samples.length == maxProcessingDurationSamples) {
+      samples.removeAt(0);
+    }
+    samples.add(value);
   }
 }
 

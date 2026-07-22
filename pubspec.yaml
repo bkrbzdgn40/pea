@@ -36,6 +36,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   fl_chart: ^1.2.0
   url_launcher: ^6.3.2
+  share_plus: ^10.1.4
 
   # Canlı Kamera Akışı ve İzinler
   camera: ^0.10.5+8
@@ -45,7 +46,7 @@ dependencies:
   flutter_tts: ^4.2.5
 
   # Yapay Zeka / Pose Estimation (İlerleyen adım için hazır tutuyoruz)
-  google_mlkit_pose_detection: ^0.14.1
+  google_mlkit_pose_detection: ^0.15.0
 
   # Firebase
   firebase_core: ^3.8.0
