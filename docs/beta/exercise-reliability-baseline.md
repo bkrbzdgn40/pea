@@ -7,7 +7,8 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 ## 1. Kanıt Durumu Sözlüğü
 
 - `Historical Device-Verified`: Tarihsel beta hardening programında gerçek cihaz baseline ve dataset değerlendirmesi bulunan hareket.
-- `Validation Pending`: Production analiz wiring'i ve otomatik test desteği bulunan, ancak tarihsel G6/G7 cihaz kanıtını otomatik olarak devralmayan hareket.
+- `R5 Engineering Revalidated`: Diagnostics schema v6, SHA-pinned profile build ve gerçek cihaz regression run'larıyla yeniden doğrulanmış hareket. Bu statü, önceden tanımlanan formal R5 run adetlerinin eksiksiz uygulandığı anlamına gelmez; protokol sapmaları closure kaydında açıkça tutulur.
+- `Validation Pending`: Production analiz wiring'i ve otomatik test desteği bulunan, ancak exercise-specific güncel cihaz kanıtı bulunmayan hareket.
 
 `Validation Pending`, hareketin bozuk olduğu anlamına gelmez. Yalnızca gerçek cihaz kabul kanıtının henüz bu baseline içinde kurulmadığını ifade eder.
 
@@ -16,20 +17,20 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- Tarihsel gerçek cihaz kanıtı bulunan: **3**
+- R5 engineering revalidation ile güncel cihaz regression kanıtı bulunan: **3**
 - Ayrı exercise-specific cihaz validation bekleyen: **15**
 
-Tarihsel device-validation kapsamı yalnız **Squat, Push-up ve Plank** için kanıtlanmıştır. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. R5 execution, önceden tanımlanan bazı formal run adetlerinden sapmıştır; bu nedenle statü `R5 Engineering Revalidated` olarak tutulur ve formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
 | Egzersiz | Runtime engine | Side / family | Primary metric yönü | Tercih edilen kamera | Device evidence |
 | --- | --- | --- | --- | --- | --- |
-| Squat | `rangeRep` | selected-side | decreasing-to-peak | side | Historical Device-Verified |
-| Plank | `hold` | plank family | n/a | side | Historical Device-Verified |
+| Squat | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
+| Plank | `hold` | plank family | n/a | side | R5 Engineering Revalidated |
 | Hollow Hold | `hold` | hollow-hold family | n/a | side | Validation Pending |
 | Stationary Lunge | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Push-up | `rangeRep` | selected-side | decreasing-to-peak | side | Historical Device-Verified |
+| Push-up | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Sit-up | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | Validation Pending |
 | Lying Leg Raise | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
@@ -193,14 +194,30 @@ R5 run'ları SHA-pinned profile build ile yapılmalıdır. `app_commit_sha == un
 
 R5 production threshold veya analiz engine semantiğini değiştirmez. Fail sonucu önce camera/setup, pose-quality, metric, lifecycle, side, occlusion, persistence veya performance sınıfına ayrılır; sonra minimum doğru katmana müdahale edilir.
 
+### R5 closure durumu
+
+R5 engineering revalidation, commit `f56d921c5e4a6672f3881d5408a0d81302051965` üzerinde profile build ile tamamlandı. Squat, Push-up ve Plank için positive, negative, partial/lifecycle, persistence ve performans davranışları gerçek cihazda yeniden doğrulandı. Ayrıntılı kanıt `docs/beta/r5-control-group-results.md` dosyasındadır.
+
+Önceden tanımlanan formal protokol ile gerçek execution arasında planlı run adedi sapmaları vardır: 20 yerine 12 kontrollü range-rep, 10 yerine 5 partial deneme ve bazı occlusion/lifecycle senaryolarında 3 yerine tek kontrollü run uygulanmıştır. Bu nedenle closure sonucu **`R5 Engineering Revalidated`** olarak kaydedilir; **formal protocol-complete** olarak adlandırılmaz.
+
+R5 sırasında üç açık engineering bulgusu kaydedildi:
+
+1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği.
+2. Static Plank/form-break koşulunda gözlenen camera autofocus hunting.
+3. Push-up positive run'da 12 rep'in 9'unun `excessiveDescentSpeed` nedeniyle `lowConfidence` işaretlenmesi.
+
+Bu bulguların sahipliği ve exit kriterleri `docs/beta/r5-control-group-findings.md` dosyasında tutulur.
+
 ## 10. Sonraki Adım
 
-R5 kontrol grubu yeniden doğrulandıktan sonra R6 kapsamında Dalga A cihaz validation'ına geçilir:
+R6 kapsamında Dalga A cihaz validation'ına geçilir:
 
 1. Biceps Curl
 2. Hollow Hold
 3. Lateral Raise
 4. Front Raise
 5. Wall Sit
+
+Hold ailesinin occlusion/recovery kanıtını yorumlamadan önce hold visibility telemetry açığı kapatılmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
 
 Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.

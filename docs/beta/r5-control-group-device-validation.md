@@ -153,3 +153,30 @@ R5 sonucu threshold tuning gerekçesi değildir. Bir FAIL varsa önce şu sını
 - performance.
 
 Sonra yalnız kanıtlanan failure sınıfına minimum değişiklik yapılır.
+
+## 10. 2026-07-22 Execution Closure
+
+R5 gerçek cihaz execution'ı commit `f56d921c5e4a6672f3881d5408a0d81302051965` üzerinde `profile` build ile yürütüldü. Diagnostics JSON'larında build SHA, config fingerprint ve run-level performans telemetry'si doğrulandı.
+
+Engineering sonucu:
+
+- Squat: counting, static negative, partial-motion safety, controlled brief occlusion, pause/resume, persistence ve performance davranışları olumlu.
+- Push-up: counting, static negative, partial-motion safety, controlled brief occlusion, pause/resume, persistence ve performance davranışları olumlu.
+- Plank: valid hold timing, invalid posture rejection, long-occlusion safety, permanent form break, pause/resume, persistence ve performance davranışları olumlu.
+
+Bu execution, bu belgede önceden tanımlanan bütün run adetlerini birebir uygulamamıştır. Özellikle:
+
+- range-rep positive run'ları 20 yerine 12 ground-truth rep ile yürütüldü,
+- partial-motion run'ları 10 yerine 5 deneme ile yürütüldü,
+- bazı occlusion ve lifecycle senaryoları 3 tekrar yerine tek kontrollü run ile yürütüldü.
+
+Bu nedenle sonuç **formal protocol-complete PASS** değildir. Kapanış statüsü **`R5 Engineering Revalidated - protocol deviations documented`** olarak tutulur.
+
+Brief Plank occlusion sırasında fonksiyonel continuity olumlu görünmesine rağmen mevcut Diagnostics v6, hold visibility suspend/recovery/abort geçmişini session-level sayaçlarla taşımadığı için bu alt senaryo formal olarak `NOT_MEASURABLE` kabul edilir. Bu telemetry açığı R6 hold-family validation öncesi kapatılmalıdır.
+
+Tam sonuç özeti:
+
+- `docs/beta/r5-control-group-results.md`
+- `docs/beta/r5-control-group-findings.md`
+
+`r5-control-group-results-template.csv` planlanan protokol şablonu olarak korunur; gerçek execution sapmalarını gizlemek için geriye dönük olarak doldurulmaz veya run ID anlamı değiştirilmez.
