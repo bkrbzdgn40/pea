@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/data/exercise_guide_catalog.dart';
 
@@ -68,8 +69,20 @@ void main() {
         expect(bicepsDefinition.analysisEngineKind.name, 'rangeRep');
         expect(bicepsContent.type, ExerciseType.bicepsCurl);
         expect(
+          bicepsDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          bicepsDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
           bicepsContent.setupSteps.join(' '),
-          contains('30-45 derece çapraz açıyla'),
+          contains('kamerayı doğrudan karşıdan'),
         );
         expect(
           bicepsContent.tips.join(' '),

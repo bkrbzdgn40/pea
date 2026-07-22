@@ -221,3 +221,11 @@ R6 kapsamında Dalga A cihaz validation'ına geçilir:
 Hold ailesinin occlusion/recovery kanıtını yorumlamadan önce hold visibility telemetry açığı kapatılmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
 
 Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
+
+## 11. R6 Dalga A Başlangıcı
+
+R6 Dalga A'nın ilk exercise-specific cihaz validation hedefi Biceps Curl'dür. Protokol `docs/beta/r6-wave-a-biceps-curl-device-validation.md`, canlı execution kaydı ise `docs/beta/r6-wave-a-run-manifest.csv` dosyasında tutulur.
+
+Biceps Curl validation başlamadan önce setup rehberi production camera contract ile hizalanmıştır: `front` preferred, `side` unsupported. Önceki 30-45 derece çapraz kamera önerisi kaldırılmıştır. Bu değişiklik engine threshold'larını veya bilateral counting semantiğini değiştirmez; yalnız test ve kullanıcı kurulumunun gerçek analysis contract ile aynı olmasını sağlar.
+
+Biceps Curl matrix statüsü cihaz run'ları tamamlanana kadar `Validation Pending` olarak kalır.

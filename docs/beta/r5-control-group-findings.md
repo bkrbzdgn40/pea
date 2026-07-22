@@ -109,3 +109,7 @@ Run ID anlamını execution sonrasında geriye dönük değiştirme.
 ### Exit kriteri
 
 R6 Dalga A closure'ında planlanan ve gerçek execution arasındaki fark tek sonuç dosyasından açıkça görülebilmeli.
+
+### R6 uygulama durumu
+
+Biceps Curl validation hazırlığında `docs/beta/r6-wave-a-run-manifest.csv` canlı manifesti eklenmiştir. Planlanan ve gerçek execution adetleri ayrı kolonlarda tutulur; `deviation_reason` alanı run ID anlamını geriye dönük değiştirmeden protokol sapmasını kaydeder. F4 process hardening maddesi R6 execution için uygulanmıştır; closure'da manifestin eksiksiz doldurulduğu ayrıca doğrulanacaktır.

@@ -179,7 +179,7 @@ const exerciseGuideContents = [
     setupSteps: [
       'Ayakta dengeli dur ve iki kolunu başlangıçta aşağıda uzat.',
       'Omuz, dirsek, bilek ve kalçaların kadrajda net görünmesini sağla.',
-      'İlk kalibrasyon için kamerayı yaklaşık 30-45 derece çapraz açıyla yerleştir.',
+      'İlk kalibrasyon için kamerayı doğrudan karşıdan, iki kol ve kalçaların birlikte görüneceği şekilde yerleştir.',
       'Hareket boyunca iki kolun birlikte başlayıp birlikte bitmesine hazırlan.',
     ],
     tips: [
