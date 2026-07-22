@@ -91,6 +91,46 @@ void main() {
       },
     );
 
+    test(
+      'lateral raise guide stays aligned with the bilateral front-view contract',
+      () {
+        final lateralDefinition = analysisCatalog.definitionFor(
+          ExerciseType.lateralRaise,
+        );
+        final lateralContent = guideCatalog.contentFor(
+          ExerciseType.lateralRaise,
+        );
+
+        expect(lateralDefinition.isAnalysisSupported, isTrue);
+        expect(lateralDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(lateralContent.type, ExerciseType.lateralRaise);
+        expect(
+          lateralDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          lateralDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          lateralContent.setupSteps.join(' '),
+          contains('Kameraya önden bak'),
+        );
+        expect(
+          lateralContent.setupSteps.join(' '),
+          contains('iki omuz-dirsek-bilek hattını kadraja al'),
+        );
+        expect(
+          lateralContent.tips.join(' '),
+          contains('Omuz hizası civarında'),
+        );
+      },
+    );
+
     test('hollow hold guide stays available on the canonical hold owner', () {
       final hollowDefinition = analysisCatalog.definitionFor(
         ExerciseType.hollowHold,

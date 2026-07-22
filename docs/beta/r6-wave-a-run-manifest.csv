@@ -15,3 +15,12 @@ R6-HH-VALID-30,hollow_hold,VALID-HOLD,30s,30s,,,,,,,036a81f4b65dbd78fb197e5a6f80
 R6-HH-FORM-BREAK,hollow_hold,INVALID-FORM-BREAK,1 cycle,1 cycle,,,,,,,036a81f4b65dbd78fb197e5a6f807c7178d90da0,profile,diagnostics_v6_hollow_hold_20260722_170450.json,19,7.9761,91,0,,,PASS,,best=4 current=0 final=BROKEN feedback=straighten_knees.
 R6-HH-LIFE,hollow_hold,PAUSE-RESUME,1 cycle,1 cycle,,,,,,,036a81f4b65dbd78fb197e5a6f807c7178d90da0,profile,diagnostics_v6_hollow_hold_20260722_170540.json,12,7.8278,80,0,,,PASS,,best=5 current=3 final=HOLDING.
 R6-HH-PERSIST,hollow_hold,PERSISTENCE,10s,10s,,,,10s,,,036a81f4b65dbd78fb197e5a6f807c7178d90da0,profile,,,,,,,,PASS,User-verified persistence; storage surfaces not separately represented in diagnostics.,10-second persisted Hollow Hold confirmed by user.
+R6-LR-PREFLIGHT-1,lateral_raise,PREFLIGHT,1,,,,,,,,,,,,,,,,,,,1 clean bilateral raise; verify profile/SHA/config/contract.
+R6-LR-POS-20,lateral_raise,POS-CONTROLLED,20,,,,,,,,,,,,,,,,,,,20 controlled full bilateral raises to shoulder height.
+R6-LR-STATIC-30,lateral_raise,STATIC-NEGATIVE,30s,,0,,,,,,,,,,,,,,,,,Arms remain at neutral; expect 0 phantom rep.
+R6-LR-PARTIAL-10,lateral_raise,PARTIAL-MOTION,10,,0,,,,,,,,,,,,,,,,,10 shallow bilateral raises turning around near 50-65 degrees; expect 0 completed rep.
+R6-LR-ONE-ARM-10,lateral_raise,ONE-ARM-NEGATIVE,10,,0,,,,,,,,,,,,,,,,,Only one arm reaches shoulder height; expect 0 completed bilateral rep.
+R6-LR-FORM-5,lateral_raise,FORM-VIOLATION,5,,5,,,,,,,,,,,,,,,,,Five full raises with deliberately bent elbows; inspect form violation/low-confidence or corrective feedback.
+R6-LR-OCC-3,lateral_raise,OCCLUSION,3,,,,,,,,,,,,,,,,,,,Three controlled short occlusion cycles during active reps; no phantom/auto-complete.
+R6-LR-LIFE-3,lateral_raise,LIFECYCLE,3,,,,,,,,,,,,,,,,,,,Three pause/resume cycles; no phantom rep and safe reacquisition.
+R6-LR-PERSIST,lateral_raise,PERSISTENCE,5,,5,,,5,5,5,,,,,,,,,,,,Five clean raises; verify Live = Summary = History = 5.
