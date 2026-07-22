@@ -220,6 +220,51 @@ void main() {
     expect(snapshot.currentVisibilityStatus, 'brief_freeze');
   });
 
+  test(
+    'records hold visibility lifecycle telemetry with completed gap time',
+    () {
+      final subject = WorkoutDiagnosticsAccumulator(
+        sessionStartedAt: startedAt,
+        analysisKind: 'hold',
+        exerciseType: 'plank',
+        configAssetPath: 'assets/config/exercises/plank.json',
+        cameraViewContract: sideViewContract,
+        holdContract: HoldContracts.plankFamily,
+        appCommitSha: 'abc123',
+        buildMode: 'debug',
+      )..recordHoldVisibilitySuspend();
+
+      final openGapSnapshot = subject.snapshot(now: startedAt);
+      expect(openGapSnapshot.holdVisibilitySuspendCount, 1);
+      expect(openGapSnapshot.holdVisibilitySuspendedMsTotal, 0);
+      expect(openGapSnapshot.lastHoldVisibilityGapMs, isNull);
+
+      subject
+        ..recordHoldVisibilityRecovery(const Duration(milliseconds: 400))
+        ..recordHoldVisibilitySuspend()
+        ..recordHoldVisibilityAbort(const Duration(milliseconds: 1500));
+
+      final snapshot = subject.snapshot(now: startedAt);
+      final json = snapshot.toJson();
+
+      expect(snapshot.holdVisibilitySuspendCount, 2);
+      expect(snapshot.holdVisibilityRecoveryCount, 1);
+      expect(snapshot.holdVisibilityAbortCount, 1);
+      expect(snapshot.holdVisibilitySuspendedMsTotal, 1900);
+      expect(snapshot.lastHoldVisibilityGapMs, 1500);
+      expect(json['hold_visibility_suspend_count'], 2);
+      expect(json['hold_visibility_recovery_count'], 1);
+      expect(json['hold_visibility_abort_count'], 1);
+      expect(json['hold_visibility_suspended_ms_total'], 1900);
+      expect(json['last_hold_visibility_gap_ms'], 1500);
+      expect(
+        () =>
+            subject.recordHoldVisibilityAbort(const Duration(milliseconds: -1)),
+        throwsArgumentError,
+      );
+    },
+  );
+
   test('records exception and resync separately', () {
     final subject = accumulator()
       ..recordAnalysisException()
@@ -652,6 +697,8 @@ void main() {
       )
       ..recordProcessingDuration(const Duration(milliseconds: 20))
       ..recordLivePerformanceSample(cameraFps: 30, analysisFps: 7)
+      ..recordHoldVisibilitySuspend()
+      ..recordHoldVisibilityRecovery(const Duration(milliseconds: 500))
       ..updateHoldState(
         currentHoldSeconds: 5,
         bestHoldSeconds: 5,
@@ -685,6 +732,11 @@ void main() {
     expect(snapshot.cameraFpsP95, isNull);
     expect(snapshot.analysisFpsP50, isNull);
     expect(snapshot.analysisFpsP95, isNull);
+    expect(snapshot.holdVisibilitySuspendCount, 0);
+    expect(snapshot.holdVisibilityRecoveryCount, 0);
+    expect(snapshot.holdVisibilityAbortCount, 0);
+    expect(snapshot.holdVisibilitySuspendedMsTotal, 0);
+    expect(snapshot.lastHoldVisibilityGapMs, isNull);
     expect(snapshot.poseRejectionReasonCounts, isEmpty);
     expect(snapshot.poseQualitySampleCount, 0);
     expect(snapshot.cameraLensDirection, isNull);
@@ -743,6 +795,11 @@ void main() {
     expect(json['hold_are_legs_extended'], isNull);
     expect(json['hold_is_form_break_grace_active'], isNull);
     expect(json['hold_is_visibility_suspended'], isNull);
+    expect(json['hold_visibility_suspend_count'], isNull);
+    expect(json['hold_visibility_recovery_count'], isNull);
+    expect(json['hold_visibility_abort_count'], isNull);
+    expect(json['hold_visibility_suspended_ms_total'], isNull);
+    expect(json['last_hold_visibility_gap_ms'], isNull);
     expect(() => jsonEncode(json), returnsNormally);
     expect(
       json.keys,

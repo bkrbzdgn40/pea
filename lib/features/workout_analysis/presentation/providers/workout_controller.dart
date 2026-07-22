@@ -911,6 +911,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       return;
     }
 
+    if (update.recordHoldVisibilitySuspend) {
+      _diagnostics.recordHoldVisibilitySuspend();
+    }
+    if (update.recordHoldVisibilityRecovery) {
+      _diagnostics.recordHoldVisibilityRecovery(
+        update.holdVisibilityGapDuration,
+      );
+    }
+    if (update.recordHoldVisibilityAbort) {
+      _diagnostics.recordHoldVisibilityAbort(update.holdVisibilityGapDuration);
+    }
     if (update.recordPoseReacquisition) {
       _diagnostics.recordPoseReacquisition();
     }

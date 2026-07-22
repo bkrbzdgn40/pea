@@ -2319,6 +2319,13 @@ void main() {
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
     expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
     expect(state.holdEnginePhase, HoldPhase.holding);
+
+    final diagnostics = controller.diagnosticsSnapshot();
+    expect(diagnostics.holdVisibilitySuspendCount, 1);
+    expect(diagnostics.holdVisibilityRecoveryCount, 1);
+    expect(diagnostics.holdVisibilityAbortCount, 0);
+    expect(diagnostics.holdVisibilitySuspendedMsTotal, greaterThan(0));
+    expect(diagnostics.lastHoldVisibilityGapMs, greaterThan(0));
   });
 
   test(
@@ -2369,6 +2376,16 @@ void main() {
       expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.hadHoldFormBreak, isFalse);
+
+      final diagnostics = controller.diagnosticsSnapshot();
+      expect(diagnostics.holdVisibilitySuspendCount, 1);
+      expect(diagnostics.holdVisibilityRecoveryCount, 0);
+      expect(diagnostics.holdVisibilityAbortCount, 1);
+      expect(
+        diagnostics.holdVisibilitySuspendedMsTotal,
+        greaterThanOrEqualTo(1200),
+      );
+      expect(diagnostics.lastHoldVisibilityGapMs, greaterThanOrEqualTo(1200));
     },
   );
 

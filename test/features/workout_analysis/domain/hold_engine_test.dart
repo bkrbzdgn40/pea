@@ -230,6 +230,7 @@ void main() {
       engine.update(_validHoldFrame());
 
       expect(result.disposition, HoldVisibilityResumeDisposition.resumed);
+      expect(result.gapDuration, const Duration(milliseconds: 200));
       expect(
         engine.diagnosticsSnapshot.currentHoldSeconds,
         closeTo(6.0, 0.001),
@@ -276,6 +277,7 @@ void main() {
       final result = gapControl.resumeAfterVisibilityGap();
 
       expect(result.disposition, HoldVisibilityResumeDisposition.ended);
+      expect(result.gapDuration, const Duration(milliseconds: 1200));
       expect(engine.phaseLabel, 'READY');
       expect(engine.feedbackCode, HoldFeedbackCode.preparePosition);
       expect(engine.diagnosticsSnapshot.phase, HoldPhase.ready);

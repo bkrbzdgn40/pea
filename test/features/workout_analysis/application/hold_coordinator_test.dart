@@ -165,6 +165,10 @@ void main() {
         expect(invalidResult.stateSnapshot.selectedHoldSide, HoldSide.right);
         expect(invalidResult.stateSnapshot.isHoldVisibilitySuspended, isTrue);
         expect(
+          invalidResult.diagnosticsUpdate.recordHoldVisibilitySuspend,
+          isTrue,
+        );
+        expect(
           invalidResult.stateSnapshot.holdFeedbackCode,
           HoldFeedbackCode.bodyNotVisible,
         );
@@ -186,6 +190,14 @@ void main() {
         );
         expect(resumedResult.stateSnapshot.isHoldVisibilitySuspended, isFalse);
         expect(resumedResult.diagnosticsUpdate.recordPoseReacquisition, isTrue);
+        expect(
+          resumedResult.diagnosticsUpdate.recordHoldVisibilityRecovery,
+          isTrue,
+        );
+        expect(
+          resumedResult.diagnosticsUpdate.holdVisibilityGapDuration,
+          const Duration(seconds: 1),
+        );
 
         clock.advance(const Duration(seconds: 1));
         final progressedResult = _processAcceptedHoldFrame(
@@ -209,7 +221,11 @@ void main() {
       clock.advance(const Duration(seconds: 5));
       _processAcceptedHoldFrame(coordinator, clock, side: HoldSide.left);
 
-      _processInvalidHoldFrame(coordinator, clock);
+      final invalidResult = _processInvalidHoldFrame(coordinator, clock);
+      expect(
+        invalidResult.diagnosticsUpdate.recordHoldVisibilitySuspend,
+        isTrue,
+      );
       clock.advance(const Duration(milliseconds: 1200));
 
       final endedResult = _processAcceptedHoldFrame(
@@ -227,6 +243,11 @@ void main() {
         HoldFeedbackCode.preparePosition,
       );
       expect(endedResult.stateSnapshot.holdEnginePhase, HoldPhase.ready);
+      expect(endedResult.diagnosticsUpdate.recordHoldVisibilityAbort, isTrue);
+      expect(
+        endedResult.diagnosticsUpdate.holdVisibilityGapDuration,
+        const Duration(milliseconds: 1200),
+      );
       expect(coordinator.requiredHoldSideForAssessment(), isNull);
     });
 

@@ -208,6 +208,11 @@ class WorkoutDiagnosticsSnapshot {
     this.briefOcclusionCount = 0,
     this.briefOcclusionRecoveryCount = 0,
     this.briefOcclusionAbortCount = 0,
+    this.holdVisibilitySuspendCount = 0,
+    this.holdVisibilityRecoveryCount = 0,
+    this.holdVisibilityAbortCount = 0,
+    this.holdVisibilitySuspendedMsTotal = 0,
+    this.lastHoldVisibilityGapMs,
     this.lastPoseRejectionReason,
     this.poseRejectionReasonCounts = const <String, int>{},
     this.poseQualitySampleCount = 0,
@@ -273,6 +278,11 @@ class WorkoutDiagnosticsSnapshot {
   final int briefOcclusionCount;
   final int briefOcclusionRecoveryCount;
   final int briefOcclusionAbortCount;
+  final int holdVisibilitySuspendCount;
+  final int holdVisibilityRecoveryCount;
+  final int holdVisibilityAbortCount;
+  final int holdVisibilitySuspendedMsTotal;
+  final int? lastHoldVisibilityGapMs;
   final String? lastPoseRejectionReason;
   final Map<String, int> poseRejectionReasonCounts;
   final int poseQualitySampleCount;
@@ -481,6 +491,21 @@ class WorkoutDiagnosticsSnapshot {
     'brief_occlusion_count': briefOcclusionCount,
     'brief_occlusion_recovery_count': briefOcclusionRecoveryCount,
     'brief_occlusion_abort_count': briefOcclusionAbortCount,
+    'hold_visibility_suspend_count': analysisKind == 'hold'
+        ? holdVisibilitySuspendCount
+        : null,
+    'hold_visibility_recovery_count': analysisKind == 'hold'
+        ? holdVisibilityRecoveryCount
+        : null,
+    'hold_visibility_abort_count': analysisKind == 'hold'
+        ? holdVisibilityAbortCount
+        : null,
+    'hold_visibility_suspended_ms_total': analysisKind == 'hold'
+        ? holdVisibilitySuspendedMsTotal
+        : null,
+    'last_hold_visibility_gap_ms': analysisKind == 'hold'
+        ? lastHoldVisibilityGapMs
+        : null,
     'last_pose_rejection_reason': lastPoseRejectionReason,
     'pose_rejection_reason_counts': poseRejectionReasonCounts.isEmpty
         ? null
@@ -642,6 +667,11 @@ class WorkoutDiagnosticsAccumulator {
   int _briefOcclusionCount = 0;
   int _briefOcclusionRecoveryCount = 0;
   int _briefOcclusionAbortCount = 0;
+  int _holdVisibilitySuspendCount = 0;
+  int _holdVisibilityRecoveryCount = 0;
+  int _holdVisibilityAbortCount = 0;
+  int _holdVisibilitySuspendedMsTotal = 0;
+  int? _lastHoldVisibilityGapMs;
   String? _lastPoseRejectionReason;
   String _currentPoseQualityStatus = 'stable';
   String _currentVisibilityStatus = 'stable';
@@ -677,6 +707,31 @@ class WorkoutDiagnosticsAccumulator {
   void recordBriefOcclusion() => _briefOcclusionCount++;
   void recordBriefOcclusionRecovery() => _briefOcclusionRecoveryCount++;
   void recordBriefOcclusionAbort() => _briefOcclusionAbortCount++;
+
+  void recordHoldVisibilitySuspend() => _holdVisibilitySuspendCount++;
+
+  void recordHoldVisibilityRecovery(Duration gapDuration) {
+    _recordCompletedHoldVisibilityGap(gapDuration);
+    _holdVisibilityRecoveryCount++;
+  }
+
+  void recordHoldVisibilityAbort(Duration gapDuration) {
+    _recordCompletedHoldVisibilityGap(gapDuration);
+    _holdVisibilityAbortCount++;
+  }
+
+  void _recordCompletedHoldVisibilityGap(Duration gapDuration) {
+    if (gapDuration.isNegative) {
+      throw ArgumentError.value(
+        gapDuration,
+        'gapDuration',
+        'Must not be negative',
+      );
+    }
+    final gapMs = gapDuration.inMilliseconds;
+    _holdVisibilitySuspendedMsTotal += gapMs;
+    _lastHoldVisibilityGapMs = gapMs;
+  }
 
   void recordPoseCount(int poseCount) {
     if (poseCount < 0) throw ArgumentError.value(poseCount, 'poseCount');
@@ -950,6 +1005,11 @@ class WorkoutDiagnosticsAccumulator {
       briefOcclusionCount: _briefOcclusionCount,
       briefOcclusionRecoveryCount: _briefOcclusionRecoveryCount,
       briefOcclusionAbortCount: _briefOcclusionAbortCount,
+      holdVisibilitySuspendCount: _holdVisibilitySuspendCount,
+      holdVisibilityRecoveryCount: _holdVisibilityRecoveryCount,
+      holdVisibilityAbortCount: _holdVisibilityAbortCount,
+      holdVisibilitySuspendedMsTotal: _holdVisibilitySuspendedMsTotal,
+      lastHoldVisibilityGapMs: _lastHoldVisibilityGapMs,
       lastPoseRejectionReason: _lastPoseRejectionReason,
       poseRejectionReasonCounts: Map<String, int>.unmodifiable(
         _poseRejectionReasonCounts,
@@ -1027,6 +1087,11 @@ class WorkoutDiagnosticsAccumulator {
     _briefOcclusionCount = 0;
     _briefOcclusionRecoveryCount = 0;
     _briefOcclusionAbortCount = 0;
+    _holdVisibilitySuspendCount = 0;
+    _holdVisibilityRecoveryCount = 0;
+    _holdVisibilityAbortCount = 0;
+    _holdVisibilitySuspendedMsTotal = 0;
+    _lastHoldVisibilityGapMs = null;
     _lastPoseRejectionReason = null;
     _currentPoseQualityStatus = 'stable';
     _currentVisibilityStatus = 'stable';

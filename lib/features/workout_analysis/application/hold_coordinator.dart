@@ -74,11 +74,19 @@ class HoldCoordinatorDiagnosticsUpdate {
     required this.visibilityStatus,
     this.recordAcceptedPoseFrame = false,
     this.recordPoseReacquisition = false,
+    this.recordHoldVisibilitySuspend = false,
+    this.recordHoldVisibilityRecovery = false,
+    this.recordHoldVisibilityAbort = false,
+    this.holdVisibilityGapDuration = Duration.zero,
   });
 
   final String visibilityStatus;
   final bool recordAcceptedPoseFrame;
   final bool recordPoseReacquisition;
+  final bool recordHoldVisibilitySuspend;
+  final bool recordHoldVisibilityRecovery;
+  final bool recordHoldVisibilityAbort;
+  final Duration holdVisibilityGapDuration;
 }
 
 class HoldCoordinatorFrameResult {
@@ -309,9 +317,10 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   }) {
     _resetExerciseSpecificTechnique();
     final lockedHoldSide = requiredHoldSideForAssessment();
-    if (lockedHoldSide != null) {
-      _beginHoldVisibilityGap();
-    } else {
+    final didBeginHoldVisibilityGap = lockedHoldSide != null
+        ? _beginHoldVisibilityGap()
+        : false;
+    if (lockedHoldSide == null) {
       _resetHoldSideSelection();
     }
 
@@ -337,8 +346,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           targetSignalValues: holdDiagnostics.targetSignalValues,
         ),
       ),
-      diagnosticsUpdate: const HoldCoordinatorDiagnosticsUpdate(
+      diagnosticsUpdate: HoldCoordinatorDiagnosticsUpdate(
         visibilityStatus: 'invalid_input',
+        recordHoldVisibilitySuspend: didBeginHoldVisibilityGap,
       ),
     );
   }
@@ -380,6 +390,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           visibilityStatus: 'stable',
           recordAcceptedPoseFrame: true,
           recordPoseReacquisition: shouldRecordPoseReacquisition,
+          recordHoldVisibilityAbort: true,
+          holdVisibilityGapDuration: holdGapResult.gapDuration,
         ),
       );
       _hasAcceptedPoseForAnalysis = true;
@@ -433,6 +445,10 @@ class DefaultHoldCoordinator implements HoldCoordinator {
           visibilityStatus: 'stable',
           recordAcceptedPoseFrame: true,
           recordPoseReacquisition: shouldRecordPoseReacquisition,
+          recordHoldVisibilityRecovery:
+              holdGapResult.disposition ==
+              HoldVisibilityResumeDisposition.resumed,
+          holdVisibilityGapDuration: holdGapResult.gapDuration,
         ),
       );
       _hasAcceptedPoseForAnalysis = true;
@@ -582,11 +598,13 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     }
   }
 
-  void _beginHoldVisibilityGap() {
+  bool _beginHoldVisibilityGap() {
+    final wasSuspended = _holdDiagnosticsSnapshot().isVisibilitySuspended;
     if (_selectedHoldSide != null) {
       _briefGapFrozenHoldSide ??= _selectedHoldSide;
     }
     _engine.beginVisibilityGap();
+    return !wasSuspended && _holdDiagnosticsSnapshot().isVisibilitySuspended;
   }
 
   HoldVisibilityResumeResult _resumeHoldVisibilityGap() {

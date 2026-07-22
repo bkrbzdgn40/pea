@@ -203,7 +203,7 @@ R5 engineering revalidation, commit `f56d921c5e4a6672f3881d5408a0d81302051965` �
 
 R5 sırasında üç açık engineering bulgusu kaydedildi:
 
-1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği.
+1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği. R6 hold-family validation öncesi implementation hardening ile session-level suspend/recovery/abort ve gap-duration telemetry'si eklendi; real-device Plank telemetry smoke doğrulaması closure için beklenir.
 2. Static Plank/form-break koşulunda gözlenen camera autofocus hunting.
 3. Push-up positive run'da 12 rep'in 9'unun `excessiveDescentSpeed` nedeniyle `lowConfidence` işaretlenmesi.
 
@@ -213,13 +213,13 @@ Bu bulguların sahipliği ve exit kriterleri `docs/beta/r5-control-group-finding
 
 R6 Dalga A'da Biceps Curl engineering revalidation tamamlanmıştır. Sıradaki validation sırası:
 
-1. Hold visibility telemetry hardening
+1. Hold visibility telemetry hardening real-device Plank smoke
 2. Hollow Hold
 3. Lateral Raise
 4. Front Raise
 5. Wall Sit
 
-Hold ailesinin occlusion/recovery kanıtını yorumlamadan önce hold visibility telemetry açığı kapatılmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
+Hold visibility telemetry implementation'ı davranış motorunu değiştirmeden session-level lifecycle sayaçlarını ve tamamlanmış gap sürelerini Diagnostics schema v6 export'una ekler. Hollow Hold ve Wall Sit occlusion/recovery kanıtına geçmeden önce kısa ve uzun Plank visibility-gap smoke run'larıyla bu telemetry gerçek cihazda doğrulanmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
 
 Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
 

@@ -208,14 +208,16 @@ class HoldEngine
         _phase == HoldPhase.holding &&
         _holdStartedAt != null) {
       _holdStartedAt = _holdStartedAt!.add(gapDuration);
-      return const HoldVisibilityResumeResult(
+      return HoldVisibilityResumeResult(
         disposition: HoldVisibilityResumeDisposition.resumed,
+        gapDuration: gapDuration,
       );
     }
 
     _endHoldForVisibilityLoss();
-    return const HoldVisibilityResumeResult(
+    return HoldVisibilityResumeResult(
       disposition: HoldVisibilityResumeDisposition.ended,
+      gapDuration: gapDuration,
     );
   }
 

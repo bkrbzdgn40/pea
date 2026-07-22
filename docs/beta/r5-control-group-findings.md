@@ -4,6 +4,7 @@ Bu belge, R5 gerçek cihaz execution'ında bulunan ve kontrol grubu closure'ın�
 
 ## F1 - Hold visibility lifecycle telemetry eksikliği
 
+- Durum: **IMPLEMENTED - real-device telemetry smoke pending**
 - Öncelik: **P0 - R6 hold-family validation öncesi**
 - Katman: Diagnostics / observability
 - Etkilenen alan: Plank ve gelecekte Hollow Hold, Wall Sit, Side Plank
@@ -26,9 +27,21 @@ Hold davranışını değiştirmeden privacy-safe session telemetry ekle:
 - `hold_visibility_suspended_ms_total`
 - `last_hold_visibility_gap_ms`
 
+### Implementation
+
+R6 hardening patch'i mevcut hold lifecycle davranışını değiştirmeden şu session-level alanları Diagnostics schema v6 export'una taşır:
+
+- `hold_visibility_suspend_count`
+- `hold_visibility_recovery_count`
+- `hold_visibility_abort_count`
+- `hold_visibility_suspended_ms_total`
+- `last_hold_visibility_gap_ms`
+
+`hold_visibility_suspended_ms_total` yalnız recovery veya abort ile tamamlanmış gap'leri toplar. Devam eden açık gap, kapanana kadar toplam süreye eklenmez.
+
 ### Exit kriteri
 
-Deterministic test + gerçek Plank run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı.
+Deterministic test + gerçek Plank run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı. Kısa gap'te recovery, uzun gap'te abort ve gap duration alanları gerçek cihaz export'unda doğrulanmadan finding `CLOSED` sayılmaz.
 
 ## F2 - Camera autofocus hunting during static hold/form-break
 
