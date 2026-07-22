@@ -819,6 +819,10 @@ void main() {
           metrics.bilateralRangeRepMetrics?.syncScore,
           closeTo(135.0, 0.001),
         );
+        expect(
+          metrics.bilateralRangeRepMetrics?.formMetric,
+          closeTo(180.0, 0.001),
+        );
       });
 
       test(

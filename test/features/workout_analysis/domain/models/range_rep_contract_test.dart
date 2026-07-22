@@ -233,6 +233,16 @@ void main() {
       );
     });
 
+    test('Lateral Raise keeps sync out of elbow-form feedback', () {
+      final contract = RangeRepContracts.lateralRaise;
+
+      expect(contract.sideMode, RangeRepSideMode.bilateral);
+      expect(
+        contract.bilateralFormPolicy,
+        RangeRepBilateralFormPolicy.sideFormOnly,
+      );
+    });
+
     test(
       'Day 11 dynamic exercises declare intentional direction and side mode',
       () {

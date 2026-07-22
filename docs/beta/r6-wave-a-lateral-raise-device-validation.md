@@ -31,13 +31,15 @@ Lateral Raise için güncel production gerçekleri:
 
 Primary metric her kol için `elbow -> shoulder -> hip` omuz abdüksiyon açısıdır. Bilateral contract `increasing-to-peak` yönünde iki kolun **daha düşük** omuz açısını engine-facing primary metric olarak kullanır. Bu nedenle geride kalan kol PEAK girişini bloke etmelidir.
 
-Form metriği `shoulder -> elbow -> wrist` dirsek açısıdır ve `technique` rolündedir. Bu sinyal counting gate değildir; belirgin dirsek bükülmesi completed rep'i otomatik olarak sıfırlamak yerine teknik kalite/feedback tarafında görünmelidir.
+Form metriği `shoulder -> elbow -> wrist` dirsek açısıdır ve `technique` rolündedir. Bu sinyal counting gate değildir; belirgin dirsek bükülmesi completed rep'i otomatik olarak sıfırlamak yerine teknik kalite/feedback tarafında görünmelidir. Bilateral `syncScore` diagnostics için hesaplanmaya devam eder ancak Lateral Raise'ın dirsek-form metriğine dahil edilmez. Böylece sol-sağ omuz açısı farkı, `Dirseklerini gereksiz bükme.` feedback'ini yanlışlıkla tetiklemez.
 
 Gerçek cihaz videosunda kabul edilebilir hafif dirsek fleksiyonunun eski `150°` sınırında aralıklı false-positive teknik uyarı ürettiği gözlendi. Lateral Raise'a özel `formThreshold` `145°` olarak hafifçe gevşetildi. Bu değişiklik counting/ROM gate'lerini etkilemez; yalnız teknik uyarının dirsek fleksiyonu toleransını yaklaşık `5°` artırır.
 
+Düşük ışıklı gerçek-dünya videosunda counting akışı doğru çalışırken aynı dirsek feedback'inin kabul edilebilir formda hâlâ aralıklı tetiklendiği görüldü. İnceleme, bilateral aggregate form metriğinin `min(leftElbowForm, rightElbowForm, syncScore)` şeklinde olmasının hafif landmark jitter veya doğal sol-sağ zaman farkını dirsek bükülmesi gibi raporlayabildiğini gösterdi. Lateral Raise contract'ı bu nedenle `bilateralFormPolicy = sideFormOnly` kullanacak şekilde daraltıldı. Bilateral rep güvenliği değişmez: `increasing-to-peak` primary metric hâlâ geride kalan kolun daha düşük omuz açısını kullanır ve tek-kol hareketinin PEAK'e ulaşmasını bloke eder.
+
 Gerçek cihaz videosunda doğal bilateral dinlenme pozisyonunun yaklaşık `20-30°` aralığında ölçüldüğü ve eski strict `primaryMetric < 20°` neutral kapısının hem ilk `acquireNeutral` hem rep sonundaki `completeRep` geçişini bloke ettiği görüldü. Lateral Raise'a özel `thresholdNeutral` bu nedenle `32°` olarak harden edildi. Effective active entry hâlâ yaklaşık `>38°` olduğu için doğal dinlenme ile aktif hareket başlangıcı arasında yaklaşık `6°` hysteresis/deadband korunur. Bu değişiklik PEAK threshold'unu veya generic range-rep engine davranışını değiştirmez.
 
-Validation sırasında threshold, bilateral policy veya feedback mapping değiştirilmez. Fail önce camera/setup, pose quality, bilateral lagging-arm davranışı, lifecycle, occlusion/recovery, persistence veya performance olarak sınıflandırılır.
+Bu tuning adımlarından sonra validation sırasında threshold, bilateral policy veya feedback mapping yeniden değiştirilmez. Yeni bir fail önce camera/setup, pose quality, bilateral lagging-arm davranışı, lifecycle, occlusion/recovery, persistence veya performance olarak sınıflandırılır.
 
 ## 2. Kamera Kurulumu
 

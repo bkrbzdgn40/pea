@@ -505,6 +505,7 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
+    bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
   );
 
