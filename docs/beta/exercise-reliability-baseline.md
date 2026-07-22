@@ -8,6 +8,7 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 
 - `Historical Device-Verified`: Tarihsel beta hardening programında gerçek cihaz baseline ve dataset değerlendirmesi bulunan hareket.
 - `R5 Engineering Revalidated`: Diagnostics schema v6, SHA-pinned profile build ve gerçek cihaz regression run'larıyla yeniden doğrulanmış hareket. Bu statü, önceden tanımlanan formal R5 run adetlerinin eksiksiz uygulandığı anlamına gelmez; protokol sapmaları closure kaydında açıkça tutulur.
+- `R6 Engineering Revalidated`: Exercise-specific R6 cihaz validation'ında gerçek failure bulunup minimal reliability hardening uygulandıktan sonra fix sonrası kritik positive/negative/lifecycle/persistence kanıtlarıyla yeniden doğrulanmış hareket. Formal protokol sapmaları closure kaydında ayrıca tutulur.
 - `Validation Pending`: Production analiz wiring'i ve otomatik test desteği bulunan, ancak exercise-specific güncel cihaz kanıtı bulunmayan hareket.
 
 `Validation Pending`, hareketin bozuk olduğu anlamına gelmez. Yalnızca gerçek cihaz kabul kanıtının henüz bu baseline içinde kurulmadığını ifade eder.
@@ -17,10 +18,10 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- R5 engineering revalidation ile güncel cihaz regression kanıtı bulunan: **3**
-- Ayrı exercise-specific cihaz validation bekleyen: **15**
+- Güncel engineering revalidation cihaz kanıtı bulunan: **4**
+- Ayrı exercise-specific cihaz validation bekleyen: **14**
 
-Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. R5 execution, önceden tanımlanan bazı formal run adetlerinden sapmıştır; bu nedenle statü `R5 Engineering Revalidated` olarak tutulur ve formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl ise R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
@@ -32,7 +33,7 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | Stationary Lunge | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Push-up | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Sit-up | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | Validation Pending |
+| Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | R6 Engineering Revalidated |
 | Lying Leg Raise | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Triceps Dip | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Romanian Deadlift | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
@@ -210,9 +211,9 @@ Bu bulguların sahipliği ve exit kriterleri `docs/beta/r5-control-group-finding
 
 ## 10. Sonraki Adım
 
-R6 kapsamında Dalga A cihaz validation'ına geçilir:
+R6 Dalga A'da Biceps Curl engineering revalidation tamamlanmıştır. Sıradaki validation sırası:
 
-1. Biceps Curl
+1. Hold visibility telemetry hardening
 2. Hollow Hold
 3. Lateral Raise
 4. Front Raise
@@ -222,10 +223,10 @@ Hold ailesinin occlusion/recovery kanıtını yorumlamadan önce hold visibility
 
 Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
 
-## 11. R6 Dalga A Başlangıcı
+## 11. R6 Dalga A - Biceps Curl Closure
 
-R6 Dalga A'nın ilk exercise-specific cihaz validation hedefi Biceps Curl'dür. Protokol `docs/beta/r6-wave-a-biceps-curl-device-validation.md`, canlı execution kaydı ise `docs/beta/r6-wave-a-run-manifest.csv` dosyasında tutulur.
+R6 Dalga A'nın ilk exercise-specific cihaz validation hedefi Biceps Curl tamamlanmıştır. Protokol `docs/beta/r6-wave-a-biceps-curl-device-validation.md`, canlı execution kaydı `docs/beta/r6-wave-a-run-manifest.csv`, ayrıntılı closure kanıtı ise `docs/beta/r6-wave-a-biceps-curl-results.md` dosyasında tutulur.
 
 Biceps Curl validation başlamadan önce setup rehberi production camera contract ile hizalanmıştır: `front` preferred, `side` unsupported. Önceki 30-45 derece çapraz kamera önerisi kaldırılmıştır. Bu değişiklik engine threshold'larını veya bilateral counting semantiğini değiştirmez; yalnız test ve kullanıcı kurulumunun gerçek analysis contract ile aynı olmasını sağlar.
 
-Biceps Curl matrix statüsü cihaz run'ları tamamlanana kadar `Validation Pending` olarak kalır.
+Biceps Curl, shallow-ROM false count bulgusunun secondary shoulder-wrist closure PEAK gate ile düzeltilmesi ve fix sonrası 10 shallow → 0, 20 full → 20, one-arm → 0, occlusion, pause/resume ve 5 → 5 persistence kanıtları sonrasında **`R6 Engineering Revalidated`** olarak kapatılmıştır. Tempo-confidence hassasiyeti counting closure'ını bloklamayan açık R6 finding olarak izlenir.

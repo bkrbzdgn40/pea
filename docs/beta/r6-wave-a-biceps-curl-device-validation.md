@@ -203,3 +203,52 @@ posture skorlarının kötüsüne dayanır ve UI metni ölçülen semantiğe uyg
    warning görülmemeli.
 
 Bu kapılar geçmeden Biceps Curl `Device Validated` olarak kapatılmaz.
+
+
+## 12. R6 Biceps Curl Closure
+
+Biceps Curl validation, R6 sırasında gerçek cihaz videosunda bulunan shallow-ROM false count problemi nedeniyle planlandığı gibi yalnız ölçümle kapanmamıştır. Failure önce absolute elbow-angle PEAK gate'in fiziksel curl derinliğini tek başına güvenilir ayıramaması olarak sınıflandırılmıştır.
+
+Minimal hardening iki parçadan oluşmuştur:
+
+1. `thresholdPeak` 88 dereceden 78 dereceye sıkılaştırılmıştır.
+2. Biceps Curl `DESCENDING -> PEAK` geçişine, her iki kol için neutral shoulder-wrist mesafesine göre `current / neutral <= 0.64` secondary closure gate eklenmiştir.
+
+Form feedback tarafında bilateral angle-sync jitter generic `formViolation` birleşiminden çıkarılmış ve UI mesajı ölçülen upper-arm posture semantiğine uygun olarak `Dirseklerini gövdene yakın tut.` biçimine ayrılmıştır.
+
+### Fix sonrası kritik cihaz kanıtı
+
+Fix sonrası profile build commit:
+
+```text
+db33f6243dd16c1cbaefc5b15231d9f4ba96053d
+```
+
+Kritik sonuçlar:
+
+- 10 shallow bilateral curl -> `rep_count = 0`
+- 1 full bilateral curl -> `rep_count = 1`
+- 20 controlled full bilateral curl -> `rep_count = 20`
+- one-arm-only negative -> `rep_count = 0`
+- controlled occlusion -> ground truth ile uyumlu count, phantom rep yok
+- pause/resume -> phantom rep yok, lifecycle neutral'a güvenli döndü
+- persistence -> Live = Summary = History = 5
+- ana POS-20 performansı: `analysis_fps_p50 = 8.7977`, `frame_processing_ms_p95 = 95`, exception = 0
+
+Ayrıntılı dosya eşlemesi `docs/beta/r6-wave-a-biceps-curl-results.md` ve `docs/beta/r6-wave-a-run-manifest.csv` içindedir.
+
+### Closure kararı
+
+Sonuç **`R6 Engineering Revalidated`** olarak kaydedilir.
+
+Bu sonuç **formal protocol-complete** değildir. Nedenler:
+
+- validation sırasında production reliability fix'i gerektiği için execution birden fazla SHA üzerinde ilerlemiştir,
+- static-negative kanıtı secondary PEAK gate öncesi SHA üzerinde alınmıştır,
+- planlanan 3 kontrollü occlusion döngüsü yerine 1 kontrollü run,
+- planlanan 3 lifecycle döngüsü yerine 1 pause/resume run uygulanmıştır,
+- persistence planı 3 iken gerçek execution 5 rep olmuştur.
+
+Secondary PEAK gate yalnız PEAK girişini daha sıkı hale getirdiğinden pre-fix static-negative kanıtı safety yönünde zayıflamaz; yine de SHA farkı closure kaydında açıkça tutulur.
+
+Counting reliability closure'ını bloklamayan açık konu, kontrollü POS-20 run'ında 20 rep'in 14'ünün tempo nedenleri ağırlıklı `lowConfidence` işaretlenmesidir. Threshold tuning ek kullanıcı/cihaz verisi olmadan yapılmaz; konu `docs/beta/r6-wave-a-findings.md` içinde izlenir.

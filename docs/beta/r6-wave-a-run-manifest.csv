@@ -1,9 +1,10 @@
 run_id,exercise,scenario,planned_units,actual_units,ground_truth_reps,app_reps,absolute_count_error,persistence_live,persistence_summary,persistence_history,app_commit_sha,build_mode,diagnostics_file,fps_sample_count,analysis_fps_p50,frame_processing_ms_p95,analysis_exception_count,range_rep_abort_count,active_rep_resync_count,result,deviation_reason,notes
-R6-BC-PREFLIGHT-1,biceps_curl,PREFLIGHT,1,,,,,,,,,profile,,,,,,,,,,
-R6-BC-POS-20,biceps_curl,POS-CONTROLLED,20,,,,,,,,,profile,,,,,,,,,,
-R6-BC-STATIC-30,biceps_curl,STATIC-NEGATIVE,30s,,0,,,,,,,profile,,,,,,,,,,
-R6-BC-PARTIAL-10,biceps_curl,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,
-R6-BC-ONE-ARM-10,biceps_curl,ONE-ARM-NEGATIVE,10,,0,,,,,,,profile,,,,,,,,,,
-R6-BC-OCC-3,biceps_curl,OCCLUSION,3,,,,,,,,,profile,,,,,,,,,,
-R6-BC-LIFE-3,biceps_curl,LIFECYCLE,3,,0,,,,,,,profile,,,,,,,,,,
-R6-BC-PERSIST,biceps_curl,PERSISTENCE,3,,3,,,,,,,profile,,,,,,,,,,
+R6-BC-PREFLIGHT-1,biceps_curl,PREFLIGHT,1,1,1,1,0,,,,b2f4a3bcef252f6a9e1894f53a9f0207994917b8,profile,diagnostics_v6_biceps_curl_20260722_144806.json,11,7.9051,127,0,0,0,PASS,,Initial pre-fix smoke; 1 valid completed rep.
+R6-BC-POS-20,biceps_curl,POS-CONTROLLED,20,20,20,20,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_162317(2).json,112,8.7977,95,0,0,0,PASS,,Post-fix: 20/20 count. 14 lowConfidence; tempo calibration tracked separately.
+R6-BC-STATIC-30,biceps_curl,STATIC-NEGATIVE,30s,~30s,0,0,0,,,,b2f4a3bcef252f6a9e1894f53a9f0207994917b8,profile,diagnostics_v6_biceps_curl_20260722_150458.json,36,7.9840,109,0,0,0,PASS,Pre-fix SHA; secondary gate only restricts PEAK entry.,0 phantom rep; only acquireNeutral.
+R6-BC-PARTIAL-10,biceps_curl,PARTIAL-MOTION,10,10,0,0,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_161726.json,41,7.9840,122,0,0,0,PASS,,Post-fix shallow-ROM acceptance gate: 10 shallow -> 0 rep.
+R6-BC-ONE-ARM-10,biceps_curl,ONE-ARM-NEGATIVE,10,10,0,0,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_162432(2).json,38,7.9761,112,0,0,0,PASS,,One-arm-only motion produced 0 completed bilateral rep.
+R6-BC-OCC-3,biceps_curl,OCCLUSION,3,1,1,1,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_162828(1).json,10,7.8818,83,0,0,0,PASS,Planned 3 controlled cycles; executed 1 controlled occlusion run.,"1 recovery, 0 occlusion abort; completed rep lowConfidence due coverageLoss."
+R6-BC-LIFE-3,biceps_curl,LIFECYCLE,3,1,1,1,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_163341.json,12,8.0000,164,0,0,0,PASS,Planned 3 cycles; executed 1 pause/resume cycle.,No phantom rep; final phase NEUTRAL.
+R6-BC-PERSIST,biceps_curl,PERSISTENCE,3,5,5,5,0,5,5,5,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,,,,,,,,PASS,Planned 3 reps; executed 5.,User-verified Live = Summary = History = 5.
+R6-BC-POSTFIX-FULL-1,biceps_curl,POSTFIX-FULL-SMOKE,1,1,1,1,0,,,,db33f6243dd16c1cbaefc5b15231d9f4ba96053d,profile,diagnostics_v6_biceps_curl_20260722_161901.json,14,7.8895,111,0,0,0,PASS,,Post-fix full-ROM regression smoke; 1 completed rep.
