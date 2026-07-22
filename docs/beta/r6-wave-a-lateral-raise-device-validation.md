@@ -15,9 +15,10 @@ Lateral Raise için güncel production gerçekleri:
 - preferred camera view: `front`
 - unsupported camera view: `side`
 - config: `assets/config/exercises/lateral_raise.json`
-- neutral threshold: `20°`
+- neutral threshold: `32°`
 - active threshold: `35°`
 - effective active entry gate: yaklaşık `>38°` (`activeEntryMargin = 3°`)
+- neutral/active hysteresis band: yaklaşık `32-38°`
 - peak threshold: `80°`
 - effective PEAK entry gate: yaklaşık `>83°` (`peakEntryMargin = 3°`)
 - PEAK exit gate: yaklaşık `<72°` (`peakExitMargin = 8°`)
@@ -31,6 +32,8 @@ Lateral Raise için güncel production gerçekleri:
 Primary metric her kol için `elbow -> shoulder -> hip` omuz abdüksiyon açısıdır. Bilateral contract `increasing-to-peak` yönünde iki kolun **daha düşük** omuz açısını engine-facing primary metric olarak kullanır. Bu nedenle geride kalan kol PEAK girişini bloke etmelidir.
 
 Form metriği `shoulder -> elbow -> wrist` dirsek açısıdır ve `technique` rolündedir. Bu sinyal counting gate değildir; belirgin dirsek bükülmesi completed rep'i otomatik olarak sıfırlamak yerine teknik kalite/feedback tarafında görünmelidir.
+
+Gerçek cihaz videosunda doğal bilateral dinlenme pozisyonunun yaklaşık `20-30°` aralığında ölçüldüğü ve eski strict `primaryMetric < 20°` neutral kapısının hem ilk `acquireNeutral` hem rep sonundaki `completeRep` geçişini bloke ettiği görüldü. Lateral Raise'a özel `thresholdNeutral` bu nedenle `32°` olarak harden edildi. Effective active entry hâlâ yaklaşık `>38°` olduğu için doğal dinlenme ile aktif hareket başlangıcı arasında yaklaşık `6°` hysteresis/deadband korunur. Bu değişiklik PEAK threshold'unu veya generic range-rep engine davranışını değiştirmez.
 
 Validation sırasında threshold, bilateral policy veya feedback mapping değiştirilmez. Fail önce camera/setup, pose quality, bilateral lagging-arm davranışı, lifecycle, occlusion/recovery, persistence veya performance olarak sınıflandırılır.
 

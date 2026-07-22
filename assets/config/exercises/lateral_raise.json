@@ -3,7 +3,7 @@
   "primaryJoint": "leftShoulder",
   "joint1": "leftElbow",
   "joint2": "leftHip",
-  "thresholdNeutral": 20.0,
+  "thresholdNeutral": 32.0,
   "thresholdActive": 35.0,
   "thresholdPeak": 80.0,
   "idealDescentSeconds": 1.0,

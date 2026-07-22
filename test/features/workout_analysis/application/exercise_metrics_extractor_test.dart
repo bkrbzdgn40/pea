@@ -820,6 +820,31 @@ void main() {
           closeTo(135.0, 0.001),
         );
       });
+
+      test(
+        'lateral raise preserves natural bilateral neutral below 32 degrees',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/lateral_raise.json',
+          );
+          final metrics = extractor.extract(
+            _lateralRaisePose(leftShoulderAngle: 31, rightShoulderAngle: 29),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.lateralRaise,
+          );
+
+          expect(config.thresholdNeutral, 32.0);
+          expect(
+            metrics.bilateralRangeRepMetrics?.primaryAngle,
+            closeTo(29.0, 0.001),
+          );
+          expect(
+            metrics.bilateralRangeRepMetrics!.primaryAngle,
+            lessThan(config.thresholdNeutral),
+          );
+        },
+      );
     });
 
     test('jumping jack exposes synchronized bilateral arm and leg signals', () {
