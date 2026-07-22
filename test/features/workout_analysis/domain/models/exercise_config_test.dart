@@ -263,6 +263,11 @@ void main() {
         expect(config.rangeRepSignals, isNotNull);
         expect(config.targetMaxAngle, isNotNull);
       }
+
+      final frontRaise = _loadConfig(
+        'assets/config/exercises/front_raise.json',
+      );
+      expect(frontRaise.formThreshold, 145.0);
     });
 
     test('parses wall-sit and side-plank hold configs', () {

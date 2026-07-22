@@ -19,7 +19,7 @@ Production kaynaklarına göre Front Raise:
 - `thresholdNeutral = 15°`
 - `thresholdActive = 35°`
 - `thresholdPeak = 80°`
-- `formThreshold = 155°`
+- `formThreshold = 145°`
 - `minAcceptableRomDelta = 45°`
 
 `thresholdNeutral = 15°` strict neutral acquisition açısından gerçek cihazda özellikle izlenecektir. Doğal kol dinlenme pozisyonu engine tarafından güvenilir biçimde neutral kabul edilmiyorsa validation durdurulur; cihaz/video kanıtı olmadan threshold değiştirilmez.
@@ -62,6 +62,8 @@ Hardening sonrası selected-side seçim:
 4. aktif rep side-lock / rep-consistency güvenliğini değiştirmez.
 
 Bu değişiklik Front Raise threshold'larını, peak gate'ini veya counting contract'ını değiştirmez. Amaç yalnız daha güvenilir görünen tarafın primary/form metric kaynağı olmasını sağlamaktır.
+
+Selected-side quality hardening sonrası doğru side-view gerçek cihaz retest'inde counting ve lifecycle stabil kaldı; ancak kabul edilebilir hafif dirsek fleksiyonunda aralıklı false-positive `Dirseklerini gereksiz bükme.` feedback'i devam etti. Bu nedenle Front Raise'a özel `formThreshold`, counting/ROM gate'lerine dokunmadan `155° -> 145°` olarak gevşetildi. Bu ayar doğal hafif fleksiyona yaklaşık 10° ek tolerans verir; belirgin kötü dirsek formunun hâlâ `R6-FR-FORM-5` senaryosunda `persistentFormBreak`, low-confidence veya corrective feedback ile yakalanması zorunludur.
 
 ## 3. SHA-Pinned Profile Build
 
