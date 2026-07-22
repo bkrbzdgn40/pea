@@ -131,6 +131,46 @@ void main() {
       },
     );
 
+    test(
+      'front raise guide stays aligned with the selected-side side-view contract',
+      () {
+        final frontRaiseDefinition = analysisCatalog.definitionFor(
+          ExerciseType.frontRaise,
+        );
+        final frontRaiseContent = guideCatalog.contentFor(
+          ExerciseType.frontRaise,
+        );
+
+        expect(frontRaiseDefinition.isAnalysisSupported, isTrue);
+        expect(frontRaiseDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(frontRaiseContent.type, ExerciseType.frontRaise);
+        expect(
+          frontRaiseDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          frontRaiseDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          frontRaiseContent.setupSteps.join(' '),
+          contains('Kamerayı yandan'),
+        );
+        expect(
+          frontRaiseContent.setupSteps.join(' '),
+          contains('omuz-dirsek-bilek ve kalça hattını'),
+        );
+        expect(
+          frontRaiseContent.tips.join(' '),
+          contains('Omuz hizası civarında'),
+        );
+      },
+    );
+
     test('hollow hold guide stays available on the canonical hold owner', () {
       final hollowDefinition = analysisCatalog.definitionFor(
         ExerciseType.hollowHold,

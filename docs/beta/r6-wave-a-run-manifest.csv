@@ -24,3 +24,11 @@ R6-LR-FORM-5,lateral_raise,FORM-VIOLATION,5,5,5,5,0,,,,d1120a32e870ee4c8efa466e9
 R6-LR-OCC-3,lateral_raise,OCCLUSION,3,3,3,3,0,,,,d1120a32e870ee4c8efa466e9b0fda3593a2b69d,profile,diagnostics_v6_lateral_raise_20260722_232817.json,28,7.9920,74,0,0,0,PASS,,3/3 completed; brief_occlusion=2 recovery=2 abort=0; coverageLoss on 2 reps.
 R6-LR-LIFE-3,lateral_raise,LIFECYCLE,3,1 pause/resume cycle; 3 reps,3,3,0,,,,d1120a32e870ee4c8efa466e9b0fda3593a2b69d,profile,diagnostics_v6_lateral_raise_20260722_233003.json,27,7.9602,81,0,0,0,PASS,Planned 3 pause/resume cycles; executed 1 cycle around 3 total reps.,3/3 valid; runtime safe. Global brief_occlusion/resync counters inflated; tracked as R6 F3 P1.
 R6-LR-PERSIST,lateral_raise,PERSISTENCE,5,user-verified,,,,verified,verified,verified,d1120a32e870ee4c8efa466e9b0fda3593a2b69d,profile,,,,,,,,PASS,Exact persisted rep count was not captured in the closure conversation.,User confirmed persistence completed successfully; Live/Summary/History matched.
+R6-FR-PREFLIGHT-1,front_raise,PREFLIGHT,1,,,,,,,,,profile,,,,,,,,,,Natural neutral acquisition and one full selected-side lifecycle smoke.
+R6-FR-POS-20,front_raise,POS-CONTROLLED,20,,,,,,,,,profile,,,,,,,,,,20 controlled full raises from side view.
+R6-FR-STATIC-30,front_raise,STATIC-NEGATIVE,30s,,0,,,,,,,profile,,,,,,,,,,Natural arm-down neutral; zero phantom rep expected.
+R6-FR-PARTIAL-10,front_raise,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,10 shallow 40-55 degree attempts; zero completed rep expected.
+R6-FR-FORM-5,front_raise,FORM-VIOLATION,5,,5,,,,,,,profile,,,,,,,,,,Deliberate elbow bend; counting may remain valid while technique signal should react.
+R6-FR-OCC-3,front_raise,OCCLUSION,3,,,,,,,,,profile,,,,,,,,,,Controlled short selected-side visibility loss during active rep.
+R6-FR-LIFE-3,front_raise,LIFECYCLE,3,,,,,,,,,profile,,,,,,,,,,Pause/resume lifecycle; no phantom or duplicate rep.
+R6-FR-PERSIST,front_raise,PERSISTENCE,5,,5,,,5,5,5,,profile,,,,,,,,,,Live = Summary = History = 5 expected.
