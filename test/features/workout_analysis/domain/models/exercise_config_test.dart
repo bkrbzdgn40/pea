@@ -145,7 +145,7 @@ void main() {
         expect(config.joint2, PoseLandmarkType.leftWrist);
         expect(config.thresholdNeutral, 155.0);
         expect(config.thresholdActive, 140.0);
-        expect(config.thresholdPeak, 88.0);
+        expect(config.thresholdPeak, 78.0);
         expect(config.formThreshold, 150.0);
         expect(config.targetMinAngle, 75.0);
         expect(

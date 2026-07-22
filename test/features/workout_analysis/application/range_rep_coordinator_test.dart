@@ -1190,7 +1190,7 @@ void main() {
     );
 
     test(
-      'both arms around 84 degrees can reach PEAK through the real bilateral path',
+      'bilateral 84-degree shallow curl returns to neutral without completing a rep',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1211,20 +1211,30 @@ void main() {
           expectedPhase: 'DESCENDING',
         );
 
-        final peakResult = _driveAcceptedBicepsUntilPhase(
+        final shallowResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
           leftAngle: 84,
           rightAngle: 84,
-          expectedPhase: 'PEAK',
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+        final recoveredResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
         );
 
-        expect(peakResult.stateSnapshot.currentPhase, 'PEAK');
+        expect(shallowResult.stateSnapshot.currentPhase, 'DESCENDING');
+        expect(recoveredResult.stateSnapshot.repCount, 0);
       },
     );
 
     test(
-      'a lagging arm around 86 degrees still blocks PEAK at the relaxed threshold',
+      'a lagging arm around 76 degrees still blocks PEAK at the tightened threshold',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1248,8 +1258,8 @@ void main() {
         final blockedResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 84,
-          rightAngle: 86,
+          leftAngle: 72,
+          rightAngle: 76,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
@@ -1259,7 +1269,7 @@ void main() {
     );
 
     test(
-      'an exact 85-degree bilateral aggregate does not satisfy the strict PEAK entry gate',
+      'an exact 75-degree bilateral aggregate does not satisfy the strict PEAK entry gate',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1283,8 +1293,8 @@ void main() {
         final blockedResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 85,
-          rightAngle: 85,
+          leftAngle: 75,
+          rightAngle: 75,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
@@ -1364,51 +1374,25 @@ void main() {
       expect(result.stateSnapshot.lastRepRom, 180.0);
     });
 
-    test(
-      'valid-but-not-ideal bilateral ROM is accepted while ideal depth keeps a better ROM score',
-      () {
-        final shallowClock = _TestClock();
-        final shallowCoordinator = _buildBicepsCoordinator(shallowClock);
-        final shallowCompleted = _completeAcceptedBicepsRep(
-          shallowCoordinator,
-          shallowClock,
-          peakLeftAngle: 84,
-          peakRightAngle: 84,
-          ascentLeftAngle: 98,
-          ascentRightAngle: 98,
-        );
+    test('near-target bilateral ROM completes and keeps a full ROM score', () {
+      final clock = _TestClock();
+      final coordinator = _buildBicepsCoordinator(clock);
+      final completed = _completeAcceptedBicepsRep(
+        coordinator,
+        clock,
+        peakLeftAngle: 72,
+        peakRightAngle: 74,
+        ascentLeftAngle: 98,
+        ascentRightAngle: 100,
+      );
 
-        final idealClock = _TestClock();
-        final idealCoordinator = _buildBicepsCoordinator(idealClock);
-        final idealCompleted = _completeAcceptedBicepsRep(
-          idealCoordinator,
-          idealClock,
-          peakLeftAngle: 72,
-          peakRightAngle: 74,
-          ascentLeftAngle: 98,
-          ascentRightAngle: 100,
-        );
-
-        expect(shallowCompleted.stateSnapshot.repCount, 1);
-        expect(shallowCompleted.stateSnapshot.lastRepRom, closeTo(84.0, 0.001));
-        expect(
-          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          closeTo(91.0, 0.001),
-        );
-        expect(idealCompleted.stateSnapshot.repCount, 1);
-        expect(idealCompleted.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
-        expect(
-          idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          closeTo(100.0, 0.001),
-        );
-        expect(
-          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          lessThan(
-            idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          ),
-        );
-      },
-    );
+      expect(completed.stateSnapshot.repCount, 1);
+      expect(completed.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
+      expect(
+        completed.stateSnapshot.calibrationMetrics.lastRepRomScore,
+        closeTo(100.0, 0.001),
+      );
+    });
 
     test(
       'early one-arm neutral return cannot complete the rep and rom stays conservative',
@@ -1435,7 +1419,7 @@ void main() {
           coordinator,
           clock,
           leftAngle: 68,
-          rightAngle: 76,
+          rightAngle: 74,
           expectedPhase: 'PEAK',
         );
         _driveAcceptedBicepsUntilPhase(
@@ -1464,12 +1448,12 @@ void main() {
         expect(earlyReturnResult.stateSnapshot.repCount, 0);
         expect(earlyReturnResult.stateSnapshot.currentPhase, 'ASCENDING');
         expect(completedResult.stateSnapshot.repCount, 1);
-        expect(completedResult.stateSnapshot.lastRepRom, closeTo(76.0, 0.001));
+        expect(completedResult.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
       },
     );
 
     test(
-      'peak exit remains blocked until the bilateral aggregate rises above 96 degrees',
+      'peak exit remains blocked until the bilateral aggregate rises above 86 degrees',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1492,24 +1476,24 @@ void main() {
         _driveAcceptedBicepsUntilPhase(
           coordinator,
           clock,
-          leftAngle: 84,
-          rightAngle: 84,
+          leftAngle: 72,
+          rightAngle: 74,
           expectedPhase: 'PEAK',
         );
 
         final blockedExitResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 96,
-          rightAngle: 96,
+          leftAngle: 86,
+          rightAngle: 86,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
         final ascendingResult = _driveAcceptedBicepsUntilPhase(
           coordinator,
           clock,
-          leftAngle: 98,
-          rightAngle: 98,
+          leftAngle: 88,
+          rightAngle: 88,
           expectedPhase: 'ASCENDING',
         );
 

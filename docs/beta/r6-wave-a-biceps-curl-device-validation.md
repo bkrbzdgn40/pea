@@ -16,13 +16,15 @@ Biceps Curl için güncel production gerçekleri:
 - config: `assets/config/exercises/biceps_curl.json`
 - neutral threshold: `155°`
 - active threshold: `140°`
-- peak threshold: `88°`
-- validation minimum acceptable peak angle: `minAcceptableRomAngle = 110°`
+- peak threshold: `78°`
+- effective PEAK entry gate: yaklaşık `<75°` (`peakEntryMargin = 3°`)
+- ROM scoring target: `targetMinAngle = 75°`
+- validation minimum acceptable peak angle: `minAcceptableRomAngle = 110°` (count gate değildir)
 - minimum descent timing: `250 ms`
 - minimum ascent timing: `250 ms`
 - coverage loss sırasında low-confidence kabulü: açık
 
-Validation sırasında threshold, bilateral policy veya feedback mapping değiştirilmez. Fail önce camera/setup, pose quality, bilateral metric, lifecycle, occlusion/recovery, persistence veya performance olarak sınıflandırılır.
+Bu protokol, R6 sırasında gözlenen shallow-ROM erken sayım bulgusundan sonra sıkılaştırılan `78°` peak threshold ile çalışır. Validation sırasında threshold, bilateral policy veya feedback mapping yeniden değiştirilmez. Fail önce camera/setup, pose quality, bilateral metric, lifecycle, occlusion/recovery, persistence veya performance olarak sınıflandırılır.
 
 ## 2. Kamera Kurulumu
 
@@ -87,7 +89,7 @@ Planlanan adet ile gerçek execution farklıysa run ID geriye dönük değiştir
 | `R6-BC-PREFLIGHT-1` | Smoke/preflight | 1 temiz bilateral curl | 1 completed rep; profile/SHA/config/contract alanları doğru |
 | `R6-BC-POS-20` | Kontrollü pozitif | 20 tam, eş zamanlı bilateral curl | `absolute_count_error <= 1`; beklenmeyen invalid çoğunluğu yok |
 | `R6-BC-STATIC-30` | Statik negatif | 30 sn başlangıç/neutral pozisyonunda bekle | 0 phantom rep |
-| `R6-BC-PARTIAL-10` | Partial motion | Peak threshold'a ulaşmadan 10 yarım bilateral curl | 0 completed rep; abort/neutral recovery beklenir |
+| `R6-BC-PARTIAL-10` | Partial motion | Her iki dirsek açısını yaklaşık `80-100°` aralığında tutarak 10 sığ bilateral curl | 0 completed rep; abort/neutral recovery beklenir |
 | `R6-BC-ONE-ARM-10` | Bilateral contract negatif | 10 kez yalnız tek kolu tam curl yap, diğer kol neutral kalsın | 0 completed rep |
 | `R6-BC-OCC-3` | Kısa occlusion | Aktif rep sırasında yaklaşık 1 sn pose kaybı, 3 kontrollü deneme | Phantom/auto-complete yok; completed count ground truth ile tutarlı |
 | `R6-BC-LIFE-3` | Pause/resume | Aktif rep bağlamında pause/resume, 3 döngü | Dönüşte phantom rep yok; active context güvenli temizlenir/reacquire edilir |
