@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/data/exercise_guide_catalog.dart';
 
@@ -68,8 +69,20 @@ void main() {
         expect(bicepsDefinition.analysisEngineKind.name, 'rangeRep');
         expect(bicepsContent.type, ExerciseType.bicepsCurl);
         expect(
+          bicepsDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          bicepsDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
           bicepsContent.setupSteps.join(' '),
-          contains('30-45 derece çapraz açıyla'),
+          contains('kamerayı doğrudan karşıdan'),
         );
         expect(
           bicepsContent.tips.join(' '),
@@ -77,6 +90,150 @@ void main() {
         );
       },
     );
+
+    test(
+      'lateral raise guide stays aligned with the bilateral front-view contract',
+      () {
+        final lateralDefinition = analysisCatalog.definitionFor(
+          ExerciseType.lateralRaise,
+        );
+        final lateralContent = guideCatalog.contentFor(
+          ExerciseType.lateralRaise,
+        );
+
+        expect(lateralDefinition.isAnalysisSupported, isTrue);
+        expect(lateralDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(lateralContent.type, ExerciseType.lateralRaise);
+        expect(
+          lateralDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          lateralDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          lateralContent.setupSteps.join(' '),
+          contains('Kameraya önden bak'),
+        );
+        expect(
+          lateralContent.setupSteps.join(' '),
+          contains('iki omuz-dirsek-bilek hattını kadraja al'),
+        );
+        expect(
+          lateralContent.tips.join(' '),
+          contains('Omuz hizası civarında'),
+        );
+      },
+    );
+
+    test(
+      'front raise guide stays aligned with the selected-side side-view contract',
+      () {
+        final frontRaiseDefinition = analysisCatalog.definitionFor(
+          ExerciseType.frontRaise,
+        );
+        final frontRaiseContent = guideCatalog.contentFor(
+          ExerciseType.frontRaise,
+        );
+
+        expect(frontRaiseDefinition.isAnalysisSupported, isTrue);
+        expect(frontRaiseDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(frontRaiseContent.type, ExerciseType.frontRaise);
+        expect(
+          frontRaiseDefinition.analysisCameraViewContract.supportFor(
+            CameraView.side,
+          ),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          frontRaiseDefinition.analysisCameraViewContract.supportFor(
+            CameraView.front,
+          ),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          frontRaiseContent.setupSteps.join(' '),
+          contains('Kamerayı yandan'),
+        );
+        expect(
+          frontRaiseContent.setupSteps.join(' '),
+          contains('omuz-dirsek-bilek ve kalça hattını'),
+        );
+        expect(
+          frontRaiseContent.tips.join(' '),
+          contains('Omuz hizası civarında'),
+        );
+      },
+    );
+
+    test(
+      'romanian deadlift guide stays aligned with the selected-side side-view contract',
+      () {
+        final rdlDefinition = analysisCatalog.definitionFor(
+          ExerciseType.romanianDeadlift,
+        );
+        final rdlContent = guideCatalog.contentFor(
+          ExerciseType.romanianDeadlift,
+        );
+
+        expect(rdlDefinition.isAnalysisSupported, isTrue);
+        expect(rdlDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(rdlContent.type, ExerciseType.romanianDeadlift);
+        expect(
+          rdlDefinition.analysisCameraViewContract.supportFor(CameraView.side),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          rdlDefinition.analysisCameraViewContract.supportFor(CameraView.front),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          rdlContent.setupSteps.join(' '),
+          contains('kamerayı tam yandan'),
+        );
+        expect(
+          rdlContent.setupSteps.join(' '),
+          contains('Dizlerini hafif bük'),
+        );
+        expect(
+          rdlContent.tips.join(' '),
+          contains('Hareketi dizlerden çok kalçadan başlat'),
+        );
+      },
+    );
+
+    test('wall sit guide stays aligned with the side-view hold contract', () {
+      final wallSitDefinition = analysisCatalog.definitionFor(
+        ExerciseType.wallSit,
+      );
+      final wallSitContent = guideCatalog.contentFor(ExerciseType.wallSit);
+
+      expect(wallSitDefinition.isAnalysisSupported, isTrue);
+      expect(wallSitDefinition.analysisEngineKind.name, 'hold');
+      expect(wallSitContent.type, ExerciseType.wallSit);
+      expect(
+        wallSitDefinition.analysisCameraViewContract.supportFor(
+          CameraView.side,
+        ),
+        CameraViewSupport.preferred,
+      );
+      expect(
+        wallSitDefinition.analysisCameraViewContract.supportFor(
+          CameraView.front,
+        ),
+        CameraViewSupport.unsupported,
+      );
+      expect(wallSitContent.setupSteps.join(' '), contains('kamerayı yandan'));
+      expect(
+        wallSitContent.setupSteps.join(' '),
+        contains('Baş, omuz, kalça, diz ve ayak bileğinin'),
+      );
+    });
 
     test('hollow hold guide stays available on the canonical hold owner', () {
       final hollowDefinition = analysisCatalog.definitionFor(

@@ -15,6 +15,10 @@ enum RangeRepExtensionDiagnostic {
 ///
 /// Adding a new exercise-specific extension should not require adding another
 /// exercise branch to the production range-rep coordinator.
+abstract interface class RangeRepPeakEntryGate {
+  bool allowsPeakEntry(ExerciseMetrics metrics);
+}
+
 abstract interface class RangeRepExerciseAnalysisExtension {
   List<RangeRepTechniqueObservation> get techniqueObservations;
 

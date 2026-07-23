@@ -512,6 +512,33 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                     snapshot.isHoldVisibilitySuspended,
                                   ),
                                 ),
+                                _DiagnosticsRow(
+                                  label: 'Visibility suspend count',
+                                  value: snapshot.holdVisibilitySuspendCount
+                                      .toString(),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Visibility recovery count',
+                                  value: snapshot.holdVisibilityRecoveryCount
+                                      .toString(),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Visibility abort count',
+                                  value: snapshot.holdVisibilityAbortCount
+                                      .toString(),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Visibility suspended total',
+                                  value: _formatMilliseconds(
+                                    snapshot.holdVisibilitySuspendedMsTotal,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Last visibility gap',
+                                  value: _formatMilliseconds(
+                                    snapshot.lastHoldVisibilityGapMs,
+                                  ),
+                                ),
                               ],
                             ),
                           if (snapshot.cameraViewContract != null)

@@ -827,6 +827,96 @@ void main() {
     );
 
     test(
+      'Front Raise uses the preferred visible side for elbow-form feedback',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildFrontRaiseCoordinator(clock);
+
+        for (var index = 0; index < 3; index += 1) {
+          coordinator.processFrame(
+            metrics: _selectedSideMetrics(
+              leftAngle: 10,
+              rightAngle: 10,
+              leftFormMetric: 120,
+              rightFormMetric: 175,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: RangeRepSide.right,
+          );
+          clock.advance(const Duration(milliseconds: 120));
+        }
+
+        final activeResult = coordinator.processFrame(
+          metrics: _selectedSideMetrics(
+            leftAngle: 50,
+            rightAngle: 50,
+            leftFormMetric: 120,
+            rightFormMetric: 175,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.left,
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          activeResult.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'right',
+        );
+        expect(activeResult.stateSnapshot.isFormBad, isFalse);
+        expect(
+          activeResult.stateSnapshot.calibrationMetrics.currentBackAngle,
+          closeTo(175.0, 0.001),
+        );
+      },
+    );
+
+    test(
+      'uses pose-quality preferred side when selected-side coverage is tied',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        final result = coordinator.processFrame(
+          metrics: _sideFilteredMetrics(
+            leftAngle: 170,
+            rightAngle: 168,
+            leftAvailable: true,
+            rightAvailable: true,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.left,
+            RangeRepSide.right,
+          },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+
+        expect(
+          result.stateSnapshot.calibrationMetrics.selectedRangeRepSide,
+          'right',
+        );
+        expect(result.diagnosticsUpdate.selectedSideLabel, 'right');
+        expect(
+          result.stateSnapshot.calibrationMetrics.rangeRepSideSelectionReason,
+          'selected preferred quality',
+        );
+      },
+    );
+
+    test(
       'locks the previously selected side while an active rep context is in progress',
       () {
         final clock = _TestClock();
@@ -1190,7 +1280,7 @@ void main() {
     );
 
     test(
-      'both arms around 84 degrees can reach PEAK through the real bilateral path',
+      'bilateral 84-degree shallow curl returns to neutral without completing a rep',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1211,20 +1301,87 @@ void main() {
           expectedPhase: 'DESCENDING',
         );
 
-        final peakResult = _driveAcceptedBicepsUntilPhase(
+        final shallowResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
           leftAngle: 84,
           rightAngle: 84,
-          expectedPhase: 'PEAK',
+          count: 4,
+          spacing: const Duration(milliseconds: 90),
+        );
+        final recoveredResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
         );
 
-        expect(peakResult.stateSnapshot.currentPhase, 'PEAK');
+        expect(shallowResult.stateSnapshot.currentPhase, 'DESCENDING');
+        expect(recoveredResult.stateSnapshot.repCount, 0);
       },
     );
 
     test(
-      'a lagging arm around 86 degrees still blocks PEAK at the relaxed threshold',
+      'biceps peak gate rejects a deep reported angle when wrists remain shallow',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildBicepsCoordinator(clock);
+
+        _pumpAcceptedBicepsFrames(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 134,
+          rightAngle: 136,
+          expectedPhase: 'DESCENDING',
+        );
+
+        late RangeRepCoordinatorFrameResult shallowResult;
+        for (var index = 0; index < 4; index++) {
+          shallowResult = coordinator.processFrame(
+            metrics: _bicepsMetricsWithReportedAngle(
+              landmarkAngle: 90,
+              reportedAngle: 58,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: null,
+          );
+          if (index < 3) {
+            clock.advance(const Duration(milliseconds: 90));
+          }
+        }
+
+        final recoveredResult = _driveAcceptedBicepsUntilPhase(
+          coordinator,
+          clock,
+          leftAngle: 160,
+          rightAngle: 160,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        expect(shallowResult.stateSnapshot.currentPhase, 'DESCENDING');
+        expect(recoveredResult.stateSnapshot.repCount, 0);
+      },
+    );
+
+    test(
+      'a lagging arm around 76 degrees still blocks PEAK at the tightened threshold',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1248,8 +1405,8 @@ void main() {
         final blockedResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 84,
-          rightAngle: 86,
+          leftAngle: 72,
+          rightAngle: 76,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
@@ -1259,7 +1416,7 @@ void main() {
     );
 
     test(
-      'an exact 85-degree bilateral aggregate does not satisfy the strict PEAK entry gate',
+      'an exact 75-degree bilateral aggregate does not satisfy the strict PEAK entry gate',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1283,8 +1440,8 @@ void main() {
         final blockedResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 85,
-          rightAngle: 85,
+          leftAngle: 75,
+          rightAngle: 75,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
@@ -1364,51 +1521,25 @@ void main() {
       expect(result.stateSnapshot.lastRepRom, 180.0);
     });
 
-    test(
-      'valid-but-not-ideal bilateral ROM is accepted while ideal depth keeps a better ROM score',
-      () {
-        final shallowClock = _TestClock();
-        final shallowCoordinator = _buildBicepsCoordinator(shallowClock);
-        final shallowCompleted = _completeAcceptedBicepsRep(
-          shallowCoordinator,
-          shallowClock,
-          peakLeftAngle: 84,
-          peakRightAngle: 84,
-          ascentLeftAngle: 98,
-          ascentRightAngle: 98,
-        );
+    test('near-target bilateral ROM completes and keeps a full ROM score', () {
+      final clock = _TestClock();
+      final coordinator = _buildBicepsCoordinator(clock);
+      final completed = _completeAcceptedBicepsRep(
+        coordinator,
+        clock,
+        peakLeftAngle: 72,
+        peakRightAngle: 74,
+        ascentLeftAngle: 98,
+        ascentRightAngle: 100,
+      );
 
-        final idealClock = _TestClock();
-        final idealCoordinator = _buildBicepsCoordinator(idealClock);
-        final idealCompleted = _completeAcceptedBicepsRep(
-          idealCoordinator,
-          idealClock,
-          peakLeftAngle: 72,
-          peakRightAngle: 74,
-          ascentLeftAngle: 98,
-          ascentRightAngle: 100,
-        );
-
-        expect(shallowCompleted.stateSnapshot.repCount, 1);
-        expect(shallowCompleted.stateSnapshot.lastRepRom, closeTo(84.0, 0.001));
-        expect(
-          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          closeTo(91.0, 0.001),
-        );
-        expect(idealCompleted.stateSnapshot.repCount, 1);
-        expect(idealCompleted.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
-        expect(
-          idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          closeTo(100.0, 0.001),
-        );
-        expect(
-          shallowCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          lessThan(
-            idealCompleted.stateSnapshot.calibrationMetrics.lastRepRomScore,
-          ),
-        );
-      },
-    );
+      expect(completed.stateSnapshot.repCount, 1);
+      expect(completed.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
+      expect(
+        completed.stateSnapshot.calibrationMetrics.lastRepRomScore,
+        closeTo(100.0, 0.001),
+      );
+    });
 
     test(
       'early one-arm neutral return cannot complete the rep and rom stays conservative',
@@ -1435,7 +1566,7 @@ void main() {
           coordinator,
           clock,
           leftAngle: 68,
-          rightAngle: 76,
+          rightAngle: 74,
           expectedPhase: 'PEAK',
         );
         _driveAcceptedBicepsUntilPhase(
@@ -1464,12 +1595,12 @@ void main() {
         expect(earlyReturnResult.stateSnapshot.repCount, 0);
         expect(earlyReturnResult.stateSnapshot.currentPhase, 'ASCENDING');
         expect(completedResult.stateSnapshot.repCount, 1);
-        expect(completedResult.stateSnapshot.lastRepRom, closeTo(76.0, 0.001));
+        expect(completedResult.stateSnapshot.lastRepRom, closeTo(74.0, 0.001));
       },
     );
 
     test(
-      'peak exit remains blocked until the bilateral aggregate rises above 96 degrees',
+      'peak exit remains blocked until the bilateral aggregate rises above 86 degrees',
       () {
         final clock = _TestClock();
         final coordinator = _buildBicepsCoordinator(clock);
@@ -1492,24 +1623,24 @@ void main() {
         _driveAcceptedBicepsUntilPhase(
           coordinator,
           clock,
-          leftAngle: 84,
-          rightAngle: 84,
+          leftAngle: 72,
+          rightAngle: 74,
           expectedPhase: 'PEAK',
         );
 
         final blockedExitResult = _holdAcceptedBicepsFrames(
           coordinator,
           clock,
-          leftAngle: 96,
-          rightAngle: 96,
+          leftAngle: 86,
+          rightAngle: 86,
           count: 4,
           spacing: const Duration(milliseconds: 90),
         );
         final ascendingResult = _driveAcceptedBicepsUntilPhase(
           coordinator,
           clock,
-          leftAngle: 98,
-          rightAngle: 98,
+          leftAngle: 88,
+          rightAngle: 88,
           expectedPhase: 'ASCENDING',
         );
 
@@ -1541,6 +1672,14 @@ DefaultRangeRepCoordinator _buildBicepsCoordinator(_TestClock clock) {
     clock,
     config: loadExerciseConfig('assets/config/exercises/biceps_curl.json'),
     contract: RangeRepContracts.bicepsCurl,
+  );
+}
+
+DefaultRangeRepCoordinator _buildFrontRaiseCoordinator(_TestClock clock) {
+  return _buildCoordinatorWith(
+    clock,
+    config: loadExerciseConfig('assets/config/exercises/front_raise.json'),
+    contract: RangeRepContracts.frontRaise,
   );
 }
 
@@ -1859,6 +1998,88 @@ ExerciseMetrics _bicepsMetrics({
     loadExerciseConfig('assets/config/exercises/biceps_curl.json'),
     engineKind: EngineKind.rangeRep,
     rangeRepContract: RangeRepContracts.bicepsCurl,
+  );
+}
+
+ExerciseMetrics _bicepsMetricsWithReportedAngle({
+  required double landmarkAngle,
+  required double reportedAngle,
+}) {
+  final metrics = _bicepsMetrics(
+    leftAngle: landmarkAngle,
+    rightAngle: landmarkAngle,
+  );
+  final left = metrics.leftRangeRepMetrics;
+  final right = metrics.rightRangeRepMetrics;
+  final bilateral = metrics.bilateralRangeRepMetrics!;
+
+  return metrics.copyWith(
+    primaryAngle: reportedAngle,
+    leftRangeRepMetrics: RangeRepSideMetrics(
+      side: RangeRepSide.left,
+      primaryAngle: reportedAngle,
+      formMetric: left.formMetric,
+      hasPrimaryAngle: left.hasPrimaryAngle,
+      hasFormMetric: left.hasFormMetric,
+      sideConfidence: left.sideConfidence,
+      formSignals: left.formSignals,
+    ),
+    rightRangeRepMetrics: RangeRepSideMetrics(
+      side: RangeRepSide.right,
+      primaryAngle: reportedAngle,
+      formMetric: right.formMetric,
+      hasPrimaryAngle: right.hasPrimaryAngle,
+      hasFormMetric: right.hasFormMetric,
+      sideConfidence: right.sideConfidence,
+      formSignals: right.formSignals,
+    ),
+    bilateralRangeRepMetrics: RangeRepBilateralMetrics(
+      primaryAngle: reportedAngle,
+      formMetric: bilateral.formMetric,
+      hasPrimaryAngle: bilateral.hasPrimaryAngle,
+      hasFormMetric: bilateral.hasFormMetric,
+      leftPrimaryAngle: reportedAngle,
+      rightPrimaryAngle: reportedAngle,
+      leftFormScore: bilateral.leftFormScore,
+      rightFormScore: bilateral.rightFormScore,
+      syncScore: 180.0,
+      formSignals: bilateral.formSignals,
+    ),
+  );
+}
+
+ExerciseMetrics _selectedSideMetrics({
+  required double leftAngle,
+  required double rightAngle,
+  required double leftFormMetric,
+  required double rightFormMetric,
+}) {
+  final leftMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.left,
+    primaryAngle: leftAngle,
+    formMetric: leftFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    sideConfidence: 1.0,
+  );
+  final rightMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.right,
+    primaryAngle: rightAngle,
+    formMetric: rightFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    sideConfidence: 1.0,
+  );
+
+  return ExerciseMetrics(
+    primaryAngle: leftAngle,
+    formMetric: leftFormMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    hasPose: true,
+    landmarks: const [],
+    leftRangeRepMetrics: leftMetrics,
+    rightRangeRepMetrics: rightMetrics,
   );
 }
 

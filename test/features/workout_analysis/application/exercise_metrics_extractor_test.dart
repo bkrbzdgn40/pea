@@ -730,7 +730,7 @@ void main() {
       });
 
       test(
-        'bilateral form metric reflects the worse arm or the worse sync score',
+        'biceps bilateral form metric reflects the worse arm but not sync jitter',
         () {
           final config = _loadConfig(
             'assets/config/exercises/biceps_curl.json',
@@ -791,7 +791,7 @@ void main() {
           );
           expect(
             syncWorst.bilateralRangeRepMetrics?.formMetric,
-            closeTo(140.0, 0.001),
+            closeTo(160.0, 0.001),
           );
         },
       );
@@ -819,7 +819,36 @@ void main() {
           metrics.bilateralRangeRepMetrics?.syncScore,
           closeTo(135.0, 0.001),
         );
+        expect(
+          metrics.bilateralRangeRepMetrics?.formMetric,
+          closeTo(180.0, 0.001),
+        );
       });
+
+      test(
+        'lateral raise preserves natural bilateral neutral below 32 degrees',
+        () {
+          final config = _loadConfig(
+            'assets/config/exercises/lateral_raise.json',
+          );
+          final metrics = extractor.extract(
+            _lateralRaisePose(leftShoulderAngle: 31, rightShoulderAngle: 29),
+            config,
+            engineKind: EngineKind.rangeRep,
+            rangeRepContract: RangeRepContracts.lateralRaise,
+          );
+
+          expect(config.thresholdNeutral, 32.0);
+          expect(
+            metrics.bilateralRangeRepMetrics?.primaryAngle,
+            closeTo(29.0, 0.001),
+          );
+          expect(
+            metrics.bilateralRangeRepMetrics!.primaryAngle,
+            lessThan(config.thresholdNeutral),
+          );
+        },
+      );
     });
 
     test('jumping jack exposes synchronized bilateral arm and leg signals', () {

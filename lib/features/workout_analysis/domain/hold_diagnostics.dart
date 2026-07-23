@@ -73,9 +73,13 @@ class HoldDiagnosticsSnapshot {
 enum HoldVisibilityResumeDisposition { resumed, ended, noGap }
 
 class HoldVisibilityResumeResult {
-  const HoldVisibilityResumeResult({required this.disposition});
+  const HoldVisibilityResumeResult({
+    required this.disposition,
+    this.gapDuration = Duration.zero,
+  });
 
   final HoldVisibilityResumeDisposition disposition;
+  final Duration gapDuration;
 }
 
 /// Optional diagnostics surface for hold-style engines.

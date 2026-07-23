@@ -123,6 +123,36 @@ void main() {
     );
   });
 
+  test(
+    'Romanian deadlift form feedback matches the absolute knee-angle gate',
+    () {
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: tr,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Dizlerini biraz daha az bük.',
+      );
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.maintainForm,
+          localizations: tr,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Dizlerini biraz daha az bükerek kalça menteşesini koru.',
+      );
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: en,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Bend your knees a little less.',
+      );
+    },
+  );
+
   test('biceps curl maps range-rep cues to simultaneous-arm copy', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
@@ -177,14 +207,14 @@ void main() {
     );
   });
 
-  test('biceps curl keeps elbow-control form feedback', () {
+  test('biceps curl form feedback matches the upper-arm posture metric', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(
         RangeRepFeedbackCode.legacyFormThresholdViolation,
         localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Dirseklerini sabit tut ve kollarını birlikte hareket ettir.',
+      'Dirseklerini gövdene yakın tut.',
     );
     expect(
       mapRangeRepFeedbackCodeToMessage(
@@ -192,7 +222,7 @@ void main() {
         localizations: tr,
         exerciseType: ExerciseType.bicepsCurl,
       ),
-      'Dirseklerini sabit tut.',
+      'Dirseklerini gövdene yakın tut.',
     );
   });
 

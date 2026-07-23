@@ -283,6 +283,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       diagnostics: preUpdateDiagnostics,
       visibilityRunActive: visibilityRunActive,
       qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
+      preferredRangeRepSide: preferredRangeRepSide,
     );
     final frameAssessment = _frameAssessment(effectiveMetrics, sideSelection);
     final isEngineEligibleFrame =
@@ -782,6 +783,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepDiagnosticsSnapshot diagnostics,
     required bool visibilityRunActive,
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
+    required RangeRepSide? preferredRangeRepSide,
   }) {
     if (_rangeRepContract.sideMode == RangeRepSideMode.bilateral) {
       return RangeRepSideSelection(
@@ -809,16 +811,22 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       return _lockedSideSelection(metrics, selectedRangeRepSide);
     }
 
-    return _sideSelection(metrics, diagnostics: diagnostics);
+    return _sideSelection(
+      metrics,
+      diagnostics: diagnostics,
+      preferredRangeRepSide: preferredRangeRepSide,
+    );
   }
 
   RangeRepSideSelection _sideSelection(
     ExerciseMetrics metrics, {
     RangeRepDiagnosticsSnapshot? diagnostics,
+    RangeRepSide? preferredRangeRepSide,
   }) {
     final selection = _sidePolicy.select(
       metrics: metrics,
       previousSide: _selectedRangeRepSide,
+      preferredSide: preferredRangeRepSide,
       lockPreviousSide: false,
     );
     final resolvedDiagnostics = diagnostics ?? _rangeRepDiagnosticsSnapshot();

@@ -8,6 +8,7 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 
 - `Historical Device-Verified`: Tarihsel beta hardening programında gerçek cihaz baseline ve dataset değerlendirmesi bulunan hareket.
 - `R5 Engineering Revalidated`: Diagnostics schema v6, SHA-pinned profile build ve gerçek cihaz regression run'larıyla yeniden doğrulanmış hareket. Bu statü, önceden tanımlanan formal R5 run adetlerinin eksiksiz uygulandığı anlamına gelmez; protokol sapmaları closure kaydında açıkça tutulur.
+- `R6 Engineering Revalidated`: Exercise-specific R6 cihaz validation'ında gerçek failure bulunup minimal reliability hardening uygulandıktan sonra fix sonrası kritik positive/negative/lifecycle/persistence kanıtlarıyla yeniden doğrulanmış hareket. Formal protokol sapmaları closure kaydında ayrıca tutulur.
 - `Validation Pending`: Production analiz wiring'i ve otomatik test desteği bulunan, ancak exercise-specific güncel cihaz kanıtı bulunmayan hareket.
 
 `Validation Pending`, hareketin bozuk olduğu anlamına gelmez. Yalnızca gerçek cihaz kabul kanıtının henüz bu baseline içinde kurulmadığını ifade eder.
@@ -17,10 +18,10 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- R5 engineering revalidation ile güncel cihaz regression kanıtı bulunan: **3**
-- Ayrı exercise-specific cihaz validation bekleyen: **15**
+- Güncel engineering revalidation cihaz kanıtı bulunan: **9**
+- Ayrı exercise-specific cihaz validation bekleyen: **9**
 
-Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. R5 execution, önceden tanımlanan bazı formal run adetlerinden sapmıştır; bu nedenle statü `R5 Engineering Revalidated` olarak tutulur ve formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. Lateral Raise, doğal bilateral neutral pozisyonun eski strict neutral gate tarafından reddedilmesi ve bilateral sync jitter'ının dirsek feedback semantiğine karışması sorunları minimal hardening ile düzeltildikten sonra positive, static, partial, one-arm, form, occlusion, pause/resume, persistence ve performans cihaz kanıtlarıyla yeniden doğrulanmıştır. Front Raise, side-view selected-side kalite seçimi, false-positive dirsek feedback'i ve aşırı sıkı peak-entry davranışı gerçek cihaz/video incelemesinde bulunup minimal hardening uygulandıktan sonra preflight, positive, static, partial/invalid-ROM, form, pause/resume ve persistence senaryolarının video + gerçek hayat doğrulamasıyla yeniden doğrulanmıştır. Front Raise final hızlandırılmış run setinde diagnostics JSON tutulmadığı için performans metrikleri ayrıca kanıtlanmış sayılmaz; formal protocol-complete iddiası yapılmaz. Wall Sit, hızlandırılmış hold matrisiyle iki farklı kullanıcıda yaklaşık 30 saniye valid hold, deliberate form-break feedback'i, pause/resume hidden-time güvenliği ve persistence üzerinden yeniden doğrulanmıştır. Wall Sit final run setinde diagnostics JSON tutulmadığı için performans metrikleri ayrıca kanıtlanmış sayılmaz; başın kameraya çevrilmesinde gözlenen form-break hassasiyeti P1 robustness finding olarak izlenir. Romanian Deadlift, büyük bumper plate kaynaklı ankle visibility bağımlılığının pose acceptance'tan çıkarılması ve knee-angle feedback semantiğinin gerçek absolute-threshold ölçümüyle hizalanması sonrasında kullanıcı tarafından gerçek cihazda repetition/counting, form-break, pause/resume lifecycle ve persistence kontrolleriyle yeniden doğrulanmıştır. Çok büyük barbell/bumper plate görünürlük problemi blocker olmayan robustness finding olarak açık bırakılmıştır; scoring cezası bu closure kapsamında değiştirilmemiştir. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
@@ -28,20 +29,20 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | --- | --- | --- | --- | --- | --- |
 | Squat | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Plank | `hold` | plank family | n/a | side | R5 Engineering Revalidated |
-| Hollow Hold | `hold` | hollow-hold family | n/a | side | Validation Pending |
+| Hollow Hold | `hold` | hollow-hold family | n/a | side | R6 Engineering Revalidated |
 | Stationary Lunge | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Push-up | `rangeRep` | selected-side | decreasing-to-peak | side | R5 Engineering Revalidated |
 | Sit-up | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | Validation Pending |
+| Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | R6 Engineering Revalidated |
 | Lying Leg Raise | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Triceps Dip | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Romanian Deadlift | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
-| Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
+| Romanian Deadlift | `rangeRep` | selected-side | decreasing-to-peak | side | R6 Engineering Revalidated |
+| Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | R6 Engineering Revalidated |
 | Shoulder Press | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
 | Calf Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
-| Front Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
+| Front Raise | `rangeRep` | selected-side | increasing-to-peak | side | R6 Engineering Revalidated |
 | Glute Bridge | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
-| Wall Sit | `hold` | wall-sit family | n/a | side | Validation Pending |
+| Wall Sit | `hold` | wall-sit family | n/a | side | R6 Engineering Revalidated |
 | Side Plank | `hold` | side-plank family | n/a | front | Validation Pending |
 | Jumping Jack | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
 
@@ -202,7 +203,7 @@ R5 engineering revalidation, commit `f56d921c5e4a6672f3881d5408a0d81302051965` �
 
 R5 sırasında üç açık engineering bulgusu kaydedildi:
 
-1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği.
+1. Hold visibility lifecycle geçmişini ölçen telemetry eksikliği. R6 implementation hardening ile session-level suspend/recovery/abort ve gap-duration telemetry'si eklendi; 701 ms short-gap recovery ve 1669 ms long-gap abort gerçek cihazda doğrulanarak finding kapatıldı.
 2. Static Plank/form-break koşulunda gözlenen camera autofocus hunting.
 3. Push-up positive run'da 12 rep'in 9'unun `excessiveDescentSpeed` nedeniyle `lowConfidence` işaretlenmesi.
 
@@ -210,14 +211,41 @@ Bu bulguların sahipliği ve exit kriterleri `docs/beta/r5-control-group-finding
 
 ## 10. Sonraki Adım
 
-R6 kapsamında Dalga A cihaz validation'ına geçilir:
+R6 Dalga A tamamlanmıştır. Engineering revalidation kapsamı **8 / 18** harekete ulaşmıştır:
 
-1. Biceps Curl
-2. Hollow Hold
-3. Lateral Raise
-4. Front Raise
-5. Wall Sit
+1. Squat
+2. Push-up
+3. Plank
+4. Biceps Curl
+5. Hollow Hold
+6. Lateral Raise
+7. Front Raise
+8. Wall Sit
 
-Hold ailesinin occlusion/recovery kanıtını yorumlamadan önce hold visibility telemetry açığı kapatılmalıdır. Autofocus hunting kamera hardening backlog'unda izlenir. Push-up tempo-confidence threshold tuning ise tek kullanıcı/tek run verisiyle yapılmaz; ek cihaz/kullanıcı verisi olmadan production threshold değiştirilmez.
+Sıradaki çalışma **R6 Dalga B**'dir. Validation sırası:
 
-Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific cihaz kanıtından önce yapılmayacaktır.
+1. Romanian Deadlift
+2. Shoulder Press
+3. Stationary Lunge
+4. Side Plank
+5. Lying Leg Raise
+
+Zaman kısıtı nedeniyle per-exercise occlusion testi varsayılan hızlandırılmış matriste tekrar edilmez. Shared range-rep ve hold visibility/occlusion davranışı mevcut ortak reliability kanıtıyla kapsanır. Occlusion yalnız exercise-specific visibility mantığı, yeni regression veya diagnostics'te visibility-specific failure görülürse yeniden açılır.
+
+Yeni exercise threshold tuning, deterministic R3 baseline ve exercise-specific gerçek cihaz failure kanıtından önce yapılmayacaktır. Tek kullanıcı veya tek video threshold değişikliğine tek başına gerekçe değildir.
+
+## 11. R6 Dalga A - Biceps Curl Closure
+
+R6 Dalga A'nın ilk exercise-specific cihaz validation hedefi Biceps Curl tamamlanmıştır. Protokol `docs/beta/r6-wave-a-biceps-curl-device-validation.md`, canlı execution kaydı `docs/beta/r6-wave-a-run-manifest.csv`, ayrıntılı closure kanıtı ise `docs/beta/r6-wave-a-biceps-curl-results.md` dosyasında tutulur.
+
+Biceps Curl validation başlamadan önce setup rehberi production camera contract ile hizalanmıştır: `front` preferred, `side` unsupported. Önceki 30-45 derece çapraz kamera önerisi kaldırılmıştır. Bu değişiklik engine threshold'larını veya bilateral counting semantiğini değiştirmez; yalnız test ve kullanıcı kurulumunun gerçek analysis contract ile aynı olmasını sağlar.
+
+Biceps Curl, shallow-ROM false count bulgusunun secondary shoulder-wrist closure PEAK gate ile düzeltilmesi ve fix sonrası 10 shallow → 0, 20 full → 20, one-arm → 0, occlusion, pause/resume ve 5 → 5 persistence kanıtları sonrasında **`R6 Engineering Revalidated`** olarak kapatılmıştır. Tempo-confidence hassasiyeti counting closure'ını bloklamayan açık R6 finding olarak izlenir.
+
+## 12. R6 Dalga A - Hold Visibility ve Hollow Hold Closure
+
+Hold visibility telemetry hardening ve Hollow Hold cihaz validation'ı commit `036a81f4b65dbd78fb197e5a6f807c7178d90da0` üzerinde profile build ile tamamlandı. Ayrıntılı closure kanıtı `docs/beta/r6-wave-a-hollow-hold-results.md`, telemetry tasarım/exit gate'i ise `docs/beta/r6-hold-visibility-telemetry-hardening.md` içinde tutulur.
+
+Gerçek cihazda kısa visibility gap 701 ms olarak `suspend + recovery`, uzun visibility gap ise 1669 ms olarak `suspend + abort` şeklinde ölçüldü. İlk long-gap denemesinde hold continuity kırılmasına rağmen yeni event sayaçları oluşmadığı için run `INCONCLUSIVE` olarak saklandı; aynı SHA'da tekrarlanan ikinci long-gap run exit kriterini karşıladı. Bu nedenle R5 F1 hold visibility observability finding'i **CLOSED** olarak işaretlenmiştir.
+
+Hollow Hold için 30 saniye ground-truth hold tam 30 saniye ölçüldü; invalid/form-break run'ında aktif hold sıfırlandı ve `straighten_knees` feedback'i üretildi; pause/resume sonrasında best hold korunup yeni aktif hold ayrı devam etti; 10 saniyelik persistence kullanıcı tarafından doğrulandı. Protokol execution'ı formal çoklu-run seti değildir; bu nedenle statü **`R6 Engineering Revalidated`** olarak tutulur, formal protocol-complete iddiası yapılmaz.

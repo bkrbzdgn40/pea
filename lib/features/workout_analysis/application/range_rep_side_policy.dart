@@ -7,6 +7,7 @@ enum RangeRepSideSelectionReason {
   keptPreviousSide,
   switchedToHigherCoverage,
   selectedHigherCoverage,
+  selectedPreferredQuality,
   selectedLeftTie,
   keptPreviousSideWithoutCoverage,
   noAvailableSide,
@@ -50,6 +51,8 @@ class RangeRepSideSelection {
         return 'switched to higher coverage';
       case RangeRepSideSelectionReason.selectedHigherCoverage:
         return 'selected higher coverage';
+      case RangeRepSideSelectionReason.selectedPreferredQuality:
+        return 'selected preferred quality';
       case RangeRepSideSelectionReason.selectedLeftTie:
         return 'selected left tie';
       case RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage:
@@ -66,6 +69,7 @@ class RangeRepSidePolicy {
   RangeRepSideSelection select({
     required ExerciseMetrics metrics,
     RangeRepSide? previousSide,
+    RangeRepSide? preferredSide,
     bool lockPreviousSide = false,
   }) {
     final leftMetrics = metrics.leftRangeRepMetrics;
@@ -104,6 +108,21 @@ class RangeRepSidePolicy {
           rightMetrics: rightMetrics,
           reason: RangeRepSideSelectionReason.switchedToHigherCoverage,
         );
+      }
+
+      if (preferredSide != null && preferredSide != previousSide) {
+        final preferredMetrics = preferredSide == RangeRepSide.left
+            ? leftMetrics
+            : rightMetrics;
+        if (preferredMetrics.coverageScore > 0 &&
+            preferredMetrics.coverageScore == previousMetrics.coverageScore) {
+          return RangeRepSideSelection(
+            selectedSide: preferredSide,
+            leftMetrics: leftMetrics,
+            rightMetrics: rightMetrics,
+            reason: RangeRepSideSelectionReason.selectedPreferredQuality,
+          );
+        }
       }
 
       if (previousMetrics.coverageScore > 0) {
@@ -157,6 +176,20 @@ class RangeRepSidePolicy {
         rightMetrics: rightMetrics,
         reason: RangeRepSideSelectionReason.selectedHigherCoverage,
       );
+    }
+
+    if (preferredSide != null) {
+      final preferredMetrics = preferredSide == RangeRepSide.left
+          ? leftMetrics
+          : rightMetrics;
+      if (preferredMetrics.coverageScore > 0) {
+        return RangeRepSideSelection(
+          selectedSide: preferredSide,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason: RangeRepSideSelectionReason.selectedPreferredQuality,
+        );
+      }
     }
 
     return RangeRepSideSelection(

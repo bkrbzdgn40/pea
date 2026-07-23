@@ -141,8 +141,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Drive your hips forward to stand...',
       ),
       formViolation: localizations.pick(
-        tr: 'Diz açını daha sabit tut.',
-        en: 'Keep your knee angle more stable.',
+        tr: 'Dizlerini biraz daha az bük.',
+        en: 'Bend your knees a little less.',
       ),
       controlDescent: localizations.pick(
         tr: 'Kalça menteşesini kontrollü yap.',
@@ -157,8 +157,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Maintain control at the bottom.',
       ),
       maintainForm: localizations.pick(
-        tr: 'Diz açını ve kalça menteşesini koru.',
-        en: 'Maintain your knee angle and hip hinge.',
+        tr: 'Dizlerini biraz daha az bükerek kalça menteşesini koru.',
+        en: 'Keep the hip hinge with slightly less knee bend.',
       ),
     );
   }
@@ -405,8 +405,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Lower with control...',
       ),
       formViolation: localizations.pick(
-        tr: 'Dirseklerini sabit tut ve kollarını birlikte hareket ettir.',
-        en: 'Keep your elbows still and move both arms together.',
+        tr: 'Dirseklerini gövdene yakın tut.',
+        en: 'Keep your elbows close to your torso.',
       ),
       controlDescent: localizations.pick(
         tr: 'Yukarı çekişi kontrollü yap.',
@@ -421,8 +421,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Stabilize the transition at the top.',
       ),
       maintainForm: localizations.pick(
-        tr: 'Dirseklerini sabit tut.',
-        en: 'Keep your elbows still.',
+        tr: 'Dirseklerini gövdene yakın tut.',
+        en: 'Keep your elbows close to your torso.',
       ),
     );
   }

@@ -46,6 +46,44 @@ void main() {
     );
   });
 
+  test(
+    'lateral raise accepts a natural 29-degree neutral and completes the rep',
+    () {
+      final clock = _Clock();
+      final engine = RangeRepEngine(
+        config: ExerciseConfig(
+          name: 'Lateral Raise Natural Neutral Test',
+          primaryJoint: PoseLandmarkType.leftShoulder,
+          joint1: PoseLandmarkType.leftElbow,
+          joint2: PoseLandmarkType.leftHip,
+          thresholdNeutral: 32,
+          thresholdActive: 35,
+          thresholdPeak: 80,
+          targetMaxAngle: 90,
+        ),
+        primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 29, 120);
+      expect(engine.phaseLabel, 'NEUTRAL');
+
+      _confirm(clock, engine, 45, 100);
+      expect(engine.phaseLabel, 'DESCENDING');
+
+      _confirm(clock, engine, 90, 100);
+      expect(engine.phaseLabel, 'PEAK');
+
+      _confirm(clock, engine, 65, 100);
+      expect(engine.phaseLabel, 'ASCENDING');
+
+      final completionResult = _confirm(clock, engine, 29, 120);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(engine.repCount, 1);
+      expect(completionResult.completedRepDetectionData, isNotNull);
+    },
+  );
+
   test('publishes centralized tempo facts and session summary', () {
     final clock = _Clock();
     final engine = RangeRepEngine(

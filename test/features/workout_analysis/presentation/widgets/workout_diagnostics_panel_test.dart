@@ -168,6 +168,11 @@ void main() {
         ),
         isHoldFormBreakGraceActive: true,
         isHoldVisibilitySuspended: false,
+        holdVisibilitySuspendCount: 2,
+        holdVisibilityRecoveryCount: 1,
+        holdVisibilityAbortCount: 1,
+        holdVisibilitySuspendedMsTotal: 1700,
+        lastHoldVisibilityGapMs: 1200,
       ),
       onReset: () {},
     );
@@ -212,6 +217,19 @@ void main() {
     );
     expect(find.text('Form-break grace active'), findsOneWidget);
     expect(find.text('Visibility suspended'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Visibility suspend count'),
+      200,
+      scrollable: scrollable,
+    );
+    expect(find.text('Visibility suspend count'), findsOneWidget);
+    expect(find.text('Visibility recovery count'), findsOneWidget);
+    expect(find.text('Visibility abort count'), findsOneWidget);
+    expect(find.text('Visibility suspended total'), findsOneWidget);
+    expect(find.text('Last visibility gap'), findsOneWidget);
+    expect(find.text('1700 ms'), findsOneWidget);
+    expect(find.text('1200 ms'), findsOneWidget);
   });
 
   testWidgets(
@@ -605,6 +623,11 @@ WorkoutDiagnosticsSnapshot _snapshot({
   HoldSignalValidity? signalValidity,
   bool? isHoldFormBreakGraceActive,
   bool? isHoldVisibilitySuspended,
+  int holdVisibilitySuspendCount = 0,
+  int holdVisibilityRecoveryCount = 0,
+  int holdVisibilityAbortCount = 0,
+  int holdVisibilitySuspendedMsTotal = 0,
+  int? lastHoldVisibilityGapMs,
   Map<RangeRepSignal, Set<AnalysisSignalRole>> rangeRepSignalRoles =
       const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   Map<HoldSignal, Set<AnalysisSignalRole>> holdSignalRoles =
@@ -645,6 +668,11 @@ WorkoutDiagnosticsSnapshot _snapshot({
     maxPoseCount: maxPoseCount,
     analysisExceptionCount: analysisExceptionCount,
     resyncCount: resyncCount,
+    holdVisibilitySuspendCount: holdVisibilitySuspendCount,
+    holdVisibilityRecoveryCount: holdVisibilityRecoveryCount,
+    holdVisibilityAbortCount: holdVisibilityAbortCount,
+    holdVisibilitySuspendedMsTotal: holdVisibilitySuspendedMsTotal,
+    lastHoldVisibilityGapMs: lastHoldVisibilityGapMs,
     cameraViewContract: cameraViewContract ?? _sideViewContract,
     rangeRepDiagnostics: analysisKind == 'rangeRep'
         ? RangeRepWorkoutDiagnostics(

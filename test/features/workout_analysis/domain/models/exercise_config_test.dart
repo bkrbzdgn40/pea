@@ -145,7 +145,7 @@ void main() {
         expect(config.joint2, PoseLandmarkType.leftWrist);
         expect(config.thresholdNeutral, 155.0);
         expect(config.thresholdActive, 140.0);
-        expect(config.thresholdPeak, 88.0);
+        expect(config.thresholdPeak, 78.0);
         expect(config.formThreshold, 150.0);
         expect(config.targetMinAngle, 75.0);
         expect(
@@ -166,6 +166,22 @@ void main() {
               ?.source,
           RangeRepSignalSource.primaryMetric,
         );
+      },
+    );
+
+    test(
+      'parses the lateral raise asset config with mild elbow-flexion tolerance',
+      () {
+        final config = _loadConfig(
+          'assets/config/exercises/lateral_raise.json',
+        );
+
+        expect(config.name, 'Lateral Raise');
+        expect(config.thresholdNeutral, 32.0);
+        expect(config.thresholdActive, 35.0);
+        expect(config.thresholdPeak, 80.0);
+        expect(config.formThreshold, 145.0);
+        expect(config.targetMaxAngle, 90.0);
       },
     );
 
@@ -247,6 +263,12 @@ void main() {
         expect(config.rangeRepSignals, isNotNull);
         expect(config.targetMaxAngle, isNotNull);
       }
+
+      final frontRaise = _loadConfig(
+        'assets/config/exercises/front_raise.json',
+      );
+      expect(frontRaise.thresholdPeak, 75.0);
+      expect(frontRaise.formThreshold, 145.0);
     });
 
     test('parses wall-sit and side-plank hold configs', () {

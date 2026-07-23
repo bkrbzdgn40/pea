@@ -194,7 +194,7 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
     setupSteps: [
       'Stand balanced with both arms extended downward at the start.',
       'Make sure both shoulders, elbows, wrists, and hips are clearly visible.',
-      'For initial calibration, place the camera at roughly a 30-45 degree diagonal angle.',
+      'For initial calibration, place the camera directly in front so both arms and hips are visible together.',
       'Prepare to start and finish each repetition with both arms together.',
     ],
     tips: [

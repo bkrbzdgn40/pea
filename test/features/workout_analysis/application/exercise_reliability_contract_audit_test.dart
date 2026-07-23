@@ -270,6 +270,43 @@ void main() {
       },
     );
 
+    test('Romanian Deadlift pose acceptance does not require the ankle-only '
+        'technique carrier', () {
+      final config = loadExerciseConfig(
+        'assets/config/exercises/romanian_deadlift.json',
+      );
+      final contract = RangeRepContracts.romanianDeadlift;
+
+      final supported = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: contract,
+        rangeRepSignalSet: RangeRepSignalSet.supportedAnalysis,
+        side: RangeRepSide.left,
+      );
+      final poseAcceptance = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: contract,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.left,
+      );
+
+      expect(supported.requiredLandmarks, contains(PoseLandmarkType.leftAnkle));
+      expect(
+        poseAcceptance.requiredLandmarks,
+        containsAll(<PoseLandmarkType>[
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        ]),
+      );
+      expect(
+        poseAcceptance.requiredLandmarks,
+        isNot(contains(PoseLandmarkType.leftAnkle)),
+      );
+    });
+
     test('hold definitions resolve every required signal on both sides', () {
       for (final definition in catalog.definitions.where(
         (definition) => definition.analysisEngineKind == EngineKind.hold,

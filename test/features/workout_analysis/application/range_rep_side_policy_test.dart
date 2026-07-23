@@ -86,6 +86,94 @@ void main() {
       );
     });
 
+    test('uses the pose-quality preferred side when coverage is tied', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 92,
+            formMetric: 120,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+          right: const RangeRepSideMetrics(
+            side: RangeRepSide.right,
+            primaryAngle: 90,
+            formMetric: 175,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+        ),
+        preferredSide: RangeRepSide.right,
+      );
+
+      expect(selection.selectedSide, RangeRepSide.right);
+      expect(
+        selection.reason,
+        RangeRepSideSelectionReason.selectedPreferredQuality,
+      );
+    });
+
+    test(
+      'lets an equally covered preferred side challenge the previous side',
+      () {
+        final selection = policy.select(
+          metrics: _metrics(
+            left: const RangeRepSideMetrics(
+              side: RangeRepSide.left,
+              primaryAngle: 92,
+              formMetric: 120,
+              hasPrimaryAngle: true,
+              hasFormMetric: true,
+            ),
+            right: const RangeRepSideMetrics(
+              side: RangeRepSide.right,
+              primaryAngle: 90,
+              formMetric: 175,
+              hasPrimaryAngle: true,
+              hasFormMetric: true,
+            ),
+          ),
+          previousSide: RangeRepSide.left,
+          preferredSide: RangeRepSide.right,
+        );
+
+        expect(selection.selectedSide, RangeRepSide.right);
+        expect(
+          selection.reason,
+          RangeRepSideSelectionReason.selectedPreferredQuality,
+        );
+      },
+    );
+
+    test('does not let preferred quality override higher signal coverage', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 92,
+            formMetric: 175,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+          right: const RangeRepSideMetrics(
+            side: RangeRepSide.right,
+            primaryAngle: 90,
+            formMetric: 90,
+            hasPrimaryAngle: true,
+            hasFormMetric: false,
+          ),
+        ),
+        preferredSide: RangeRepSide.right,
+      );
+
+      expect(selection.selectedSide, RangeRepSide.left);
+      expect(
+        selection.reason,
+        RangeRepSideSelectionReason.selectedHigherCoverage,
+      );
+    });
+
     test('returns noAvailableSide when both sides have zero coverage', () {
       final selection = policy.select(
         metrics: _metrics(

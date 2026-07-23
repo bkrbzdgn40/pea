@@ -61,7 +61,8 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepRepOutcomeTracker? outcomeTracker,
     SessionCalibrationBaselineAccumulator?
     sessionCalibrationBaselineAccumulator,
-  }) : _exerciseAnalysisExtension =
+  }) : _rangeRepEngine = engine,
+       _exerciseAnalysisExtension =
            exerciseAnalysisExtension ??
            exerciseAnalysisExtensionFactory.create(
              rangeRepContract.extensionProfile,
@@ -88,6 +89,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
              sessionCalibrationBaselineAccumulator,
        );
 
+  final RangeRepAnalysisEngine _rangeRepEngine;
   final RangeRepExerciseAnalysisExtension _exerciseAnalysisExtension;
 
   List<RangeRepTechniqueObservation> get techniqueObservations =>
@@ -114,6 +116,13 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
   }) {
+    final extension = _exerciseAnalysisExtension;
+    _rangeRepEngine.setPeakEntryAllowed(
+      extension is RangeRepPeakEntryGate
+          ? (extension as RangeRepPeakEntryGate).allowsPeakEntry(metrics)
+          : true,
+    );
+
     final result = super.processFrame(
       metrics: metrics,
       now: now,

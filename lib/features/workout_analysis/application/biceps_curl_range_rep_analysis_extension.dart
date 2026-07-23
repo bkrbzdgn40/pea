@@ -1,3 +1,7 @@
+import 'dart:math' as math;
+
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+
 import '../domain/biceps_torso_swing_tracker.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
 import 'biceps_torso_inclination_measurement.dart';
@@ -7,16 +11,20 @@ import 'range_rep_exercise_analysis_extension.dart';
 import 'range_rep_extension_pose_utils.dart';
 
 class BicepsCurlRangeRepExerciseAnalysisExtension
-    implements RangeRepExerciseAnalysisExtension {
+    implements RangeRepExerciseAnalysisExtension, RangeRepPeakEntryGate {
   final BicepsTorsoInclinationMeasurement _torsoMeasurement =
       const BicepsTorsoInclinationMeasurement();
   final BicepsTorsoSwingTracker _torsoSwingTracker = BicepsTorsoSwingTracker();
   final List<RangeRepTechniqueObservation> _techniqueObservations =
       <RangeRepTechniqueObservation>[];
 
+  static const double _maxPeakWristShoulderDistanceRatio = 0.64;
+
   double? _currentRomDelta;
   double? _latestNeutralAngle;
   double? _currentPeakAngle;
+  double? _neutralLeftWristShoulderDistance;
+  double? _neutralRightWristShoulderDistance;
   String? _previousPhase;
 
   @override
@@ -31,15 +39,83 @@ class BicepsCurlRangeRepExerciseAnalysisExtension
   }
 
   @override
+  bool allowsPeakEntry(ExerciseMetrics metrics) {
+    final neutralLeft = _neutralLeftWristShoulderDistance;
+    final neutralRight = _neutralRightWristShoulderDistance;
+    if (neutralLeft == null || neutralRight == null) {
+      return false;
+    }
+
+    final distances = _bilateralWristShoulderDistances(metrics);
+    if (distances == null) {
+      return false;
+    }
+
+    final leftRatio = distances.$1 / neutralLeft;
+    final rightRatio = distances.$2 / neutralRight;
+    return leftRatio <= _maxPeakWristShoulderDistanceRatio &&
+        rightRatio <= _maxPeakWristShoulderDistanceRatio;
+  }
+
+  @override
   void processFrame({
     required ExerciseMetrics metrics,
     required base.RangeRepCoordinatorFrameResult result,
     required bool isAcceptedPoseFrame,
   }) {
     if (isAcceptedPoseFrame) {
+      _recordNeutralWristShoulderBaseline(metrics: metrics, result: result);
       _recordTechnique(metrics: metrics, result: result);
     }
     _previousPhase = result.stateSnapshot.currentPhase;
+  }
+
+  void _recordNeutralWristShoulderBaseline({
+    required ExerciseMetrics metrics,
+    required base.RangeRepCoordinatorFrameResult result,
+  }) {
+    if (result.stateSnapshot.currentPhase != 'NEUTRAL') {
+      return;
+    }
+
+    final distances = _bilateralWristShoulderDistances(metrics);
+    if (distances == null) {
+      return;
+    }
+
+    _neutralLeftWristShoulderDistance = math.max(
+      _neutralLeftWristShoulderDistance ?? 0.0,
+      distances.$1,
+    );
+    _neutralRightWristShoulderDistance = math.max(
+      _neutralRightWristShoulderDistance ?? 0.0,
+      distances.$2,
+    );
+  }
+
+  (double, double)? _bilateralWristShoulderDistances(ExerciseMetrics metrics) {
+    final pose = poseFromLandmarks(metrics.landmarks);
+    final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
+    final leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+    final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
+    final rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+    if (leftShoulder == null ||
+        leftWrist == null ||
+        rightShoulder == null ||
+        rightWrist == null) {
+      return null;
+    }
+
+    return (
+      _distance(leftShoulder.x, leftShoulder.y, leftWrist.x, leftWrist.y),
+      _distance(rightShoulder.x, rightShoulder.y, rightWrist.x, rightWrist.y),
+    );
+  }
+
+  double _distance(double x1, double y1, double x2, double y2) {
+    final dx = x2 - x1;
+    final dy = y2 - y1;
+    return math.sqrt((dx * dx) + (dy * dy));
   }
 
   void _recordTechnique({
@@ -104,6 +180,8 @@ class BicepsCurlRangeRepExerciseAnalysisExtension
     _currentRomDelta = null;
     _latestNeutralAngle = null;
     _currentPeakAngle = null;
+    _neutralLeftWristShoulderDistance = null;
+    _neutralRightWristShoulderDistance = null;
     _previousPhase = null;
     _torsoSwingTracker.resetRep(keepNeutral: false);
     _techniqueObservations.clear();

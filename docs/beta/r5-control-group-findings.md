@@ -4,6 +4,7 @@ Bu belge, R5 gerçek cihaz execution'ında bulunan ve kontrol grubu closure'ın�
 
 ## F1 - Hold visibility lifecycle telemetry eksikliği
 
+- Durum: **CLOSED - real-device short/long gap telemetry verified**
 - Öncelik: **P0 - R6 hold-family validation öncesi**
 - Katman: Diagnostics / observability
 - Etkilenen alan: Plank ve gelecekte Hollow Hold, Wall Sit, Side Plank
@@ -26,9 +27,43 @@ Hold davranışını değiştirmeden privacy-safe session telemetry ekle:
 - `hold_visibility_suspended_ms_total`
 - `last_hold_visibility_gap_ms`
 
+### Implementation
+
+R6 hardening patch'i mevcut hold lifecycle davranışını değiştirmeden şu session-level alanları Diagnostics schema v6 export'una taşır:
+
+- `hold_visibility_suspend_count`
+- `hold_visibility_recovery_count`
+- `hold_visibility_abort_count`
+- `hold_visibility_suspended_ms_total`
+- `last_hold_visibility_gap_ms`
+
+`hold_visibility_suspended_ms_total` yalnız recovery veya abort ile tamamlanmış gap'leri toplar. Devam eden açık gap, kapanana kadar toplam süreye eklenmez.
+
 ### Exit kriteri
 
-Deterministic test + gerçek Plank run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı.
+Deterministic test + gerçek cihaz hold run'ında kısa ve uzun visibility loss için event sayaçları ile hidden-time davranışı tek JSON'dan açıklanabilir olmalı. Kısa gap'te recovery, uzun gap'te abort ve gap duration alanları gerçek cihaz export'unda doğrulanmadan finding `CLOSED` sayılmaz.
+
+### R6 closure kanıtı
+
+SHA-pinned profile build: `036a81f4b65dbd78fb197e5a6f807c7178d90da0`
+
+- Kısa gap: `diagnostics_v6_hollow_hold_20260722_165459.json`
+  - suspend = 1
+  - recovery = 1
+  - abort = 0
+  - last gap = 701 ms
+  - suspended total = 701 ms
+- İlk uzun-gap denemesi: `diagnostics_v6_hollow_hold_20260722_165636.json`
+  - hold continuity kırılması gözlendi ancak yeni event sayaçları oluşmadı
+  - sonuç `INCONCLUSIVE`; closure kanıtı olarak kullanılmadı
+- Tekrarlanan uzun gap: `diagnostics_v6_hollow_hold_20260722_165832.json`
+  - suspend = 1
+  - recovery = 0
+  - abort = 1
+  - last gap = 1669 ms
+  - suspended total = 1669 ms
+
+İkinci long-gap run ve kısa-gap run aynı SHA üzerinde deterministic testlerin beklediği lifecycle semantiğini gerçek cihazda doğrulamıştır. Finding **CLOSED**.
 
 ## F2 - Camera autofocus hunting during static hold/form-break
 
@@ -109,3 +144,7 @@ Run ID anlamını execution sonrasında geriye dönük değiştirme.
 ### Exit kriteri
 
 R6 Dalga A closure'ında planlanan ve gerçek execution arasındaki fark tek sonuç dosyasından açıkça görülebilmeli.
+
+### R6 uygulama durumu
+
+Biceps Curl validation hazırlığında `docs/beta/r6-wave-a-run-manifest.csv` canlı manifesti eklenmiştir. Planlanan ve gerçek execution adetleri ayrı kolonlarda tutulur; `deviation_reason` alanı run ID anlamını geriye dönük değiştirmeden protokol sapmasını kaydeder. F4 process hardening maddesi R6 execution için uygulanmıştır; closure'da manifestin eksiksiz doldurulduğu ayrıca doğrulanacaktır.

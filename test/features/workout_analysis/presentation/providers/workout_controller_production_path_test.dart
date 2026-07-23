@@ -743,7 +743,7 @@ void main() {
     );
 
     test(
-      'biceps curl production path counts a valid-but-not-ideal bilateral rep without requiring perfect ROM',
+      'biceps curl production path counts a sufficiently deep bilateral rep',
       () async {
         final detector = _QueuedPoseDetector();
         final clock = _FakeClock();
@@ -783,7 +783,7 @@ void main() {
           harness.controller,
           detector,
           clock,
-          _bicepsCurlPose(leftPrimaryAngle: 84, rightPrimaryAngle: 84),
+          _bicepsCurlPose(leftPrimaryAngle: 74, rightPrimaryAngle: 74),
           expectedPhase: 'PEAK',
           spacing: const Duration(milliseconds: 90),
         );
@@ -812,8 +812,8 @@ void main() {
         expect(state.holdAnalysis, isNull);
         expect(state.repCount, 1);
         expect(state.currentPhase, 'NEUTRAL');
-        expect(state.lastRepROM, closeTo(84.0, 0.001));
-        expect(state.calibrationMetrics.lastRepRomScore, closeTo(91.0, 0.001));
+        expect(state.lastRepROM, closeTo(74.0, 0.001));
+        expect(state.calibrationMetrics.lastRepRomScore, closeTo(100.0, 0.001));
         expect(state.analysisKind.name, 'rangeRep');
         expect(state.calibrationMetrics.selectedRangeRepSide, isNull);
         expect(diagnostics.analysisKind, 'rangeRep');
@@ -2319,6 +2319,13 @@ void main() {
     expect(state.currentHoldSeconds, closeTo(6.0, 0.001));
     expect(state.holdFeedbackCode, HoldFeedbackCode.holdPosition);
     expect(state.holdEnginePhase, HoldPhase.holding);
+
+    final diagnostics = controller.diagnosticsSnapshot();
+    expect(diagnostics.holdVisibilitySuspendCount, 1);
+    expect(diagnostics.holdVisibilityRecoveryCount, 1);
+    expect(diagnostics.holdVisibilityAbortCount, 0);
+    expect(diagnostics.holdVisibilitySuspendedMsTotal, greaterThan(0));
+    expect(diagnostics.lastHoldVisibilityGapMs, greaterThan(0));
   });
 
   test(
@@ -2369,6 +2376,16 @@ void main() {
       expect(state.currentHoldSeconds, closeTo(1.0, 0.001));
       expect(state.bestHoldSeconds, closeTo(5.0, 0.001));
       expect(state.hadHoldFormBreak, isFalse);
+
+      final diagnostics = controller.diagnosticsSnapshot();
+      expect(diagnostics.holdVisibilitySuspendCount, 1);
+      expect(diagnostics.holdVisibilityRecoveryCount, 0);
+      expect(diagnostics.holdVisibilityAbortCount, 1);
+      expect(
+        diagnostics.holdVisibilitySuspendedMsTotal,
+        greaterThanOrEqualTo(1200),
+      );
+      expect(diagnostics.lastHoldVisibilityGapMs, greaterThanOrEqualTo(1200));
     },
   );
 
