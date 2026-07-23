@@ -603,8 +603,8 @@ void main() {
 
       expect(sessionLifecycle.currentStateSnapshot().isFinishing, isTrue);
       expect(sessionLifecycle.currentStateSnapshot().hasSavedSession, isTrue);
-      expect(harness.cameraController!.stopImageStreamCallCount, 1);
-      expect(harness.cameraController!.startImageStreamCallCount, 0);
+      expect(harness.cameraController!.stopImageStreamCallCount, 2);
+      expect(harness.cameraController!.startImageStreamCallCount, 1);
       expect(harness.cameraController!.value.isStreamingImages, isFalse);
 
       harness.navigationObserver.lastPushedRoute!.navigator!.pop();
@@ -612,7 +612,7 @@ void main() {
 
       expect(sessionLifecycle.currentStateSnapshot().isFinishing, isFalse);
       expect(sessionLifecycle.currentStateSnapshot().hasSavedSession, isTrue);
-      expect(harness.cameraController!.startImageStreamCallCount, 1);
+      expect(harness.cameraController!.startImageStreamCallCount, 2);
       expect(harness.cameraController!.value.isStreamingImages, isTrue);
     },
   );
