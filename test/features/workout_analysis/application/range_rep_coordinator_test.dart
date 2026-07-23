@@ -121,6 +121,59 @@ void main() {
       expect(calibrationMetrics.rangeRepInvalidCount, 1);
     });
 
+    test('reuses completed-rep telemetry between ordinary runtime frames', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = const AnalysisEngineFactory().createRangeRep(
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        now: clock.now,
+      );
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomAngle: 0.0,
+        ),
+      );
+
+      final completedResult = _completeCleanSquatRep(coordinator, clock);
+      final completedReasons = completedResult
+          .stateSnapshot
+          .calibrationMetrics
+          .lastRangeRepValidationReasons;
+      expect(completedReasons, isNotEmpty);
+
+      clock.advance(const Duration(milliseconds: 120));
+      final nextRuntimeFrame = _processAcceptedFrame(
+        coordinator,
+        clock,
+        angle: 170,
+      );
+
+      expect(
+        identical(
+          nextRuntimeFrame
+              .stateSnapshot
+              .calibrationMetrics
+              .lastRangeRepValidationReasons,
+          completedReasons,
+        ),
+        isTrue,
+      );
+      expect(
+        nextRuntimeFrame
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepValidationStatus,
+        completedResult
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepValidationStatus,
+      );
+    });
+
     test('keeps an explicitly injected outcome tracker unchanged', () {
       final clock = _TestClock();
       final config = _squatConfig();

@@ -260,6 +260,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   DateTime _diagnosticsNow = DateTime.fromMillisecondsSinceEpoch(0);
   WorkoutCalibrationMetrics _lastPublishedCalibrationMetrics =
       const WorkoutCalibrationMetrics.rangeRep();
+  RangeRepRepTelemetrySnapshot _lastRepTelemetry =
+      const RangeRepRepTelemetrySnapshot();
 
   @override
   RangeRepCoordinatorFrameResult processFrame({
@@ -599,12 +601,18 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     if (completedRepCoreData != null) {
       _lastCompletedRepCoreData = completedRepCoreData;
     }
-    final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshot();
+    final postUpdateDetectionDiagnostics = _engine.detectionDiagnosticsSnapshot;
+    final postUpdateTechniqueHistory = _techniqueHistorySnapshotFor(
+      postUpdateDetectionDiagnostics,
+    );
+    final postUpdateDiagnostics = _rangeRepDiagnosticsSnapshotFrom(
+      detectionDiagnostics: postUpdateDetectionDiagnostics,
+      techniqueHistory: postUpdateTechniqueHistory,
+    );
     _applyFeedbackArbitration(
       engineResult: engineResult,
       hasTechniqueViolation: hasTechniqueViolation,
-      phaseFeedbackCandidate:
-          _currentTechniqueHistorySnapshot().phaseFeedbackCandidate,
+      phaseFeedbackCandidate: postUpdateTechniqueHistory.phaseFeedbackCandidate,
     );
     final didCompleteRep = engineResult.didCompleteRep;
     if (completedRepCoreData != null) {
@@ -621,6 +629,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final completedRepValidationResult = completedRepCoreData == null
         ? null
         : _outcomeTracker.lastRangeRepValidationResult;
+    if (completedRepCoreData != null) {
+      _refreshRepTelemetry();
+    }
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
@@ -628,6 +639,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
 
     final calibrationMetrics = _buildCalibrationMetrics(
+      diagnostics: postUpdateDiagnostics,
       currentFormMetric: engineFrame.formMetric,
       currentPrimaryMetric: engineFrame.primaryMetric,
       thresholdValue: formThresholdResolution.effectiveThreshold,
@@ -1249,6 +1261,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   }
 
   WorkoutCalibrationMetrics _buildCalibrationMetrics({
+    required RangeRepDiagnosticsSnapshot diagnostics,
     required double currentFormMetric,
     required double thresholdValue,
     double? currentPrimaryMetric,
@@ -1287,11 +1300,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     bool hasArmSupportAngle = false,
     bool hasLegExtensionAngle = false,
   }) {
-    final diagnostics = _rangeRepDiagnosticsSnapshot();
-    final lastBreakdown = _lastRepScoreBreakdown;
-    final lastValidationResult = _outcomeTracker.lastRangeRepValidationResult;
-    final lastSummaryCandidate =
-        _outcomeTracker.lastRangeRepRepSummaryCandidate;
     final calibrationSnapshotCandidate = _calibrationSnapshotBuilder
         .buildCandidate(
           engineKind: EngineKind.rangeRep,
@@ -1320,13 +1328,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       }
     }
 
-    return _calibrationMetricsBuilder.buildRangeRep(
+    return _calibrationMetricsBuilder.buildRangeRepRuntime(
       currentFormMetric: currentFormMetric,
       thresholdValue: thresholdValue,
       diagnostics: diagnostics,
-      lastBreakdown: lastBreakdown,
-      lastValidationResult: lastValidationResult,
-      lastSummaryCandidate: lastSummaryCandidate,
+      repTelemetry: _lastRepTelemetry,
       rangeRepSideHysteresisStatus: _sideStabilizer.hysteresisStatus,
       rangeRepSideConsistencyStatus: _sideStabilizer.consistencyStatus,
       calibrationSnapshot: _lastCalibrationSnapshot,
@@ -1342,11 +1348,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       calibrationThresholdOffsetTooSmallCount:
           _thresholdBookkeeper.offsetTooSmallCount,
       sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
-      lastRangeRepValidatedRepIndex:
-          _outcomeTracker.lastRangeRepValidatedRepIndex,
-      rangeRepValidatedCount: _outcomeTracker.rangeRepValidatedCount,
-      rangeRepLowConfidenceCount: _outcomeTracker.rangeRepLowConfidenceCount,
-      rangeRepInvalidCount: _outcomeTracker.rangeRepInvalidCount,
       baseFormThreshold: baseFormThreshold,
       effectiveFormThreshold: effectiveFormThreshold,
       calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
@@ -1387,9 +1388,32 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
   }
 
+  void _refreshRepTelemetry() {
+    _lastRepTelemetry = _calibrationMetricsBuilder.buildRangeRepRepTelemetry(
+      lastBreakdown: _lastRepScoreBreakdown,
+      lastValidationResult: _outcomeTracker.lastRangeRepValidationResult,
+      lastSummaryCandidate: _outcomeTracker.lastRangeRepRepSummaryCandidate,
+      lastRangeRepValidatedRepIndex:
+          _outcomeTracker.lastRangeRepValidatedRepIndex,
+      rangeRepValidatedCount: _outcomeTracker.rangeRepValidatedCount,
+      rangeRepLowConfidenceCount: _outcomeTracker.rangeRepLowConfidenceCount,
+      rangeRepInvalidCount: _outcomeTracker.rangeRepInvalidCount,
+    );
+  }
+
   RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshot() {
     final detectionDiagnostics = _engine.detectionDiagnosticsSnapshot;
     final techniqueHistory = _techniqueHistorySnapshotFor(detectionDiagnostics);
+    return _rangeRepDiagnosticsSnapshotFrom(
+      detectionDiagnostics: detectionDiagnostics,
+      techniqueHistory: techniqueHistory,
+    );
+  }
+
+  RangeRepDiagnosticsSnapshot _rangeRepDiagnosticsSnapshotFrom({
+    required RangeRepDiagnosticsSnapshot detectionDiagnostics,
+    required LegacyRangeRepTechniqueHistorySnapshot techniqueHistory,
+  }) {
     final phaseQuality = techniqueHistory.phaseQualityTelemetry;
     return RangeRepDiagnosticsSnapshot(
       currentRepWorstBackAngle: techniqueHistory.currentRepWorstFormMetric,
@@ -1410,10 +1434,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       ascendingPhaseAssessment: techniqueHistory.ascendingPhaseAssessment,
       phaseFeedbackCandidate: techniqueHistory.phaseFeedbackCandidate?.code,
     );
-  }
-
-  LegacyRangeRepTechniqueHistorySnapshot _currentTechniqueHistorySnapshot() {
-    return _techniqueHistorySnapshotFor(_engine.detectionDiagnosticsSnapshot);
   }
 
   LegacyRangeRepTechniqueHistorySnapshot _techniqueHistorySnapshotFor(
@@ -1509,6 +1529,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       selectedRangeRepSide: preview.selectedRangeRepSide,
     );
     final calibrationMetrics = _buildCalibrationMetrics(
+      diagnostics: _rangeRepDiagnosticsSnapshot(),
       currentFormMetric: preview.previewBackAngle,
       currentPrimaryMetric: preview.previewAngle,
       thresholdValue: formThresholdResolution.effectiveThreshold,
