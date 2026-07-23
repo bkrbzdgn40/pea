@@ -34,6 +34,7 @@ import '../../domain/tempo_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
+import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
@@ -47,10 +48,46 @@ final workoutControllerProvider =
     });
 
 final workoutLiveMetricsProvider =
-    Provider.autoDispose<WorkoutLiveMetricsSnapshot>((ref) {
-      ref.watch(workoutControllerProvider);
-      return ref.read(workoutControllerProvider.notifier).liveMetricsSnapshot();
-    });
+    AutoDisposeNotifierProvider<
+      WorkoutLiveMetricsController,
+      WorkoutLiveMetricDisplayState
+    >(WorkoutLiveMetricsController.new);
+
+class WorkoutLiveMetricsController
+    extends AutoDisposeNotifier<WorkoutLiveMetricDisplayState> {
+  @override
+  WorkoutLiveMetricDisplayState build() {
+    // A planned workout can switch exercises without disposing the analysis
+    // route. Reset the display projection whenever the active exercise changes.
+    ref.watch(activeAnalysisExerciseProvider);
+    return WorkoutLiveMetricDisplayState.empty;
+  }
+
+  void reset() {
+    if (state == WorkoutLiveMetricDisplayState.empty) {
+      return;
+    }
+    state = WorkoutLiveMetricDisplayState.empty;
+  }
+
+  void publish({
+    int? angleDegrees,
+    Duration? tempo,
+    int? stabilityScore,
+    int? asymmetryScore,
+  }) {
+    final next = WorkoutLiveMetricDisplayState(
+      angleDegrees: angleDegrees,
+      tempo: tempo,
+      stabilityScore: stabilityScore,
+      asymmetryScore: asymmetryScore,
+    );
+    if (next == state) {
+      return;
+    }
+    state = next;
+  }
+}
 
 final workoutClockProvider = Provider<DateTime Function()>((ref) {
   return DateTime.now;
@@ -145,6 +182,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepCoordinator? _rangeRepCoordinator;
   HoldCoordinator? _holdCoordinator;
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
+  int? _liveMetricsRepCount;
+  int? _liveMetricsAlternatingRepCount;
+  Duration? _liveMetricsTempo;
+  int? _liveMetricsAsymmetryScore;
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
@@ -182,6 +223,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         : null;
     _config = ref.watch(exerciseConfigProvider).requireValue;
     _lastExerciseMetrics = const ExerciseMetrics.noPose();
+    _liveMetricsRepCount = null;
+    _liveMetricsAlternatingRepCount = null;
+    _liveMetricsTempo = null;
+    _liveMetricsAsymmetryScore = null;
     switch (_engineKind) {
       case EngineKind.rangeRep:
         final rangeRepContract =
@@ -679,6 +724,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         techniqueObservations: snapshot.techniqueObservations,
       ),
     );
+    _publishRangeRepLiveMetricDisplay(snapshot.repCount);
     unawaited(
       _feedbackDelivery.deliver(
         FeedbackDeliveryCue(
@@ -717,6 +763,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         hollowHeelElevation: snapshot.hollowHeelElevation,
       ),
     );
+    _publishHoldLiveMetricDisplay();
     unawaited(
       _feedbackDelivery.deliver(
         _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
@@ -744,6 +791,70 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       leftPrimaryMetric: left.hasPrimaryAngle ? left.primaryAngle : null,
       rightPrimaryMetric: right.hasPrimaryAngle ? right.primaryAngle : null,
     );
+  }
+
+  void _publishRangeRepLiveMetricDisplay(int repCount) {
+    final alternatingRepCount = _alternatingRepEngine?.totalRepCount ?? 0;
+    if (_liveMetricsRepCount != repCount ||
+        _liveMetricsAlternatingRepCount != alternatingRepCount) {
+      _liveMetricsRepCount = repCount;
+      _liveMetricsAlternatingRepCount = alternatingRepCount;
+      _refreshRangeRepSessionMetricDisplay();
+    }
+
+    ref
+        .read(workoutLiveMetricsProvider.notifier)
+        .publish(
+          angleDegrees: _roundedPrimaryMovement(),
+          tempo: _liveMetricsTempo,
+          asymmetryScore: _liveMetricsAsymmetryScore,
+        );
+  }
+
+  void _refreshRangeRepSessionMetricDisplay() {
+    _liveMetricsTempo = null;
+    _liveMetricsAsymmetryScore = null;
+
+    final rangeEngine = _rangeRepEngine;
+    final TempoMetricsSource? tempoSource = rangeEngine is TempoMetricsSource
+        ? rangeEngine as TempoMetricsSource
+        : null;
+    if (tempoSource != null) {
+      final tempoSummary = tempoSource.tempoSessionSummary;
+      if (tempoSummary.repCount > 0) {
+        _liveMetricsTempo = tempoSummary.averageRepDuration;
+      }
+    }
+
+    final alternating = _alternatingRepEngine;
+    final asymmetryScore =
+        alternating?.symmetrySessionSummary.overallAsymmetryScore;
+    if (asymmetryScore != null && asymmetryScore.isFinite) {
+      _liveMetricsAsymmetryScore = asymmetryScore.round();
+    }
+  }
+
+  void _publishHoldLiveMetricDisplay() {
+    final diagnostics = _holdCoordinatorOrThrow().diagnosticsSnapshot();
+    final stability =
+        diagnostics.currentStabilityScore ?? diagnostics.sessionStabilityScore;
+    final stabilityScore = stability == null || !stability.isFinite
+        ? null
+        : stability.round();
+    ref
+        .read(workoutLiveMetricsProvider.notifier)
+        .publish(
+          angleDegrees: _roundedPrimaryMovement(),
+          stabilityScore: stabilityScore,
+        );
+  }
+
+  int? _roundedPrimaryMovement() {
+    if (!_lastExerciseMetrics.hasPrimaryAngle ||
+        !_lastExerciseMetrics.primaryAngle.isFinite) {
+      return null;
+    }
+    return _lastExerciseMetrics.primaryAngle.round();
   }
 
   WorkoutLiveMetricsSnapshot liveMetricsSnapshot() {
