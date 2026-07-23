@@ -220,7 +220,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   // Compatibility ROM value for the most recently completed repetition.
   double _lastRepRom = 180.0;
-  double _currentRepStartAngle = 180.0;
   double lastRepScore = 0.0;
   RepScoreBreakdown? lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
@@ -242,7 +241,6 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   Duration lastAscentTime = Duration.zero;
 
   double _currentRepMinAngle = 180.0;
-  double _currentRepMaxAngle = 0.0;
   double _currentRepWorstBackAngle = 180.0;
   bool _currentRepHadFormViolation = false;
   late final GenericRepEngine _genericRepEngine;
@@ -631,6 +629,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
           if (genericResult.completedRep != null) {
             final completionFacts = _finishRep(
+              genericCompletedRep: genericResult.completedRep!,
               tracksCompatibilityTechnique: tracksCompatibilityTechnique,
               calculateCompatibilityScore: calculateCompatibilityScore,
             );
@@ -673,6 +672,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   _RangeRepCompletionFacts _finishRep({
+    required GenericRepCompletedRep genericCompletedRep,
     required bool tracksCompatibilityTechnique,
     required bool calculateCompatibilityScore,
   }) {
@@ -681,18 +681,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         _descentStartTime != null &&
         _peakStartTime != null &&
         _ascentStartTime != null;
-    final peakMetric = _peakMetricForCurrentRep;
-    final primaryRom = (peakMetric - _currentRepStartAngle)
-        .abs()
-        .clamp(0.0, 180.0)
-        .toDouble();
+    final primaryRom = genericCompletedRep.rom.clamp(0.0, 180.0).toDouble();
     final detectionData = RangeRepCompletedRepDetectionData(
       repIndex: repCount,
       minAngle: _lastRepRom,
       descentDuration: lastDescentTime,
       ascentDuration: lastAscentTime,
       completedPhaseSequence: completedPhaseSequence,
-      startAngle: _currentRepStartAngle,
+      startAngle: genericCompletedRep.startMetric,
       primaryRom: primaryRom,
     );
     if (!tracksCompatibilityTechnique) {
@@ -1022,9 +1018,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _startDetectionRepMetrics(double primaryMetric) {
-    _currentRepStartAngle = primaryMetric;
     _currentRepMinAngle = primaryMetric;
-    _currentRepMaxAngle = primaryMetric;
   }
 
   void _startCompatibilityRepMetrics(
@@ -1060,13 +1054,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _resetDetectionRepMetrics() {
-    _currentRepStartAngle =
-        primaryMetricDirection ==
-            RangeRepPrimaryMetricDirection.decreasingToPeak
-        ? 180.0
-        : 0.0;
     _currentRepMinAngle = 180.0;
-    _currentRepMaxAngle = 0.0;
   }
 
   void _resetCompatibilityRepMetrics() {
@@ -1129,15 +1117,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     if (value < _currentRepMinAngle) {
       _currentRepMinAngle = value;
     }
-    if (value > _currentRepMaxAngle) {
-      _currentRepMaxAngle = value;
-    }
   }
-
-  double get _peakMetricForCurrentRep => switch (primaryMetricDirection) {
-    RangeRepPrimaryMetricDirection.decreasingToPeak => _currentRepMinAngle,
-    RangeRepPrimaryMetricDirection.increasingToPeak => _currentRepMaxAngle,
-  };
 
   String get _phaseGateStatus {
     final pendingTransition = _genericRepEngine.pendingTransition;

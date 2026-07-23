@@ -170,3 +170,37 @@ Stationary Lunge şu ana counting kapıları geçildiğinde `R6 Engineering Reva
 Dedicated technique metriği olmadığı için form-analysis doğruluğu bu closure'ın kanıt kapsamına dahil edilmez.
 
 Symmetry sidecar'da gerçek cihaz finding'i çıkarsa, finding'in ana counting'i bloke edip etmediği ayrıca sınıflandırılır; summary'de yanlış left/right/asymmetry üretimi doğrulanırsa ayrı reliability bug olarak kapatılmadan symmetry capability doğrulanmış sayılmaz.
+
+## 9. Device Finding - Confirmation-Lag ROM Underestimation
+
+İkinci gerçek cihaz run'ında ana lifecycle `10` completed rep üretirken validation dağılımı:
+
+```text
+valid = 6
+invalid = 3
+lowConfidence = 1
+insufficientRom = 3
+excessiveDescentSpeed = 1
+```
+
+olarak gözlendi.
+
+Kod incelemesinde `startTowardPeak` debounce confirmation sırasında ROM başlangıç metriğinin ilk active-threshold crossing frame'inden değil, yaklaşık 80 ms sonra transition'ın confirm edildiği frame'den alındığı doğrulandı. Düşük/orta analysis FPS ve hızlı inişte confirmation frame'i peak'e çok yaklaşabildiği için gerçek full-ROM hareketin `primaryRom` değeri yapay olarak küçülebiliyordu.
+
+Fix yaklaşımı:
+
+- threshold değiştirilmedi,
+- `minAcceptableRomDelta = 20°` korunuyor,
+- generic lifecycle ilk kesintisiz active-crossing metriğini confirmation boyunca koruyor,
+- completed-rep detection `startAngle` ve `primaryRom` için canonical `GenericRepCompletedRep` verisini kullanıyor,
+- regression testleri confirmation gecikmesi sırasında 140° -> 108° -> 90° ilerleyen full-ROM lunge benzeri akışı kapsıyor.
+
+Fix sonrası formal retest'te özellikle:
+
+```text
+R6-SL-POS-20
+R6-SL-PARTIAL-10
+```
+
+tekrar çalıştırılmalıdır. Positive run'da sahte `insufficientRom` oranının kaybolması, partial run'da ise gerçek sığ hareketlerin hâlâ reddedilmesi beklenir.
+

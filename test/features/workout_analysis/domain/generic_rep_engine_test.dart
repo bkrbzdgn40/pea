@@ -38,6 +38,77 @@ void main() {
     );
 
     test(
+      'preserves the first active-crossing metric across confirmation lag',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 145,
+            peakThreshold: 115,
+            minimumRom: 20,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 170, 120);
+
+        engine.update(primaryMetric: 140);
+        clock.advance(const Duration(milliseconds: 100));
+        final started = engine.update(primaryMetric: 108);
+
+        expect(started.repStarted, isTrue);
+        expect(engine.phase, GenericRepPhase.towardPeak);
+
+        _confirm(clock, engine, 90, 100);
+        _confirm(clock, engine, 130, 100);
+        final completed = _confirm(clock, engine, 170, 120);
+
+        expect(engine.repCount, 1);
+        expect(completed.completedRep, isNotNull);
+        expect(completed.completedRep!.startMetric, 140);
+        expect(completed.completedRep!.peakMetric, 90);
+        expect(completed.completedRep!.rom, 50);
+      },
+    );
+
+    test(
+      'preserves the first active crossing for increasing-to-peak movement',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 20,
+            activeThreshold: 35,
+            peakThreshold: 80,
+            direction: GenericRepMetricDirection.increasingToPeak,
+            minimumRom: 20,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 10, 120);
+
+        engine.update(primaryMetric: 40);
+        clock.advance(const Duration(milliseconds: 100));
+        final started = engine.update(primaryMetric: 72);
+
+        expect(started.repStarted, isTrue);
+        expect(engine.phase, GenericRepPhase.towardPeak);
+
+        _confirm(clock, engine, 90, 100);
+        _confirm(clock, engine, 65, 100);
+        final completed = _confirm(clock, engine, 10, 120);
+
+        expect(engine.repCount, 1);
+        expect(completed.completedRep, isNotNull);
+        expect(completed.completedRep!.startMetric, 40);
+        expect(completed.completedRep!.peakMetric, 90);
+        expect(completed.completedRep!.rom, 50);
+      },
+    );
+
+    test(
       'supports increasing-to-peak movement with the same state machine',
       () {
         final clock = _Clock();

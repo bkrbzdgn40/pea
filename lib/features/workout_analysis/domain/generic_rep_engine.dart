@@ -123,6 +123,7 @@ class GenericRepEngine {
   GenericRepTransitionType? _pendingTransition;
   DateTime? _pendingTransitionStartedAt;
 
+  double? _pendingStartTowardPeakMetric;
   double? _currentRepStartMetric;
   double? _currentRepMinMetric;
   double? _currentRepMaxMetric;
@@ -172,19 +173,30 @@ class GenericRepEngine {
 
     switch (phase) {
       case GenericRepPhase.neutral:
+        final hasEnteredActive = hasEnteredActiveRange(primaryMetric);
+        if (!hasEnteredActive) {
+          _pendingStartTowardPeakMetric = null;
+        } else if (_pendingTransition !=
+                GenericRepTransitionType.startTowardPeak ||
+            _pendingStartTowardPeakMetric == null) {
+          _pendingStartTowardPeakMetric = primaryMetric;
+        }
         final confirmedAt = _confirmTransition(
           transition: GenericRepTransitionType.startTowardPeak,
-          condition: hasEnteredActiveRange(primaryMetric),
+          condition: hasEnteredActive,
           now: now,
         );
         if (confirmedAt != null) {
+          final repStartMetric = _pendingStartTowardPeakMetric ?? primaryMetric;
+          _pendingStartTowardPeakMetric = null;
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.startTowardPeak,
             effectiveAt: confirmedAt,
           );
           repStarted = true;
           phase = GenericRepPhase.towardPeak;
-          _startRep(primaryMetric);
+          _startRep(repStartMetric);
+          _recordMetric(primaryMetric);
         }
         break;
 
@@ -359,12 +371,14 @@ class GenericRepEngine {
   }
 
   void cancelPendingTransition() {
+    _pendingStartTowardPeakMetric = null;
     _clearPendingTransition();
   }
 
   void clearActiveRepContext() {
     _isArmed = false;
     phase = GenericRepPhase.neutral;
+    _pendingStartTowardPeakMetric = null;
     _clearPendingTransition();
     _resetCurrentRep(clearPendingTransition: false);
   }
