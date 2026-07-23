@@ -124,3 +124,25 @@ Shoulder Press şu kapılar geçildiğinde `R6 Engineering Revalidated` statüs�
 7. persistence.
 
 Dedicated technique metric olmadığı için scapular veya shoulder-form doğruluğu bu closure'ın kanıt kapsamına dahil edilmez.
+
+## 7. Closure Kaydı
+
+**Status: `R6 Engineering Revalidated`**
+
+Zero-overlap alternating-arm false bilateral rep bulgusu, Shoulder Press'e özel bilateral wrist-above-shoulder PEAK gate ile giderildi.
+
+Fix sonrası kullanıcı gerçek cihazda:
+
+- 20 normal bilateral tekrarı,
+- pause/resume lifecycle davranışını,
+- persistence davranışını,
+- unilateral / zero-overlap alternating negatif senaryoyu
+
+başarılı olarak doğruladı.
+
+`STATIC-30` ve `PARTIAL-10` için closure konuşmasında ayrı final kanıt sabitlenmediği için formal protocol-complete iddiası yapılmaz.
+
+Dedicated technique metriği bulunmadığından scapular/shoulder form doğruluğu closure kapsamı dışındadır.
+
+Ayrıntılı sonuç kaydı: `docs/beta/r6-wave-b-shoulder-press-results.md`.
+
