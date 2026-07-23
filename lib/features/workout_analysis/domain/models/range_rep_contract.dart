@@ -431,7 +431,6 @@ abstract final class RangeRepContracts {
     },
     poseAcceptanceRequiredSignals: const <RangeRepSignal>{
       RangeRepSignal.primaryMetric,
-      RangeRepSignal.formMetric,
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,

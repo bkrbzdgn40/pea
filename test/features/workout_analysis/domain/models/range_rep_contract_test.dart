@@ -233,6 +233,28 @@ void main() {
       );
     });
 
+    test(
+      'Romanian Deadlift keeps knee-form technique optional for pose acceptance',
+      () {
+        final contract = RangeRepContracts.romanianDeadlift;
+
+        expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
+          RangeRepSignal.primaryMetric,
+        });
+        expect(
+          contract.signalHasRole(
+            RangeRepSignal.formMetric,
+            AnalysisSignalRole.technique,
+          ),
+          isTrue,
+        );
+        expect(
+          contract.requiresPoseAcceptanceSignal(RangeRepSignal.formMetric),
+          isFalse,
+        );
+      },
+    );
+
     test('Lateral Raise keeps sync out of elbow-form feedback', () {
       final contract = RangeRepContracts.lateralRaise;
 

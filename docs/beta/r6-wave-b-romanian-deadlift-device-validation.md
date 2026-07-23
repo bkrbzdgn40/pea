@@ -23,6 +23,20 @@ Production kaynaklarına göre Romanian Deadlift:
 
 Bu değerler cihaz failure kanıtı oluşmadan değiştirilmez.
 
+### Equipment self-occlusion robustness
+
+Büyük barbell plakalarının side-view'da özellikle ayak bileği landmark'ını kapatabildiği gerçek cihaz videosunda görüldü. Romanian Deadlift contract'ında `formMetric` yalnız `technique` rolündedir; tekrar detection'ı `primaryMetric` üzerinden yürür.
+
+Bu nedenle pose acceptance artık yalnız `primaryMetric` landmark zincirini zorunlu tutar:
+
+- omuz,
+- kalça,
+- diz.
+
+Ayak bileği görünürse knee-angle technique feedback üretilmeye devam eder. Ayak bileği büyük plaka nedeniyle güvenilir değilse technique feedback kullanılamayabilir, fakat güvenilir primary hip-hinge metriği mevcutsa bu durum tek başına tüm pose'u reddedip counting'i kilitlememelidir.
+
+Bu değişiklik threshold tuning değildir. `thresholdNeutral`, `thresholdActive`, `thresholdPeak` ve `formThreshold` değişmeden kalır.
+
 ## 2. Kamera ve Setup
 
 Kamera kullanıcıyı **tam yandan** görmelidir.
@@ -63,6 +77,7 @@ Aşağıdakilerden biri görülürse validation durdurulur ve ilgili katman ince
 - pause/resume sırasında phantom veya duplicate rep,
 - persistence yüzeylerinin ayrışması,
 - analysis exception.
+- büyük plaka ayak bileğini kapattığında primary hip-hinge metriği güvenilir olmasına rağmen tüm analizin sürekli `Vücut net görünmüyor` durumuna düşmesi.
 
 ## 5. Diagnostics Alanları
 
