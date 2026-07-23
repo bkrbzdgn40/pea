@@ -123,6 +123,36 @@ void main() {
     );
   });
 
+  test(
+    'Romanian deadlift form feedback matches the absolute knee-angle gate',
+    () {
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: tr,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Dizlerini biraz daha az bük.',
+      );
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.maintainForm,
+          localizations: tr,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Dizlerini biraz daha az bükerek kalça menteşesini koru.',
+      );
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: en,
+          exerciseType: ExerciseType.romanianDeadlift,
+        ),
+        'Bend your knees a little less.',
+      );
+    },
+  );
+
   test('biceps curl maps range-rep cues to simultaneous-arm copy', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

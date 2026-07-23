@@ -13,13 +13,15 @@ Production kaynaklarına göre Romanian Deadlift:
 - preferred camera: `side`
 - unsupported camera: `front`
 - primary metric: hip-angle based movement signal
-- form metric: knee-angle stability signal
+- form metric: absolute knee-angle technique signal (`hip → knee → ankle`)
 - `thresholdNeutral = 165°`
 - `thresholdActive = 150°`
 - `thresholdPeak = 115°`
 - `formThreshold = 140°`
 - range-rep validation minimum ROM delta: `25°`
 - phase-quality floors: descent `350 ms`, ascent `300 ms`
+
+`formThreshold` mevcut legacy minimum-threshold kuralıyla değerlendirilir: form metriği `140°` altına düştüğünde daha fazla diz bükülmesine işaret eden technique violation oluşur. Bu sinyal frame-to-frame knee-angle delta veya stabilite ölçmez; kullanıcı feedback'i bu nedenle "diz açısını sabit tut" iddiasında bulunmamalıdır.
 
 Bu değerler cihaz failure kanıtı oluşmadan değiştirilmez.
 

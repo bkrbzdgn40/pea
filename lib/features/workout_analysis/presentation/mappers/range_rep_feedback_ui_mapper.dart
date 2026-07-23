@@ -141,8 +141,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Drive your hips forward to stand...',
       ),
       formViolation: localizations.pick(
-        tr: 'Diz açını daha sabit tut.',
-        en: 'Keep your knee angle more stable.',
+        tr: 'Dizlerini biraz daha az bük.',
+        en: 'Bend your knees a little less.',
       ),
       controlDescent: localizations.pick(
         tr: 'Kalça menteşesini kontrollü yap.',
@@ -157,8 +157,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Maintain control at the bottom.',
       ),
       maintainForm: localizations.pick(
-        tr: 'Diz açını ve kalça menteşesini koru.',
-        en: 'Maintain your knee angle and hip hinge.',
+        tr: 'Dizlerini biraz daha az bükerek kalça menteşesini koru.',
+        en: 'Keep the hip hinge with slightly less knee bend.',
       ),
     );
   }
