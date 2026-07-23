@@ -786,7 +786,7 @@ class _FinishSessionButton extends ConsumerWidget {
   }
 }
 
-class _PrimaryWorkoutMetricsOverlay extends ConsumerWidget {
+class _PrimaryWorkoutMetricsOverlay extends StatelessWidget {
   const _PrimaryWorkoutMetricsOverlay({
     required this.topInset,
     required this.onToggleCalibration,
@@ -796,71 +796,104 @@ class _PrimaryWorkoutMetricsOverlay extends ConsumerWidget {
   final VoidCallback onToggleCalibration;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final metrics = ref.watch(
-      workoutControllerProvider.select(
-        (state) => (
-          analysisKind: state.analysisKind,
-          repCount: state.repCount,
-          currentHoldSeconds: state.currentHoldSeconds,
-          cameraFps: state.cameraFps,
-          bestHoldSeconds: state.bestHoldSeconds,
-          lastRepScore: state.lastRepScore,
-        ),
-      ),
-    );
-    final localizations = AppLocalizations.of(context);
-    final isHoldAnalysis = metrics.analysisKind == EngineKind.hold;
-
+  Widget build(BuildContext context) {
     return Positioned(
       top: topInset + 72,
       left: 20,
       right: 20,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 8.0;
-          final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
-
-          return Row(
-            children: [
-              SizedBox(
-                width: cardWidth,
-                child: _MetricCard(
-                  label: isHoldAnalysis
-                      ? localizations.holdMetric
-                      : localizations.repMetric,
-                  value: isHoldAnalysis
-                      ? _formatHoldSeconds(metrics.currentHoldSeconds)
-                      : metrics.repCount.toString(),
-                ),
-              ),
-              const SizedBox(width: spacing),
-              SizedBox(
-                width: cardWidth,
-                child: _MetricCard(
-                  label: 'FPS',
-                  value: metrics.cameraFps.toStringAsFixed(0),
-                  color: Colors.cyanAccent,
-                  onLongPress: onToggleCalibration,
-                ),
-              ),
-              const SizedBox(width: spacing),
-              SizedBox(
-                width: cardWidth,
-                child: _MetricCard(
-                  label: isHoldAnalysis
-                      ? localizations.bestMetric
-                      : localizations.scoreMetric,
-                  value: isHoldAnalysis
-                      ? _formatHoldSeconds(metrics.bestHoldSeconds)
-                      : metrics.lastRepScore.toInt().toString(),
-                  color: Colors.greenAccent,
-                ),
-              ),
-            ],
-          );
-        },
+      child: Row(
+        children: [
+          const Expanded(child: _PrimaryWorkoutMetricCard()),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _CameraFpsMetricCard(onLongPress: onToggleCalibration),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(child: _SecondaryWorkoutMetricCard()),
+        ],
       ),
+    );
+  }
+}
+
+class _PrimaryWorkoutMetricCard extends ConsumerWidget {
+  const _PrimaryWorkoutMetricCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metric = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          repCount: state.repCount,
+          holdSeconds: _displayWholeSeconds(state.currentHoldSeconds),
+        ),
+      ),
+    );
+    final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
+    final localizations = AppLocalizations.of(context);
+
+    return _MetricCard(
+      key: const ValueKey<String>('live-primary-metric-card'),
+      label: isHoldAnalysis
+          ? localizations.holdMetric
+          : localizations.repMetric,
+      value: isHoldAnalysis
+          ? _formatHoldSeconds(metric.holdSeconds)
+          : metric.repCount.toString(),
+    );
+  }
+}
+
+class _CameraFpsMetricCard extends ConsumerWidget {
+  const _CameraFpsMetricCard({required this.onLongPress});
+
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cameraFps = ref.watch(
+      workoutControllerProvider.select(
+        (state) => _displayWholeNumber(state.cameraFps),
+      ),
+    );
+
+    return _MetricCard(
+      key: const ValueKey<String>('live-camera-fps-metric-card'),
+      label: 'FPS',
+      value: cameraFps.toString(),
+      color: Colors.cyanAccent,
+      onLongPress: onLongPress,
+    );
+  }
+}
+
+class _SecondaryWorkoutMetricCard extends ConsumerWidget {
+  const _SecondaryWorkoutMetricCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metric = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          bestHoldSeconds: _displayWholeSeconds(state.bestHoldSeconds),
+          lastRepScore: _displayScore(state.lastRepScore),
+        ),
+      ),
+    );
+    final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
+    final localizations = AppLocalizations.of(context);
+
+    return _MetricCard(
+      key: const ValueKey<String>('live-secondary-metric-card'),
+      label: isHoldAnalysis
+          ? localizations.bestMetric
+          : localizations.scoreMetric,
+      value: isHoldAnalysis
+          ? _formatHoldSeconds(metric.bestHoldSeconds)
+          : metric.lastRepScore.toString(),
+      color: Colors.greenAccent,
     );
   }
 }
@@ -966,66 +999,111 @@ class _WorkoutSetCompletedSection extends ConsumerWidget {
   }
 }
 
-class _WorkoutFeedbackStatus extends ConsumerWidget {
+class _WorkoutFeedbackStatus extends StatelessWidget {
   const _WorkoutFeedbackStatus();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final feedback = ref.watch(
-      workoutControllerProvider.select(
-        (state) => (
-          message: state.feedbackMessage,
-          isFormBad: state.isFormBad,
-          currentPhase: state.currentPhase,
-          analysisFps: state.analysisFps,
-        ),
-      ),
-    );
-    final localizations = AppLocalizations.of(context);
-
-    return Column(
+  Widget build(BuildContext context) {
+    return const Column(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            color: feedback.isFormBad
-                ? Colors.red.withValues(alpha: 0.8)
-                : Colors.black54,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: feedback.isFormBad ? Colors.white : Colors.greenAccent,
-            ),
-          ),
-          child: Text(
-            feedback.message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          localizations.liveStatusLine(
-            feedback.currentPhase,
-            feedback.analysisFps.toStringAsFixed(0),
-          ),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            letterSpacing: 2,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ),
+        _WorkoutFeedbackMessage(),
+        SizedBox(height: 10),
+        _WorkoutAnalysisStatusLine(),
       ],
     );
   }
 }
 
-String _formatHoldSeconds(double seconds) {
-  final duration = Duration(milliseconds: (seconds * 1000).round());
+class _WorkoutFeedbackMessage extends ConsumerWidget {
+  const _WorkoutFeedbackMessage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedback = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (message: state.feedbackMessage, isFormBad: state.isFormBad),
+      ),
+    );
+
+    return Container(
+      key: const ValueKey<String>('live-feedback-message-card'),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: feedback.isFormBad
+            ? Colors.red.withValues(alpha: 0.8)
+            : Colors.black54,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: feedback.isFormBad ? Colors.white : Colors.greenAccent,
+        ),
+      ),
+      child: Text(
+        feedback.message,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _WorkoutAnalysisStatusLine extends ConsumerWidget {
+  const _WorkoutAnalysisStatusLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          currentPhase: state.currentPhase,
+          analysisFps: _displayWholeNumber(state.analysisFps),
+        ),
+      ),
+    );
+    final localizations = AppLocalizations.of(context);
+
+    return Text(
+      localizations.liveStatusLine(
+        status.currentPhase,
+        status.analysisFps.toString(),
+      ),
+      key: const ValueKey<String>('live-analysis-status-line'),
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.7),
+        letterSpacing: 2,
+        fontWeight: FontWeight.w500,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
+
+int _displayWholeSeconds(double seconds) {
+  if (!seconds.isFinite || seconds <= 0) {
+    return 0;
+  }
+  return Duration(milliseconds: (seconds * 1000).round()).inSeconds;
+}
+
+int _displayWholeNumber(double value) {
+  if (!value.isFinite) {
+    return 0;
+  }
+  return value.round();
+}
+
+int _displayScore(double value) {
+  if (!value.isFinite) {
+    return 0;
+  }
+  return value.toInt();
+}
+
+String _formatHoldSeconds(int seconds) {
+  final duration = Duration(seconds: seconds);
   final minutes = duration.inMinutes;
   final remainingSeconds = duration.inSeconds
       .remainder(60)
@@ -1313,6 +1391,7 @@ class _MetricCard extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   const _MetricCard({
+    super.key,
     required this.label,
     required this.value,
     this.color = Colors.white,

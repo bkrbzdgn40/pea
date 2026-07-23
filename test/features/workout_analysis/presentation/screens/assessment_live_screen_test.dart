@@ -106,6 +106,121 @@ void main() {
     expect(find.text('Hareket ilerlemesi: %20'), findsOneWidget);
   });
 
+  testWidgets(
+    'keeps assessment feedback and progress stable within display cadence',
+    (tester) async {
+      final initialState = AssessmentLiveState(
+        snapshot: const AssessmentSnapshot(
+          type: AssessmentType.squat,
+          phase: AssessmentPhase.active,
+          sampleCount: 1,
+          isReadyToComplete: false,
+          readinessProgress: 0.101,
+          result: null,
+        ),
+        feedbackMessage: 'Squat yap.',
+        progressMessage: 'Hareket ilerlemesi: %10',
+      );
+      final harness = await _pumpScreen(
+        tester,
+        selection: const AssessmentSelection(type: AssessmentType.squat),
+        initialState: initialState,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await harness.dispose();
+      });
+
+      final feedbackBefore = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('assessment-feedback-text')),
+      );
+      final progressBefore = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('assessment-progress-message')),
+      );
+
+      harness.notifier.publish(
+        AssessmentLiveState(
+          snapshot: const AssessmentSnapshot(
+            type: AssessmentType.squat,
+            phase: AssessmentPhase.active,
+            sampleCount: 2,
+            isReadyToComplete: false,
+            readinessProgress: 0.104,
+            result: null,
+          ),
+          feedbackMessage: 'Squat yap.',
+          progressMessage: 'Hareket ilerlemesi: %10',
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        identical(
+          tester.widget<Text>(
+            find.byKey(const ValueKey<String>('assessment-feedback-text')),
+          ),
+          feedbackBefore,
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          tester.widget<Text>(
+            find.byKey(const ValueKey<String>('assessment-progress-message')),
+          ),
+          progressBefore,
+        ),
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>('assessment-sample-count-text'),
+              ),
+            )
+            .data,
+        contains('2'),
+      );
+
+      harness.notifier.publish(
+        AssessmentLiveState(
+          snapshot: const AssessmentSnapshot(
+            type: AssessmentType.squat,
+            phase: AssessmentPhase.active,
+            sampleCount: 3,
+            isReadyToComplete: false,
+            readinessProgress: 0.106,
+            result: null,
+          ),
+          feedbackMessage: 'Daha derine in.',
+          progressMessage: 'Hareket ilerlemesi: %11',
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        identical(
+          tester.widget<Text>(
+            find.byKey(const ValueKey<String>('assessment-feedback-text')),
+          ),
+          feedbackBefore,
+        ),
+        isFalse,
+      );
+      expect(
+        identical(
+          tester.widget<Text>(
+            find.byKey(const ValueKey<String>('assessment-progress-message')),
+          ),
+          progressBefore,
+        ),
+        isFalse,
+      );
+    },
+  );
+
   testWidgets('takes ownership when camera controller is already streaming', (
     tester,
   ) async {
