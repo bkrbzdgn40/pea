@@ -7,7 +7,7 @@ enum ExerciseType {
   sitUp(id: 'sit_up', title: 'Sit-up'),
   bicepsCurl(id: 'biceps_curl', title: 'Biceps Curl'),
   lyingLegRaise(id: 'lying_leg_raise', title: 'Lying Leg Raise'),
-  tricepsDip(id: 'triceps_dip', title: 'Triceps Dip'),
+  tricepsDip(id: 'triceps_dip', title: 'Bench Dip'),
   romanianDeadlift(id: 'romanian_deadlift', title: 'Romanian Deadlift'),
   lateralRaise(id: 'lateral_raise', title: 'Lateral Raise'),
   shoulderPress(id: 'shoulder_press', title: 'Shoulder Press'),

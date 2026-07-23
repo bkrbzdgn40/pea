@@ -40,7 +40,7 @@ Bu belge üç farklı işi kapsar:
 | Sit-up | `sit_up` | Var | Aktif | `rangeRep`, selected-side |
 | Biceps Curl | `biceps_curl` | Var | Aktif | `rangeRep`, bilateral |
 | Lying Leg Raise | `lying_leg_raise` | Var | Aktif | `rangeRep`, selected-side |
-| Triceps Dip | `triceps_dip` | Var | Aktif | `rangeRep`, selected-side |
+| Bench Dip | `triceps_dip` | Var | Aktif | `rangeRep`, selected-side |
 | Romanian Deadlift | `romanian_deadlift` | Var | Aktif | `rangeRep`, selected-side |
 | Lateral Raise | `lateral_raise` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
 | Shoulder Press | `shoulder_press` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |

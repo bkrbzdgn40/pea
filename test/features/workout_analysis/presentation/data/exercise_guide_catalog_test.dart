@@ -171,6 +171,28 @@ void main() {
       },
     );
 
+    test('bench dip guide freezes the canonical bench-supported scope', () {
+      final definition = analysisCatalog.definitionFor(ExerciseType.tricepsDip);
+      final content = guideCatalog.contentFor(ExerciseType.tricepsDip);
+
+      expect(ExerciseType.tricepsDip.id, 'triceps_dip');
+      expect(ExerciseType.tricepsDip.title, 'Bench Dip');
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(
+        definition.analysisCameraViewContract.supportFor(CameraView.side),
+        CameraViewSupport.preferred,
+      );
+      expect(
+        definition.analysisCameraViewContract.supportFor(CameraView.front),
+        CameraViewSupport.unsupported,
+      );
+      expect(content.difficulty.name, 'intermediate');
+      expect(content.setupSteps.join(' '), contains('bench veya yükseltinin'));
+      expect(content.setupSteps.join(' '), isNot(contains('Paralel bar')));
+      expect(content.tips.join(' '), contains('yaklaşık 90 derece'));
+      expect(content.youtubeSourceLabel, 'Bench dip technique reference');
+    });
+
     test(
       'romanian deadlift guide stays aligned with the selected-side side-view contract',
       () {

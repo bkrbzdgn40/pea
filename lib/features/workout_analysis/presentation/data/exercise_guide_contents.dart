@@ -229,30 +229,30 @@ const exerciseGuideContents = [
   ExerciseGuideContent(
     type: ExerciseType.tricepsDip,
     subtitle:
-        'Paralel bar üzerinde dirsek ekstansiyonu odaklı üst vücut itiş hareketi.',
+        'Sabit bir bench veya sağlam yükselti üzerinde triseps odaklı vücut ağırlığı itiş hareketi.',
     purpose:
         'Dirsek fleksiyon-ekstansiyonunu ana tekrar sinyali olarak izler ve aşırı omuz ekstansiyonuna karşı form uyarısı verebilir.',
-    difficulty: ExerciseDifficulty.advanced,
+    difficulty: ExerciseDifficulty.intermediate,
     setupSteps: [
-      'Paralel barlarda üst pozisyonda kollarını kontrollü uzat.',
+      'Sağlam ve kaymayan bir bench veya yükseltinin kenarına, sırtın yüzeye dönük olacak şekilde ellerini yerleştir.',
+      'Kalçanı benchin hemen önüne al; ayaklarını öne yerleştir ve ağırlığını ellerinle kontrollü destekle.',
       'Kamerayı yandan, omuz-dirsek-bilek hattını görecek şekilde yerleştir.',
-      'Göğsü ve omuzları rahat bir pozisyonda tut.',
-      'Omuz ağrısı varsa derinliği zorlamadan hareketi bırak.',
+      'Omuz ağrısı veya rahatsızlık hissedersen derinliği zorlama ve hareketi bırak.',
     ],
     tips: [
-      'Dirsekleri bükerek kontrollü aşağı in.',
-      'Omuzları gereksiz yere çok geriye taşıma.',
-      'Alt noktadan kontrollü şekilde yukarı it.',
-      'Tekrarlar boyunca aynı derinliği korumaya çalış.',
+      'Dirsekleri geriye doğru bükerek kontrollü aşağı in.',
+      'Alt pozisyonda dirsek açısını yaklaşık 90 derece civarında tut; gereksiz derinliği zorlama.',
+      'Kalçanı benchin kenarına yakın tut ve omuzlarını gereksiz yere öne-yukarı taşıma.',
+      'Avuçlarından iterek kontrollü biçimde başlangıç pozisyonuna dön.',
     ],
     commonMistakes: [
-      'Omuzları aşırı derine zorlamak.',
+      'Omuzları gereksiz derecede geriye ve aşağı zorlamak.',
+      'Kalçayı benchten fazla uzaklaştırmak.',
       'Alt noktada kontrolsüz sekmek.',
       'Yarım dirsek hareket aralığıyla tekrar yapmak.',
-      'Görüntü dışına çıkacak kadar öne-arkaya sallanmak.',
     ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=2z8JmcrW-As',
-    youtubeSourceLabel: 'Bar dip technique reference',
+    youtubeUrl: 'https://www.youtube.com/watch?v=akoIbSegslk',
+    youtubeSourceLabel: 'Bench dip technique reference',
   ),
   ExerciseGuideContent(
     type: ExerciseType.romanianDeadlift,

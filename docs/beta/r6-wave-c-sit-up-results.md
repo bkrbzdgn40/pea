@@ -191,4 +191,4 @@ Sit-up = known orientation-dependent blocker, intentionally deferred
 
 Doğru fiziksel Sit-up başlangıcı test edilmiştir; kullanıcı formunu yeniden suçlamadan önce camera/device orientation normalization ve image-plane primary metric zincirini incele.
 
-Aktif exercise-validation sırası Sit-up'tan sonra **Triceps Dip** ile devam eder.
+Aktif exercise-validation sırası Sit-up'tan sonra **Bench Dip** ile devam eder.

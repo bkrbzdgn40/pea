@@ -1,15 +1,15 @@
 {
-  "name": "Triceps Dip",
+  "name": "Bench Dip",
   "primaryJoint": "leftElbow",
   "joint1": "leftShoulder",
   "joint2": "leftWrist",
   "thresholdNeutral": 150.0,
   "thresholdActive": 130.0,
-  "thresholdPeak": 90.0,
+  "thresholdPeak": 100.0,
   "idealDescentSeconds": 1.2,
   "idealAscentSeconds": 1.0,
   "formThreshold": 100.0,
-  "targetMinAngle": 70.0,
+  "targetMinAngle": 90.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {

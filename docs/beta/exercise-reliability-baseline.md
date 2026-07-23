@@ -37,7 +37,7 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | Sit-up | `rangeRep` | selected-side | decreasing-to-peak | side | R6 Validation Blocked / Deferred |
 | Biceps Curl | `rangeRep` | bilateral | decreasing-to-peak | front | R6 Engineering Revalidated |
 | Lying Leg Raise | `rangeRep` | selected-side | decreasing-to-peak | side | R6 Engineering Revalidated |
-| Triceps Dip | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
+| Bench Dip | `rangeRep` | selected-side | decreasing-to-peak | side | Validation Pending |
 | Romanian Deadlift | `rangeRep` | selected-side | decreasing-to-peak | side | R6 Engineering Revalidated |
 | Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | R6 Engineering Revalidated |
 | Shoulder Press | `rangeRep` | bilateral | increasing-to-peak | front | R6 Engineering Revalidated |
@@ -88,7 +88,7 @@ Mevcut güvenilirlik altyapısında regression kontrolü:
 
 1. Jumping Jack
 2. Sit-up
-3. Triceps Dip
+3. Bench Dip
 4. Glute Bridge
 5. Calf Raise
 
@@ -220,7 +220,7 @@ R6 Dalga C durumu:
 ```text
 Jumping Jack = R6 Validation Blocked / Deferred
 Sit-up       = R6 Validation Blocked / Deferred
-Triceps Dip  = Active Validation Target
+Bench Dip    = Active Validation Target
 Glute Bridge = Validation Pending
 Calf Raise   = Validation Pending
 ```
@@ -242,7 +242,7 @@ docs/beta/r6-wave-c-sit-up-results.md
 Aktif sıradaki çalışma:
 
 ```text
-Triceps Dip
+Bench Dip
 ```
 
 Cihaz validation protokolü:

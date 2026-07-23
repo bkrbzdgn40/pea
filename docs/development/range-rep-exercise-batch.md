@@ -5,7 +5,7 @@ This batch intentionally keeps the measured signal set small. A measurable joint
 ## Added in this batch
 
 1. Lying Leg Raise
-2. Triceps Dip (parallel-bar oriented)
+2. Bench Dip (stable internal id: `triceps_dip`)
 3. Romanian Deadlift
 4. Stationary Lunge
 5. Lateral Raise
@@ -20,10 +20,12 @@ Alternating Lunge is deliberately not enabled here. It belongs to the still-unim
 - Technique: knee extension (`hip -> knee -> ankle`).
 - Rationale: bilateral/straight leg raises are hip-flexion tasks with meaningful abdominal stabilization demand; knee extension is the only extra angle retained because bending the knee materially changes the task.
 
-### Triceps Dip
+### Bench Dip
+- Stable internal exercise id: `triceps_dip`.
 - Primary: elbow angle (`shoulder -> elbow -> wrist`), decreasing toward the bottom.
 - Technique: shoulder-extension proxy (`elbow -> shoulder -> hip`, complemented to preserve the existing low-is-warning form convention).
-- Rationale: dip kinematics are dominated by elbow flexion plus shoulder extension. Bench dips use substantially more shoulder extension than bar/ring variations, so excessive extension is retained as a warning signal rather than a hard validity gate.
+- Product scope: bench/chair dip with the feet supported on the floor; parallel-bar dip is no longer the canonical positive path.
+- Rationale: dip kinematics are dominated by elbow flexion plus shoulder extension. Bench dips use more shoulder extension and less elbow flexion than bar dips in comparative 3D kinematic evidence (PMCID: PMC9603242), so excessive shoulder extension remains a warning rather than a hard validity gate. The production peak threshold is aligned to a controlled bottom near a 90-degree elbow angle instead of rewarding unnecessary depth.
 
 ### Romanian Deadlift
 - Primary: hip angle (`shoulder -> hip -> knee`), decreasing through the hinge.

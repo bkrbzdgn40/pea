@@ -28,6 +28,23 @@ void main() {
     },
   );
 
+  test(
+    'localizes the canonical Bench Dip scope without parallel-bar coaching',
+    () {
+      final source = catalog.contentFor(ExerciseType.tricepsDip);
+      final english = localizedExerciseGuideContent(
+        content: source,
+        isTurkish: false,
+      );
+
+      expect(source.title, 'Bench Dip');
+      expect(english.subtitle, contains('stable bench'));
+      expect(english.setupSteps.join(' '), contains('bench or raised surface'));
+      expect(english.setupSteps.join(' '), isNot(contains('parallel bars')));
+      expect(english.tips.join(' '), contains('around 90 degrees'));
+    },
+  );
+
   test('provides English guide copy for every canonical exercise', () {
     for (final type in ExerciseType.values) {
       final source = catalog.contentFor(type);

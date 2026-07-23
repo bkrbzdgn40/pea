@@ -169,6 +169,32 @@ void main() {
       },
     );
 
+    test('parses the bench-dip scoped triceps asset config', () {
+      final config = _loadConfig('assets/config/exercises/triceps_dip.json');
+
+      expect(config.name, 'Bench Dip');
+      expect(config.primaryJoint, PoseLandmarkType.leftElbow);
+      expect(config.joint1, PoseLandmarkType.leftShoulder);
+      expect(config.joint2, PoseLandmarkType.leftWrist);
+      expect(config.thresholdNeutral, 150.0);
+      expect(config.thresholdActive, 130.0);
+      expect(config.thresholdPeak, 100.0);
+      expect(config.formThreshold, 100.0);
+      expect(config.targetMinAngle, 90.0);
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.postureAngle)
+            ?.transform,
+        RangeRepSignalTransform.complement180,
+      );
+      expect(
+        config.rangeRepSignals
+            ?.definitionFor(RangeRepSignal.depthMetric)
+            ?.source,
+        RangeRepSignalSource.primaryMetric,
+      );
+    });
+
     test(
       'parses the lateral raise asset config with mild elbow-flexion tolerance',
       () {
