@@ -277,3 +277,22 @@ Deterministik regression kapsamı:
 
 Gerçek cihaz retest'i closure öncesi zorunludur. Özellikle daha önce false-negative görülen doğal tam tekrarlar ile 109° civarında kalan partial hareketler aynı run'da tekrar karşılaştırılmalıdır.
 
+## 10. Closure Status
+
+Lying Leg Raise, gerçek cihazda doğal tam tekrarları kaçıran peak-acquisition false-negative bulgusu sonrasında exercise-specific literal peak-entry seçimi ve generic pending-peak hysteresis hardening ile yeniden doğrulanmıştır.
+
+Final status:
+
+```text
+R6 Engineering Revalidated
+follow-up = deferred
+formal protocol-complete = no
+```
+
+Fix sonrası gerçek cihaz davranışı kullanıcı tarafından yeterli bulunarak hareket kapatılmıştır. Ayrı post-fix diagnostics JSON sabitlenmediği ve formal POS-20 / STATIC / FORM / LIFE / PERSIST run seti tamamlanmadığı için bu run'lar PASS olarak yazılmaz.
+
+Ayrıntılı closure:
+
+```text
+docs/beta/r6-wave-b-lying-leg-raise-results.md
+```
