@@ -148,6 +148,244 @@ void main() {
     );
   });
 
+  test('does not publish plan state when repetition progress is unchanged', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+    var notifications = 0;
+    final subscription = container.listen<WorkoutPlanSessionState>(
+      workoutPlanSessionProvider,
+      (previous, next) => notifications += 1,
+    );
+    addTearDown(subscription.close);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(3),
+          ),
+        ],
+      ),
+    );
+    notifications = 0;
+
+    final initial = container.read(workoutPlanSessionProvider).snapshot!;
+    final unchanged = controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 0),
+      ),
+    );
+
+    expect(unchanged, same(initial));
+    expect(notifications, 0);
+
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 1),
+      ),
+    );
+    expect(notifications, 1);
+
+    notifications = 0;
+    final progressed = container.read(workoutPlanSessionProvider).snapshot!;
+    final repeated = controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 1),
+      ),
+    );
+
+    expect(repeated, same(progressed));
+    expect(notifications, 0);
+  });
+
+  test('limits hold progress publications to four updates per second', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+    var notifications = 0;
+    final subscription = container.listen<WorkoutPlanSessionState>(
+      workoutPlanSessionProvider,
+      (previous, next) => notifications += 1,
+    );
+    addTearDown(subscription.close);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.plank,
+            target: WorkoutTarget.hold(Duration(seconds: 2)),
+          ),
+        ],
+      ),
+    );
+    notifications = 0;
+
+    final initial = container.read(workoutPlanSessionProvider).snapshot!;
+    final early = controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.1),
+      ),
+    );
+    expect(early, same(initial));
+    expect(notifications, 0);
+
+    controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.3),
+      ),
+    );
+    expect(notifications, 1);
+
+    notifications = 0;
+    final firstBucket = container.read(workoutPlanSessionProvider).snapshot!;
+    final sameBucket = controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.4),
+      ),
+    );
+    expect(sameBucket, same(firstBucket));
+    expect(notifications, 0);
+
+    controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.5),
+      ),
+    );
+    expect(notifications, 1);
+  });
+
+  test('forwards a hold timer decrease inside the same time bucket', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.plank,
+            target: WorkoutTarget.hold(Duration(seconds: 2)),
+          ),
+        ],
+      ),
+    );
+    controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.4),
+      ),
+    );
+    final beforeDecrease = container.read(workoutPlanSessionProvider).snapshot!;
+
+    final decreased = controller.observe(
+      exercise: ExerciseType.plank,
+      workoutState: const WorkoutState.hold(
+        analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 0.3),
+      ),
+    );
+
+    expect(decreased, isNot(same(beforeDecrease)));
+    expect(decreased!.currentHoldDuration, const Duration(milliseconds: 300));
+  });
+
+  test(
+    'forwards an exact hold target crossing inside the same time bucket',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(workoutPlanSessionProvider.notifier);
+
+      controller.start(
+        WorkoutPlan(
+          exercises: const [
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.plank,
+              target: WorkoutTarget.hold(Duration(milliseconds: 1100)),
+            ),
+          ],
+        ),
+      );
+      controller.observe(
+        exercise: ExerciseType.plank,
+        workoutState: const WorkoutState.hold(
+          analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 1),
+        ),
+      );
+
+      final completed = controller.observe(
+        exercise: ExerciseType.plank,
+        workoutState: const WorkoutState.hold(
+          analysis: HoldWorkoutAnalysisState(currentHoldSeconds: 1.1),
+        ),
+      );
+
+      expect(completed!.isSetCompleted, isTrue);
+      expect(completed.currentHoldDuration, const Duration(milliseconds: 1100));
+    },
+  );
+
+  test('keeps the semantic gate across another set of the same exercise', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+    var notifications = 0;
+    final subscription = container.listen<WorkoutPlanSessionState>(
+      workoutPlanSessionProvider,
+      (previous, next) => notifications += 1,
+    );
+    addTearDown(subscription.close);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(1),
+            sets: 2,
+          ),
+        ],
+      ),
+    );
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 1),
+      ),
+    );
+    controller.advance();
+    notifications = 0;
+
+    final nextSet = container.read(workoutPlanSessionProvider).snapshot!;
+    final duplicate = controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 1),
+      ),
+    );
+
+    expect(duplicate, same(nextSet));
+    expect(notifications, 0);
+
+    final completed = controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 2),
+      ),
+    );
+    expect(completed!.isSetCompleted, isTrue);
+    expect(completed.currentRepetitions, 1);
+  });
+
   test('reset clears the active workout plan', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
