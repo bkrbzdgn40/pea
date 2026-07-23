@@ -137,3 +137,31 @@ Kullanıcı unsupported kamera açısında doğal neutral, ROM veya form feedbac
 
 Strict camera-contract kullanan bir harekette kullanıcı analiz ekranına geçmeden önce doğru subject-view yönünü açıkça görmeli; guide ve pre-analysis yönlendirmesi aynı production contract ile tutarlı olmalıdır.
 
+## F5 - Wall Sit head-turn sensitivity in side-view torso alignment
+
+- Öncelik: **P1**
+- Katman: Hold posture robustness / side-view geometry
+- Etkilenen alan: Wall Sit
+- Closure etkisi: Valid-hold ve deliberate form-break closure'ını bloklamaz
+
+### Gözlem
+
+Doğru side-view Wall Sit sırasında kullanıcı başını kameraya çevirdiğinde form break görüldü. Aynı exercise valid hold senaryosu iki farklı kullanıcıda yaklaşık 30 saniye çalıştı ve deliberate kötü pozisyonda derinlik ile duvara yaslanma/hizalanma feedback'leri doğru bağlamda üretildi.
+
+Wall Sit `torsoAlignment` sinyali `ear -> shoulder -> hip` geometrisini kullandığı için baş/boyun rotasyonu, alt gövde ve sırt pozisyonu değişmese bile ölçülen torso-alignment açısını etkileyebilir. Bu kök neden video + config geometrisinden yapılan mühendislik çıkarımıdır; raw landmark zaman serisi olmadığı için kesin olarak kanıtlanmış sayılmaz.
+
+### Risk
+
+Kullanıcı doğru Wall Sit pozisyonunu korurken yalnız kameraya bakmak için başını çevirdiğinde gereksiz form-break yaşayabilir. Bu durum counting/hold safety probleminden çok coaching robustness ve UX problemidir.
+
+### Minimum doğru çözüm yönü
+
+1. Tek kullanıcı videosuna göre `torsoMinAngle` threshold'u gevşetme.
+2. Farklı kullanıcı ve side-view mesafelerinde head-neutral / head-turned karşılaştırmalı örnekler topla.
+3. Gerekirse torso alignment sinyalini baş landmark'ından daha az etkilenen omuz-kalça referansına taşımanın geometrik tradeoff'unu değerlendir.
+4. Değişiklik yapılırsa deliberate forward-lean ve wall-contact form-break regression'larını koru.
+
+### Exit kriteri
+
+Doğru Wall Sit gövde geometrisi korunurken yalnız baş rotasyonu tekrar edilebilir biçimde false form-break üretiyorsa, exercise-specific torso-alignment gözlemi minimal patch ile harden edilir. Tek gözleme dayanarak production threshold değiştirilmez.
+

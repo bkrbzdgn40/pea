@@ -112,3 +112,19 @@ Wall Sit şu dört kapı geçildiğinde `R6 Engineering Revalidated` statüsüne
 4. persistence.
 
 Occlusion tekrar testi shared coverage nedeniyle zorunlu değildir. Exercise-specific yeni visibility problemi görülürse closure öncesi yeniden açılır.
+
+## 8. Execution Closure
+
+Hızlandırılmış gerçek cihaz execution sonucu:
+
+- `R6-WS-VALID-30`: PASS, yaklaşık 30 saniye ve iki farklı kullanıcı,
+- `R6-WS-FORM-BREAK`: PASS, deliberate kötü pozisyonda derinlik ve duvara yaslanma/hizalanma feedback'i görüldü,
+- `R6-WS-LIFE`: PASS, yaklaşık 5 saniyelik hold sonrası pause/resume ile current hold `0`'a döndü ve hidden pause-time eski hold'a taşınmadı,
+- `R6-WS-PERSIST`: PASS, kullanıcı tarafından gerçek cihazda doğrulandı,
+- per-exercise occlusion: SKIPPED by policy, shared hold visibility coverage kullanıldı.
+
+Başın kameraya çevrilmesi sırasında görülen form break formal form-break kanıtı olarak kullanılmaz. Bu gözlem torso-alignment geometrisinin head/neck rotasyonuna hassas olabileceğini düşündüren ayrı bir robustness finding olarak tutulur.
+
+Final run seti için diagnostics JSON paylaşılmadığı için performans percentile'ları ve exception count bağımsız telemetry kanıtı sayılmaz.
+
+**Closure status: `R6 Engineering Revalidated`.**

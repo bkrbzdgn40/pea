@@ -171,6 +171,42 @@ void main() {
       },
     );
 
+    test(
+      'romanian deadlift guide stays aligned with the selected-side side-view contract',
+      () {
+        final rdlDefinition = analysisCatalog.definitionFor(
+          ExerciseType.romanianDeadlift,
+        );
+        final rdlContent = guideCatalog.contentFor(
+          ExerciseType.romanianDeadlift,
+        );
+
+        expect(rdlDefinition.isAnalysisSupported, isTrue);
+        expect(rdlDefinition.analysisEngineKind.name, 'rangeRep');
+        expect(rdlContent.type, ExerciseType.romanianDeadlift);
+        expect(
+          rdlDefinition.analysisCameraViewContract.supportFor(CameraView.side),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          rdlDefinition.analysisCameraViewContract.supportFor(CameraView.front),
+          CameraViewSupport.unsupported,
+        );
+        expect(
+          rdlContent.setupSteps.join(' '),
+          contains('kamerayı tam yandan'),
+        );
+        expect(
+          rdlContent.setupSteps.join(' '),
+          contains('Dizlerini hafif bük'),
+        );
+        expect(
+          rdlContent.tips.join(' '),
+          contains('Hareketi dizlerden çok kalçadan başlat'),
+        );
+      },
+    );
+
     test('wall sit guide stays aligned with the side-view hold contract', () {
       final wallSitDefinition = analysisCatalog.definitionFor(
         ExerciseType.wallSit,

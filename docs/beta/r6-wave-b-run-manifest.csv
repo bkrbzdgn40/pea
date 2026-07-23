@@ -1,0 +1,8 @@
+run_id,exercise,scenario,planned_units,actual_units,ground_truth_reps,app_reps,absolute_count_error,persistence_live,persistence_summary,persistence_history,app_commit_sha,build_mode,diagnostics_file,fps_sample_count,analysis_fps_p50,frame_processing_ms_p95,analysis_exception_count,range_rep_abort_count,active_rep_resync_count,result,deviation_reason,notes
+R6-RDL-PREFLIGHT-1,romanian_deadlift,PREFLIGHT,1,,,,,,,,,profile,,,,,,,,,,Correct side-view setup; verify natural standing neutral and one complete lifecycle.
+R6-RDL-POS-20,romanian_deadlift,POS-CONTROLLED,20,,,,,,,,,profile,,,,,,,,,,20 controlled full hip-hinge repetitions.
+R6-RDL-STATIC-30,romanian_deadlift,STATIC-NEGATIVE,30s,,0,,,,,,,profile,,,,,,,,,,Natural standing neutral; expect 0 phantom reps.
+R6-RDL-PARTIAL-10,romanian_deadlift,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,10 small hip-hinge excursions that stop well before a full bottom position; expect 0 completed reps.
+R6-RDL-FORM-5,romanian_deadlift,FORM-VIOLATION,5,,,,,,,,,profile,,,,,,,,,,Deliberately increase knee bend and turn hinge toward a squat; expect knee-form signal / corrective feedback.
+R6-RDL-LIFE,romanian_deadlift,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No phantom count during pause; clean reacquire after resume.
+R6-RDL-PERSIST,romanian_deadlift,PERSISTENCE,1 measurable rep set,,,,,,,,,profile,,,,,,,,,,"Persisted rep count must match across Live, Summary, and History."
