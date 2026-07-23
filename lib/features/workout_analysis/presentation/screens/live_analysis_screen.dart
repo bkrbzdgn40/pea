@@ -9,12 +9,11 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../../app/localization/app_localizations.dart';
 
 import '../../application/engine_kind.dart';
-import '../../application/exercise_metric_registry.dart';
 import '../../application/workout_engine.dart';
-import '../../application/workout_live_metrics.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
+import '../models/workout_live_metric_display_state.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_metrics_provider.dart';
@@ -381,6 +380,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       // Only an explicit retry starts a fresh analysis session. A normal
       // summary dismiss keeps the completed-session guard intact.
       _startSessionLifecycle();
+      ref.read(workoutLiveMetricsProvider.notifier).reset();
       ref.invalidate(workoutControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
     }
@@ -1359,26 +1359,21 @@ class _MetricCard extends StatelessWidget {
 class _LiveCanonicalMetricsBar extends StatelessWidget {
   const _LiveCanonicalMetricsBar({required this.metrics});
 
-  final WorkoutLiveMetricsSnapshot metrics;
+  final WorkoutLiveMetricDisplayState metrics;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final items = <MapEntry<String, String>>[];
-    final session = metrics.sessionMetrics;
-    final frame = metrics.frameMetrics;
 
-    final primary = frame.valueFor(ExerciseMetricRegistry.primaryMovement);
-    if (primary != null) {
+    final angleDegrees = metrics.angleDegrees;
+    if (angleDegrees != null) {
       items.add(
-        MapEntry<String, String>(
-          localizations.angleMetric,
-          '${primary.toStringAsFixed(0)}°',
-        ),
+        MapEntry<String, String>(localizations.angleMetric, '$angleDegrees°'),
       );
     }
 
-    final tempo = session.valueFor(ExerciseMetricRegistry.tempo);
+    final tempo = metrics.tempo;
     if (tempo != null) {
       items.add(
         MapEntry<String, String>(
@@ -1388,24 +1383,22 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
       );
     }
 
-    final stability =
-        frame.valueFor(ExerciseMetricRegistry.stability) ??
-        session.valueFor(ExerciseMetricRegistry.stability);
-    if (stability != null) {
+    final stabilityScore = metrics.stabilityScore;
+    if (stabilityScore != null) {
       items.add(
         MapEntry<String, String>(
           localizations.stabilityMetric,
-          stability.toStringAsFixed(0),
+          stabilityScore.toString(),
         ),
       );
     }
 
-    final asymmetry = session.valueFor(ExerciseMetricRegistry.asymmetryScore);
-    if (asymmetry != null) {
+    final asymmetryScore = metrics.asymmetryScore;
+    if (asymmetryScore != null) {
       items.add(
         MapEntry<String, String>(
           localizations.asymmetryMetric,
-          asymmetry.toStringAsFixed(0),
+          asymmetryScore.toString(),
         ),
       );
     }

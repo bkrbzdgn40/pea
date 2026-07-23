@@ -6,6 +6,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/feedback_delivery_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/workout_live_metric_display_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/feedback_delivery_provider.dart';
@@ -13,6 +14,54 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 
 void main() {
+  test(
+    'live metric display suppresses frames with the same rounded values',
+    () {
+      var now = DateTime.utc(2030, 1, 1);
+      final container = ProviderContainer(
+        overrides: <Override>[
+          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.lunge),
+          exerciseConfigProvider.overrideWith((ref) => _lungeConfig()),
+          poseDetectorProvider.overrideWith((ref) => _FakePoseDetector()),
+          feedbackDeliveryProvider.overrideWithValue(_NoopFeedbackDelivery()),
+          workoutClockProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+      final workoutSubscription = container.listen(
+        workoutControllerProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(workoutSubscription.close);
+
+      final published = <WorkoutLiveMetricDisplayState>[];
+      final metricsSubscription = container.listen(
+        workoutLiveMetricsProvider,
+        (_, next) => published.add(next),
+        fireImmediately: true,
+      );
+      addTearDown(metricsSubscription.close);
+      final controller = container.read(workoutControllerProvider.notifier);
+
+      void feed(double angle) {
+        controller.processExerciseMetricsForTesting(
+          metrics: _bilateralMetrics(left: angle, right: null),
+          now: now,
+        );
+        now = now.add(const Duration(milliseconds: 100));
+      }
+
+      feed(165.1);
+      feed(165.2);
+      feed(165.4);
+
+      expect(published, hasLength(2));
+      expect(published.first, WorkoutLiveMetricDisplayState.empty);
+      expect(published.last.angleDegrees, 165);
+    },
+  );
+
   test(
     'lunge runtime feeds alternating sidecar and publishes symmetry metrics',
     () {
@@ -33,6 +82,12 @@ void main() {
         fireImmediately: true,
       );
       addTearDown(subscription.close);
+      final metricsSubscription = container.listen(
+        workoutLiveMetricsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(metricsSubscription.close);
       final controller = container.read(workoutControllerProvider.notifier);
 
       void feed({double? left, double? right}) {
@@ -64,6 +119,8 @@ void main() {
       completeRep(leftSide: false);
 
       final metrics = controller.liveMetricsSnapshot();
+      final display = container.read(workoutLiveMetricsProvider);
+      expect(display.asymmetryScore, 0);
       expect(metrics.leftRepCount, 1);
       expect(metrics.rightRepCount, 1);
       expect(

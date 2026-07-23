@@ -465,6 +465,10 @@ void main() {
 
       expect(restartedState.repCount, 0);
       expect(restartedState.lastRepScore, 0);
+      expect(
+        harness.container.read(workoutLiveMetricsProvider).isEmpty,
+        isTrue,
+      );
       expect(harness.container.read(completedSessionProvider), isNull);
       expect(harness.container.read(completedSessionMetricsProvider), isNull);
       expect(restartedLifecycle.activeSessionExercise, ExerciseType.squat);
