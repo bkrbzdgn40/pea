@@ -248,3 +248,35 @@ kanıtı gerekir.
 Per-exercise occlusion tekrar edilmez; yalnız Jumping Jack'e özgü visibility failure görülürse yeniden açılır.
 
 Formal protokol sapmaları closure kaydında açıkça tutulur; çalıştırılmayan run PASS yazılmaz.
+
+## 10. Current Validation Status
+
+```text
+R6 Validation Blocked / Deferred
+Engineering Revalidated = No
+```
+
+`R6-JJ-PREFLIGHT-1` gerçek cihaz/video kanıtında geçerli open-close hareketleri bulunmasına rağmen `rep_count = 0`, `reachPeak = 0` ve `abortToNeutral = 2` gözlenmiştir.
+
+Aynı run'da:
+
+```text
+analysis_fps_p50 = 4.8077
+frame_processing_ms_p95 = 568
+reentrant_drop_count = 373
+analysis_exception_count = 0
+```
+
+Pose rejection, resync ve side-switching ana failure'ı açıklamamıştır.
+
+Ayrıca doğru neutral pozisyonda `Open your legs farther` feedback'inin gösterilmesi phase-semantics finding'i olarak kaydedilmiştir.
+
+Threshold tuning uygulanmamıştır. Güvenli çözüm generic fast-motion lifecycle regression riski, Jumping Jack'e özel temporal acquisition veya analysis-pipeline performance çalışması gerektirebileceği için exercise mevcut validation turunda bilinçli olarak deferred bırakılmıştır.
+
+Kalıcı issue, gerekçe ve reopen acceptance criteria:
+
+```text
+docs/beta/r6-wave-c-jumping-jack-results.md
+```
+
+Bu hareket PASS veya `R6 Engineering Revalidated` olarak yorumlanmamalıdır.
