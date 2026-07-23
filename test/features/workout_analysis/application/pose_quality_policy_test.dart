@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_landmark_requirements.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -31,6 +32,160 @@ void main() {
         assessment.acceptedRangeRepSides,
         containsAll(<RangeRepSide>[RangeRepSide.left, RangeRepSide.right]),
       );
+    });
+
+    test('quality statistics preserve likelihood aggregation semantics', () {
+      const requirementSet = ExerciseLandmarkRequirementSet(
+        requiredLandmarks: <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        },
+        requiredAngleTriplets: <PoseAngleTriplet>[],
+        requiredSegments: <PoseLandmarkSegment>[],
+      );
+      final assessment = policy.assessRequirementSet(
+        pose: Pose(
+          landmarks: <PoseLandmarkType, PoseLandmark>{
+            PoseLandmarkType.leftShoulder: _landmark(
+              PoseLandmarkType.leftShoulder,
+              0,
+              0,
+              likelihood: 0.90,
+            ),
+            PoseLandmarkType.leftHip: _landmark(
+              PoseLandmarkType.leftHip,
+              0,
+              1,
+              likelihood: 0.49,
+            ),
+            PoseLandmarkType.leftKnee: _landmark(
+              PoseLandmarkType.leftKnee,
+              0,
+              2,
+              likelihood: 0.70,
+            ),
+          },
+        ),
+        requirementSet: requirementSet,
+      );
+
+      expect(assessment.isAccepted, isFalse);
+      expect(
+        assessment.rejectionReason,
+        PoseRejectionReason.lowLandmarkLikelihood,
+      );
+      expect(assessment.minimumRequiredLikelihood, closeTo(0.49, 1e-12));
+      expect(
+        assessment.meanRequiredLikelihood,
+        closeTo((0.90 + 0.49 + 0.70) / 3, 1e-12),
+      );
+      expect(assessment.requiredLandmarkCount, 3);
+      expect(assessment.acceptedLandmarkCount, 2);
+    });
+
+    test('non-finite rejection preserves first failing landmark telemetry', () {
+      const requirementSet = ExerciseLandmarkRequirementSet(
+        requiredLandmarks: <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        },
+        requiredAngleTriplets: <PoseAngleTriplet>[],
+        requiredSegments: <PoseLandmarkSegment>[],
+      );
+      final assessment = policy.assessRequirementSet(
+        pose: Pose(
+          landmarks: <PoseLandmarkType, PoseLandmark>{
+            PoseLandmarkType.leftShoulder: _landmark(
+              PoseLandmarkType.leftShoulder,
+              0,
+              0,
+              likelihood: 0.60,
+            ),
+            PoseLandmarkType.leftHip: _landmark(
+              PoseLandmarkType.leftHip,
+              double.nan,
+              1,
+              likelihood: 0.80,
+            ),
+            PoseLandmarkType.leftKnee: _landmark(
+              PoseLandmarkType.leftKnee,
+              0,
+              2,
+              likelihood: 0.90,
+            ),
+          },
+        ),
+        requirementSet: requirementSet,
+      );
+
+      expect(assessment.isAccepted, isFalse);
+      expect(
+        assessment.rejectionReason,
+        PoseRejectionReason.nonFiniteCoordinate,
+      );
+      expect(assessment.minimumRequiredLikelihood, closeTo(0.80, 1e-12));
+      expect(
+        assessment.meanRequiredLikelihood,
+        closeTo((0.60 + 0.80 + 0.90) / 3, 1e-12),
+      );
+      expect(assessment.acceptedLandmarkCount, 0);
+    });
+
+    test('degenerate geometry still takes precedence over low confidence', () {
+      const requirementSet = ExerciseLandmarkRequirementSet(
+        requiredLandmarks: <PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        },
+        requiredAngleTriplets: <PoseAngleTriplet>[
+          PoseAngleTriplet(
+            first: PoseLandmarkType.leftShoulder,
+            middle: PoseLandmarkType.leftHip,
+            last: PoseLandmarkType.leftKnee,
+          ),
+        ],
+        requiredSegments: <PoseLandmarkSegment>[],
+      );
+      final assessment = policy.assessRequirementSet(
+        pose: Pose(
+          landmarks: <PoseLandmarkType, PoseLandmark>{
+            PoseLandmarkType.leftShoulder: _landmark(
+              PoseLandmarkType.leftShoulder,
+              0,
+              0,
+              likelihood: 0.40,
+            ),
+            PoseLandmarkType.leftHip: _landmark(
+              PoseLandmarkType.leftHip,
+              0,
+              0,
+              likelihood: 0.80,
+            ),
+            PoseLandmarkType.leftKnee: _landmark(
+              PoseLandmarkType.leftKnee,
+              0,
+              2,
+              likelihood: 0.90,
+            ),
+          },
+        ),
+        requirementSet: requirementSet,
+      );
+
+      expect(assessment.isAccepted, isFalse);
+      expect(
+        assessment.rejectionReason,
+        PoseRejectionReason.degenerateGeometry,
+      );
+      expect(assessment.minimumRequiredLikelihood, closeTo(0.40, 1e-12));
+      expect(
+        assessment.meanRequiredLikelihood,
+        closeTo((0.40 + 0.80 + 0.90) / 3, 1e-12),
+      );
+      expect(assessment.acceptedLandmarkCount, 3);
     });
 
     test('one required landmark below 0.50 is rejected', () {

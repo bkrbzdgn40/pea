@@ -504,7 +504,12 @@ class PoseQualityPolicy {
       );
     }
 
-    final observedLandmarks = <PoseLandmark>[];
+    var observedLandmarkCount = 0;
+    var acceptedLandmarkCount = 0;
+    var minimumLikelihood = double.infinity;
+    var likelihoodTotal = 0.0;
+    PoseLandmark? firstNonFiniteLandmark;
+
     for (final landmarkType in requirementSet.requiredLandmarks) {
       final landmark = pose.landmarks[landmarkType];
       if (landmark == null) {
@@ -514,47 +519,57 @@ class PoseQualityPolicy {
           minimumRequiredLikelihood: null,
           meanRequiredLikelihood: null,
           requiredLandmarkCount: requiredLandmarkCount,
-          acceptedLandmarkCount: observedLandmarks.length,
+          acceptedLandmarkCount: observedLandmarkCount,
           acceptedRangeRepSides: const <RangeRepSide>{},
           preferredRangeRepSide: side,
           acceptedHoldSides: const <HoldSide>{},
           preferredHoldSide: holdSide,
           qualityScore: _qualityScore(
-            acceptedLandmarkCount: observedLandmarks.length,
+            acceptedLandmarkCount: observedLandmarkCount,
             requiredLandmarkCount: requiredLandmarkCount,
           ),
         );
       }
-      observedLandmarks.add(landmark);
+
+      observedLandmarkCount += 1;
+      final likelihood = landmark.likelihood;
+      likelihoodTotal += likelihood;
+      minimumLikelihood = math.min(minimumLikelihood, likelihood);
+      if (likelihood >= minimumRequiredLandmarkLikelihood) {
+        acceptedLandmarkCount += 1;
+      }
+      if (firstNonFiniteLandmark == null && !_hasFiniteCoordinates(landmark)) {
+        firstNonFiniteLandmark = landmark;
+      }
     }
 
-    for (final landmark in observedLandmarks) {
-      if (!_hasFiniteCoordinates(landmark)) {
-        return PoseQualityAssessment(
-          isAccepted: false,
-          rejectionReason: PoseRejectionReason.nonFiniteCoordinate,
-          minimumRequiredLikelihood: landmark.likelihood,
-          meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
-          requiredLandmarkCount: requiredLandmarkCount,
+    final meanLikelihood = likelihoodTotal / requiredLandmarkCount;
+    final nonFiniteLandmark = firstNonFiniteLandmark;
+    if (nonFiniteLandmark != null) {
+      return PoseQualityAssessment(
+        isAccepted: false,
+        rejectionReason: PoseRejectionReason.nonFiniteCoordinate,
+        minimumRequiredLikelihood: nonFiniteLandmark.likelihood,
+        meanRequiredLikelihood: meanLikelihood,
+        requiredLandmarkCount: requiredLandmarkCount,
+        acceptedLandmarkCount: 0,
+        acceptedRangeRepSides: const <RangeRepSide>{},
+        preferredRangeRepSide: side,
+        acceptedHoldSides: const <HoldSide>{},
+        preferredHoldSide: holdSide,
+        qualityScore: _qualityScore(
           acceptedLandmarkCount: 0,
-          acceptedRangeRepSides: const <RangeRepSide>{},
-          preferredRangeRepSide: side,
-          acceptedHoldSides: const <HoldSide>{},
-          preferredHoldSide: holdSide,
-          qualityScore: _qualityScore(
-            acceptedLandmarkCount: 0,
-            requiredLandmarkCount: requiredLandmarkCount,
-          ),
-        );
-      }
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
+      );
     }
 
     if (_hasDegenerateGeometry(pose, requirementSet)) {
       return PoseQualityAssessment(
         isAccepted: false,
         rejectionReason: PoseRejectionReason.degenerateGeometry,
-        minimumRequiredLikelihood: _minimumLikelihood(observedLandmarks),
-        meanRequiredLikelihood: _meanLikelihood(observedLandmarks),
+        minimumRequiredLikelihood: minimumLikelihood,
+        meanRequiredLikelihood: meanLikelihood,
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: requiredLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
@@ -567,15 +582,6 @@ class PoseQualityPolicy {
         ),
       );
     }
-
-    final minimumLikelihood = _minimumLikelihood(observedLandmarks);
-    final meanLikelihood = _meanLikelihood(observedLandmarks);
-    final acceptedLandmarkCount = observedLandmarks
-        .where(
-          (landmark) =>
-              landmark.likelihood >= minimumRequiredLandmarkLikelihood,
-        )
-        .length;
 
     if (minimumLikelihood < minimumRequiredLandmarkLikelihood) {
       return PoseQualityAssessment(
@@ -682,22 +688,9 @@ class PoseQualityPolicy {
     final deltaX = first.x - second.x;
     final deltaY = first.y - second.y;
     final deltaZ = first.z - second.z;
-    final distance = math.sqrt(
-      deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ,
-    );
-    return distance <= _degenerateDistanceEpsilon;
-  }
-
-  double _minimumLikelihood(List<PoseLandmark> landmarks) {
-    return landmarks.map((landmark) => landmark.likelihood).reduce(math.min);
-  }
-
-  double _meanLikelihood(List<PoseLandmark> landmarks) {
-    final total = landmarks.fold<double>(
-      0.0,
-      (sum, landmark) => sum + landmark.likelihood,
-    );
-    return total / landmarks.length;
+    final squaredDistance = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+    return squaredDistance <=
+        _degenerateDistanceEpsilon * _degenerateDistanceEpsilon;
   }
 
   double _qualityScore({
