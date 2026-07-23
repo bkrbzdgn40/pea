@@ -269,3 +269,24 @@ stable support mode invalid
 ```
 
 Regular Plank için mevcut `adjust_elbow_support` davranışı değiştirilmez.
+
+## 10. Closure Status
+
+Side Plank cihaz validation'ı kritik invalid-posture false-positive'in `supportStacking` hardening ile kapatılması ve doğru forearm Side Plank'in fix sonrası yeniden hold acquire etmesi temelinde tamamlanmıştır.
+
+Final status:
+
+```text
+R6 Engineering Revalidated
+follow-up = deferred
+formal protocol-complete = no
+```
+
+Ayrıntılı closure ve execution sapmaları:
+
+```text
+docs/beta/r6-wave-b-side-plank-results.md
+```
+
+SIDE-SWAP, LIFE ve PERSIST ayrı final-run kanıtları olarak sabitlenmediği için bu protokolün bütün planlı satırlarının PASS olduğu iddia edilmez.
+
