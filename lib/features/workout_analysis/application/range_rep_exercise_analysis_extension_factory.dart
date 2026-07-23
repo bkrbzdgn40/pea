@@ -3,6 +3,7 @@ import 'biceps_curl_range_rep_analysis_extension.dart';
 import 'push_up_range_rep_analysis_extension.dart';
 import 'range_rep_exercise_analysis_extension.dart';
 import 'range_rep_noop_analysis_extension.dart';
+import 'shoulder_press_range_rep_analysis_extension.dart';
 import 'squat_range_rep_analysis_extension.dart';
 
 /// Resolves semantic contract metadata to an exercise-specific extension.
@@ -21,6 +22,8 @@ class RangeRepExerciseAnalysisExtensionFactory {
         PushUpRangeRepExerciseAnalysisExtension(),
       RangeRepExtensionProfile.bicepsCurl =>
         BicepsCurlRangeRepExerciseAnalysisExtension(),
+      RangeRepExtensionProfile.shoulderPress =>
+        ShoulderPressRangeRepExerciseAnalysisExtension(),
     };
   }
 }

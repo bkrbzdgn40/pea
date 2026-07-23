@@ -27,6 +27,27 @@ formThreshold = 0°
 
 Primary lifecycle iki kolun elbow-angle sinyalinden bilateral aggregate ile yürür. `increasingToPeak` contract'ta lagging arm belirleyicidir; completed lifecycle için iki kolun birlikte yeterli extension'a ulaşması beklenir.
 
+### Device finding: straight-down arm peak ambiguity
+
+Gerçek cihaz videosunda zero-overlap alternating arm denemelerinde false bilateral rep gözlendi. Kök neden threshold tuning değil, primary metric geometrisinin tek başına arm elevation'ı ayırt edememesidir:
+
+```text
+overhead straight arm -> high elbow angle
+straight arm beside torso -> high elbow angle
+```
+
+Bu nedenle bir kol overhead iken diğer kol vücudun yanında düz tutulduğunda generic bilateral elbow-angle aggregate PEAK threshold'unu yanlışlıkla sağlayabiliyordu.
+
+Shoulder Press'e özel `RangeRepPeakEntryGate` eklendi. PEAK confirmation artık primary elbow-angle gate'e ek olarak şu koşulu ister:
+
+```text
+left wrist above left shoulder
+AND
+right wrist above right shoulder
+```
+
+Generic engine ve mevcut angle threshold'ları değiştirilmedi. Fix sonrası `R6-SP-ONE-ARM-10` / zero-overlap alternating-arm negatif testi gerçek cihazda yeniden çalıştırılmadan Shoulder Press closure yapılmaz.
+
 ## 2. Form-Signal Sınırı
 
 Shoulder Press v1 contract'ında ayrı bir exercise-specific technique angle yoktur.

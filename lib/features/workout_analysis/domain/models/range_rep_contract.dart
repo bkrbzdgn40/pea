@@ -55,7 +55,7 @@ enum RangeRepTowardPeakMuscleAction { eccentric, concentric }
 ///
 /// This is semantic metadata, not object identity. A copied contract therefore
 /// keeps the same behavior without relying on `identical(...)`.
-enum RangeRepExtensionProfile { none, squat, pushUp, bicepsCurl }
+enum RangeRepExtensionProfile { none, squat, pushUp, bicepsCurl, shoulderPress }
 
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
@@ -510,6 +510,7 @@ abstract final class RangeRepContracts {
 
   static final RangeRepContract shoulderPress = RangeRepContract(
     towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    extensionProfile: RangeRepExtensionProfile.shoulderPress,
     supportedPhases: const <RangeRepPhase>{
       RangeRepPhase.descending,
       RangeRepPhase.peak,
