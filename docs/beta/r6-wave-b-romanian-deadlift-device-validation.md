@@ -142,3 +142,18 @@ Romanian Deadlift şu kapılar geçildiğinde `R6 Engineering Revalidated` stat�
 7. persistence.
 
 Occlusion tekrar testi shared coverage nedeniyle zorunlu değildir.
+
+## 9. Closure Kaydı
+
+**Status: `R6 Engineering Revalidated`**
+
+Final gerçek cihaz doğrulamasında repetition/counting, form-break behavior, pause/resume lifecycle ve persistence kullanıcı tarafından PASS olarak doğrulandı.
+
+Büyük bumper plate kaynaklı ankle visibility problemi için RDL pose acceptance yalnız `primaryMetric` gerektirecek şekilde daraltıldı; technique-only knee metric counting'i bloklamaz. Knee feedback semantiği de absolute knee-angle threshold ile hizalandı.
+
+Çok büyük barbell/bumper plate koşullarındaki daha geniş visibility kaybı blocker olmayan robustness finding olarak ertelendi. Scoring cezasına bu aşamada dokunulmadı.
+
+Exact run-level diagnostics ve sayısal manifest alanları closure konuşmasında sabitlenmediği için formal protocol-complete iddiası yapılmaz.
+
+Ayrıntılı sonuç kaydı: `docs/beta/r6-wave-b-romanian-deadlift-results.md`.
+
