@@ -14,18 +14,21 @@ import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
 import 'pose_landmark_mirror.dart';
+import 'prepared_exercise_analysis_context.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
 class ExerciseMetricsExtractor {
-  const ExerciseMetricsExtractor();
+  const ExerciseMetricsExtractor({
+    ExerciseLandmarkRequirements requirements =
+        const ExerciseLandmarkRequirements(),
+  }) : _requirements = requirements;
 
   static final RangeRepContract _emptyRangeRepContract = RangeRepContract(
     supportedPhases: const <RangeRepPhase>{},
     supportedSignals: const <RangeRepSignal>{},
     signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   );
-  static const ExerciseLandmarkRequirements _requirements =
-      ExerciseLandmarkRequirements();
+  final ExerciseLandmarkRequirements _requirements;
 
   ExerciseMetrics extract(
     Pose pose,
@@ -34,6 +37,7 @@ class ExerciseMetricsExtractor {
     RangeRepContract? rangeRepContract,
     HoldContract? holdContract,
     HoldSide? holdSide,
+    PreparedExerciseAnalysisContext? preparedContext,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
@@ -41,6 +45,7 @@ class ExerciseMetricsExtractor {
           pose,
           config,
           rangeRepContract: rangeRepContract ?? RangeRepContracts.squat,
+          preparedContext: preparedContext,
         );
       case EngineKind.hold:
         return _extractHoldMetrics(
@@ -65,18 +70,21 @@ class ExerciseMetricsExtractor {
     Pose pose,
     ExerciseConfig config, {
     required RangeRepContract rangeRepContract,
+    PreparedExerciseAnalysisContext? preparedContext,
   }) {
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.left,
       rangeRepContract: rangeRepContract,
+      preparedContext: preparedContext,
     );
     final rightRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.right,
       rangeRepContract: rangeRepContract,
+      preparedContext: preparedContext,
     );
     final bilateralRangeRepMetrics =
         rangeRepContract.sideMode == RangeRepSideMode.bilateral
@@ -188,6 +196,7 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config,
     RangeRepSide side, {
     required RangeRepContract rangeRepContract,
+    PreparedExerciseAnalysisContext? preparedContext,
   }) {
     final primaryMetric = _tryCalculatePrimaryMetric(
       pose,
@@ -208,6 +217,7 @@ class ExerciseMetricsExtractor {
       side: side,
       hasPrimaryAngle: primaryMetric != null,
       hasFormMetric: formMetric != null,
+      preparedContext: preparedContext,
     );
     final formSignals = _extractRangeRepFormSignals(
       pose,
@@ -294,6 +304,7 @@ class ExerciseMetricsExtractor {
     required RangeRepSide side,
     required bool hasPrimaryAngle,
     required bool hasFormMetric,
+    PreparedExerciseAnalysisContext? preparedContext,
   }) {
     final requiresPrimaryMetric = rangeRepContract.requiresPoseAcceptanceSignal(
       RangeRepSignal.primaryMetric,
@@ -301,13 +312,15 @@ class ExerciseMetricsExtractor {
     final requiresFormMetric = rangeRepContract.requiresPoseAcceptanceSignal(
       RangeRepSignal.formMetric,
     );
-    final requirementSet = _requirements.resolve(
-      config: config,
-      engineKind: EngineKind.rangeRep,
-      rangeRepContract: rangeRepContract,
-      rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
-      side: side,
-    );
+    final requirementSet =
+        preparedContext?.rangeRepPoseAcceptanceFor(side) ??
+        _requirements.resolve(
+          config: config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: rangeRepContract,
+          rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+          side: side,
+        );
     final requiredLandmarks = requirementSet.requiredLandmarks;
     final observedLandmarks = requiredLandmarks
         .where((landmarkType) => pose.landmarks[landmarkType] != null)

@@ -9,6 +9,7 @@ import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
+import 'prepared_exercise_analysis_context.dart';
 import 'side_plank_support_stacking_measurement.dart';
 
 enum PoseRejectionReason {
@@ -138,41 +139,56 @@ class PoseQualityPolicy {
     HoldContract? holdContract,
     HoldSide? requiredHoldSide,
   }) {
-    switch (engineKind) {
+    final preparedContext = PreparedExerciseAnalysisContext.resolve(
+      config: config,
+      engineKind: engineKind,
+      rangeRepContract: rangeRepContract,
+      holdContract: holdContract,
+      requirements: _requirements,
+    );
+    return assessPrepared(
+      pose: pose,
+      config: config,
+      preparedContext: preparedContext,
+      requiredHoldSide: requiredHoldSide,
+    );
+  }
+
+  /// Applies pose-quality checks using landmark requirements prepared once for
+  /// the current analysis build.
+  PoseQualityAssessment assessPrepared({
+    required Pose pose,
+    required ExerciseConfig config,
+    required PreparedExerciseAnalysisContext preparedContext,
+    HoldSide? requiredHoldSide,
+  }) {
+    switch (preparedContext.engineKind) {
       case EngineKind.rangeRep:
         if (requiredHoldSide != null) {
           throw StateError(
             'requiredHoldSide is only valid for hold pose-quality assessment.',
           );
         }
-        if (rangeRepContract?.sideMode == RangeRepSideMode.bilateral) {
+        if (preparedContext.rangeRepContract?.sideMode ==
+            RangeRepSideMode.bilateral) {
           return _assessBilateralRangeRep(
             pose: pose,
-            config: config,
-            engineKind: engineKind,
-            rangeRepContract: rangeRepContract,
+            requirementSet: preparedContext
+                .bilateralRangeRepPoseAcceptanceOrThrow(),
           );
         }
         final leftAssessment = _assessRequirementSet(
           pose: pose,
           side: RangeRepSide.left,
-          requirementSet: _requirements.resolve(
-            config: config,
-            engineKind: engineKind,
-            rangeRepContract: rangeRepContract,
-            rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
-            side: RangeRepSide.left,
+          requirementSet: preparedContext.rangeRepPoseAcceptanceFor(
+            RangeRepSide.left,
           ),
         );
         final rightAssessment = _assessRequirementSet(
           pose: pose,
           side: RangeRepSide.right,
-          requirementSet: _requirements.resolve(
-            config: config,
-            engineKind: engineKind,
-            rangeRepContract: rangeRepContract,
-            rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
-            side: RangeRepSide.right,
+          requirementSet: preparedContext.rangeRepPoseAcceptanceFor(
+            RangeRepSide.right,
           ),
         );
         return _combineRangeRepAssessments(
@@ -184,12 +200,8 @@ class PoseQualityPolicy {
           return _assessRequirementSet(
             pose: pose,
             holdSide: requiredHoldSide,
-            requirementSet: _requirements.resolve(
-              config: config,
-              engineKind: engineKind,
-              rangeRepContract: rangeRepContract,
-              holdContract: holdContract,
-              holdSide: requiredHoldSide,
+            requirementSet: preparedContext.holdPoseAcceptanceFor(
+              requiredHoldSide,
             ),
           );
         }
@@ -197,26 +209,15 @@ class PoseQualityPolicy {
         final leftAssessment = _assessRequirementSet(
           pose: pose,
           holdSide: HoldSide.left,
-          requirementSet: _requirements.resolve(
-            config: config,
-            engineKind: engineKind,
-            rangeRepContract: rangeRepContract,
-            holdContract: holdContract,
-            holdSide: HoldSide.left,
-          ),
+          requirementSet: preparedContext.holdPoseAcceptanceFor(HoldSide.left),
         );
         final rightAssessment = _assessRequirementSet(
           pose: pose,
           holdSide: HoldSide.right,
-          requirementSet: _requirements.resolve(
-            config: config,
-            engineKind: engineKind,
-            rangeRepContract: rangeRepContract,
-            holdContract: holdContract,
-            holdSide: HoldSide.right,
-          ),
+          requirementSet: preparedContext.holdPoseAcceptanceFor(HoldSide.right),
         );
-        if (holdContract?.family == HoldAnalysisFamily.sidePlank) {
+        if (preparedContext.holdContract?.family ==
+            HoldAnalysisFamily.sidePlank) {
           return _combineSidePlankHoldAssessments(
             pose: pose,
             config: config,
@@ -242,18 +243,11 @@ class PoseQualityPolicy {
 
   PoseQualityAssessment _assessBilateralRangeRep({
     required Pose pose,
-    required ExerciseConfig config,
-    required EngineKind engineKind,
-    required RangeRepContract? rangeRepContract,
+    required ExerciseLandmarkRequirementSet requirementSet,
   }) {
     final bilateralAssessment = _assessRequirementSet(
       pose: pose,
-      requirementSet: _requirements.resolve(
-        config: config,
-        engineKind: engineKind,
-        rangeRepContract: rangeRepContract,
-        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
-      ),
+      requirementSet: requirementSet,
     );
 
     return PoseQualityAssessment(
