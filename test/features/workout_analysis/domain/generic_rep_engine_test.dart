@@ -134,6 +134,64 @@ void main() {
       },
     );
 
+    test(
+      'pending peak confirmation survives release inside peak hysteresis',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 145,
+            peakThreshold: 105,
+            peakEntryMargin: 0,
+            peakExitMargin: 8,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 170, 120);
+        _confirm(clock, engine, 140, 100);
+
+        final entry = engine.update(primaryMetric: 104);
+        expect(entry.confirmedTransition, isNull);
+        expect(engine.pendingTransition, GenericRepTransitionType.reachPeak);
+
+        clock.advance(const Duration(milliseconds: 100));
+        final confirmed = engine.update(primaryMetric: 110);
+
+        expect(
+          confirmed.confirmedTransition?.type,
+          GenericRepTransitionType.reachPeak,
+        );
+        expect(engine.phase, GenericRepPhase.peak);
+      },
+    );
+
+    test('pending peak confirmation cancels after exiting peak hysteresis', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 145,
+          peakThreshold: 105,
+          peakEntryMargin: 0,
+          peakExitMargin: 8,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 170, 120);
+      _confirm(clock, engine, 140, 100);
+
+      engine.update(primaryMetric: 104);
+      clock.advance(const Duration(milliseconds: 100));
+      final result = engine.update(primaryMetric: 120);
+
+      expect(result.confirmedTransition, isNull);
+      expect(engine.pendingTransition, isNull);
+      expect(engine.phase, GenericRepPhase.towardPeak);
+    });
+
     test('debounce is cancelled when the transition condition is lost', () {
       final clock = _Clock();
       final engine = GenericRepEngine(

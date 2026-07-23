@@ -216,3 +216,64 @@ Lying Leg Raise şu kritik kapılarla `R6 Engineering Revalidated` statüsüne a
 Per-exercise occlusion tekrar edilmez; yalnız Lying Leg Raise'e özgü visibility/occlusion failure görülürse yeniden açılır.
 
 Formal protokolde sapma olursa closure kaydında açıkça yazılır; çalıştırılmayan run PASS olarak gösterilmez.
+
+## 9. Device Finding - Peak Acquisition False Negative
+
+SHA-pinned profile gerçek cihaz run'ında kullanıcı kontrollü tam ve kısmi tekrarları aynı sette gerçekleştirdi. Video + diagnostics karşılaştırmasında bazı kısmi hareketlerin doğru biçimde sayılmadığı, ancak birkaç fiziksel olarak geçerli tekrarın da `reachPeak` transition'ına ulaşamadığı görüldü.
+
+Failure diagnostics:
+
+```text
+startDescending = 7
+reachPeak = 0
+startAscending = 0
+completeRep = 0
+abortToNeutral = 6
+rep_count = 0
+range_rep_validation_count = 0
+```
+
+Bu nedenle failure completed-rep validation veya `minAcceptableRomDelta` kaynaklı değildir. Lifecycle peak acquisition aşamasında kalmaktadır.
+
+Production threshold değişmedi:
+
+```text
+thresholdPeak = 105°
+```
+
+Shared generic lifecycle varsayılan `peakEntryMargin = 3°` uyguladığı için eski efektif giriş koşulu decreasing-to-peak hareketlerde:
+
+```text
+primaryMetric < 102°
+```
+
+oluyordu. Ayrıca 80 ms peak confirmation sırasında ikinci analiz sample'ının tekrar katı entry bandında kalması gerekiyordu. Yaklaşık 6 FPS analysis sampling altında doğal tepe kısa süreyle görülüp bir sonraki sample exit hysteresis bandında kaldığında bile pending peak iptal edilebiliyordu.
+
+### Hardening
+
+Lying Leg Raise contract'ı artık configured peak threshold'u literal giriş sınırı olarak kullanır:
+
+```text
+peakEntryMargin = 0°
+entry condition = primaryMetric < 105°
+```
+
+Generic peak debounce ise gerçek hysteresis davranışıyla hizalandı:
+
+1. strict peak entry bir kez görülür,
+2. pending confirmation başlar,
+3. sonraki sample strict entry bandından çıkmış olsa bile peak exit bandını aşmadığı sürece pending confirmation korunur,
+4. exit bandı aşılırsa pending peak iptal edilir.
+
+Bu değişiklik `thresholdPeak`, `minAcceptableRomDelta`, form threshold veya generic default margin'i değiştirmez. Exercise-specific fark yalnız Lying Leg Raise contract'ının `peakEntryMargin = 0°` seçmesidir.
+
+Deterministik regression kapsamı:
+
+```text
+104° peak entry -> 110° next sparse sample -> peak confirmation -> completed rep
+109° shallow partial -> no peak entry -> 0 rep
+120° exit-hysteresis breach while peak pending -> pending peak cancelled
+```
+
+Gerçek cihaz retest'i closure öncesi zorunludur. Özellikle daha önce false-negative görülen doğal tam tekrarlar ile 109° civarında kalan partial hareketler aynı run'da tekrar karşılaştırılmalıdır.
+

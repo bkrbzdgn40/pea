@@ -73,6 +73,7 @@ class RangeRepContract {
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     this.towardPeakMuscleAction = RangeRepTowardPeakMuscleAction.eccentric,
+    this.peakEntryMargin = 3.0,
     this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
@@ -131,6 +132,14 @@ class RangeRepContract {
   final RangeRepPrimaryMetricKind primaryMetricKind;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final RangeRepTowardPeakMuscleAction towardPeakMuscleAction;
+
+  /// Exercise-specific hysteresis margin applied when entering the peak range.
+  ///
+  /// The default preserves the shared lifecycle's 3-degree noise guard. Some
+  /// movements can opt into a literal configured peak threshold when sparse
+  /// analysis sampling makes the extra entry margin too restrictive.
+  final double peakEntryMargin;
+
   final RangeRepExtensionProfile extensionProfile;
 
   bool supportsPhase(RangeRepPhase phase) {
@@ -332,6 +341,7 @@ abstract final class RangeRepContracts {
 
   static final RangeRepContract lyingLegRaise = RangeRepContract(
     towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+    peakEntryMargin: 0.0,
     supportedPhases: const <RangeRepPhase>{
       RangeRepPhase.descending,
       RangeRepPhase.peak,

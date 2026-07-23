@@ -34,6 +34,7 @@ class AnalysisEngineFactory {
       config: config,
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
       towardPeakMuscleAction: rangeRepContract.towardPeakMuscleAction,
+      peakEntryMargin: rangeRepContract.peakEntryMargin,
       now: now,
     );
   }

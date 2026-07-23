@@ -47,6 +47,15 @@ void main() {
     thresholdActive: 130.0,
     thresholdPeak: 90.0,
   );
+  final lyingLegRaiseConfig = ExerciseConfig(
+    name: 'Lying Leg Raise',
+    primaryJoint: PoseLandmarkType.leftHip,
+    joint1: PoseLandmarkType.leftShoulder,
+    joint2: PoseLandmarkType.leftKnee,
+    thresholdNeutral: 160.0,
+    thresholdActive: 145.0,
+    thresholdPeak: 105.0,
+  );
   final lungeConfig = ExerciseConfig(
     name: 'Stationary Lunge',
     primaryJoint: PoseLandmarkType.leftKnee,
@@ -167,6 +176,47 @@ void main() {
         }
       },
     );
+
+    test(
+      'lying leg raise accepts a literal peak crossing across sparse sampling',
+      () {
+        final clock = _RangeRepTestClock();
+        final engine = factory.createRangeRep(
+          config: lyingLegRaiseConfig,
+          rangeRepContract: RangeRepContracts.lyingLegRaise,
+          now: clock.now,
+        );
+
+        _confirmRangeRepMetric(clock, engine, 170, 120);
+        _confirmRangeRepMetric(clock, engine, 140, 100);
+
+        engine.updateDetectionFrame(primaryMetric: 104);
+        clock.advance(const Duration(milliseconds: 100));
+        engine.updateDetectionFrame(primaryMetric: 110);
+
+        _confirmRangeRepMetric(clock, engine, 120, 100);
+        _confirmRangeRepMetric(clock, engine, 170, 120);
+
+        expect(engine.repCount, 1);
+      },
+    );
+
+    test('lying leg raise still rejects a shallow 109-degree partial', () {
+      final clock = _RangeRepTestClock();
+      final engine = factory.createRangeRep(
+        config: lyingLegRaiseConfig,
+        rangeRepContract: RangeRepContracts.lyingLegRaise,
+        now: clock.now,
+      );
+
+      _confirmRangeRepMetric(clock, engine, 170, 120);
+      _confirmRangeRepMetric(clock, engine, 140, 100);
+      _confirmRangeRepMetric(clock, engine, 109, 100);
+      _confirmRangeRepMetric(clock, engine, 120, 100);
+      _confirmRangeRepMetric(clock, engine, 170, 120);
+
+      expect(engine.repCount, 0);
+    });
 
     test('Day 11 range-rep exercises use the shared increasing lifecycle', () {
       final scenarios =

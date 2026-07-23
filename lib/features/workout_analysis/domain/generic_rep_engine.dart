@@ -202,9 +202,13 @@ class GenericRepEngine {
 
       case GenericRepPhase.towardPeak:
         _recordMetric(primaryMetric);
+        final hasEnteredPeak = hasReachedPeakRange(primaryMetric);
+        final isPendingPeakWithinHysteresis =
+            _pendingTransition == GenericRepTransitionType.reachPeak &&
+            !hasExitedPeakRange(primaryMetric);
         final peakConfirmedAt = _confirmTransition(
           transition: GenericRepTransitionType.reachPeak,
-          condition: hasReachedPeakRange(primaryMetric),
+          condition: hasEnteredPeak || isPendingPeakWithinHysteresis,
           now: now,
         );
         if (peakConfirmedAt != null) {
