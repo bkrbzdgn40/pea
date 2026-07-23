@@ -35,58 +35,134 @@ class ExerciseMetricsExtractor {
     HoldContract? holdContract,
     HoldSide? holdSide,
   }) {
-    final effectiveRangeRepContract = engineKind == EngineKind.rangeRep
-        ? (rangeRepContract ?? RangeRepContracts.squat)
-        : _emptyRangeRepContract;
-    final effectiveHoldContract = engineKind == EngineKind.hold
-        ? _requireHoldContract(holdContract)
-        : null;
-    final effectiveHoldSide = engineKind == EngineKind.hold
-        ? _requireHoldSide(holdSide)
-        : null;
+    switch (engineKind) {
+      case EngineKind.rangeRep:
+        return _extractRangeRepMetrics(
+          pose,
+          config,
+          rangeRepContract: rangeRepContract ?? RangeRepContracts.squat,
+        );
+      case EngineKind.hold:
+        return _extractHoldMetrics(
+          pose,
+          config,
+          holdContract: _requireHoldContract(holdContract),
+          holdSide: _requireHoldSide(holdSide),
+        );
+      case EngineKind.alternatingRep:
+        // Alternating-rep analysis is currently a sidecar of the range-rep
+        // engine. Preserve the extractor's legacy fallback for any direct
+        // callers until that engine has first-class controller wiring.
+        return _extractRangeRepMetrics(
+          pose,
+          config,
+          rangeRepContract: _emptyRangeRepContract,
+        );
+    }
+  }
+
+  ExerciseMetrics _extractRangeRepMetrics(
+    Pose pose,
+    ExerciseConfig config, {
+    required RangeRepContract rangeRepContract,
+  }) {
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.left,
-      rangeRepContract: effectiveRangeRepContract,
+      rangeRepContract: rangeRepContract,
     );
     final rightRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.right,
-      rangeRepContract: effectiveRangeRepContract,
+      rangeRepContract: rangeRepContract,
     );
     final bilateralRangeRepMetrics =
-        effectiveRangeRepContract.sideMode == RangeRepSideMode.bilateral
+        rangeRepContract.sideMode == RangeRepSideMode.bilateral
         ? _extractBilateralRangeRepMetrics(
             config,
-            rangeRepContract: effectiveRangeRepContract,
+            rangeRepContract: rangeRepContract,
             leftMetrics: leftRangeRepMetrics,
             rightMetrics: rightRangeRepMetrics,
           )
         : null;
     final engineFacingRangeRepMetrics =
         bilateralRangeRepMetrics ?? leftRangeRepMetrics;
-    final holdSignalValues = _extractHoldSignalValues(
-      pose,
-      config,
-      holdContract: effectiveHoldContract,
-      holdSide: effectiveHoldSide,
-    );
 
     return ExerciseMetrics(
       primaryAngle: engineFacingRangeRepMetrics.primaryAngle,
       formMetric: engineFacingRangeRepMetrics.formMetric,
       hasPrimaryAngle: engineFacingRangeRepMetrics.hasPrimaryAngle,
       hasFormMetric: engineFacingRangeRepMetrics.hasFormMetric,
-      holdSignalValues: holdSignalValues,
-      holdSide: effectiveHoldSide,
+      holdSignalValues: const HoldSignalValues.empty(),
+      holdSide: null,
       hasPose: true,
       landmarks: pose.landmarks.values.toList(),
       leftRangeRepMetrics: leftRangeRepMetrics,
       rightRangeRepMetrics: rightRangeRepMetrics,
       bilateralRangeRepMetrics: bilateralRangeRepMetrics,
     );
+  }
+
+  ExerciseMetrics _extractHoldMetrics(
+    Pose pose,
+    ExerciseConfig config, {
+    required HoldContract holdContract,
+    required HoldSide holdSide,
+  }) {
+    final holdSignalValues = _extractHoldSignalValues(
+      pose,
+      config,
+      holdContract: holdContract,
+      holdSide: holdSide,
+    );
+    final primaryMetric = _holdPrimaryMetric(holdContract, holdSignalValues);
+    final formMetric = _holdFormMetric(holdContract, holdSignalValues);
+
+    return ExerciseMetrics(
+      primaryAngle: primaryMetric ?? 180.0,
+      formMetric: formMetric ?? 90.0,
+      hasPrimaryAngle: primaryMetric != null,
+      hasFormMetric: formMetric != null,
+      holdSignalValues: holdSignalValues,
+      holdSide: holdSide,
+      hasPose: true,
+      landmarks: pose.landmarks.values.toList(),
+      leftRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+        RangeRepSide.left,
+      ),
+      rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+        RangeRepSide.right,
+      ),
+    );
+  }
+
+  // Preserve the legacy frame-level angle telemetry from canonical hold
+  // signals without running the range-rep extractor for either body side.
+  double? _holdPrimaryMetric(
+    HoldContract holdContract,
+    HoldSignalValues holdSignalValues,
+  ) {
+    switch (holdContract.family) {
+      case HoldAnalysisFamily.plank:
+      case HoldAnalysisFamily.sidePlank:
+        return holdSignalValues.valueFor(HoldSignal.alignment);
+      case HoldAnalysisFamily.hollowHold:
+        return holdSignalValues.valueFor(HoldSignal.compression);
+      case HoldAnalysisFamily.wallSit:
+        return holdSignalValues.valueFor(HoldSignal.kneeFlexion);
+    }
+  }
+
+  double? _holdFormMetric(
+    HoldContract holdContract,
+    HoldSignalValues holdSignalValues,
+  ) {
+    if (holdContract.family != HoldAnalysisFamily.wallSit) {
+      return null;
+    }
+    return holdSignalValues.valueFor(HoldSignal.hipFlexion);
   }
 
   HoldContract _requireHoldContract(HoldContract? holdContract) {
@@ -392,25 +468,11 @@ class ExerciseMetricsExtractor {
   }
 
   double? _extractHoldSignalValue(
-    Pose pose,
-    ExerciseConfig config, {
-    required HoldContract? holdContract,
-    required HoldSide? holdSide,
+    Pose pose, {
+    required HoldSignalExtractionConfig holdSignals,
+    required HoldSide holdSide,
     required HoldSignal signal,
   }) {
-    if (holdContract == null) {
-      return null;
-    }
-
-    if (!holdContract.supportsSignal(signal)) {
-      return null;
-    }
-
-    final holdSignals = config.holdSignals;
-    if (holdSignals == null) {
-      throw StateError('Hold metrics extraction requires holdSignals config.');
-    }
-
     final definition = holdSignals.definitionFor(signal);
     if (definition == null) {
       throw StateError(
@@ -418,27 +480,22 @@ class ExerciseMetricsExtractor {
       );
     }
 
-    final requiredHoldSide = holdSide;
-    if (requiredHoldSide == null) {
-      throw StateError('Hold metrics extraction requires a non-null holdSide.');
-    }
-
     return _tryCalculateAngle(
       pose,
       resolveHoldLandmarkForSide(
         configuredLandmark: definition.first,
         referenceSide: holdSignals.referenceSide,
-        targetSide: requiredHoldSide,
+        targetSide: holdSide,
       ),
       resolveHoldLandmarkForSide(
         configuredLandmark: definition.middle,
         referenceSide: holdSignals.referenceSide,
-        targetSide: requiredHoldSide,
+        targetSide: holdSide,
       ),
       resolveHoldLandmarkForSide(
         configuredLandmark: definition.last,
         referenceSide: holdSignals.referenceSide,
-        targetSide: requiredHoldSide,
+        targetSide: holdSide,
       ),
     );
   }
@@ -446,19 +503,19 @@ class ExerciseMetricsExtractor {
   HoldSignalValues _extractHoldSignalValues(
     Pose pose,
     ExerciseConfig config, {
-    required HoldContract? holdContract,
-    required HoldSide? holdSide,
+    required HoldContract holdContract,
+    required HoldSide holdSide,
   }) {
-    if (holdContract == null) {
-      return const HoldSignalValues.empty();
+    final holdSignals = config.holdSignals;
+    if (holdSignals == null) {
+      throw StateError('Hold metrics extraction requires holdSignals config.');
     }
 
     final values = <HoldSignal, double>{};
     for (final signal in holdContract.requiredSignals) {
       final value = _extractHoldSignalValue(
         pose,
-        config,
-        holdContract: holdContract,
+        holdSignals: holdSignals,
         holdSide: holdSide,
         signal: signal,
       );

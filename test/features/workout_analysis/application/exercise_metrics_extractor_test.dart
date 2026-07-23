@@ -895,6 +895,10 @@ void main() {
           metrics.holdSignalValues.valueFor(HoldSignal.torsoAlignment),
           closeTo(180.0, 0.001),
         );
+        expect(metrics.primaryAngle, closeTo(90.0, 0.001));
+        expect(metrics.hasPrimaryAngle, isTrue);
+        expect(metrics.formMetric, closeTo(90.0, 0.001));
+        expect(metrics.hasFormMetric, isTrue);
       });
 
       test(
@@ -913,10 +917,33 @@ void main() {
           expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
           expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
           expect(metrics.holdSide, HoldSide.left);
+          expect(metrics.primaryAngle, closeTo(180.0, 0.001));
+          expect(metrics.hasPrimaryAngle, isTrue);
+          expect(metrics.hasFormMetric, isFalse);
           expect(metrics.hasPose, isTrue);
           expect(metrics.landmarks, hasLength(pose.landmarks.length));
         },
       );
+
+      test('hold extraction leaves range-rep side metrics unavailable', () {
+        final metrics = extractor.extract(
+          _holdPose(),
+          _holdConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
+          holdSide: HoldSide.left,
+        );
+
+        expect(metrics.leftRangeRepMetrics.hasPrimaryAngle, isFalse);
+        expect(metrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+        expect(metrics.leftRangeRepMetrics.sideConfidence, isNull);
+        expect(metrics.leftRangeRepMetrics.formSignals, isNull);
+        expect(metrics.rightRangeRepMetrics.hasPrimaryAngle, isFalse);
+        expect(metrics.rightRangeRepMetrics.hasFormMetric, isFalse);
+        expect(metrics.rightRangeRepMetrics.sideConfidence, isNull);
+        expect(metrics.rightRangeRepMetrics.formSignals, isNull);
+        expect(metrics.bilateralRangeRepMetrics, isNull);
+      });
 
       test('hold metrics are only emitted for the hold engine', () {
         final metrics = extractor.extract(
@@ -991,6 +1018,9 @@ void main() {
             metrics.holdSignalValues.valueFor(HoldSignal.kneeExtension),
             closeTo(170.0, 0.001),
           );
+          expect(metrics.primaryAngle, closeTo(150.0, 0.001));
+          expect(metrics.hasPrimaryAngle, isTrue);
+          expect(metrics.hasFormMetric, isFalse);
           expect(
             metrics.holdSignalValues.hasValue(HoldSignal.alignment),
             isFalse,
@@ -1214,6 +1244,8 @@ void main() {
           expect(metrics.bodyLineAngle, closeTo(180.0, 0.001));
           expect(metrics.armSupportAngle, closeTo(90.0, 0.001));
           expect(metrics.legExtensionAngle, closeTo(180.0, 0.001));
+          expect(metrics.primaryAngle, closeTo(180.0, 0.001));
+          expect(metrics.hasPrimaryAngle, isTrue);
           expect(metrics.holdSide, HoldSide.right);
         },
       );
