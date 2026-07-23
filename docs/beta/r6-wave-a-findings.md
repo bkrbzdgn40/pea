@@ -111,3 +111,29 @@ Runtime rep güvenliği etkilenmemiştir; ancak diagnostics export'u pause/resum
 ### Exit kriteri
 
 Pause/resume sırasında fiziksel pose loss yoksa `brief_occlusion_abort_count` ve `resync_count` yalnız gerçek visibility/resync event'lerini yansıtmalı; intentional lifecycle suspension ayrı telemetry ile izlenmelidir.
+
+## F4 - Camera-contract yönlendirmesi analiz hazırlık ekranında yeterince görünür değil
+
+- Öncelik: **P1**
+- Katman: Setup UX / camera contract
+- Etkilenen alan: Özellikle `side preferred / front unsupported` hareketler
+- Closure etkisi: Front Raise runtime closure'ını bloklamaz; yanlış kurulumla üretilen run'ları `INVALID` hale getirebilir
+
+### Gözlem
+
+Front Raise ilk exploratory preflight'ında kullanıcı kameraya önden baktı. Production camera contract `side = preferred`, `front = unsupported` olduğu için bu run formal validation için geçersizdi. Exercise guide doğru side-view talimatını içeriyor; ancak gerçek analiz başlangıç akışındaki genel checklist kritik kamera yönünü yeterince görünür biçimde taşımadığı için yanlış kurulum pratikte mümkün kaldı.
+
+### Risk
+
+Kullanıcı unsupported kamera açısında doğal neutral, ROM veya form feedback problemi yaşayabilir ve bunu exercise reliability bug'ı sanabilir. Aynı risk diğer strict camera-contract hareketlerinde de vardır.
+
+### Minimum doğru çözüm yönü
+
+1. Analiz başlamadan önce exercise-specific preferred camera yönünü görünür metin/ikonla göster.
+2. `front unsupported` veya `side unsupported` kontratını generic checklist yerine exercise-specific setup mesajına taşı.
+3. Guide metni ile pre-analysis setup metninin camera contract'tan türetildiğini testle koru.
+
+### Exit kriteri
+
+Strict camera-contract kullanan bir harekette kullanıcı analiz ekranına geçmeden önce doğru subject-view yönünü açıkça görmeli; guide ve pre-analysis yönlendirmesi aynı production contract ile tutarlı olmalıdır.
+

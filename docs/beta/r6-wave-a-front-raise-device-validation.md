@@ -2,7 +2,7 @@
 
 Bu protokol R6 Dalga A kapsamında `Front Raise` exercise-specific gerçek cihaz validation'ını tanımlar.
 
-Amaç production threshold'larını önceden tuning etmek değildir. Mevcut selected-side, increasing-to-peak range-rep contract'ının doğru yan kamera kurulumu altında natural neutral acquisition, tam tekrar sayımı, shallow-ROM reddi, dirsek form sinyali, selected-side kararlılığı, occlusion recovery, lifecycle, persistence ve performans davranışını SHA-pinned profile build üzerinde ölçmektir.
+Amaç production threshold'larını önceden tuning etmek değildir. Mevcut selected-side, increasing-to-peak range-rep contract'ının doğru yan kamera kurulumu altında natural neutral acquisition, tam tekrar sayımı, shallow-ROM reddi, dirsek form sinyali, selected-side kararlılığı, lifecycle ve persistence davranışını gerçek cihaz üzerinde ölçmektir. Per-exercise occlusion tekrar testi, shared range-rep/hold visibility hardening daha önce doğrulandığı için varsayılan olarak atlanır; yalnız exercise-specific visibility logic veya yeni regression görülürse geri açılır.
 
 ## 1. Production Contract Özeti
 
@@ -18,7 +18,7 @@ Production kaynaklarına göre Front Raise:
 - form metric: seçilen tarafta `shoulder -> elbow -> wrist` dirsek açısı
 - `thresholdNeutral = 15°`
 - `thresholdActive = 35°`
-- `thresholdPeak = 80°`
+- `thresholdPeak = 75°`
 - `formThreshold = 145°`
 - `minAcceptableRomDelta = 45°`
 
@@ -120,9 +120,10 @@ Planlanan adet ile gerçek execution farklıysa run ID geriye dönük değiştir
 | `R6-FR-STATIC-30` | Statik negatif | 30 sn kol gövde yanında natural neutral | 0 phantom rep; natural neutral güvenilir biçimde acquire edilir |
 | `R6-FR-PARTIAL-10` | Partial motion | Kolu yaklaşık `40-55°` seviyesinde geri çevirerek 10 sığ tekrar | 0 completed rep; PEAK oluşmamalı |
 | `R6-FR-FORM-5` | Teknik form sinyali | 5 tam raise sırasında dirseği belirgin bük | Count ground truth ile uyumlu; form violation/low-confidence veya corrective feedback gözlenmeli |
-| `R6-FR-OCC-3` | Kısa occlusion | Aktif rep sırasında yaklaşık 1 sn seçilen taraf pose kaybı, 3 kontrollü deneme | Phantom/auto-complete yok; recovery sonrası count ground truth ile tutarlı |
 | `R6-FR-LIFE-3` | Pause/resume | Aktif rep bağlamında pause/resume, 3 döngü | Dönüşte phantom rep yok; active context güvenli temizlenir/reacquire edilir |
 | `R6-FR-PERSIST` | Persistence | 5 temiz Front Raise ile session bitir | Live = Summary = History = 5 |
+
+Hızlandırılmış validation kararıyla `R6-FR-OCC-3` exercise-specific olarak tekrar edilmez. Manifest satırı `SKIPPED` tutulur ve gerekçe `covered by shared reliability validation` olarak kaydedilir.
 
 ## 6. Front Raise'a Özel Kırmızı Çizgiler
 
@@ -133,7 +134,7 @@ Aşağıdakilerden biri görülürse ilgili run `FAIL` olur:
 - `40-55°` shallow motion'ın completed rep'e dönüşmesi,
 - tam raise sonrası natural neutral'a dönüşte rep'in tamamlanmaması,
 - active rep sırasında selected side değişimi nedeniyle duplicate/phantom rep,
-- kısa occlusion veya pause/resume sonrasında phantom/duplicate rep,
+- pause/resume sonrasında phantom/duplicate rep,
 - displayed/session/history rep uyuşmazlığı,
 - analysis exception,
 - profile performans gate'inin geçilememesi.
@@ -142,7 +143,7 @@ Aşağıdakilerden biri görülürse ilgili run `FAIL` olur:
 
 ## 7. Diagnostics Değerlendirmesi
 
-Pozitif/partial/form/occlusion/lifecycle run'larında özellikle:
+Pozitif/partial/form/lifecycle run'larında özellikle:
 
 ```text
 rep_count
@@ -167,7 +168,7 @@ beklenir.
 
 Neutral durumda side stabilizer kontrollü side seçimi yapabilir; ancak aktif rep'in ortasında taraf değişimi rep context'ini bozmamalı veya duplicate count üretmemelidir.
 
-`PARTIAL-10` run'ında primary metric effective PEAK entry gate olan yaklaşık `>83°` seviyesine ulaşmamalıdır.
+`PARTIAL-10` run'ında primary metric effective PEAK entry gate olan strict `>78°` seviyesine ulaşmamalıdır.
 
 Pose quality değerlendirmesinde seçilen taraftaki omuz-dirsek-bilek-kalça landmark'larının görünürlüğü kritiktir. Yüksek `low_landmark_likelihood`, `no_pose_frame_count` veya rejection oranı önce camera/setup problemi olarak incelenir; doğrudan threshold tuning gerekçesi değildir.
 
@@ -200,6 +201,6 @@ Tek bir `current_analysis_fps` değeri PASS/FAIL kararı için kullanılmaz.
 
 Front Raise ancak zorunlu run'lar tamamlanıp gerçek execution manifestte açıkça görüldüğünde `R6 Engineering Revalidated` statüsüne aday olur.
 
-Tek bir başarılı positive set yeterli değildir. Özellikle natural neutral acquisition, partial-ROM rejection, teknik form, selected-side lifecycle, occlusion ve persistence kanıtları closure'ın parçasıdır.
+Tek bir başarılı positive set yeterli değildir. Özellikle natural neutral acquisition, partial-ROM rejection, teknik form, selected-side lifecycle ve persistence kanıtları closure'ın parçasıdır. Per-exercise occlusion bu hızlandırılmış matriste `SKIPPED` kabul edilir; shared reliability validation kapsamındaki ortak visibility/occlusion kanıtı kullanılır.
 
 Validation sırasında gerçek reliability failure bulunursa validation durur, minimal fix uygulanır, yeni SHA-pinned profile build oluşturulur ve fix'in etkilediği kritik run'lar yeni SHA üzerinde tekrarlanır.

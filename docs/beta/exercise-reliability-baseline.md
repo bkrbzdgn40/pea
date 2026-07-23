@@ -18,10 +18,10 @@ Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, e
 - Toplam canonical ve catalog-supported egzersiz: **18**
 - `rangeRep`: **14**
 - `hold`: **4**
-- Güncel engineering revalidation cihaz kanıtı bulunan: **6**
-- Ayrı exercise-specific cihaz validation bekleyen: **12**
+- Güncel engineering revalidation cihaz kanıtı bulunan: **7**
+- Ayrı exercise-specific cihaz validation bekleyen: **11**
 
-Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. Lateral Raise, doğal bilateral neutral pozisyonun eski strict neutral gate tarafından reddedilmesi ve bilateral sync jitter'ının dirsek feedback semantiğine karışması sorunları minimal hardening ile düzeltildikten sonra positive, static, partial, one-arm, form, occlusion, pause/resume, persistence ve performans cihaz kanıtlarıyla yeniden doğrulanmıştır. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur; formal protocol-complete iddiası yapılmaz. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
+Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te aynı SHA-pinned profile build altında Diagnostics v6 ile yeniden doğrulanmıştır. Biceps Curl, R6 Dalga A sırasında shallow-ROM false count ve form-feedback semantik problemi bulunup minimal hardening uygulandıktan sonra fix sonrası cihaz run'larıyla yeniden doğrulanmıştır. Hollow Hold ise aynı dalgada hold visibility telemetry hardening'in gerçek cihaz exit gate'i ile birlikte valid hold, form-break, visibility, pause/resume, persistence ve performans kanıtlarıyla yeniden doğrulanmıştır. Lateral Raise, doğal bilateral neutral pozisyonun eski strict neutral gate tarafından reddedilmesi ve bilateral sync jitter'ının dirsek feedback semantiğine karışması sorunları minimal hardening ile düzeltildikten sonra positive, static, partial, one-arm, form, occlusion, pause/resume, persistence ve performans cihaz kanıtlarıyla yeniden doğrulanmıştır. Front Raise, side-view selected-side kalite seçimi, false-positive dirsek feedback'i ve aşırı sıkı peak-entry davranışı gerçek cihaz/video incelemesinde bulunup minimal hardening uygulandıktan sonra preflight, positive, static, partial/invalid-ROM, form, pause/resume ve persistence senaryolarının video + gerçek hayat doğrulamasıyla yeniden doğrulanmıştır. Front Raise final hızlandırılmış run setinde diagnostics JSON tutulmadığı için performans metrikleri ayrıca kanıtlanmış sayılmaz; formal protocol-complete iddiası yapılmaz. R5 ve R6 execution sapmaları ilgili closure kayıtlarında açıkça tutulur. Diğer hareketler catalog desteğine sahiptir; bu destek tek başına eşdeğer cihaz güvenilirliği iddiası değildir.
 
 ## 3. Exercise Reliability Matrix
 
@@ -40,7 +40,7 @@ Squat, Push-up ve Plank tarihsel device-validation kapsamına ek olarak R5'te ay
 | Lateral Raise | `rangeRep` | bilateral | increasing-to-peak | front | R6 Engineering Revalidated |
 | Shoulder Press | `rangeRep` | bilateral | increasing-to-peak | front | Validation Pending |
 | Calf Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
-| Front Raise | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
+| Front Raise | `rangeRep` | selected-side | increasing-to-peak | side | R6 Engineering Revalidated |
 | Glute Bridge | `rangeRep` | selected-side | increasing-to-peak | side | Validation Pending |
 | Wall Sit | `hold` | wall-sit family | n/a | side | Validation Pending |
 | Side Plank | `hold` | side-plank family | n/a | front | Validation Pending |

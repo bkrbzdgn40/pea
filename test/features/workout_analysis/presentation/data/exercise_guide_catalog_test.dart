@@ -171,6 +171,34 @@ void main() {
       },
     );
 
+    test('wall sit guide stays aligned with the side-view hold contract', () {
+      final wallSitDefinition = analysisCatalog.definitionFor(
+        ExerciseType.wallSit,
+      );
+      final wallSitContent = guideCatalog.contentFor(ExerciseType.wallSit);
+
+      expect(wallSitDefinition.isAnalysisSupported, isTrue);
+      expect(wallSitDefinition.analysisEngineKind.name, 'hold');
+      expect(wallSitContent.type, ExerciseType.wallSit);
+      expect(
+        wallSitDefinition.analysisCameraViewContract.supportFor(
+          CameraView.side,
+        ),
+        CameraViewSupport.preferred,
+      );
+      expect(
+        wallSitDefinition.analysisCameraViewContract.supportFor(
+          CameraView.front,
+        ),
+        CameraViewSupport.unsupported,
+      );
+      expect(wallSitContent.setupSteps.join(' '), contains('kamerayı yandan'));
+      expect(
+        wallSitContent.setupSteps.join(' '),
+        contains('Baş, omuz, kalça, diz ve ayak bileğinin'),
+      );
+    });
+
     test('hollow hold guide stays available on the canonical hold owner', () {
       final hollowDefinition = analysisCatalog.definitionFor(
         ExerciseType.hollowHold,
