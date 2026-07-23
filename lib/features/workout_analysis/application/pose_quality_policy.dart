@@ -9,6 +9,7 @@ import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
+import 'side_plank_support_stacking_measurement.dart';
 
 enum PoseRejectionReason {
   missingRequiredLandmark,
@@ -215,6 +216,14 @@ class PoseQualityPolicy {
             holdSide: HoldSide.right,
           ),
         );
+        if (holdContract?.family == HoldAnalysisFamily.sidePlank) {
+          return _combineSidePlankHoldAssessments(
+            pose: pose,
+            config: config,
+            leftAssessment: leftAssessment,
+            rightAssessment: rightAssessment,
+          );
+        }
         return _combineHoldAssessments(
           leftAssessment: leftAssessment,
           rightAssessment: rightAssessment,
@@ -332,6 +341,74 @@ class PoseQualityPolicy {
       return current;
     }
     return candidate;
+  }
+
+  PoseQualityAssessment _combineSidePlankHoldAssessments({
+    required Pose pose,
+    required ExerciseConfig config,
+    required PoseQualityAssessment leftAssessment,
+    required PoseQualityAssessment rightAssessment,
+  }) {
+    final assessments = <PoseQualityAssessment>[
+      leftAssessment,
+      rightAssessment,
+    ];
+    final acceptedAssessments = assessments
+        .where((assessment) => assessment.isAccepted)
+        .toList(growable: false);
+
+    if (acceptedAssessments.isEmpty) {
+      return _combineHoldAssessments(
+        leftAssessment: leftAssessment,
+        rightAssessment: rightAssessment,
+      );
+    }
+
+    const stackingMeasurement = SidePlankSupportStackingMeasurement();
+    final referenceSide = config.holdSignals?.referenceSide ?? HoldSide.left;
+    PoseQualityAssessment preferredAssessment = acceptedAssessments.first;
+    double? preferredStacking = stackingMeasurement.measure(
+      pose,
+      side: preferredAssessment.preferredHoldSide!,
+      referenceSide: referenceSide,
+    );
+
+    for (final candidate in acceptedAssessments.skip(1)) {
+      final candidateStacking = stackingMeasurement.measure(
+        pose,
+        side: candidate.preferredHoldSide!,
+        referenceSide: referenceSide,
+      );
+      if (candidateStacking != null &&
+          (preferredStacking == null ||
+              candidateStacking > preferredStacking)) {
+        preferredAssessment = candidate;
+        preferredStacking = candidateStacking;
+        continue;
+      }
+      if (candidateStacking == preferredStacking) {
+        preferredAssessment = _preferHigherQualityHold(
+          preferredAssessment,
+          candidate,
+        );
+      }
+    }
+
+    final acceptedSides = acceptedAssessments
+        .map((assessment) => assessment.preferredHoldSide)
+        .whereType<HoldSide>()
+        .toSet();
+
+    return PoseQualityAssessment(
+      isAccepted: true,
+      minimumRequiredLikelihood: preferredAssessment.minimumRequiredLikelihood,
+      meanRequiredLikelihood: preferredAssessment.meanRequiredLikelihood,
+      requiredLandmarkCount: preferredAssessment.requiredLandmarkCount,
+      acceptedLandmarkCount: preferredAssessment.acceptedLandmarkCount,
+      qualityScore: preferredAssessment.qualityScore,
+      acceptedHoldSides: acceptedSides,
+      preferredHoldSide: preferredAssessment.preferredHoldSide,
+    );
   }
 
   PoseQualityAssessment _combineHoldAssessments({

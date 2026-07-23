@@ -218,6 +218,15 @@ HoldSignalValues _validHoldSignals({
 }) {
   switch (contract.family) {
     case HoldAnalysisFamily.plank:
+      final posture = config.resolvedHoldPosture;
+      return HoldSignalValues(
+        values: <HoldSignal, double>{
+          HoldSignal.alignment: posture.bodyLineEntryAngle,
+          HoldSignal.support:
+              (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.extension: posture.legExtensionMinAngle,
+        },
+      );
     case HoldAnalysisFamily.sidePlank:
       final posture = config.resolvedHoldPosture;
       return HoldSignalValues(
@@ -225,6 +234,7 @@ HoldSignalValues _validHoldSignals({
           HoldSignal.alignment: posture.bodyLineEntryAngle,
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.supportStacking: 1.0,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );
@@ -259,6 +269,15 @@ HoldSignalValues _invalidStartSignals({
 }) {
   switch (contract.family) {
     case HoldAnalysisFamily.plank:
+      final posture = config.resolvedHoldPosture;
+      return HoldSignalValues(
+        values: <HoldSignal, double>{
+          HoldSignal.alignment: posture.activePostureAngle - 10.0,
+          HoldSignal.support:
+              (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.extension: posture.legExtensionMinAngle,
+        },
+      );
     case HoldAnalysisFamily.sidePlank:
       final posture = config.resolvedHoldPosture;
       return HoldSignalValues(
@@ -266,6 +285,7 @@ HoldSignalValues _invalidStartSignals({
           HoldSignal.alignment: posture.activePostureAngle - 10.0,
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.supportStacking: 1.0,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );
@@ -299,6 +319,16 @@ HoldSignalValues _graceEligibleSignals({
 }) {
   switch (contract.family) {
     case HoldAnalysisFamily.plank:
+      final posture = config.resolvedHoldPosture;
+      return HoldSignalValues(
+        values: <HoldSignal, double>{
+          HoldSignal.alignment:
+              (posture.activePostureAngle + posture.bodyLineSustainAngle) / 2.0,
+          HoldSignal.support:
+              (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.extension: posture.legExtensionMinAngle,
+        },
+      );
     case HoldAnalysisFamily.sidePlank:
       final posture = config.resolvedHoldPosture;
       return HoldSignalValues(
@@ -307,6 +337,7 @@ HoldSignalValues _graceEligibleSignals({
               (posture.activePostureAngle + posture.bodyLineSustainAngle) / 2.0,
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
+          HoldSignal.supportStacking: 1.0,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );

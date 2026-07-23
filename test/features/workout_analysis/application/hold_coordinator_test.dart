@@ -108,6 +108,83 @@ void main() {
       expect(() => dynamicSnapshot.lastRepRom, throwsNoSuchMethodError);
     });
 
+    test(
+      'side plank requires the support elbow to stack under the shoulder',
+      () {
+        final clock = _TestClock();
+        final config = _plankConfig();
+        final engine = const AnalysisEngineFactory().createHold(
+          config: config,
+          holdContract: HoldContracts.sidePlank,
+          now: clock.now,
+        );
+        final coordinator = DefaultHoldCoordinator(
+          engine: engine,
+          config: config,
+          holdContract: HoldContracts.sidePlank,
+        );
+
+        coordinator.selectHoldSideForAcceptedPose(
+          _acceptedHoldAssessment(HoldSide.left),
+        );
+        final stacked = coordinator.processFrame(
+          metrics: _sidePlankMetrics(
+            shoulderX: 0,
+            shoulderY: 0,
+            elbowX: 0,
+            elbowY: 2,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+        );
+
+        expect(stacked.stateSnapshot.isHolding, isTrue);
+        expect(
+          stacked.stateSnapshot.calibrationMetrics.currentHoldSignalValues
+              .valueFor(HoldSignal.supportStacking),
+          closeTo(1, 0.001),
+        );
+
+        final badEngine = const AnalysisEngineFactory().createHold(
+          config: config,
+          holdContract: HoldContracts.sidePlank,
+          now: clock.now,
+        );
+        final badCoordinator = DefaultHoldCoordinator(
+          engine: badEngine,
+          config: config,
+          holdContract: HoldContracts.sidePlank,
+        );
+        badCoordinator.selectHoldSideForAcceptedPose(
+          _acceptedHoldAssessment(HoldSide.left),
+        );
+        final unstacked = badCoordinator.processFrame(
+          metrics: _sidePlankMetrics(
+            shoulderX: 0,
+            shoulderY: 2,
+            elbowX: 0,
+            elbowY: 0,
+          ),
+          now: clock.now(),
+          isAcceptedPoseFrame: true,
+          didBecomeStableTracking: false,
+        );
+
+        expect(unstacked.stateSnapshot.isHolding, isFalse);
+        expect(unstacked.stateSnapshot.holdEnginePhase, HoldPhase.broken);
+        expect(
+          unstacked.stateSnapshot.holdFeedbackCode,
+          HoldFeedbackCode.adjustElbowSupport,
+        );
+        expect(
+          unstacked.stateSnapshot.calibrationMetrics.holdSignalValidity
+              .validityFor(HoldSignal.supportStacking),
+          isFalse,
+        );
+      },
+    );
+
     test('reads invalid-frame target signals from engine diagnostics', () {
       final coordinator = DefaultHoldCoordinator(
         engine: _FakeHoldAnalysisEngine(
@@ -368,6 +445,51 @@ ExerciseMetrics _holdMetrics({
     armSupportAngle: armSupportAngle,
     legExtensionAngle: legExtensionAngle,
     holdSide: side,
+  );
+}
+
+ExerciseMetrics _sidePlankMetrics({
+  required double shoulderX,
+  required double shoulderY,
+  required double elbowX,
+  required double elbowY,
+}) {
+  return ExerciseMetrics(
+    primaryAngle: 170,
+    formMetric: 170,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    hasPose: true,
+    landmarks: <PoseLandmark>[
+      PoseLandmark(
+        type: PoseLandmarkType.leftShoulder,
+        x: shoulderX,
+        y: shoulderY,
+        z: 0,
+        likelihood: 0.99,
+      ),
+      PoseLandmark(
+        type: PoseLandmarkType.leftElbow,
+        x: elbowX,
+        y: elbowY,
+        z: 0,
+        likelihood: 0.99,
+      ),
+    ],
+    leftRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+      RangeRepSide.left,
+    ),
+    rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+      RangeRepSide.right,
+    ),
+    holdSignalValues: HoldSignalValues(
+      values: <HoldSignal, double>{
+        HoldSignal.alignment: 170,
+        HoldSignal.support: 90,
+        HoldSignal.extension: 170,
+      },
+    ),
+    holdSide: HoldSide.left,
   );
 }
 

@@ -15,13 +15,21 @@ camera = front preferred
 side = unsupported
 ```
 
-Required hold signals:
+Required extracted hold signals:
 
 ```text
 alignment
 support
 extension
 ```
+
+Side Plank ayrıca exercise-specific derived validation sinyali kullanır:
+
+```text
+supportStacking
+```
+
+`supportStacking`, selected-side `shoulder -> elbow` segmentinin görüntü düzlemindeki normalize dikey bileşenidir. Pozitif değer dirseğin omuzun altında olduğunu gösterir. Hold validity için segmentin en az yatay kadar dikey olması gerekir (`>= 1/sqrt(2)`).
 
 Config:
 
@@ -71,11 +79,12 @@ Yan açıyla formal PASS verilmez.
 
 Side Plank için ayrı exercise-specific technique analyzer yoktur.
 
-Form-break doğrudan zorunlu hold sinyallerinden gelir:
+Form-break / hold rejection şu validity sinyallerinden gelir:
 
 ```text
 alignment bozulması
 support angle bozulması
+support stacking bozulması
 leg extension bozulması
 ```
 
@@ -176,3 +185,55 @@ Side Plank şu kapılarla `R6 Engineering Revalidated` statüsüne aday olur:
 5. persistence.
 
 Per-exercise occlusion tekrar edilmez; yalnız Side Plank'e özgü visibility regression görülürse yeniden açılır.
+
+## 9. Preflight False-Positive Finding ve Hardening
+
+İlk gerçek cihaz kanıtında pose visibility son derece temiz olmasına rağmen ciddi biçimde geçersiz bir yan-yatma / yanlış destek pozisyonu yaklaşık 5 saniyelik hold olarak kabul edildi. İlgili diagnostics snapshot'ta:
+
+```text
+best_hold_seconds = 5
+detected_pose_frame_count = 243
+accepted_pose_frame_count = 242
+rejected_pose_frame_count = 0
+low_confidence_pose_frame_count = 0
+analysis_exception_count = 0
+```
+
+Bu nedenle failure visibility veya landmark confidence kaynaklı değil, hold validity contract boşluğu olarak sınıflandırıldı.
+
+Kök neden:
+
+```text
+support = shoulder -> elbow -> wrist angle
+```
+
+tek başına destek kolunun gerçekten zemine doğru ve omuz altında konumlandığını kanıtlamıyordu. Seçilen tarafta yere temas etmeyen üst kol yaklaşık uygun elbow angle üretebildiği için body-line + support-angle + leg-extension kombinasyonu false hold başlatabiliyordu.
+
+Exercise-specific fix:
+
+```text
+supportStacking = signed vertical component of shoulder -> elbow
+normalized by shoulder-elbow length
+
+valid when:
+supportStacking >= 1 / sqrt(2)
+```
+
+Bu gate şu iki koşulu birlikte ister:
+
+1. selected support elbow görüntü düzleminde omuzun altında olmalı,
+2. shoulder-elbow segmenti en az yatay kadar dikey olmalı.
+
+Side Plank side selection da accepted iki taraf arasında yalnız landmark quality'ye bakmaz; support-stacking kanıtı daha güçlü olan fiziksel tarafı tercih eder. Böylece görünürlüğü yüksek fakat yere destek vermeyen üst kolun seçilmesi engellenir.
+
+Eşik tek kullanıcı videosuna göre kalibre edilmedi. `1/sqrt(2)` geniş bir 45° vertical-dominance geometrik sınırıdır. Generic hold lifecycle ve mevcut angular threshold'lar değiştirilmedi. `supportStacking` validity içindir; stability örneklemesi mevcut required hold sinyalleriyle sınırlandırıldığı için Side Plank stability skoruna yeni bir boyut olarak eklenmez.
+
+Regression kapsamı:
+
+```text
+VALID: elbow directly below shoulder -> hold may start
+INVALID: elbow above shoulder while legacy angles remain valid -> hold must not start
+INVALID: missing stacking evidence -> hold must not start
+```
+
+Fix sonrası `R6-SPL-PREFLIGHT-1` ve `R6-SPL-FORM-BREAK` gerçek cihazda yeniden çalıştırılmalıdır. Diagnostics export'ta `supportStacking` current/target/validity değerleri ayrıca tutulur.

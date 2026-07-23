@@ -18,12 +18,17 @@ class HoldEngine
     required HoldFormPolicy posturePolicy,
     DateTime Function()? now,
     StabilityEngineConfig stabilityConfig = const StabilityEngineConfig(),
+    Set<HoldSignal>? stabilitySignals,
   }) : _now = now ?? DateTime.now,
        _posturePolicy = posturePolicy,
+       _stabilitySignals = stabilitySignals == null
+           ? null
+           : Set<HoldSignal>.unmodifiable(stabilitySignals),
        _stabilityEngine = StabilityEngine<HoldSignal>(config: stabilityConfig);
 
   final DateTime Function() _now;
   final HoldFormPolicy _posturePolicy;
+  final Set<HoldSignal>? _stabilitySignals;
   final StabilityEngine<HoldSignal> _stabilityEngine;
 
   HoldPhase _phase = HoldPhase.ready;
@@ -147,7 +152,20 @@ class HoldEngine
 
     _phase = HoldPhase.holding;
     _bestHoldSeconds = math.max(_bestHoldSeconds, _currentHoldSeconds);
-    _stabilityEngine.recordSample(signals.asMap());
+    final stabilitySignals = _stabilitySignals;
+    if (stabilitySignals == null) {
+      _stabilityEngine.recordSample(signals.asMap());
+      return;
+    }
+
+    final stabilityValues = <HoldSignal, double>{};
+    for (final signal in stabilitySignals) {
+      final value = signals.valueFor(signal);
+      if (value != null) {
+        stabilityValues[signal] = value;
+      }
+    }
+    _stabilityEngine.recordSample(stabilityValues);
   }
 
   void _stopActiveHoldIfNeeded() {

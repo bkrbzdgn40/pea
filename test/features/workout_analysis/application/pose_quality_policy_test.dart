@@ -563,6 +563,28 @@ void main() {
         },
       );
 
+      test(
+        'side plank prefers the side whose elbow is physically below the shoulder',
+        () {
+          final assessment = policy.assess(
+            pose: _bilateralSidePlankPose(
+              supportSideLikelihood: 0.80,
+              nonSupportSideLikelihood: 0.99,
+            ),
+            config: _plankConfig(),
+            engineKind: EngineKind.hold,
+            holdContract: HoldContracts.sidePlank,
+          );
+
+          expect(assessment.isAccepted, isTrue);
+          expect(assessment.acceptedHoldSides, <HoldSide>{
+            HoldSide.left,
+            HoldSide.right,
+          });
+          expect(assessment.preferredHoldSide, HoldSide.left);
+        },
+      );
+
       test('hold quality uses left tie-break when both sides are equal', () {
         final assessment = policy.assess(
           pose: _bilateralPlankPose(
@@ -823,6 +845,88 @@ Pose _plankPose({
   }
 
   return Pose(landmarks: landmarks);
+}
+
+Pose _bilateralSidePlankPose({
+  required double supportSideLikelihood,
+  required double nonSupportSideLikelihood,
+}) {
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      PoseLandmarkType.leftShoulder: _landmark(
+        PoseLandmarkType.leftShoulder,
+        -1,
+        0,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.leftElbow: _landmark(
+        PoseLandmarkType.leftElbow,
+        -1,
+        1,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.leftWrist: _landmark(
+        PoseLandmarkType.leftWrist,
+        0,
+        1,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.leftHip: _landmark(
+        PoseLandmarkType.leftHip,
+        0,
+        0,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.leftKnee: _landmark(
+        PoseLandmarkType.leftKnee,
+        0.5,
+        0,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.leftAnkle: _landmark(
+        PoseLandmarkType.leftAnkle,
+        1,
+        0,
+        likelihood: supportSideLikelihood,
+      ),
+      PoseLandmarkType.rightShoulder: _landmark(
+        PoseLandmarkType.rightShoulder,
+        -1,
+        0,
+        likelihood: nonSupportSideLikelihood,
+      ),
+      PoseLandmarkType.rightElbow: _landmark(
+        PoseLandmarkType.rightElbow,
+        -1,
+        -1,
+        likelihood: nonSupportSideLikelihood,
+      ),
+      PoseLandmarkType.rightWrist: _landmark(
+        PoseLandmarkType.rightWrist,
+        0,
+        -1,
+        likelihood: nonSupportSideLikelihood,
+      ),
+      PoseLandmarkType.rightHip: _landmark(
+        PoseLandmarkType.rightHip,
+        0,
+        0.2,
+        likelihood: nonSupportSideLikelihood,
+      ),
+      PoseLandmarkType.rightKnee: _landmark(
+        PoseLandmarkType.rightKnee,
+        0.5,
+        0.2,
+        likelihood: nonSupportSideLikelihood,
+      ),
+      PoseLandmarkType.rightAnkle: _landmark(
+        PoseLandmarkType.rightAnkle,
+        1,
+        0.2,
+        likelihood: nonSupportSideLikelihood,
+      ),
+    },
+  );
 }
 
 Pose _bilateralPlankPose({

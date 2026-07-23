@@ -473,6 +473,52 @@ void main() {
       );
     });
 
+    test(
+      'side plank stacking validates support without changing stability inputs',
+      () {
+        final HoldAnalysisEngine engine = factory.createHold(
+          config: plankConfig,
+          holdContract: HoldContracts.sidePlank,
+        );
+        final stabilitySource = engine as StabilityMetricsSource<HoldSignal>;
+        final frame = AnalysisFrame(
+          primaryMetric: 170.0,
+          formMetric: 170.0,
+          holdSignalValues: HoldSignalValues(
+            values: <HoldSignal, double>{
+              HoldSignal.alignment: 170.0,
+              HoldSignal.support: 90.0,
+              HoldSignal.supportStacking: 1.0,
+              HoldSignal.extension: 170.0,
+            },
+          ),
+        );
+
+        engine.update(frame);
+        engine.update(frame);
+
+        expect(engine.diagnosticsSnapshot.isHolding, isTrue);
+        expect(
+          engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+            HoldSignal.supportStacking,
+          ),
+          closeTo(1 / 1.41421356237, 0.001),
+        );
+        expect(
+          stabilitySource.currentStability?.signalSummaries.keys,
+          containsAll(<HoldSignal>[
+            HoldSignal.alignment,
+            HoldSignal.support,
+            HoldSignal.extension,
+          ]),
+        );
+        expect(
+          stabilitySource.currentStability?.signalSummaries.keys,
+          isNot(contains(HoldSignal.supportStacking)),
+        );
+      },
+    );
+
     test('factory wiring injects the plank posture policy targets', () {
       final HoldAnalysisEngine engine = factory.createHold(
         config: plankConfig,
