@@ -7,10 +7,18 @@ R6-JJ-ONE-ARM-10,jumping_jack,ONE-ARM-ASYMMETRY,10,,0,,,,,,,profile,,,,,,,,,,Rai
 R6-JJ-COORD-10,jumping_jack,COORDINATION-NEGATIVE,5 arm-only + 5 leg-only,,,,,,,,,profile,,,,,,,,,,"Inspect displayed count, validation status, reasons and feedback; arm-only counting may expose a product-contract mismatch."
 R6-JJ-LIFE,jumping_jack,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No phantom count during pause; clean neutral reacquire after resume.
 R6-JJ-PERSIST,jumping_jack,PERSISTENCE,1 measurable rep set,,,,,,,,,profile,,,,,,,,,,"Persisted rep count must match across Live, Summary, and History."
-R6-SU-PREFLIGHT-1,sit_up,PREFLIGHT,1,,,,,,,,,profile,,,,,,,,,,Side view; knees bent and feet on floor; verify one clean torso-inclination neutral-to-peak-to-neutral lifecycle.
+R6-SU-PREFLIGHT-1,sit_up,PREFLIGHT,1,video-reviewed correct physical Sit-up attempt,,0,,,,,53904154b61f0f9355722c043e110330808269d4,profile,diagnostics_v6_sit_up_20260723_160143.json,68,6.616257088846881,264,0,0,0,BLOCKED/DEFERRED,Orientation-dependent neutral acquisition / image-plane primary metric; safe fix deferred pending orientation normalization architecture review.,"Correct physical supine Sit-up setup was video-reviewed. User confirmed phone was held landscape, while diagnostics reported device_orientation=portraitUp and sensor_orientation=90. rep_count=0 and range_rep_transition_count=0. See r6-wave-c-sit-up-results.md."
 R6-SU-POS-20,sit_up,POS-CONTROLLED,20,,,,,,,,,profile,,,,,,,,,,20 controlled full Sit-up repetitions; compare app count with ground truth.
 R6-SU-STATIC-30,sit_up,STATIC-NEGATIVE,30s,,0,,,,,,,profile,,,,,,,,,,Remain in neutral starting posture; expect 0 phantom reps.
 R6-SU-PARTIAL-10,sit_up,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,10 shallow curl-ups returning before true peak; expect no completed reps or explicit insufficient-ROM validation.
 R6-SU-SETUP-5,sit_up,SETUP-ROBUSTNESS,5,,,,,,,,,profile,,,,,,,,,,Vary knee bend / foot distance within comfortable valid setup; primary torso counting should remain reliable.
 R6-SU-LIFE,sit_up,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No phantom count during pause; clean neutral reacquire after resume.
 R6-SU-PERSIST,sit_up,PERSISTENCE,1 measurable rep set,,,,,,,,,profile,,,,,,,,,,"Persisted rep count must match across Live, Summary, and History."
+R6-TD-PREFLIGHT-1,triceps_dip,PREFLIGHT,1,,,,,,,,,profile,,,,,,,,,,Parallel-bar dip; side view; verify one clean top-support to bottom to top-support lifecycle.
+R6-TD-POS-20,triceps_dip,POS-CONTROLLED,20,,,,,,,,,profile,,,,,,,,,,20 controlled full parallel-bar dips; compare app count with ground truth.
+R6-TD-STATIC-30,triceps_dip,STATIC-NEGATIVE,30s,,0,,,,,,,profile,,,,,,,,,,Hold stable top support; expect 0 phantom reps.
+R6-TD-PARTIAL-10,triceps_dip,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,10 shallow dips returning before true bottom/peak; expect no completed reps or explicit insufficient-ROM validation.
+R6-TD-FORM-5,triceps_dip,FORM-VIOLATION,5,,,,,,,,,profile,,,,,,,,,,"Within safe limits, inspect shoulder-extension corrective feedback; counting is evaluated separately because the signal is technique-only."
+R6-TD-SIDE-2x5,triceps_dip,SIDE-ROBUSTNESS,2 x 5,,,,,,,,,profile,,,,,,,,,,Run separate 5-rep sets with each physical side camera-near; inspect selected-side stability and count.
+R6-TD-LIFE,triceps_dip,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No phantom count during pause; clean neutral reacquire after resume.
+R6-TD-PERSIST,triceps_dip,PERSISTENCE,1 measurable rep set,,,,,,,,,profile,,,,,,,,,,"Persisted rep count must match across Live, Summary, and History."

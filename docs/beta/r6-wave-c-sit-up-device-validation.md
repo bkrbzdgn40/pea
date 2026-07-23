@@ -269,3 +269,37 @@ Sit-up `R6 Engineering Revalidated` statüsüne aday olmak için minimum olarak:
 kanıtı gerekir.
 
 Formal protokol sapması olursa closure kaydında açıkça yazılır; çalıştırılmayan run PASS gösterilmez.
+
+## 11. Current Validation Status
+
+```text
+R6 Validation Blocked / Deferred
+Engineering Revalidated = No
+```
+
+Gerçek cihaz/video validation'da doğru fiziksel Sit-up başlangıcı kullanılmasına rağmen neutral acquisition oluşmamış ve range-rep lifecycle hiç başlamamıştır.
+
+İkinci evidence run:
+
+```text
+rep_count = 0
+range_rep_transition_count = 0
+range_rep_validation_count = 0
+
+sensor_orientation_degrees = 90
+device_orientation = portraitUp
+```
+
+Kullanıcı aynı run'da telefonu fiziksel olarak yatay tuttuğunu doğrulamıştır.
+
+Sit-up primary metriği `imagePlaneInclination` olduğu için orientation-dependent coordinate normalization / primary-metric interpretation blocker root area olarak açılmıştır. Kesin fix katmanı henüz converter, pose normalization veya Sit-up-specific metric seviyesinde ayrıştırılmamıştır.
+
+Threshold tuning uygulanmamıştır.
+
+Kalıcı issue, gerekçe ve reopen acceptance criteria:
+
+```text
+docs/beta/r6-wave-c-sit-up-results.md
+```
+
+Bu hareket PASS veya `R6 Engineering Revalidated` olarak yorumlanmamalıdır.
