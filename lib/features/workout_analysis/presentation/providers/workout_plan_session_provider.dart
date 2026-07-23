@@ -27,7 +27,13 @@ final workoutPlanSessionProvider =
     );
 
 class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
+  // Hold progress stays responsive without mirroring the pose pipeline cadence.
+  static const Duration _holdObservationInterval = Duration(milliseconds: 250);
+
   WorkoutEngine? _engine;
+  ExerciseType? _lastForwardedExercise;
+  int? _lastForwardedRepCount;
+  Duration? _lastForwardedHoldDuration;
 
   @override
   WorkoutPlanSessionState build() => const WorkoutPlanSessionState();
@@ -36,6 +42,7 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     final engine = WorkoutEngine(plan: plan);
     _engine = engine;
     final snapshot = engine.start();
+    _seedObservationGate(snapshot);
     state = WorkoutPlanSessionState(plan: plan, snapshot: snapshot);
     return snapshot;
   }
@@ -62,23 +69,96 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
       return snapshot;
     }
 
-    final next = workoutState.rangeRepAnalysis != null
-        ? engine.observe(
-            WorkoutProgressObservation.repetitions(
-              exercise: exercise,
-              cumulativeRepCount: workoutState.repCount,
-            ),
-          )
-        : engine.observe(
-            WorkoutProgressObservation.hold(
-              exercise: exercise,
-              currentHoldDuration: Duration(
-                milliseconds: (workoutState.currentHoldSeconds * 1000).round(),
-              ),
-            ),
-          );
+    final WorkoutEngineSnapshot next;
+    if (workoutState.rangeRepAnalysis != null) {
+      final repCount = workoutState.repCount;
+      if (_lastForwardedExercise == exercise &&
+          _lastForwardedRepCount == repCount) {
+        return snapshot;
+      }
+
+      next = engine.observe(
+        WorkoutProgressObservation.repetitions(
+          exercise: exercise,
+          cumulativeRepCount: repCount,
+        ),
+      );
+      _lastForwardedExercise = exercise;
+      _lastForwardedRepCount = repCount;
+      _lastForwardedHoldDuration = null;
+    } else {
+      final holdDuration = Duration(
+        milliseconds: (workoutState.currentHoldSeconds * 1000).round(),
+      );
+      if (!_shouldForwardHoldObservation(
+        exercise: exercise,
+        snapshot: snapshot,
+        holdDuration: holdDuration,
+      )) {
+        return snapshot;
+      }
+
+      next = engine.observe(
+        WorkoutProgressObservation.hold(
+          exercise: exercise,
+          currentHoldDuration: holdDuration,
+        ),
+      );
+      _lastForwardedExercise = exercise;
+      _lastForwardedRepCount = null;
+      _lastForwardedHoldDuration = holdDuration;
+    }
+
     state = WorkoutPlanSessionState(plan: state.plan, snapshot: next);
     return next;
+  }
+
+  bool _shouldForwardHoldObservation({
+    required ExerciseType exercise,
+    required WorkoutEngineSnapshot snapshot,
+    required Duration holdDuration,
+  }) {
+    final lastDuration = _lastForwardedHoldDuration;
+    if (_lastForwardedExercise != exercise || lastDuration == null) {
+      return true;
+    }
+
+    if (holdDuration.compareTo(lastDuration) < 0) {
+      return true;
+    }
+
+    final target = snapshot.targetHoldDuration;
+    if (target != null &&
+        holdDuration.compareTo(target) >= 0 &&
+        lastDuration.compareTo(target) < 0) {
+      return true;
+    }
+
+    return holdDuration.inMilliseconds ~/
+            _holdObservationInterval.inMilliseconds !=
+        lastDuration.inMilliseconds ~/ _holdObservationInterval.inMilliseconds;
+  }
+
+  void _seedObservationGate(
+    WorkoutEngineSnapshot snapshot, {
+    bool preserveForSameExercise = false,
+  }) {
+    final exercise = snapshot.currentExercise;
+    if (preserveForSameExercise && exercise == _lastForwardedExercise) {
+      return;
+    }
+
+    _lastForwardedExercise = exercise;
+    _lastForwardedRepCount = snapshot.targetRepetitions == null ? null : 0;
+    _lastForwardedHoldDuration = snapshot.targetHoldDuration == null
+        ? null
+        : Duration.zero;
+  }
+
+  void _clearObservationGate() {
+    _lastForwardedExercise = null;
+    _lastForwardedRepCount = null;
+    _lastForwardedHoldDuration = null;
   }
 
   ExerciseType? get nextExerciseAfterCompletedSet {
@@ -105,7 +185,12 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     if (engine == null) {
       throw StateError('No active workout plan.');
     }
+    final previousExercise = state.snapshot?.currentExercise;
     final snapshot = engine.advance();
+    _seedObservationGate(
+      snapshot,
+      preserveForSameExercise: snapshot.currentExercise == previousExercise,
+    );
     state = WorkoutPlanSessionState(plan: state.plan, snapshot: snapshot);
     return snapshot;
   }
@@ -113,6 +198,7 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
   void reset() {
     _engine?.reset();
     _engine = null;
+    _clearObservationGate();
     state = const WorkoutPlanSessionState();
   }
 }
