@@ -204,3 +204,27 @@ R6-SL-PARTIAL-10
 
 tekrar çalıştırılmalıdır. Positive run'da sahte `insufficientRom` oranının kaybolması, partial run'da ise gerçek sığ hareketlerin hâlâ reddedilmesi beklenir.
 
+## 10. Closure Kaydı
+
+**Status: `R6 Engineering Revalidated`**
+
+Confirmation-lag ROM underestimation fix'i sonrasında gerçek cihaz profile run'ında:
+
+```text
+rep_count = 10
+completeRep = 10
+valid = 9
+lowConfidence = 1
+invalid = 0
+insufficientRom = 0
+abortToNeutral = 9
+```
+
+gözlendi.
+
+Böylece full-ROM completed tekrarların sahte `insufficientRom` sınıflandırması ortadan kalkarken sığ/partial girişimlerin completed rep'e dönüşmemesi korundu.
+
+`STATIC-30`, `LIFE` ve `PERSIST` ayrı final run kanıtı olarak sabitlenmedi. Closure formal protocol-complete değildir ve bu sapma bilinçli olarak kaydedilmiştir.
+
+Ayrıntılı sonuç: `docs/beta/r6-wave-b-stationary-lunge-results.md`.
+

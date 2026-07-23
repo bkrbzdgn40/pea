@@ -20,3 +20,9 @@ R6-SL-PARTIAL-10,stationary_lunge,PARTIAL-MOTION,10,,0,,,,,,,profile,,,,,,,,,,10
 R6-SL-SIDE-SWAP,stationary_lunge,OPPOSITE-SIDE-SANITY,5+5,,,,,,,,,profile,,,,,,,,,,5 reps each side-view direction with the camera-near leg forward; verify main count and observe left/right symmetry sidecar separately.
 R6-SL-LIFE,stationary_lunge,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No phantom count during pause; clean reacquire after resume.
 R6-SL-PERSIST,stationary_lunge,PERSISTENCE,1 measurable rep set,,,,,,,,,profile,,,,,,,,,,"Persisted total rep count must match across Live, Summary, and History."
+R6-SPL-PREFLIGHT-1,side_plank,PREFLIGHT,5-10s,,,,,,,,,profile,,,,,,,,,,Front view; acquire a clean Side Plank hold and verify stable hold seconds.
+R6-SPL-VALID-30,side_plank,VALID-HOLD,30s,,,,,,,,,profile,,,,,,,,,,Maintain a clean Side Plank for approximately 30 seconds.
+R6-SPL-FORM-BREAK,side_plank,FORM-BREAK,1 controlled break,,,,,,,,,profile,,,,,,,,,,During active hold deliberately drop the hips; expect hold break after grace / invalid posture handling.
+R6-SPL-SIDE-SWAP,side_plank,OPPOSITE-SIDE-SANITY,2 short holds,,,,,,,,,profile,,,,,,,,,,Acquire separate short holds on both physical sides; verify side selection is not one-sided.
+R6-SPL-LIFE,side_plank,LIFECYCLE,1 pause/resume cycle,,,,,,,,,profile,,,,,,,,,,No hidden-time accumulation; clean reacquire after resume.
+R6-SPL-PERSIST,side_plank,PERSISTENCE,1 measurable hold,,,,,,,,,profile,,,,,,,,,,"Persisted hold value must match across Live, Summary, and History."
