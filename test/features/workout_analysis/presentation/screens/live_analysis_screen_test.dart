@@ -128,6 +128,41 @@ void main() {
     },
   );
 
+  testWidgets('keeps camera preview stable when workout state changes', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    final previewBefore = tester.widget<CameraPreview>(
+      find.byType(CameraPreview),
+    );
+    final stateBefore = harness.container.read(workoutControllerProvider);
+
+    await tester.runAsync(() async {
+      await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+        _squatPose(angle: 170),
+      ]);
+      harness.clock.advance(const Duration(milliseconds: 120));
+      await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+        _squatPose(angle: 170),
+      ]);
+    });
+    await tester.pump();
+
+    final stateAfter = harness.container.read(workoutControllerProvider);
+    final previewAfter = tester.widget<CameraPreview>(
+      find.byType(CameraPreview),
+    );
+    expect(identical(stateAfter, stateBefore), isFalse);
+    expect(identical(previewAfter, previewBefore), isTrue);
+  });
+
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
     tester,
   ) async {

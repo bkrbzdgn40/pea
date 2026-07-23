@@ -52,6 +52,60 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
+  testWidgets('keeps camera preview stable when assessment state changes', (
+    tester,
+  ) async {
+    final initialState = AssessmentLiveState(
+      snapshot: const AssessmentSnapshot(
+        type: AssessmentType.squat,
+        phase: AssessmentPhase.active,
+        sampleCount: 1,
+        isReadyToComplete: false,
+        readinessProgress: 0.1,
+        result: null,
+      ),
+      feedbackMessage: 'Squat yap.',
+      progressMessage: 'Hareket ilerlemesi: %10',
+    );
+    final harness = await _pumpScreen(
+      tester,
+      selection: const AssessmentSelection(type: AssessmentType.squat),
+      initialState: initialState,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
+
+    final previewBefore = tester.widget<CameraPreview>(
+      find.byType(CameraPreview),
+    );
+
+    harness.notifier.publish(
+      AssessmentLiveState(
+        snapshot: const AssessmentSnapshot(
+          type: AssessmentType.squat,
+          phase: AssessmentPhase.active,
+          sampleCount: 2,
+          isReadyToComplete: false,
+          readinessProgress: 0.2,
+          result: null,
+        ),
+        feedbackMessage: 'Bir tekrar daha yap.',
+        progressMessage: 'Hareket ilerlemesi: %20',
+      ),
+    );
+    await tester.pump();
+
+    final previewAfter = tester.widget<CameraPreview>(
+      find.byType(CameraPreview),
+    );
+    expect(identical(previewAfter, previewBefore), isTrue);
+    expect(find.text('Bir tekrar daha yap.'), findsOneWidget);
+    expect(find.text('Hareket ilerlemesi: %20'), findsOneWidget);
+  });
+
   testWidgets('takes ownership when camera controller is already streaming', (
     tester,
   ) async {
@@ -242,6 +296,10 @@ class _FakeAssessmentLiveController extends AssessmentLiveController {
 
   @override
   AssessmentResult? complete() => state.snapshot.result;
+
+  void publish(AssessmentLiveState next) {
+    state = next;
+  }
 
   @override
   void retry() {

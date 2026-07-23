@@ -544,9 +544,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
 
     final cameraState = ref.watch(cameraProvider);
-    final workoutState = ref.watch(workoutControllerProvider);
-    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
-    final workoutPlanState = ref.watch(workoutPlanSessionProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
@@ -576,48 +573,23 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           }
 
           final imageSize = Size(previewSize.height, previewSize.width);
+          final isMirrored =
+              controller.description.lensDirection == CameraLensDirection.front;
 
           return Stack(
             fit: StackFit.expand,
             children: [
               CameraPreview(controller),
-              if (workoutState.landmarks != null &&
-                  workoutState.landmarks!.isNotEmpty)
-                CustomPaint(
-                  painter: PosePainter(
-                    workoutState.landmarks!,
-                    imageSize,
-                    isFormBad: workoutState.isFormBad,
-                    isMirrored:
-                        controller.description.lensDirection ==
-                        CameraLensDirection.front,
-                    showDebugLandmarks: _showCalibrationPanel,
-                  ),
-                ),
-              Positioned(
-                top: topInset + 12,
-                right: 14,
-                child: TextButton.icon(
-                  onPressed: sessionLifecycle.isFinishing
-                      ? null
-                      : () => unawaited(_finishSession(workoutState)),
-                  icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                  label: Text(
-                    workoutPlanState.hasPlan
-                        ? localizations.endWorkout
-                        : localizations.finish,
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.black54,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+              _WorkoutPoseOverlay(
+                imageSize: imageSize,
+                isMirrored: isMirrored,
+                showDebugLandmarks: _showCalibrationPanel,
+              ),
+              _FinishSessionButton(
+                topInset: topInset,
+                isFinishing: sessionLifecycle.isFinishing,
+                onFinish: () => unawaited(
+                  _finishSession(ref.read(workoutControllerProvider)),
                 ),
               ),
               if (workoutDiagnosticsUiEnabled)
@@ -637,106 +609,22 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     ),
                   ),
                 ),
-              Positioned(
-                top: topInset + 72,
-                left: 20,
-                right: 20,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    const spacing = 8.0;
-                    final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
-                    final isHoldAnalysis =
-                        workoutState.analysisKind == EngineKind.hold;
-                    String formatHoldSeconds(double seconds) {
-                      final duration = Duration(
-                        milliseconds: (seconds * 1000).round(),
-                      );
-                      final minutes = duration.inMinutes;
-                      final remainingSeconds = duration.inSeconds
-                          .remainder(60)
-                          .toString()
-                          .padLeft(2, '0');
-
-                      return '$minutes:$remainingSeconds';
-                    }
-
-                    return Row(
-                      children: [
-                        SizedBox(
-                          width: cardWidth,
-                          child: _MetricCard(
-                            label: isHoldAnalysis
-                                ? localizations.holdMetric
-                                : localizations.repMetric,
-                            value: isHoldAnalysis
-                                ? formatHoldSeconds(
-                                    workoutState.currentHoldSeconds,
-                                  )
-                                : workoutState.repCount.toString(),
-                          ),
-                        ),
-                        const SizedBox(width: spacing),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _MetricCard(
-                            label: 'FPS',
-                            value: workoutState.cameraFps.toStringAsFixed(0),
-                            color: Colors.cyanAccent,
-                            onLongPress: () {
-                              setState(
-                                () => _showCalibrationPanel =
-                                    !_showCalibrationPanel,
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: spacing),
-                        SizedBox(
-                          width: cardWidth,
-                          child: _MetricCard(
-                            label: isHoldAnalysis
-                                ? localizations.bestMetric
-                                : localizations.scoreMetric,
-                            value: isHoldAnalysis
-                                ? formatHoldSeconds(
-                                    workoutState.bestHoldSeconds,
-                                  )
-                                : workoutState.lastRepScore.toInt().toString(),
-                            color: Colors.greenAccent,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+              _PrimaryWorkoutMetricsOverlay(
+                topInset: topInset,
+                onToggleCalibration: () {
+                  setState(
+                    () => _showCalibrationPanel = !_showCalibrationPanel,
+                  );
+                },
               ),
-              Positioned(
-                top: topInset + 152,
-                left: 20,
-                right: 20,
-                child: _LiveCanonicalMetricsBar(metrics: liveMetrics),
-              ),
-              if (workoutPlanState.snapshot != null &&
-                  !workoutPlanState.isWorkoutCompleted)
-                Positioned(
-                  top: topInset + 208,
-                  left: 20,
-                  right: 20,
-                  child: _PlannedWorkoutProgressBar(
-                    snapshot: workoutPlanState.snapshot!,
-                  ),
-                ),
+              _CanonicalMetricsOverlay(topInset: topInset),
+              _PlannedWorkoutProgressOverlay(topInset: topInset),
               if (_showCalibrationPanel)
-                Positioned(
-                  top: topInset + (workoutPlanState.hasPlan ? 280 : 208),
-                  left: 20,
-                  right: 20,
-                  child: _CalibrationDebugPanel(
-                    workoutState: workoutState,
-                    onClose: () {
-                      setState(() => _showCalibrationPanel = false);
-                    },
-                  ),
+                _CalibrationPanelOverlay(
+                  topInset: topInset,
+                  onClose: () {
+                    setState(() => _showCalibrationPanel = false);
+                  },
                 ),
               Positioned(
                 bottom: 40,
@@ -744,53 +632,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 right: 20,
                 child: Column(
                   children: [
-                    if (workoutPlanState.isSetCompleted) ...[
-                      _WorkoutSetCompletedCard(
-                        snapshot: workoutPlanState.snapshot!,
-                        onAdvance: () =>
-                            unawaited(_advancePlannedWorkout(workoutState)),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: workoutState.isFormBad
-                            ? Colors.red.withValues(alpha: 0.8)
-                            : Colors.black54,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: workoutState.isFormBad
-                              ? Colors.white
-                              : Colors.greenAccent,
+                    _WorkoutSetCompletedSection(
+                      onAdvance: () => unawaited(
+                        _advancePlannedWorkout(
+                          ref.read(workoutControllerProvider),
                         ),
                       ),
-                      child: Text(
-                        workoutState.feedbackMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      localizations.liveStatusLine(
-                        workoutState.currentPhase,
-                        workoutState.analysisFps.toStringAsFixed(0),
-                      ),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    const _WorkoutFeedbackStatus(),
                   ],
                 ),
               ),
@@ -862,6 +711,327 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       _markCameraRecovering();
     });
   }
+}
+
+class _WorkoutPoseOverlay extends ConsumerWidget {
+  const _WorkoutPoseOverlay({
+    required this.imageSize,
+    required this.isMirrored,
+    required this.showDebugLandmarks,
+  });
+
+  final Size imageSize;
+  final bool isMirrored;
+  final bool showDebugLandmarks;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pose = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (landmarks: state.landmarks, isFormBad: state.isFormBad),
+      ),
+    );
+    final landmarks = pose.landmarks;
+    if (landmarks == null || landmarks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return CustomPaint(
+      painter: PosePainter(
+        landmarks,
+        imageSize,
+        isFormBad: pose.isFormBad,
+        isMirrored: isMirrored,
+        showDebugLandmarks: showDebugLandmarks,
+      ),
+    );
+  }
+}
+
+class _FinishSessionButton extends ConsumerWidget {
+  const _FinishSessionButton({
+    required this.topInset,
+    required this.isFinishing,
+    required this.onFinish,
+  });
+
+  final double topInset;
+  final bool isFinishing;
+  final VoidCallback onFinish;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasPlan = ref.watch(
+      workoutPlanSessionProvider.select((state) => state.hasPlan),
+    );
+    final localizations = AppLocalizations.of(context);
+
+    return Positioned(
+      top: topInset + 12,
+      right: 14,
+      child: TextButton.icon(
+        onPressed: isFinishing ? null : onFinish,
+        icon: const Icon(Icons.stop_circle_outlined, size: 18),
+        label: Text(hasPlan ? localizations.endWorkout : localizations.finish),
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.black54,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryWorkoutMetricsOverlay extends ConsumerWidget {
+  const _PrimaryWorkoutMetricsOverlay({
+    required this.topInset,
+    required this.onToggleCalibration,
+  });
+
+  final double topInset;
+  final VoidCallback onToggleCalibration;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metrics = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          repCount: state.repCount,
+          currentHoldSeconds: state.currentHoldSeconds,
+          cameraFps: state.cameraFps,
+          bestHoldSeconds: state.bestHoldSeconds,
+          lastRepScore: state.lastRepScore,
+        ),
+      ),
+    );
+    final localizations = AppLocalizations.of(context);
+    final isHoldAnalysis = metrics.analysisKind == EngineKind.hold;
+
+    return Positioned(
+      top: topInset + 72,
+      left: 20,
+      right: 20,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const spacing = 8.0;
+          final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+
+          return Row(
+            children: [
+              SizedBox(
+                width: cardWidth,
+                child: _MetricCard(
+                  label: isHoldAnalysis
+                      ? localizations.holdMetric
+                      : localizations.repMetric,
+                  value: isHoldAnalysis
+                      ? _formatHoldSeconds(metrics.currentHoldSeconds)
+                      : metrics.repCount.toString(),
+                ),
+              ),
+              const SizedBox(width: spacing),
+              SizedBox(
+                width: cardWidth,
+                child: _MetricCard(
+                  label: 'FPS',
+                  value: metrics.cameraFps.toStringAsFixed(0),
+                  color: Colors.cyanAccent,
+                  onLongPress: onToggleCalibration,
+                ),
+              ),
+              const SizedBox(width: spacing),
+              SizedBox(
+                width: cardWidth,
+                child: _MetricCard(
+                  label: isHoldAnalysis
+                      ? localizations.bestMetric
+                      : localizations.scoreMetric,
+                  value: isHoldAnalysis
+                      ? _formatHoldSeconds(metrics.bestHoldSeconds)
+                      : metrics.lastRepScore.toInt().toString(),
+                  color: Colors.greenAccent,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CanonicalMetricsOverlay extends ConsumerWidget {
+  const _CanonicalMetricsOverlay({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    return Positioned(
+      top: topInset + 152,
+      left: 20,
+      right: 20,
+      child: _LiveCanonicalMetricsBar(metrics: liveMetrics),
+    );
+  }
+}
+
+class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
+  const _PlannedWorkoutProgressOverlay({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(
+      workoutPlanSessionProvider.select(
+        (state) => (
+          snapshot: state.snapshot,
+          isWorkoutCompleted: state.isWorkoutCompleted,
+        ),
+      ),
+    );
+    final snapshot = plan.snapshot;
+    if (snapshot == null || plan.isWorkoutCompleted) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: topInset + 208,
+      left: 20,
+      right: 20,
+      child: _PlannedWorkoutProgressBar(snapshot: snapshot),
+    );
+  }
+}
+
+class _CalibrationPanelOverlay extends ConsumerWidget {
+  const _CalibrationPanelOverlay({
+    required this.topInset,
+    required this.onClose,
+  });
+
+  final double topInset;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final workoutState = ref.watch(workoutControllerProvider);
+    final hasPlan = ref.watch(
+      workoutPlanSessionProvider.select((state) => state.hasPlan),
+    );
+
+    return Positioned(
+      top: topInset + (hasPlan ? 280 : 208),
+      left: 20,
+      right: 20,
+      child: _CalibrationDebugPanel(
+        workoutState: workoutState,
+        onClose: onClose,
+      ),
+    );
+  }
+}
+
+class _WorkoutSetCompletedSection extends ConsumerWidget {
+  const _WorkoutSetCompletedSection({required this.onAdvance});
+
+  final VoidCallback onAdvance;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(
+      workoutPlanSessionProvider.select(
+        (state) =>
+            (isSetCompleted: state.isSetCompleted, snapshot: state.snapshot),
+      ),
+    );
+    final snapshot = plan.snapshot;
+    if (!plan.isSetCompleted || snapshot == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        _WorkoutSetCompletedCard(snapshot: snapshot, onAdvance: onAdvance),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+}
+
+class _WorkoutFeedbackStatus extends ConsumerWidget {
+  const _WorkoutFeedbackStatus();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedback = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          message: state.feedbackMessage,
+          isFormBad: state.isFormBad,
+          currentPhase: state.currentPhase,
+          analysisFps: state.analysisFps,
+        ),
+      ),
+    );
+    final localizations = AppLocalizations.of(context);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: feedback.isFormBad
+                ? Colors.red.withValues(alpha: 0.8)
+                : Colors.black54,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: feedback.isFormBad ? Colors.white : Colors.greenAccent,
+            ),
+          ),
+          child: Text(
+            feedback.message,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          localizations.liveStatusLine(
+            feedback.currentPhase,
+            feedback.analysisFps.toStringAsFixed(0),
+          ),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            letterSpacing: 2,
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+String _formatHoldSeconds(double seconds) {
+  final duration = Duration(milliseconds: (seconds * 1000).round());
+  final minutes = duration.inMinutes;
+  final remainingSeconds = duration.inSeconds
+      .remainder(60)
+      .toString()
+      .padLeft(2, '0');
+  return '$minutes:$remainingSeconds';
 }
 
 class _PlannedWorkoutProgressBar extends StatelessWidget {
