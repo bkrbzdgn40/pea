@@ -49,9 +49,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text(
-        'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
-      ),
+      find.text('Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.'),
       findsNothing,
     );
   });
@@ -65,9 +63,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text(
-        'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
-      ),
+      find.text('Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.'),
       findsOneWidget,
     );
   });
