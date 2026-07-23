@@ -66,7 +66,39 @@ void main() {
     expect(evaluation.postureDiagnostics.isArmSupported, isFalse);
     expect(
       evaluation.correctiveFeedbackCode,
-      HoldFeedbackCode.adjustElbowSupport,
+      HoldFeedbackCode.placeSupportElbowUnderShoulder,
+    );
+  });
+
+  test('asks for forearm support when the stacked support arm is straight', () {
+    final evaluation = policy.evaluate(
+      HoldSignalValues(
+        values: <HoldSignal, double>{
+          HoldSignal.alignment: 170,
+          HoldSignal.support: 158,
+          HoldSignal.supportStacking: 0.95,
+          HoldSignal.extension: 170,
+        },
+      ),
+      isHolding: false,
+    );
+
+    expect(evaluation.isValidHoldPosture, isFalse);
+    expect(
+      evaluation.postureDiagnostics.signalValidity.validityFor(
+        HoldSignal.supportStacking,
+      ),
+      isTrue,
+    );
+    expect(
+      evaluation.postureDiagnostics.signalValidity.validityFor(
+        HoldSignal.support,
+      ),
+      isFalse,
+    );
+    expect(
+      evaluation.correctiveFeedbackCode,
+      HoldFeedbackCode.useForearmSupport,
     );
   });
 

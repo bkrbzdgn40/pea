@@ -175,7 +175,7 @@ void main() {
         expect(unstacked.stateSnapshot.holdEnginePhase, HoldPhase.broken);
         expect(
           unstacked.stateSnapshot.holdFeedbackCode,
-          HoldFeedbackCode.adjustElbowSupport,
+          HoldFeedbackCode.placeSupportElbowUnderShoulder,
         );
         expect(
           unstacked.stateSnapshot.calibrationMetrics.holdSignalValidity

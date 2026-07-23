@@ -58,6 +58,18 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
       },
     );
 
+    final isSupportAngleValid =
+        base.postureDiagnostics.signalValidity.validityFor(
+          HoldSignal.support,
+        ) ??
+        false;
+
+    final correctiveFeedbackCode = !isSupportStacked
+        ? HoldFeedbackCode.placeSupportElbowUnderShoulder
+        : (!isSupportAngleValid
+              ? HoldFeedbackCode.useForearmSupport
+              : base.correctiveFeedbackCode);
+
     return HoldFormEvaluation(
       hasActivePosture: base.hasActivePosture,
       hasCompleteMetrics: hasCompleteMetrics,
@@ -67,9 +79,7 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
         hasCompleteMetrics: hasCompleteMetrics,
         signalValidity: signalValidity,
       ),
-      correctiveFeedbackCode: isSupportStacked
-          ? base.correctiveFeedbackCode
-          : HoldFeedbackCode.adjustElbowSupport,
+      correctiveFeedbackCode: correctiveFeedbackCode,
       holdValidity: isValidHoldPosture
           ? HoldValidityStatus.valid
           : HoldValidityStatus.invalid,

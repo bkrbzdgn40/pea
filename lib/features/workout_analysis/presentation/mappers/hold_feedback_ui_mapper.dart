@@ -28,6 +28,16 @@ String mapHoldFeedbackCodeToMessage(
         tr: 'Dirsek desteğini düzelt.',
         en: 'Adjust your elbow support.',
       );
+    case HoldFeedbackCode.placeSupportElbowUnderShoulder:
+      return localizations.pick(
+        tr: 'Destek dirseğini omzunun altına yerleştir.',
+        en: 'Place your supporting elbow under your shoulder.',
+      );
+    case HoldFeedbackCode.useForearmSupport:
+      return localizations.pick(
+        tr: 'Destek dirseğini bük ve ön kolunu yere koy.',
+        en: 'Bend your supporting elbow and place your forearm on the floor.',
+      );
     case HoldFeedbackCode.extendLegs:
       return localizations.pick(
         tr: 'Bacaklarını uzat.',

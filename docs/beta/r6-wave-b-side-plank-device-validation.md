@@ -237,3 +237,21 @@ INVALID: missing stacking evidence -> hold must not start
 ```
 
 Fix sonrası `R6-SPL-PREFLIGHT-1` ve `R6-SPL-FORM-BREAK` gerçek cihazda yeniden çalıştırılmalıdır. Diagnostics export'ta `supportStacking` current/target/validity değerleri ayrıca tutulur.
+
+## Feedback Semantics Hardening
+
+Side Plank support failures artık tek bir generic `adjust_elbow_support` mesajına sıkıştırılmaz.
+
+Exercise-specific ayrım:
+
+```text
+supportStacking invalid
+-> place_support_elbow_under_shoulder
+-> "Destek dirseğini omzunun altına yerleştir."
+
+supportStacking valid + support angle invalid
+-> use_forearm_support
+-> "Destek dirseğini bük ve ön kolunu yere koy."
+```
+
+Bu ayrım straight-arm / hand-supported Side Plank varyasyonunun mevcut forearm-only contract tarafından neden reddedildiğini kullanıcıya açıkça anlatır. Regular Plank için mevcut `adjust_elbow_support` davranışı değiştirilmez.
