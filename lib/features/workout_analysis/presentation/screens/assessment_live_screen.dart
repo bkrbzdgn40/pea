@@ -52,8 +52,8 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
       );
     }
 
-    final liveState = ref.watch(assessmentLiveControllerProvider);
     final cameraState = ref.watch(cameraProvider);
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -66,25 +66,19 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
           _ensureImageStream(controller);
           final previewSize = controller.value.previewSize!;
           final imageSize = Size(previewSize.height, previewSize.width);
+          final isMirrored =
+              controller.description.lensDirection == CameraLensDirection.front;
 
           return Stack(
             fit: StackFit.expand,
             children: [
               CameraPreview(controller),
-              if (liveState.landmarks != null &&
-                  liveState.landmarks!.isNotEmpty)
-                CustomPaint(
-                  painter: PosePainter(
-                    liveState.landmarks!,
-                    imageSize,
-                    isFormBad: false,
-                    isMirrored:
-                        controller.description.lensDirection ==
-                        CameraLensDirection.front,
-                  ),
-                ),
+              _AssessmentPoseOverlay(
+                imageSize: imageSize,
+                isMirrored: isMirrored,
+              ),
               Positioned(
-                top: MediaQuery.paddingOf(context).top + 12,
+                top: topInset + 12,
                 left: 14,
                 child: IconButton.filledTonal(
                   onPressed: () => Navigator.pop(context),
@@ -92,7 +86,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                 ),
               ),
               Positioned(
-                top: MediaQuery.paddingOf(context).top + 16,
+                top: topInset + 16,
                 left: 72,
                 right: 72,
                 child: Text(
@@ -106,52 +100,18 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
                   ),
                 ),
               ),
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 70,
-                left: 20,
-                right: 20,
-                child: _AssessmentStatusCard(
-                  sampleCount: liveState.snapshot.sampleCount,
-                  feedback: liveState.feedbackMessage,
-                  progressMessage: liveState.progressMessage,
-                  progress: liveState.snapshot.readinessProgress,
-                  localizations: localizations,
-                ),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 28,
-                child: liveState.snapshot.isCompleted
-                    ? _AssessmentResultCard(
-                        result: liveState.snapshot.result!,
-                        onRetry: () {
-                          ref
-                              .read(assessmentLiveControllerProvider.notifier)
-                              .retry();
-                        },
-                        onClose: () => Navigator.pop(context),
-                        localizations: localizations,
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: liveState.snapshot.isReadyToComplete
-                            ? () async {
-                                await _stopImageStream();
-                                ref
-                                    .read(
-                                      assessmentLiveControllerProvider.notifier,
-                                    )
-                                    .complete();
-                              }
-                            : null,
-                        icon: const Icon(Icons.check_circle_outline_rounded),
-                        label: Text(localizations.viewResult),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.greenAccent,
-                          foregroundColor: Colors.black,
-                          minimumSize: const Size.fromHeight(54),
-                        ),
-                      ),
+              _AssessmentStatusOverlay(topInset: topInset),
+              _AssessmentActionOverlay(
+                onRetry: () {
+                  ref.read(assessmentLiveControllerProvider.notifier).retry();
+                },
+                onClose: () => Navigator.pop(context),
+                onComplete: () async {
+                  await _stopImageStream();
+                  ref
+                      .read(assessmentLiveControllerProvider.notifier)
+                      .complete();
+                },
               ),
             ],
           );
@@ -237,23 +197,135 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
   }
 }
 
+class _AssessmentPoseOverlay extends ConsumerWidget {
+  const _AssessmentPoseOverlay({
+    required this.imageSize,
+    required this.isMirrored,
+  });
+
+  final Size imageSize;
+  final bool isMirrored;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final landmarks = ref.watch(
+      assessmentLiveControllerProvider.select((state) => state.landmarks),
+    );
+    if (landmarks == null || landmarks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return CustomPaint(
+      painter: PosePainter(
+        landmarks,
+        imageSize,
+        isFormBad: false,
+        isMirrored: isMirrored,
+      ),
+    );
+  }
+}
+
+class _AssessmentStatusOverlay extends ConsumerWidget {
+  const _AssessmentStatusOverlay({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(
+      assessmentLiveControllerProvider.select(
+        (state) => (
+          sampleCount: state.snapshot.sampleCount,
+          feedback: state.feedbackMessage,
+          progressMessage: state.progressMessage,
+          progress: state.snapshot.readinessProgress,
+        ),
+      ),
+    );
+
+    return Positioned(
+      top: topInset + 70,
+      left: 20,
+      right: 20,
+      child: _AssessmentStatusCard(
+        sampleCount: status.sampleCount,
+        feedback: status.feedback,
+        progressMessage: status.progressMessage,
+        progress: status.progress,
+      ),
+    );
+  }
+}
+
+class _AssessmentActionOverlay extends ConsumerWidget {
+  const _AssessmentActionOverlay({
+    required this.onRetry,
+    required this.onClose,
+    required this.onComplete,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onClose;
+  final Future<void> Function() onComplete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final action = ref.watch(
+      assessmentLiveControllerProvider.select(
+        (state) => (
+          isCompleted: state.snapshot.isCompleted,
+          isReadyToComplete: state.snapshot.isReadyToComplete,
+          result: state.snapshot.result,
+        ),
+      ),
+    );
+    final localizations = AppLocalizations.of(context);
+    final result = action.result;
+
+    return Positioned(
+      left: 20,
+      right: 20,
+      bottom: 28,
+      child: action.isCompleted && result != null
+          ? _AssessmentResultCard(
+              result: result,
+              onRetry: onRetry,
+              onClose: onClose,
+              localizations: localizations,
+            )
+          : ElevatedButton.icon(
+              onPressed: action.isReadyToComplete
+                  ? () => unawaited(onComplete())
+                  : null,
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: Text(localizations.viewResult),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.greenAccent,
+                foregroundColor: Colors.black,
+                minimumSize: const Size.fromHeight(54),
+              ),
+            ),
+    );
+  }
+}
+
 class _AssessmentStatusCard extends StatelessWidget {
   const _AssessmentStatusCard({
     required this.sampleCount,
     required this.feedback,
     required this.progressMessage,
     required this.progress,
-    required this.localizations,
   });
 
   final int sampleCount;
   final String feedback;
   final String progressMessage;
   final double progress;
-  final AppLocalizations localizations;
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
