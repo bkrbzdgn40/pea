@@ -34,6 +34,44 @@ void main() {
         .setMockMethodCallHandler(permissionChannel, null);
   });
 
+  testWidgets('renders exercise descriptions in English', (tester) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+    );
+    await tester.pump();
+
+    expect(
+      find.text(
+        'A foundational movement for lower-body strength and knee-hip control.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('keeps exercise descriptions in Turkish', (tester) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('tr'),
+    );
+    await tester.pump();
+
+    expect(
+      find.text(
+        'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('sit-up card is analysis-active and starts the permission flow', (
     tester,
   ) async {

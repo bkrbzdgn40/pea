@@ -5,6 +5,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_definition.dart';
 import '../data/exercise_guide_catalog.dart';
+import '../data/localized_exercise_guide_content.dart';
 import '../models/exercise_guide_content.dart';
 import '../providers/selected_exercise_provider.dart';
 import 'camera_permission_screen.dart';
@@ -33,7 +34,10 @@ class ExerciseSelectionScreen extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final definition = catalog.definitions[index];
-            final content = guideCatalog.contentFor(definition.type);
+            final content = localizedExerciseGuideContent(
+              content: guideCatalog.contentFor(definition.type),
+              isTurkish: localizations.isTurkish,
+            );
             return _ExerciseSelectionCard(
               content: content,
               isAnalysisSupported: definition.isAnalysisSupported,
