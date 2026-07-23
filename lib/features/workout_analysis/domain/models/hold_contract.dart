@@ -7,6 +7,7 @@ enum HoldAnalysisFamily { plank, hollowHold, wallSit, sidePlank }
 enum HoldSignal {
   alignment,
   support,
+  supportStacking,
   extension,
   compression,
   armExtension,
@@ -23,8 +24,13 @@ class HoldContract {
     required this.family,
     required Iterable<HoldSignal> requiredSignals,
     required Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles,
+    Iterable<HoldSignal> supportedSignals = const <HoldSignal>[],
     this.hollowHoldVariation,
   }) : requiredSignals = Set<HoldSignal>.unmodifiable(requiredSignals),
+       supportedSignals = Set<HoldSignal>.unmodifiable(<HoldSignal>{
+         ...requiredSignals,
+         ...supportedSignals,
+       }),
        signalRoles = Map<HoldSignal, Set<AnalysisSignalRole>>.unmodifiable(
          <HoldSignal, Set<AnalysisSignalRole>>{
            for (final signal in HoldSignal.values)
@@ -59,13 +65,13 @@ class HoldContract {
     }
 
     final unsupportedRoleSignals = this.signalRoles.keys.toSet().difference(
-      this.requiredSignals,
+      this.supportedSignals,
     );
     if (unsupportedRoleSignals.isNotEmpty) {
       throw ArgumentError.value(
         unsupportedRoleSignals,
         'signalRoles',
-        'Role metadata may only describe required signals.',
+        'Role metadata may only describe supported signals.',
       );
     }
   }
@@ -74,10 +80,11 @@ class HoldContract {
   final HollowHoldVariationContract? hollowHoldVariation;
 
   final Set<HoldSignal> requiredSignals;
+  final Set<HoldSignal> supportedSignals;
   final Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles;
 
   bool supportsSignal(HoldSignal signal) {
-    return requiredSignals.contains(signal);
+    return supportedSignals.contains(signal);
   }
 
   Set<AnalysisSignalRole> rolesForSignal(HoldSignal signal) {
@@ -167,12 +174,17 @@ abstract final class HoldContracts {
       HoldSignal.support,
       HoldSignal.extension,
     },
+    supportedSignals: const <HoldSignal>{HoldSignal.supportStacking},
     signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
       HoldSignal.alignment: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
       },
       HoldSignal.support: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+      },
+      HoldSignal.supportStacking: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
       },

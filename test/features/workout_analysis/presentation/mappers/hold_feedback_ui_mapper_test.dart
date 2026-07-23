@@ -18,6 +18,14 @@ void main() {
         code: HoldFeedbackCode.adjustElbowSupport,
         message: 'Dirsek desteğini düzelt.',
       ),
+      (
+        code: HoldFeedbackCode.placeSupportElbowUnderShoulder,
+        message: 'Desteğini omzunun altında hizala.',
+      ),
+      (
+        code: HoldFeedbackCode.useForearmSupport,
+        message: 'Ön kol desteği kullan veya destek kolunu tamamen düzleştir.',
+      ),
       (code: HoldFeedbackCode.extendLegs, message: 'Bacaklarını uzat.'),
       (
         code: HoldFeedbackCode.increaseHollowCompression,
@@ -61,6 +69,20 @@ void main() {
         localizations: en,
       ),
       'Extend your legs.',
+    );
+    expect(
+      mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.placeSupportElbowUnderShoulder,
+        localizations: en,
+      ),
+      'Align your support directly under your shoulder.',
+    );
+    expect(
+      mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.useForearmSupport,
+        localizations: en,
+      ),
+      'Use forearm support or fully straighten your supporting arm.',
     );
   });
 }

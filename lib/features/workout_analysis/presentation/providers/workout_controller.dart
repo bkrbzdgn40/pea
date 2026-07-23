@@ -1097,6 +1097,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       HoldFeedbackCode.holdPosition => FeedbackDeliveryKind.status,
       HoldFeedbackCode.alignHips ||
       HoldFeedbackCode.adjustElbowSupport ||
+      HoldFeedbackCode.placeSupportElbowUnderShoulder ||
+      HoldFeedbackCode.useForearmSupport ||
       HoldFeedbackCode.extendLegs ||
       HoldFeedbackCode.increaseHollowCompression ||
       HoldFeedbackCode.extendArmsOverhead ||

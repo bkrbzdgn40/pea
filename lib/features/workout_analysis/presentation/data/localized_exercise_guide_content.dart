@@ -235,26 +235,26 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
   ),
   ExerciseType.tricepsDip: _ExerciseGuideCopy(
     subtitle:
-        'An upper-body pushing movement focused on elbow extension on parallel bars.',
+        'A triceps-focused bodyweight pushing movement performed from a stable bench or raised surface.',
     purpose:
         'Uses elbow flexion and extension as the main repetition signal and can flag excessive shoulder extension as a form issue.',
     setupSteps: [
-      'Start at the top of parallel bars with your arms extended under control.',
+      'Place your hands on the edge of a stable, non-slip bench or raised surface behind you.',
+      'Move your hips just in front of the bench, place your feet forward, and support your weight through your hands under control.',
       'Place the camera to the side so the shoulder-elbow-wrist line is visible.',
-      'Keep your chest and shoulders in a comfortable position.',
-      'Do not force depth if you feel shoulder pain.',
+      'Do not force depth if you feel shoulder pain or discomfort.',
     ],
     tips: [
-      'Bend your elbows and lower under control.',
-      'Avoid driving your shoulders unnecessarily far backward.',
-      'Press upward smoothly from the bottom.',
-      'Try to use a consistent depth across repetitions.',
+      'Bend your elbows backward and lower under control.',
+      'Keep the bottom elbow angle around 90 degrees without forcing unnecessary depth.',
+      'Keep your hips close to the bench edge and avoid shrugging or driving the shoulders forward.',
+      'Press through your palms and return to the starting position under control.',
     ],
     commonMistakes: [
-      'Forcing the shoulders into excessive depth.',
+      'Forcing the shoulders unnecessarily far backward and downward.',
+      'Moving the hips too far away from the bench.',
       'Bouncing without control at the bottom.',
       'Using only a partial elbow range of motion.',
-      'Swinging far enough forward or backward to leave the camera frame.',
     ],
   ),
   ExerciseType.romanianDeadlift: _ExerciseGuideCopy(
@@ -427,22 +427,22 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
     subtitle:
         'An isometric movement for lateral trunk endurance and core stability.',
     purpose:
-        'Aims to maintain the shoulder-hip-foot line, elbow support, and an extended leg position.',
+        'Aims to maintain the shoulder-hip-foot line, stable forearm or straight-arm support, and an extended leg position.',
     setupSteps: [
-      'Lie on your side and place your elbow under your shoulder.',
+      'Lie on your side; place your elbow under your shoulder for forearm support or your hand under your shoulder for straight-arm support.',
       'Extend your legs and stack your feet or use another balanced foot position.',
       'Place the camera in front of or behind your trunk so the body line is visible.',
       'Lift your hips and create one long line from your shoulder to your ankle.',
     ],
     tips: [
       'Do not let your hips drop toward the floor.',
-      'Keep your supporting elbow under your shoulder.',
+      'Keep your forearm or straight-arm support stable under your shoulder.',
       'Keep the leg line as long as you comfortably can.',
       'Continue breathing while you hold the position.',
     ],
     commonMistakes: [
       'Letting the hips sag toward the floor.',
-      'Placing the elbow too far from the shoulder.',
+      'Placing the supporting elbow or hand too far from the shoulder line.',
       'Bending the knees substantially.',
       'Rotating the trunk forward or backward.',
     ],

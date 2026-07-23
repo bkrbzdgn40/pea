@@ -11,6 +11,7 @@ import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_engine.dart';
+import '../domain/side_plank_posture_policy.dart';
 import '../domain/tempo_engine.dart';
 import '../domain/wall_sit_posture_policy.dart';
 import 'engine_kind.dart';
@@ -33,6 +34,7 @@ class AnalysisEngineFactory {
       config: config,
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
       towardPeakMuscleAction: rangeRepContract.towardPeakMuscleAction,
+      peakEntryMargin: rangeRepContract.peakEntryMargin,
       now: now,
     );
   }
@@ -77,24 +79,30 @@ class AnalysisEngineFactory {
         _validatePlankHoldEngineContract(holdContract, config);
         return HoldEngine(
           posturePolicy: _createPlankPosturePolicy(config),
+          stabilitySignals: holdContract.requiredSignals,
           now: now,
         );
       case HoldAnalysisFamily.hollowHold:
         _validateHollowHoldEngineContract(holdContract, config);
         return HoldEngine(
           posturePolicy: _createHollowHoldPosturePolicy(config, holdContract),
+          stabilitySignals: holdContract.requiredSignals,
           now: now,
         );
       case HoldAnalysisFamily.wallSit:
         _validateWallSitHoldEngineContract(holdContract, config);
         return HoldEngine(
           posturePolicy: _createWallSitPosturePolicy(config),
+          stabilitySignals: holdContract.requiredSignals,
           now: now,
         );
       case HoldAnalysisFamily.sidePlank:
         _validatePlankHoldEngineContract(holdContract, config);
         return HoldEngine(
-          posturePolicy: _createPlankPosturePolicy(config),
+          posturePolicy: SidePlankPosturePolicy(
+            config: config.resolvedHoldPosture,
+          ),
+          stabilitySignals: holdContract.requiredSignals,
           now: now,
         );
     }

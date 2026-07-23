@@ -21,7 +21,11 @@ class HoldPostureDiagnosticsSnapshot {
 
   bool get isBodyAligned => validityFor(HoldSignal.alignment) ?? false;
 
-  bool get isArmSupported => validityFor(HoldSignal.support) ?? false;
+  bool get isArmSupported {
+    final supportAngleValid = validityFor(HoldSignal.support) ?? false;
+    final supportStackingValid = validityFor(HoldSignal.supportStacking);
+    return supportAngleValid && (supportStackingValid ?? true);
+  }
 
   bool get areLegsExtended => validityFor(HoldSignal.extension) ?? false;
 }

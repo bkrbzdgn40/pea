@@ -37,7 +37,7 @@ Bir gate'in `PASSED` olması yalnız gate satırında ve bağlı kanıtta tanım
 - Sit-up: `rangeRep`, selected-side
 - Biceps Curl: `rangeRep`, bilateral
 - Lying Leg Raise: `rangeRep`, selected-side
-- Triceps Dip: `rangeRep`, selected-side
+- Bench Dip: `rangeRep`, selected-side
 - Romanian Deadlift: `rangeRep`, selected-side
 - Lateral Raise: `rangeRep`, bilateral, increasing-to-peak
 - Shoulder Press: `rangeRep`, bilateral, increasing-to-peak
@@ -58,7 +58,7 @@ G0-G8 programında gerçek cihaz baseline ve dataset değerlendirmesi aşağıda
 - Push-up
 - Plank
 
-Hollow Hold, Stationary Lunge, Sit-up, Biceps Curl, Lying Leg Raise, Triceps Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack tarihsel üçlü kapsamın dışında kalır. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
+Hollow Hold, Stationary Lunge, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack tarihsel üçlü kapsamın dışında kalır. Bu hareketlerin catalog desteği vardır; ancak bu belge içindeki eski G6/G7 cihaz PASS sonucu onlar için otomatik acceptance kanıtı değildir.
 
 ### Altyapı durumu
 

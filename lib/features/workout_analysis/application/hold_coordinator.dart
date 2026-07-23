@@ -22,6 +22,7 @@ import 'hollow_hold_limb_elevation_measurement.dart';
 import 'plank_hip_deviation_measurement.dart';
 import 'plank_shoulder_elbow_offset_measurement.dart';
 import 'pose_quality_policy.dart';
+import 'side_plank_support_stacking_measurement.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
 
@@ -150,7 +151,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   final Map<HoldSignal, MovingAverageFilter> _holdSignalFilters =
       <HoldSignal, MovingAverageFilter>{
         for (final signal in HoldSignal.values)
-          signal: MovingAverageFilter(windowSize: 5),
+          signal: MovingAverageFilter(
+            windowSize: signal == HoldSignal.supportStacking ? 1 : 5,
+          ),
       };
 
   final PlankHipDeviationMeasurement _plankHipDeviationMeasurement =
@@ -158,6 +161,9 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   final PlankShoulderElbowOffsetMeasurement
   _plankShoulderElbowOffsetMeasurement =
       const PlankShoulderElbowOffsetMeasurement();
+  final SidePlankSupportStackingMeasurement
+  _sidePlankSupportStackingMeasurement =
+      const SidePlankSupportStackingMeasurement();
   final PlankTechniqueAnalyzer _plankTechniqueAnalyzer =
       const PlankTechniqueAnalyzer();
   final HollowHoldLimbElevationMeasurement _hollowHoldLimbElevationMeasurement =
@@ -404,15 +410,16 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     }
 
     if (metrics.hasPose) {
+      final engineMetrics = _withExerciseSpecificHoldSignals(metrics);
       final analysisFrame = _analysisFrameBuilder.build(
-        metrics: metrics,
+        metrics: engineMetrics,
         primaryMetricFilter: _primaryMetricFilter,
         formMetricFilter: _formMetricFilter,
         holdSignalFilters: _holdSignalFilters,
       );
       _engine.update(analysisFrame);
       final holdDiagnostics = _holdDiagnosticsSnapshot();
-      _updateExerciseSpecificTechnique(metrics: metrics);
+      _updateExerciseSpecificTechnique(metrics: engineMetrics);
       if (_didHoldAttemptEndAfterUpdate(
         before: preUpdateHoldDiagnostics,
         after: holdDiagnostics,
@@ -484,6 +491,34 @@ class DefaultHoldCoordinator implements HoldCoordinator {
     return result;
   }
 
+  ExerciseMetrics _withExerciseSpecificHoldSignals(ExerciseMetrics metrics) {
+    if (_holdContract.family != HoldAnalysisFamily.sidePlank) {
+      return metrics;
+    }
+
+    final side = _currentHoldSideForState();
+    if (side == null) {
+      return metrics;
+    }
+
+    final pose = Pose(
+      landmarks: <PoseLandmarkType, PoseLandmark>{
+        for (final landmark in metrics.landmarks) landmark.type: landmark,
+      },
+    );
+    final supportStacking = _sidePlankSupportStackingMeasurement.measure(
+      pose,
+      side: side,
+      referenceSide: _configHoldReferenceSide(),
+    );
+
+    return metrics.copyWith(
+      holdSignalValues: metrics.holdSignalValues.mergedWith(
+        <HoldSignal, double?>{HoldSignal.supportStacking: supportStacking},
+      ),
+    );
+  }
+
   void _updateExerciseSpecificTechnique({required ExerciseMetrics metrics}) {
     final side = _currentHoldSideForState();
     if (side == null) {
@@ -541,8 +576,10 @@ class DefaultHoldCoordinator implements HoldCoordinator {
             ? measurements.heelElevation
             : null;
         break;
-      case HoldAnalysisFamily.wallSit:
       case HoldAnalysisFamily.sidePlank:
+        _resetExerciseSpecificTechnique();
+        break;
+      case HoldAnalysisFamily.wallSit:
         _resetExerciseSpecificTechnique();
         break;
     }

@@ -37,6 +37,16 @@ void main() {
             family: HoldFeedbackFamily.correctiveCue,
           ),
           (
+            code: HoldFeedbackCode.placeSupportElbowUnderShoulder,
+            stableCode: 'place_support_elbow_under_shoulder',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
+            code: HoldFeedbackCode.useForearmSupport,
+            stableCode: 'use_forearm_support',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
             code: HoldFeedbackCode.extendLegs,
             stableCode: 'extend_legs',
             family: HoldFeedbackFamily.correctiveCue,
@@ -101,6 +111,8 @@ void main() {
       <HoldFeedbackCode>[
         HoldFeedbackCode.alignHips,
         HoldFeedbackCode.adjustElbowSupport,
+        HoldFeedbackCode.placeSupportElbowUnderShoulder,
+        HoldFeedbackCode.useForearmSupport,
         HoldFeedbackCode.extendLegs,
         HoldFeedbackCode.increaseHollowCompression,
         HoldFeedbackCode.extendArmsOverhead,

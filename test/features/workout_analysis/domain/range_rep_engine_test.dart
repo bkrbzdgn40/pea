@@ -82,6 +82,42 @@ void main() {
       expect(engine.lastRepScore, breakdown?.finalScore);
     });
 
+    test(
+      'completed detection ROM uses the first active crossing before debounce confirmation',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(
+          config: _stationaryLungeConfig(),
+          now: clock.now,
+        );
+
+        _acquireNeutral(clock, engine, angle: 170);
+
+        engine.updateDetectionFrame(primaryMetric: 140);
+        clock.advance(const Duration(milliseconds: 100));
+        final started = engine.updateDetectionFrame(primaryMetric: 108);
+
+        expect(
+          started.confirmedTransition?.type,
+          RangeRepConfirmedTransitionType.startDescending,
+        );
+
+        _confirmDetectionTransition(clock, engine, angle: 90);
+        _confirmDetectionTransition(clock, engine, angle: 130);
+        final completed = _confirmDetectionTransition(
+          clock,
+          engine,
+          angle: 170,
+          confirmationWindow: _neutralConfirmationWindow,
+        );
+
+        expect(engine.repCount, 1);
+        expect(completed.completedRepDetectionData, isNotNull);
+        expect(completed.completedRepDetectionData!.startAngle, 140);
+        expect(completed.completedRepDetectionData!.primaryRom, 50);
+      },
+    );
+
     test('neutral acquisition does not itself create a rep', () {
       final clock = _TestClock();
       final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
@@ -1244,6 +1280,10 @@ ExerciseConfig _pushUpConfig() {
       minAscendingMillis: 250,
     ),
   );
+}
+
+ExerciseConfig _stationaryLungeConfig() {
+  return loadExerciseConfig('assets/config/exercises/stationary_lunge.json');
 }
 
 ExerciseConfig _sitUpConfig() {

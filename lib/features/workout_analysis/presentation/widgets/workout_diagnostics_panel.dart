@@ -814,6 +814,8 @@ String _formatHoldSignalTarget(HoldSignal signal, double value) {
       return '>= $formattedValue';
     case HoldSignal.compression:
       return '<= $formattedValue';
+    case HoldSignal.supportStacking:
+      return '>= $formattedValue';
     case HoldSignal.kneeFlexion:
     case HoldSignal.hipFlexion:
       return '~ $formattedValue';

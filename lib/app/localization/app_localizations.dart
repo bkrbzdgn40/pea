@@ -405,7 +405,7 @@ class AppLocalizations {
             'Beginner technique video' => 'Başlangıç teknik videosu',
             'Simultaneous standing curl demo' =>
               'Eş zamanlı ayakta biseps büküş demosu',
-            'Bar dip technique reference' => 'Paralel bar dip teknik referansı',
+            'Bench dip technique reference' => 'Bench dip teknik referansı',
             _ => label,
           }
         : label;
@@ -444,7 +444,7 @@ class AppLocalizations {
         tr: 'Yatarak Bacak Kaldırma',
         en: 'Lying Leg Raise',
       ),
-      'triceps_dip' => pick(tr: 'Triseps Dip', en: 'Triceps Dip'),
+      'triceps_dip' => pick(tr: 'Bench Dip', en: 'Bench Dip'),
       'romanian_deadlift' => pick(
         tr: 'Romen Deadlift',
         en: 'Romanian Deadlift',

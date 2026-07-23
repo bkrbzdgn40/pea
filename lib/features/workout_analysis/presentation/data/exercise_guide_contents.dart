@@ -229,30 +229,30 @@ const exerciseGuideContents = [
   ExerciseGuideContent(
     type: ExerciseType.tricepsDip,
     subtitle:
-        'Paralel bar üzerinde dirsek ekstansiyonu odaklı üst vücut itiş hareketi.',
+        'Sabit bir bench veya sağlam yükselti üzerinde triseps odaklı vücut ağırlığı itiş hareketi.',
     purpose:
         'Dirsek fleksiyon-ekstansiyonunu ana tekrar sinyali olarak izler ve aşırı omuz ekstansiyonuna karşı form uyarısı verebilir.',
-    difficulty: ExerciseDifficulty.advanced,
+    difficulty: ExerciseDifficulty.intermediate,
     setupSteps: [
-      'Paralel barlarda üst pozisyonda kollarını kontrollü uzat.',
+      'Sağlam ve kaymayan bir bench veya yükseltinin kenarına, sırtın yüzeye dönük olacak şekilde ellerini yerleştir.',
+      'Kalçanı benchin hemen önüne al; ayaklarını öne yerleştir ve ağırlığını ellerinle kontrollü destekle.',
       'Kamerayı yandan, omuz-dirsek-bilek hattını görecek şekilde yerleştir.',
-      'Göğsü ve omuzları rahat bir pozisyonda tut.',
-      'Omuz ağrısı varsa derinliği zorlamadan hareketi bırak.',
+      'Omuz ağrısı veya rahatsızlık hissedersen derinliği zorlama ve hareketi bırak.',
     ],
     tips: [
-      'Dirsekleri bükerek kontrollü aşağı in.',
-      'Omuzları gereksiz yere çok geriye taşıma.',
-      'Alt noktadan kontrollü şekilde yukarı it.',
-      'Tekrarlar boyunca aynı derinliği korumaya çalış.',
+      'Dirsekleri geriye doğru bükerek kontrollü aşağı in.',
+      'Alt pozisyonda dirsek açısını yaklaşık 90 derece civarında tut; gereksiz derinliği zorlama.',
+      'Kalçanı benchin kenarına yakın tut ve omuzlarını gereksiz yere öne-yukarı taşıma.',
+      'Avuçlarından iterek kontrollü biçimde başlangıç pozisyonuna dön.',
     ],
     commonMistakes: [
-      'Omuzları aşırı derine zorlamak.',
+      'Omuzları gereksiz derecede geriye ve aşağı zorlamak.',
+      'Kalçayı benchten fazla uzaklaştırmak.',
       'Alt noktada kontrolsüz sekmek.',
       'Yarım dirsek hareket aralığıyla tekrar yapmak.',
-      'Görüntü dışına çıkacak kadar öne-arkaya sallanmak.',
     ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=2z8JmcrW-As',
-    youtubeSourceLabel: 'Bar dip technique reference',
+    youtubeUrl: 'https://www.youtube.com/watch?v=akoIbSegslk',
+    youtubeSourceLabel: 'Bench dip technique reference',
   ),
   ExerciseGuideContent(
     type: ExerciseType.romanianDeadlift,
@@ -453,23 +453,23 @@ const exerciseGuideContents = [
     subtitle:
         'Yan gövde dayanıklılığı ve yanal merkez bölge stabilitesi için izometrik hareket.',
     purpose:
-        'Omuz-kalça-ayak hattını, dirsek desteğini ve uzatılmış bacak pozisyonunu korumayı hedefler.',
+        'Omuz-kalça-ayak hattını, dengeli bir ön kol veya düz kol desteğini ve uzatılmış bacak pozisyonunu korumayı hedefler.',
     difficulty: ExerciseDifficulty.intermediate,
     setupSteps: [
-      'Yan yat ve dirseğini omzunun altına yerleştir.',
+      'Yan yat; ön kol desteğinde dirseğini, düz kol desteğinde elini omzunun altına yerleştir.',
       'Bacaklarını uzat ve ayaklarını üst üste ya da dengeli bir pozisyonda tut.',
       'Kamerayı gövdenin önünden veya arkasından vücut hattını görecek şekilde yerleştir.',
       'Kalçanı kaldırarak omuzdan ayak bileğine uzun bir çizgi kur.',
     ],
     tips: [
       'Kalçanın aşağı düşmesine izin verme.',
-      'Dirsek desteğini omuz altında koru.',
+      'Ön kol veya düz kol desteğini omuz altında ve stabil tut.',
       'Bacak hattını mümkün olduğunca uzun tut.',
       'Nefesi tutmadan pozisyonu sürdür.',
     ],
     commonMistakes: [
       'Kalçanın zemine doğru sarkması.',
-      'Dirseğin omuzdan çok uzağa kaçması.',
+      'Destek dirseğinin veya elinin omuz hattından çok uzağa kaçması.',
       'Dizleri belirgin bükmek.',
       'Gövdeyi öne veya arkaya döndürmek.',
     ],

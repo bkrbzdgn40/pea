@@ -20,6 +20,7 @@ void main() {
       expect(ExerciseType.bicepsCurl.title, 'Biceps Curl');
       expect(ExerciseType.lyingLegRaise.id, 'lying_leg_raise');
       expect(ExerciseType.tricepsDip.id, 'triceps_dip');
+      expect(ExerciseType.tricepsDip.title, 'Bench Dip');
       expect(ExerciseType.romanianDeadlift.id, 'romanian_deadlift');
       expect(ExerciseType.lateralRaise.id, 'lateral_raise');
       expect(ExerciseType.shoulderPress.id, 'shoulder_press');
