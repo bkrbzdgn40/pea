@@ -453,23 +453,23 @@ const exerciseGuideContents = [
     subtitle:
         'Yan gövde dayanıklılığı ve yanal merkez bölge stabilitesi için izometrik hareket.',
     purpose:
-        'Omuz-kalça-ayak hattını, dirsek desteğini ve uzatılmış bacak pozisyonunu korumayı hedefler.',
+        'Omuz-kalça-ayak hattını, dengeli bir ön kol veya düz kol desteğini ve uzatılmış bacak pozisyonunu korumayı hedefler.',
     difficulty: ExerciseDifficulty.intermediate,
     setupSteps: [
-      'Yan yat ve dirseğini omzunun altına yerleştir.',
+      'Yan yat; ön kol desteğinde dirseğini, düz kol desteğinde elini omzunun altına yerleştir.',
       'Bacaklarını uzat ve ayaklarını üst üste ya da dengeli bir pozisyonda tut.',
       'Kamerayı gövdenin önünden veya arkasından vücut hattını görecek şekilde yerleştir.',
       'Kalçanı kaldırarak omuzdan ayak bileğine uzun bir çizgi kur.',
     ],
     tips: [
       'Kalçanın aşağı düşmesine izin verme.',
-      'Dirsek desteğini omuz altında koru.',
+      'Ön kol veya düz kol desteğini omuz altında ve stabil tut.',
       'Bacak hattını mümkün olduğunca uzun tut.',
       'Nefesi tutmadan pozisyonu sürdür.',
     ],
     commonMistakes: [
       'Kalçanın zemine doğru sarkması.',
-      'Dirseğin omuzdan çok uzağa kaçması.',
+      'Destek dirseğinin veya elinin omuz hattından çok uzağa kaçması.',
       'Dizleri belirgin bükmek.',
       'Gövdeyi öne veya arkaya döndürmek.',
     ],

@@ -185,6 +185,51 @@ void main() {
       },
     );
 
+    test('side plank accepts stacked straight-arm hand support', () {
+      final clock = _TestClock();
+      final config = _plankConfig();
+      final engine = const AnalysisEngineFactory().createHold(
+        config: config,
+        holdContract: HoldContracts.sidePlank,
+        now: clock.now,
+      );
+      final coordinator = DefaultHoldCoordinator(
+        engine: engine,
+        config: config,
+        holdContract: HoldContracts.sidePlank,
+      );
+
+      coordinator.selectHoldSideForAcceptedPose(
+        _acceptedHoldAssessment(HoldSide.left),
+      );
+      final result = coordinator.processFrame(
+        metrics: _sidePlankMetrics(
+          shoulderX: 0,
+          shoulderY: 0,
+          elbowX: 0,
+          elbowY: 2,
+          armSupportAngle: 170,
+        ),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: false,
+      );
+
+      expect(result.stateSnapshot.isHolding, isTrue);
+      expect(
+        result.stateSnapshot.calibrationMetrics.holdSignalValidity.validityFor(
+          HoldSignal.support,
+        ),
+        isTrue,
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.holdSignalValidity.validityFor(
+          HoldSignal.supportStacking,
+        ),
+        isTrue,
+      );
+    });
+
     test('reads invalid-frame target signals from engine diagnostics', () {
       final coordinator = DefaultHoldCoordinator(
         engine: _FakeHoldAnalysisEngine(
@@ -453,6 +498,7 @@ ExerciseMetrics _sidePlankMetrics({
   required double shoulderY,
   required double elbowX,
   required double elbowY,
+  double armSupportAngle = 90,
 }) {
   return ExerciseMetrics(
     primaryAngle: 170,
@@ -485,7 +531,7 @@ ExerciseMetrics _sidePlankMetrics({
     holdSignalValues: HoldSignalValues(
       values: <HoldSignal, double>{
         HoldSignal.alignment: 170,
-        HoldSignal.support: 90,
+        HoldSignal.support: armSupportAngle,
         HoldSignal.extension: 170,
       },
     ),

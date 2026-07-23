@@ -242,16 +242,30 @@ Fix sonrası `R6-SPL-PREFLIGHT-1` ve `R6-SPL-FORM-BREAK` gerçek cihazda yeniden
 
 Side Plank support failures artık tek bir generic `adjust_elbow_support` mesajına sıkıştırılmaz.
 
-Exercise-specific ayrım:
+Exercise-specific feedback kodları korunur ancak kullanıcıya gösterilen copy iki geçerli support varyasyonunu da kapsar.
+
+İkinci gerçek cihaz incelemesinde generic `Side Plank` egzersizinin forearm-only kabul edilmesinin yanlış bir ürün contract daraltması olduğu görüldü. Side Plank artık iki stabil support mode'u kabul eder:
+
+```text
+FOREARM SUPPORT
+support angle = configured 60°-120° band
+
+STRAIGHT-ARM / HAND SUPPORT
+support angle >= midpoint(configured forearm max, anatomical full extension)
+              >= (120° + 180°) / 2
+              >= 150°
+```
+
+`150°` sınırı cihazdaki tek kareye göre kalibre edilmedi; mevcut forearm üst sınırı ile anatomik tam ekstansiyonun orta noktası olarak türetilir. İki mod arasında kalan kısmi bükülü support açısı geçersiz bırakılır. Her iki mod da `supportStacking` gate'ini geçmek zorundadır; dolayısıyla ilk false-positive'i kapatan support-side geometri koruması kaldırılmaz.
+
+User-facing feedback de varyasyon bağımsız hale getirildi:
 
 ```text
 supportStacking invalid
--> place_support_elbow_under_shoulder
--> "Destek dirseğini omzunun altına yerleştir."
+-> "Desteğini omzunun altında hizala."
 
-supportStacking valid + support angle invalid
--> use_forearm_support
--> "Destek dirseğini bük ve ön kolunu yere koy."
+stable support mode invalid
+-> "Ön kol desteği kullan veya destek kolunu tamamen düzleştir."
 ```
 
-Bu ayrım straight-arm / hand-supported Side Plank varyasyonunun mevcut forearm-only contract tarafından neden reddedildiğini kullanıcıya açıkça anlatır. Regular Plank için mevcut `adjust_elbow_support` davranışı değiştirilmez.
+Regular Plank için mevcut `adjust_elbow_support` davranışı değiştirilmez.

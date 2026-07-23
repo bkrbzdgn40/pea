@@ -9,23 +9,30 @@ import 'models/hold_feedback_code.dart';
 import 'models/hold_signal_validity.dart';
 import 'models/hold_signal_values.dart';
 
-/// Side-plank validity adds a physical support-stacking gate to the legacy
-/// body-line, elbow-angle, and leg-extension checks.
+/// Side-plank validity supports the two common stable support modes:
 ///
-/// The selected support elbow must be below its shoulder and the
-/// shoulder-to-elbow segment must be at least as vertical as it is horizontal.
-/// This broad 45-degree cone encodes "elbow under shoulder" without tuning to
-/// one user or one video.
+/// - forearm support, using the configured elbow-angle window;
+/// - straight-arm / hand support, using a near-extension elbow angle.
+///
+/// Both modes still require the selected support arm to sit below the shoulder
+/// through [HoldSignal.supportStacking]. The straight-arm entry boundary is
+/// derived from the configured forearm upper bound and anatomical full
+/// extension (180 degrees), rather than calibrated to one user or video.
 class SidePlankPosturePolicy implements HoldFormPolicy {
   SidePlankPosturePolicy({required HoldPostureConfig config})
-    : _basePolicy = HoldPosturePolicy(config: config);
+    : _config = config,
+      _basePolicy = HoldPosturePolicy(config: config);
 
   static final double minSupportStackingVerticalComponent = 1 / math.sqrt(2);
 
+  final HoldPostureConfig _config;
   final HoldPosturePolicy _basePolicy;
 
   @override
   Duration get breakGraceDuration => _basePolicy.breakGraceDuration;
+
+  double get _straightArmSupportMinAngle =>
+      (_config.armSupportMaxAngle + 180.0) / 2;
 
   @override
   HoldSignalValues targetSignalValues({required bool isHolding}) {
@@ -42,33 +49,61 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
     required bool isHolding,
   }) {
     final base = _basePolicy.evaluate(signals, isHolding: isHolding);
+    final supportAngle = signals.valueFor(HoldSignal.support);
     final supportStacking = signals.valueFor(HoldSignal.supportStacking);
+
+    final isForearmSupport =
+        supportAngle != null &&
+        supportAngle.isFinite &&
+        supportAngle >= _config.armSupportMinAngle &&
+        supportAngle <= _config.armSupportMaxAngle;
+    final isStraightArmSupport =
+        supportAngle != null &&
+        supportAngle.isFinite &&
+        supportAngle >= _straightArmSupportMinAngle;
+    final isSupportAngleValid = isForearmSupport || isStraightArmSupport;
     final isSupportStacked =
         supportStacking != null &&
         supportStacking.isFinite &&
         supportStacking >= minSupportStackingVerticalComponent;
+
+    final baseValidity = base.postureDiagnostics.signalValidity;
+    final isBodyAligned =
+        baseValidity.validityFor(HoldSignal.alignment) ?? false;
+    final areLegsExtended =
+        baseValidity.validityFor(HoldSignal.extension) ?? false;
     final hasCompleteMetrics =
         base.hasCompleteMetrics && supportStacking != null;
-    final isValidHoldPosture = base.isValidHoldPosture && isSupportStacked;
+    final isValidHoldPosture =
+        hasCompleteMetrics &&
+        isBodyAligned &&
+        isSupportAngleValid &&
+        isSupportStacked &&
+        areLegsExtended;
+    final supportsGraceWindow =
+        hasCompleteMetrics &&
+        !isBodyAligned &&
+        isSupportAngleValid &&
+        isSupportStacked &&
+        areLegsExtended;
 
     final signalValidity = HoldSignalValidity(
       values: <HoldSignal, bool>{
-        ...base.postureDiagnostics.signalValidity.asMap(),
+        ...baseValidity.asMap(),
+        HoldSignal.support: isSupportAngleValid,
         HoldSignal.supportStacking: isSupportStacked,
       },
     );
-
-    final isSupportAngleValid =
-        base.postureDiagnostics.signalValidity.validityFor(
-          HoldSignal.support,
-        ) ??
-        false;
 
     final correctiveFeedbackCode = !isSupportStacked
         ? HoldFeedbackCode.placeSupportElbowUnderShoulder
         : (!isSupportAngleValid
               ? HoldFeedbackCode.useForearmSupport
-              : base.correctiveFeedbackCode);
+              : (!isBodyAligned
+                    ? HoldFeedbackCode.alignHips
+                    : (!areLegsExtended
+                          ? HoldFeedbackCode.extendLegs
+                          : HoldFeedbackCode.correctForm)));
 
     return HoldFormEvaluation(
       hasActivePosture: base.hasActivePosture,
@@ -83,9 +118,11 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
       holdValidity: isValidHoldPosture
           ? HoldValidityStatus.valid
           : HoldValidityStatus.invalid,
-      breakDisposition: isSupportStacked
-          ? base.breakDisposition
-          : HoldBreakDisposition.breakImmediately,
+      breakDisposition: isValidHoldPosture
+          ? HoldBreakDisposition.continueHold
+          : (supportsGraceWindow
+                ? HoldBreakDisposition.graceEligible
+                : HoldBreakDisposition.breakImmediately),
     );
   }
 }

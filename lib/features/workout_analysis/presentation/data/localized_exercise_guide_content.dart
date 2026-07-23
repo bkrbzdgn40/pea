@@ -427,22 +427,22 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
     subtitle:
         'An isometric movement for lateral trunk endurance and core stability.',
     purpose:
-        'Aims to maintain the shoulder-hip-foot line, elbow support, and an extended leg position.',
+        'Aims to maintain the shoulder-hip-foot line, stable forearm or straight-arm support, and an extended leg position.',
     setupSteps: [
-      'Lie on your side and place your elbow under your shoulder.',
+      'Lie on your side; place your elbow under your shoulder for forearm support or your hand under your shoulder for straight-arm support.',
       'Extend your legs and stack your feet or use another balanced foot position.',
       'Place the camera in front of or behind your trunk so the body line is visible.',
       'Lift your hips and create one long line from your shoulder to your ankle.',
     ],
     tips: [
       'Do not let your hips drop toward the floor.',
-      'Keep your supporting elbow under your shoulder.',
+      'Keep your forearm or straight-arm support stable under your shoulder.',
       'Keep the leg line as long as you comfortably can.',
       'Continue breathing while you hold the position.',
     ],
     commonMistakes: [
       'Letting the hips sag toward the floor.',
-      'Placing the elbow too far from the shoulder.',
+      'Placing the supporting elbow or hand too far from the shoulder line.',
       'Bending the knees substantially.',
       'Rotating the trunk forward or backward.',
     ],

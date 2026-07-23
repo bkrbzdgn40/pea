@@ -18,18 +18,23 @@ void main() {
     ),
   );
 
-  HoldSignalValues signals({required double supportStacking}) {
+  HoldSignalValues signals({
+    required double supportStacking,
+    double supportAngle = 90,
+    double alignment = 170,
+    double extension = 170,
+  }) {
     return HoldSignalValues(
       values: <HoldSignal, double>{
-        HoldSignal.alignment: 170,
-        HoldSignal.support: 90,
+        HoldSignal.alignment: alignment,
+        HoldSignal.support: supportAngle,
         HoldSignal.supportStacking: supportStacking,
-        HoldSignal.extension: 170,
+        HoldSignal.extension: extension,
       },
     );
   }
 
-  test('accepts a support elbow that is vertically below the shoulder', () {
+  test('accepts stacked forearm support', () {
     final evaluation = policy.evaluate(
       signals(supportStacking: 0.95),
       isHolding: false,
@@ -38,13 +43,38 @@ void main() {
     expect(evaluation.isValidHoldPosture, isTrue);
     expect(
       evaluation.postureDiagnostics.signalValidity.validityFor(
+        HoldSignal.support,
+      ),
+      isTrue,
+    );
+    expect(
+      evaluation.postureDiagnostics.signalValidity.validityFor(
         HoldSignal.supportStacking,
       ),
       isTrue,
     );
   });
 
-  test('rejects a bent elbow that is above the shoulder', () {
+  test(
+    'accepts stacked straight-arm support as a valid side plank variation',
+    () {
+      final evaluation = policy.evaluate(
+        signals(supportStacking: 0.95, supportAngle: 170),
+        isHolding: false,
+      );
+
+      expect(evaluation.isValidHoldPosture, isTrue);
+      expect(
+        evaluation.postureDiagnostics.signalValidity.validityFor(
+          HoldSignal.support,
+        ),
+        isTrue,
+      );
+      expect(evaluation.correctiveFeedbackCode, HoldFeedbackCode.correctForm);
+    },
+  );
+
+  test('rejects a support arm that is not stacked below the shoulder', () {
     final evaluation = policy.evaluate(
       signals(supportStacking: -0.8),
       isHolding: false,
@@ -70,26 +100,13 @@ void main() {
     );
   });
 
-  test('asks for forearm support when the stacked support arm is straight', () {
+  test('rejects ambiguous partially bent support between stable modes', () {
     final evaluation = policy.evaluate(
-      HoldSignalValues(
-        values: <HoldSignal, double>{
-          HoldSignal.alignment: 170,
-          HoldSignal.support: 158,
-          HoldSignal.supportStacking: 0.95,
-          HoldSignal.extension: 170,
-        },
-      ),
+      signals(supportStacking: 0.95, supportAngle: 135),
       isHolding: false,
     );
 
     expect(evaluation.isValidHoldPosture, isFalse);
-    expect(
-      evaluation.postureDiagnostics.signalValidity.validityFor(
-        HoldSignal.supportStacking,
-      ),
-      isTrue,
-    );
     expect(
       evaluation.postureDiagnostics.signalValidity.validityFor(
         HoldSignal.support,
@@ -103,22 +120,21 @@ void main() {
   });
 
   test(
-    'preserves the legacy alignment grace window when support is stacked',
+    'preserves the alignment grace window for either stable support mode',
     () {
-      final evaluation = policy.evaluate(
-        HoldSignalValues(
-          values: <HoldSignal, double>{
-            HoldSignal.alignment: 160,
-            HoldSignal.support: 90,
-            HoldSignal.supportStacking: 0.95,
-            HoldSignal.extension: 170,
-          },
-        ),
+      final forearm = policy.evaluate(
+        signals(supportStacking: 0.95, alignment: 160),
+        isHolding: true,
+      );
+      final straightArm = policy.evaluate(
+        signals(supportStacking: 0.95, supportAngle: 170, alignment: 160),
         isHolding: true,
       );
 
-      expect(evaluation.isValidHoldPosture, isFalse);
-      expect(evaluation.supportsGraceWindow, isTrue);
+      expect(forearm.isValidHoldPosture, isFalse);
+      expect(forearm.supportsGraceWindow, isTrue);
+      expect(straightArm.isValidHoldPosture, isFalse);
+      expect(straightArm.supportsGraceWindow, isTrue);
     },
   );
 

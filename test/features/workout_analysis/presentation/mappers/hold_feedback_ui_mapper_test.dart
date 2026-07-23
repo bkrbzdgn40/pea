@@ -20,11 +20,11 @@ void main() {
       ),
       (
         code: HoldFeedbackCode.placeSupportElbowUnderShoulder,
-        message: 'Destek dirseğini omzunun altına yerleştir.',
+        message: 'Desteğini omzunun altında hizala.',
       ),
       (
         code: HoldFeedbackCode.useForearmSupport,
-        message: 'Destek dirseğini bük ve ön kolunu yere koy.',
+        message: 'Ön kol desteği kullan veya destek kolunu tamamen düzleştir.',
       ),
       (code: HoldFeedbackCode.extendLegs, message: 'Bacaklarını uzat.'),
       (
@@ -75,14 +75,14 @@ void main() {
         HoldFeedbackCode.placeSupportElbowUnderShoulder,
         localizations: en,
       ),
-      'Place your supporting elbow under your shoulder.',
+      'Align your support directly under your shoulder.',
     );
     expect(
       mapHoldFeedbackCodeToMessage(
         HoldFeedbackCode.useForearmSupport,
         localizations: en,
       ),
-      'Bend your supporting elbow and place your forearm on the floor.',
+      'Use forearm support or fully straighten your supporting arm.',
     );
   });
 }
