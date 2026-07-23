@@ -344,3 +344,41 @@ Bench Dip (`triceps_dip`) `R6 Engineering Revalidated` statüsüne aday olmak i�
 kanıtı gerekir.
 
 Formal protokol sapması olursa closure kaydında açıkça yazılır; çalıştırılmayan run PASS gösterilmez.
+
+## 13. Current Validation Status
+
+```text
+R6 Validation Blocked / Deferred
+Engineering Revalidated = No
+```
+
+Bench Dip scope conversion sonrası gerçek cihaz retest:
+
+```text
+app_commit_sha = c39bee097b8860ef807fd74a6ea7c64b5322c709
+
+rep_count = 0
+acquireNeutral = 1
+startDescending = 3
+reachPeak = 0
+abortToNeutral = 2
+
+analysis_fps_p50 = 3.8278
+frame_processing_ms_p95 = 473
+reentrant_drop_count = 274
+analysis_exception_count = 0
+```
+
+Video incelemesinde Bench Dip effective strict peak gate `<97°` altında yaklaşık `96°` ve `90°` UI-overlay samples görülmesine rağmen `reachPeak = 0` kalmıştır.
+
+Bu nedenle yeni Bench Dip threshold topolojisi tekrar gevşetilmemiştir. Failure sparse sampling ile generic multi-stage phase transition davranışının valid peak evidence'ı fazlar arasında kaybedebilmesi root area'sında sınıflandırılmıştır.
+
+Generic lifecycle veya analysis-pipeline seviyesindeki güvenli fix geniş regression/performance scope'u taşıdığı için Bench Dip mevcut validation turunda bilinçli olarak deferred bırakılmıştır.
+
+Kalıcı issue, scope-conversion geçmişi ve reopen acceptance criteria:
+
+```text
+docs/beta/r6-wave-c-triceps-dip-results.md
+```
+
+Bu hareket PASS veya `R6 Engineering Revalidated` olarak yorumlanmamalıdır.
