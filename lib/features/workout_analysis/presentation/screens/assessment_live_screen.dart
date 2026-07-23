@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/localization/app_localizations.dart';
 
 import '../../domain/models/assessment_models.dart';
+import '../camera_image_stream_coordinator.dart';
 import '../providers/assessment_live_controller.dart';
 import '../providers/camera_provider.dart';
 import '../providers/selected_assessment_provider.dart';
@@ -20,20 +21,40 @@ class AssessmentLiveScreen extends ConsumerStatefulWidget {
       _AssessmentLiveScreenState();
 }
 
-class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
-  CameraController? _streamController;
-  bool _startingStream = false;
-  bool _ownsImageStream = false;
+class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
+    with WidgetsBindingObserver {
+  late final CameraImageStreamCoordinator _imageStreamCoordinator;
+  bool _isRecoveringCamera = false;
+  bool _isAppResumed = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _imageStreamCoordinator = CameraImageStreamCoordinator();
+  }
 
   @override
   void dispose() {
-    final controller = _streamController;
-    if (_ownsImageStream &&
-        controller != null &&
-        controller.value.isStreamingImages) {
-      unawaited(controller.stopImageStream());
-    }
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_imageStreamCoordinator.dispose());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _isAppResumed = false;
+      unawaited(_imageStreamCoordinator.stop());
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      _isAppResumed = true;
+      unawaited(_recoverCameraIfAllowed());
+    }
   }
 
   @override
@@ -58,7 +79,12 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: cameraState.when(
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: false,
         data: (controller) {
+          if (_isRecoveringCamera) {
+            return const Center(child: CircularProgressIndicator());
+          }
           if (!controller.value.isInitialized ||
               controller.value.previewSize == null) {
             return const Center(child: CircularProgressIndicator());
@@ -102,12 +128,10 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
               ),
               _AssessmentStatusOverlay(topInset: topInset),
               _AssessmentActionOverlay(
-                onRetry: () {
-                  ref.read(assessmentLiveControllerProvider.notifier).retry();
-                },
+                onRetry: () => _retryAssessment(controller),
                 onClose: () => Navigator.pop(context),
                 onComplete: () async {
-                  await _stopImageStream();
+                  await _imageStreamCoordinator.stop();
                   ref
                       .read(assessmentLiveControllerProvider.notifier)
                       .complete();
@@ -132,67 +156,68 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen> {
   }
 
   void _ensureImageStream(CameraController controller) {
-    if (_startingStream ||
-        ref.read(assessmentLiveControllerProvider).snapshot.isCompleted) {
-      return;
-    }
-    if (_ownsImageStream &&
-        identical(_streamController, controller) &&
-        controller.value.isStreamingImages) {
-      return;
-    }
-
-    _startingStream = true;
-    _streamController = controller;
-    unawaited(_claimImageStream(controller));
-  }
-
-  Future<void> _claimImageStream(CameraController controller) async {
-    try {
-      // CameraController supports a single image-stream callback. A controller
-      // can survive route transitions while still streaming to the previous
-      // screen, which leaves assessment preview visible but starves this
-      // controller of frames. Take explicit ownership before attaching the
-      // assessment callback.
-      if (controller.value.isStreamingImages) {
-        await controller.stopImageStream();
-      }
-
-      if (!mounted ||
-          ref.read(assessmentLiveControllerProvider).snapshot.isCompleted) {
-        return;
-      }
-
-      await controller.startImageStream((image) {
+    _imageStreamCoordinator.ensureStarted(
+      controller: controller,
+      shouldStart: () =>
+          mounted &&
+          _isAppResumed &&
+          !_isRecoveringCamera &&
+          !ref.read(assessmentLiveControllerProvider).snapshot.isCompleted,
+      onFrame: (image, streamController) {
+        if (!mounted) {
+          return;
+        }
         unawaited(
           ref
               .read(assessmentLiveControllerProvider.notifier)
               .processCameraImage(
                 image,
-                controller.description.sensorOrientation,
+                streamController.description.sensorOrientation,
               ),
         );
-      });
-      _ownsImageStream = true;
-    } catch (_) {
-      _ownsImageStream = false;
-    } finally {
-      _startingStream = false;
-    }
+      },
+      onError: (_, _) => _recoverCameraAfterStreamError(),
+    );
   }
 
-  Future<void> _stopImageStream() async {
-    final controller = _streamController;
-    if (!_ownsImageStream ||
-        controller == null ||
-        !controller.value.isStreamingImages) {
+  void _retryAssessment(CameraController controller) {
+    ref.read(assessmentLiveControllerProvider.notifier).retry();
+    _ensureImageStream(controller);
+  }
+
+  void _recoverCameraAfterStreamError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_recoverCameraIfAllowed());
+      }
+    });
+  }
+
+  Future<void> _recoverCameraIfAllowed() async {
+    if (!_isAppResumed ||
+        _isRecoveringCamera ||
+        ref.read(selectedAssessmentProvider) == null ||
+        ref.read(assessmentLiveControllerProvider).snapshot.isCompleted) {
       return;
     }
+
+    if (mounted) {
+      setState(() => _isRecoveringCamera = true);
+    }
+
     try {
-      await controller.stopImageStream();
-      _ownsImageStream = false;
+      await _imageStreamCoordinator.stop();
+      if (!mounted || !_isAppResumed) {
+        return;
+      }
+      ref.invalidate(cameraProvider);
+      await ref.read(cameraProvider.future);
     } catch (_) {
-      // Keep assessment completion usable during camera teardown races.
+      // The camera provider surfaces recovery failures in the existing error UI.
+    } finally {
+      if (mounted) {
+        setState(() => _isRecoveringCamera = false);
+      }
     }
   }
 }

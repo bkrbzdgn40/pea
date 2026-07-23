@@ -296,7 +296,55 @@ void main() {
     await tester.pump();
 
     expect(harness.notifier.retryCallCount, 1);
+    expect(harness.cameraController.stopImageStreamCallCount, 1);
+    expect(harness.cameraController.startImageStreamCallCount, 1);
+    expect(harness.cameraController.value.isStreamingImages, isTrue);
     expect(find.text('Sonucu Gör'), findsOneWidget);
+  });
+
+  testWidgets('reclaims the image stream after app lifecycle resume', (
+    tester,
+  ) async {
+    final state = AssessmentLiveState(
+      snapshot: const AssessmentSnapshot(
+        type: AssessmentType.squat,
+        phase: AssessmentPhase.active,
+        sampleCount: 0,
+        isReadyToComplete: false,
+        readinessProgress: 0,
+        result: null,
+      ),
+      feedbackMessage: 'Squat yap.',
+      progressMessage: 'Hareket ilerlemesi: %0',
+    );
+    final harness = await _pumpScreen(
+      tester,
+      selection: const AssessmentSelection(type: AssessmentType.squat),
+      initialState: state,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await harness.dispose();
+    });
+
+    expect(harness.cameraController.stopImageStreamCallCount, 1);
+    expect(harness.cameraController.startImageStreamCallCount, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump();
+
+    expect(harness.cameraController.stopImageStreamCallCount, 2);
+    expect(harness.cameraController.value.isStreamingImages, isFalse);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(harness.cameraController.startImageStreamCallCount, 2);
+    expect(harness.cameraController.value.isStreamingImages, isTrue);
   });
 
   testWidgets('squat result avoids side-view asymmetry claims', (tester) async {

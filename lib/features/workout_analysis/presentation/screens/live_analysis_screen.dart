@@ -13,6 +13,7 @@ import '../../application/workout_engine.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
+import '../camera_image_stream_coordinator.dart';
 import '../models/workout_live_metric_display_state.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
@@ -44,6 +45,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _isRecoveringCamera = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
+  late final CameraImageStreamCoordinator _imageStreamCoordinator;
   WorkoutSessionLifecycleOwner? _sessionLifecycle;
   ProviderSubscription<WorkoutSessionLifecycleOwner>?
   _sessionLifecycleSubscription;
@@ -55,6 +57,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _imageStreamCoordinator = CameraImageStreamCoordinator();
     if (_hasAnalysisSelection()) {
       _sessionLifecycleSubscription = ref
           .listenManual<WorkoutSessionLifecycleOwner>(
@@ -95,6 +98,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_imageStreamCoordinator.dispose());
     super.dispose();
   }
 
@@ -171,26 +175,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
   }
 
-  Future<void> _stopImageStreamIfNeeded() async {
-    final controller = ref
-        .read(cameraProvider)
-        .maybeWhen(data: (controller) => controller, orElse: () => null);
-    final controllerValue = controller == null
-        ? null
-        : _safeControllerValue(controller);
-
-    if (controller == null ||
-        controllerValue == null ||
-        !controllerValue.isInitialized ||
-        !controllerValue.isStreamingImages) {
-      return;
-    }
-
-    try {
-      await controller.stopImageStream();
-    } catch (_) {
-      // The camera plugin can already be tearing down during lifecycle changes.
-    }
+  Future<void> _stopImageStreamIfNeeded() {
+    return _imageStreamCoordinator.stop();
   }
 
   Future<void> _recoverCameraIfAllowed() async {
@@ -221,6 +207,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
         ref.invalidate(cameraProvider);
         _goToPermissionScreen();
+        return;
+      }
+
+      await _stopImageStreamIfNeeded();
+      if (!mounted || (sessionLifecycle?.isFinishing ?? false)) {
         return;
       }
 
@@ -567,10 +558,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          if (!sessionLifecycle.isFinishing &&
-              !controllerValue.isStreamingImages) {
-            _startImageStream(controller);
-          }
+          _ensureImageStream(controller, sessionLifecycle);
 
           final imageSize = Size(previewSize.height, previewSize.width);
           final isMirrored =
@@ -681,29 +669,34 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
   }
 
-  void _startImageStream(CameraController controller) {
-    try {
-      unawaited(
-        controller
-            .startImageStream((image) {
-              final cameraValue = _safeControllerValue(controller);
-              ref
-                  .read(workoutControllerProvider.notifier)
-                  .processCameraImage(
-                    image,
-                    controller.description.sensorOrientation,
-                    cameraLensDirection:
-                        controller.description.lensDirection.name,
-                    deviceOrientation: cameraValue?.deviceOrientation.name,
-                  );
-            })
-            .catchError((_) {
-              _markCameraRecoveringAfterFrame();
-            }),
-      );
-    } catch (_) {
-      _markCameraRecoveringAfterFrame();
-    }
+  void _ensureImageStream(
+    CameraController controller,
+    WorkoutSessionLifecycleOwner sessionLifecycle,
+  ) {
+    _imageStreamCoordinator.ensureStarted(
+      controller: controller,
+      shouldStart: () =>
+          mounted &&
+          !_isRecoveringCamera &&
+          !sessionLifecycle.isFinishing &&
+          _hasAnalysisSelection(),
+      onFrame: (image, streamController) {
+        if (!mounted) {
+          return;
+        }
+        final cameraValue = _safeControllerValue(streamController);
+        ref
+            .read(workoutControllerProvider.notifier)
+            .processCameraImage(
+              image,
+              streamController.description.sensorOrientation,
+              cameraLensDirection:
+                  streamController.description.lensDirection.name,
+              deviceOrientation: cameraValue?.deviceOrientation.name,
+            );
+      },
+      onError: (_, _) => _markCameraRecoveringAfterFrame(),
+    );
   }
 
   void _markCameraRecoveringAfterFrame() {
