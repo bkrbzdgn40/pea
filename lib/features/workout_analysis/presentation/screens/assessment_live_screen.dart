@@ -226,34 +226,18 @@ class _AssessmentPoseOverlay extends ConsumerWidget {
   }
 }
 
-class _AssessmentStatusOverlay extends ConsumerWidget {
+class _AssessmentStatusOverlay extends StatelessWidget {
   const _AssessmentStatusOverlay({required this.topInset});
 
   final double topInset;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(
-      assessmentLiveControllerProvider.select(
-        (state) => (
-          sampleCount: state.snapshot.sampleCount,
-          feedback: state.feedbackMessage,
-          progressMessage: state.progressMessage,
-          progress: state.snapshot.readinessProgress,
-        ),
-      ),
-    );
-
+  Widget build(BuildContext context) {
     return Positioned(
       top: topInset + 70,
       left: 20,
       right: 20,
-      child: _AssessmentStatusCard(
-        sampleCount: status.sampleCount,
-        feedback: status.feedback,
-        progressMessage: status.progressMessage,
-        progress: status.progress,
-      ),
+      child: const _AssessmentStatusCard(),
     );
   }
 }
@@ -311,21 +295,10 @@ class _AssessmentActionOverlay extends ConsumerWidget {
 }
 
 class _AssessmentStatusCard extends StatelessWidget {
-  const _AssessmentStatusCard({
-    required this.sampleCount,
-    required this.feedback,
-    required this.progressMessage,
-    required this.progress,
-  });
-
-  final int sampleCount;
-  final String feedback;
-  final String progressMessage;
-  final double progress;
+  const _AssessmentStatusCard();
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -333,41 +306,110 @@ class _AssessmentStatusCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white24),
       ),
-      child: Column(
+      child: const Column(
         children: [
-          Text(
-            feedback,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0).toDouble(),
-            minHeight: 5,
-            backgroundColor: Colors.white12,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            progressMessage,
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            localizations.validSamples(sampleCount),
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
+          _AssessmentFeedbackText(),
+          SizedBox(height: 10),
+          _AssessmentProgressDetails(),
+          SizedBox(height: 3),
+          _AssessmentSampleCountText(),
         ],
       ),
     );
   }
+}
+
+class _AssessmentFeedbackText extends ConsumerWidget {
+  const _AssessmentFeedbackText();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedback = ref.watch(
+      assessmentLiveControllerProvider.select((state) => state.feedbackMessage),
+    );
+
+    return Text(
+      feedback,
+      key: const ValueKey<String>('assessment-feedback-text'),
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _AssessmentProgressDetails extends ConsumerWidget {
+  const _AssessmentProgressDetails();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(
+      assessmentLiveControllerProvider.select(
+        (state) => (
+          percentage: _displayProgressPercentage(
+            state.snapshot.readinessProgress,
+          ),
+          message: state.progressMessage,
+        ),
+      ),
+    );
+
+    return Column(
+      children: [
+        LinearProgressIndicator(
+          value: progress.percentage / 100,
+          minHeight: 5,
+          backgroundColor: Colors.white12,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          progress.message,
+          key: const ValueKey<String>('assessment-progress-message'),
+          style: const TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssessmentSampleCountText extends ConsumerWidget {
+  const _AssessmentSampleCountText();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sampleCount = ref.watch(
+      assessmentLiveControllerProvider.select(
+        (state) => state.snapshot.sampleCount,
+      ),
+    );
+
+    return Text(
+      AppLocalizations.of(context).validSamples(sampleCount),
+      key: const ValueKey<String>('assessment-sample-count-text'),
+      style: const TextStyle(color: Colors.white60, fontSize: 12),
+    );
+  }
+}
+
+int _displayProgressPercentage(double progress) {
+  if (!progress.isFinite) {
+    return 0;
+  }
+  final percentage = (progress * 100).round();
+  if (percentage < 0) {
+    return 0;
+  }
+  if (percentage > 100) {
+    return 100;
+  }
+  return percentage;
 }
 
 class _AssessmentResultCard extends StatelessWidget {

@@ -13,6 +13,7 @@ import 'package:pose_estimation_app/features/auth/presentation/providers/auth_pr
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/repositories/session_repository.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -161,6 +162,207 @@ void main() {
     );
     expect(identical(stateAfter, stateBefore), isFalse);
     expect(identical(previewAfter, previewBefore), isTrue);
+  });
+
+  testWidgets('updates live metric cards only when displayed values change', (
+    tester,
+  ) async {
+    const initialState = WorkoutState.hold(
+      feedbackMessage: 'Form iyi',
+      cameraFps: 10.2,
+      analysisFps: 8.2,
+      analysis: HoldWorkoutAnalysisState(
+        currentHoldSeconds: 0.1,
+        bestHoldSeconds: 2.1,
+        currentPhase: 'HOLDING',
+      ),
+    );
+    final cameraController = _FakeCameraController();
+    late _FakeWorkoutController fakeController;
+    final container = ProviderContainer(
+      overrides: <Override>[
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
+        activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.plank),
+        exerciseConfigProvider.overrideWith((ref) => _plankConfig()),
+        workoutControllerProvider.overrideWith(
+          () => fakeController = _FakeWorkoutController(initialState),
+        ),
+        authRepositoryProvider.overrideWithValue(
+          const _FakeAuthRepository(currentUserId: 'test-user'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+        cameraProvider.overrideWith((ref) async => cameraController),
+      ],
+    );
+    addTearDown(() async {
+      await cameraController.dispose();
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('tr'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const LiveAnalysisScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final primaryBefore = tester.widget(
+      find.byKey(const ValueKey<String>('live-primary-metric-card')),
+    );
+    final fpsBefore = tester.widget(
+      find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
+    );
+    final secondaryBefore = tester.widget(
+      find.byKey(const ValueKey<String>('live-secondary-metric-card')),
+    );
+    final feedbackBefore = tester.widget(
+      find.byKey(const ValueKey<String>('live-feedback-message-card')),
+    );
+    final statusBefore = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('live-analysis-status-line')),
+    );
+
+    fakeController.publish(
+      initialState.copyWith(
+        cameraFps: 10.4,
+        analysisFps: 8.4,
+        holdAnalysis: initialState.holdAnalysis!.copyWith(
+          currentHoldSeconds: 0.8,
+          bestHoldSeconds: 2.8,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-primary-metric-card')),
+        ),
+        primaryBefore,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
+        ),
+        fpsBefore,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-secondary-metric-card')),
+        ),
+        secondaryBefore,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-feedback-message-card')),
+        ),
+        feedbackBefore,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        tester.widget<Text>(
+          find.byKey(const ValueKey<String>('live-analysis-status-line')),
+        ),
+        statusBefore,
+      ),
+      isTrue,
+    );
+
+    fakeController.publish(
+      initialState.copyWith(
+        cameraFps: 11,
+        analysisFps: 9,
+        holdAnalysis: initialState.holdAnalysis!.copyWith(
+          currentHoldSeconds: 1.1,
+          bestHoldSeconds: 3.1,
+          currentPhase: 'FORM_CHECK',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-primary-metric-card')),
+        ),
+        primaryBefore,
+      ),
+      isFalse,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
+        ),
+        fpsBefore,
+      ),
+      isFalse,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-secondary-metric-card')),
+        ),
+        secondaryBefore,
+      ),
+      isFalse,
+    );
+    expect(
+      identical(
+        tester.widget(
+          find.byKey(const ValueKey<String>('live-feedback-message-card')),
+        ),
+        feedbackBefore,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        tester.widget<Text>(
+          find.byKey(const ValueKey<String>('live-analysis-status-line')),
+        ),
+        statusBefore,
+      ),
+      isFalse,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('live-primary-metric-card')),
+        matching: find.text('0:01'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
+        matching: find.text('11'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
@@ -897,6 +1099,19 @@ Pose _bicepsCurlPose({
     leftUpperArmDriftAngle: leftUpperArmDriftAngle,
     rightUpperArmDriftAngle: rightUpperArmDriftAngle,
   );
+}
+
+class _FakeWorkoutController extends WorkoutController {
+  _FakeWorkoutController(this.initialState);
+
+  final WorkoutState initialState;
+
+  @override
+  WorkoutState build() => initialState;
+
+  void publish(WorkoutState next) {
+    state = next;
+  }
 }
 
 class _LiveScreenHarness {
