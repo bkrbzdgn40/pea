@@ -17,6 +17,7 @@ import '../../application/feedback_delivery_controller.dart';
 import '../../application/hold_coordinator.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
 import '../../application/pose_quality_policy.dart';
+import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
@@ -172,6 +173,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late ExerciseConfig _config;
   late RangeRepContract? _rangeRepContract;
   late HoldContract? _holdContract;
+  late PreparedExerciseAnalysisContext _preparedAnalysisContext;
   final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
   final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
   final ExerciseMetricsExtractor _metricsExtractor =
@@ -288,6 +290,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         );
         throw StateError('Unreachable alternatingRep analysis wiring path.');
     }
+
+    _preparedAnalysisContext = PreparedExerciseAnalysisContext.resolve(
+      config: _config,
+      engineKind: _engineKind,
+      rangeRepContract: _rangeRepContract,
+      holdContract: _holdContract,
+    );
 
     _lastFpsCalculationTime = _clock();
     _cameraFrameCount = 0;
@@ -580,6 +589,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             engineKind: _engineKind,
             rangeRepContract: _rangeRepContract,
             holdContract: _holdContract,
+            preparedContext: _preparedAnalysisContext,
             holdSide: _engineKind == EngineKind.hold
                 ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
                     selectedAssessment,
@@ -1143,12 +1153,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final requiredHoldSide = _engineKind == EngineKind.hold
         ? _holdCoordinatorOrThrow().requiredHoldSideForAssessment()
         : null;
-    return (pose) => _poseQualityPolicy.assess(
+    return (pose) => _poseQualityPolicy.assessPrepared(
       pose: pose,
       config: _config,
-      engineKind: _engineKind,
-      rangeRepContract: _rangeRepContract,
-      holdContract: _holdContract,
+      preparedContext: _preparedAnalysisContext,
       requiredHoldSide: requiredHoldSide,
     );
   }
