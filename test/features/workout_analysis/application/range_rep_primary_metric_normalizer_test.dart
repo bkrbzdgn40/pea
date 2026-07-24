@@ -62,6 +62,80 @@ void main() {
     },
   );
 
+  test(
+    'Sit-up rejects a peak-first entry until a relaxed lying setup appears',
+    () {
+      final normalizer = RangeRepPrimaryMetricNormalizer(
+        config: sitUpConfig,
+        rangeRepContract: RangeRepContracts.sitUp,
+      );
+
+      final normalizedValues = <double>[
+        for (final primaryAngle in <double>[68, 90, 109, 110])
+          _normalizeSitUp(
+            extractor: extractor,
+            normalizer: normalizer,
+            config: sitUpConfig,
+            pose: buildSitUpPose(primaryAngle: primaryAngle),
+          ).leftRangeRepMetrics.primaryAngle,
+      ];
+
+      _expectSequenceCloseTo(normalizedValues, const <double>[
+        120,
+        120,
+        120,
+        121,
+      ]);
+    },
+  );
+
+  test('Sit-up cannot acquire neutral when the setup knee is unavailable', () {
+    final normalizer = RangeRepPrimaryMetricNormalizer(
+      config: sitUpConfig,
+      rangeRepContract: RangeRepContracts.sitUp,
+    );
+    final normalized = _normalizeSitUp(
+      extractor: extractor,
+      normalizer: normalizer,
+      config: sitUpConfig,
+      pose: buildSitUpPose(
+        primaryAngle: 125,
+        missingLandmarks: const <PoseLandmarkType>{
+          PoseLandmarkType.leftKnee,
+          PoseLandmarkType.rightKnee,
+        },
+      ),
+    );
+
+    expect(normalized.leftRangeRepMetrics.primaryAngle, closeTo(120, 0.001));
+    expect(normalized.rightRangeRepMetrics.primaryAngle, closeTo(120, 0.001));
+  });
+
+  test('Sit-up accepts a slightly raised lying setup without losing ROM', () {
+    final normalizer = RangeRepPrimaryMetricNormalizer(
+      config: sitUpConfig,
+      rangeRepContract: RangeRepContracts.sitUp,
+    );
+
+    final normalizedValues = <double>[
+      for (final primaryAngle in <double>[110, 95, 68, 90, 110])
+        _normalizeSitUp(
+          extractor: extractor,
+          normalizer: normalizer,
+          config: sitUpConfig,
+          pose: buildSitUpPose(primaryAngle: primaryAngle),
+        ).leftRangeRepMetrics.primaryAngle,
+    ];
+
+    _expectSequenceCloseTo(normalizedValues, const <double>[
+      121,
+      106,
+      79,
+      101,
+      121,
+    ]);
+  });
+
   test('Sit-up normalized movement is invariant to rigid image rotation', () {
     final unrotated = _normalizedSitUpSequence(
       extractor: extractor,
@@ -114,7 +188,7 @@ void main() {
     );
   });
 
-  test('an orientation discontinuity re-establishes a neutral baseline', () {
+  test('rigid image rotation preserves the acquired lying baseline', () {
     final normalizer = RangeRepPrimaryMetricNormalizer(
       config: sitUpConfig,
       rangeRepContract: RangeRepContracts.sitUp,
@@ -138,7 +212,7 @@ void main() {
     expect(normalized.rightRangeRepMetrics.primaryAngle, closeTo(125, 0.001));
   });
 
-  test('reset discards the previous Sit-up orientation baseline', () {
+  test('reset requires a fresh lying setup before Sit-up can re-arm', () {
     final normalizer = RangeRepPrimaryMetricNormalizer(
       config: sitUpConfig,
       rangeRepContract: RangeRepContracts.sitUp,
@@ -157,15 +231,22 @@ void main() {
       pose: buildSitUpPose(primaryAngle: 68),
     );
     normalizer.reset();
-    final reacquired = _normalizeSitUp(
+    final rejectedPeak = _normalizeSitUp(
       extractor: extractor,
       normalizer: normalizer,
       config: sitUpConfig,
       pose: buildSitUpPose(primaryAngle: 68),
     );
+    final reacquired = _normalizeSitUp(
+      extractor: extractor,
+      normalizer: normalizer,
+      config: sitUpConfig,
+      pose: buildSitUpPose(primaryAngle: 110),
+    );
 
     expect(active.leftRangeRepMetrics.primaryAngle, closeTo(68, 0.001));
-    expect(reacquired.leftRangeRepMetrics.primaryAngle, closeTo(125, 0.001));
+    expect(rejectedPeak.leftRangeRepMetrics.primaryAngle, closeTo(120, 0.001));
+    expect(reacquired.leftRangeRepMetrics.primaryAngle, closeTo(121, 0.001));
   });
 }
 

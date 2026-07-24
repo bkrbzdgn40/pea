@@ -2,19 +2,23 @@ import 'dart:math' as math;
 
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import '../../../core/utils/angle_calculator.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'exercise_metrics.dart';
 import 'pose_landmark_mirror.dart';
 
-/// Normalizes image-plane range-rep metrics against the user's neutral pose.
+/// Normalizes image-plane range-rep metrics against a valid neutral setup.
 ///
 /// Joint-angle metrics are already invariant to a rigid image rotation. An
 /// image-plane segment inclination is not: rotating the camera changes the
-/// absolute segment angle even when the user's pose is unchanged. This class
-/// converts that absolute orientation into signed movement progress from the
-/// first accepted neutral pose while preserving the existing engine threshold
-/// scale.
+/// absolute segment angle even when the user's pose is unchanged.
+///
+/// For the Sit-up contract, the first accepted pose must also represent the
+/// relaxed, lying setup. The rotation-invariant shoulder-hip-knee angle gates
+/// baseline acquisition, so entering the camera at the top of a Sit-up cannot
+/// be mistaken for neutral. A small tolerance keeps the setup practical for a
+/// torso that is slightly raised from the floor.
 class RangeRepPrimaryMetricNormalizer {
   RangeRepPrimaryMetricNormalizer({
     required ExerciseConfig config,
@@ -22,18 +26,19 @@ class RangeRepPrimaryMetricNormalizer {
   }) : _config = config,
        _rangeRepContract = rangeRepContract;
 
-  static const double _neutralReferenceOffsetDegrees = 5.0;
-  static const double _movementDirectionLockDegrees = 5.0;
-  static const double _orientationDiscontinuityDegrees = 80.0;
+  static const double _setupToleranceDegrees = 10.0;
+  static const double _armedNeutralMarginDegrees = 1.0;
 
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
-  final Map<RangeRepSide, _SideOrientationState> _sideStates =
-      <RangeRepSide, _SideOrientationState>{};
+  final Map<RangeRepSide, _SideSetupState> _sideStates =
+      <RangeRepSide, _SideSetupState>{};
 
   bool get _requiresNormalization =>
       _rangeRepContract.primaryMetricKind ==
           RangeRepPrimaryMetricKind.imagePlaneInclination &&
+      _rangeRepContract.primaryMetricDirection ==
+          RangeRepPrimaryMetricDirection.decreasingToPeak &&
       _rangeRepContract.sideMode == RangeRepSideMode.selectedSide;
 
   ExerciseMetrics normalize({
@@ -73,70 +78,79 @@ class RangeRepPrimaryMetricNormalizer {
       return metrics;
     }
 
-    final start =
+    final shoulder =
         pose.landmarks[resolveRangeRepLandmarkForSide(
           _config.joint1,
           metrics.side,
         )];
-    final end =
+    final hip =
         pose.landmarks[resolveRangeRepLandmarkForSide(
           _config.primaryJoint,
           metrics.side,
         )];
-    if (start == null || end == null) {
-      return metrics;
+    final knee =
+        pose.landmarks[resolveRangeRepLandmarkForSide(
+          _config.joint2,
+          metrics.side,
+        )];
+    if (shoulder == null || hip == null || knee == null) {
+      return _withPrimaryMetric(metrics, _config.thresholdNeutral);
     }
 
-    final orientation = _segmentOrientationDegrees(start, end);
-    if (orientation == null) {
-      return metrics;
+    final setupAngle = _innerAngleDegrees(shoulder, hip, knee);
+    if (setupAngle == null) {
+      return _withPrimaryMetric(metrics, _config.thresholdNeutral);
     }
 
     final state = _sideStates.putIfAbsent(
       metrics.side,
-      () => _SideOrientationState(
-        neutralReference: _neutralReference,
+      () => _SideSetupState(
+        neutralThreshold: _config.thresholdNeutral,
         metricDirection: _rangeRepContract.primaryMetricDirection,
       ),
     );
-    final normalizedPrimaryMetric = state.normalize(orientation);
+    final normalizedPrimaryMetric = state.normalize(setupAngle);
 
+    return _withPrimaryMetric(metrics, normalizedPrimaryMetric);
+  }
+
+  RangeRepSideMetrics _withPrimaryMetric(
+    RangeRepSideMetrics metrics,
+    double primaryMetric,
+  ) {
     return RangeRepSideMetrics(
       side: metrics.side,
-      primaryAngle: normalizedPrimaryMetric,
+      primaryAngle: primaryMetric,
       formMetric: metrics.formMetric,
       hasPrimaryAngle: metrics.hasPrimaryAngle,
       hasFormMetric: metrics.hasFormMetric,
       sideConfidence: metrics.sideConfidence,
       formSignals: _replacePrimaryDerivedDepthMetric(
         metrics.formSignals,
-        normalizedPrimaryMetric,
+        primaryMetric,
       ),
     );
   }
 
-  double get _neutralReference {
-    return switch (_rangeRepContract.primaryMetricDirection) {
-      RangeRepPrimaryMetricDirection.decreasingToPeak =>
-        (_config.thresholdNeutral + _neutralReferenceOffsetDegrees)
-            .clamp(0.0, 180.0)
-            .toDouble(),
-      RangeRepPrimaryMetricDirection.increasingToPeak =>
-        (_config.thresholdNeutral - _neutralReferenceOffsetDegrees)
-            .clamp(0.0, 180.0)
-            .toDouble(),
-    };
-  }
-
-  double? _segmentOrientationDegrees(PoseLandmark start, PoseLandmark end) {
-    final dx = end.x - start.x;
-    final dy = end.y - start.y;
-    if (dx == 0.0 && dy == 0.0) {
+  double? _innerAngleDegrees(
+    PoseLandmark first,
+    PoseLandmark middle,
+    PoseLandmark last,
+  ) {
+    final firstDx = first.x - middle.x;
+    final firstDy = first.y - middle.y;
+    final lastDx = last.x - middle.x;
+    final lastDy = last.y - middle.y;
+    if ((firstDx == 0.0 && firstDy == 0.0) ||
+        (lastDx == 0.0 && lastDy == 0.0)) {
       return null;
     }
 
-    final degrees = math.atan2(dy, dx) * 180.0 / math.pi;
-    return (degrees % 180.0 + 180.0) % 180.0;
+    return AngleCalculator.calculate(
+      math.Point<double>(first.x, first.y),
+      math.Point<double>(middle.x, middle.y),
+      math.Point<double>(last.x, last.y),
+    );
   }
 
   RangeRepFormSignals? _replacePrimaryDerivedDepthMetric(
@@ -158,60 +172,96 @@ class RangeRepPrimaryMetricNormalizer {
   }
 }
 
-class _SideOrientationState {
-  _SideOrientationState({
-    required this.neutralReference,
+class _SideSetupState {
+  _SideSetupState({
+    required this.neutralThreshold,
     required this.metricDirection,
   });
 
-  final double neutralReference;
+  final double neutralThreshold;
   final RangeRepPrimaryMetricDirection metricDirection;
 
-  double? _baselineOrientation;
-  int? _movementDirection;
+  double? _baselineSetupAngle;
+  double? _baselineMetric;
 
-  double normalize(double orientation) {
-    final baselineOrientation = _baselineOrientation;
-    if (baselineOrientation == null) {
-      _baselineOrientation = orientation;
-      return neutralReference;
+  double normalize(double setupAngle) {
+    final baselineSetupAngle = _baselineSetupAngle;
+    if (baselineSetupAngle == null) {
+      if (!_isEligibleSetup(setupAngle)) {
+        return neutralThreshold;
+      }
+      _setBaseline(setupAngle);
+      return _baselineMetric!;
     }
 
-    final signedDelta = _signedAngularDelta(baselineOrientation, orientation);
-    if (signedDelta.abs() >=
-        RangeRepPrimaryMetricNormalizer._orientationDiscontinuityDegrees) {
-      _baselineOrientation = orientation;
-      _movementDirection = null;
-      return neutralReference;
-    }
-
-    if (_movementDirection == null &&
-        signedDelta.abs() >=
-            RangeRepPrimaryMetricNormalizer._movementDirectionLockDegrees) {
-      _movementDirection = signedDelta.isNegative ? -1 : 1;
-    }
-
-    final movementDirection = _movementDirection;
-    final movementProgress = movementDirection == null
-        ? 0.0
-        : math.max(0.0, signedDelta * movementDirection);
+    _expandBaselineTowardNeutral(setupAngle);
+    final currentBaselineSetupAngle = _baselineSetupAngle!;
+    final currentBaselineMetric = _baselineMetric!;
+    final movementProgress = switch (metricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak => math.max(
+        0.0,
+        currentBaselineSetupAngle - setupAngle,
+      ),
+      RangeRepPrimaryMetricDirection.increasingToPeak => math.max(
+        0.0,
+        setupAngle - currentBaselineSetupAngle,
+      ),
+    };
 
     final normalized = switch (metricDirection) {
       RangeRepPrimaryMetricDirection.decreasingToPeak =>
-        neutralReference - movementProgress,
+        currentBaselineMetric - movementProgress,
       RangeRepPrimaryMetricDirection.increasingToPeak =>
-        neutralReference + movementProgress,
+        currentBaselineMetric + movementProgress,
     };
     return normalized.clamp(0.0, 180.0).toDouble();
   }
 
-  double _signedAngularDelta(double from, double to) {
-    var delta = (to - from) % 180.0;
-    if (delta > 90.0) {
-      delta -= 180.0;
-    } else if (delta < -90.0) {
-      delta += 180.0;
+  bool _isEligibleSetup(double setupAngle) {
+    return switch (metricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        setupAngle >=
+            neutralThreshold -
+                RangeRepPrimaryMetricNormalizer._setupToleranceDegrees,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        setupAngle <=
+            neutralThreshold +
+                RangeRepPrimaryMetricNormalizer._setupToleranceDegrees,
+    };
+  }
+
+  void _setBaseline(double setupAngle) {
+    _baselineSetupAngle = setupAngle;
+    _baselineMetric = switch (metricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        math
+            .max(
+              setupAngle,
+              neutralThreshold +
+                  RangeRepPrimaryMetricNormalizer._armedNeutralMarginDegrees,
+            )
+            .toDouble(),
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        math
+            .min(
+              setupAngle,
+              neutralThreshold -
+                  RangeRepPrimaryMetricNormalizer._armedNeutralMarginDegrees,
+            )
+            .toDouble(),
+    };
+  }
+
+  void _expandBaselineTowardNeutral(double setupAngle) {
+    final baselineSetupAngle = _baselineSetupAngle!;
+    final isMoreNeutral = switch (metricDirection) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        setupAngle > baselineSetupAngle,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        setupAngle < baselineSetupAngle,
+    };
+    if (isMoreNeutral) {
+      _setBaseline(setupAngle);
     }
-    return delta;
   }
 }
