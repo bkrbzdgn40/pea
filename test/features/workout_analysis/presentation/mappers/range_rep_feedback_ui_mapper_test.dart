@@ -205,6 +205,22 @@ void main() {
       ),
       'Kollarını ve bacaklarını aç...',
     );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.ascend,
+        localizations: tr,
+        exerciseType: ExerciseType.jumpingJack,
+      ),
+      'Ritmi koru...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.ascend,
+        localizations: en,
+        exerciseType: ExerciseType.jumpingJack,
+      ),
+      'Keep the rhythm...',
+    );
   });
 
   test(
