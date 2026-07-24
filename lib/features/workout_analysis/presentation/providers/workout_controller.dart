@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
@@ -363,8 +364,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   Future<void> processCameraImage(
     CameraImage image,
     int sensorOrientation, {
-    String? cameraLensDirection,
-    String? deviceOrientation,
+    CameraLensDirection? cameraLensDirection,
+    DeviceOrientation? deviceOrientation,
   }) async {
     final now = _clock();
     if (_isDiagnosticsEnabled) {
@@ -372,8 +373,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         ..recordCameraFrame()
         ..updateCameraRuntimeContext(
           sensorOrientationDegrees: sensorOrientation,
-          cameraLensDirection: cameraLensDirection,
-          deviceOrientation: deviceOrientation,
+          cameraLensDirection: cameraLensDirection?.name,
+          deviceOrientation: deviceOrientation?.name,
         );
     }
     _cameraFrameCount++;
@@ -402,6 +403,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       final result = await _framePosePipeline.processCameraFrame(
         image: image,
         sensorOrientation: sensorOrientation,
+        deviceOrientation: deviceOrientation,
+        lensDirection: cameraLensDirection,
         detector: detector,
         assessPose: assessPose,
       );
