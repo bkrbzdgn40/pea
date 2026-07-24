@@ -55,21 +55,25 @@ void main() {
       expect(haptic.patterns, hasLength(1));
     });
 
-    test('allows the same cue again after its repeat cooldown', () async {
-      const cue = FeedbackDeliveryCue(
-        id: 'range:maintain_form',
-        message: 'Formunu koru',
-        kind: FeedbackDeliveryKind.corrective,
-      );
+    test(
+      'keeps repeated speech silent after the haptic cooldown expires',
+      () async {
+        const cue = FeedbackDeliveryCue(
+          id: 'range:maintain_form',
+          message: 'Formunu koru',
+          kind: FeedbackDeliveryKind.corrective,
+        );
 
-      await controller.deliver(cue);
-      clock.advance(const Duration(seconds: 3));
-      final repeated = await controller.deliver(cue);
+        await controller.deliver(cue);
+        clock.advance(const Duration(seconds: 3));
+        final repeated = await controller.deliver(cue);
 
-      expect(repeated.wasDelivered, isTrue);
-      expect(voice.messages, hasLength(2));
-      expect(haptic.patterns, hasLength(2));
-    });
+        expect(repeated.wasDelivered, isTrue);
+        expect(repeated.hapticPattern, FeedbackHapticPattern.medium);
+        expect(voice.messages, hasLength(1));
+        expect(haptic.patterns, hasLength(2));
+      },
+    );
 
     test(
       'delivers a different cue immediately during the previous cooldown',
@@ -97,6 +101,53 @@ void main() {
           FeedbackHapticPattern.light,
           FeedbackHapticPattern.medium,
         ]);
+      },
+    );
+
+    test('does not repeat identical speech from a different cue id', () async {
+      await controller.deliver(
+        const FeedbackDeliveryCue(
+          id: 'range:ascend',
+          message: 'Ritmi koru',
+          kind: FeedbackDeliveryKind.movement,
+        ),
+      );
+
+      final sameSpeech = await controller.deliver(
+        const FeedbackDeliveryCue(
+          id: 'range:stabilize_transition',
+          message: 'Ritmi koru',
+          kind: FeedbackDeliveryKind.corrective,
+        ),
+      );
+
+      expect(sameSpeech.wasDelivered, isTrue);
+      expect(voice.messages, <String>['Ritmi koru']);
+      expect(haptic.patterns, <FeedbackHapticPattern>[
+        FeedbackHapticPattern.light,
+        FeedbackHapticPattern.medium,
+      ]);
+    });
+
+    test(
+      'speaks an earlier message again after the feedback text changes',
+      () async {
+        const descend = FeedbackDeliveryCue(
+          id: 'range:descend',
+          message: 'Asagi in',
+          kind: FeedbackDeliveryKind.movement,
+        );
+        const ascend = FeedbackDeliveryCue(
+          id: 'range:ascend',
+          message: 'Yukari cik',
+          kind: FeedbackDeliveryKind.movement,
+        );
+
+        await controller.deliver(descend);
+        await controller.deliver(ascend);
+        await controller.deliver(descend);
+
+        expect(voice.messages, <String>['Asagi in', 'Yukari cik', 'Asagi in']);
       },
     );
 
