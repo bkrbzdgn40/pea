@@ -254,6 +254,7 @@ class ExerciseMetricsExtractor {
     final bilateralPrimaryAngle = _resolveBilateralPrimaryAngle(
       config,
       direction: rangeRepContract.primaryMetricDirection,
+      policy: rangeRepContract.bilateralPrimaryPolicy,
       leftPrimaryAngle: leftPrimaryAngle,
       rightPrimaryAngle: rightPrimaryAngle,
     );
@@ -674,6 +675,7 @@ class ExerciseMetricsExtractor {
   double? _resolveBilateralPrimaryAngle(
     ExerciseConfig config, {
     required RangeRepPrimaryMetricDirection direction,
+    required RangeRepBilateralPrimaryPolicy policy,
     required double? leftPrimaryAngle,
     required double? rightPrimaryAngle,
   }) {
@@ -681,22 +683,40 @@ class ExerciseMetricsExtractor {
       return null;
     }
 
-    switch (direction) {
-      case RangeRepPrimaryMetricDirection.decreasingToPeak:
-        final laggingAngle = math.max(leftPrimaryAngle, rightPrimaryAngle);
-        if (leftPrimaryAngle > config.thresholdNeutral &&
-            rightPrimaryAngle > config.thresholdNeutral) {
-          return laggingAngle;
-        }
-        return laggingAngle.clamp(0.0, config.thresholdNeutral).toDouble();
-      case RangeRepPrimaryMetricDirection.increasingToPeak:
-        final laggingAngle = math.min(leftPrimaryAngle, rightPrimaryAngle);
-        if (leftPrimaryAngle < config.thresholdNeutral &&
-            rightPrimaryAngle < config.thresholdNeutral) {
-          return laggingAngle;
-        }
-        return laggingAngle.clamp(config.thresholdNeutral, 180.0).toDouble();
+    final bothAreNeutral = switch (direction) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        leftPrimaryAngle > config.thresholdNeutral &&
+            rightPrimaryAngle > config.thresholdNeutral,
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        leftPrimaryAngle < config.thresholdNeutral &&
+            rightPrimaryAngle < config.thresholdNeutral,
+    };
+
+    final resolvedAngle = switch (policy) {
+      RangeRepBilateralPrimaryPolicy.laggingSide => switch (direction) {
+        RangeRepPrimaryMetricDirection.decreasingToPeak => math.max(
+          leftPrimaryAngle,
+          rightPrimaryAngle,
+        ),
+        RangeRepPrimaryMetricDirection.increasingToPeak => math.min(
+          leftPrimaryAngle,
+          rightPrimaryAngle,
+        ),
+      },
+      RangeRepBilateralPrimaryPolicy.mean =>
+        (leftPrimaryAngle + rightPrimaryAngle) / 2.0,
+    };
+
+    if (bothAreNeutral) {
+      return resolvedAngle;
     }
+
+    return switch (direction) {
+      RangeRepPrimaryMetricDirection.decreasingToPeak =>
+        resolvedAngle.clamp(0.0, config.thresholdNeutral).toDouble(),
+      RangeRepPrimaryMetricDirection.increasingToPeak =>
+        resolvedAngle.clamp(config.thresholdNeutral, 180.0).toDouble(),
+    };
   }
 
   double _clampAngleScore(double value) {

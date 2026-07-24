@@ -306,8 +306,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Return to the starting position with control...',
       ),
       formViolation: localizations.pick(
-        tr: 'Bacaklarını yeterince aç.',
-        en: 'Open your legs farther.',
+        tr: 'Kollarını ve bacaklarını birlikte daha fazla aç.',
+        en: 'Open your arms and legs farther together.',
       ),
       controlDescent: localizations.pick(
         tr: 'Açılışı kontrollü yap.',

@@ -265,6 +265,34 @@ void main() {
       );
     });
 
+    test('Jumping Jack declares device-proven bilateral signal semantics', () {
+      final contract = RangeRepContracts.jumpingJack;
+
+      expect(
+        contract.bilateralPrimaryPolicy,
+        RangeRepBilateralPrimaryPolicy.mean,
+      );
+      expect(
+        contract.techniqueEvaluationPolicy,
+        RangeRepTechniqueEvaluationPolicy.activeMovementOnly,
+      );
+      expect(contract.peakEntryMargin, 0.0);
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 15,
+          activeThreshold: 55,
+        ),
+        isFalse,
+      );
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 100,
+          activeThreshold: 55,
+        ),
+        isTrue,
+      );
+    });
+
     test('sparse cycle recovery is limited to device-proven blockers', () {
       for (final contract in <RangeRepContract>[
         RangeRepContracts.tricepsDip,

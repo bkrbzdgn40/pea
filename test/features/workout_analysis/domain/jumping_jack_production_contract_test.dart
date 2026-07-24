@@ -27,7 +27,7 @@ void main() {
     test('recovers a valid open peak sampled during active confirmation', () {
       _confirm(engine, clock, 10);
 
-      engine.updateDetectionFrame(primaryMetric: 145);
+      engine.updateDetectionFrame(primaryMetric: 136);
       clock.advance(const Duration(milliseconds: 120));
       final started = engine.updateDetectionFrame(primaryMetric: 100);
 
@@ -52,7 +52,7 @@ void main() {
         _confirm(engine, clock, 10);
         clock.advance(const Duration(milliseconds: 100));
 
-        final peak = engine.updateDetectionFrame(primaryMetric: 145);
+        final peak = engine.updateDetectionFrame(primaryMetric: 136);
 
         expect(
           peak.confirmedTransitions.map((transition) => transition.type.name),

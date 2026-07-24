@@ -207,6 +207,28 @@ void main() {
     );
   });
 
+  test(
+    'Jumping Jack form feedback describes the combined bilateral signal',
+    () {
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: tr,
+          exerciseType: ExerciseType.jumpingJack,
+        ),
+        'Kollarını ve bacaklarını birlikte daha fazla aç.',
+      );
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+          localizations: en,
+          exerciseType: ExerciseType.jumpingJack,
+        ),
+        'Open your arms and legs farther together.',
+      );
+    },
+  );
+
   test('biceps curl form feedback matches the upper-arm posture metric', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

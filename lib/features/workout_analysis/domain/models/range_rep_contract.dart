@@ -26,6 +26,17 @@ enum RangeRepSideMode { selectedSide, bilateral }
 
 enum RangeRepBilateralFormPolicy { includeSync, sideFormOnly }
 
+/// Selects how bilateral side metrics become the engine-facing movement metric.
+///
+/// [laggingSide] preserves the strict default: both sides must independently
+/// reach the same lifecycle range. [mean] tolerates short-lived asymmetric
+/// landmark lag while bilateral form/synchronization remains available for
+/// technique validation.
+enum RangeRepBilateralPrimaryPolicy { laggingSide, mean }
+
+/// Controls when the legacy form metric is eligible for live technique cues.
+enum RangeRepTechniqueEvaluationPolicy { always, activeMovementOnly }
+
 /// Declares how the exercise's primary movement signal is measured.
 ///
 /// [jointAngle] preserves the legacy three-landmark angle configured by
@@ -69,6 +80,8 @@ class RangeRepContract {
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
     this.bilateralFormPolicy = RangeRepBilateralFormPolicy.includeSync,
+    this.bilateralPrimaryPolicy = RangeRepBilateralPrimaryPolicy.laggingSide,
+    this.techniqueEvaluationPolicy = RangeRepTechniqueEvaluationPolicy.always,
     this.primaryMetricKind = RangeRepPrimaryMetricKind.jointAngle,
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
@@ -140,6 +153,8 @@ class RangeRepContract {
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
   final RangeRepBilateralFormPolicy bilateralFormPolicy;
+  final RangeRepBilateralPrimaryPolicy bilateralPrimaryPolicy;
+  final RangeRepTechniqueEvaluationPolicy techniqueEvaluationPolicy;
   final RangeRepPrimaryMetricKind primaryMetricKind;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final RangeRepTowardPeakMuscleAction towardPeakMuscleAction;
@@ -190,6 +205,23 @@ class RangeRepContract {
 
   bool signalHasRole(RangeRepSignal signal, AnalysisSignalRole role) {
     return rolesForSignal(signal).contains(role);
+  }
+
+  bool shouldEvaluateTechnique({
+    required double primaryMetric,
+    required double activeThreshold,
+  }) {
+    switch (techniqueEvaluationPolicy) {
+      case RangeRepTechniqueEvaluationPolicy.always:
+        return true;
+      case RangeRepTechniqueEvaluationPolicy.activeMovementOnly:
+        return switch (primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            primaryMetric < activeThreshold,
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            primaryMetric > activeThreshold,
+        };
+    }
   }
 
   Set<RangeRepSignal> signalsForRole(AnalysisSignalRole role) {
@@ -737,7 +769,11 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
+    bilateralPrimaryPolicy: RangeRepBilateralPrimaryPolicy.mean,
+    techniqueEvaluationPolicy:
+        RangeRepTechniqueEvaluationPolicy.activeMovementOnly,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
     allowSparseCycleRecovery: true,
     primaryMetricSmoothingWindow: 1,

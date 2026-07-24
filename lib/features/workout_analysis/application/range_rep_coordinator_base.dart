@@ -578,8 +578,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       RangeRepSignal.formMetric,
       AnalysisSignalRole.technique,
     );
+    final shouldEvaluateTechnique = _rangeRepContract.shouldEvaluateTechnique(
+      primaryMetric: engineFrame.primaryMetric,
+      activeThreshold: _config.thresholdActive,
+    );
     final hasTechniqueViolation =
         usesLegacyFormMetricTechnique &&
+        shouldEvaluateTechnique &&
         _techniqueEvaluator
             .evaluate(
               formMetric: engineFrame.formMetric,
