@@ -216,7 +216,7 @@ void main() {
           localizations: tr,
           exerciseType: ExerciseType.jumpingJack,
         ),
-        'Kollarını ve bacaklarını birlikte daha fazla aç.',
+        'Kollarını birlikte tepeye kaldırırken bacaklarını da tamamen aç.',
       );
       expect(
         mapRangeRepFeedbackCodeToMessage(
@@ -224,7 +224,7 @@ void main() {
           localizations: en,
           exerciseType: ExerciseType.jumpingJack,
         ),
-        'Open your arms and legs farther together.',
+        'Raise both arms together as you fully open your legs.',
       );
     },
   );

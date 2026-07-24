@@ -274,13 +274,14 @@ void main() {
       );
       expect(
         contract.techniqueEvaluationPolicy,
-        RangeRepTechniqueEvaluationPolicy.activeMovementOnly,
+        RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
       );
       expect(contract.peakEntryMargin, 0.0);
       expect(
         contract.shouldEvaluateTechnique(
           primaryMetric: 15,
           activeThreshold: 55,
+          peakThreshold: 120,
         ),
         isFalse,
       );
@@ -288,6 +289,15 @@ void main() {
         contract.shouldEvaluateTechnique(
           primaryMetric: 100,
           activeThreshold: 55,
+          peakThreshold: 120,
+        ),
+        isFalse,
+      );
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 125,
+          activeThreshold: 55,
+          peakThreshold: 120,
         ),
         isTrue,
       );
@@ -302,6 +312,8 @@ void main() {
         expect(contract.allowSparseCycleRecovery, isTrue);
         expect(contract.primaryMetricSmoothingWindow, 1);
       }
+      expect(RangeRepContracts.tricepsDip.formMetricSmoothingWindow, 5);
+      expect(RangeRepContracts.jumpingJack.formMetricSmoothingWindow, 1);
 
       for (final contract in <RangeRepContract>[
         RangeRepContracts.squat,
@@ -311,6 +323,7 @@ void main() {
         expect(contract.retainPeakEvidenceAcrossActiveTransition, isFalse);
         expect(contract.allowSparseCycleRecovery, isFalse);
         expect(contract.primaryMetricSmoothingWindow, 5);
+        expect(contract.formMetricSmoothingWindow, 5);
       }
     });
 
@@ -327,6 +340,24 @@ void main() {
             },
           },
           primaryMetricSmoothingWindow: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects a non-positive form metric smoothing window', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          formMetricSmoothingWindow: 0,
         ),
         throwsArgumentError,
       );

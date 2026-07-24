@@ -181,7 +181,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _primaryMetricFilter = MovingAverageFilter(
          windowSize: rangeRepContract.primaryMetricSmoothingWindow,
        ),
-       _formMetricFilter = MovingAverageFilter(windowSize: 5),
+       _formMetricFilter = MovingAverageFilter(
+         windowSize: rangeRepContract.formMetricSmoothingWindow,
+       ),
        _bodyLineFilter = MovingAverageFilter(windowSize: 5),
        _armSupportFilter = MovingAverageFilter(windowSize: 5),
        _legFilter = MovingAverageFilter(windowSize: 5),
@@ -581,6 +583,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final shouldEvaluateTechnique = _rangeRepContract.shouldEvaluateTechnique(
       primaryMetric: engineFrame.primaryMetric,
       activeThreshold: _config.thresholdActive,
+      peakThreshold: _config.thresholdPeak,
     );
     final hasTechniqueViolation =
         usesLegacyFormMetricTechnique &&
@@ -946,10 +949,18 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       engineResult: engineResult,
       phaseFeedbackCandidate: phaseFeedbackCandidate,
     );
+    final shouldClearRecoveredPeakWindowCorrection =
+        _rangeRepContract.techniqueEvaluationPolicy ==
+            RangeRepTechniqueEvaluationPolicy.peakWindowOnly &&
+        _currentFeedbackCode ==
+            RangeRepFeedbackCode.legacyFormThresholdViolation &&
+        !hasTechniqueViolation;
     final baseCandidate =
         lifecycleCandidate ??
         (wasArmedAtFrameStart
-            ? _currentFeedbackCode
+            ? shouldClearRecoveredPeakWindowCorrection
+                  ? _movementFeedbackFor(engineResult)
+                  : _currentFeedbackCode
             : RangeRepFeedbackCode.awaitNeutral);
     final decision = _feedbackArbitrationEngine.arbitrate<RangeRepFeedbackCode>(
       candidates: <FeedbackCandidate<RangeRepFeedbackCode>>[
@@ -968,6 +979,22 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
 
     _currentFeedbackCode = decision.selectedValue ?? baseCandidate;
+  }
+
+  RangeRepFeedbackCode _movementFeedbackFor(
+    RangeRepEngineFrameResult engineResult,
+  ) {
+    final observedPhases = engineResult.observedRepPhases;
+    if (observedPhases.contains(RangeRepPhase.ascending) ||
+        observedPhases.contains(RangeRepPhase.peak)) {
+      return RangeRepFeedbackCode.ascend;
+    }
+    if (observedPhases.contains(RangeRepPhase.descending)) {
+      return RangeRepFeedbackCode.descend;
+    }
+    return engineResult.isArmedAfterUpdate
+        ? RangeRepFeedbackCode.ready
+        : RangeRepFeedbackCode.awaitNeutral;
   }
 
   RangeRepFeedbackCode? _lifecycleFeedbackCandidate({

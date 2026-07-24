@@ -35,7 +35,11 @@ enum RangeRepBilateralFormPolicy { includeSync, sideFormOnly }
 enum RangeRepBilateralPrimaryPolicy { laggingSide, mean }
 
 /// Controls when the legacy form metric is eligible for live technique cues.
-enum RangeRepTechniqueEvaluationPolicy { always, activeMovementOnly }
+enum RangeRepTechniqueEvaluationPolicy {
+  always,
+  activeMovementOnly,
+  peakWindowOnly,
+}
 
 /// Declares how the exercise's primary movement signal is measured.
 ///
@@ -90,6 +94,7 @@ class RangeRepContract {
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
     this.primaryMetricSmoothingWindow = 5,
+    this.formMetricSmoothingWindow = 5,
     this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
@@ -109,6 +114,13 @@ class RangeRepContract {
       throw ArgumentError.value(
         primaryMetricSmoothingWindow,
         'primaryMetricSmoothingWindow',
+        'Must be greater than zero.',
+      );
+    }
+    if (formMetricSmoothingWindow <= 0) {
+      throw ArgumentError.value(
+        formMetricSmoothingWindow,
+        'formMetricSmoothingWindow',
         'Must be greater than zero.',
       );
     }
@@ -185,6 +197,12 @@ class RangeRepContract {
   /// default when that window spans most of a physical repetition.
   final int primaryMetricSmoothingWindow;
 
+  /// Number of accepted form-metric samples used by the coordinator's
+  /// moving-average filter. Fast coordination cues can opt out of the
+  /// five-frame default so a recovered peak is not judged using stale setup
+  /// samples from most of the physical repetition.
+  final int formMetricSmoothingWindow;
+
   final RangeRepExtensionProfile extensionProfile;
 
   bool supportsPhase(RangeRepPhase phase) {
@@ -210,6 +228,7 @@ class RangeRepContract {
   bool shouldEvaluateTechnique({
     required double primaryMetric,
     required double activeThreshold,
+    required double peakThreshold,
   }) {
     switch (techniqueEvaluationPolicy) {
       case RangeRepTechniqueEvaluationPolicy.always:
@@ -220,6 +239,13 @@ class RangeRepContract {
             primaryMetric < activeThreshold,
           RangeRepPrimaryMetricDirection.increasingToPeak =>
             primaryMetric > activeThreshold,
+        };
+      case RangeRepTechniqueEvaluationPolicy.peakWindowOnly:
+        return switch (primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            primaryMetric < peakThreshold,
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            primaryMetric > peakThreshold,
         };
     }
   }
@@ -770,12 +796,12 @@ abstract final class RangeRepContracts {
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
     bilateralPrimaryPolicy: RangeRepBilateralPrimaryPolicy.mean,
-    techniqueEvaluationPolicy:
-        RangeRepTechniqueEvaluationPolicy.activeMovementOnly,
+    techniqueEvaluationPolicy: RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
     peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
     allowSparseCycleRecovery: true,
     primaryMetricSmoothingWindow: 1,
+    formMetricSmoothingWindow: 1,
   );
 }

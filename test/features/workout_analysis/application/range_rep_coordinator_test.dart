@@ -345,7 +345,7 @@ void main() {
     });
 
     test(
-      'Jumping Jack evaluates its opening form only after movement becomes active',
+      'Jumping Jack evaluates coordination near peak and clears recovered feedback',
       () {
         final clock = _TestClock();
         final config = loadExerciseConfig(
@@ -369,6 +369,16 @@ void main() {
               clock.now().add(const Duration(milliseconds: 120)),
               repStarted: true,
               phases: const <RangeRepPhase>[RangeRepPhase.descending],
+            ),
+            _scriptedTransition(
+              RangeRepConfirmedTransitionType.reachPeak,
+              clock.now().add(const Duration(milliseconds: 240)),
+              phases: const <RangeRepPhase>[RangeRepPhase.peak],
+            ),
+            RangeRepEngineFrameResult(
+              wasArmedAtFrameStart: true,
+              isArmedAfterUpdate: true,
+              observedRepPhases: const <RangeRepPhase>[RangeRepPhase.peak],
             ),
           ],
         );
@@ -400,8 +410,22 @@ void main() {
           primaryMetric: 100,
           formMetric: 90,
         );
+        clock.advance(const Duration(milliseconds: 120));
+        final unsynchronizedPeak = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 125,
+          formMetric: 90,
+        );
+        clock.advance(const Duration(milliseconds: 120));
+        final recoveredPeak = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 125,
+          formMetric: 100,
+        );
 
-        expect(evaluator.formMetrics, <double>[90.0]);
+        expect(evaluator.formMetrics, <double>[90.0, 100.0]);
         expect(acquired.stateSnapshot.isFormBad, isFalse);
         expect(
           acquired.stateSnapshot.feedbackDirective.feedbackCode,
@@ -412,10 +436,20 @@ void main() {
           neutral.stateSnapshot.feedbackDirective.feedbackCode,
           RangeRepFeedbackCode.ready,
         );
-        expect(active.stateSnapshot.isFormBad, isTrue);
+        expect(active.stateSnapshot.isFormBad, isFalse);
         expect(
           active.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.descend,
+        );
+        expect(unsynchronizedPeak.stateSnapshot.isFormBad, isTrue);
+        expect(
+          unsynchronizedPeak.stateSnapshot.feedbackDirective.feedbackCode,
           RangeRepFeedbackCode.legacyFormThresholdViolation,
+        );
+        expect(recoveredPeak.stateSnapshot.isFormBad, isFalse);
+        expect(
+          recoveredPeak.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.ascend,
         );
       },
     );
