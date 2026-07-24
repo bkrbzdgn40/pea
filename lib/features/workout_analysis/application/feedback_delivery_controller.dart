@@ -54,10 +54,11 @@ class FeedbackDeliveryResult {
 
 /// Delivers already-arbitrated feedback through voice and haptic outputs.
 ///
-/// Exact repeated cues are suppressed for a small, category-specific cooldown
-/// so camera-frame frequency cannot become speech frequency. A different cue is
-/// delivered immediately, allowing urgent corrective or blocking feedback to
-/// replace stale guidance without waiting for the previous cue's cooldown.
+/// Spoken feedback is edge-triggered by its normalized message.
+///
+/// The same text is spoken once and remains silent until a different message is
+/// selected. Haptic feedback keeps its category-specific repeat cooldown so this
+/// change does not alter the existing tactile guidance policy.
 class FeedbackDeliveryController implements FeedbackDeliveryPort {
   FeedbackDeliveryController({
     required VoiceFeedbackOutput voiceOutput,
@@ -88,8 +89,9 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
   final bool hapticEnabled;
   final Map<FeedbackDeliveryKind, Duration> _repeatCooldowns;
 
-  String? _lastDeliveredCueId;
-  DateTime? _lastDeliveredAt;
+  String? _lastSpokenMessage;
+  String? _lastHapticCueId;
+  DateTime? _lastHapticAt;
 
   @override
   Future<FeedbackDeliveryResult> deliver(FeedbackDeliveryCue cue) async {
@@ -102,13 +104,24 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
       );
     }
 
+    final shouldSpeak = voiceEnabled && _lastSpokenMessage != normalizedMessage;
+
     final now = _now();
-    final lastDeliveredAt = _lastDeliveredAt;
-    final isExactRepeat = _lastDeliveredCueId == cue.id;
-    final cooldown = _repeatCooldowns[cue.kind] ?? Duration.zero;
-    if (isExactRepeat &&
-        lastDeliveredAt != null &&
-        now.difference(lastDeliveredAt) < cooldown) {
+    final candidateHapticPattern = hapticEnabled
+        ? _hapticPatternFor(cue.kind)
+        : FeedbackHapticPattern.none;
+    final hapticCooldown = _repeatCooldowns[cue.kind] ?? Duration.zero;
+    final lastHapticAt = _lastHapticAt;
+    final isExactHapticRepeat = _lastHapticCueId == cue.id;
+    final shouldTriggerHaptic =
+        candidateHapticPattern != FeedbackHapticPattern.none &&
+        !(isExactHapticRepeat &&
+            lastHapticAt != null &&
+            now.difference(lastHapticAt) < hapticCooldown);
+
+    final hasEnabledOutput =
+        voiceEnabled || candidateHapticPattern != FeedbackHapticPattern.none;
+    if (hasEnabledOutput && !shouldSpeak && !shouldTriggerHaptic) {
       return FeedbackDeliveryResult(
         disposition: FeedbackDeliveryDisposition.repeatedTooSoon,
         cue: cue,
@@ -116,24 +129,23 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
       );
     }
 
-    _lastDeliveredCueId = cue.id;
-    _lastDeliveredAt = now;
-
-    if (voiceEnabled) {
+    if (shouldSpeak) {
+      _lastSpokenMessage = normalizedMessage;
       await _voiceOutput.speak(normalizedMessage);
     }
 
-    final hapticPattern = hapticEnabled
-        ? _hapticPatternFor(cue.kind)
-        : FeedbackHapticPattern.none;
-    if (hapticPattern != FeedbackHapticPattern.none) {
-      await _hapticOutput.trigger(hapticPattern);
+    if (shouldTriggerHaptic) {
+      _lastHapticCueId = cue.id;
+      _lastHapticAt = now;
+      await _hapticOutput.trigger(candidateHapticPattern);
     }
 
     return FeedbackDeliveryResult(
       disposition: FeedbackDeliveryDisposition.delivered,
       cue: cue,
-      hapticPattern: hapticPattern,
+      hapticPattern: shouldTriggerHaptic
+          ? candidateHapticPattern
+          : FeedbackHapticPattern.none,
     );
   }
 
@@ -151,7 +163,8 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
 
   @override
   void reset() {
-    _lastDeliveredCueId = null;
-    _lastDeliveredAt = null;
+    _lastSpokenMessage = null;
+    _lastHapticCueId = null;
+    _lastHapticAt = null;
   }
 }
