@@ -173,6 +173,8 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
               .processCameraImage(
                 image,
                 streamController.description.sensorOrientation,
+                deviceOrientation: streamController.value.deviceOrientation,
+                lensDirection: streamController.description.lensDirection,
               ),
         );
       },

@@ -690,9 +690,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             .processCameraImage(
               image,
               streamController.description.sensorOrientation,
-              cameraLensDirection:
-                  streamController.description.lensDirection.name,
-              deviceOrientation: cameraValue?.deviceOrientation.name,
+              cameraLensDirection: streamController.description.lensDirection,
+              deviceOrientation: cameraValue?.deviceOrientation,
             );
       },
       onError: (_, _) => _markCameraRecoveringAfterFrame(),

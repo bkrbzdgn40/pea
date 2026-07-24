@@ -1,21 +1,37 @@
-import 'dart:ui';
-
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+
+import 'input_image_rotation_resolver.dart';
 
 /// Converts platform camera frames into ML Kit input images when the format is safe.
 class InputImageConverter {
-  const InputImageConverter();
+  const InputImageConverter({
+    InputImageRotationResolver rotationResolver =
+        const InputImageRotationResolver(),
+  }) : _rotationResolver = rotationResolver;
+
+  final InputImageRotationResolver _rotationResolver;
 
   /// Returns null instead of manufacturing bytes for unsupported platform formats.
-  InputImage? convert(CameraImage image, int sensorOrientation) {
+  InputImage? convert(
+    CameraImage image, {
+    required int sensorOrientation,
+    required DeviceOrientation? deviceOrientation,
+    required CameraLensDirection? lensDirection,
+  }) {
     try {
       if (image.width <= 0 || image.height <= 0 || image.planes.isEmpty) {
         return null;
       }
 
-      final rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+      final rotation = _rotationResolver.resolve(
+        platform: defaultTargetPlatform,
+        sensorOrientation: sensorOrientation,
+        deviceOrientation: deviceOrientation,
+        lensDirection: lensDirection,
+      );
       if (rotation == null) return null;
 
       switch (defaultTargetPlatform) {

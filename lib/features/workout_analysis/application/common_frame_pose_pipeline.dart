@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import 'pose_quality_policy.dart' show PoseQualityAssessment;
@@ -111,10 +112,17 @@ class WorkoutFramePosePipeline {
   Future<FramePosePipelineResult> processCameraFrame({
     required CameraImage image,
     required int sensorOrientation,
+    required DeviceOrientation? deviceOrientation,
+    required CameraLensDirection? lensDirection,
     required PoseDetector detector,
     required PoseQualityAssessor assessPose,
   }) async {
-    final inputImage = _inputImageConverter.convert(image, sensorOrientation);
+    final inputImage = _inputImageConverter.convert(
+      image,
+      sensorOrientation: sensorOrientation,
+      deviceOrientation: deviceOrientation,
+      lensDirection: lensDirection,
+    );
     if (inputImage == null) {
       return const FramePosePipelineResult.converterDrop();
     }

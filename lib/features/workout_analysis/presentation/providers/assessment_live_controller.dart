@@ -1,5 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../application/assessment_engine.dart';
@@ -81,6 +82,8 @@ class AssessmentLiveController
   Future<void> processCameraImage(
     CameraImage image,
     int sensorOrientation, {
+    DeviceOrientation? deviceOrientation,
+    CameraLensDirection? lensDirection,
     DateTime? capturedAt,
   }) async {
     final now = capturedAt ?? DateTime.now();
@@ -98,6 +101,8 @@ class AssessmentLiveController
       final result = await _framePosePipeline.processCameraFrame(
         image: image,
         sensorOrientation: sensorOrientation,
+        deviceOrientation: deviceOrientation,
+        lensDirection: lensDirection,
         detector: detector,
         assessPose: (pose) =>
             _poseQualityPolicy.assess(pose: pose, type: _selection.type),
