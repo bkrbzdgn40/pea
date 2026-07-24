@@ -75,6 +75,8 @@ class RangeRepContract {
     this.towardPeakMuscleAction = RangeRepTowardPeakMuscleAction.eccentric,
     this.peakEntryMargin = 3.0,
     this.retainPeakEvidenceAcrossActiveTransition = false,
+    this.allowSparseCycleRecovery = false,
+    this.primaryMetricSmoothingWindow = 5,
     this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
@@ -90,6 +92,14 @@ class RangeRepContract {
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
          poseAcceptanceRequiredSignals ?? supportedSignals,
        ) {
+    if (primaryMetricSmoothingWindow <= 0) {
+      throw ArgumentError.value(
+        primaryMetricSmoothingWindow,
+        'primaryMetricSmoothingWindow',
+        'Must be greater than zero.',
+      );
+    }
+
     final unsupportedPoseAcceptanceSignals = this.poseAcceptanceRequiredSignals
         .difference(this.supportedSignals);
     if (unsupportedPoseAcceptanceSignals.isNotEmpty) {
@@ -146,6 +156,19 @@ class RangeRepContract {
   /// Keep this disabled unless device evidence shows that sparse analysis
   /// sampling consumes valid peaks between lifecycle phases.
   final bool retainPeakEvidenceAcrossActiveTransition;
+
+  /// Allows a strict peak sample and a later strict neutral sample to recover
+  /// the intermediate lifecycle transitions within those two analysis frames.
+  ///
+  /// Keep this disabled for ordinary movements. It exists for movements whose
+  /// device evidence shows that analysis FPS is too low to observe every
+  /// intermediate active/return sample.
+  final bool allowSparseCycleRecovery;
+
+  /// Number of accepted primary-metric samples used by the coordinator's
+  /// moving-average filter. Fast movements can opt out of the five-frame
+  /// default when that window spans most of a physical repetition.
+  final int primaryMetricSmoothingWindow;
 
   final RangeRepExtensionProfile extensionProfile;
 
@@ -417,6 +440,8 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     retainPeakEvidenceAcrossActiveTransition: true,
+    allowSparseCycleRecovery: true,
+    primaryMetricSmoothingWindow: 1,
   );
 
   static final RangeRepContract romanianDeadlift = RangeRepContract(
@@ -714,5 +739,7 @@ abstract final class RangeRepContracts {
     sideMode: RangeRepSideMode.bilateral,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
     retainPeakEvidenceAcrossActiveTransition: true,
+    allowSparseCycleRecovery: true,
+    primaryMetricSmoothingWindow: 1,
   );
 }

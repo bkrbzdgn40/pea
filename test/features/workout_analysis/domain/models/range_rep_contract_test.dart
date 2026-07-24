@@ -265,26 +265,42 @@ void main() {
       );
     });
 
-    test('sparse peak recovery is limited to device-proven blockers', () {
+    test('sparse cycle recovery is limited to device-proven blockers', () {
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.tricepsDip,
+        RangeRepContracts.jumpingJack,
+      ]) {
+        expect(contract.retainPeakEvidenceAcrossActiveTransition, isTrue);
+        expect(contract.allowSparseCycleRecovery, isTrue);
+        expect(contract.primaryMetricSmoothingWindow, 1);
+      }
+
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.squat,
+        RangeRepContracts.pushUp,
+        RangeRepContracts.sitUp,
+      ]) {
+        expect(contract.retainPeakEvidenceAcrossActiveTransition, isFalse);
+        expect(contract.allowSparseCycleRecovery, isFalse);
+        expect(contract.primaryMetricSmoothingWindow, 5);
+      }
+    });
+
+    test('rejects a non-positive primary metric smoothing window', () {
       expect(
-        RangeRepContracts.tricepsDip.retainPeakEvidenceAcrossActiveTransition,
-        isTrue,
-      );
-      expect(
-        RangeRepContracts.jumpingJack.retainPeakEvidenceAcrossActiveTransition,
-        isTrue,
-      );
-      expect(
-        RangeRepContracts.squat.retainPeakEvidenceAcrossActiveTransition,
-        isFalse,
-      );
-      expect(
-        RangeRepContracts.pushUp.retainPeakEvidenceAcrossActiveTransition,
-        isFalse,
-      );
-      expect(
-        RangeRepContracts.sitUp.retainPeakEvidenceAcrossActiveTransition,
-        isFalse,
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          primaryMetricSmoothingWindow: 0,
+        ),
+        throwsArgumentError,
       );
     });
 

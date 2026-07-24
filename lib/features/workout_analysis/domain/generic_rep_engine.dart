@@ -29,6 +29,7 @@ class GenericRepEngineConfig {
     this.returnConfirmationDuration = const Duration(milliseconds: 80),
     this.neutralConfirmationDuration = const Duration(milliseconds: 100),
     this.retainPeakEvidenceAcrossActiveTransition = false,
+    this.allowSparseCycleRecovery = false,
     this.retainedPeakEvidenceMaxAge = const Duration(milliseconds: 750),
   }) : assert(minimumRom >= 0.0),
        assert(activeEntryMargin >= 0.0),
@@ -62,6 +63,12 @@ class GenericRepEngineConfig {
   /// validation proves sparse analysis sampling can consume a valid peak.
   final bool retainPeakEvidenceAcrossActiveTransition;
 
+  /// Allows a strict peak sample to start and reach peak in one analysis frame,
+  /// then allows a later strict neutral sample to return and complete the rep in
+  /// one frame. This is opt-in for fast movements whose device validation shows
+  /// that intermediate lifecycle samples are routinely dropped.
+  final bool allowSparseCycleRecovery;
+
   /// Upper bound for carrying a peak sample across a delayed analysis update.
   /// The default covers the measured p95 detector latency of the blocked
   /// exercises without allowing an old peak to survive indefinitely.
@@ -93,25 +100,34 @@ class GenericRepCompletedRep {
 }
 
 class GenericRepEngineFrameResult {
-  const GenericRepEngineFrameResult({
+  GenericRepEngineFrameResult({
     required this.wasArmedAtFrameStart,
     required this.isArmedAfterUpdate,
     required this.phaseBeforeUpdate,
     required this.phaseAfterUpdate,
-    this.confirmedTransition,
+    GenericRepConfirmedTransition? confirmedTransition,
+    List<GenericRepConfirmedTransition>? confirmedTransitions,
     this.repStarted = false,
     this.repAborted = false,
     this.completedRep,
-  });
+  }) : confirmedTransitions = List<GenericRepConfirmedTransition>.unmodifiable(
+         confirmedTransitions ??
+             (confirmedTransition == null
+                 ? const <GenericRepConfirmedTransition>[]
+                 : <GenericRepConfirmedTransition>[confirmedTransition]),
+       );
 
   final bool wasArmedAtFrameStart;
   final bool isArmedAfterUpdate;
   final GenericRepPhase phaseBeforeUpdate;
   final GenericRepPhase phaseAfterUpdate;
-  final GenericRepConfirmedTransition? confirmedTransition;
+  final List<GenericRepConfirmedTransition> confirmedTransitions;
   final bool repStarted;
   final bool repAborted;
   final GenericRepCompletedRep? completedRep;
+
+  GenericRepConfirmedTransition? get confirmedTransition =>
+      confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
 }
 
 /// Reusable, metric-driven repetition lifecycle engine.
@@ -140,6 +156,8 @@ class GenericRepEngine {
   DateTime? _retainedPeakEvidenceStartedAt;
   double? _retainedPeakMetric;
   double? _lastNeutralMetric;
+  DateTime? _lastNeutralObservedAt;
+  DateTime? _sparsePeakObservedAt;
   double? _currentRepStartMetric;
   double? _currentRepMinMetric;
   double? _currentRepMaxMetric;
@@ -168,6 +186,7 @@ class GenericRepEngine {
         _isArmed = true;
         phase = GenericRepPhase.neutral;
         _lastNeutralMetric = primaryMetric;
+        _lastNeutralObservedAt = now;
       }
       return GenericRepEngineFrameResult(
         wasArmedAtFrameStart: wasArmedAtFrameStart,
@@ -185,6 +204,7 @@ class GenericRepEngine {
 
     if (isNeutralMetric(primaryMetric)) {
       _lastNeutralMetric = primaryMetric;
+      _lastNeutralObservedAt = now;
     }
 
     GenericRepConfirmedTransition? confirmedTransition;
@@ -194,6 +214,35 @@ class GenericRepEngine {
 
     switch (phase) {
       case GenericRepPhase.neutral:
+        if (_canRecoverSparsePeak(primaryMetric, now)) {
+          final startAt =
+              _pendingTransitionStartedAt ?? _lastNeutralObservedAt ?? now;
+          final repStartMetric = _lastNeutralMetric ?? primaryMetric;
+          _pendingStartTowardPeakMetric = null;
+          _clearPendingTransition();
+          _startRep(repStartMetric);
+          _recordMetric(primaryMetric);
+          _sparsePeakObservedAt = now;
+          phase = GenericRepPhase.peak;
+          return GenericRepEngineFrameResult(
+            wasArmedAtFrameStart: wasArmedAtFrameStart,
+            isArmedAfterUpdate: _isArmed,
+            phaseBeforeUpdate: phaseBeforeUpdate,
+            phaseAfterUpdate: phase,
+            confirmedTransitions: <GenericRepConfirmedTransition>[
+              GenericRepConfirmedTransition(
+                type: GenericRepTransitionType.startTowardPeak,
+                effectiveAt: startAt,
+              ),
+              GenericRepConfirmedTransition(
+                type: GenericRepTransitionType.reachPeak,
+                effectiveAt: now,
+              ),
+            ],
+            repStarted: true,
+          );
+        }
+
         final hasEnteredActive = hasEnteredActiveRange(primaryMetric);
         if (!hasEnteredActive) {
           _pendingStartTowardPeakMetric = null;
@@ -255,6 +304,10 @@ class GenericRepEngine {
             effectiveAt: peakConfirmedAt,
           );
           phase = GenericRepPhase.peak;
+          if (config.allowSparseCycleRecovery) {
+            _sparsePeakObservedAt =
+                _retainedPeakEvidenceStartedAt ?? peakConfirmedAt;
+          }
           _clearRetainedPeakEvidence();
         } else {
           final abortConfirmedAt = _confirmTransition(
@@ -277,6 +330,44 @@ class GenericRepEngine {
 
       case GenericRepPhase.peak:
         _recordMetric(primaryMetric);
+        if (_canRecoverSparseCompletion(primaryMetric, now)) {
+          final returnAt = _sparsePeakObservedAt ?? now;
+          final completion = _buildCompletion();
+          GenericRepCompletedRep? sparseCompletedRep;
+          if (completion.rom >= config.minimumRom) {
+            repCount++;
+            sparseCompletedRep = GenericRepCompletedRep(
+              repIndex: repCount,
+              startMetric: completion.startMetric,
+              peakMetric: completion.peakMetric,
+              rom: completion.rom,
+            );
+          } else {
+            repAborted = true;
+          }
+          phase = GenericRepPhase.neutral;
+          _lastNeutralMetric = primaryMetric;
+          _lastNeutralObservedAt = now;
+          _resetCurrentRep();
+          return GenericRepEngineFrameResult(
+            wasArmedAtFrameStart: wasArmedAtFrameStart,
+            isArmedAfterUpdate: _isArmed,
+            phaseBeforeUpdate: phaseBeforeUpdate,
+            phaseAfterUpdate: phase,
+            confirmedTransitions: <GenericRepConfirmedTransition>[
+              GenericRepConfirmedTransition(
+                type: GenericRepTransitionType.startReturning,
+                effectiveAt: returnAt,
+              ),
+              GenericRepConfirmedTransition(
+                type: GenericRepTransitionType.completeRep,
+                effectiveAt: now,
+              ),
+            ],
+            repAborted: repAborted,
+            completedRep: sparseCompletedRep,
+          );
+        }
         final returnConfirmedAt = _confirmTransition(
           transition: GenericRepTransitionType.startReturning,
           condition: hasExitedPeakRange(primaryMetric),
@@ -414,6 +505,27 @@ class GenericRepEngine {
     }
   }
 
+  bool _canRecoverSparsePeak(double primaryMetric, DateTime now) {
+    if (!config.allowSparseCycleRecovery ||
+        !hasReachedPeakRange(primaryMetric) ||
+        _lastNeutralMetric == null) {
+      return false;
+    }
+    final neutralAt = _lastNeutralObservedAt;
+    if (neutralAt == null) {
+      return false;
+    }
+    return now.difference(neutralAt) >= config.activeConfirmationDuration;
+  }
+
+  bool _canRecoverSparseCompletion(double primaryMetric, DateTime now) {
+    final peakAt = _sparsePeakObservedAt;
+    return config.allowSparseCycleRecovery &&
+        peakAt != null &&
+        now.difference(peakAt) <= config.retainedPeakEvidenceMaxAge &&
+        isNeutralMetric(primaryMetric);
+  }
+
   void cancelPendingTransition() {
     _pendingStartTowardPeakMetric = null;
     _clearRetainedPeakEvidence();
@@ -425,6 +537,8 @@ class GenericRepEngine {
     phase = GenericRepPhase.neutral;
     _pendingStartTowardPeakMetric = null;
     _lastNeutralMetric = null;
+    _lastNeutralObservedAt = null;
+    _sparsePeakObservedAt = null;
     _clearRetainedPeakEvidence();
     _clearPendingTransition();
     _resetCurrentRep(clearPendingTransition: false);
@@ -578,6 +692,7 @@ class GenericRepEngine {
 
   void _resetCurrentRep({bool clearPendingTransition = true}) {
     _currentRepStartMetric = null;
+    _sparsePeakObservedAt = null;
     _clearRetainedPeakEvidence();
     _currentRepMinMetric = null;
     _currentRepMaxMetric = null;

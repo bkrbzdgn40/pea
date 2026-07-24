@@ -12,10 +12,17 @@ class RangeRepEngineFrameResult {
     this.repAborted = false,
     this.completedRepDetectionData,
     this.completedRepCoreData,
-    this.confirmedTransition,
+    RangeRepConfirmedTransition? confirmedTransition,
+    List<RangeRepConfirmedTransition>? confirmedTransitions,
     this.completedTempo,
     List<RangeRepPhase> observedRepPhases = const <RangeRepPhase>[],
-  }) : observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
+  }) : confirmedTransitions = List<RangeRepConfirmedTransition>.unmodifiable(
+         confirmedTransitions ??
+             (confirmedTransition == null
+                 ? const <RangeRepConfirmedTransition>[]
+                 : <RangeRepConfirmedTransition>[confirmedTransition]),
+       ),
+       observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
 
   final bool wasArmedAtFrameStart;
   final bool isArmedAfterUpdate;
@@ -23,9 +30,12 @@ class RangeRepEngineFrameResult {
   final bool repAborted;
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
-  final RangeRepConfirmedTransition? confirmedTransition;
+  final List<RangeRepConfirmedTransition> confirmedTransitions;
   final TempoRepResult? completedTempo;
   final List<RangeRepPhase> observedRepPhases;
+
+  RangeRepConfirmedTransition? get confirmedTransition =>
+      confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
 
   bool get didCompleteRep => completedRepDetectionData != null;
 }

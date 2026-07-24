@@ -59,6 +59,32 @@ void main() {
       },
     );
 
+    test('recovers a strict bottom followed directly by neutral', () {
+      _confirm(engine, clock, 165);
+      clock.advance(const Duration(milliseconds: 100));
+
+      final peak = engine.updateDetectionFrame(primaryMetric: 93);
+
+      expect(
+        peak.confirmedTransitions.map((transition) => transition.type.name),
+        <String>['startDescending', 'reachPeak'],
+      );
+      expect(engine.phaseLabel, 'PEAK');
+
+      clock.advance(const Duration(milliseconds: 250));
+      final completed = engine.updateDetectionFrame(primaryMetric: 165);
+
+      expect(
+        completed.confirmedTransitions.map(
+          (transition) => transition.type.name,
+        ),
+        <String>['startAscending', 'completeRep'],
+      );
+      expect(completed.didCompleteRep, isTrue);
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+    });
+
     test('keeps a shallow 103-degree excursion below completed-rep scope', () {
       _confirm(engine, clock, 165);
       _confirm(engine, clock, 126);

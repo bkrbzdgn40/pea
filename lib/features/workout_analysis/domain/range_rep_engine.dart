@@ -57,16 +57,19 @@ class _RangeRepLifecycleFacts {
     required this.repAborted,
     required this.completedRepDetectionData,
     required this.completedRepCoreData,
-    required this.confirmedTransition,
+    required List<RangeRepConfirmedTransition> confirmedTransitions,
     required List<RangeRepPhase> observedRepPhases,
     this.completedTempo,
-  }) : observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
+  }) : confirmedTransitions = List<RangeRepConfirmedTransition>.unmodifiable(
+         confirmedTransitions,
+       ),
+       observedRepPhases = List<RangeRepPhase>.unmodifiable(observedRepPhases);
 
   final bool repStarted;
   final bool repAborted;
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
-  final RangeRepConfirmedTransition? confirmedTransition;
+  final List<RangeRepConfirmedTransition> confirmedTransitions;
   final List<RangeRepPhase> observedRepPhases;
   final TempoRepResult? completedTempo;
 }
@@ -262,6 +265,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         RangeRepTowardPeakMuscleAction.eccentric,
     double peakEntryMargin = 3.0,
     bool retainPeakEvidenceAcrossActiveTransition = false,
+    bool allowSparseCycleRecovery = false,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _genericRepEngine = GenericRepEngine(
@@ -272,6 +276,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         peakEntryMargin: peakEntryMargin,
         retainPeakEvidenceAcrossActiveTransition:
             retainPeakEvidenceAcrossActiveTransition,
+        allowSparseCycleRecovery: allowSparseCycleRecovery,
         direction: switch (primaryMetricDirection) {
           RangeRepPrimaryMetricDirection.decreasingToPeak =>
             GenericRepMetricDirection.decreasingToPeak,
@@ -454,7 +459,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       repAborted: lifecycleFacts.repAborted,
       completedRepDetectionData: lifecycleFacts.completedRepDetectionData,
       completedRepCoreData: lifecycleFacts.completedRepCoreData,
-      confirmedTransition: lifecycleFacts.confirmedTransition,
+      confirmedTransitions: lifecycleFacts.confirmedTransitions,
       observedRepPhases: lifecycleFacts.observedRepPhases,
       completedTempo: lifecycleFacts.completedTempo,
     );
@@ -482,7 +487,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       primaryMetric: detectionMetric,
     );
     final completedTempo = _tempoEngine.process(genericResult);
-    final transition = genericResult.confirmedTransition;
+    final genericTransitions = genericResult.confirmedTransitions;
     final stateBefore = _movementPhaseFor(genericResult.phaseBeforeUpdate);
 
     _isArmed = genericResult.isArmedAfterUpdate;
@@ -540,11 +545,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     var repAborted = genericResult.repAborted;
     RangeRepCompletedRepDetectionData? completedRepDetectionData;
     RangeRepCompletedRepCoreData? completedRepCoreData;
-    RangeRepConfirmedTransition? confirmedTransition;
+    final confirmedTransitions = <RangeRepConfirmedTransition>[];
 
-    if (transition != null) {
+    for (final transition in genericTransitions) {
       _lastConfirmedTransitionLabel = transition.type.legacyDebugLabel;
-      confirmedTransition = transition.type.confirmedAt(transition.effectiveAt);
+      confirmedTransitions.add(
+        transition.type.confirmedAt(transition.effectiveAt),
+      );
 
       switch (transition.type) {
         case GenericRepTransitionType.acquireNeutral:
@@ -661,7 +668,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       repAborted: repAborted,
       completedRepDetectionData: completedRepDetectionData,
       completedRepCoreData: completedRepCoreData,
-      confirmedTransition: confirmedTransition,
+      confirmedTransitions: confirmedTransitions,
       observedRepPhases: observedRepPhases,
       completedTempo: completedTempo,
     );

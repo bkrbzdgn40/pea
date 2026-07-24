@@ -81,6 +81,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
     required this.selectedSideLabel,
     required this.hasActiveRepContext,
     this.confirmedTransitionCode,
+    this.confirmedTransitionCodes = const <String>[],
     this.completedRepValidationStatus,
     this.completedRepValidationReasons = const <String>[],
     this.recordAcceptedPoseFrame = false,
@@ -95,6 +96,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
   final String? selectedSideLabel;
   final bool hasActiveRepContext;
   final String? confirmedTransitionCode;
+  final List<String> confirmedTransitionCodes;
   final String? completedRepValidationStatus;
   final List<String> completedRepValidationReasons;
   final bool recordAcceptedPoseFrame;
@@ -176,6 +178,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _config = config,
        _rangeRepContract = rangeRepContract,
        _rangeRepValidationConfig = rangeRepValidationConfig,
+       _primaryMetricFilter = MovingAverageFilter(
+         windowSize: rangeRepContract.primaryMetricSmoothingWindow,
+       ),
+       _formMetricFilter = MovingAverageFilter(windowSize: 5),
+       _bodyLineFilter = MovingAverageFilter(windowSize: 5),
+       _armSupportFilter = MovingAverageFilter(windowSize: 5),
+       _legFilter = MovingAverageFilter(windowSize: 5),
        _scorer = scorer,
        _techniqueEvaluator = techniqueEvaluator,
        _techniqueHistoryTracker =
@@ -231,19 +240,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepRepOutcomeTracker _outcomeTracker;
   final SessionCalibrationBaselineAccumulator
   _sessionCalibrationBaselineAccumulator;
-  final MovingAverageFilter _primaryMetricFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _formMetricFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _bodyLineFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _armSupportFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _legFilter = MovingAverageFilter(windowSize: 5);
+  final MovingAverageFilter _primaryMetricFilter;
+  final MovingAverageFilter _formMetricFilter;
+  final MovingAverageFilter _bodyLineFilter;
+  final MovingAverageFilter _armSupportFilter;
+  final MovingAverageFilter _legFilter;
 
   RangeRepSide? _selectedRangeRepSide;
   RangeRepSide? _briefGapFrozenRangeRepSide;
@@ -705,6 +706,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
         hasActiveRepContext: preUpdateDiagnostics.hasRepContext,
         confirmedTransitionCode: engineResult.confirmedTransition?.type.name,
+        confirmedTransitionCodes: engineResult.confirmedTransitions
+            .map((transition) => transition.type.name)
+            .toList(growable: false),
         completedRepValidationStatus: completedRepValidationResult?.status.name,
         completedRepValidationReasons:
             completedRepValidationResult?.reasons

@@ -1030,8 +1030,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       selectedSide: update.selectedSideLabel,
       hasActiveRepContext: update.hasActiveRepContext,
     );
-    final transitionCode = update.confirmedTransitionCode;
-    if (transitionCode != null) {
+    final transitionCodes = update.confirmedTransitionCodes.isNotEmpty
+        ? update.confirmedTransitionCodes
+        : <String>[
+            if (update.confirmedTransitionCode != null)
+              update.confirmedTransitionCode!,
+          ];
+    for (final transitionCode in transitionCodes) {
       _diagnostics.recordRangeRepTransition(transitionCode);
     }
     final validationStatus = update.completedRepValidationStatus;

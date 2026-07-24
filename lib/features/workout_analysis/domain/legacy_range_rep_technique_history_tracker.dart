@@ -76,24 +76,44 @@ class LegacyRangeRepTechniqueHistoryTracker {
       );
     }
 
-    final transition = engineResult.confirmedTransition;
-    switch (transition?.type) {
-      case null:
-        for (final phase in engineResult.observedRepPhases) {
-          _recordPhase(
-            phase,
-            primaryMetric: primaryMetric,
-            formMetric: formMetric,
-            hasTechniqueViolation: hasTechniqueViolation,
-          );
-        }
-        return null;
+    if (engineResult.confirmedTransitions.isEmpty) {
+      for (final phase in engineResult.observedRepPhases) {
+        _recordPhase(
+          phase,
+          primaryMetric: primaryMetric,
+          formMetric: formMetric,
+          hasTechniqueViolation: hasTechniqueViolation,
+        );
+      }
+      return null;
+    }
+
+    LegacyRangeRepCompletedTechniqueData? completedTechniqueData;
+    for (final transition in engineResult.confirmedTransitions) {
+      final completed = _recordConfirmedTransition(
+        transition,
+        primaryMetric: primaryMetric,
+        formMetric: formMetric,
+        hasTechniqueViolation: hasTechniqueViolation,
+      );
+      completedTechniqueData = completed ?? completedTechniqueData;
+    }
+    return completedTechniqueData;
+  }
+
+  LegacyRangeRepCompletedTechniqueData? _recordConfirmedTransition(
+    RangeRepConfirmedTransition transition, {
+    required double primaryMetric,
+    required double formMetric,
+    required bool hasTechniqueViolation,
+  }) {
+    switch (transition.type) {
       case RangeRepConfirmedTransitionType.acquireNeutral:
         return null;
       case RangeRepConfirmedTransitionType.startDescending:
         _startPhase(
           RangeRepPhase.descending,
-          startedAt: transition!.effectiveAt,
+          startedAt: transition.effectiveAt,
           primaryMetric: primaryMetric,
           formMetric: formMetric,
           hasTechniqueViolation: hasTechniqueViolation,
@@ -106,7 +126,7 @@ class LegacyRangeRepTechniqueHistoryTracker {
           formMetric: formMetric,
           hasTechniqueViolation: hasTechniqueViolation,
         );
-        _completePhase(RangeRepPhase.descending, transition!.effectiveAt);
+        _completePhase(RangeRepPhase.descending, transition.effectiveAt);
         _startPhase(
           RangeRepPhase.peak,
           startedAt: transition.effectiveAt,
@@ -122,7 +142,7 @@ class LegacyRangeRepTechniqueHistoryTracker {
           formMetric: formMetric,
           hasTechniqueViolation: hasTechniqueViolation,
         );
-        _completePhase(RangeRepPhase.peak, transition!.effectiveAt);
+        _completePhase(RangeRepPhase.peak, transition.effectiveAt);
         _startPhase(
           RangeRepPhase.ascending,
           startedAt: transition.effectiveAt,
@@ -147,7 +167,7 @@ class LegacyRangeRepTechniqueHistoryTracker {
           formMetric: formMetric,
           hasTechniqueViolation: hasTechniqueViolation,
         );
-        _completePhase(RangeRepPhase.ascending, transition!.effectiveAt);
+        _completePhase(RangeRepPhase.ascending, transition.effectiveAt);
         if (!_hasActiveRep) {
           return null;
         }
