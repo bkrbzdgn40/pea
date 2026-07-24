@@ -295,6 +295,15 @@ void main() {
       );
       expect(frontRaise.thresholdPeak, 75.0);
       expect(frontRaise.formThreshold, 145.0);
+
+      final jumpingJack = _loadConfig(
+        'assets/config/exercises/jumping_jack.json',
+      );
+      expect(jumpingJack.thresholdNeutral, 20.0);
+      expect(jumpingJack.thresholdActive, 55.0);
+      expect(jumpingJack.thresholdPeak, 120.0);
+      expect(jumpingJack.formThreshold, 95.0);
+      expect(jumpingJack.targetMaxAngle, 130.0);
     });
 
     test('parses wall-sit and side-plank hold configs', () {

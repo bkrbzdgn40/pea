@@ -877,7 +877,7 @@ void main() {
       () {
         final config = _loadConfig('assets/config/exercises/jumping_jack.json');
         final deviceLikePeak = extractor.extract(
-          _jumpingJackPose(leftShoulderAngle: 150, rightShoulderAngle: 121),
+          _jumpingJackPose(leftShoulderAngle: 128, rightShoulderAngle: 122),
           config,
           engineKind: EngineKind.rangeRep,
           rangeRepContract: RangeRepContracts.jumpingJack,
@@ -891,7 +891,7 @@ void main() {
 
         expect(
           deviceLikePeak.bilateralRangeRepMetrics?.primaryAngle,
-          closeTo(135.5, 0.001),
+          closeTo(125.0, 0.001),
         );
         expect(
           deviceLikePeak.bilateralRangeRepMetrics!.primaryAngle,
