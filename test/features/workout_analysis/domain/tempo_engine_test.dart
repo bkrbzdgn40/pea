@@ -106,6 +106,55 @@ void main() {
       },
     );
 
+    test('processes sparse chained transitions in chronological order', () {
+      final engine = TempoEngine();
+      final base = DateTime(2026, 1, 1, 12);
+
+      engine.process(
+        _transition(GenericRepTransitionType.acquireNeutral, base),
+      );
+      engine.process(
+        _transitions(<GenericRepConfirmedTransition>[
+          GenericRepConfirmedTransition(
+            type: GenericRepTransitionType.startTowardPeak,
+            effectiveAt: base.add(const Duration(milliseconds: 100)),
+          ),
+          GenericRepConfirmedTransition(
+            type: GenericRepTransitionType.reachPeak,
+            effectiveAt: base.add(const Duration(milliseconds: 350)),
+          ),
+        ], phaseAfterUpdate: GenericRepPhase.peak),
+      );
+      final completed = engine.process(
+        _transitions(
+          <GenericRepConfirmedTransition>[
+            GenericRepConfirmedTransition(
+              type: GenericRepTransitionType.startReturning,
+              effectiveAt: base.add(const Duration(milliseconds: 350)),
+            ),
+            GenericRepConfirmedTransition(
+              type: GenericRepTransitionType.completeRep,
+              effectiveAt: base.add(const Duration(milliseconds: 650)),
+            ),
+          ],
+          phaseAfterUpdate: GenericRepPhase.neutral,
+          completedRep: const GenericRepCompletedRep(
+            repIndex: 1,
+            startMetric: 165,
+            peakMetric: 93,
+            rom: 72,
+          ),
+        ),
+      );
+
+      expect(completed, isNotNull);
+      expect(completed!.towardPeakDuration.inMilliseconds, 250);
+      expect(completed.bottomPauseDuration, Duration.zero);
+      expect(completed.returnDuration.inMilliseconds, 300);
+      expect(completed.totalRepDuration.inMilliseconds, 550);
+      expect(engine.sessionSummary.repCount, 1);
+    });
+
     test('does not record an aborted lifecycle as a completed tempo rep', () {
       final engine = TempoEngine();
       final base = DateTime(2026, 1, 1, 12);
@@ -252,6 +301,21 @@ GenericRepEngineFrameResult _transition(
       type: type,
       effectiveAt: effectiveAt,
     ),
+    completedRep: completedRep,
+  );
+}
+
+GenericRepEngineFrameResult _transitions(
+  List<GenericRepConfirmedTransition> transitions, {
+  required GenericRepPhase phaseAfterUpdate,
+  GenericRepCompletedRep? completedRep,
+}) {
+  return GenericRepEngineFrameResult(
+    wasArmedAtFrameStart: true,
+    isArmedAfterUpdate: true,
+    phaseBeforeUpdate: GenericRepPhase.neutral,
+    phaseAfterUpdate: phaseAfterUpdate,
+    confirmedTransitions: transitions,
     completedRep: completedRep,
   );
 }

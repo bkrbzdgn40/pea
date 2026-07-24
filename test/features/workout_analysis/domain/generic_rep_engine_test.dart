@@ -3,6 +3,20 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/generic_rep
 
 void main() {
   group('GenericRepEngine', () {
+    test('rejects a negative retained peak evidence window at runtime', () {
+      expect(
+        () => GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            retainedPeakEvidenceMaxAge: Duration(milliseconds: -1),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test(
       'counts a decreasing-to-peak repetition through the full lifecycle',
       () {
@@ -266,6 +280,267 @@ void main() {
         expect(engine.phase, GenericRepPhase.neutral);
       },
     );
+
+    test(
+      'retains a sparse peak consumed by active-entry confirmation when enabled',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            retainPeakEvidenceAcrossActiveTransition: true,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 170, 120);
+
+        engine.update(primaryMetric: 90);
+        clock.advance(const Duration(milliseconds: 100));
+        final started = engine.update(primaryMetric: 130);
+
+        expect(started.repStarted, isTrue);
+        expect(engine.phase, GenericRepPhase.towardPeak);
+        expect(engine.pendingTransition, GenericRepTransitionType.reachPeak);
+
+        clock.advance(const Duration(milliseconds: 20));
+        final recoveredPeak = engine.update(primaryMetric: 130);
+
+        expect(
+          recoveredPeak.confirmedTransition?.type,
+          GenericRepTransitionType.reachPeak,
+        );
+        expect(engine.phase, GenericRepPhase.peak);
+
+        _confirm(clock, engine, 120, 100);
+        final completed = _confirm(clock, engine, 170, 120);
+
+        expect(engine.repCount, 1);
+        expect(completed.completedRep, isNotNull);
+        expect(completed.completedRep!.startMetric, 170);
+        expect(completed.completedRep!.peakMetric, 90);
+        expect(completed.completedRep!.rom, 80);
+      },
+    );
+
+    test('expires retained peak evidence after the configured window', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 150,
+          peakThreshold: 95,
+          retainPeakEvidenceAcrossActiveTransition: true,
+          retainedPeakEvidenceMaxAge: Duration(milliseconds: 200),
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 170, 120);
+
+      engine.update(primaryMetric: 90);
+      clock.advance(const Duration(milliseconds: 300));
+      final started = engine.update(primaryMetric: 130);
+
+      expect(started.repStarted, isTrue);
+      expect(engine.pendingTransition, isNull);
+
+      final aborted = _confirm(clock, engine, 170, 120);
+
+      expect(aborted.repAborted, isTrue);
+      expect(engine.repCount, 0);
+    });
+
+    test('clears retained peak evidence when active entry is cancelled', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 150,
+          peakThreshold: 95,
+          retainPeakEvidenceAcrossActiveTransition: true,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 170, 120);
+
+      engine.update(primaryMetric: 90);
+      clock.advance(const Duration(milliseconds: 40));
+      engine.update(primaryMetric: 170);
+
+      engine.update(primaryMetric: 130);
+      clock.advance(const Duration(milliseconds: 100));
+      final started = engine.update(primaryMetric: 130);
+
+      expect(started.repStarted, isTrue);
+      expect(engine.pendingTransition, isNull);
+
+      final aborted = _confirm(clock, engine, 170, 120);
+
+      expect(aborted.repAborted, isTrue);
+      expect(engine.repCount, 0);
+    });
+
+    test('keeps sparse-peak recovery disabled by default', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 150,
+          peakThreshold: 95,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 170, 120);
+
+      engine.update(primaryMetric: 90);
+      clock.advance(const Duration(milliseconds: 100));
+      final started = engine.update(primaryMetric: 130);
+
+      expect(started.repStarted, isTrue);
+      expect(engine.pendingTransition, isNull);
+
+      final aborted = _confirm(clock, engine, 170, 120);
+
+      expect(aborted.repAborted, isTrue);
+      expect(engine.repCount, 0);
+      expect(engine.phase, GenericRepPhase.neutral);
+    });
+
+    test('recovers a decreasing sparse peak-to-neutral cycle', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 150,
+          activeThreshold: 130,
+          peakThreshold: 100,
+          allowSparseCycleRecovery: true,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 165, 120);
+      clock.advance(const Duration(milliseconds: 100));
+
+      final peak = engine.update(primaryMetric: 93);
+
+      expect(
+        peak.confirmedTransitions.map((transition) => transition.type),
+        <GenericRepTransitionType>[
+          GenericRepTransitionType.startTowardPeak,
+          GenericRepTransitionType.reachPeak,
+        ],
+      );
+      expect(peak.repStarted, isTrue);
+      expect(engine.phase, GenericRepPhase.peak);
+
+      clock.advance(const Duration(milliseconds: 250));
+      final completed = engine.update(primaryMetric: 165);
+
+      expect(
+        completed.confirmedTransitions.map((transition) => transition.type),
+        <GenericRepTransitionType>[
+          GenericRepTransitionType.startReturning,
+          GenericRepTransitionType.completeRep,
+        ],
+      );
+      expect(completed.completedRep, isNotNull);
+      expect(completed.completedRep!.startMetric, 165);
+      expect(completed.completedRep!.peakMetric, 93);
+      expect(completed.completedRep!.rom, 72);
+      expect(engine.repCount, 1);
+      expect(engine.phase, GenericRepPhase.neutral);
+    });
+
+    test('recovers an increasing sparse peak-to-neutral cycle', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 20,
+          activeThreshold: 55,
+          peakThreshold: 135,
+          direction: GenericRepMetricDirection.increasingToPeak,
+          allowSparseCycleRecovery: true,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 10, 120);
+      clock.advance(const Duration(milliseconds: 100));
+      final peak = engine.update(primaryMetric: 145);
+
+      expect(peak.repStarted, isTrue);
+      expect(
+        peak.confirmedTransition?.type,
+        GenericRepTransitionType.reachPeak,
+      );
+      expect(engine.phase, GenericRepPhase.peak);
+
+      clock.advance(const Duration(milliseconds: 250));
+      final completed = engine.update(primaryMetric: 10);
+
+      expect(completed.completedRep, isNotNull);
+      expect(completed.completedRep!.startMetric, 10);
+      expect(completed.completedRep!.peakMetric, 145);
+      expect(completed.completedRep!.rom, 135);
+      expect(engine.repCount, 1);
+      expect(engine.phase, GenericRepPhase.neutral);
+    });
+
+    test('does not directly complete from stale sparse peak evidence', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 150,
+          activeThreshold: 130,
+          peakThreshold: 100,
+          allowSparseCycleRecovery: true,
+          retainedPeakEvidenceMaxAge: Duration(milliseconds: 750),
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 165, 120);
+      clock.advance(const Duration(milliseconds: 100));
+      final peak = engine.update(primaryMetric: 93);
+      expect(
+        peak.confirmedTransition?.type,
+        GenericRepTransitionType.reachPeak,
+      );
+
+      clock.advance(const Duration(milliseconds: 751));
+      final staleNeutral = engine.update(primaryMetric: 165);
+
+      expect(staleNeutral.completedRep, isNull);
+      expect(staleNeutral.confirmedTransitions, isEmpty);
+      expect(engine.repCount, 0);
+    });
+
+    test('does not chain a strict sparse cycle unless explicitly enabled', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 150,
+          activeThreshold: 130,
+          peakThreshold: 100,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 165, 120);
+      clock.advance(const Duration(milliseconds: 100));
+      final peak = engine.update(primaryMetric: 93);
+      clock.advance(const Duration(milliseconds: 250));
+      final neutral = engine.update(primaryMetric: 165);
+
+      expect(peak.confirmedTransitions, isEmpty);
+      expect(neutral.completedRep, isNull);
+      expect(engine.repCount, 0);
+    });
 
     test(
       'reset clears repetition history and requires neutral acquisition again',

@@ -26,6 +26,21 @@ enum RangeRepSideMode { selectedSide, bilateral }
 
 enum RangeRepBilateralFormPolicy { includeSync, sideFormOnly }
 
+/// Selects how bilateral side metrics become the engine-facing movement metric.
+///
+/// [laggingSide] preserves the strict default: both sides must independently
+/// reach the same lifecycle range. [mean] tolerates short-lived asymmetric
+/// landmark lag while bilateral form/synchronization remains available for
+/// technique validation.
+enum RangeRepBilateralPrimaryPolicy { laggingSide, mean }
+
+/// Controls when the legacy form metric is eligible for live technique cues.
+enum RangeRepTechniqueEvaluationPolicy {
+  always,
+  activeMovementOnly,
+  peakWindowOnly,
+}
+
 /// Declares how the exercise's primary movement signal is measured.
 ///
 /// [jointAngle] preserves the legacy three-landmark angle configured by
@@ -69,11 +84,17 @@ class RangeRepContract {
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
     this.bilateralFormPolicy = RangeRepBilateralFormPolicy.includeSync,
+    this.bilateralPrimaryPolicy = RangeRepBilateralPrimaryPolicy.laggingSide,
+    this.techniqueEvaluationPolicy = RangeRepTechniqueEvaluationPolicy.always,
     this.primaryMetricKind = RangeRepPrimaryMetricKind.jointAngle,
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     this.towardPeakMuscleAction = RangeRepTowardPeakMuscleAction.eccentric,
     this.peakEntryMargin = 3.0,
+    this.retainPeakEvidenceAcrossActiveTransition = false,
+    this.allowSparseCycleRecovery = false,
+    this.primaryMetricSmoothingWindow = 5,
+    this.formMetricSmoothingWindow = 5,
     this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
@@ -89,6 +110,21 @@ class RangeRepContract {
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
          poseAcceptanceRequiredSignals ?? supportedSignals,
        ) {
+    if (primaryMetricSmoothingWindow <= 0) {
+      throw ArgumentError.value(
+        primaryMetricSmoothingWindow,
+        'primaryMetricSmoothingWindow',
+        'Must be greater than zero.',
+      );
+    }
+    if (formMetricSmoothingWindow <= 0) {
+      throw ArgumentError.value(
+        formMetricSmoothingWindow,
+        'formMetricSmoothingWindow',
+        'Must be greater than zero.',
+      );
+    }
+
     final unsupportedPoseAcceptanceSignals = this.poseAcceptanceRequiredSignals
         .difference(this.supportedSignals);
     if (unsupportedPoseAcceptanceSignals.isNotEmpty) {
@@ -129,6 +165,8 @@ class RangeRepContract {
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
   final RangeRepBilateralFormPolicy bilateralFormPolicy;
+  final RangeRepBilateralPrimaryPolicy bilateralPrimaryPolicy;
+  final RangeRepTechniqueEvaluationPolicy techniqueEvaluationPolicy;
   final RangeRepPrimaryMetricKind primaryMetricKind;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final RangeRepTowardPeakMuscleAction towardPeakMuscleAction;
@@ -139,6 +177,31 @@ class RangeRepContract {
   /// movements can opt into a literal configured peak threshold when sparse
   /// analysis sampling makes the extra entry margin too restrictive.
   final double peakEntryMargin;
+
+  /// Retains a strict peak sample observed before active-entry confirmation.
+  ///
+  /// Keep this disabled unless device evidence shows that sparse analysis
+  /// sampling consumes valid peaks between lifecycle phases.
+  final bool retainPeakEvidenceAcrossActiveTransition;
+
+  /// Allows a strict peak sample and a later strict neutral sample to recover
+  /// the intermediate lifecycle transitions within those two analysis frames.
+  ///
+  /// Keep this disabled for ordinary movements. It exists for movements whose
+  /// device evidence shows that analysis FPS is too low to observe every
+  /// intermediate active/return sample.
+  final bool allowSparseCycleRecovery;
+
+  /// Number of accepted primary-metric samples used by the coordinator's
+  /// moving-average filter. Fast movements can opt out of the five-frame
+  /// default when that window spans most of a physical repetition.
+  final int primaryMetricSmoothingWindow;
+
+  /// Number of accepted form-metric samples used by the coordinator's
+  /// moving-average filter. Fast coordination cues can opt out of the
+  /// five-frame default so a recovered peak is not judged using stale setup
+  /// samples from most of the physical repetition.
+  final int formMetricSmoothingWindow;
 
   final RangeRepExtensionProfile extensionProfile;
 
@@ -160,6 +223,31 @@ class RangeRepContract {
 
   bool signalHasRole(RangeRepSignal signal, AnalysisSignalRole role) {
     return rolesForSignal(signal).contains(role);
+  }
+
+  bool shouldEvaluateTechnique({
+    required double primaryMetric,
+    required double activeThreshold,
+    required double peakThreshold,
+  }) {
+    switch (techniqueEvaluationPolicy) {
+      case RangeRepTechniqueEvaluationPolicy.always:
+        return true;
+      case RangeRepTechniqueEvaluationPolicy.activeMovementOnly:
+        return switch (primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            primaryMetric < activeThreshold,
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            primaryMetric > activeThreshold,
+        };
+      case RangeRepTechniqueEvaluationPolicy.peakWindowOnly:
+        return switch (primaryMetricDirection) {
+          RangeRepPrimaryMetricDirection.decreasingToPeak =>
+            primaryMetric < peakThreshold,
+          RangeRepPrimaryMetricDirection.increasingToPeak =>
+            primaryMetric > peakThreshold,
+        };
+    }
   }
 
   Set<RangeRepSignal> signalsForRole(AnalysisSignalRole role) {
@@ -409,6 +497,9 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    retainPeakEvidenceAcrossActiveTransition: true,
+    allowSparseCycleRecovery: true,
+    primaryMetricSmoothingWindow: 1,
   );
 
   static final RangeRepContract romanianDeadlift = RangeRepContract(
@@ -704,6 +795,13 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
+    bilateralPrimaryPolicy: RangeRepBilateralPrimaryPolicy.mean,
+    techniqueEvaluationPolicy: RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    peakEntryMargin: 0.0,
+    retainPeakEvidenceAcrossActiveTransition: true,
+    allowSparseCycleRecovery: true,
+    primaryMetricSmoothingWindow: 1,
+    formMetricSmoothingWindow: 1,
   );
 }

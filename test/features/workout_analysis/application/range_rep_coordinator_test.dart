@@ -344,6 +344,116 @@ void main() {
       );
     });
 
+    test(
+      'Jumping Jack evaluates coordination near peak and clears recovered feedback',
+      () {
+        final clock = _TestClock();
+        final config = loadExerciseConfig(
+          'assets/config/exercises/jumping_jack.json',
+        );
+        final evaluator = _RecordingTechniqueEvaluator();
+        final engine = _ScriptedRangeRepEngine(
+          config: config,
+          primaryMetricDirection:
+              RangeRepContracts.jumpingJack.primaryMetricDirection,
+          now: clock.now,
+          results: <RangeRepEngineFrameResult>[
+            _scriptedTransition(
+              RangeRepConfirmedTransitionType.acquireNeutral,
+              clock.now(),
+              wasArmedAtFrameStart: false,
+            ),
+            _scriptedArmedFrame(),
+            _scriptedTransition(
+              RangeRepConfirmedTransitionType.startDescending,
+              clock.now().add(const Duration(milliseconds: 120)),
+              repStarted: true,
+              phases: const <RangeRepPhase>[RangeRepPhase.descending],
+            ),
+            _scriptedTransition(
+              RangeRepConfirmedTransitionType.reachPeak,
+              clock.now().add(const Duration(milliseconds: 240)),
+              phases: const <RangeRepPhase>[RangeRepPhase.peak],
+            ),
+            RangeRepEngineFrameResult(
+              wasArmedAtFrameStart: true,
+              isArmedAfterUpdate: true,
+              observedRepPhases: const <RangeRepPhase>[RangeRepPhase.peak],
+            ),
+          ],
+        );
+        final coordinator = DefaultRangeRepCoordinator(
+          engine: engine,
+          config: config,
+          rangeRepContract: RangeRepContracts.jumpingJack,
+          rangeRepValidationConfig: const RangeRepValidationConfig(),
+          techniqueEvaluator: evaluator,
+        );
+
+        final acquired = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 15,
+          formMetric: 90,
+        );
+        clock.advance(const Duration(milliseconds: 120));
+        final neutral = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 15,
+          formMetric: 90,
+        );
+        clock.advance(const Duration(milliseconds: 120));
+        final active = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 100,
+          formMetric: 90,
+        );
+        clock.advance(const Duration(milliseconds: 120));
+        final unsynchronizedPeak = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 125,
+          formMetric: 90,
+        );
+        clock.advance(const Duration(milliseconds: 120));
+        final recoveredPeak = _processAcceptedJumpingJackFrame(
+          coordinator,
+          clock,
+          primaryMetric: 125,
+          formMetric: 100,
+        );
+
+        expect(evaluator.formMetrics, <double>[90.0, 100.0]);
+        expect(acquired.stateSnapshot.isFormBad, isFalse);
+        expect(
+          acquired.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.ready,
+        );
+        expect(neutral.stateSnapshot.isFormBad, isFalse);
+        expect(
+          neutral.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.ready,
+        );
+        expect(active.stateSnapshot.isFormBad, isFalse);
+        expect(
+          active.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.descend,
+        );
+        expect(unsynchronizedPeak.stateSnapshot.isFormBad, isTrue);
+        expect(
+          unsynchronizedPeak.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.legacyFormThresholdViolation,
+        );
+        expect(recoveredPeak.stateSnapshot.isFormBad, isFalse);
+        expect(
+          recoveredPeak.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.ascend,
+        );
+      },
+    );
+
     test('owns live form and feedback across the production lifecycle', () {
       final clock = _TestClock();
       final base = clock.now();
@@ -1851,6 +1961,61 @@ RangeRepCoordinatorFrameResult _processAcceptedFrame(
   );
 }
 
+RangeRepCoordinatorFrameResult _processAcceptedJumpingJackFrame(
+  DefaultRangeRepCoordinator coordinator,
+  _TestClock clock, {
+  required double primaryMetric,
+  required double formMetric,
+}) {
+  final leftMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.left,
+    primaryAngle: primaryMetric,
+    formMetric: formMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+  );
+  final rightMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.right,
+    primaryAngle: primaryMetric,
+    formMetric: formMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+  );
+  final bilateralMetrics = RangeRepBilateralMetrics(
+    primaryAngle: primaryMetric,
+    formMetric: formMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    leftPrimaryAngle: primaryMetric,
+    rightPrimaryAngle: primaryMetric,
+    leftFormScore: formMetric,
+    rightFormScore: formMetric,
+    syncScore: 180,
+  );
+
+  return coordinator.processFrame(
+    metrics: ExerciseMetrics(
+      primaryAngle: primaryMetric,
+      formMetric: formMetric,
+      hasPrimaryAngle: true,
+      hasFormMetric: true,
+      hasPose: true,
+      landmarks: const <PoseLandmark>[],
+      leftRangeRepMetrics: leftMetrics,
+      rightRangeRepMetrics: rightMetrics,
+      bilateralRangeRepMetrics: bilateralMetrics,
+    ),
+    now: clock.now(),
+    isAcceptedPoseFrame: true,
+    didBecomeStableTracking: false,
+    qualityAcceptedRangeRepSides: const <RangeRepSide>{
+      RangeRepSide.left,
+      RangeRepSide.right,
+    },
+    preferredRangeRepSide: null,
+  );
+}
+
 RangeRepCoordinatorFrameResult _processAcceptedBicepsFrame(
   DefaultRangeRepCoordinator coordinator,
   _TestClock clock, {
@@ -2581,6 +2746,7 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
 class _ScriptedRangeRepEngine extends RangeRepEngine {
   _ScriptedRangeRepEngine({
     required super.config,
+    super.primaryMetricDirection,
     required DateTime Function() now,
     required List<RangeRepEngineFrameResult> results,
   }) : _results = List<RangeRepEngineFrameResult>.of(results),

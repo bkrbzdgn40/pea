@@ -864,13 +864,49 @@ void main() {
       expect(metrics.rightRangeRepMetrics.primaryAngle, closeTo(100.0, 0.001));
       expect(
         metrics.bilateralRangeRepMetrics?.primaryAngle,
-        closeTo(100.0, 0.001),
+        closeTo(110.0, 0.001),
       );
       expect(
         metrics.bilateralRangeRepMetrics?.formMetric,
         closeTo(135.0, 0.001),
       );
     });
+
+    test(
+      'jumping jack averages asymmetric arm tracking without accepting one-arm peaks',
+      () {
+        final config = _loadConfig('assets/config/exercises/jumping_jack.json');
+        final deviceLikePeak = extractor.extract(
+          _jumpingJackPose(leftShoulderAngle: 128, rightShoulderAngle: 122),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.jumpingJack,
+        );
+        final oneArmOnly = extractor.extract(
+          _jumpingJackPose(leftShoulderAngle: 160, rightShoulderAngle: 20),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.jumpingJack,
+        );
+
+        expect(
+          deviceLikePeak.bilateralRangeRepMetrics?.primaryAngle,
+          closeTo(125.0, 0.001),
+        );
+        expect(
+          deviceLikePeak.bilateralRangeRepMetrics!.primaryAngle,
+          greaterThan(config.thresholdPeak),
+        );
+        expect(
+          oneArmOnly.bilateralRangeRepMetrics?.primaryAngle,
+          closeTo(90.0, 0.001),
+        );
+        expect(
+          oneArmOnly.bilateralRangeRepMetrics!.primaryAngle,
+          lessThan(config.thresholdPeak),
+        );
+      },
+    );
 
     group('hold metrics', () {
       test('wall sit extracts knee, hip, and torso hold signals', () {

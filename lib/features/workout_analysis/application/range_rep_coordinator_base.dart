@@ -81,6 +81,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
     required this.selectedSideLabel,
     required this.hasActiveRepContext,
     this.confirmedTransitionCode,
+    this.confirmedTransitionCodes = const <String>[],
     this.completedRepValidationStatus,
     this.completedRepValidationReasons = const <String>[],
     this.recordAcceptedPoseFrame = false,
@@ -95,6 +96,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
   final String? selectedSideLabel;
   final bool hasActiveRepContext;
   final String? confirmedTransitionCode;
+  final List<String> confirmedTransitionCodes;
   final String? completedRepValidationStatus;
   final List<String> completedRepValidationReasons;
   final bool recordAcceptedPoseFrame;
@@ -176,6 +178,15 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _config = config,
        _rangeRepContract = rangeRepContract,
        _rangeRepValidationConfig = rangeRepValidationConfig,
+       _primaryMetricFilter = MovingAverageFilter(
+         windowSize: rangeRepContract.primaryMetricSmoothingWindow,
+       ),
+       _formMetricFilter = MovingAverageFilter(
+         windowSize: rangeRepContract.formMetricSmoothingWindow,
+       ),
+       _bodyLineFilter = MovingAverageFilter(windowSize: 5),
+       _armSupportFilter = MovingAverageFilter(windowSize: 5),
+       _legFilter = MovingAverageFilter(windowSize: 5),
        _scorer = scorer,
        _techniqueEvaluator = techniqueEvaluator,
        _techniqueHistoryTracker =
@@ -231,19 +242,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepRepOutcomeTracker _outcomeTracker;
   final SessionCalibrationBaselineAccumulator
   _sessionCalibrationBaselineAccumulator;
-  final MovingAverageFilter _primaryMetricFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _formMetricFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _bodyLineFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _armSupportFilter = MovingAverageFilter(
-    windowSize: 5,
-  );
-  final MovingAverageFilter _legFilter = MovingAverageFilter(windowSize: 5);
+  final MovingAverageFilter _primaryMetricFilter;
+  final MovingAverageFilter _formMetricFilter;
+  final MovingAverageFilter _bodyLineFilter;
+  final MovingAverageFilter _armSupportFilter;
+  final MovingAverageFilter _legFilter;
 
   RangeRepSide? _selectedRangeRepSide;
   RangeRepSide? _briefGapFrozenRangeRepSide;
@@ -577,8 +580,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       RangeRepSignal.formMetric,
       AnalysisSignalRole.technique,
     );
+    final shouldEvaluateTechnique = _rangeRepContract.shouldEvaluateTechnique(
+      primaryMetric: engineFrame.primaryMetric,
+      activeThreshold: _config.thresholdActive,
+      peakThreshold: _config.thresholdPeak,
+    );
     final hasTechniqueViolation =
         usesLegacyFormMetricTechnique &&
+        shouldEvaluateTechnique &&
         _techniqueEvaluator
             .evaluate(
               formMetric: engineFrame.formMetric,
@@ -705,6 +714,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
         hasActiveRepContext: preUpdateDiagnostics.hasRepContext,
         confirmedTransitionCode: engineResult.confirmedTransition?.type.name,
+        confirmedTransitionCodes: engineResult.confirmedTransitions
+            .map((transition) => transition.type.name)
+            .toList(growable: false),
         completedRepValidationStatus: completedRepValidationResult?.status.name,
         completedRepValidationReasons:
             completedRepValidationResult?.reasons
@@ -937,10 +949,18 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       engineResult: engineResult,
       phaseFeedbackCandidate: phaseFeedbackCandidate,
     );
+    final shouldClearRecoveredPeakWindowCorrection =
+        _rangeRepContract.techniqueEvaluationPolicy ==
+            RangeRepTechniqueEvaluationPolicy.peakWindowOnly &&
+        _currentFeedbackCode ==
+            RangeRepFeedbackCode.legacyFormThresholdViolation &&
+        !hasTechniqueViolation;
     final baseCandidate =
         lifecycleCandidate ??
         (wasArmedAtFrameStart
-            ? _currentFeedbackCode
+            ? shouldClearRecoveredPeakWindowCorrection
+                  ? _movementFeedbackFor(engineResult)
+                  : _currentFeedbackCode
             : RangeRepFeedbackCode.awaitNeutral);
     final decision = _feedbackArbitrationEngine.arbitrate<RangeRepFeedbackCode>(
       candidates: <FeedbackCandidate<RangeRepFeedbackCode>>[
@@ -959,6 +979,22 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
 
     _currentFeedbackCode = decision.selectedValue ?? baseCandidate;
+  }
+
+  RangeRepFeedbackCode _movementFeedbackFor(
+    RangeRepEngineFrameResult engineResult,
+  ) {
+    final observedPhases = engineResult.observedRepPhases;
+    if (observedPhases.contains(RangeRepPhase.ascending) ||
+        observedPhases.contains(RangeRepPhase.peak)) {
+      return RangeRepFeedbackCode.ascend;
+    }
+    if (observedPhases.contains(RangeRepPhase.descending)) {
+      return RangeRepFeedbackCode.descend;
+    }
+    return engineResult.isArmedAfterUpdate
+        ? RangeRepFeedbackCode.ready
+        : RangeRepFeedbackCode.awaitNeutral;
   }
 
   RangeRepFeedbackCode? _lifecycleFeedbackCandidate({

@@ -301,13 +301,10 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         tr: 'Kollarını ve bacaklarını aç...',
         en: 'Open your arms and legs...',
       ),
-      ascend: localizations.pick(
-        tr: 'Kontrollü başlangıca dön...',
-        en: 'Return to the starting position with control...',
-      ),
+      ascend: localizations.pick(tr: 'Ritmi koru...', en: 'Keep the rhythm...'),
       formViolation: localizations.pick(
-        tr: 'Bacaklarını yeterince aç.',
-        en: 'Open your legs farther.',
+        tr: 'Kollarını birlikte tepeye kaldırırken bacaklarını da tamamen aç.',
+        en: 'Raise both arms together as you fully open your legs.',
       ),
       controlDescent: localizations.pick(
         tr: 'Açılışı kontrollü yap.',

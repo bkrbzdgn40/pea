@@ -184,11 +184,21 @@ class TempoEngine {
   TempoSessionSummary get sessionSummary => _sessionAccumulator.summary;
 
   TempoRepResult? process(GenericRepEngineFrameResult frameResult) {
-    final transition = frameResult.confirmedTransition;
-    if (transition == null) {
-      return null;
+    TempoRepResult? completedRep;
+    for (final transition in frameResult.confirmedTransitions) {
+      final result = _processTransition(
+        transition,
+        completedRep: frameResult.completedRep,
+      );
+      completedRep = result ?? completedRep;
     }
+    return completedRep;
+  }
 
+  TempoRepResult? _processTransition(
+    GenericRepConfirmedTransition transition, {
+    required GenericRepCompletedRep? completedRep,
+  }) {
     final effectiveAt = transition.effectiveAt;
     switch (transition.type) {
       case GenericRepTransitionType.acquireNeutral:
@@ -219,7 +229,6 @@ class TempoEngine {
         return null;
 
       case GenericRepTransitionType.completeRep:
-        final completedRep = frameResult.completedRep;
         if (completedRep == null) {
           interrupt(neutralAt: effectiveAt);
           return null;

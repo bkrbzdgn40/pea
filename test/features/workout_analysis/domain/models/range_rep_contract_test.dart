@@ -265,6 +265,104 @@ void main() {
       );
     });
 
+    test('Jumping Jack declares device-proven bilateral signal semantics', () {
+      final contract = RangeRepContracts.jumpingJack;
+
+      expect(
+        contract.bilateralPrimaryPolicy,
+        RangeRepBilateralPrimaryPolicy.mean,
+      );
+      expect(
+        contract.techniqueEvaluationPolicy,
+        RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
+      );
+      expect(contract.peakEntryMargin, 0.0);
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 15,
+          activeThreshold: 55,
+          peakThreshold: 120,
+        ),
+        isFalse,
+      );
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 100,
+          activeThreshold: 55,
+          peakThreshold: 120,
+        ),
+        isFalse,
+      );
+      expect(
+        contract.shouldEvaluateTechnique(
+          primaryMetric: 125,
+          activeThreshold: 55,
+          peakThreshold: 120,
+        ),
+        isTrue,
+      );
+    });
+
+    test('sparse cycle recovery is limited to device-proven blockers', () {
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.tricepsDip,
+        RangeRepContracts.jumpingJack,
+      ]) {
+        expect(contract.retainPeakEvidenceAcrossActiveTransition, isTrue);
+        expect(contract.allowSparseCycleRecovery, isTrue);
+        expect(contract.primaryMetricSmoothingWindow, 1);
+      }
+      expect(RangeRepContracts.tricepsDip.formMetricSmoothingWindow, 5);
+      expect(RangeRepContracts.jumpingJack.formMetricSmoothingWindow, 1);
+
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.squat,
+        RangeRepContracts.pushUp,
+        RangeRepContracts.sitUp,
+      ]) {
+        expect(contract.retainPeakEvidenceAcrossActiveTransition, isFalse);
+        expect(contract.allowSparseCycleRecovery, isFalse);
+        expect(contract.primaryMetricSmoothingWindow, 5);
+        expect(contract.formMetricSmoothingWindow, 5);
+      }
+    });
+
+    test('rejects a non-positive primary metric smoothing window', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          primaryMetricSmoothingWindow: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects a non-positive form metric smoothing window', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          formMetricSmoothingWindow: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test(
       'Day 11 dynamic exercises declare intentional direction and side mode',
       () {

@@ -35,6 +35,9 @@ class AnalysisEngineFactory {
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
       towardPeakMuscleAction: rangeRepContract.towardPeakMuscleAction,
       peakEntryMargin: rangeRepContract.peakEntryMargin,
+      retainPeakEvidenceAcrossActiveTransition:
+          rangeRepContract.retainPeakEvidenceAcrossActiveTransition,
+      allowSparseCycleRecovery: rangeRepContract.allowSparseCycleRecovery,
       now: now,
     );
   }
