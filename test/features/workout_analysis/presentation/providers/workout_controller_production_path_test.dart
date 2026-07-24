@@ -578,6 +578,168 @@ void main() {
     );
 
     test(
+      'sit-up production path ignores peak-first entry and arms from a relaxed lying setup',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 68, formAngle: 40),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        var state = harness.container.read(workoutControllerProvider);
+        expect(state.currentPhase, 'AWAITING_NEUTRAL');
+        expect(state.currentAngle, closeTo(120.0, 0.001));
+        expect(state.repCount, 0);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 95, formAngle: 40),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        state = harness.container.read(workoutControllerProvider);
+        expect(state.currentPhase, 'AWAITING_NEUTRAL');
+        expect(state.repCount, 0);
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 110, formAngle: 40),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        state = harness.container.read(workoutControllerProvider);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.currentAngle, greaterThan(120.0));
+        expect(state.repCount, 0);
+
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 95, formAngle: 40),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 68, formAngle: 40),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 90, formAngle: 40),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          _sitUpPose(primaryAngle: 110, formAngle: 40),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        state = harness.container.read(workoutControllerProvider);
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.calibrationMetrics.lastRangeRepValidationStatus, 'valid');
+      },
+    );
+
+    test(
+      'sit-up production path counts the same cycle after rigid image rotation',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        final harness = await _createResolvedConfigHarness(
+          selectedExercise: ExerciseType.sitUp,
+          detector: detector,
+          clock: clock,
+        );
+        addTearDown(harness.dispose);
+
+        Pose rotatedSitUpPose(double primaryAngle) {
+          return _rotatePose(
+            _sitUpPose(primaryAngle: primaryAngle, formAngle: 40),
+            90,
+          );
+        }
+
+        await _pumpAcceptedPose(
+          harness.controller,
+          detector,
+          clock,
+          rotatedSitUpPose(125),
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          rotatedSitUpPose(108),
+          expectedPhase: 'DESCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          rotatedSitUpPose(68),
+          expectedPhase: 'PEAK',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          rotatedSitUpPose(92),
+          expectedPhase: 'ASCENDING',
+          spacing: const Duration(milliseconds: 90),
+        );
+        await _driveUntilPhase(
+          harness.controller,
+          detector,
+          clock,
+          rotatedSitUpPose(121),
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+
+        final state = harness.container.read(workoutControllerProvider);
+
+        expect(state.repCount, 1);
+        expect(state.currentPhase, 'NEUTRAL');
+        expect(state.currentAngle, closeTo(121.0, 0.001));
+        expect(state.calibrationMetrics.lastRangeRepValidationStatus, 'valid');
+      },
+    );
+
+    test(
       'sit-up production path does not treat low knee setup angle as bad form',
       () async {
         final detector = _QueuedPoseDetector();
@@ -2987,6 +3149,25 @@ ExerciseConfig _pushUpConfig() {
     'assets/config/exercises/push_up.json',
   ).readAsStringSync();
   return ExerciseConfig.fromMap(jsonDecode(rawJson) as Map<String, dynamic>);
+}
+
+Pose _rotatePose(Pose pose, double degrees) {
+  final radians = degrees * math.pi / 180.0;
+  final cosine = math.cos(radians);
+  final sine = math.sin(radians);
+
+  return Pose(
+    landmarks: <PoseLandmarkType, PoseLandmark>{
+      for (final entry in pose.landmarks.entries)
+        entry.key: PoseLandmark(
+          type: entry.value.type,
+          x: entry.value.x * cosine - entry.value.y * sine,
+          y: entry.value.x * sine + entry.value.y * cosine,
+          z: entry.value.z,
+          likelihood: entry.value.likelihood,
+        ),
+    },
+  );
 }
 
 Pose _sitUpPose({

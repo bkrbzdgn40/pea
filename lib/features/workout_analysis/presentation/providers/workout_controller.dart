@@ -20,6 +20,7 @@ import '../../application/pose_acceptance_stabilizer.dart';
 import '../../application/pose_quality_policy.dart';
 import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
+import '../../application/range_rep_primary_metric_normalizer.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../application/workout_live_metrics.dart';
@@ -183,6 +184,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepAnalysisEngine? _rangeRepEngine;
   AlternatingRepEngine? _alternatingRepEngine;
   RangeRepCoordinator? _rangeRepCoordinator;
+  RangeRepPrimaryMetricNormalizer? _primaryMetricNormalizer;
   HoldCoordinator? _holdCoordinator;
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   int? _liveMetricsRepCount;
@@ -255,6 +257,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
                 now: _clock,
               )
             : null;
+        _primaryMetricNormalizer = RangeRepPrimaryMetricNormalizer(
+          config: _config,
+          rangeRepContract: rangeRepContract,
+        );
         _rangeRepCoordinator = rangeRepCoordinatorFactory(
           engine: rangeRepEngine,
           config: _config,
@@ -275,6 +281,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _rangeRepEngine = null;
         _alternatingRepEngine = null;
         _rangeRepCoordinator = null;
+        _primaryMetricNormalizer = null;
         _holdCoordinator = holdCoordinatorFactory(
           engine: holdEngine,
           config: _config,
@@ -585,20 +592,26 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           );
         }
 
+        final extractedMetrics = _metricsExtractor.extract(
+          selectedPose,
+          _config,
+          engineKind: _engineKind,
+          rangeRepContract: _rangeRepContract,
+          holdContract: _holdContract,
+          preparedContext: _preparedAnalysisContext,
+          holdSide: _engineKind == EngineKind.hold
+              ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
+                  selectedAssessment,
+                )
+              : null,
+        );
+        final normalizedMetrics = _primaryMetricNormalizer?.normalize(
+          pose: selectedPose,
+          metrics: extractedMetrics,
+        );
+
         return _DetectedPoseFrame(
-          metrics: _metricsExtractor.extract(
-            selectedPose,
-            _config,
-            engineKind: _engineKind,
-            rangeRepContract: _rangeRepContract,
-            holdContract: _holdContract,
-            preparedContext: _preparedAnalysisContext,
-            holdSide: _engineKind == EngineKind.hold
-                ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
-                    selectedAssessment,
-                  )
-                : null,
-          ),
+          metrics: normalizedMetrics ?? extractedMetrics,
           kind: _PoseFrameKind.accepted,
           didBecomeStableTracking: result.didBecomeStableTracking,
           qualityAcceptedRangeRepSides:
@@ -1234,6 +1247,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void handleLifecycleInterruption({String? reason}) {
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();
+      _primaryMetricNormalizer?.reset();
       _alternatingRepEngine?.interrupt();
       _publishRangeRepState(
         _rangeRepCoordinatorOrThrow().handleLifecycleInterruption(
