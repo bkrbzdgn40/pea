@@ -261,6 +261,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     RangeRepTowardPeakMuscleAction towardPeakMuscleAction =
         RangeRepTowardPeakMuscleAction.eccentric,
     double peakEntryMargin = 3.0,
+    bool retainPeakEvidenceAcrossActiveTransition = false,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _genericRepEngine = GenericRepEngine(
@@ -269,6 +270,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         activeThreshold: config.thresholdActive,
         peakThreshold: config.thresholdPeak,
         peakEntryMargin: peakEntryMargin,
+        retainPeakEvidenceAcrossActiveTransition:
+            retainPeakEvidenceAcrossActiveTransition,
         direction: switch (primaryMetricDirection) {
           RangeRepPrimaryMetricDirection.decreasingToPeak =>
             GenericRepMetricDirection.decreasingToPeak,

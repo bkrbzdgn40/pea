@@ -265,6 +265,29 @@ void main() {
       );
     });
 
+    test('sparse peak recovery is limited to device-proven blockers', () {
+      expect(
+        RangeRepContracts.tricepsDip.retainPeakEvidenceAcrossActiveTransition,
+        isTrue,
+      );
+      expect(
+        RangeRepContracts.jumpingJack.retainPeakEvidenceAcrossActiveTransition,
+        isTrue,
+      );
+      expect(
+        RangeRepContracts.squat.retainPeakEvidenceAcrossActiveTransition,
+        isFalse,
+      );
+      expect(
+        RangeRepContracts.pushUp.retainPeakEvidenceAcrossActiveTransition,
+        isFalse,
+      );
+      expect(
+        RangeRepContracts.sitUp.retainPeakEvidenceAcrossActiveTransition,
+        isFalse,
+      );
+    });
+
     test(
       'Day 11 dynamic exercises declare intentional direction and side mode',
       () {

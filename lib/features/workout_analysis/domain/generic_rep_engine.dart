@@ -28,6 +28,8 @@ class GenericRepEngineConfig {
     this.peakConfirmationDuration = const Duration(milliseconds: 80),
     this.returnConfirmationDuration = const Duration(milliseconds: 80),
     this.neutralConfirmationDuration = const Duration(milliseconds: 100),
+    this.retainPeakEvidenceAcrossActiveTransition = false,
+    this.retainedPeakEvidenceMaxAge = const Duration(milliseconds: 750),
   }) : assert(minimumRom >= 0.0),
        assert(activeEntryMargin >= 0.0),
        assert(peakEntryMargin >= 0.0),
@@ -53,6 +55,17 @@ class GenericRepEngineConfig {
   final Duration peakConfirmationDuration;
   final Duration returnConfirmationDuration;
   final Duration neutralConfirmationDuration;
+
+  /// Preserves a strict peak observation that arrives while active-entry
+  /// confirmation is still pending. This is opt-in because it relaxes the
+  /// default consecutive-sample lifecycle only for exercises whose real-device
+  /// validation proves sparse analysis sampling can consume a valid peak.
+  final bool retainPeakEvidenceAcrossActiveTransition;
+
+  /// Upper bound for carrying a peak sample across a delayed analysis update.
+  /// The default covers the measured p95 detector latency of the blocked
+  /// exercises without allowing an old peak to survive indefinitely.
+  final Duration retainedPeakEvidenceMaxAge;
 }
 
 class GenericRepConfirmedTransition {
@@ -124,6 +137,9 @@ class GenericRepEngine {
   DateTime? _pendingTransitionStartedAt;
 
   double? _pendingStartTowardPeakMetric;
+  DateTime? _retainedPeakEvidenceStartedAt;
+  double? _retainedPeakMetric;
+  double? _lastNeutralMetric;
   double? _currentRepStartMetric;
   double? _currentRepMinMetric;
   double? _currentRepMaxMetric;
@@ -151,6 +167,7 @@ class GenericRepEngine {
       if (armedAt != null) {
         _isArmed = true;
         phase = GenericRepPhase.neutral;
+        _lastNeutralMetric = primaryMetric;
       }
       return GenericRepEngineFrameResult(
         wasArmedAtFrameStart: wasArmedAtFrameStart,
@@ -166,6 +183,10 @@ class GenericRepEngine {
       );
     }
 
+    if (isNeutralMetric(primaryMetric)) {
+      _lastNeutralMetric = primaryMetric;
+    }
+
     GenericRepConfirmedTransition? confirmedTransition;
     var repStarted = false;
     var repAborted = false;
@@ -176,10 +197,13 @@ class GenericRepEngine {
         final hasEnteredActive = hasEnteredActiveRange(primaryMetric);
         if (!hasEnteredActive) {
           _pendingStartTowardPeakMetric = null;
-        } else if (_pendingTransition !=
-                GenericRepTransitionType.startTowardPeak ||
-            _pendingStartTowardPeakMetric == null) {
-          _pendingStartTowardPeakMetric = primaryMetric;
+          _clearRetainedPeakEvidence();
+        } else {
+          if (_pendingTransition != GenericRepTransitionType.startTowardPeak ||
+              _pendingStartTowardPeakMetric == null) {
+            _pendingStartTowardPeakMetric = primaryMetric;
+          }
+          _captureRetainedPeakEvidence(primaryMetric, now);
         }
         final confirmedAt = _confirmTransition(
           transition: GenericRepTransitionType.startTowardPeak,
@@ -187,7 +211,11 @@ class GenericRepEngine {
           now: now,
         );
         if (confirmedAt != null) {
-          final repStartMetric = _pendingStartTowardPeakMetric ?? primaryMetric;
+          final repStartMetric = config.retainPeakEvidenceAcrossActiveTransition
+              ? (_lastNeutralMetric ??
+                    _pendingStartTowardPeakMetric ??
+                    primaryMetric)
+              : (_pendingStartTowardPeakMetric ?? primaryMetric);
           _pendingStartTowardPeakMetric = null;
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.startTowardPeak,
@@ -196,19 +224,29 @@ class GenericRepEngine {
           repStarted = true;
           phase = GenericRepPhase.towardPeak;
           _startRep(repStartMetric);
+          final retainedPeakMetric = _retainedPeakMetric;
+          if (retainedPeakMetric != null) {
+            _recordMetric(retainedPeakMetric);
+          }
           _recordMetric(primaryMetric);
+          _seedRetainedPeakConfirmation(now);
         }
         break;
 
       case GenericRepPhase.towardPeak:
         _recordMetric(primaryMetric);
+        _captureRetainedPeakEvidence(primaryMetric, now);
         final hasEnteredPeak = hasReachedPeakRange(primaryMetric);
         final isPendingPeakWithinHysteresis =
             _pendingTransition == GenericRepTransitionType.reachPeak &&
             !hasExitedPeakRange(primaryMetric);
+        final hasRetainedPeakEvidence = _hasUsableRetainedPeakEvidence(now);
         final peakConfirmedAt = _confirmTransition(
           transition: GenericRepTransitionType.reachPeak,
-          condition: hasEnteredPeak || isPendingPeakWithinHysteresis,
+          condition:
+              hasEnteredPeak ||
+              isPendingPeakWithinHysteresis ||
+              hasRetainedPeakEvidence,
           now: now,
         );
         if (peakConfirmedAt != null) {
@@ -217,6 +255,7 @@ class GenericRepEngine {
             effectiveAt: peakConfirmedAt,
           );
           phase = GenericRepPhase.peak;
+          _clearRetainedPeakEvidence();
         } else {
           final abortConfirmedAt = _confirmTransition(
             transition: GenericRepTransitionType.abortToNeutral,
@@ -230,6 +269,7 @@ class GenericRepEngine {
             );
             repAborted = true;
             phase = GenericRepPhase.neutral;
+            _clearRetainedPeakEvidence();
             _resetCurrentRep();
           }
         }
@@ -376,6 +416,7 @@ class GenericRepEngine {
 
   void cancelPendingTransition() {
     _pendingStartTowardPeakMetric = null;
+    _clearRetainedPeakEvidence();
     _clearPendingTransition();
   }
 
@@ -383,6 +424,8 @@ class GenericRepEngine {
     _isArmed = false;
     phase = GenericRepPhase.neutral;
     _pendingStartTowardPeakMetric = null;
+    _lastNeutralMetric = null;
+    _clearRetainedPeakEvidence();
     _clearPendingTransition();
     _resetCurrentRep(clearPendingTransition: false);
   }
@@ -390,6 +433,64 @@ class GenericRepEngine {
   void reset() {
     repCount = 0;
     clearActiveRepContext();
+  }
+
+  void _captureRetainedPeakEvidence(double primaryMetric, DateTime now) {
+    if (!config.retainPeakEvidenceAcrossActiveTransition) {
+      return;
+    }
+    _discardExpiredRetainedPeakEvidence(now);
+    if (!hasReachedPeakRange(primaryMetric)) {
+      return;
+    }
+
+    _retainedPeakEvidenceStartedAt ??= now;
+    final retainedMetric = _retainedPeakMetric;
+    _retainedPeakMetric = switch (config.direction) {
+      GenericRepMetricDirection.decreasingToPeak =>
+        retainedMetric == null || primaryMetric < retainedMetric
+            ? primaryMetric
+            : retainedMetric,
+      GenericRepMetricDirection.increasingToPeak =>
+        retainedMetric == null || primaryMetric > retainedMetric
+            ? primaryMetric
+            : retainedMetric,
+    };
+  }
+
+  void _seedRetainedPeakConfirmation(DateTime now) {
+    if (!_hasUsableRetainedPeakEvidence(now)) {
+      return;
+    }
+    final startedAt = _retainedPeakEvidenceStartedAt;
+    if (startedAt == null) {
+      return;
+    }
+    _pendingTransition = GenericRepTransitionType.reachPeak;
+    _pendingTransitionStartedAt = startedAt;
+  }
+
+  bool _hasUsableRetainedPeakEvidence(DateTime now) {
+    if (!config.retainPeakEvidenceAcrossActiveTransition) {
+      return false;
+    }
+    _discardExpiredRetainedPeakEvidence(now);
+    return _retainedPeakEvidenceStartedAt != null;
+  }
+
+  void _discardExpiredRetainedPeakEvidence(DateTime now) {
+    final startedAt = _retainedPeakEvidenceStartedAt;
+    if (startedAt == null) {
+      return;
+    }
+    if (now.difference(startedAt) > config.retainedPeakEvidenceMaxAge) {
+      _clearRetainedPeakEvidence();
+    }
+  }
+
+  void _clearRetainedPeakEvidence() {
+    _retainedPeakEvidenceStartedAt = null;
+    _retainedPeakMetric = null;
   }
 
   void _startRep(double primaryMetric) {
@@ -477,6 +578,7 @@ class GenericRepEngine {
 
   void _resetCurrentRep({bool clearPendingTransition = true}) {
     _currentRepStartMetric = null;
+    _clearRetainedPeakEvidence();
     _currentRepMinMetric = null;
     _currentRepMaxMetric = null;
     if (clearPendingTransition) {
@@ -485,6 +587,14 @@ class GenericRepEngine {
   }
 
   void _validateConfig() {
+    if (config.retainedPeakEvidenceMaxAge.isNegative) {
+      throw ArgumentError.value(
+        config.retainedPeakEvidenceMaxAge,
+        'config.retainedPeakEvidenceMaxAge',
+        'Must not be negative.',
+      );
+    }
+
     final isOrdered = switch (config.direction) {
       GenericRepMetricDirection.decreasingToPeak =>
         config.neutralThreshold > config.activeThreshold &&

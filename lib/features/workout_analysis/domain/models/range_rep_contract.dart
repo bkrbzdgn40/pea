@@ -74,6 +74,7 @@ class RangeRepContract {
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     this.towardPeakMuscleAction = RangeRepTowardPeakMuscleAction.eccentric,
     this.peakEntryMargin = 3.0,
+    this.retainPeakEvidenceAcrossActiveTransition = false,
     this.extensionProfile = RangeRepExtensionProfile.none,
   }) : supportedPhases = Set<RangeRepPhase>.unmodifiable(supportedPhases),
        supportedSignals = Set<RangeRepSignal>.unmodifiable(supportedSignals),
@@ -139,6 +140,12 @@ class RangeRepContract {
   /// movements can opt into a literal configured peak threshold when sparse
   /// analysis sampling makes the extra entry margin too restrictive.
   final double peakEntryMargin;
+
+  /// Retains a strict peak sample observed before active-entry confirmation.
+  ///
+  /// Keep this disabled unless device evidence shows that sparse analysis
+  /// sampling consumes valid peaks between lifecycle phases.
+  final bool retainPeakEvidenceAcrossActiveTransition;
 
   final RangeRepExtensionProfile extensionProfile;
 
@@ -409,6 +416,7 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    retainPeakEvidenceAcrossActiveTransition: true,
   );
 
   static final RangeRepContract romanianDeadlift = RangeRepContract(
@@ -705,5 +713,6 @@ abstract final class RangeRepContracts {
         RangeRepFormThresholdCalibrationPolicy.disabled,
     sideMode: RangeRepSideMode.bilateral,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    retainPeakEvidenceAcrossActiveTransition: true,
   );
 }
