@@ -140,6 +140,16 @@ Bu bandın amacı:
 
 `allowSparseCycleRecovery` açılmaz. Cihaz kanıtında intermediate active ve return örnekleri hâlâ vardır; daha geniş lifecycle relaxation gerekli değildir.
 
+İkinci patch sonrası yapılan incelemede regression testinin değerleri doğrudan `RangeRepAnalysisEngine` içine verdiği ve production `DefaultRangeRepCoordinator` içindeki primary moving-average katmanını atladığı görüldü. Calf Raise contract'ı default `primaryMetricSmoothingWindow = 5` değerini koruduğu için yaklaşık `7 FPS` analiz akışında bu pencere fiziksel tekrarın yaklaşık `0.7 saniyesini` kapsayabilir. Dar ankle-angle hareketi active kapısına ulaşmadan ortalamada bastırılabilir ve UI `Hazır` durumunda kalabilir.
+
+Bu nedenle Calf Raise için:
+
+```text
+primaryMetricSmoothingWindow = 1
+```
+
+seçilir. Bu değişiklik generic engine confirmation/hysteresis kapılarını gevşetmez; yalnız engine'e verilen primary metric'in beş frame gecikmeli ortalama yerine kabul edilen güncel frame ölçümü olmasını sağlar. Form metriği beş frame smoothing kullanmaya devam eder.
+
 ## 5. Regression Coverage
 
 `calf_raise_production_contract_test.dart` şu davranışları sabitler:
@@ -157,6 +167,8 @@ Bu bandın amacı:
 
 4. Completed-rep primary ROM `19°` olur.
 5. `126-128°` aralığındaki küçük heel movement peak'e ulaşmadığı için tekrar üretmez.
+6. Aynı device-observed sequence production `DefaultRangeRepCoordinator` üzerinden geçirilir; contract smoothing katmanı dahilken bir completed rep üretmelidir. Retained peak örneği active-entry ile aynı effective timestamp'te başladığı için bu sparse fixture validation tarafında `excessive descent speed` gerekçesiyle `low confidence` olarak sınıflandırılır; bu sınıflandırma rep sayımını iptal etmez.
+7. Videoda gözlenen `103-118°` standing-jitter sequence'i coordinator üzerinden sıfır rep olarak kalmalıdır.
 
 ## 6. SHA-Pinned Device Revalidation
 

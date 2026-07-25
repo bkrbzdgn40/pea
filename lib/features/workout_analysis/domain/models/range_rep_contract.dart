@@ -684,6 +684,7 @@ abstract final class RangeRepContracts {
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
     peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
+    primaryMetricSmoothingWindow: 1,
   );
 
   static final RangeRepContract frontRaise = RangeRepContract(

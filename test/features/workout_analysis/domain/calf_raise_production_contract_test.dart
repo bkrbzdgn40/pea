@@ -5,7 +5,9 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/analysis_engine_factory.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
@@ -55,6 +57,10 @@ void main() {
         isTrue,
       );
       expect(
+        definition.analysisRangeRepContract.primaryMetricSmoothingWindow,
+        1,
+      );
+      expect(
         definition.analysisRangeRepValidationConfig.minAcceptableRomDelta,
         15.0,
       );
@@ -98,6 +104,84 @@ void main() {
       expect(engine.repCount, 0);
       expect(engine.phaseLabel, 'NEUTRAL');
     });
+
+    test(
+      'counts the device-observed sequence and reports sparse timing as low confidence',
+      () {
+        final coordinator = DefaultRangeRepCoordinator(
+          engine: engine,
+          config: config,
+          rangeRepContract: definition.analysisRangeRepContract,
+          rangeRepValidationConfig: definition.analysisRangeRepValidationConfig,
+        );
+
+        RangeRepCoordinatorFrameResult? result;
+        for (final metric in <double>[
+          115,
+          115,
+          133,
+          127,
+          134,
+          114,
+          114,
+          112,
+          112,
+        ]) {
+          result = _processCoordinatorSample(
+            coordinator,
+            clock,
+            primaryMetric: metric,
+          );
+        }
+
+        expect(result, isNotNull);
+        expect(result!.stateSnapshot.repCount, 1);
+        expect(result.stateSnapshot.currentPhase, 'NEUTRAL');
+        expect(
+          result.stateSnapshot.calibrationMetrics.lastRangeRepValidationStatus,
+          'low confidence',
+        );
+        expect(
+          result.stateSnapshot.calibrationMetrics.lastRangeRepValidationReasons,
+          <String>['excessive descent speed'],
+        );
+      },
+    );
+
+    test('keeps observed standing jitter at zero reps through coordinator', () {
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: definition.analysisRangeRepContract,
+        rangeRepValidationConfig: definition.analysisRangeRepValidationConfig,
+      );
+
+      RangeRepCoordinatorFrameResult? result;
+      for (final metric in <double>[
+        115,
+        110,
+        110,
+        103,
+        108,
+        112,
+        109,
+        107,
+        108,
+        107,
+        112,
+        118,
+      ]) {
+        result = _processCoordinatorSample(
+          coordinator,
+          clock,
+          primaryMetric: metric,
+        );
+      }
+
+      expect(result, isNotNull);
+      expect(result!.stateSnapshot.repCount, 0);
+      expect(result.stateSnapshot.currentPhase, 'NEUTRAL');
+    });
   });
 }
 
@@ -107,6 +191,43 @@ RangeRepEngineFrameResult _sample(
   double primaryMetric,
 ) {
   final result = engine.updateDetectionFrame(primaryMetric: primaryMetric);
+  clock.advance(const Duration(milliseconds: 140));
+  return result;
+}
+
+RangeRepCoordinatorFrameResult _processCoordinatorSample(
+  DefaultRangeRepCoordinator coordinator,
+  TestFakeClock clock, {
+  required double primaryMetric,
+}) {
+  const formMetric = 175.0;
+  final leftMetrics = RangeRepSideMetrics(
+    side: RangeRepSide.left,
+    primaryAngle: primaryMetric,
+    formMetric: formMetric,
+    hasPrimaryAngle: true,
+    hasFormMetric: true,
+    sideConfidence: 1.0,
+  );
+  final result = coordinator.processFrame(
+    metrics: ExerciseMetrics(
+      primaryAngle: primaryMetric,
+      formMetric: formMetric,
+      hasPrimaryAngle: true,
+      hasFormMetric: true,
+      hasPose: true,
+      landmarks: const <PoseLandmark>[],
+      leftRangeRepMetrics: leftMetrics,
+      rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+        RangeRepSide.right,
+      ),
+    ),
+    now: clock.now(),
+    isAcceptedPoseFrame: true,
+    didBecomeStableTracking: false,
+    qualityAcceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.left},
+    preferredRangeRepSide: RangeRepSide.left,
+  );
   clock.advance(const Duration(milliseconds: 140));
   return result;
 }
