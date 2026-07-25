@@ -682,6 +682,9 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    peakEntryMargin: 0.0,
+    retainPeakEvidenceAcrossActiveTransition: true,
+    primaryMetricSmoothingWindow: 1,
   );
 
   static final RangeRepContract frontRaise = RangeRepContract(
