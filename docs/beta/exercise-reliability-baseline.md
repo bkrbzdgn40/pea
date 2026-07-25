@@ -1,5 +1,7 @@
 # Exercise Reliability Baseline
 
+> **Tarihsel kayıt:** Bu belge ait olduğu eski beta commit/validation turunu açıklar; güncel build durumunu tek başına belirlemez. Güncel hareket çalışma gerçeği için `docs/current_exercise_validation_matrix.md` dosyasını kullanın.
+
 Bu belge, güncel `ExerciseCatalog` analiz kapsamını güvenilirlik çalışmaları için tek bir başlangıç matrisi halinde sabitler. Amaç `supported` durumunu cihazda doğrulanmış güvenilirlik kanıtıyla karıştırmamaktır.
 
 Bu belge yaşayan güvenilirlik dokümantasyonudur. Catalog, contract, config, engine wiring veya device-validation kanıtı değiştiğinde aynı değişiklik kapsamında güncellenmelidir.

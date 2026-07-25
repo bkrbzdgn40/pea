@@ -40,7 +40,7 @@ Mobil cihaz kamerası üzerinden seçili egzersizlerde canlı analiz, oturum öz
 
 ## Proje Özeti
 
-PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Güncel `ExerciseCatalog` Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press hareketlerini canlı analiz için tanımlar. Catalog desteği, yeni hareketlerin bütün cihazlarda doğrulandığı anlamına gelmez.
+PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz yapan bir Flutter uygulamasıdır. Güncel `ExerciseCatalog` içindeki 18 canonical hareketin tamamı analiz için aktiftir: Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack. Güncel çalışma durumu ile tarihsel beta kanıtının ayrımı `docs/current_exercise_validation_matrix.md` dosyasında tutulur.
 
 ## Aktif Analiz Desteği
 
@@ -58,6 +58,12 @@ PEA, Google ML Kit pose landmarks kullanarak seçili egzersizlerde canlı analiz
 | Romanian Deadlift | `rangeRep` | Aktif | Tekrar, hip-hinge ROM, diz-açısı uyarısı |
 | Lateral Raise | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol, omuz ROM, dirsek uyarısı |
 | Shoulder Press | `rangeRep` / bilateral | Aktif | Eş zamanlı iki kol, dirsek ekstansiyon ROM |
+| Calf Raise | `rangeRep` | Aktif | Tekrar, ayak bileği ROM, tempo |
+| Front Raise | `rangeRep` | Aktif | Tekrar, omuz fleksiyon ROM, tempo |
+| Glute Bridge | `rangeRep` | Aktif | Tekrar, kalça ekstansiyon ROM, form sinyalleri |
+| Wall Sit | `hold` / `wallSit` family | Aktif | Anlık hold, en iyi hold, form-break |
+| Side Plank | `hold` / `sidePlank` family | Aktif | Anlık hold, en iyi hold, form-break |
+| Jumping Jack | `rangeRep` / bilateral | Aktif | Tekrar, bilateral hareket açıklığı, tempo |
 
 ## Engine Aileleri
 
@@ -69,7 +75,7 @@ Temel hareket akışı:
 neutral -> descending -> peak -> ascending -> neutral
 ```
 
-Güncel katalogda Squat, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise ve Shoulder Press bu aileyi kullanır.
+Güncel katalogda Squat, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge ve Jumping Jack bu aileyi kullanır.
 
 `RangeRepContract`, bir hareketin:
 
@@ -81,7 +87,7 @@ Güncel katalogda Squat, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying L
 
 belirler.
 
-Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Bench Dip ve Romanian Deadlift selected-side akışını kullanır. Biceps Curl, Lateral Raise ve Shoulder Press iki tarafı aynı tekrar içinde birlikte değerlendiren `bilateral` side mode kullanır. Bilateral analiz, sağ-sol dönüşümlü tekrar anlamına gelmez.
+Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Bench Dip, Romanian Deadlift, Calf Raise, Front Raise ve Glute Bridge selected-side akışını kullanır. Biceps Curl, Lateral Raise, Shoulder Press ve Jumping Jack iki tarafı aynı tekrar içinde birlikte değerlendiren `bilateral` side mode kullanır. Bilateral analiz, sağ-sol dönüşümlü tekrar anlamına gelmez.
 
 ### `hold`
 
@@ -91,16 +97,18 @@ Temel hold state akışı:
 ready -> holding -> broken
 ```
 
-Güncel kodda ortak `HoldEngine`, family-specific contract ve posture policy ile iki aktif hold ailesini çalıştırır:
+Güncel kodda ortak `HoldEngine`, family-specific contract ve posture policy ile dört aktif hold ailesini çalıştırır:
 
 - `plank`: `alignment`, `support`, `extension`
 - `hollowHold`: `compression`, `armExtension`, `kneeExtension`
+- `wallSit`: wall-sit posture policy ve gerekli stability sinyalleri
+- `sidePlank`: side-plank posture policy ve gerekli stability sinyalleri
 
 Bu yapı, `hold` engine'inin bütün statik egzersizler için otomatik olarak genel amaçlı bir motor olduğu anlamına gelmez. Yeni bir statik hareket mevcut family semantiğine uymuyorsa yeni contract ve posture-policy tasarımı gerekir.
 
 ### `alternatingRep`
 
-`EngineKind.alternatingRep` enum olarak tanımlıdır, ancak `AnalysisEngineFactory` içinde henüz uygulanmamıştır. Enum değerinin varlığı çalışan bir analiz motoru anlamına gelmez.
+`AlternatingRepEngine`, `AnalysisEngineFactory.createAlternatingRep(...)` üzerinden çalışan side-aware bir motordur. Güncel katalogda Stationary Lunge ana `rangeRep` coordinator'ını kullanırken alternating-rep capability'sini ek sidecar analiz olarak bildirir; bu sidecar ana tekrar sayacının yerine geçen bağımsız bir primary coordinator değildir.
 
 ## Destek Seviyeleri ve Doğrulama
 
@@ -111,7 +119,7 @@ Bu yapı, `hold` engine'inin bütün statik egzersizler için otomatik olarak ge
 | Otomatik doğrulama | `flutter analyze`, `flutter test` ve PR CI kod yolunu doğrular | Gerçek cihaz kabulü veya saha doğrulaması |
 | Cihaz doğrulaması | Belirli build, cihaz ve senaryoda ölçüm kanıtı üretir | Başka egzersizlerin veya başka cihazların otomatik olarak doğrulandığı |
 
-Catalog desteği ile cihaz kabul kanıtı aynı şey değildir. Tarihsel beta hardening belgeleri belirli commit ve egzersiz kapsamlarına bağlıdır; daha sonra `supported` yapılan bir hareket eski cihaz kanıtını otomatik olarak devralmaz.
+Catalog desteği, güncel proje sahibi fonksiyonel cihaz kontrolü ve SHA-pinned formal cihaz kabul kanıtı aynı şey değildir. 18 hareketin güncel çalışma beyanı, kaydedilmiş kanıt seviyesi ve tarihsel beta sonuçlarının nasıl yorumlanacağı `docs/current_exercise_validation_matrix.md` dosyasında açıklanır. `docs/beta/` altındaki belgeler belirli eski commit ve validation turlarının tarihsel kaydıdır; tek başına güncel ürün durumunu belirlemez.
 
 Repository ayrıca `main` branch üzerinde elle tetiklenen `Android Profile Beta Artifact` workflow'una sahiptir. Bu yol profile APK ve commit SHA metadata'sı üretir; PR CI ile aynı şey değildir ve tek başına gerçek cihaz kabulü yerine geçmez.
 
@@ -297,10 +305,9 @@ Session document'ın summary-level olması, rep-level verinin hiç persist edilm
 
 Bu aşamada bilinçli olarak kabul edilen bazı sınırlar vardır:
 
-- Stationary Lunge canlı analiz için `rangeRep` olarak tanımlıdır; dönüşümlü lunge hâlâ `alternatingRep` motoru gerektirir.
-- `alternatingRep` engine ailesi henüz uygulanmamıştır.
-- `hold` ailesi Plank ve Hollow Hold ile iki gerçek family örneğine sahiptir; yine de bütün statik egzersizler için config-only genel motor olarak kabul edilmemelidir.
-- Catalog desteği gerçek cihaz kabulü anlamına gelmez; yeni veya sonradan etkinleştirilen egzersizler ayrı cihaz kanıtı gerektirir.
+- Stationary Lunge ana tekrar sayımı için `rangeRep` coordinator'ını, taraf-bazlı ek ölçüm için `AlternatingRepEngine` sidecar'ını kullanır; sidecar ana tekrar sayacının yerine geçmez.
+- `hold` ailesi Plank, Hollow Hold, Wall Sit ve Side Plank ile dört gerçek family örneğine sahiptir; yine de bütün statik egzersizler için config-only genel motor olarak kabul edilmemelidir.
+- 18 canonical hareketin tamamı güncel katalogda aktiftir ve proje sahibi tarafından güncel build üzerinde fonksiyonel olarak kontrol edilmiştir. Bu beyan, cihaz/build metadata'sı eksik olduğunda çoklu cihaz formal kabul kanıtı sayılmaz.
 - Çoklu cihaz Low/Mid/High genellemesi tarihsel beta kapsamının açık risklerinden biridir.
 - Hold sırasında kısa visibility gap için koruma vardır; görünmeyen süre geçerli hold toplamına eklenmez.
 - Beta Diagnostics JSON schema version `3`, range-rep ve hold alanlarını geriye uyumluluk amacıyla birlikte taşıyabilir; `0` veya `false` değerler her zaman ölçülen performans anlamına gelmez, analysis kind bağlamında yorumlanmalıdır.
@@ -344,7 +351,7 @@ flutter run
 | Öncelik | Başlık | Not |
 | --- | --- | --- |
 | Yüksek | Yeni egzersiz enablement | Yeni hareketler yalnız engine uyumu, test ve cihaz kanıtı tamamlandığında aktif edilmeli |
-| Yüksek | Gerçek cihaz kabul kapsamını genişletme | Sonradan etkinleştirilen hareketler ve Low/Mid/High cihaz çeşitliliği için ayrı kanıt üretmek |
+| Yüksek | Tekrarlanabilir cihaz kabul matrisi | Güncel 18 hareket kontrolünü build SHA, cihaz, işletim sistemi, kamera yönü ve senaryo metadata'sıyla Low/Mid/High cihaz çeşitliliğine genişletmek |
 | Orta | Daha güçlü skor açıklaması | Egzersiz-bazlı form skorunun neden üretildiğini daha anlaşılır göstermek |
 | Orta | Sesli geri bildirim | Anlık yönlendirme yüzeyini genişletmek |
 | Orta | Hold family genellemesini güçlendirme | Yeni statik hareketlerde family/contract/posture-policy sınırlarını kanıtla genişletmek |
@@ -360,12 +367,12 @@ Bu repo aktif geliştirme altındadır. Katkı verirken özellikle şu prensiple
 - kullanıcıya gerçek olmayan veri göstermemek
 - missing data'yı zero gibi sunmamak
 - kısa ve açık ürün dili kullanmak
-- bir hareketi kanıt tamamlanmadan `supported` yapmamak
+- gelecekte eklenecek bir hareketi engine contract, otomatik test ve hedeflenen kabul kanıtı olmadan `supported` yapmamak
 - catalog support ile device validation kavramlarını karıştırmamak
 - küçük ekran düzenlerini bozmamak
 - feature bazlı yapının bütünlüğünü korumak
 
-Yeni egzersiz geliştirmeleri için `docs/development/adding-exercises.md`, repository genelindeki kalıcı mühendislik kuralları için `docs/frontend/FRONTEND_ENGINEERING.md`, beta kanıt kapsamı için `docs/beta/` altındaki belgeler esas alınmalıdır.
+Güncel hareket çalışma gerçeği için `docs/current_exercise_validation_matrix.md`, yeni egzersiz geliştirmeleri için `docs/development/adding-exercises.md`, repository genelindeki kalıcı mühendislik kuralları için `docs/frontend/FRONTEND_ENGINEERING.md` esas alınmalıdır. `docs/beta/` altındaki belgeler yalnız ait oldukları eski commit ve validation turunun tarihsel kanıtı olarak okunmalıdır.
 
 ---
 
