@@ -52,8 +52,8 @@ Bu nedenle ankle/setup metriğinin geçici kaybı primary counting'i tek başın
 Production config:
 
 ```text
-thresholdNeutral = 105°
-thresholdActive = 125°
+thresholdNeutral = 135°
+thresholdActive = 145°
 thresholdPeak = 155°
 
 idealTowardPeakSeconds = 1.0
@@ -62,28 +62,30 @@ idealReturnSeconds = 1.2
 targetMaxAngle = 170°
 ```
 
-Primary direction `increasingToPeak` olduğundan generic `3°` peak-entry margin ile strict peak acquisition fiilen:
+Primary direction `increasingToPeak` olduğundan lifecycle kapıları fiilen:
 
 ```text
-primaryMetric > 158°
+strict neutral acquisition = primaryMetric < 135°
+effective active entry     = primaryMetric > 148°
+strict peak acquisition    = primaryMetric > 158°
 ```
 
-gerektirir.
+şeklindedir. Böylece resimdeki hips-down başlangıç pozisyonunun yaklaşık `125°` shoulder-hip-knee geometrisi neutral kabul edilirken, hareketin başlaması için yaklaşık `13°` ek açılma gerekir.
 
-Tek cihaz videosu nedeniyle bu threshold'lar değiştirilmez.
+Önceki `105°` strict neutral kapısı, doğru sırtüstü ve dizler bükülü başlangıç pozisyonunu active aralığın içinde bıraktığı için `awaitNeutral` durumundan çıkamıyordu. Bu hardening yalnız Glute Bridge config ve ona bağlı ROM-delta validation kalibrasyonunu değiştirir; generic lifecycle'a dokunmaz.
 
 ## 3. Completed-Rep Validation
 
 Production validation config:
 
 ```text
-minAcceptableRomDelta = 30°
+minAcceptableRomDelta = 10°
 minDescentMillis = 300
 minAscentMillis = 300
 allowLowConfidenceOnCoverageLoss = true
 ```
 
-`minAcceptableRomDelta`, confirmed active-phase başlangıcından observed peak'e ölçülen conservative ROM consistency guard'dır; klinik veya rehabilitasyon cut-off'u değildir.
+`minAcceptableRomDelta`, confirmed active-phase başlangıcından observed peak'e ölçülen conservative ROM consistency guard'dır; klinik veya rehabilitasyon cut-off'u değildir. Active gate `>148°`, peak gate `>158°` olacak şekilde yeniden kalibre edildiği için validation floor da bu yaklaşık `10°` lifecycle bandıyla hizalanmıştır. Peak gate değişmediğinden sığ hip raise hareketleri completed lifecycle üretmemeye devam eder.
 
 Ideal positive path:
 
@@ -215,7 +217,7 @@ Preflight başarısızsa threshold'a doğrudan dokunulmaz.
 2. selected shoulder/hip/knee landmark quality,
 3. selected-side stability,
 4. shoulder-hip-knee primary metric zaman serisi,
-5. neutral 105° / active 125° / effective peak >158° topology,
+5. neutral <135° / effective active >148° / effective peak >158° topology,
 6. sparse sampling / peak confirmation,
 7. completed-rep ROM validation,
 8. setup posture signalinin counting'e beklenmeyen etkisi,

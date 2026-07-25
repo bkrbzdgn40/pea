@@ -434,7 +434,7 @@ class ExerciseCatalog {
         ),
         rangeRepContract: RangeRepContracts.gluteBridge,
         rangeRepValidationConfig: const RangeRepValidationConfig(
-          minAcceptableRomDelta: 30.0,
+          minAcceptableRomDelta: 10.0,
           minDescentMillis: 300,
           minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,

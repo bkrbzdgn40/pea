@@ -169,7 +169,11 @@ void main() {
           );
 
           _confirmMetric(engine: engine, clock: clock, metric: metrics.peak);
-          _confirmMetric(engine: engine, clock: clock, metric: metrics.active);
+          _confirmMetric(
+            engine: engine,
+            clock: clock,
+            metric: metrics.returning,
+          );
           final completion = _confirmMetric(
             engine: engine,
             clock: clock,
@@ -272,11 +276,16 @@ void main() {
 
 const Duration _confirmationStep = Duration(milliseconds: 120);
 
+// Mirrors GenericRepEngineConfig.peakExitMargin so the deterministic fixture
+// uses a distinct sample that can actually confirm the returning phase.
+const double _genericPeakExitMargin = 8.0;
+
 class _RangeRepScenarioMetrics {
   const _RangeRepScenarioMetrics({
     required this.neutral,
     required this.active,
     required this.peak,
+    required this.returning,
     required this.wrongDirection,
     required this.activeJitterNear,
     required this.activeJitterFar,
@@ -292,6 +301,11 @@ class _RangeRepScenarioMetrics {
           neutral: config.thresholdNeutral + 10.0,
           active: config.thresholdActive - 5.0,
           peak: config.thresholdPeak - 10.0,
+          returning:
+              (config.thresholdNeutral +
+                  config.thresholdPeak +
+                  _genericPeakExitMargin) /
+              2.0,
           wrongDirection: (config.thresholdNeutral + 25.0)
               .clamp(0.0, 180.0)
               .toDouble(),
@@ -303,6 +317,11 @@ class _RangeRepScenarioMetrics {
           neutral: config.thresholdNeutral - 10.0,
           active: config.thresholdActive + 5.0,
           peak: config.thresholdPeak + 10.0,
+          returning:
+              (config.thresholdNeutral +
+                  config.thresholdPeak -
+                  _genericPeakExitMargin) /
+              2.0,
           wrongDirection: (config.thresholdNeutral - 25.0)
               .clamp(0.0, 180.0)
               .toDouble(),
@@ -315,6 +334,7 @@ class _RangeRepScenarioMetrics {
   final double neutral;
   final double active;
   final double peak;
+  final double returning;
   final double wrongDirection;
   final double activeJitterNear;
   final double activeJitterFar;
@@ -340,7 +360,7 @@ RangeRepEngineFrameResult _completeRep({
 
   _confirmMetric(engine: engine, clock: clock, metric: metrics.active);
   _confirmMetric(engine: engine, clock: clock, metric: metrics.peak);
-  _confirmMetric(engine: engine, clock: clock, metric: metrics.active);
+  _confirmMetric(engine: engine, clock: clock, metric: metrics.returning);
   return _confirmMetric(engine: engine, clock: clock, metric: metrics.neutral);
 }
 
