@@ -1,6 +1,7 @@
 import '../domain/models/camera_view_contract.dart';
-import '../domain/models/hold_contract.dart';
+import '../domain/models/exercise_setup_contract.dart';
 import '../domain/models/exercise_type.dart';
+import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
@@ -11,6 +12,95 @@ import 'exercise_metric_registry.dart';
 /// Central exercise metadata source for analysis capability.
 class ExerciseCatalog {
   const ExerciseCatalog();
+
+  static final SetupBodyCoverage _fullBodyCoverage = SetupBodyCoverage(
+    requiredRegions: SetupBodyRegion.values.toSet(),
+  );
+  static final SetupBodyCoverage _headToFeetCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.head,
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+      SetupBodyRegion.feet,
+    },
+  );
+  static final SetupBodyCoverage _upperBodyCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.elbows,
+      SetupBodyRegion.wrists,
+      SetupBodyRegion.hips,
+    },
+  );
+  static final SetupBodyCoverage _upperBodyWithHeadCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.head,
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.elbows,
+      SetupBodyRegion.wrists,
+      SetupBodyRegion.hips,
+    },
+  );
+  static final SetupBodyCoverage _sideChainCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+      SetupBodyRegion.feet,
+    },
+  );
+  static final SetupBodyCoverage _lowerBodyCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+      SetupBodyRegion.feet,
+    },
+  );
+  static final SetupBodyCoverage _dipCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.elbows,
+      SetupBodyRegion.wrists,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+      SetupBodyRegion.feet,
+    },
+  );
+
+  static const Set<SetupEnvironmentRequirement> _standingEnvironment =
+      <SetupEnvironmentRequirement>{
+        SetupEnvironmentRequirement.stableCamera,
+        SetupEnvironmentRequirement.adequateLighting,
+        SetupEnvironmentRequirement.clearStandingArea,
+      };
+  static const Set<SetupEnvironmentRequirement> _standingOverheadEnvironment =
+      <SetupEnvironmentRequirement>{
+        ..._standingEnvironment,
+        SetupEnvironmentRequirement.clearOverheadSpace,
+      };
+  static const Set<SetupEnvironmentRequirement> _floorEnvironment =
+      <SetupEnvironmentRequirement>{
+        SetupEnvironmentRequirement.stableCamera,
+        SetupEnvironmentRequirement.adequateLighting,
+        SetupEnvironmentRequirement.clearFloorArea,
+      };
+  static const Set<SetupEnvironmentRequirement> _wallEnvironment =
+      <SetupEnvironmentRequirement>{
+        ..._standingEnvironment,
+        SetupEnvironmentRequirement.unobstructedWall,
+      };
+  static const Set<SetupEnvironmentRequirement> _raisedSurfaceEnvironment =
+      <SetupEnvironmentRequirement>{
+        SetupEnvironmentRequirement.stableCamera,
+        SetupEnvironmentRequirement.adequateLighting,
+        SetupEnvironmentRequirement.clearFloorArea,
+        SetupEnvironmentRequirement.stableRaisedSurface,
+      };
 
   static const Set<ExerciseAnalysisEngine> _rangeRepAnalysisEngines =
       <ExerciseAnalysisEngine>{
@@ -107,6 +197,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _headToFeetCoverage,
+          startPoseFamily: StartPoseFamily.standingNeutralSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _standingEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.squat,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomAngle: 110.0,
@@ -131,6 +228,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _fullBodyCoverage,
+          startPoseFamily: StartPoseFamily.floorProneSupport,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
+        ),
         holdContract: HoldContracts.plankFamily,
       ),
       ExerciseDefinition.supported(
@@ -149,6 +253,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _fullBodyCoverage,
+          startPoseFamily: StartPoseFamily.floorSupine,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
+        ),
         holdContract: HoldContracts.hollowHold,
       ),
       ExerciseDefinition.supported(
@@ -166,6 +277,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.preferred,
             CameraView.front: CameraViewSupport.unsupported,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _headToFeetCoverage,
+          startPoseFamily: StartPoseFamily.splitStanceSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _standingEnvironment,
         ),
         rangeRepContract: RangeRepContracts.stationaryLunge,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -191,6 +309,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _fullBodyCoverage,
+          startPoseFamily: StartPoseFamily.floorProneSupport,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.pushUp,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomAngle: 110.0,
@@ -214,6 +339,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.preferred,
             CameraView.front: CameraViewSupport.unsupported,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _headToFeetCoverage,
+          startPoseFamily: StartPoseFamily.floorSupine,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
         ),
         rangeRepContract: RangeRepContracts.sitUp,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -239,6 +371,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.preferred,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _upperBodyCoverage,
+          startPoseFamily: StartPoseFamily.standingArmsDownFront,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.upperBodyLevel,
+          environmentRequirements: _standingEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.bicepsCurl,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomAngle: 110.0,
@@ -262,6 +401,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.preferred,
             CameraView.front: CameraViewSupport.unsupported,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _sideChainCoverage,
+          startPoseFamily: StartPoseFamily.floorSupine,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
         ),
         rangeRepContract: RangeRepContracts.lyingLegRaise,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -287,6 +433,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _dipCoverage,
+          startPoseFamily: StartPoseFamily.dipSupport,
+          supportSurface: SetupSupportSurface.raisedSurface,
+          cameraHeight: SetupCameraHeight.lowerBodyLevel,
+          environmentRequirements: _raisedSurfaceEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.tricepsDip,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 30.0,
@@ -310,6 +463,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.preferred,
             CameraView.front: CameraViewSupport.unsupported,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _sideChainCoverage,
+          startPoseFamily: StartPoseFamily.standingNeutralSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _standingEnvironment,
         ),
         rangeRepContract: RangeRepContracts.romanianDeadlift,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -335,6 +495,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.preferred,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _upperBodyCoverage,
+          startPoseFamily: StartPoseFamily.standingArmsDownFront,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.upperBodyLevel,
+          environmentRequirements: _standingEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.lateralRaise,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 35.0,
@@ -358,6 +525,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.unsupported,
             CameraView.front: CameraViewSupport.preferred,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _upperBodyWithHeadCoverage,
+          startPoseFamily: StartPoseFamily.standingElbowsBentFront,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.upperBodyLevel,
+          environmentRequirements: _standingOverheadEnvironment,
         ),
         rangeRepContract: RangeRepContracts.shoulderPress,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -384,6 +558,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _lowerBodyCoverage,
+          startPoseFamily: StartPoseFamily.standingNeutralSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.lowerBodyLevel,
+          environmentRequirements: _standingEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.calfRaise,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 15.0,
@@ -407,6 +588,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.preferred,
             CameraView.front: CameraViewSupport.unsupported,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _upperBodyCoverage,
+          startPoseFamily: StartPoseFamily.standingArmsDownSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.upperBodyLevel,
+          environmentRequirements: _standingEnvironment,
         ),
         rangeRepContract: RangeRepContracts.frontRaise,
         rangeRepValidationConfig: const RangeRepValidationConfig(
@@ -432,6 +620,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _sideChainCoverage,
+          startPoseFamily: StartPoseFamily.floorSupine,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
+        ),
         rangeRepContract: RangeRepContracts.gluteBridge,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 10.0,
@@ -456,6 +651,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.unsupported,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _headToFeetCoverage,
+          startPoseFamily: StartPoseFamily.wallSupportedHold,
+          supportSurface: SetupSupportSurface.wall,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _wallEnvironment,
+        ),
         holdContract: HoldContracts.wallSit,
       ),
       ExerciseDefinition.supported(
@@ -474,6 +676,13 @@ class ExerciseCatalog {
             CameraView.front: CameraViewSupport.preferred,
           },
         ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _fullBodyCoverage,
+          startPoseFamily: StartPoseFamily.sideSupport,
+          supportSurface: SetupSupportSurface.floor,
+          cameraHeight: SetupCameraHeight.floorLevel,
+          environmentRequirements: _floorEnvironment,
+        ),
         holdContract: HoldContracts.sidePlank,
       ),
       ExerciseDefinition.supported(
@@ -491,6 +700,13 @@ class ExerciseCatalog {
             CameraView.side: CameraViewSupport.unsupported,
             CameraView.front: CameraViewSupport.preferred,
           },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _fullBodyCoverage,
+          startPoseFamily: StartPoseFamily.dynamicBilateralNeutral,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _standingOverheadEnvironment,
         ),
         rangeRepContract: RangeRepContracts.jumpingJack,
         rangeRepValidationConfig: const RangeRepValidationConfig(

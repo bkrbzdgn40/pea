@@ -1,4 +1,5 @@
 import '../domain/models/camera_view_contract.dart';
+import '../domain/models/exercise_setup_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -20,6 +21,7 @@ class ExerciseDefinition {
     required this.engineKind,
     required this.configAssetPath,
     required CameraViewContract cameraViewContract,
+    required ExerciseSetupContract setupContract,
     required Set<ExerciseAnalysisEngine> analysisEngines,
     required Set<ExerciseMetricId> metricIds,
     required Set<ExerciseFeedbackRuleId> feedbackRuleIds,
@@ -30,6 +32,8 @@ class ExerciseDefinition {
   }) : isAnalysisSupported = true,
        // ignore: prefer_initializing_formals
        cameraViewContract = cameraViewContract,
+       // ignore: prefer_initializing_formals
+       setupContract = setupContract,
        analysisEngines = Set<ExerciseAnalysisEngine>.unmodifiable(
          analysisEngines,
        ),
@@ -84,6 +88,7 @@ class ExerciseDefinition {
        engineKind = null,
        configAssetPath = null,
        cameraViewContract = null,
+       setupContract = null,
        analysisEngines = const <ExerciseAnalysisEngine>{},
        metricIds = const <ExerciseMetricId>{},
        feedbackRuleIds = const <ExerciseFeedbackRuleId>{},
@@ -99,6 +104,7 @@ class ExerciseDefinition {
   final EngineKind? engineKind;
   final String? configAssetPath;
   final CameraViewContract? cameraViewContract;
+  final ExerciseSetupContract? setupContract;
   final Set<ExerciseAnalysisEngine> analysisEngines;
   final Set<ExerciseMetricId> metricIds;
   final Set<ExerciseFeedbackRuleId> feedbackRuleIds;
@@ -179,6 +185,16 @@ class ExerciseDefinition {
     return cameraViewContract;
   }
 
+  ExerciseSetupContract get analysisSetupContract {
+    _ensureAnalysisDefinitionConsistency();
+    final setupContract = this.setupContract;
+    if (setupContract == null) {
+      throw StateError('No setup contract registered for $type.');
+    }
+
+    return setupContract;
+  }
+
   RangeRepContract get analysisRangeRepContract {
     _ensureAnalysisDefinitionConsistency();
     if (engineKind != EngineKind.rangeRep) {
@@ -229,7 +245,8 @@ class ExerciseDefinition {
     final engineKind = this.engineKind;
     if (engineKind == null ||
         configAssetPath == null ||
-        cameraViewContract == null) {
+        cameraViewContract == null ||
+        setupContract == null) {
       throw StateError('Incomplete analysis definition registered for $type.');
     }
 
