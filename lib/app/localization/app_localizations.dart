@@ -525,8 +525,8 @@ class AppLocalizations {
     en: 'Choose an exercise before preparation',
   );
   String get selectExerciseBeforePreparationMessage => pick(
-    tr: 'Kalibrasyon ve analiz adımlarına geçmeden önce geçerli bir hareket seçimi gerekiyor.',
-    en: 'A valid exercise selection is required before calibration and analysis can begin.',
+    tr: 'Hazırlık ve analiz adımlarına geçmeden önce geçerli bir hareket seçimi gerekiyor.',
+    en: 'A valid exercise selection is required before preparation and analysis can begin.',
   );
   String preparationForExercise(String exerciseName) => pick(
     tr: '$exerciseName analizi öncesi',

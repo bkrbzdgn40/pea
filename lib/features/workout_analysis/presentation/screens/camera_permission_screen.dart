@@ -9,7 +9,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
-import 'calibration_screen.dart';
+import 'preparation_screen.dart';
 import 'exercise_selection_screen.dart';
 
 class CameraPermissionScreen extends ConsumerStatefulWidget {
@@ -80,7 +80,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     });
 
     if (continueIfGranted && status.isGranted) {
-      _goToCalibration();
+      _goToPreparation();
     }
   }
 
@@ -99,7 +99,7 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     });
 
     if (status.isGranted) {
-      _goToCalibration();
+      _goToPreparation();
     }
   }
 
@@ -121,13 +121,13 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     await _requestPermission();
   }
 
-  void _goToCalibration() {
+  void _goToPreparation() {
     if (_hasNavigated || !mounted || !_hasAnalysisSelection) return;
 
     _hasNavigated = true;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const CalibrationScreen()),
+      MaterialPageRoute(builder: (_) => const PreparationScreen()),
     );
   }
 
