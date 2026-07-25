@@ -44,12 +44,18 @@ Bu belge üç farklı işi kapsar:
 | Romanian Deadlift | `romanian_deadlift` | Var | Aktif | `rangeRep`, selected-side |
 | Lateral Raise | `lateral_raise` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
 | Shoulder Press | `shoulder_press` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
+| Calf Raise | `calf_raise` | Var | Aktif | `rangeRep`, selected-side, increasing-to-peak |
+| Front Raise | `front_raise` | Var | Aktif | `rangeRep`, selected-side, increasing-to-peak |
+| Glute Bridge | `glute_bridge` | Var | Aktif | `rangeRep`, selected-side, increasing-to-peak |
+| Wall Sit | `wall_sit` | Var | Aktif | `hold`, `wallSit` family |
+| Side Plank | `side_plank` | Var | Aktif | `hold`, `sidePlank` family |
+| Jumping Jack | `jumping_jack` | Var | Aktif | `rangeRep`, bilateral, increasing-to-peak |
 
-Catalog desteği device-validation kanıtı değildir. Yeni eklenen hareketler gerçek cihazda ayrı kabul testi gerektirir.
+Catalog desteği, proje sahibi fonksiyonel cihaz kontrolü ve SHA-pinned formal device-validation kanıtı ayrı katmanlardır. Güncel 18 hareket durumu `docs/current_exercise_validation_matrix.md` dosyasında tutulur; gelecekte eklenen hareketler için hedeflenen kanıt seviyesi ayrıca tanımlanmalıdır.
 
-`RangeRepEngine` artık hem `decreasingToPeak` hem `increasingToPeak` primary metric yönünü destekler. `bilateral`, dönüşümlü sağ-sol tekrar anlamına gelmez; iki tarafın aynı tekrar içinde eş zamanlı değerlendirilmesidir. Gerçek dönüşümlü tekrarlar için `EngineKind.alternatingRep` ayrı motor ailesidir ve henüz uygulanmamıştır.
+`RangeRepEngine` hem `decreasingToPeak` hem `increasingToPeak` primary metric yönünü destekler. `bilateral`, dönüşümlü sağ-sol tekrar anlamına gelmez; iki tarafın aynı tekrar içinde eş zamanlı değerlendirilmesidir. `AlternatingRepEngine` typed factory yolu üzerinden uygulanmıştır ve güncel Stationary Lunge tanımında ana `rangeRep` coordinator'ına ek taraf-bazlı sidecar capability olarak kullanılır.
 
-Plank ve Hollow Hold ortak `HoldEngine` altyapısını kullanır; family-specific contract ve posture policy ile ayrılır.
+Plank, Hollow Hold, Wall Sit ve Side Plank ortak `HoldEngine` altyapısını kullanır; family-specific contract ve posture policy ile ayrılır.
 
 ---
 
@@ -80,7 +86,7 @@ Yeni hareket için kod yazmadan önce aşağıdaki soruları cevapla.
 
 `bilateral`, dönüşümlü sağ-sol tekrar anlamına gelmez. Biceps Curl örneğinde iki kol aynı rep içinde birlikte değerlendirilir.
 
-Sağ ve sol taraf sırayla bağımsız tekrar sayacaksa `EngineKind.alternatingRep` düşünülebilir; ancak bu engine factory'de henüz uygulanmamıştır.
+Sağ ve sol taraf sırayla bağımsız tekrar sayacaksa `AlternatingRepEngine` değerlendirilebilir. Bu motor `createAlternatingRep(...)` typed factory yolunu kullanır; primary coordinator olarak mı yoksa mevcut Stationary Lunge örneğindeki gibi sidecar capability olarak mı bağlanacağı exercise contract'ında açıkça kararlaştırılmalıdır.
 
 ### 3.2 Hold adayı
 
@@ -93,6 +99,8 @@ Sağ ve sol taraf sırayla bağımsız tekrar sayacaksa `EngineKind.alternatingR
 2. Hareket mevcut bir HoldAnalysisFamily semantiğine uyuyor mu?
    ├─ Plank family -> alignment + support + extension
    ├─ Hollow Hold family -> compression + armExtension + kneeExtension
+   ├─ Wall Sit family -> wall-sit posture policy + stability signals
+   ├─ Side Plank family -> side-plank posture policy + stability signals
    └─ Hiçbiri -> Yeni hold family + contract + posture policy gerekir.
 ```
 

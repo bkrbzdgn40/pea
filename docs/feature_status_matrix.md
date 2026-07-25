@@ -11,7 +11,7 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 - `Hybrid`: Gerçek kullanıcı/runtime verisini yerel türetme veya kural tabanlı yorumla birleştiren yüzey.
 - `Demo`: Gerçek capability gibi kabul edilmemesi gereken, bilerek demo veya placeholder olarak tutulan yüzey.
 
-> **Önemli:** Bir egzersizin `ExerciseCatalog` içinde analiz için `supported` olması, o egzersizin bütün cihazlarda veya tarihsel beta ölçüm programında doğrulandığı anlamına gelmez. Catalog desteği ile device-validation kanıtı ayrı katmanlardır.
+> **Önemli:** Bir egzersizin `ExerciseCatalog` içinde analiz için `supported` olması, proje sahibinin güncel cihaz kontrolü ve SHA-pinned formal device-validation kanıtı ayrı katmanlardır. Güncel kaynak: `docs/current_exercise_validation_matrix.md`. `docs/beta/` altındaki sonuçlar ait oldukları eski commit/turun tarihsel kaydıdır.
 
 ## A. Ürün Yüzeyleri Listesi
 
@@ -57,10 +57,10 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 - `Status:` Hybrid
 - `Purpose:` Kullanıcının analiz edeceği hareketi seçmesini ve analiz desteği kapalı hareketleri açık biçimde ayırt etmesini sağlar.
 - `Current data source:` Yerel `ExerciseGuideCatalog` içeriği + merkezi `ExerciseCatalog` support metadata'sı.
-- `Current support truth:` Güncel `ExerciseCatalog` içindeki 18 canonical hareketin tamamı analiz için aktiftir: Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack. Tarihsel gerçek cihaz kabul kanıtı yalnız Squat, Push-up ve Plank için mevcuttur; diğer 15 hareket exercise-specific validation bekler. Ayrıntılı baseline: `docs/beta/exercise-reliability-baseline.md`.
+- `Current support truth:` Güncel `ExerciseCatalog` içindeki 18 canonical hareketin tamamı analiz için aktiftir: Squat, Plank, Hollow Hold, Stationary Lunge, Push-up, Sit-up, Biceps Curl, Lying Leg Raise, Bench Dip, Romanian Deadlift, Lateral Raise, Shoulder Press, Calf Raise, Front Raise, Glute Bridge, Wall Sit, Side Plank ve Jumping Jack. Proje sahibi 25 Temmuz 2026 tarihinde güncel build üzerinde 18 hareketin tamamını fonksiyonel olarak çalıştırdığını ve analizin doğru sonuç verdiğini bildirmiştir. Bu kontrolün cihaz, işletim sistemi ve build SHA metadata'sı kaydedilmediği için çoklu cihaz formal kabul matrisi olarak yorumlanmaz. Güncel ayrım: `docs/current_exercise_validation_matrix.md`.
 - `Behavior:` Catalog içinde unsupported bırakılan gelecekteki hareketler analiz akışını başlatmaz; mevcut canonical hareketlerin tamamı şu anda supported tanımlıdır.
 - `Navigation entry points:` Home ana aksiyonları; drawer içindeki Hareket Seç; geçerli analiz seçimi gerektiğinde recovery akışları.
-- `Future integration notes:` Kartın `Analiz aktif` olması yalnız catalog desteğini ifade eder. Device validation veya biyomekanik kabul kanıtı gibi sunulmamalıdır.
+- `Future integration notes:` Kartın `Analiz aktif` olması runtime catalog desteğini ifade eder. Güncel fonksiyonel cihaz kontrolü ayrıca kayıtlıdır; fakat cihaz/build metadata'sı olmadan evrensel veya çoklu cihaz kabul iddiasına dönüştürülmemelidir.
 
 ### Camera Permission
 
@@ -86,7 +86,7 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 - `Current data source:` Camera stream, ML Kit Pose Detection, pose-quality/side-selection katmanları, `WorkoutController`, exercise config/contract ve ilgili analysis engine.
 - `Current range-rep support:` Squat, Stationary Lunge, Push-up, Sit-up, Lying Leg Raise, Bench Dip, Romanian Deadlift, Calf Raise, Front Raise ve Glute Bridge selected-side; Biceps Curl, Lateral Raise, Shoulder Press ve Jumping Jack bilateral `rangeRep` kullanır. Primary metric yönü exercise contract'a göre decreasing-to-peak veya increasing-to-peak olabilir.
 - `Current hold support:` Plank, Hollow Hold, Wall Sit ve Side Plank ortak `HoldEngine` state machine'ini family-specific contract ve posture policy ile kullanır.
-- `Unsupported engine note:` `EngineKind.alternatingRep` tanımlıdır ancak factory içinde uygulanmış bir motor değildir.
+- `Alternating-rep note:` `AlternatingRepEngine` typed factory yolu üzerinden uygulanmıştır. Stationary Lunge ana `rangeRep` coordinator'ını korurken alternating-rep capability'sini taraf-bazlı sidecar analiz olarak kullanır.
 - `Navigation entry points:` Preparation ekranı sonrası.
 - `Future integration notes:` Yeni hareket enablement'ı yalnız UI/catalog değişikliği değildir; contract, config, extractor, engine davranışı, diagnostics, persistence ve cihaz kanıtı birlikte değerlendirilmelidir.
 
@@ -171,10 +171,10 @@ Bu belge yaşayan ürün dokümantasyonudur. Kod davranışı değiştiğinde ay
 
 ## C. Teknik Gerçeklik Notları
 
-- Güncel `ExerciseCatalog` on iki aktif analiz hareketi taşır. Yeni range-rep batch'i device-validation kanıtını tarihsel beta PASS sonuçlarından otomatik olarak devralmaz.
-- Catalog desteği, otomatik test geçişi ve gerçek cihaz kabul kanıtı aynı şey değildir. Tarihsel beta device-validation kapsamı daha dardır ve sonradan enable edilen hareketlere otomatik olarak aktarılmaz.
+- Güncel `ExerciseCatalog` 18 aktif canonical analiz hareketi taşır. Bu 18 hareketin tamamı proje sahibi tarafından güncel build üzerinde fonksiyonel olarak kontrol edilmiştir; cihaz/build metadata'sı eksik olduğu için bu sonuç çoklu cihaz formal kabul kanıtı değildir.
+- Catalog desteği, otomatik test geçişi, proje sahibi fonksiyonel cihaz kontrolü ve tekrarlanabilir SHA-pinned formal kabul kanıtı aynı şey değildir. Güncel ayrım `docs/current_exercise_validation_matrix.md` dosyasında; tarihsel beta kanıtı `docs/beta/` altında tutulur.
 - `rangeRep` ailesi selected-side ve bilateral çalışma modlarını destekler. Bilateral çalışma, dönüşümlü sağ-sol tekrar state machine'i değildir.
-- `hold` ailesi ortak state machine üzerinde Plank ve Hollow Hold için farklı contract/posture policy kullanır.
+- `hold` ailesi ortak state machine üzerinde Plank, Hollow Hold, Wall Sit ve Side Plank için farklı contract/posture policy kullanır.
 - Production Home, Goals ve Achievements provider'ları veri yokken demo kullanıcı ilerlemesi üretmez.
 - Global/cross-exercise score trend kaldırılmıştır; score trend açık bir `ExerciseType` bağlamında hesaplanır.
 - Firestore session document'i summary-level alanları taşır; rep-level kayıtlar ayrı `reps` subcollection altında persist edilir ve Session Detail tarafından okunur.

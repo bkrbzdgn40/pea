@@ -1,5 +1,7 @@
 # PEA Beta Hardening Baseline
 
+> **Tarihsel kayıt:** Bu belge ait olduğu eski beta commit/validation turunu açıklar; güncel build durumunu tek başına belirlemez. Güncel hareket çalışma gerçeği için `docs/current_exercise_validation_matrix.md` dosyasını kullanın.
+
 Bu belge, PEA'yı yeni özellik geliştirmeden güvenilir beta hazırlığına
 geçirmek için alınmış, kanıta dayalı bir anlık görüntüdür. Runtime sınıfı
 **R0**'dır: bu görev üretim, test, CI, Firebase veya yapılandırma davranışını

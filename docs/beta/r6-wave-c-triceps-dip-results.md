@@ -1,5 +1,7 @@
 # R6 Wave C - Bench Dip Validation Results
 
+> **Tarihsel kayıt:** Bu belge ait olduğu eski beta commit/validation turunu açıklar; güncel build durumunu tek başına belirlemez. Güncel hareket çalışma gerçeği için `docs/current_exercise_validation_matrix.md` dosyasını kullanın.
+
 Bu belge internal exercise ID'si `triceps_dip` olarak korunan Bench Dip için gerçek cihaz validation sırasında bulunan blocker failure'ı, scope-conversion geçmişini, neden mevcut turda fixlenmediğini ve yeniden açılma kriterlerini kalıcı olarak kaydeder.
 
 ## 1. Güncel Durum
