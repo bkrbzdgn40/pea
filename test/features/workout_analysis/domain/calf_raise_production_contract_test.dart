@@ -43,10 +43,17 @@ void main() {
       );
       final sideMetrics = metrics.leftRangeRepMetrics;
 
-      expect(config.thresholdNeutral, 125.0);
-      expect(config.thresholdActive, 140.0);
-      expect(config.thresholdPeak, 155.0);
-      expect(config.targetMaxAngle, 165.0);
+      expect(config.thresholdNeutral, 120.0);
+      expect(config.thresholdActive, 123.0);
+      expect(config.thresholdPeak, 132.0);
+      expect(config.targetMaxAngle, 140.0);
+      expect(definition.analysisRangeRepContract.peakEntryMargin, 0.0);
+      expect(
+        definition
+            .analysisRangeRepContract
+            .retainPeakEvidenceAcrossActiveTransition,
+        isTrue,
+      );
       expect(
         definition.analysisRangeRepValidationConfig.minAcceptableRomDelta,
         15.0,
@@ -55,36 +62,52 @@ void main() {
       expect(sideMetrics.formMetric, closeTo(175.0, 0.001));
       expect(sideMetrics.primaryAngle, lessThan(config.thresholdNeutral));
 
-      _confirm(engine, clock, sideMetrics.primaryAngle);
+      _sample(engine, clock, sideMetrics.primaryAngle);
+      _sample(engine, clock, sideMetrics.primaryAngle);
 
       expect(engine.phaseLabel, 'NEUTRAL');
       expect(engine.repCount, 0);
     });
 
-    test('counts one controlled heel-raise lifecycle', () {
-      _confirm(engine, clock, 115);
-      _confirm(engine, clock, 145);
-      _confirm(engine, clock, 165);
-      _confirm(engine, clock, 145);
-      final completed = _confirm(engine, clock, 115);
+    test('counts the sparse device-observed heel-raise lifecycle', () {
+      _sample(engine, clock, 115);
+      _sample(engine, clock, 115);
+
+      _sample(engine, clock, 133);
+      _sample(engine, clock, 127);
+      _sample(engine, clock, 134);
+      _sample(engine, clock, 114);
+      _sample(engine, clock, 114);
+      _sample(engine, clock, 112);
+      final completed = _sample(engine, clock, 112);
 
       expect(engine.repCount, 1);
       expect(engine.phaseLabel, 'NEUTRAL');
       expect(completed.completedRepDetectionData, isNotNull);
-      expect(completed.completedRepDetectionData!.primaryRom, 20.0);
+      expect(completed.completedRepDetectionData!.primaryRom, 19.0);
+    });
+
+    test('does not count a small heel movement that never reaches peak', () {
+      _sample(engine, clock, 115);
+      _sample(engine, clock, 115);
+
+      for (final metric in <double>[126, 128, 127, 119, 115, 115]) {
+        _sample(engine, clock, metric);
+      }
+
+      expect(engine.repCount, 0);
+      expect(engine.phaseLabel, 'NEUTRAL');
     });
   });
 }
 
-RangeRepEngineFrameResult _confirm(
+RangeRepEngineFrameResult _sample(
   RangeRepAnalysisEngine engine,
   TestFakeClock clock,
   double primaryMetric,
 ) {
-  engine.updateDetectionFrame(primaryMetric: primaryMetric);
-  clock.advance(const Duration(milliseconds: 120));
   final result = engine.updateDetectionFrame(primaryMetric: primaryMetric);
-  clock.advance(const Duration(milliseconds: 20));
+  clock.advance(const Duration(milliseconds: 140));
   return result;
 }
 
