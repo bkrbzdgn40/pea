@@ -68,6 +68,114 @@ void main() {
     );
   });
 
+  testWidgets('shows localized setup summary on repetition cards', (
+    tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('tr'),
+    );
+    await tester.pump();
+
+    final squatCard = find.byKey(
+      const ValueKey<String>('exercise-selection-card-squat'),
+    );
+
+    expect(squatCard, findsOneWidget);
+    expect(
+      find.descendant(of: squatCard, matching: find.text('Yandan görünüm')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: squatCard, matching: find.text('Tekrar')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: squatCard, matching: find.text('Ayakta')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows front-view and hold setup summaries in English', (
+    tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+    );
+    await tester.pump();
+
+    final plankCard = find.byKey(
+      const ValueKey<String>('exercise-selection-card-plank'),
+    );
+    await tester.scrollUntilVisible(plankCard, 300);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: plankCard, matching: find.text('Hold')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: plankCard, matching: find.text('On the floor')),
+      findsOneWidget,
+    );
+
+    final bicepsCard = find.byKey(
+      const ValueKey<String>('exercise-selection-card-biceps_curl'),
+    );
+    await tester.scrollUntilVisible(bicepsCard, 300);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: bicepsCard, matching: find.text('Front view')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bicepsCard, matching: find.text('Repetitions')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bicepsCard, matching: find.text('Standing')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('shows support-surface summaries for supported exercises', (
+    tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+    );
+    await tester.pump();
+
+    final benchDipCard = find.byKey(
+      const ValueKey<String>('exercise-selection-card-triceps_dip'),
+    );
+    await tester.scrollUntilVisible(benchDipCard, 300);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: benchDipCard,
+        matching: find.text('Raised-surface support'),
+      ),
+      findsOneWidget,
+    );
+
+    final wallSitCard = find.byKey(
+      const ValueKey<String>('exercise-selection-card-wall_sit'),
+    );
+    await tester.scrollUntilVisible(wallSitCard, 300);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: wallSitCard, matching: find.text('Wall-supported')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('sit-up card is analysis-active and starts the permission flow', (
     tester,
   ) async {
