@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition_metadata.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_setup_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -50,6 +51,23 @@ void main() {
     });
   });
 
+  group('ExerciseDefinition.analysisSetupContract', () {
+    test(
+      'returns the setup contract required by every supported definition',
+      () {
+        for (final definition in catalog.definitions.where(
+          (definition) => definition.isAnalysisSupported,
+        )) {
+          expect(definition.setupContract, isNotNull);
+          expect(
+            definition.analysisSetupContract,
+            same(definition.setupContract),
+          );
+        }
+      },
+    );
+  });
+
   group('ExerciseDefinition.analysisRangeRepValidationConfig', () {
     test('returns the config owned by a range-rep definition', () {
       final definition = catalog.definitionFor(ExerciseType.squat);
@@ -84,6 +102,7 @@ void main() {
           engineKind: EngineKind.rangeRep,
           configAssetPath: 'assets/config/exercises/squat.json',
           cameraViewContract: _sideViewContract(),
+          setupContract: _setupContract(),
           rangeRepContract: RangeRepContracts.squat,
         ),
         throwsA(isA<AssertionError>()),
@@ -103,6 +122,7 @@ void main() {
           engineKind: EngineKind.hold,
           configAssetPath: 'assets/config/exercises/plank.json',
           cameraViewContract: _sideViewContract(),
+          setupContract: _setupContract(),
           holdContract: HoldContracts.plankFamily,
           rangeRepValidationConfig: const RangeRepValidationConfig(),
         ),
@@ -110,6 +130,20 @@ void main() {
       );
     });
   });
+}
+
+ExerciseSetupContract _setupContract() {
+  return ExerciseSetupContract(
+    bodyCoverage: SetupBodyCoverage(
+      requiredRegions: <SetupBodyRegion>{SetupBodyRegion.hips},
+    ),
+    startPoseFamily: StartPoseFamily.standingNeutralSide,
+    supportSurface: SetupSupportSurface.none,
+    cameraHeight: SetupCameraHeight.midBodyLevel,
+    environmentRequirements: <SetupEnvironmentRequirement>{
+      SetupEnvironmentRequirement.stableCamera,
+    },
+  );
 }
 
 CameraViewContract _sideViewContract() {
