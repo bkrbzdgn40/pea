@@ -47,7 +47,7 @@ void main() {
 
       expect(config.thresholdNeutral, 120.0);
       expect(config.thresholdActive, 123.0);
-      expect(config.thresholdPeak, 132.0);
+      expect(config.thresholdPeak, 130.0);
       expect(config.targetMaxAngle, 140.0);
       expect(definition.analysisRangeRepContract.peakEntryMargin, 0.0);
       expect(
@@ -91,6 +91,21 @@ void main() {
       expect(engine.phaseLabel, 'NEUTRAL');
       expect(completed.completedRepDetectionData, isNotNull);
       expect(completed.completedRepDetectionData!.primaryRom, 19.0);
+    });
+
+    test('counts a near-boundary heel raise above the 130-degree peak', () {
+      _sample(engine, clock, 115);
+      _sample(engine, clock, 115);
+
+      for (final metric in <double>[131, 127, 131, 114, 114, 112]) {
+        _sample(engine, clock, metric);
+      }
+      final completed = _sample(engine, clock, 112);
+
+      expect(engine.repCount, 1);
+      expect(engine.phaseLabel, 'NEUTRAL');
+      expect(completed.completedRepDetectionData, isNotNull);
+      expect(completed.completedRepDetectionData!.primaryRom, 16.0);
     });
 
     test('does not count a small heel movement that never reaches peak', () {

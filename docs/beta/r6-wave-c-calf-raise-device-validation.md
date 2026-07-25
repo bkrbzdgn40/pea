@@ -104,7 +104,7 @@ Config:
 ```text
 thresholdNeutral = 120°
 thresholdActive = 123°
-thresholdPeak = 132°
+thresholdPeak = 130°
 targetMaxAngle = 140°
 ```
 
@@ -122,16 +122,16 @@ Generic engine marginleriyle effective gates:
 ```text
 strict neutral acquisition = primaryMetric < 120°
 effective active entry = primaryMetric > 126°
-strict peak acquisition = primaryMetric > 132°
-peak exit / return entry = primaryMetric < 124°
+strict peak acquisition = primaryMetric > 130°
+peak exit / return entry = primaryMetric < 122°
 ```
 
 Bu bandın amacı:
 
 - cihazda görülen `105-118°` doğal ayakta duruşu neutral kabul etmek,
 - küçük ayak bileği jitter'ının `>126°` active kapısını geçmesini önlemek,
-- cihazda görülen `133-137°` tam heel-raise tepesini peak kabul etmek,
-- topuk yere dönerken `<124°` ile return fazına girmek,
+- cihazda görülen `131-137°` tam heel-raise tepesini peak kabul etmek,
+- topuk yere dönerken `<122°` ile return fazına girmek,
 - `<120°` ile tam neutral dönüşü tamamlamaktır.
 
 `peakEntryMargin = 0°`, cihazda görülen dar tepe bandının generic ek `3°` guard yüzünden kaybolmasını önler.
@@ -150,7 +150,28 @@ primaryMetricSmoothingWindow = 1
 
 seçilir. Bu değişiklik generic engine confirmation/hysteresis kapılarını gevşetmez; yalnız engine'e verilen primary metric'in beş frame gecikmeli ortalama yerine kabul edilen güncel frame ölçümü olmasını sağlar. Form metriği beş frame smoothing kullanmaya devam eder.
 
-## 5. Regression Coverage
+## 5. Üçüncü Cihaz Bulgusu: Peak Kapısı Sınırda Kalıyor
+
+Primary smoothing kaldırıldıktan sonraki SHA-pinned profile run:
+
+```text
+app_commit_sha = 98225551c24188317e24a96b84deeefea4e7aa14
+analysis_fps_p50 = 7.98
+frame_processing_ms_p95 = 84
+startDescending = 5
+reachPeak = 1
+startAscending = 1
+completeRep = 1
+abortToNeutral = 4
+rep_count = 1
+validation = valid
+```
+
+Bu kanıt neutral ve active acquisition'ın artık çalıştığını gösterir: motor beş ayrı hareket başlangıcı üretmiştir. Ancak yalnız bir lifecycle strict `>132°` peak kapısını doğrulamış, kalan dört active lifecycle neutral'a dönerek abort edilmiştir. Pose rejection, low-confidence pose ve analysis exception görülmediği için ana failure alanı pose kalitesi değil, peak threshold sınırıdır.
+
+Bu nedenle yalnız Calf Raise `thresholdPeak` değeri `132° -> 130°` düşürülür. Neutral (`120°`), active (`123°`), `peakEntryMargin = 0°`, smoothing, validation minimum ROM (`15°`) ve generic engine davranışı değiştirilmez. Yeni strict peak kapısı `>130°` olur; `126-128°` küçük hareket negatif bandı hâlâ peak'e ulaşamaz.
+
+## 6. Regression Coverage
 
 `calf_raise_production_contract_test.dart` şu davranışları sabitler:
 
@@ -166,11 +187,12 @@ seçilir. Bu değişiklik generic engine confirmation/hysteresis kapılarını g
 ```
 
 4. Completed-rep primary ROM `19°` olur.
-5. `126-128°` aralığındaki küçük heel movement peak'e ulaşmadığı için tekrar üretmez.
-6. Aynı device-observed sequence production `DefaultRangeRepCoordinator` üzerinden geçirilir; contract smoothing katmanı dahilken bir completed rep üretmelidir. Retained peak örneği active-entry ile aynı effective timestamp'te başladığı için bu sparse fixture validation tarafında `excessive descent speed` gerekçesiyle `low confidence` olarak sınıflandırılır; bu sınıflandırma rep sayımını iptal etmez.
-7. Videoda gözlenen `103-118°` standing-jitter sequence'i coordinator üzerinden sıfır rep olarak kalmalıdır.
+5. `131°` near-boundary heel raise yeni strict peak kapısını geçerek `16°` ROM ile bir tekrar üretir.
+6. `126-128°` aralığındaki küçük heel movement peak'e ulaşmadığı için tekrar üretmez.
+7. Aynı device-observed sequence production `DefaultRangeRepCoordinator` üzerinden geçirilir; contract smoothing katmanı dahilken bir completed rep üretmelidir. Retained peak örneği active-entry ile aynı effective timestamp'te başladığı için bu sparse fixture validation tarafında `excessive descent speed` gerekçesiyle `low confidence` olarak sınıflandırılır; bu sınıflandırma rep sayımını iptal etmez.
+8. Videoda gözlenen `103-118°` standing-jitter sequence'i coordinator üzerinden sıfır rep olarak kalmalıdır.
 
-## 6. SHA-Pinned Device Revalidation
+## 7. SHA-Pinned Device Revalidation
 
 ### Kamera kurulumu
 
@@ -203,7 +225,7 @@ completeRep
 - Pause/resume sonrasında neutral yeniden acquire edilmelidir.
 - Session finish sonrası rep count ve özet/persistence değerleri aynı session ile tutarlı olmalıdır.
 
-## 7. Acceptance
+## 8. Acceptance
 
 Bu değişiklik ancak aşağıdakiler temiz olduğunda merge-ready kabul edilir:
 
