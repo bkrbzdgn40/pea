@@ -10,8 +10,8 @@ import '../widgets/analysis_selection_required_view.dart';
 import 'exercise_selection_screen.dart';
 import 'live_analysis_screen.dart';
 
-class CalibrationScreen extends ConsumerWidget {
-  const CalibrationScreen({super.key});
+class PreparationScreen extends ConsumerWidget {
+  const PreparationScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
