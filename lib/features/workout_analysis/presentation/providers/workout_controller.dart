@@ -32,14 +32,17 @@ import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
+import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../../domain/tempo_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
+import '../mappers/range_rep_outcome_ui_mapper.dart';
 import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'live_pause_controller.dart';
+import 'live_range_rep_outcome_controller.dart';
 import 'live_tracking_controller.dart';
 import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
@@ -753,7 +756,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (result.shouldResetPoseAcceptance) {
       _poseAcceptanceStabilizer.reset();
     }
-    _publishRangeRepState(result.stateSnapshot);
+    final hasCompletedRepOutcome =
+        result.diagnosticsUpdate.completedRepValidationStatus != null;
+    _publishRangeRepState(
+      result.stateSnapshot,
+      deliverFeedback: !hasCompletedRepOutcome,
+    );
+    _publishRangeRepOutcomeIfAny(result);
     _applyRangeRepDiagnosticsUpdate(result.diagnosticsUpdate);
     _updateDiagnosticsFromState();
   }
@@ -775,7 +784,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _updateDiagnosticsFromState();
   }
 
-  void _publishRangeRepState(RangeRepCoordinatorStateSnapshot snapshot) {
+  void _publishRangeRepState(
+    RangeRepCoordinatorStateSnapshot snapshot, {
+    bool deliverFeedback = true,
+  }) {
     final feedbackCode = snapshot.feedbackDirective.feedbackCode;
     final feedbackMessage = _mapRangeRepFeedbackCodeToMessage(feedbackCode);
     state = WorkoutState.rangeRep(
@@ -795,7 +807,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ),
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
-    if (!ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (deliverFeedback &&
+        !ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
       unawaited(
         _feedbackDelivery.deliver(
           FeedbackDeliveryCue(
@@ -806,6 +819,68 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         ),
       );
     }
+  }
+
+  void _publishRangeRepOutcomeIfAny(RangeRepCoordinatorFrameResult result) {
+    final statusCode = result.diagnosticsUpdate.completedRepValidationStatus;
+    final repIndex =
+        result.stateSnapshot.calibrationMetrics.lastRangeRepValidatedRepIndex;
+    if (statusCode == null || repIndex == null) {
+      return;
+    }
+
+    final status = _rangeRepValidationStatusFromName(statusCode);
+    if (status == null) {
+      return;
+    }
+
+    final reasons = result.diagnosticsUpdate.completedRepValidationReasons
+        .map(_rangeRepValidationReasonFromName)
+        .whereType<RangeRepValidationReason>()
+        .toList(growable: false);
+    final outcome = mapRangeRepOutcomeToViewData(
+      repIndex: repIndex,
+      status: status,
+      reasons: reasons,
+      localizations: ref.read(appLocalizationsProvider),
+    );
+    final didShow = ref
+        .read(liveRangeRepOutcomeProvider.notifier)
+        .show(outcome);
+    if (!didShow ||
+        ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+      return;
+    }
+
+    unawaited(
+      _feedbackDelivery.deliver(
+        FeedbackDeliveryCue(
+          id: outcome.deliveryId,
+          message: outcome.message,
+          kind: outcome.status == RangeRepValidationStatus.valid
+              ? FeedbackDeliveryKind.movement
+              : FeedbackDeliveryKind.corrective,
+        ),
+      ),
+    );
+  }
+
+  RangeRepValidationStatus? _rangeRepValidationStatusFromName(String name) {
+    for (final status in RangeRepValidationStatus.values) {
+      if (status.name == name) {
+        return status;
+      }
+    }
+    return null;
+  }
+
+  RangeRepValidationReason? _rangeRepValidationReasonFromName(String name) {
+    for (final reason in RangeRepValidationReason.values) {
+      if (reason.name == name) {
+        return reason;
+      }
+    }
+    return null;
   }
 
   void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
@@ -1308,6 +1383,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void handleLifecycleInterruption({String? reason}) {
+    ref.read(liveRangeRepOutcomeProvider.notifier).dismiss();
     ref.read(liveTrackingControllerProvider.notifier).reset();
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();

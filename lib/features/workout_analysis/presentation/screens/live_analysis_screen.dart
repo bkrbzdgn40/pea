@@ -16,6 +16,7 @@ import '../../domain/models/exercise_config.dart';
 import '../../domain/models/setup_readiness_state.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../models/live_pause_state.dart';
+import '../models/range_rep_outcome_view_data.dart';
 import '../models/live_tracking_state.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../models/workout_live_metric_display_state.dart';
@@ -24,6 +25,7 @@ import '../providers/camera_provider.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/live_pause_controller.dart';
+import '../providers/live_range_rep_outcome_controller.dart';
 import '../providers/live_tracking_controller.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_countdown_feedback.dart';
@@ -417,6 +419,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       // summary dismiss keeps the completed-session guard intact.
       _startSessionLifecycle();
       ref.read(workoutLiveMetricsProvider.notifier).reset();
+      ref.read(liveRangeRepOutcomeProvider.notifier).reset();
       ref.invalidate(workoutControllerProvider);
       unawaited(_setLiveAnalysisScreenAwake(true));
     }
@@ -1599,6 +1602,7 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
         ),
       ),
     );
+    final repOutcome = ref.watch(liveRangeRepOutcomeProvider);
     final trackingPhase = ref.watch(
       liveTrackingControllerProvider.select((state) => state.phase),
     );
@@ -1607,9 +1611,12 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
     }
 
     final localizations = AppLocalizations.of(context);
-    final accentColor = feedback.isFormBad
-        ? Colors.amberAccent
-        : Colors.greenAccent;
+    final presentation = _feedbackPresentation(
+      feedback: feedback,
+      repOutcome: repOutcome,
+      localizations: localizations,
+    );
+    final accentColor = presentation.accentColor;
 
     return AnimatedContainer(
       key: const ValueKey<String>('live-feedback-message-card'),
@@ -1638,11 +1645,7 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
               color: accentColor.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              feedback.isFormBad ? Icons.tune_rounded : Icons.check_rounded,
-              color: accentColor,
-              size: 22,
-            ),
+            child: Icon(presentation.icon, color: accentColor, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1651,7 +1654,7 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  localizations.workoutPhaseLabel(feedback.currentPhase),
+                  presentation.title,
                   key: const ValueKey<String>('live-analysis-status-line'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1666,8 +1669,8 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
                   child: Text(
-                    feedback.message,
-                    key: ValueKey<String>(feedback.message),
+                    presentation.message,
+                    key: ValueKey<String>(presentation.message),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1685,6 +1688,56 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
       ),
     );
   }
+}
+
+_FeedbackPresentation _feedbackPresentation({
+  required ({String message, bool isFormBad, String currentPhase}) feedback,
+  required RangeRepOutcomeViewData? repOutcome,
+  required AppLocalizations localizations,
+}) {
+  if (repOutcome != null) {
+    return switch (repOutcome.tone) {
+      RangeRepOutcomeTone.positive => _FeedbackPresentation(
+        title: repOutcome.title,
+        message: repOutcome.message,
+        accentColor: Colors.greenAccent,
+        icon: Icons.check_circle_rounded,
+      ),
+      RangeRepOutcomeTone.caution => _FeedbackPresentation(
+        title: repOutcome.title,
+        message: repOutcome.message,
+        accentColor: Colors.amberAccent,
+        icon: Icons.info_rounded,
+      ),
+      RangeRepOutcomeTone.invalid => _FeedbackPresentation(
+        title: repOutcome.title,
+        message: repOutcome.message,
+        accentColor: Colors.orangeAccent,
+        icon: Icons.replay_rounded,
+      ),
+    };
+  }
+
+  return _FeedbackPresentation(
+    title: localizations.workoutPhaseLabel(feedback.currentPhase),
+    message: feedback.message,
+    accentColor: feedback.isFormBad ? Colors.amberAccent : Colors.greenAccent,
+    icon: feedback.isFormBad ? Icons.tune_rounded : Icons.check_rounded,
+  );
+}
+
+class _FeedbackPresentation {
+  const _FeedbackPresentation({
+    required this.title,
+    required this.message,
+    required this.accentColor,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final Color accentColor;
+  final IconData icon;
 }
 
 _LiveTrackingPresentation _liveTrackingPresentation(
