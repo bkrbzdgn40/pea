@@ -39,6 +39,7 @@ import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
+import 'live_tracking_controller.dart';
 import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
 import 'pose_provider.dart';
@@ -495,6 +496,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _updateFpsIfNeeded();
 
     _updatePoseDiagnosticsFromPipelineResult(result);
+    _updateLiveTrackingFromPipelineResult(result, now: frameCapturedAt);
     final detectedFrame = _detectedPoseFrameFromPipelineResult(result);
     _processExerciseMetrics(
       metrics: detectedFrame.metrics,
@@ -510,6 +512,41 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _diagnostics.recordProcessingDuration(
         _clock().difference(processingStartedAt),
       );
+    }
+  }
+
+  void _updateLiveTrackingFromPipelineResult(
+    FramePosePipelineResult result, {
+    required DateTime now,
+  }) {
+    if (result.kind == FramePosePipelineResultKind.converterDrop) {
+      return;
+    }
+
+    final previousState = ref.read(liveTrackingControllerProvider);
+    final trackingController = ref.read(
+      liveTrackingControllerProvider.notifier,
+    );
+    switch (result.kind) {
+      case FramePosePipelineResultKind.noPose:
+      case FramePosePipelineResultKind.rejected:
+        trackingController.recordInvalidFrame(now: now);
+        break;
+      case FramePosePipelineResultKind.pendingAcceptance:
+        trackingController.recordPendingAcceptance(now: now);
+        break;
+      case FramePosePipelineResultKind.accepted:
+        trackingController.recordAcceptedFrame(now: now);
+        break;
+      case FramePosePipelineResultKind.converterDrop:
+        break;
+    }
+
+    final nextState = ref.read(liveTrackingControllerProvider);
+    if (previousState.isTracking && !nextState.isTracking) {
+      unawaited(_feedbackDelivery.stop());
+    } else if (!previousState.isTracking && nextState.isTracking) {
+      _feedbackDelivery.reset();
     }
   }
 
@@ -751,15 +788,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ),
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
-    unawaited(
-      _feedbackDelivery.deliver(
-        FeedbackDeliveryCue(
-          id: 'range:${feedbackCode.code}',
-          message: feedbackMessage,
-          kind: _deliveryKindForRangeRepFeedback(feedbackCode),
+    if (!ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+      unawaited(
+        _feedbackDelivery.deliver(
+          FeedbackDeliveryCue(
+            id: 'range:${feedbackCode.code}',
+            message: feedbackMessage,
+            kind: _deliveryKindForRangeRepFeedback(feedbackCode),
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
@@ -790,11 +829,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ),
     );
     _publishHoldLiveMetricDisplay();
-    unawaited(
-      _feedbackDelivery.deliver(
-        _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
-      ),
-    );
+    if (!ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+      unawaited(
+        _feedbackDelivery.deliver(
+          _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
+        ),
+      );
+    }
   }
 
   void _processAlternatingRepSidecar({
@@ -1250,6 +1291,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void handleLifecycleInterruption({String? reason}) {
+    ref.read(liveTrackingControllerProvider.notifier).reset();
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();
       _primaryMetricNormalizer?.reset();

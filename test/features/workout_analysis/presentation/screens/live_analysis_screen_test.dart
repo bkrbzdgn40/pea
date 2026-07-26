@@ -25,7 +25,9 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_metrics_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
@@ -361,6 +363,91 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'replaces exercise feedback with reposition guidance while tracking is lost',
+    (tester) async {
+      const initialState = WorkoutState.rangeRep(
+        feedbackMessage: 'Dizlerini düzelt',
+        analysis: RangeRepWorkoutAnalysisState(
+          repCount: 4,
+          isFormBad: true,
+          currentPhase: 'DESCENDING',
+        ),
+      );
+      final cameraController = _FakeCameraController();
+      late _FakeLiveTrackingController trackingController;
+      final container = ProviderContainer(
+        overrides: <Override>[
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
+          exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
+          workoutControllerProvider.overrideWith(
+            () => _FakeWorkoutController(initialState),
+          ),
+          liveTrackingControllerProvider.overrideWith(
+            () => trackingController = _FakeLiveTrackingController(),
+          ),
+          authRepositoryProvider.overrideWithValue(
+            const _FakeAuthRepository(currentUserId: 'test-user'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+          cameraProvider.overrideWith((ref) async => cameraController),
+        ],
+      );
+      addTearDown(() async {
+        await cameraController.dispose();
+        container.dispose();
+      });
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('tr'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const LiveAnalysisScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      trackingController.publish(
+        LiveTrackingState(
+          phase: LiveTrackingPhase.repositionRequired,
+          lossStartedAt: DateTime(2026, 7, 26),
+          lastTransitionAt: DateTime(2026, 7, 26),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Kadraja geri dön'), findsOneWidget);
+      expect(find.textContaining('Sayım ve süre'), findsOneWidget);
+      expect(find.text('Dizlerini düzelt'), findsNothing);
+      expect(find.text('4'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('live-tracking-overlay-title')),
+        findsOneWidget,
+      );
+
+      trackingController.publish(
+        LiveTrackingState(
+          phase: LiveTrackingPhase.reacquiring,
+          lossStartedAt: DateTime(2026, 7, 26),
+          lastTransitionAt: DateTime(2026, 7, 26),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Pozisyon kontrol ediliyor'), findsOneWidget);
+    },
+  );
 
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
     tester,
@@ -1113,6 +1200,15 @@ class _FakeWorkoutController extends WorkoutController {
   WorkoutState build() => initialState;
 
   void publish(WorkoutState next) {
+    state = next;
+  }
+}
+
+class _FakeLiveTrackingController extends LiveTrackingController {
+  @override
+  LiveTrackingState build() => const LiveTrackingState.tracking();
+
+  void publish(LiveTrackingState next) {
     state = next;
   }
 }
