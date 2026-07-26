@@ -994,10 +994,6 @@ class AppLocalizations {
   String get tempoMetric => 'TEMPO';
   String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
   String get asymmetryMetric => pick(tr: 'ASİMETRİ', en: 'ASYMMETRY');
-  String liveStatusLine(String phase, String fps) => pick(
-    tr: 'DURUM: ${workoutPhaseLabel(phase)} | ANALİZ FPS: $fps',
-    en: 'STATUS: ${workoutPhaseLabel(phase)} | ANALYSIS FPS: $fps',
-  );
 
   String workoutPhaseLabel(String phase) {
     return switch (phase.toUpperCase()) {
