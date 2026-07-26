@@ -28,8 +28,10 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_pause_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_pause_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
@@ -158,6 +160,50 @@ void main() {
         expect(state.currentAngle, closeTo(170.0, 0.001));
       },
     );
+
+    test('manual pause blocks in-flight analysis results', () async {
+      final pauseSubscription = container.listen<LivePauseState>(
+        livePauseControllerProvider,
+        (previous, next) {},
+        fireImmediately: true,
+      );
+      addTearDown(pauseSubscription.close);
+      final neutralPose = _squatPose(angle: 170, defaultLikelihood: 0.95);
+      await _analyzeFrame(controller, detector, <Pose>[neutralPose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[neutralPose]);
+      final beforePause = container.read(workoutControllerProvider);
+
+      container.read(livePauseControllerProvider.notifier).pause();
+      controller.handleManualPause();
+      final pausedState = container.read(workoutControllerProvider);
+
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _squatPose(angle: 85, defaultLikelihood: 0.95),
+      ]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[
+        _squatPose(angle: 85, defaultLikelihood: 0.95),
+      ]);
+
+      final afterPausedFrames = container.read(workoutControllerProvider);
+      expect(afterPausedFrames.repCount, pausedState.repCount);
+      expect(afterPausedFrames.currentAngle, pausedState.currentAngle);
+      expect(beforePause.repCount, pausedState.repCount);
+
+      container.read(livePauseControllerProvider.notifier).reset();
+      controller.handleManualResume();
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[neutralPose]);
+      clock.advance(const Duration(milliseconds: 100));
+      await _analyzeFrame(controller, detector, <Pose>[neutralPose]);
+
+      expect(
+        container.read(livePauseControllerProvider).phase,
+        LivePausePhase.active,
+      );
+    });
 
     test(
       'publishes loss, reposition, and reacquisition tracking states',

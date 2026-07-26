@@ -39,6 +39,7 @@ import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
+import 'live_pause_controller.dart';
 import 'live_tracking_controller.dart';
 import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
@@ -416,6 +417,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         detector: detector,
         assessPose: assessPose,
       );
+      if (ref.read(livePauseControllerProvider).isPaused) {
+        return;
+      }
       _consumeFramePosePipelineResult(
         result,
         frameCapturedAt: now,
@@ -454,6 +458,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         detector: detector,
         assessPose: assessPose,
       );
+      if (ref.read(livePauseControllerProvider).isPaused) {
+        return;
+      }
       _consumeFramePosePipelineResult(
         result,
         frameCapturedAt: now,
@@ -1288,6 +1295,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       HoldFeedbackCode.alignWallSitTorso ||
       HoldFeedbackCode.correctForm => FeedbackDeliveryKind.corrective,
     };
+  }
+
+  void handleManualPause() {
+    unawaited(_feedbackDelivery.stop());
+    handleLifecycleInterruption(reason: 'manual pause');
+  }
+
+  void handleManualResume() {
+    _feedbackDelivery.reset();
+    ref.read(liveTrackingControllerProvider.notifier).reset();
   }
 
   void handleLifecycleInterruption({String? reason}) {

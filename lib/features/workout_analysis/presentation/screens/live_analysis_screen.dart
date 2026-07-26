@@ -13,18 +13,26 @@ import '../../application/workout_engine.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/setup_readiness_state.dart';
 import '../camera_image_stream_coordinator.dart';
+import '../models/live_pause_state.dart';
 import '../models/live_tracking_state.dart';
+import '../models/setup_readiness_view_data.dart';
 import '../models/workout_live_metric_display_state.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/exercise_config_provider.dart';
+import '../providers/live_pause_controller.dart';
 import '../providers/live_tracking_controller.dart';
+import '../providers/preparation_camera_controller.dart';
+import '../providers/preparation_countdown_feedback.dart';
+import '../providers/preparation_readiness_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/workout_controller.dart';
 import '../providers/workout_plan_session_provider.dart';
 import '../providers/workout_session_lifecycle_controller_provider.dart';
+import '../mappers/setup_readiness_ui_mapper.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/pose_painter.dart';
 import '../widgets/workout_diagnostics_panel.dart';
@@ -162,6 +170,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       ref
           .read(workoutControllerProvider.notifier)
           .handleLifecycleInterruption(reason: 'app lifecycle pause');
+      ref
+          .read(livePauseControllerProvider.notifier)
+          .handleLifecycleInterruption();
       unawaited(_setLiveAnalysisScreenAwake(false));
       // Hide preview before teardown so CameraPreview never builds a disposed controller.
       _markCameraRecovering();
@@ -179,6 +190,35 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
   Future<void> _stopImageStreamIfNeeded() {
     return _imageStreamCoordinator.stop();
+  }
+
+  void _pauseAnalysis(SetupReadinessRequest readinessRequest) {
+    final sessionLifecycle = _sessionLifecycle;
+    if (sessionLifecycle == null || sessionLifecycle.isFinishing) {
+      return;
+    }
+
+    final readiness = ref.read(
+      preparationReadinessStateProvider(readinessRequest),
+    );
+    ref
+        .read(livePauseControllerProvider.notifier)
+        .pause(readinessSnapshot: readiness);
+    ref.read(workoutControllerProvider.notifier).handleManualPause();
+    ref.read(preparationCameraControllerProvider.notifier).clear();
+  }
+
+  void _requestResume(SetupReadinessRequest readinessRequest) {
+    final readiness = ref.read(
+      preparationReadinessStateProvider(readinessRequest),
+    );
+    ref
+        .read(livePauseControllerProvider.notifier)
+        .requestResume(readinessSnapshot: readiness);
+  }
+
+  void _cancelResume() {
+    ref.read(livePauseControllerProvider.notifier).cancelResume();
   }
 
   Future<void> _recoverCameraIfAllowed() async {
@@ -293,6 +333,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   Future<void> _finishSession(WorkoutState workoutState) async {
+    ref.read(livePauseControllerProvider.notifier).cancelResume();
     final sessionLifecycle = _sessionLifecycle;
     if (!mounted ||
         sessionLifecycle == null ||
@@ -368,6 +409,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (!mounted) return;
 
     sessionLifecycle.completeFinishFlow();
+    ref.read(livePauseControllerProvider.notifier).reset();
+    ref.read(preparationCameraControllerProvider.notifier).clear();
 
     if (retryRequested == true && _hasAnalysisSelection()) {
       // Only an explicit retry starts a fresh analysis session. A normal
@@ -382,6 +425,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   Future<bool> _finishPlannedExerciseSession(WorkoutState workoutState) async {
+    ref.read(livePauseControllerProvider.notifier).cancelResume();
     final sessionLifecycle = _sessionLifecycle;
     if (sessionLifecycle == null || !sessionLifecycle.beginFinish()) {
       return false;
@@ -466,6 +510,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
 
     if (changesExercise && nextExercise != null) {
+      ref.read(livePauseControllerProvider.notifier).reset();
+      ref.read(preparationCameraControllerProvider.notifier).clear();
       ref.read(completedSessionMetricsProvider.notifier).state = null;
       ref.read(selectedExerciseProvider.notifier).state = nextExercise;
       _sessionLifecycle?.startSession(exercise: nextExercise);
@@ -491,6 +537,22 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final pauseState = ref.watch(livePauseControllerProvider);
+    ref.listen<LivePauseState>(livePauseControllerProvider, (previous, next) {
+      final countdownChanged =
+          next.isCountingDown &&
+          (previous?.isCountingDown != true ||
+              previous?.countdownValue != next.countdownValue);
+      if (countdownChanged) {
+        unawaited(ref.read(preparationCountdownFeedbackProvider).tick());
+      }
+
+      if (previous?.isCountingDown == true && next.isActive) {
+        unawaited(ref.read(preparationCountdownFeedbackProvider).complete());
+        ref.read(preparationCameraControllerProvider.notifier).clear();
+        ref.read(workoutControllerProvider.notifier).handleManualResume();
+      }
+    });
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
@@ -560,22 +622,38 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
             return const _CameraRecoveryView();
           }
 
-          _ensureImageStream(controller, sessionLifecycle);
-
           final imageSize = Size(previewSize.height, previewSize.width);
           final isMirrored =
               controller.description.lensDirection == CameraLensDirection.front;
+          final readinessRequest = (
+            imageWidth: previewSize.height,
+            imageHeight: previewSize.width,
+            mirrorHorizontally: isMirrored,
+          );
+          _ensureImageStream(controller, sessionLifecycle);
 
           return Stack(
             fit: StackFit.expand,
             children: [
               CameraPreview(controller),
-              _WorkoutPoseOverlay(
-                imageSize: imageSize,
-                isMirrored: isMirrored,
-                showDebugLandmarks: _showCalibrationPanel,
-              ),
-              const _LiveTrackingRecoveryOverlay(),
+              if (pauseState.isActive)
+                _WorkoutPoseOverlay(
+                  imageSize: imageSize,
+                  isMirrored: isMirrored,
+                  showDebugLandmarks: _showCalibrationPanel,
+                )
+              else
+                _PausedPoseOverlay(
+                  imageSize: imageSize,
+                  isMirrored: isMirrored,
+                ),
+              if (pauseState.isActive) const _LiveTrackingRecoveryOverlay(),
+              if (pauseState.isPaused)
+                _LivePauseOverlay(
+                  readinessRequest: readinessRequest,
+                  onResume: () => _requestResume(readinessRequest),
+                  onCancelResume: _cancelResume,
+                ),
               _FinishSessionButton(
                 topInset: topInset,
                 isFinishing: sessionLifecycle.isFinishing,
@@ -583,7 +661,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   _finishSession(ref.read(workoutControllerProvider)),
                 ),
               ),
-              if (workoutDiagnosticsUiEnabled)
+              if (pauseState.isActive)
+                _PauseSessionButton(
+                  topInset: topInset,
+                  onPause: () => _pauseAnalysis(readinessRequest),
+                ),
+              if (workoutDiagnosticsUiEnabled && pauseState.isActive)
                 Positioned(
                   top: topInset + 12,
                   left: 14,
@@ -600,40 +683,44 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     ),
                   ),
                 ),
-              _PrimaryWorkoutMetricsOverlay(
-                topInset: topInset,
-                onToggleCalibration: () {
-                  setState(
-                    () => _showCalibrationPanel = !_showCalibrationPanel,
-                  );
-                },
-              ),
-              _CanonicalMetricsOverlay(topInset: topInset),
-              _PlannedWorkoutProgressOverlay(topInset: topInset),
-              if (_showCalibrationPanel)
+              if (pauseState.isActive)
+                _PrimaryWorkoutMetricsOverlay(
+                  topInset: topInset,
+                  onToggleCalibration: () {
+                    setState(
+                      () => _showCalibrationPanel = !_showCalibrationPanel,
+                    );
+                  },
+                ),
+              if (pauseState.isActive)
+                _CanonicalMetricsOverlay(topInset: topInset),
+              if (pauseState.isActive)
+                _PlannedWorkoutProgressOverlay(topInset: topInset),
+              if (_showCalibrationPanel && pauseState.isActive)
                 _CalibrationPanelOverlay(
                   topInset: topInset,
                   onClose: () {
                     setState(() => _showCalibrationPanel = false);
                   },
                 ),
-              Positioned(
-                bottom: 40,
-                left: 20,
-                right: 20,
-                child: Column(
-                  children: [
-                    _WorkoutSetCompletedSection(
-                      onAdvance: () => unawaited(
-                        _advancePlannedWorkout(
-                          ref.read(workoutControllerProvider),
+              if (pauseState.isActive)
+                Positioned(
+                  bottom: 40,
+                  left: 20,
+                  right: 20,
+                  child: Column(
+                    children: [
+                      _WorkoutSetCompletedSection(
+                        onAdvance: () => unawaited(
+                          _advancePlannedWorkout(
+                            ref.read(workoutControllerProvider),
+                          ),
                         ),
                       ),
-                    ),
-                    const _WorkoutFeedbackStatus(),
-                  ],
+                      const _WorkoutFeedbackStatus(),
+                    ],
+                  ),
                 ),
-              ),
             ],
           );
         },
@@ -688,12 +775,24 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           return;
         }
         final cameraValue = _safeControllerValue(streamController);
+        if (ref.read(livePauseControllerProvider).isActive) {
+          ref
+              .read(workoutControllerProvider.notifier)
+              .processCameraImage(
+                image,
+                streamController.description.sensorOrientation,
+                cameraLensDirection: streamController.description.lensDirection,
+                deviceOrientation: cameraValue?.deviceOrientation,
+              );
+          return;
+        }
+
         ref
-            .read(workoutControllerProvider.notifier)
+            .read(preparationCameraControllerProvider.notifier)
             .processCameraImage(
               image,
               streamController.description.sensorOrientation,
-              cameraLensDirection: streamController.description.lensDirection,
+              lensDirection: streamController.description.lensDirection,
               deviceOrientation: cameraValue?.deviceOrientation,
             );
       },
@@ -706,6 +805,274 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       _markCameraRecovering();
     });
   }
+}
+
+class _PausedPoseOverlay extends ConsumerWidget {
+  const _PausedPoseOverlay({required this.imageSize, required this.isMirrored});
+
+  final Size imageSize;
+  final bool isMirrored;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final landmarks = ref.watch(
+      preparationCameraControllerProvider.select((state) => state.landmarks),
+    );
+    if (landmarks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return CustomPaint(
+      painter: PosePainter(
+        landmarks,
+        imageSize,
+        isFormBad: false,
+        isMirrored: isMirrored,
+      ),
+    );
+  }
+}
+
+class _LivePauseOverlay extends ConsumerWidget {
+  const _LivePauseOverlay({
+    required this.readinessRequest,
+    required this.onResume,
+    required this.onCancelResume,
+  });
+
+  final SetupReadinessRequest readinessRequest;
+  final VoidCallback onResume;
+  final VoidCallback onCancelResume;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pauseState = ref.watch(livePauseControllerProvider);
+    if (pauseState.isActive) {
+      return const SizedBox.shrink();
+    }
+
+    final localizations = AppLocalizations.of(context);
+    final readinessProvider = preparationReadinessStateProvider(
+      readinessRequest,
+    );
+    ref.listen<SetupReadinessSnapshot>(readinessProvider, (_, next) {
+      ref.read(livePauseControllerProvider.notifier).updateReadiness(next);
+    });
+    final readiness = ref.watch(readinessProvider);
+    final readinessView = mapSetupReadinessToViewData(
+      localizations: localizations,
+      readinessSnapshot: readiness,
+    );
+    final presentation = _livePausePresentation(
+      state: pauseState,
+      readinessView: readinessView,
+      localizations: localizations,
+    );
+
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.46),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 96, 24, 36),
+              child: Container(
+                key: const ValueKey<String>('live-pause-overlay'),
+                constraints: const BoxConstraints(maxWidth: 430),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: presentation.color.withValues(alpha: 0.62),
+                    width: 1.4,
+                  ),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 26,
+                      offset: Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: presentation.color.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        presentation.icon,
+                        color: presentation.color,
+                        size: 31,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      presentation.title,
+                      key: const ValueKey<String>('live-pause-title'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      presentation.message,
+                      key: const ValueKey<String>('live-pause-message'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (pauseState.isCountingDown) ...<Widget>[
+                      const SizedBox(height: 20),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(
+                              scale: animation,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            ),
+                        child: Text(
+                          '${pauseState.countdownValue ?? ''}',
+                          key: ValueKey<String>(
+                            'live-resume-countdown-${pauseState.countdownValue}',
+                          ),
+                          semanticsLabel: localizations
+                              .liveResumeCountdownSemantics(
+                                pauseState.countdownValue ?? 0,
+                              ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 72,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    if (pauseState.phase == LivePausePhase.paused)
+                      FilledButton.icon(
+                        key: const ValueKey<String>('live-resume-button'),
+                        onPressed: onResume,
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text(localizations.resumeWorkout),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        key: const ValueKey<String>(
+                          'live-cancel-resume-button',
+                        ),
+                        onPressed: onCancelResume,
+                        icon: const Icon(Icons.pause_rounded),
+                        label: Text(localizations.returnToPause),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PauseSessionButton extends StatelessWidget {
+  const _PauseSessionButton({required this.topInset, required this.onPause});
+
+  final double topInset;
+  final VoidCallback onPause;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return Positioned(
+      top: topInset + 12,
+      left: workoutDiagnosticsUiEnabled ? 68 : 14,
+      child: TextButton.icon(
+        key: const ValueKey<String>('live-pause-button'),
+        onPressed: onPause,
+        icon: const Icon(Icons.pause_circle_outline_rounded, size: 18),
+        label: Text(localizations.pauseWorkout),
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.black54,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+_LivePausePresentation _livePausePresentation({
+  required LivePauseState state,
+  required SetupReadinessViewData readinessView,
+  required AppLocalizations localizations,
+}) {
+  return switch (state.phase) {
+    LivePausePhase.active => _LivePausePresentation(
+      title: '',
+      message: '',
+      color: Colors.greenAccent,
+      icon: Icons.play_arrow_rounded,
+    ),
+    LivePausePhase.paused => _LivePausePresentation(
+      title: localizations.workoutPausedTitle,
+      message: localizations.workoutPausedMessage,
+      color: Colors.cyanAccent,
+      icon: Icons.pause_rounded,
+    ),
+    LivePausePhase.resumeMonitoring => _LivePausePresentation(
+      title: localizations.resumeReadinessTitle,
+      message: readinessView.message,
+      color:
+          readinessView.visualState == SetupReadinessVisualState.needsAdjustment
+          ? Colors.amberAccent
+          : Colors.cyanAccent,
+      icon:
+          readinessView.visualState == SetupReadinessVisualState.needsAdjustment
+          ? Icons.center_focus_weak_rounded
+          : Icons.track_changes_rounded,
+    ),
+    LivePausePhase.resumeCountingDown => _LivePausePresentation(
+      title: localizations.resumeCountdownTitle,
+      message: localizations.resumeCountdownMessage,
+      color: Colors.greenAccent,
+      icon: Icons.play_arrow_rounded,
+    ),
+  };
+}
+
+class _LivePausePresentation {
+  const _LivePausePresentation({
+    required this.title,
+    required this.message,
+    required this.color,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final Color color;
+  final IconData icon;
 }
 
 class _WorkoutPoseOverlay extends ConsumerWidget {

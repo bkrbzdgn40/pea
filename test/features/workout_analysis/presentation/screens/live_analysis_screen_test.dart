@@ -25,10 +25,14 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_metrics_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_readiness_state.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_pause_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_pause_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
@@ -448,6 +452,85 @@ void main() {
       expect(find.text('Pozisyon kontrol ediliyor'), findsOneWidget);
     },
   );
+
+  testWidgets('manual pause requires readiness and a resume countdown', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    expect(
+      find.byKey(const ValueKey<String>('live-pause-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('live-pause-button')));
+    await tester.pump();
+
+    expect(find.text('Antrenman duraklatıldı'), findsOneWidget);
+    expect(find.text('Bitir'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('live-resume-button')),
+      findsOneWidget,
+    );
+    expect(
+      harness.container.read(livePauseControllerProvider).phase,
+      LivePausePhase.paused,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('live-resume-button')));
+    await tester.pump();
+
+    expect(find.text('Devam etmeye hazırlan'), findsOneWidget);
+    expect(
+      harness.container.read(livePauseControllerProvider).phase,
+      LivePausePhase.resumeMonitoring,
+    );
+
+    harness.container
+        .read(livePauseControllerProvider.notifier)
+        .updateReadiness(_readyReadinessSnapshot());
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('live-resume-countdown-3')),
+      findsOneWidget,
+    );
+    expect(
+      harness.container.read(livePauseControllerProvider).phase,
+      LivePausePhase.resumeCountingDown,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey<String>('live-resume-countdown-2')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey<String>('live-resume-countdown-1')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      harness.container.read(livePauseControllerProvider).phase,
+      LivePausePhase.active,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-pause-overlay')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-pause-button')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('pause lifecycle disarms a PEAK recovery before neutral return', (
     tester,
@@ -1195,9 +1278,21 @@ class _FakeWorkoutController extends WorkoutController {
   _FakeWorkoutController(this.initialState);
 
   final WorkoutState initialState;
+  int manualPauseCallCount = 0;
+  int manualResumeCallCount = 0;
 
   @override
   WorkoutState build() => initialState;
+
+  @override
+  void handleManualPause() {
+    manualPauseCallCount += 1;
+  }
+
+  @override
+  void handleManualResume() {
+    manualResumeCallCount += 1;
+  }
 
   void publish(WorkoutState next) {
     state = next;
@@ -1255,6 +1350,9 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
       activeAnalysisExerciseProvider.overrideWithValue(exerciseType),
       exerciseConfigProvider.overrideWith((ref) => config),
       poseDetectorProvider.overrideWith((ref) => detector),
+      preparationPoseDetectorProvider.overrideWith(
+        (ref) => _QueuedPoseDetector(),
+      ),
       workoutClockProvider.overrideWithValue(clock.now),
       authRepositoryProvider.overrideWithValue(
         const _FakeAuthRepository(currentUserId: 'test-user'),
@@ -1493,6 +1591,26 @@ Future<void> _driveRangeRepPoseUntilPhase(
 
   throw TestFailure(
     'Expected phase $expectedPhase, got ${controller.state.currentPhase}',
+  );
+}
+
+SetupReadinessSnapshot _readyReadinessSnapshot() {
+  final now = DateTime.utc(2026, 7, 26, 12);
+  return SetupReadinessSnapshot(
+    phase: SetupReadinessPhase.ready,
+    evidence: const SetupReadinessEvidence(),
+    enteredAt: now,
+    updatedAt: now,
+    diagnostics: const SetupReadinessDiagnosticsSnapshot(
+      rawPhase: SetupReadinessPhase.ready,
+      framingStatus: null,
+      cameraViewStatus: null,
+      startPoseStatus: null,
+      stableEvidenceDuration: Duration(seconds: 1),
+      temporaryLossDuration: Duration.zero,
+      stabilityProgress: 1,
+      confidence: 1,
+    ),
   );
 }
 
