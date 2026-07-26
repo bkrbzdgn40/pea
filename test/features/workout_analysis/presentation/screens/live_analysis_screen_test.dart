@@ -220,9 +220,6 @@ void main() {
     final primaryBefore = tester.widget(
       find.byKey(const ValueKey<String>('live-primary-metric-card')),
     );
-    final fpsBefore = tester.widget(
-      find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
-    );
     final secondaryBefore = tester.widget(
       find.byKey(const ValueKey<String>('live-secondary-metric-card')),
     );
@@ -251,15 +248,6 @@ void main() {
           find.byKey(const ValueKey<String>('live-primary-metric-card')),
         ),
         primaryBefore,
-      ),
-      isTrue,
-    );
-    expect(
-      identical(
-        tester.widget(
-          find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
-        ),
-        fpsBefore,
       ),
       isTrue,
     );
@@ -316,15 +304,6 @@ void main() {
     expect(
       identical(
         tester.widget(
-          find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
-        ),
-        fpsBefore,
-      ),
-      isFalse,
-    );
-    expect(
-      identical(
-        tester.widget(
           find.byKey(const ValueKey<String>('live-secondary-metric-card')),
         ),
         secondaryBefore,
@@ -338,7 +317,7 @@ void main() {
         ),
         feedbackBefore,
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       identical(
@@ -356,10 +335,28 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('keeps technical FPS out of the normal live surface', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    expect(
+      find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
+      findsNothing,
+    );
+    expect(find.textContaining('FPS'), findsNothing);
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey<String>('live-camera-fps-metric-card')),
-        matching: find.text('11'),
+        of: find.byKey(const ValueKey<String>('live-secondary-metric-card')),
+        matching: find.text('—'),
       ),
       findsOneWidget,
     );
@@ -514,9 +511,13 @@ void main() {
       );
       expect(initialOwner.currentStateSnapshot().hasSavedSession, isFalse);
 
-      await tester.longPress(find.text('FPS'));
+      await tester.longPress(
+        find.byKey(const ValueKey<String>('live-performance-header')),
+      );
       await tester.pump();
-      await tester.longPress(find.text('FPS'));
+      await tester.longPress(
+        find.byKey(const ValueKey<String>('live-performance-header')),
+      );
       await tester.pump();
 
       final rebuiltOwner = harness.container.read(
@@ -930,7 +931,9 @@ void main() {
     );
     addTearDown(harness.dispose);
 
-    await tester.longPress(find.text('FPS'));
+    await tester.longPress(
+      find.byKey(const ValueKey<String>('live-performance-header')),
+    );
     await tester.pump();
 
     expect(find.text('primary/current'), findsOneWidget);

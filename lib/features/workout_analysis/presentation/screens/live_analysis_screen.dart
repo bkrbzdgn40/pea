@@ -791,18 +791,23 @@ class _PrimaryWorkoutMetricsOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       top: topInset + 72,
-      left: 20,
-      right: 20,
-      child: Row(
-        children: [
-          const Expanded(child: _PrimaryWorkoutMetricCard()),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _CameraFpsMetricCard(onLongPress: onToggleCalibration),
+      left: 16,
+      right: 16,
+      child: GestureDetector(
+        key: const ValueKey<String>('live-performance-header'),
+        behavior: HitTestBehavior.opaque,
+        onLongPress: onToggleCalibration,
+        child: const SizedBox(
+          height: 116,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
+              SizedBox(width: 10),
+              Expanded(flex: 2, child: _SecondaryWorkoutMetricCard()),
+            ],
           ),
-          const SizedBox(width: 8),
-          const Expanded(child: _SecondaryWorkoutMetricCard()),
-        ],
+        ),
       ),
     );
   }
@@ -824,38 +829,25 @@ class _PrimaryWorkoutMetricCard extends ConsumerWidget {
     );
     final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
     final localizations = AppLocalizations.of(context);
+    final value = isHoldAnalysis
+        ? _formatHoldSeconds(metric.holdSeconds)
+        : metric.repCount.toString();
 
-    return _MetricCard(
+    return _LiveMetricSurface(
       key: const ValueKey<String>('live-primary-metric-card'),
       label: isHoldAnalysis
           ? localizations.holdMetric
           : localizations.repMetric,
-      value: isHoldAnalysis
-          ? _formatHoldSeconds(metric.holdSeconds)
-          : metric.repCount.toString(),
-    );
-  }
-}
-
-class _CameraFpsMetricCard extends ConsumerWidget {
-  const _CameraFpsMetricCard({required this.onLongPress});
-
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cameraFps = ref.watch(
-      workoutControllerProvider.select(
-        (state) => _displayWholeNumber(state.cameraFps),
+      value: value,
+      valueStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 52,
+        height: 0.96,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -1.5,
       ),
-    );
-
-    return _MetricCard(
-      key: const ValueKey<String>('live-camera-fps-metric-card'),
-      label: 'FPS',
-      value: cameraFps.toString(),
-      color: Colors.cyanAccent,
-      onLongPress: onLongPress,
+      accentColor: Colors.greenAccent,
+      emphasize: true,
     );
   }
 }
@@ -869,6 +861,7 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
       workoutControllerProvider.select(
         (state) => (
           analysisKind: state.analysisKind,
+          repCount: state.repCount,
           bestHoldSeconds: _displayWholeSeconds(state.bestHoldSeconds),
           lastRepScore: _displayScore(state.lastRepScore),
         ),
@@ -876,16 +869,142 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
     );
     final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
     final localizations = AppLocalizations.of(context);
+    final hasRepScore = metric.repCount > 0;
+    final String value;
+    if (isHoldAnalysis) {
+      value = _formatHoldSeconds(metric.bestHoldSeconds);
+    } else if (hasRepScore) {
+      value = metric.lastRepScore.toString();
+    } else {
+      value = '—';
+    }
 
-    return _MetricCard(
+    return _LiveMetricSurface(
       key: const ValueKey<String>('live-secondary-metric-card'),
       label: isHoldAnalysis
           ? localizations.bestMetric
           : localizations.scoreMetric,
-      value: isHoldAnalysis
-          ? _formatHoldSeconds(metric.bestHoldSeconds)
-          : metric.lastRepScore.toString(),
-      color: Colors.greenAccent,
+      value: value,
+      valueStyle: TextStyle(
+        color: isHoldAnalysis || hasRepScore
+            ? Colors.greenAccent
+            : Colors.white54,
+        fontSize: 31,
+        height: 1,
+        fontWeight: FontWeight.w800,
+      ),
+      accentColor: isHoldAnalysis || hasRepScore
+          ? Colors.greenAccent
+          : Colors.white30,
+    );
+  }
+}
+
+class _LiveMetricSurface extends StatelessWidget {
+  const _LiveMetricSurface({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.valueStyle,
+    required this.accentColor,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final TextStyle valueStyle;
+  final Color accentColor;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$label $value',
+      excludeSemantics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: emphasize ? 20 : 16,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: emphasize ? 0.62 : 0.54),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: accentColor.withValues(alpha: emphasize ? 0.52 : 0.28),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black38,
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: emphasize ? 18 : 14,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.92,
+                          end: 1,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Text(
+                      value,
+                      key: ValueKey<String>(value),
+                      style: valueStyle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -899,7 +1018,7 @@ class _CanonicalMetricsOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final liveMetrics = ref.watch(workoutLiveMetricsProvider);
     return Positioned(
-      top: topInset + 152,
+      top: topInset + 202,
       left: 20,
       right: 20,
       child: _LiveCanonicalMetricsBar(metrics: liveMetrics),
@@ -928,7 +1047,7 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
     }
 
     return Positioned(
-      top: topInset + 208,
+      top: topInset + 258,
       left: 20,
       right: 20,
       child: _PlannedWorkoutProgressBar(snapshot: snapshot),
@@ -953,7 +1072,7 @@ class _CalibrationPanelOverlay extends ConsumerWidget {
     );
 
     return Positioned(
-      top: topInset + (hasPlan ? 280 : 208),
+      top: topInset + (hasPlan ? 330 : 258),
       left: 20,
       right: 20,
       child: _CalibrationDebugPanel(
@@ -996,13 +1115,7 @@ class _WorkoutFeedbackStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        _WorkoutFeedbackMessage(),
-        SizedBox(height: 10),
-        _WorkoutAnalysisStatusLine(),
-      ],
-    );
+    return const _WorkoutFeedbackMessage();
   }
 }
 
@@ -1013,62 +1126,90 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final feedback = ref.watch(
       workoutControllerProvider.select(
-        (state) => (message: state.feedbackMessage, isFormBad: state.isFormBad),
-      ),
-    );
-
-    return Container(
-      key: const ValueKey<String>('live-feedback-message-card'),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: feedback.isFormBad
-            ? Colors.red.withValues(alpha: 0.8)
-            : Colors.black54,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: feedback.isFormBad ? Colors.white : Colors.greenAccent,
-        ),
-      ),
-      child: Text(
-        feedback.message,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-class _WorkoutAnalysisStatusLine extends ConsumerWidget {
-  const _WorkoutAnalysisStatusLine();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(
-      workoutControllerProvider.select(
         (state) => (
+          message: state.feedbackMessage,
+          isFormBad: state.isFormBad,
           currentPhase: state.currentPhase,
-          analysisFps: _displayWholeNumber(state.analysisFps),
         ),
       ),
     );
     final localizations = AppLocalizations.of(context);
+    final accentColor = feedback.isFormBad
+        ? Colors.amberAccent
+        : Colors.greenAccent;
 
-    return Text(
-      localizations.liveStatusLine(
-        status.currentPhase,
-        status.analysisFps.toString(),
+    return AnimatedContainer(
+      key: const ValueKey<String>('live-feedback-message-card'),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.fromLTRB(16, 13, 18, 14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: accentColor.withValues(alpha: 0.58)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
-      key: const ValueKey<String>('live-analysis-status-line'),
-      style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.7),
-        letterSpacing: 2,
-        fontWeight: FontWeight.w500,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              feedback.isFormBad ? Icons.tune_rounded : Icons.check_rounded,
+              color: accentColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  localizations.workoutPhaseLabel(feedback.currentPhase),
+                  key: const ValueKey<String>('live-analysis-status-line'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accentColor.withValues(alpha: 0.9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    feedback.message,
+                    key: ValueKey<String>(feedback.message),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      height: 1.18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      textAlign: TextAlign.center,
     );
   }
 }
@@ -1078,13 +1219,6 @@ int _displayWholeSeconds(double seconds) {
     return 0;
   }
   return Duration(milliseconds: (seconds * 1000).round()).inSeconds;
-}
-
-int _displayWholeNumber(double value) {
-  if (!value.isFinite) {
-    return 0;
-  }
-  return value.round();
 }
 
 int _displayScore(double value) {
@@ -1367,57 +1501,6 @@ class _CameraPermissionFallback extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.greenAccent,
                 foregroundColor: Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final VoidCallback? onLongPress;
-
-  const _MetricCard({
-    super.key,
-    required this.label,
-    required this.value,
-    this.color = Colors.white,
-    this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPress: onLongPress,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.black38,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                ),
               ),
             ),
           ],
