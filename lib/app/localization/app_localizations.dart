@@ -1063,6 +1063,28 @@ class AppLocalizations {
     tr: 'Kısa süre sabit kal. Analiz güvenli olduğunda devam edecek.',
     en: 'Hold still briefly. Analysis will resume when tracking is stable.',
   );
+  String get pauseWorkout => pick(tr: 'Duraklat', en: 'Pause');
+  String get resumeWorkout => pick(tr: 'Devam Et', en: 'Resume');
+  String get returnToPause =>
+      pick(tr: 'Duraklamaya Dön', en: 'Return to Pause');
+  String get workoutPausedTitle =>
+      pick(tr: 'Antrenman duraklatıldı', en: 'Workout paused');
+  String get workoutPausedMessage => pick(
+    tr: 'Su içebilir, telefonu düzeltebilir veya pozisyonunu değiştirebilirsin. Hazır olduğunda devam et.',
+    en: 'Take a drink, adjust the phone, or change position. Resume when you are ready.',
+  );
+  String get resumeReadinessTitle =>
+      pick(tr: 'Devam etmeye hazırlan', en: 'Prepare to resume');
+  String get resumeCountdownTitle =>
+      pick(tr: 'Analiz devam ediyor', en: 'Analysis is resuming');
+  String get resumeCountdownMessage => pick(
+    tr: 'Pozisyonunu koru. Sayım geri sayım tamamlanınca devam edecek.',
+    en: 'Hold your position. Counting resumes when the countdown finishes.',
+  );
+  String liveResumeCountdownSemantics(int value) => pick(
+    tr: 'Analize devam etmek için $value',
+    en: '$value until analysis resumes',
+  );
   String get checkPermission =>
       pick(tr: 'İzni Kontrol Et', en: 'Check Permission');
   String errorWithDetail(Object error) =>
