@@ -536,6 +536,14 @@ class AppLocalizations {
     tr: 'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.',
     en: 'Complete a quick preparation check for more reliable results.',
   );
+  String get preparationCameraLoading =>
+      pick(tr: 'Kamera hazırlanıyor...', en: 'Preparing the camera...');
+  String get preparationCameraUnavailable =>
+      pick(tr: 'Kamera henüz hazır değil', en: 'Camera is not ready yet');
+  String get preparationCameraPreviewHint => pick(
+    tr: 'Kendini kadrajda kontrol et. Analiz, başlat düğmesine dokunana kadar başlamaz.',
+    en: 'Check your position in the frame. Analysis does not start until you tap the start button.',
+  );
   String unsupportedExerciseFallback(String selected, String active) => pick(
     tr: '$selected henüz aktif analiz için desteklenmiyor. Şimdilik $active analizi ile devam edebilirsin.',
     en: '$selected is not supported for active analysis yet. You can continue with $active analysis for now.',
