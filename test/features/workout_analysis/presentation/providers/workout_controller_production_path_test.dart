@@ -28,7 +28,9 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
@@ -154,6 +156,50 @@ void main() {
         expect(snapshot.acceptedPoseFrameCount, 1);
         expect(snapshot.currentPoseQualityStatus, 'accepted');
         expect(state.currentAngle, closeTo(170.0, 0.001));
+      },
+    );
+
+    test(
+      'publishes loss, reposition, and reacquisition tracking states',
+      () async {
+        final pose = _squatPose(angle: 170, defaultLikelihood: 0.95);
+
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        expect(
+          container.read(liveTrackingControllerProvider).phase,
+          LiveTrackingPhase.tracking,
+        );
+
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, const <Pose>[]);
+        expect(
+          container.read(liveTrackingControllerProvider).phase,
+          LiveTrackingPhase.temporarilyLost,
+        );
+
+        clock.advance(liveTrackingLossGraceDuration);
+        await _analyzeFrame(controller, detector, const <Pose>[]);
+        expect(
+          container.read(liveTrackingControllerProvider).phase,
+          LiveTrackingPhase.repositionRequired,
+        );
+
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        expect(
+          container.read(liveTrackingControllerProvider).phase,
+          LiveTrackingPhase.reacquiring,
+        );
+
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(controller, detector, <Pose>[pose]);
+        expect(
+          container.read(liveTrackingControllerProvider).phase,
+          LiveTrackingPhase.tracking,
+        );
+        expect(container.read(workoutControllerProvider).repCount, 0);
       },
     );
 

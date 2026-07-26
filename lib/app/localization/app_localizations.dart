@@ -1045,6 +1045,24 @@ class AppLocalizations {
     tr: 'Analize devam etmek için kamera iznini kontrol et.',
     en: 'Check camera permission to continue the analysis.',
   );
+  String get liveTrackingTemporarilyLostTitle =>
+      pick(tr: 'Görüntü kısa süreli kayboldu', en: 'Tracking was briefly lost');
+  String get liveTrackingTemporarilyLostMessage => pick(
+    tr: 'Pozisyonunu koru. Analiz kısa süreli olarak bekletiliyor.',
+    en: 'Hold your position. Analysis is paused briefly.',
+  );
+  String get liveTrackingRepositionTitle =>
+      pick(tr: 'Kadraja geri dön', en: 'Move back into frame');
+  String get liveTrackingRepositionMessage => pick(
+    tr: 'Vücudunu tekrar kameraya göster. Sayım ve süre güvenli biçimde duraklatıldı.',
+    en: 'Show your body to the camera again. Counting and timing are safely paused.',
+  );
+  String get liveTrackingReacquiringTitle =>
+      pick(tr: 'Pozisyon kontrol ediliyor', en: 'Checking your position');
+  String get liveTrackingReacquiringMessage => pick(
+    tr: 'Kısa süre sabit kal. Analiz güvenli olduğunda devam edecek.',
+    en: 'Hold still briefly. Analysis will resume when tracking is stable.',
+  );
   String get checkPermission =>
       pick(tr: 'İzni Kontrol Et', en: 'Check Permission');
   String errorWithDetail(Object error) =>
