@@ -283,6 +283,43 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey<String>('preparation-override-analysis')),
     );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-countdown-3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-countdown-controls')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('return-from-analysis')),
+      findsNothing,
+    );
+    expect(initialController.stopImageStreamCallCount, 0);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey<String>('preparation-countdown-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('return-from-analysis')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey<String>('preparation-countdown-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('return-from-analysis')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
     expect(

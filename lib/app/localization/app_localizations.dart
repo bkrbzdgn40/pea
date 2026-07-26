@@ -563,6 +563,16 @@ class AppLocalizations {
   );
   String get preparationGateOverrideAction =>
       pick(tr: 'Kontrolleri Atlayarak Başlat', en: 'Start Without Checks');
+  String get preparationCountdownTitle =>
+      pick(tr: 'Geri sayım başladı', en: 'Countdown started');
+  String get preparationCountdownMessage => pick(
+    tr: 'Pozisyonunu koru. Analiz geri sayım tamamlanınca başlayacak.',
+    en: 'Hold your position. Analysis will start when the countdown finishes.',
+  );
+  String preparationCountdownSemantics(int value) => pick(
+    tr: 'Analiz $value saniye içinde başlayacak.',
+    en: 'Analysis will start in $value seconds.',
+  );
   String get preparationGateLaunching =>
       pick(tr: 'Analiz başlatılıyor...', en: 'Starting analysis...');
   String get preparationCheckPersonVisibility =>

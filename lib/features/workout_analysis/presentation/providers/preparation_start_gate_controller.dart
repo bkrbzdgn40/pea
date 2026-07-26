@@ -52,6 +52,7 @@ class PreparationStartGateController
   final DateTime Function() _clock;
   SetupReadinessSnapshot _latestReadiness;
   Timer? _overrideTimer;
+  Timer? _countdownTimer;
 
   void arm() {
     if (state.phase != PreparationStartGatePhase.idle) {
@@ -60,7 +61,11 @@ class PreparationStartGateController
 
     final now = _clock();
     if (_latestReadiness.isReady) {
-      _approve(source: PreparationStartApprovalSource.readiness, now: now);
+      _startCountdown(
+        source: PreparationStartApprovalSource.readiness,
+        now: now,
+        armedAt: now,
+      );
       return;
     }
 
@@ -69,7 +74,7 @@ class PreparationStartGateController
       readinessSnapshot: _latestReadiness,
       armedAt: now,
     );
-    _scheduleOverrideAvailability();
+    _scheduleOverrideAvailability(_thresholds.manualOverrideDelay);
   }
 
   void updateReadiness(SetupReadinessSnapshot snapshot) {
@@ -79,8 +84,21 @@ class PreparationStartGateController
       return;
     }
 
-    if (state.isArmed && snapshot.isReady) {
-      _approve(source: PreparationStartApprovalSource.readiness, now: _clock());
+    if ((state.phase == PreparationStartGatePhase.monitoring ||
+            state.phase == PreparationStartGatePhase.overrideAvailable) &&
+        snapshot.isReady) {
+      _startCountdown(
+        source: PreparationStartApprovalSource.readiness,
+        now: _clock(),
+        armedAt: state.armedAt,
+      );
+      return;
+    }
+
+    if (state.isCountingDown &&
+        state.approvalSource == PreparationStartApprovalSource.readiness &&
+        !snapshot.isReady) {
+      _resumeMonitoringAfterCountdownCancellation(now: _clock());
       return;
     }
 
@@ -88,8 +106,10 @@ class PreparationStartGateController
       phase: state.phase,
       readinessSnapshot: snapshot,
       armedAt: state.armedAt,
+      countdownStartedAt: state.countdownStartedAt,
       approvedAt: state.approvedAt,
       approvalSource: state.approvalSource,
+      countdownValue: state.countdownValue,
     );
   }
 
@@ -109,9 +129,10 @@ class PreparationStartGateController
     if (!state.canOverride) {
       return;
     }
-    _approve(
+    _startCountdown(
       source: PreparationStartApprovalSource.manualOverride,
       now: _clock(),
+      armedAt: state.armedAt,
     );
   }
 
@@ -119,11 +140,12 @@ class PreparationStartGateController
     if (!state.isApproved) {
       return false;
     }
-    _overrideTimer?.cancel();
+    _cancelTimers();
     state = PreparationStartGateState(
       phase: PreparationStartGatePhase.launching,
       readinessSnapshot: _latestReadiness,
       armedAt: state.armedAt,
+      countdownStartedAt: state.countdownStartedAt,
       approvedAt: state.approvedAt,
       approvalSource: state.approvalSource,
     );
@@ -131,35 +153,117 @@ class PreparationStartGateController
   }
 
   void reset() {
-    _overrideTimer?.cancel();
+    _cancelTimers();
     state = PreparationStartGateState.idle(readinessSnapshot: _latestReadiness);
+  }
+
+  void _startCountdown({
+    required PreparationStartApprovalSource source,
+    required DateTime now,
+    required DateTime? armedAt,
+  }) {
+    _cancelTimers();
+    state = PreparationStartGateState(
+      phase: PreparationStartGatePhase.countingDown,
+      readinessSnapshot: _latestReadiness,
+      armedAt: armedAt ?? now,
+      countdownStartedAt: now,
+      approvalSource: source,
+      countdownValue: _thresholds.countdownFrom,
+    );
+    _scheduleCountdownTick();
+  }
+
+  void _advanceCountdown() {
+    if (!state.isCountingDown) {
+      return;
+    }
+
+    if (state.approvalSource == PreparationStartApprovalSource.readiness &&
+        !_latestReadiness.isReady) {
+      _resumeMonitoringAfterCountdownCancellation(now: _clock());
+      return;
+    }
+
+    final currentValue = state.countdownValue;
+    if (currentValue == null) {
+      reset();
+      return;
+    }
+
+    if (currentValue <= 1) {
+      _approve(source: state.approvalSource!, now: _clock());
+      return;
+    }
+
+    state = PreparationStartGateState(
+      phase: PreparationStartGatePhase.countingDown,
+      readinessSnapshot: _latestReadiness,
+      armedAt: state.armedAt,
+      countdownStartedAt: state.countdownStartedAt,
+      approvalSource: state.approvalSource,
+      countdownValue: currentValue - 1,
+    );
+    _scheduleCountdownTick();
+  }
+
+  void _resumeMonitoringAfterCountdownCancellation({required DateTime now}) {
+    _countdownTimer?.cancel();
+    final armedAt = state.armedAt ?? now;
+    final elapsed = now.difference(armedAt);
+    final normalizedElapsed = elapsed.isNegative ? Duration.zero : elapsed;
+    final remaining = _thresholds.manualOverrideDelay - normalizedElapsed;
+    final overrideAvailable = remaining <= Duration.zero;
+
+    state = PreparationStartGateState(
+      phase: overrideAvailable
+          ? PreparationStartGatePhase.overrideAvailable
+          : PreparationStartGatePhase.monitoring,
+      readinessSnapshot: _latestReadiness,
+      armedAt: armedAt,
+    );
+
+    if (!overrideAvailable) {
+      _scheduleOverrideAvailability(remaining);
+    }
   }
 
   void _approve({
     required PreparationStartApprovalSource source,
     required DateTime now,
   }) {
-    _overrideTimer?.cancel();
+    _cancelTimers();
     state = PreparationStartGateState(
       phase: PreparationStartGatePhase.approved,
       readinessSnapshot: _latestReadiness,
       armedAt: state.armedAt,
+      countdownStartedAt: state.countdownStartedAt,
       approvedAt: now,
       approvalSource: source,
     );
   }
 
-  void _scheduleOverrideAvailability() {
+  void _scheduleOverrideAvailability(Duration delay) {
     _overrideTimer?.cancel();
-    _overrideTimer = Timer(
-      _thresholds.manualOverrideDelay,
-      _makeOverrideAvailable,
+    _overrideTimer = Timer(delay, _makeOverrideAvailable);
+  }
+
+  void _scheduleCountdownTick() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer(
+      _thresholds.countdownStepDuration,
+      _advanceCountdown,
     );
+  }
+
+  void _cancelTimers() {
+    _overrideTimer?.cancel();
+    _countdownTimer?.cancel();
   }
 
   @override
   void dispose() {
-    _overrideTimer?.cancel();
+    _cancelTimers();
     super.dispose();
   }
 }
