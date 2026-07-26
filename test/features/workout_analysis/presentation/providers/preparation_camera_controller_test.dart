@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/came
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_camera_view_orientation.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_framing_geometry.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_start_pose.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
@@ -136,6 +137,55 @@ void main() {
     expect(assessment, isNotNull);
     expect(assessment!.status, SetupFramingStatus.ready);
     expect(assessment.requiredLandmarksVisible, isTrue);
+  });
+
+  test('publishes exercise-aware start-pose shadow diagnostics', () async {
+    final detector = TestQueuedPoseDetector();
+    detector.enqueue(<Pose>[
+      _pose(<PoseLandmark>[
+        buildLandmark(PoseLandmarkType.leftShoulder, 50, 40),
+        buildLandmark(PoseLandmarkType.leftHip, 50, 90),
+        buildLandmark(PoseLandmarkType.leftKnee, 50, 130),
+        buildLandmark(PoseLandmarkType.leftAnkle, 50, 175),
+      ]),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        preparationPoseDetectorProvider.overrideWith((ref) => detector),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+    final subscription = container.listen<PreparationCameraState>(
+      preparationCameraControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+    final request = (
+      imageWidth: 100.0,
+      imageHeight: 200.0,
+      mirrorHorizontally: false,
+    );
+
+    expect(
+      container.read(preparationStartPoseAssessmentProvider(request))?.status,
+      SetupStartPoseStatus.insufficientEvidence,
+    );
+
+    await container
+        .read(preparationCameraControllerProvider.notifier)
+        .processInputImageForPreview(dummyInputImage());
+
+    final assessment = container.read(
+      preparationStartPoseAssessmentProvider(request),
+    );
+    expect(assessment, isNotNull);
+    expect(assessment!.status, SetupStartPoseStatus.matched);
+    expect(assessment.contract.exerciseType, ExerciseType.squat);
+    expect(assessment.failedChecks, isEmpty);
   });
 
   test('publishes contract-aware camera-view shadow diagnostics', () async {

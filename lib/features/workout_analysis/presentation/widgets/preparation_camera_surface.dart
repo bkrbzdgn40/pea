@@ -137,6 +137,10 @@ class _PreparationReadinessOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // R10 computes start-pose diagnostics in shadow mode. The result is
+    // intentionally not projected into R9 guidance until the stable readiness
+    // state machine is introduced in R11.
+    ref.watch(preparationStartPoseAssessmentProvider(request));
     final readiness = mapSetupReadinessToViewData(
       localizations: AppLocalizations.of(context),
       framingAssessment: ref.watch(
