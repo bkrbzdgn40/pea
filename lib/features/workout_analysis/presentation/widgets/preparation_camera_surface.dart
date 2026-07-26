@@ -6,6 +6,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_camera_controller.dart';
+import '../providers/preparation_readiness_controller.dart';
 import 'pose_painter.dart';
 
 class PreparationCameraSurface extends StatelessWidget {
@@ -137,18 +138,9 @@ class _PreparationReadinessOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // R10 computes start-pose diagnostics in shadow mode. The result is
-    // intentionally not projected into R9 guidance until the stable readiness
-    // state machine is introduced in R11.
-    ref.watch(preparationStartPoseAssessmentProvider(request));
     final readiness = mapSetupReadinessToViewData(
       localizations: AppLocalizations.of(context),
-      framingAssessment: ref.watch(
-        preparationFramingAssessmentProvider(request),
-      ),
-      cameraViewAssessment: ref.watch(
-        preparationCameraViewAssessmentProvider(request),
-      ),
+      readinessSnapshot: ref.watch(preparationReadinessStateProvider(request)),
     );
 
     return Stack(

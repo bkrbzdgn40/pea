@@ -7,8 +7,8 @@ typedef SetupReadinessRequest = ({
 /// High-level visual state for the preparation readiness surface.
 enum SetupReadinessVisualState { checking, needsAdjustment, ready }
 
-/// The three user-facing checks shown below the preparation camera.
-enum SetupReadinessCheckType { person, framing, cameraView }
+/// The user-facing checks shown below the preparation camera.
+enum SetupReadinessCheckType { person, framing, cameraView, startPose }
 
 /// Visual state of one preparation check item.
 enum SetupReadinessCheckState { pending, needsAdjustment, complete }
@@ -25,7 +25,7 @@ class SetupReadinessCheckItem {
   final SetupReadinessCheckState state;
 }
 
-/// Localized, presentation-ready projection of setup diagnostics.
+/// Localized, presentation-ready projection of stable setup readiness.
 class SetupReadinessViewData {
   SetupReadinessViewData({
     required this.statusLabel,

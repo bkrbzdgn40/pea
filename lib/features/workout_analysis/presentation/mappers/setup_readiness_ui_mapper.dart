@@ -2,132 +2,159 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../domain/models/camera_view_contract.dart';
 import '../../domain/models/setup_camera_view_orientation.dart';
 import '../../domain/models/setup_framing_geometry.dart';
+import '../../domain/models/setup_readiness_state.dart';
+import '../../domain/models/setup_start_pose.dart';
 import '../models/setup_readiness_view_data.dart';
 
 SetupReadinessViewData mapSetupReadinessToViewData({
   required AppLocalizations localizations,
-  required SetupFramingAssessment? framingAssessment,
-  required SetupCameraViewAssessment? cameraViewAssessment,
+  required SetupReadinessSnapshot readinessSnapshot,
 }) {
-  final projection = framingAssessment == null
-      ? _SetupReadinessProjection(
-          visualState: SetupReadinessVisualState.checking,
-          statusLabel: localizations.preparationReadinessChecking,
-          message: localizations.preparationCameraViewCheckingGuidance,
-          isReady: false,
-        )
-      : switch (framingAssessment.status) {
-          SetupFramingStatus.noPerson => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationNoPersonGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.incompleteCoverage => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationIncompleteCoverageGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.clipped => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationClippedGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.tooNear => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationTooNearGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.tooFar => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationTooFarGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.offCenter => _SetupReadinessProjection(
-            visualState: SetupReadinessVisualState.needsAdjustment,
-            statusLabel: localizations.preparationReadinessNeedsAdjustment,
-            message: localizations.preparationOffCenterGuidance,
-            isReady: false,
-          ),
-          SetupFramingStatus.ready => _projectCameraView(
-            localizations: localizations,
-            assessment: cameraViewAssessment,
-          ),
-        };
+  final projection = _projectReadiness(
+    localizations: localizations,
+    snapshot: readinessSnapshot,
+  );
+  final evidence = readinessSnapshot.evidence;
 
   return SetupReadinessViewData(
     statusLabel: projection.statusLabel,
     message: projection.message,
     visualState: projection.visualState,
-    isReady: projection.isReady,
+    isReady: readinessSnapshot.isReady,
     checks: <SetupReadinessCheckItem>[
       SetupReadinessCheckItem(
         type: SetupReadinessCheckType.person,
         label: localizations.preparationCheckPersonVisibility,
-        state: _personCheckState(framingAssessment),
+        state: _personCheckState(evidence.framingAssessment),
       ),
       SetupReadinessCheckItem(
         type: SetupReadinessCheckType.framing,
         label: localizations.preparationCheckFraming,
-        state: _framingCheckState(framingAssessment),
+        state: _framingCheckState(evidence.framingAssessment),
       ),
       SetupReadinessCheckItem(
         type: SetupReadinessCheckType.cameraView,
         label: localizations.preparationCheckCameraView,
-        state: _cameraViewCheckState(framingAssessment, cameraViewAssessment),
+        state: _cameraViewCheckState(
+          evidence.framingAssessment,
+          evidence.cameraViewAssessment,
+        ),
+      ),
+      SetupReadinessCheckItem(
+        type: SetupReadinessCheckType.startPose,
+        label: localizations.preparationCheckStartPose,
+        state: _startPoseCheckState(
+          evidence.framingAssessment,
+          evidence.cameraViewAssessment,
+          evidence.startPoseAssessment,
+        ),
       ),
     ],
   );
 }
 
-_SetupReadinessProjection _projectCameraView({
+_SetupReadinessProjection _projectReadiness({
   required AppLocalizations localizations,
-  required SetupCameraViewAssessment? assessment,
+  required SetupReadinessSnapshot snapshot,
 }) {
-  if (assessment == null ||
-      assessment.status == SetupCameraViewAdvisoryStatus.insufficientEvidence ||
-      assessment.status == SetupCameraViewAdvisoryStatus.indeterminate) {
-    return _SetupReadinessProjection(
-      visualState: SetupReadinessVisualState.checking,
-      statusLabel: localizations.preparationReadinessChecking,
-      message: localizations.preparationCameraViewCheckingGuidance,
-      isReady: false,
-    );
-  }
+  return switch (snapshot.phase) {
+    SetupReadinessPhase.initializing => _checking(
+      localizations,
+      localizations.preparationCameraViewCheckingGuidance,
+    ),
+    SetupReadinessPhase.noPerson => _needsAdjustment(
+      localizations,
+      localizations.preparationNoPersonGuidance,
+    ),
+    SetupReadinessPhase.incompleteCoverage => _needsAdjustment(
+      localizations,
+      localizations.preparationIncompleteCoverageGuidance,
+    ),
+    SetupReadinessPhase.clipped => _needsAdjustment(
+      localizations,
+      localizations.preparationClippedGuidance,
+    ),
+    SetupReadinessPhase.tooNear => _needsAdjustment(
+      localizations,
+      localizations.preparationTooNearGuidance,
+    ),
+    SetupReadinessPhase.tooFar => _needsAdjustment(
+      localizations,
+      localizations.preparationTooFarGuidance,
+    ),
+    SetupReadinessPhase.offCenter => _needsAdjustment(
+      localizations,
+      localizations.preparationOffCenterGuidance,
+    ),
+    SetupReadinessPhase.wrongView => _needsAdjustment(
+      localizations,
+      _cameraViewGuidance(localizations, snapshot),
+    ),
+    SetupReadinessPhase.startPoseMissing => _needsAdjustment(
+      localizations,
+      localizations.preparationStartPoseGuidance,
+    ),
+    SetupReadinessPhase.stabilizing => _checking(
+      localizations,
+      localizations.preparationStabilizingGuidance,
+    ),
+    SetupReadinessPhase.ready => _ready(localizations, snapshot),
+    SetupReadinessPhase.temporarilyLost => _checking(
+      localizations,
+      localizations.preparationTemporarilyLostGuidance,
+    ),
+    SetupReadinessPhase.error => _needsAdjustment(
+      localizations,
+      localizations.preparationReadinessErrorGuidance,
+    ),
+  };
+}
 
-  if (assessment.status == SetupCameraViewAdvisoryStatus.unsupported) {
-    final message = switch (assessment.recommendedView) {
-      CameraView.front => localizations.preparationFaceCameraGuidance,
-      CameraView.side => localizations.preparationTurnSideGuidance,
-      null => localizations.preparationCameraViewCheckingGuidance,
-    };
-    return _SetupReadinessProjection(
-      visualState: SetupReadinessVisualState.needsAdjustment,
-      statusLabel: localizations.preparationReadinessNeedsAdjustment,
-      message: message,
-      isReady: false,
-    );
-  }
+_SetupReadinessProjection _checking(
+  AppLocalizations localizations,
+  String message,
+) {
+  return _SetupReadinessProjection(
+    visualState: SetupReadinessVisualState.checking,
+    statusLabel: localizations.preparationReadinessChecking,
+    message: message,
+  );
+}
 
-  if (assessment.status == SetupCameraViewAdvisoryStatus.supported) {
-    return _SetupReadinessProjection(
-      visualState: SetupReadinessVisualState.ready,
-      statusLabel: localizations.preparationReadinessReady,
-      message: localizations.preparationSupportedCameraViewGuidance,
-      isReady: true,
-    );
-  }
+_SetupReadinessProjection _needsAdjustment(
+  AppLocalizations localizations,
+  String message,
+) {
+  return _SetupReadinessProjection(
+    visualState: SetupReadinessVisualState.needsAdjustment,
+    statusLabel: localizations.preparationReadinessNeedsAdjustment,
+    message: message,
+  );
+}
 
+_SetupReadinessProjection _ready(
+  AppLocalizations localizations,
+  SetupReadinessSnapshot snapshot,
+) {
+  final cameraStatus = snapshot.evidence.cameraViewAssessment?.status;
   return _SetupReadinessProjection(
     visualState: SetupReadinessVisualState.ready,
     statusLabel: localizations.preparationReadinessReady,
-    message: localizations.preparationReadyGuidance,
-    isReady: true,
+    message: cameraStatus == SetupCameraViewAdvisoryStatus.supported
+        ? localizations.preparationSupportedCameraViewGuidance
+        : localizations.preparationReadyGuidance,
   );
+}
+
+String _cameraViewGuidance(
+  AppLocalizations localizations,
+  SetupReadinessSnapshot snapshot,
+) {
+  return switch (snapshot.evidence.cameraViewAssessment?.recommendedView) {
+    CameraView.front => localizations.preparationFaceCameraGuidance,
+    CameraView.side => localizations.preparationTurnSideGuidance,
+    null => localizations.preparationCameraViewCheckingGuidance,
+  };
 }
 
 SetupReadinessCheckState _personCheckState(SetupFramingAssessment? assessment) {
@@ -169,16 +196,36 @@ SetupReadinessCheckState _cameraViewCheckState(
   };
 }
 
+SetupReadinessCheckState _startPoseCheckState(
+  SetupFramingAssessment? framingAssessment,
+  SetupCameraViewAssessment? cameraViewAssessment,
+  SetupStartPoseAssessment? startPoseAssessment,
+) {
+  final cameraViewReady =
+      cameraViewAssessment?.status == SetupCameraViewAdvisoryStatus.preferred ||
+      cameraViewAssessment?.status == SetupCameraViewAdvisoryStatus.supported;
+  if (framingAssessment?.isReady != true ||
+      !cameraViewReady ||
+      startPoseAssessment == null) {
+    return SetupReadinessCheckState.pending;
+  }
+
+  return switch (startPoseAssessment.status) {
+    SetupStartPoseStatus.matched => SetupReadinessCheckState.complete,
+    SetupStartPoseStatus.notMatched => SetupReadinessCheckState.needsAdjustment,
+    SetupStartPoseStatus.insufficientEvidence =>
+      SetupReadinessCheckState.pending,
+  };
+}
+
 class _SetupReadinessProjection {
   const _SetupReadinessProjection({
     required this.visualState,
     required this.statusLabel,
     required this.message,
-    required this.isReady,
   });
 
   final SetupReadinessVisualState visualState;
   final String statusLabel;
   final String message;
-  final bool isReady;
 }
