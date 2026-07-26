@@ -18,6 +18,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/repositories/session_repository.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -28,8 +29,10 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_readiness_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_pause_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/range_rep_outcome_view_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_pause_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_range_rep_outcome_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
@@ -341,6 +344,43 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('prioritizes the latest rep outcome over movement feedback', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    const outcome = RangeRepOutcomeViewData(
+      repIndex: 1,
+      status: RangeRepValidationStatus.invalid,
+      primaryReason: RangeRepValidationReason.insufficientRom,
+      title: 'Geçersiz tekrar',
+      message: 'Yeterli hareket aralığı oluşmadı.',
+      tone: RangeRepOutcomeTone.invalid,
+    );
+    harness.container.read(liveRangeRepOutcomeProvider.notifier).show(outcome);
+    await tester.pump();
+
+    expect(find.text('Geçersiz tekrar'), findsOneWidget);
+    expect(find.text('Yeterli hareket aralığı oluşmadı.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('live-feedback-message-card')),
+        matching: find.byIcon(Icons.replay_rounded),
+      ),
+      findsOneWidget,
+    );
+
+    harness.container.read(liveRangeRepOutcomeProvider.notifier).dismiss();
+    await tester.pump();
+    expect(find.text('Geçersiz tekrar'), findsNothing);
   });
 
   testWidgets('keeps technical FPS out of the normal live surface', (

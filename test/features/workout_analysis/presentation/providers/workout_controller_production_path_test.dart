@@ -32,6 +32,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/model
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_pause_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_range_rep_outcome_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
@@ -1136,6 +1137,13 @@ void main() {
     test(
       'completed clean rep records a valid production validation outcome',
       () async {
+        final outcomeSubscription = container.listen(
+          liveRangeRepOutcomeProvider,
+          (previous, next) {},
+          fireImmediately: true,
+        );
+        addTearDown(outcomeSubscription.close);
+
         await _pumpAcceptedPose(
           controller,
           detector,
@@ -1199,6 +1207,11 @@ void main() {
         expect(diagnostics.rangeRepValidationReasonCounts, isEmpty);
         expect(diagnostics.lastRangeRepValidationStatus, 'valid');
         expect(diagnostics.rangeRepTransitionCounts['completeRep'], 1);
+        final outcome = container.read(liveRangeRepOutcomeProvider);
+        expect(outcome, isNotNull);
+        expect(outcome!.repIndex, 1);
+        expect(outcome.title, 'Geçerli tekrar');
+        expect(outcome.message, contains('Hareket aralığı'));
       },
     );
 
