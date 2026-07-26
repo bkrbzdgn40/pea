@@ -540,9 +540,59 @@ class AppLocalizations {
       pick(tr: 'Kamera hazırlanıyor...', en: 'Preparing the camera...');
   String get preparationCameraUnavailable =>
       pick(tr: 'Kamera henüz hazır değil', en: 'Camera is not ready yet');
-  String get preparationCameraPreviewHint => pick(
-    tr: 'Kendini kadrajda kontrol et. Analiz, başlat düğmesine dokunana kadar başlamaz.',
-    en: 'Check your position in the frame. Analysis does not start until you tap the start button.',
+  String get preparationReadinessTitle =>
+      pick(tr: 'Hazırlık durumu', en: 'Setup status');
+  String get preparationReadinessChecking =>
+      pick(tr: 'Kontrol ediliyor', en: 'Checking');
+  String get preparationReadinessNeedsAdjustment =>
+      pick(tr: 'Konumunu ayarla', en: 'Adjust your position');
+  String get preparationReadinessReady => pick(tr: 'Hazır', en: 'Ready');
+  String get preparationCheckPersonVisibility =>
+      pick(tr: 'Kişi görünürlüğü', en: 'Person visibility');
+  String get preparationCheckFraming => pick(tr: 'Kadraj', en: 'Framing');
+  String get preparationCheckCameraView =>
+      pick(tr: 'Kamera açısı', en: 'Camera view');
+  String get preparationNoPersonGuidance => pick(
+    tr: 'Kadraja geç ve vücudunu kameraya göster.',
+    en: 'Move into the frame and let the camera see your body.',
+  );
+  String get preparationIncompleteCoverageGuidance => pick(
+    tr: 'Gerekli eklemler görünmüyor. Vücudunun istenen bölümlerini kadraja al.',
+    en: 'Some required joints are not visible. Bring the requested body areas into the frame.',
+  );
+  String get preparationClippedGuidance => pick(
+    tr: 'Vücudunun bir bölümü kadraj dışında. Biraz geri çekil.',
+    en: 'Part of your body is outside the frame. Move slightly farther back.',
+  );
+  String get preparationTooNearGuidance => pick(
+    tr: 'Kameraya çok yakınsın. Biraz geri git.',
+    en: 'You are too close to the camera. Move a little farther back.',
+  );
+  String get preparationTooFarGuidance => pick(
+    tr: 'Kameradan çok uzaktasın. Biraz yaklaş.',
+    en: 'You are too far from the camera. Move a little closer.',
+  );
+  String get preparationOffCenterGuidance => pick(
+    tr: 'Kadrajın ortasına geç.',
+    en: 'Move toward the center of the frame.',
+  );
+  String get preparationCameraViewCheckingGuidance => pick(
+    tr: 'Omuz ve kalçalarını görünür tutup kısa süre sabit dur.',
+    en: 'Keep your shoulders and hips visible and hold still briefly.',
+  );
+  String get preparationTurnSideGuidance => pick(
+    tr: 'Sağ veya sol yanını kameraya dön.',
+    en: 'Turn your left or right side toward the camera.',
+  );
+  String get preparationFaceCameraGuidance =>
+      pick(tr: 'Doğrudan kameraya dön.', en: 'Face the camera directly.');
+  String get preparationSupportedCameraViewGuidance => pick(
+    tr: 'Bu açı kullanılabilir. Önerilen açı daha güvenilir sonuç verebilir.',
+    en: 'This view is usable. The recommended view may produce more reliable results.',
+  );
+  String get preparationReadyGuidance => pick(
+    tr: 'Kadraj ve kamera açısı uygun.',
+    en: 'Your framing and camera view are suitable.',
   );
   String unsupportedExerciseFallback(String selected, String active) => pick(
     tr: '$selected henüz aktif analiz için desteklenmiyor. Şimdilik $active analizi ile devam edebilirsin.',

@@ -65,11 +65,42 @@ void main() {
     );
     expect(find.byType(CameraPreview), findsOneWidget);
     expect(
-      find.text(
-        'Kendini kadrajda kontrol et. Analiz, başlat düğmesine dokunana kadar başlamaz.',
-      ),
+      find.byKey(const ValueKey<String>('preparation-safe-zone')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Kadraja geç ve vücudunu kameraya göster.'),
+      findsOneWidget,
+    );
+    final readinessCard = find.byKey(
+      const ValueKey<String>('preparation-readiness-card'),
+    );
+    await tester.scrollUntilVisible(
+      readinessCard,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(readinessCard, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-check-person')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-check-framing')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-check-cameraView')),
+      findsOneWidget,
+    );
+    final readinessStatus = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('preparation-readiness-status')),
+    );
+    expect(readinessStatus.data, 'Konumunu ayarla');
     final cameraViewInstruction = find.text(
       'Sağ veya sol yanını kameraya dön.',
     );
@@ -239,6 +270,10 @@ void main() {
     );
     expect(find.text('Kamera hazırlanıyor...'), findsOneWidget);
     expect(find.text('Kamera henüz hazır değil'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-card')),
+      findsNothing,
+    );
   });
 
   testWidgets('shows camera permission recovery without starting analysis', (
@@ -272,6 +307,10 @@ void main() {
     );
     expect(find.text('İzni Kontrol Et'), findsOneWidget);
     expect(find.text('Kamera henüz hazır değil'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-card')),
+      findsNothing,
+    );
   });
 
   testWidgets('shows a retry action when the camera cannot be opened', (
@@ -302,6 +341,10 @@ void main() {
     expect(find.textContaining('Camera could not be opened'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text('Camera is not ready yet'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-card')),
+      findsNothing,
+    );
   });
 
   testWidgets('stops the preparation image stream when the app pauses', (

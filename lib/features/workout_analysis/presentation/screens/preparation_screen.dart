@@ -9,6 +9,8 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
+import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/setup_readiness_view_data.dart';
 import '../preparation_live_camera_handoff_coordinator.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
@@ -267,6 +269,17 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         !_isRecoveringCamera &&
         cameraValue?.isInitialized == true &&
         cameraValue?.previewSize != null;
+    final previewSize = cameraValue?.previewSize;
+    final isMirrored =
+        cameraController?.description.lensDirection ==
+        CameraLensDirection.front;
+    final readinessRequest = previewSize == null
+        ? null
+        : (
+            imageWidth: previewSize.height,
+            imageHeight: previewSize.width,
+            mirrorHorizontally: isMirrored,
+          );
     final activeExerciseTitle = localizations.exerciseTitle(activeExercise.id);
     final selectedExerciseTitle = localizations.exerciseTitle(
       selectedExercise.id,
@@ -343,6 +356,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                       ),
                     ),
                   ),
+                  if (isCameraReady && readinessRequest != null) ...[
+                    const SizedBox(height: 18),
+                    _PreparationReadinessCard(request: readinessRequest),
+                  ],
                   const SizedBox(height: 18),
                   _PreparationGuidanceCard(
                     guidanceItems: setupViewData.orderedInstructions,
@@ -452,6 +469,138 @@ class _PreparationConfigError extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PreparationReadinessCard extends ConsumerWidget {
+  const _PreparationReadinessCard({required this.request});
+
+  final SetupReadinessRequest request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
+    final viewData = mapSetupReadinessToViewData(
+      localizations: localizations,
+      framingAssessment: ref.watch(
+        preparationFramingAssessmentProvider(request),
+      ),
+      cameraViewAssessment: ref.watch(
+        preparationCameraViewAssessmentProvider(request),
+      ),
+    );
+    final statusColor = _readinessColor(viewData.visualState);
+
+    return Container(
+      key: const ValueKey<String>('preparation-readiness-card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _readinessIcon(viewData.visualState),
+                color: statusColor,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  localizations.preparationReadinessTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                viewData.statusLabel,
+                key: const ValueKey<String>('preparation-readiness-status'),
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...viewData.checks.map(_PreparationReadinessCheckRow.new),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreparationReadinessCheckRow extends StatelessWidget {
+  const _PreparationReadinessCheckRow(this.item);
+
+  final SetupReadinessCheckItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _checkColor(item.state);
+    return Padding(
+      key: ValueKey<String>('preparation-check-${item.type.name}'),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Icon(_checkIcon(item.state), color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              item.label,
+              style: TextStyle(
+                color: item.state == SetupReadinessCheckState.pending
+                    ? Colors.white54
+                    : Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _readinessColor(SetupReadinessVisualState state) {
+  return switch (state) {
+    SetupReadinessVisualState.checking => Colors.amberAccent,
+    SetupReadinessVisualState.needsAdjustment => Colors.orangeAccent,
+    SetupReadinessVisualState.ready => Colors.greenAccent,
+  };
+}
+
+IconData _readinessIcon(SetupReadinessVisualState state) {
+  return switch (state) {
+    SetupReadinessVisualState.checking => Icons.manage_search_rounded,
+    SetupReadinessVisualState.needsAdjustment => Icons.tune_rounded,
+    SetupReadinessVisualState.ready => Icons.check_circle_rounded,
+  };
+}
+
+Color _checkColor(SetupReadinessCheckState state) {
+  return switch (state) {
+    SetupReadinessCheckState.pending => Colors.white38,
+    SetupReadinessCheckState.needsAdjustment => Colors.orangeAccent,
+    SetupReadinessCheckState.complete => Colors.greenAccent,
+  };
+}
+
+IconData _checkIcon(SetupReadinessCheckState state) {
+  return switch (state) {
+    SetupReadinessCheckState.pending => Icons.radio_button_unchecked_rounded,
+    SetupReadinessCheckState.needsAdjustment => Icons.tune_rounded,
+    SetupReadinessCheckState.complete => Icons.check_circle_rounded,
+  };
 }
 
 class _PreparationGuidanceCard extends StatelessWidget {
