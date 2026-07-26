@@ -7,10 +7,13 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/setup_camera_view_pose_adapter.dart';
 import '../../application/setup_framing_pose_adapter.dart';
+import '../../application/setup_start_pose_adapter.dart';
 import '../../domain/models/setup_camera_view_orientation.dart';
 import '../../domain/models/setup_framing_geometry.dart';
+import '../../domain/models/setup_start_pose.dart';
 import '../../domain/setup_camera_view_orientation_evaluator.dart';
 import '../../domain/setup_framing_geometry_evaluator.dart';
+import '../../domain/setup_start_pose_evaluator.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
 
@@ -34,6 +37,47 @@ typedef PreparationCameraViewRequest = ({
   double imageHeight,
   bool mirrorHorizontally,
 });
+
+typedef PreparationStartPoseRequest = ({
+  double imageWidth,
+  double imageHeight,
+  bool mirrorHorizontally,
+});
+
+/// Exercise-aware start-pose diagnostics for the current preparation frame.
+///
+/// R10 keeps this result in shadow mode. R11 combines it with framing and
+/// camera-view evidence inside a stable readiness state machine.
+final preparationStartPoseAssessmentProvider = Provider.autoDispose
+    .family<SetupStartPoseAssessment?, PreparationStartPoseRequest>((
+      ref,
+      request,
+    ) {
+      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+      if (activeExercise == null) {
+        return null;
+      }
+
+      final landmarks = ref.watch(
+        preparationCameraControllerProvider.select((state) => state.landmarks),
+      );
+      final pose = const SetupStartPoseAdapter().fromLandmarks(
+        landmarks: landmarks,
+        imageWidth: request.imageWidth,
+        imageHeight: request.imageHeight,
+        mirrorHorizontally: request.mirrorHorizontally,
+      );
+      final definition = const ExerciseCatalog().definitionFor(activeExercise);
+      final contract = const SetupStartPoseContractResolver().resolve(
+        exerciseType: activeExercise,
+        setupContract: definition.analysisSetupContract,
+      );
+
+      return const SetupStartPoseEvaluator().evaluate(
+        contract: contract,
+        pose: pose,
+      );
+    });
 
 /// Front/side advisory for the current preparation preview.
 ///
