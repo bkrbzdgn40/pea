@@ -46,8 +46,8 @@ typedef PreparationStartPoseRequest = ({
 
 /// Exercise-aware start-pose diagnostics for the current preparation frame.
 ///
-/// R10 keeps this result in shadow mode. R11 combines it with framing and
-/// camera-view evidence inside a stable readiness state machine.
+/// R11 combines this result with framing and camera-view evidence inside the
+/// stable readiness state machine. It remains non-blocking until R12.
 final preparationStartPoseAssessmentProvider = Provider.autoDispose
     .family<SetupStartPoseAssessment?, PreparationStartPoseRequest>((
       ref,
@@ -81,7 +81,8 @@ final preparationStartPoseAssessmentProvider = Provider.autoDispose
 
 /// Front/side advisory for the current preparation preview.
 ///
-/// R9 projects this diagnostic into guidance while keeping it non-blocking.
+/// R11 feeds this diagnostic into stable readiness while keeping it
+/// non-blocking until R12.
 final preparationCameraViewAssessmentProvider = Provider.autoDispose
     .family<SetupCameraViewAssessment?, PreparationCameraViewRequest>((
       ref,
@@ -113,7 +114,8 @@ final preparationCameraViewAssessmentProvider = Provider.autoDispose
 
 /// Framing diagnostics for the current preparation preview.
 ///
-/// R9 projects this assessment into guidance without changing start behavior.
+/// R11 feeds this assessment into stable readiness without changing start
+/// behavior.
 final preparationFramingAssessmentProvider = Provider.autoDispose
     .family<SetupFramingAssessment?, PreparationFramingRequest>((ref, request) {
       final activeExercise = ref.watch(activeAnalysisExerciseProvider);

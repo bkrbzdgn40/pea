@@ -97,6 +97,10 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-check-cameraView')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-check-startPose')),
+      findsOneWidget,
+    );
     final readinessStatus = tester.widget<Text>(
       find.byKey(const ValueKey<String>('preparation-readiness-status')),
     );

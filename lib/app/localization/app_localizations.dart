@@ -552,6 +552,8 @@ class AppLocalizations {
   String get preparationCheckFraming => pick(tr: 'Kadraj', en: 'Framing');
   String get preparationCheckCameraView =>
       pick(tr: 'Kamera açısı', en: 'Camera view');
+  String get preparationCheckStartPose =>
+      pick(tr: 'Başlangıç pozisyonu', en: 'Starting position');
   String get preparationNoPersonGuidance => pick(
     tr: 'Kadraja geç ve vücudunu kameraya göster.',
     en: 'Move into the frame and let the camera see your body.',
@@ -591,8 +593,24 @@ class AppLocalizations {
     en: 'This view is usable. The recommended view may produce more reliable results.',
   );
   String get preparationReadyGuidance => pick(
-    tr: 'Kadraj ve kamera açısı uygun.',
-    en: 'Your framing and camera view are suitable.',
+    tr: 'Kadraj, kamera açısı ve başlangıç pozisyonu uygun.',
+    en: 'Your framing, camera view, and starting position are suitable.',
+  );
+  String get preparationStartPoseGuidance => pick(
+    tr: 'Hareketin başlangıç pozisyonunu al ve kısa süre sabit kal.',
+    en: 'Move into the exercise starting position and hold still briefly.',
+  );
+  String get preparationStabilizingGuidance => pick(
+    tr: 'Pozisyonun uygun. Hazır durumu doğrulanırken kısa süre sabit kal.',
+    en: 'Your position looks suitable. Hold still briefly while readiness is confirmed.',
+  );
+  String get preparationTemporarilyLostGuidance => pick(
+    tr: 'Pozisyonunu yeniden algılıyoruz. Kısa süre sabit kal.',
+    en: 'We are reacquiring your position. Hold still briefly.',
+  );
+  String get preparationReadinessErrorGuidance => pick(
+    tr: 'Hazırlık kontrolü tamamlanamadı. Kamerayı yeniden dene.',
+    en: 'The setup check could not be completed. Retry the camera.',
   );
   String unsupportedExerciseFallback(String selected, String active) => pick(
     tr: '$selected henüz aktif analiz için desteklenmiyor. Şimdilik $active analizi ile devam edebilirsin.',

@@ -16,6 +16,7 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/preparation_camera_controller.dart';
+import '../providers/preparation_readiness_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/preparation_camera_surface.dart';
@@ -481,12 +482,7 @@ class _PreparationReadinessCard extends ConsumerWidget {
     final localizations = AppLocalizations.of(context);
     final viewData = mapSetupReadinessToViewData(
       localizations: localizations,
-      framingAssessment: ref.watch(
-        preparationFramingAssessmentProvider(request),
-      ),
-      cameraViewAssessment: ref.watch(
-        preparationCameraViewAssessmentProvider(request),
-      ),
+      readinessSnapshot: ref.watch(preparationReadinessStateProvider(request)),
     );
     final statusColor = _readinessColor(viewData.visualState);
 
