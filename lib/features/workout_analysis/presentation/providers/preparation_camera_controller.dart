@@ -35,9 +35,9 @@ typedef PreparationCameraViewRequest = ({
   bool mirrorHorizontally,
 });
 
-/// Shadow front/side advisory for the current preparation preview.
+/// Front/side advisory for the current preparation preview.
 ///
-/// R8 intentionally keeps this diagnostic non-blocking and user-invisible.
+/// R9 projects this diagnostic into guidance while keeping it non-blocking.
 final preparationCameraViewAssessmentProvider = Provider.autoDispose
     .family<SetupCameraViewAssessment?, PreparationCameraViewRequest>((
       ref,
@@ -67,10 +67,9 @@ final preparationCameraViewAssessmentProvider = Provider.autoDispose
       );
     });
 
-/// Shadow framing diagnostics for the current preparation preview.
+/// Framing diagnostics for the current preparation preview.
 ///
-/// R7 intentionally exposes this result without changing any user-facing UI or
-/// start-button behavior. R9 will project the same assessment into guidance.
+/// R9 projects this assessment into guidance without changing start behavior.
 final preparationFramingAssessmentProvider = Provider.autoDispose
     .family<SetupFramingAssessment?, PreparationFramingRequest>((ref, request) {
       final activeExercise = ref.watch(activeAnalysisExerciseProvider);

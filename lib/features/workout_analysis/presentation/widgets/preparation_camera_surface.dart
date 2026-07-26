@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_camera_controller.dart';
 import 'pose_painter.dart';
 
@@ -67,29 +69,11 @@ class PreparationCameraSurface extends StatelessWidget {
                     imageSize: imageSize,
                     isMirrored: isMirrored,
                   ),
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.68),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        localizations.preparationCameraPreviewHint,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  _PreparationReadinessOverlay(
+                    request: (
+                      imageWidth: imageSize.width,
+                      imageHeight: imageSize.height,
+                      mirrorHorizontally: isMirrored,
                     ),
                   ),
                 ],
@@ -130,22 +114,6 @@ class _PreparationPoseOverlay extends ConsumerWidget {
     final landmarks = ref.watch(
       preparationCameraControllerProvider.select((state) => state.landmarks),
     );
-    final _ = (
-      ref.watch(
-        preparationFramingAssessmentProvider((
-          imageWidth: imageSize.width,
-          imageHeight: imageSize.height,
-          mirrorHorizontally: isMirrored,
-        )),
-      ),
-      ref.watch(
-        preparationCameraViewAssessmentProvider((
-          imageWidth: imageSize.width,
-          imageHeight: imageSize.height,
-          mirrorHorizontally: isMirrored,
-        )),
-      ),
-    );
     if (landmarks.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -160,6 +128,147 @@ class _PreparationPoseOverlay extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _PreparationReadinessOverlay extends ConsumerWidget {
+  const _PreparationReadinessOverlay({required this.request});
+
+  final SetupReadinessRequest request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final readiness = mapSetupReadinessToViewData(
+      localizations: AppLocalizations.of(context),
+      framingAssessment: ref.watch(
+        preparationFramingAssessmentProvider(request),
+      ),
+      cameraViewAssessment: ref.watch(
+        preparationCameraViewAssessmentProvider(request),
+      ),
+    );
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _PreparationSafeZoneOverlay(readiness: readiness),
+        _PreparationReadinessBanner(readiness: readiness),
+      ],
+    );
+  }
+}
+
+class _PreparationSafeZoneOverlay extends StatelessWidget {
+  const _PreparationSafeZoneOverlay({required this.readiness});
+
+  final SetupReadinessViewData readiness;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _readinessColor(readiness.visualState);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: AnimatedContainer(
+            key: const ValueKey<String>('preparation-safe-zone'),
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: color.withValues(alpha: 0.82),
+                width: readiness.isReady ? 3 : 2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreparationReadinessBanner extends StatelessWidget {
+  const _PreparationReadinessBanner({required this.readiness});
+
+  final SetupReadinessViewData readiness;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _readinessColor(readiness.visualState);
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 12,
+      child: Semantics(
+        liveRegion: true,
+        label: '${readiness.statusLabel}: ${readiness.message}',
+        child: AnimatedContainer(
+          key: const ValueKey<String>('preparation-readiness-banner'),
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.76),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.7)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                _readinessIcon(readiness.visualState),
+                color: color,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      readiness.statusLabel,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      readiness.message,
+                      key: const ValueKey<String>(
+                        'preparation-readiness-message',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        height: 1.3,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _readinessColor(SetupReadinessVisualState state) {
+  return switch (state) {
+    SetupReadinessVisualState.checking => Colors.amberAccent,
+    SetupReadinessVisualState.needsAdjustment => Colors.orangeAccent,
+    SetupReadinessVisualState.ready => Colors.greenAccent,
+  };
+}
+
+IconData _readinessIcon(SetupReadinessVisualState state) {
+  return switch (state) {
+    SetupReadinessVisualState.checking => Icons.manage_search_rounded,
+    SetupReadinessVisualState.needsAdjustment => Icons.tune_rounded,
+    SetupReadinessVisualState.ready => Icons.check_circle_rounded,
+  };
 }
 
 class _PreparationCameraLoading extends StatelessWidget {
