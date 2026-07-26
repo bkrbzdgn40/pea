@@ -9,6 +9,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
+import '../preparation_live_camera_handoff_coordinator.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
@@ -21,9 +22,14 @@ import 'exercise_selection_screen.dart';
 import 'live_analysis_screen.dart';
 
 class PreparationScreen extends ConsumerStatefulWidget {
-  const PreparationScreen({super.key, this.analysisScreenBuilder});
+  const PreparationScreen({
+    super.key,
+    this.analysisScreenBuilder,
+    this.cameraHandoffCoordinator,
+  });
 
   final WidgetBuilder? analysisScreenBuilder;
+  final PreparationLiveCameraHandoffCoordinator? cameraHandoffCoordinator;
 
   @override
   ConsumerState<PreparationScreen> createState() => _PreparationScreenState();
@@ -32,23 +38,39 @@ class PreparationScreen extends ConsumerStatefulWidget {
 class _PreparationScreenState extends ConsumerState<PreparationScreen>
     with WidgetsBindingObserver {
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
+  late final PreparationLiveCameraHandoffCoordinator _cameraHandoffCoordinator;
+  late final bool _ownsCameraHandoffCoordinator;
   bool _isAppResumed = true;
   bool _isRecoveringCamera = false;
   bool _isNavigatingToPermission = false;
-  bool _isAnalysisRouteActive = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _imageStreamCoordinator = CameraImageStreamCoordinator();
+    _cameraHandoffCoordinator =
+        widget.cameraHandoffCoordinator ??
+        PreparationLiveCameraHandoffCoordinator();
+    _ownsCameraHandoffCoordinator = widget.cameraHandoffCoordinator == null;
+    _cameraHandoffCoordinator.addListener(_handleCameraHandoffChanged);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cameraHandoffCoordinator.removeListener(_handleCameraHandoffChanged);
+    if (_ownsCameraHandoffCoordinator) {
+      _cameraHandoffCoordinator.dispose();
+    }
     unawaited(_imageStreamCoordinator.dispose());
     super.dispose();
+  }
+
+  void _handleCameraHandoffChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -78,7 +100,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   Future<void> _recoverCameraIfAllowed() async {
     if (!_isAppResumed ||
         _isRecoveringCamera ||
-        _isAnalysisRouteActive ||
+        !_cameraHandoffCoordinator.canRecoverPreparationCamera ||
         !_hasAnalysisSelection()) {
       return;
     }
@@ -123,16 +145,23 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     );
   }
 
-  Future<void> _startAnalysis() async {
-    if (_isAnalysisRouteActive) {
-      return;
-    }
+  Future<void> _startAnalysis() {
+    return _cameraHandoffCoordinator.run(
+      releasePreparation: _releasePreparationForAnalysis,
+      runLiveAnalysis: _openLiveAnalysis,
+      reclaimPreparation: _resumePreparationAfterAnalysis,
+    );
+  }
 
-    _isAnalysisRouteActive = true;
+  Future<void> _releasePreparationForAnalysis() async {
     await _imageStreamCoordinator.stop();
-    ref.read(preparationCameraControllerProvider.notifier).clear();
+    if (_hasAnalysisSelection()) {
+      ref.read(preparationCameraControllerProvider.notifier).clear();
+    }
+  }
+
+  Future<void> _openLiveAnalysis() async {
     if (!mounted) {
-      _isAnalysisRouteActive = false;
       return;
     }
 
@@ -140,19 +169,8 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       builder:
           widget.analysisScreenBuilder ?? (_) => const LiveAnalysisScreen(),
     );
-
-    try {
-      await Navigator.push<void>(context, route);
-      await route.completed;
-    } finally {
-      _isAnalysisRouteActive = false;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    await _resumePreparationAfterAnalysis();
+    await Navigator.push<void>(context, route);
+    await route.completed;
   }
 
   Future<void> _resumePreparationAfterAnalysis() async {
@@ -173,7 +191,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
           mounted &&
           _isAppResumed &&
           !_isRecoveringCamera &&
-          !_isAnalysisRouteActive &&
+          _cameraHandoffCoordinator.canUsePreparationCamera &&
           _hasAnalysisSelection(),
       onFrame: (image, streamController) {
         if (!mounted) {
@@ -262,7 +280,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
             activeExerciseTitle,
           )
         : null;
-    final canStart = isConfigReady && isCameraReady && !_isAnalysisRouteActive;
+    final canStart =
+        isConfigReady &&
+        isCameraReady &&
+        _cameraHandoffCoordinator.canUsePreparationCamera;
     final isPreparing =
         configState.isLoading || cameraState.isLoading || _isRecoveringCamera;
 
