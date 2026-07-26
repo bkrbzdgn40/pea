@@ -10,6 +10,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/preparation_live_camera_handoff_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/preparation_screen.dart';
 
@@ -131,6 +132,8 @@ void main() {
     addTearDown(resumedController.dispose);
     var cameraRequestCount = 0;
     var analysisRouteDisposed = false;
+    final cameraHandoffCoordinator = PreparationLiveCameraHandoffCoordinator();
+    addTearDown(cameraHandoffCoordinator.dispose);
     final landmarks = <PoseLandmark>[
       buildLandmark(PoseLandmarkType.leftShoulder, 100, 120),
       buildLandmark(PoseLandmarkType.leftHip, 110, 240),
@@ -139,6 +142,7 @@ void main() {
     await pumpTestApp(
       tester,
       home: PreparationScreen(
+        cameraHandoffCoordinator: cameraHandoffCoordinator,
         analysisScreenBuilder: (_) => _ReturnFromAnalysisScreen(
           cameraController: initialController,
           onDispose: () => analysisRouteDisposed = true,
@@ -165,6 +169,10 @@ void main() {
     await tester.pump();
 
     expect(initialController.startImageStreamCallCount, 1);
+    expect(
+      cameraHandoffCoordinator.phase,
+      PreparationLiveCameraHandoffPhase.preparation,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('preparation-start-analysis')),
@@ -178,6 +186,10 @@ void main() {
     expect(initialController.stopImageStreamCallCount, 1);
     expect(initialController.startImageStreamCallCount, 2);
     expect(initialController.value.isStreamingImages, isTrue);
+    expect(
+      cameraHandoffCoordinator.phase,
+      PreparationLiveCameraHandoffPhase.liveAnalysis,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('return-from-analysis')),
@@ -191,6 +203,10 @@ void main() {
     expect(initialController.stopImageStreamCallCount, 2);
     expect(resumedController.startImageStreamCallCount, 1);
     expect(resumedController.value.isStreamingImages, isTrue);
+    expect(
+      cameraHandoffCoordinator.phase,
+      PreparationLiveCameraHandoffPhase.preparation,
+    );
     expect(find.text('Squat analizine başla'), findsOneWidget);
     final startButton = tester.widget<ElevatedButton>(
       find.byKey(const ValueKey<String>('preparation-start-analysis')),
