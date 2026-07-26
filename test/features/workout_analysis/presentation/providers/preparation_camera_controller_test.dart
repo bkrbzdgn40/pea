@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/camera_view_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_camera_view_orientation.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_framing_geometry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
@@ -136,6 +138,64 @@ void main() {
     expect(assessment.requiredLandmarksVisible, isTrue);
   });
 
+  test('publishes contract-aware camera-view shadow diagnostics', () async {
+    final detector = TestQueuedPoseDetector();
+    detector.enqueue(<Pose>[_sideOrientationPose()]);
+    detector.enqueue(<Pose>[_frontOrientationPose()]);
+    final capturedAt = DateTime(2026, 7, 26, 12);
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        preparationPoseDetectorProvider.overrideWith((ref) => detector),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+    final subscription = container.listen<PreparationCameraState>(
+      preparationCameraControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+    final request = (
+      imageWidth: 100.0,
+      imageHeight: 200.0,
+      mirrorHorizontally: false,
+    );
+
+    expect(
+      container.read(preparationCameraViewAssessmentProvider(request))?.status,
+      SetupCameraViewAdvisoryStatus.insufficientEvidence,
+    );
+
+    await container
+        .read(preparationCameraControllerProvider.notifier)
+        .processInputImageForPreview(dummyInputImage(), capturedAt: capturedAt);
+
+    final sideAssessment = container.read(
+      preparationCameraViewAssessmentProvider(request),
+    );
+    expect(sideAssessment, isNotNull);
+    expect(sideAssessment!.status, SetupCameraViewAdvisoryStatus.preferred);
+    expect(sideAssessment.detectedView, CameraView.side);
+
+    await container
+        .read(preparationCameraControllerProvider.notifier)
+        .processInputImageForPreview(
+          dummyInputImage(),
+          capturedAt: capturedAt.add(const Duration(milliseconds: 200)),
+        );
+
+    final frontAssessment = container.read(
+      preparationCameraViewAssessmentProvider(request),
+    );
+    expect(frontAssessment, isNotNull);
+    expect(frontAssessment!.status, SetupCameraViewAdvisoryStatus.unsupported);
+    expect(frontAssessment.detectedView, CameraView.front);
+    expect(frontAssessment.recommendedView, CameraView.side);
+  });
+
   test('keeps detector order when pose completeness is tied', () {
     final firstPose = _pose(<PoseLandmark>[
       buildLandmark(PoseLandmarkType.leftShoulder, 10, 20),
@@ -158,6 +218,33 @@ Pose _pose(List<PoseLandmark> landmarks) {
       for (final landmark in landmarks) landmark.type: landmark,
     },
   );
+}
+
+Pose _sideOrientationPose() {
+  return _pose(<PoseLandmark>[
+    _landmarkWithDepth(PoseLandmarkType.leftShoulder, 47, 50, -26),
+    _landmarkWithDepth(PoseLandmarkType.rightShoulder, 53, 50, 26),
+    _landmarkWithDepth(PoseLandmarkType.leftHip, 48.5, 130, -22),
+    _landmarkWithDepth(PoseLandmarkType.rightHip, 51.5, 130, 22),
+  ]);
+}
+
+Pose _frontOrientationPose() {
+  return _pose(<PoseLandmark>[
+    _landmarkWithDepth(PoseLandmarkType.leftShoulder, 20, 50, 0),
+    _landmarkWithDepth(PoseLandmarkType.rightShoulder, 80, 50, 1),
+    _landmarkWithDepth(PoseLandmarkType.leftHip, 35, 130, 0),
+    _landmarkWithDepth(PoseLandmarkType.rightHip, 65, 130, 1),
+  ]);
+}
+
+PoseLandmark _landmarkWithDepth(
+  PoseLandmarkType type,
+  double x,
+  double y,
+  double z,
+) {
+  return PoseLandmark(type: type, x: x, y: y, z: z, likelihood: 0.95);
 }
 
 class _FailingPoseDetector implements PoseDetector {

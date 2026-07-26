@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../application/exercise_catalog.dart';
+import '../../application/setup_camera_view_pose_adapter.dart';
 import '../../application/setup_framing_pose_adapter.dart';
+import '../../domain/models/setup_camera_view_orientation.dart';
 import '../../domain/models/setup_framing_geometry.dart';
+import '../../domain/setup_camera_view_orientation_evaluator.dart';
 import '../../domain/setup_framing_geometry_evaluator.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
@@ -25,6 +28,44 @@ typedef PreparationFramingRequest = ({
   double imageHeight,
   bool mirrorHorizontally,
 });
+
+typedef PreparationCameraViewRequest = ({
+  double imageWidth,
+  double imageHeight,
+  bool mirrorHorizontally,
+});
+
+/// Shadow front/side advisory for the current preparation preview.
+///
+/// R8 intentionally keeps this diagnostic non-blocking and user-invisible.
+final preparationCameraViewAssessmentProvider = Provider.autoDispose
+    .family<SetupCameraViewAssessment?, PreparationCameraViewRequest>((
+      ref,
+      request,
+    ) {
+      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+      if (activeExercise == null) {
+        return null;
+      }
+
+      final landmarks = ref.watch(
+        preparationCameraControllerProvider.select((state) => state.landmarks),
+      );
+      final pose = const SetupCameraViewPoseAdapter().fromLandmarks(
+        landmarks: landmarks,
+        imageWidth: request.imageWidth,
+        imageHeight: request.imageHeight,
+        mirrorHorizontally: request.mirrorHorizontally,
+      );
+      final cameraViewContract = const ExerciseCatalog()
+          .definitionFor(activeExercise)
+          .analysisCameraViewContract;
+
+      return const SetupCameraViewOrientationEvaluator().evaluate(
+        cameraViewContract: cameraViewContract,
+        pose: pose,
+      );
+    });
 
 /// Shadow framing diagnostics for the current preparation preview.
 ///
