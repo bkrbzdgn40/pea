@@ -6,11 +6,12 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 void main() {
   final startedAt = DateTime.utc(2026, 7, 26, 12);
 
-  test('approves automatically after stable readiness arrives', () {
+  test('counts down before approving stable readiness', () async {
     var now = startedAt;
     final controller = PreparationStartGateController(
       thresholds: PreparationStartGateThresholds(
         manualOverrideDelay: const Duration(seconds: 10),
+        countdownStepDuration: const Duration(milliseconds: 20),
       ),
       clock: () => now,
       initialReadiness: _snapshot(SetupReadinessPhase.noPerson, now),
@@ -23,6 +24,22 @@ void main() {
     now = now.add(const Duration(seconds: 2));
     controller.updateReadiness(_snapshot(SetupReadinessPhase.ready, now));
 
+    expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+    expect(controller.state.countdownValue, 3);
+    expect(
+      controller.state.approvalSource,
+      PreparationStartApprovalSource.readiness,
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    expect(controller.state.countdownValue, 2);
+
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    expect(controller.state.countdownValue, 1);
+
+    now = now.add(const Duration(seconds: 3));
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+
     expect(controller.state.phase, PreparationStartGatePhase.approved);
     expect(
       controller.state.approvalSource,
@@ -31,35 +48,82 @@ void main() {
     expect(controller.state.approvedAt, now);
   });
 
-  test('offers a controlled override after the delay', () async {
+  test('cancels readiness countdown when readiness is lost', () async {
+    var now = startedAt;
     final controller = PreparationStartGateController(
       thresholds: PreparationStartGateThresholds(
-        manualOverrideDelay: const Duration(milliseconds: 5),
+        manualOverrideDelay: const Duration(seconds: 10),
+        countdownStepDuration: const Duration(milliseconds: 20),
       ),
-      clock: () => startedAt,
-      initialReadiness: _snapshot(
-        SetupReadinessPhase.startPoseMissing,
-        startedAt,
-      ),
+      clock: () => now,
+      initialReadiness: _snapshot(SetupReadinessPhase.ready, now),
     );
     addTearDown(controller.dispose);
 
     controller.arm();
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(controller.state.phase, PreparationStartGatePhase.countingDown);
 
-    expect(controller.state.phase, PreparationStartGatePhase.overrideAvailable);
-    expect(controller.state.canOverride, isTrue);
+    now = now.add(const Duration(seconds: 1));
+    controller.updateReadiness(_snapshot(SetupReadinessPhase.offCenter, now));
 
-    controller.approveOverride();
+    expect(controller.state.phase, PreparationStartGatePhase.monitoring);
+    expect(controller.state.countdownValue, isNull);
+    expect(controller.state.approvalSource, isNull);
 
-    expect(controller.state.phase, PreparationStartGatePhase.approved);
-    expect(
-      controller.state.approvalSource,
-      PreparationStartApprovalSource.manualOverride,
-    );
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    expect(controller.state.phase, PreparationStartGatePhase.monitoring);
   });
 
-  test('cancel resets the armed gate', () {
+  test(
+    'offers a controlled override and counts down before approval',
+    () async {
+      final controller = PreparationStartGateController(
+        thresholds: PreparationStartGateThresholds(
+          manualOverrideDelay: const Duration(milliseconds: 5),
+          countdownStepDuration: const Duration(milliseconds: 5),
+        ),
+        clock: () => startedAt,
+        initialReadiness: _snapshot(
+          SetupReadinessPhase.startPoseMissing,
+          startedAt,
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      controller.arm();
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+
+      expect(
+        controller.state.phase,
+        PreparationStartGatePhase.overrideAvailable,
+      );
+      expect(controller.state.canOverride, isTrue);
+
+      controller.approveOverride();
+
+      expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+      expect(controller.state.countdownValue, 3);
+      expect(
+        controller.state.approvalSource,
+        PreparationStartApprovalSource.manualOverride,
+      );
+
+      controller.updateReadiness(
+        _snapshot(SetupReadinessPhase.noPerson, startedAt),
+      );
+      expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+
+      expect(controller.state.phase, PreparationStartGatePhase.approved);
+      expect(
+        controller.state.approvalSource,
+        PreparationStartApprovalSource.manualOverride,
+      );
+    },
+  );
+
+  test('cancel resets monitoring and countdown phases', () {
     final controller = PreparationStartGateController(
       thresholds: PreparationStartGateThresholds(
         manualOverrideDelay: const Duration(seconds: 10),
@@ -74,12 +138,21 @@ void main() {
 
     expect(controller.state.phase, PreparationStartGatePhase.idle);
     expect(controller.state.armedAt, isNull);
+
+    controller.updateReadiness(_snapshot(SetupReadinessPhase.ready, startedAt));
+    controller.arm();
+    expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+
+    controller.reset();
+    expect(controller.state.phase, PreparationStartGatePhase.idle);
+    expect(controller.state.countdownValue, isNull);
   });
 
-  test('launch can begin only after approval', () {
+  test('launch can begin only after countdown approval', () async {
     final controller = PreparationStartGateController(
       thresholds: PreparationStartGateThresholds(
         manualOverrideDelay: Duration.zero,
+        countdownStepDuration: const Duration(milliseconds: 5),
       ),
       clock: () => startedAt,
       initialReadiness: _snapshot(SetupReadinessPhase.ready, startedAt),
@@ -89,6 +162,11 @@ void main() {
     expect(controller.beginLaunch(), isFalse);
 
     controller.arm();
+    expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+    expect(controller.beginLaunch(), isFalse);
+
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+
     expect(controller.state.phase, PreparationStartGatePhase.approved);
     expect(controller.beginLaunch(), isTrue);
     expect(controller.state.phase, PreparationStartGatePhase.launching);

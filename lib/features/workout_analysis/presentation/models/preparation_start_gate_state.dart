@@ -5,6 +5,7 @@ enum PreparationStartGatePhase {
   idle,
   monitoring,
   overrideAvailable,
+  countingDown,
   approved,
   launching,
 }
@@ -16,21 +17,35 @@ enum PreparationStartApprovalSource { readiness, manualOverride }
 class PreparationStartGateThresholds {
   factory PreparationStartGateThresholds({
     required Duration manualOverrideDelay,
+    Duration countdownStepDuration = const Duration(seconds: 1),
+    int countdownFrom = 3,
   }) {
     assert(!manualOverrideDelay.isNegative);
+    assert(countdownStepDuration.compareTo(Duration.zero) > 0);
+    assert(countdownFrom > 0);
     return PreparationStartGateThresholds._(
       manualOverrideDelay: manualOverrideDelay,
+      countdownStepDuration: countdownStepDuration,
+      countdownFrom: countdownFrom,
     );
   }
 
-  const PreparationStartGateThresholds._({required this.manualOverrideDelay});
+  const PreparationStartGateThresholds._({
+    required this.manualOverrideDelay,
+    required this.countdownStepDuration,
+    required this.countdownFrom,
+  });
 
   static const PreparationStartGateThresholds defaults =
       PreparationStartGateThresholds._(
         manualOverrideDelay: Duration(seconds: 10),
+        countdownStepDuration: Duration(seconds: 1),
+        countdownFrom: 3,
       );
 
   final Duration manualOverrideDelay;
+  final Duration countdownStepDuration;
+  final int countdownFrom;
 }
 
 /// Immutable state exposed to the preparation start controls.
@@ -39,8 +54,10 @@ class PreparationStartGateState {
     required this.phase,
     required this.readinessSnapshot,
     this.armedAt,
+    this.countdownStartedAt,
     this.approvedAt,
     this.approvalSource,
+    this.countdownValue,
   });
 
   factory PreparationStartGateState.idle({
@@ -55,16 +72,22 @@ class PreparationStartGateState {
   final PreparationStartGatePhase phase;
   final SetupReadinessSnapshot readinessSnapshot;
   final DateTime? armedAt;
+  final DateTime? countdownStartedAt;
   final DateTime? approvedAt;
   final PreparationStartApprovalSource? approvalSource;
+  final int? countdownValue;
 
   bool get isArmed =>
       phase == PreparationStartGatePhase.monitoring ||
-      phase == PreparationStartGatePhase.overrideAvailable;
+      phase == PreparationStartGatePhase.overrideAvailable ||
+      phase == PreparationStartGatePhase.countingDown;
 
   bool get canCancel => isArmed;
 
   bool get canOverride => phase == PreparationStartGatePhase.overrideAvailable;
+
+  bool get isCountingDown =>
+      phase == PreparationStartGatePhase.countingDown && countdownValue != null;
 
   bool get isApproved => phase == PreparationStartGatePhase.approved;
 

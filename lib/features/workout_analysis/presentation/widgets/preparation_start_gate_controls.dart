@@ -7,6 +7,7 @@ class PreparationStartGateControls extends StatelessWidget {
   const PreparationStartGateControls({
     super.key,
     required this.phase,
+    required this.countdownValue,
     required this.isConfigReady,
     required this.isCameraReady,
     required this.isPreparing,
@@ -16,6 +17,7 @@ class PreparationStartGateControls extends StatelessWidget {
   });
 
   final PreparationStartGatePhase? phase;
+  final int? countdownValue;
   final bool isConfigReady;
   final bool isCameraReady;
   final bool isPreparing;
@@ -99,6 +101,75 @@ class PreparationStartGateControls extends StatelessWidget {
             const SizedBox(height: 8),
             OutlinedButton(
               key: const ValueKey<String>('preparation-cancel-gate'),
+              onPressed: onCancel,
+              child: Text(localizations.preparationGateCancel),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (currentPhase == PreparationStartGatePhase.countingDown) {
+      return Container(
+        key: const ValueKey<String>('preparation-countdown-controls'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.55)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.timer_outlined,
+                  color: Colors.greenAccent,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        localizations.preparationCountdownTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        localizations.preparationCountdownMessage,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (countdownValue != null)
+                  Text(
+                    countdownValue!.toString(),
+                    key: const ValueKey<String>(
+                      'preparation-countdown-control-value',
+                    ),
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              key: const ValueKey<String>('preparation-cancel-countdown'),
               onPressed: onCancel,
               child: Text(localizations.preparationGateCancel),
             ),

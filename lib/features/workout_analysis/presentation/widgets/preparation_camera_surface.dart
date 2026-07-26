@@ -13,6 +13,7 @@ class PreparationCameraSurface extends StatelessWidget {
   const PreparationCameraSurface({
     required this.cameraState,
     required this.isRecovering,
+    required this.countdownValue,
     required this.onControllerReady,
     required this.onRetry,
     required this.onCheckPermission,
@@ -21,6 +22,7 @@ class PreparationCameraSurface extends StatelessWidget {
 
   final AsyncValue<CameraController> cameraState;
   final bool isRecovering;
+  final int? countdownValue;
   final ValueChanged<CameraController> onControllerReady;
   final VoidCallback onRetry;
   final VoidCallback onCheckPermission;
@@ -77,6 +79,8 @@ class PreparationCameraSurface extends StatelessWidget {
                       mirrorHorizontally: isMirrored,
                     ),
                   ),
+                  if (countdownValue != null)
+                    _PreparationCountdownOverlay(value: countdownValue!),
                 ],
               );
             },
@@ -126,6 +130,69 @@ class _PreparationPoseOverlay extends ConsumerWidget {
         imageSize,
         isFormBad: false,
         isMirrored: isMirrored,
+      ),
+    );
+  }
+}
+
+class _PreparationCountdownOverlay extends StatelessWidget {
+  const _PreparationCountdownOverlay({required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: 0.32),
+          child: Center(
+            child: Semantics(
+              liveRegion: true,
+              label: localizations.preparationCountdownSemantics(value),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(
+                    scale: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
+                    ),
+                    child: FadeTransition(opacity: animation, child: child),
+                  );
+                },
+                child: Container(
+                  key: ValueKey<String>('preparation-countdown-$value'),
+                  width: 132,
+                  height: 132,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.78),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.greenAccent, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.greenAccent.withValues(alpha: 0.28),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    value.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 68,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

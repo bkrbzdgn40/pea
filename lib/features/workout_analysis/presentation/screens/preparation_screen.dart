@@ -17,6 +17,7 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/preparation_camera_controller.dart';
+import '../providers/preparation_countdown_feedback.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -330,8 +331,17 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         previous,
         next,
       ) {
-        if (previous?.phase != PreparationStartGatePhase.approved &&
+        final countdownChanged =
+            next.phase == PreparationStartGatePhase.countingDown &&
+            (previous?.phase != PreparationStartGatePhase.countingDown ||
+                previous?.countdownValue != next.countdownValue);
+        if (countdownChanged) {
+          unawaited(ref.read(preparationCountdownFeedbackProvider).tick());
+        }
+
+        if (previous?.phase == PreparationStartGatePhase.countingDown &&
             next.phase == PreparationStartGatePhase.approved) {
+          unawaited(ref.read(preparationCountdownFeedbackProvider).complete());
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               unawaited(_launchApprovedAnalysis(readinessRequest));
@@ -340,9 +350,19 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         }
       });
     }
-    final startGatePhase = startGateProvider == null
+    final startGateView = startGateProvider == null
         ? null
-        : ref.watch(startGateProvider.select((state) => state.phase));
+        : ref.watch(
+            startGateProvider.select(
+              (state) =>
+                  (phase: state.phase, countdownValue: state.countdownValue),
+            ),
+          );
+    final startGatePhase = startGateView?.phase;
+    final countdownValue =
+        startGatePhase == PreparationStartGatePhase.countingDown
+        ? startGateView?.countdownValue
+        : null;
     final activeExerciseTitle = localizations.exerciseTitle(activeExercise.id);
     final selectedExerciseTitle = localizations.exerciseTitle(
       selectedExercise.id,
@@ -412,6 +432,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                       child: PreparationCameraSurface(
                         cameraState: cameraState,
                         isRecovering: _isRecoveringCamera,
+                        countdownValue: countdownValue,
                         onControllerReady: _ensureImageStream,
                         onRetry: () => unawaited(_recoverCameraIfAllowed()),
                         onCheckPermission: () =>
@@ -434,6 +455,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
               padding: const EdgeInsets.fromLTRB(24, 6, 24, 24),
               child: PreparationStartGateControls(
                 phase: startGatePhase,
+                countdownValue: countdownValue,
                 isConfigReady: isConfigReady,
                 isCameraReady: isCameraReady,
                 isPreparing: isPreparing,
@@ -443,7 +465,9 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                 onCancel:
                     (startGatePhase == PreparationStartGatePhase.monitoring ||
                             startGatePhase ==
-                                PreparationStartGatePhase.overrideAvailable) &&
+                                PreparationStartGatePhase.overrideAvailable ||
+                            startGatePhase ==
+                                PreparationStartGatePhase.countingDown) &&
                         startGateProvider != null
                     ? () => ref.read(startGateProvider.notifier).reset()
                     : null,
