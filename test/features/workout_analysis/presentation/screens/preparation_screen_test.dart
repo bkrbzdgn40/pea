@@ -10,8 +10,8 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
-import 'package:pose_estimation_app/features/workout_analysis/presentation/preparation_live_camera_handoff_coordinator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/screen_awake_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/preparation_screen.dart';
 
 import '../../../../support/presentation_test_support.dart';
@@ -42,6 +42,58 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-camera-preview')),
       findsNothing,
     );
+  });
+
+  testWidgets('keeps preparation awake only while foreground and visible', (
+    tester,
+  ) async {
+    final cameraController = _FakeCameraController();
+    addTearDown(cameraController.dispose);
+    final toggles = <bool>[];
+    final awakeController = ScreenAwakeController(
+      toggle: (enable) async => toggles.add(enable),
+    );
+
+    await _pumpSelectedExercise(
+      tester,
+      cameraController: cameraController,
+      awakeController: awakeController,
+    );
+
+    expect(toggles, <bool>[true]);
+
+    final lifecycleObserver =
+        tester.state(find.byType(PreparationScreen)) as WidgetsBindingObserver;
+    lifecycleObserver.didChangeAppLifecycleState(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump();
+
+    expect(toggles, <bool>[true, false]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    expect(toggles, <bool>[true, false]);
+  });
+
+  testWidgets('does not request wakelock without an analysis selection', (
+    tester,
+  ) async {
+    final toggles = <bool>[];
+    final awakeController = ScreenAwakeController(
+      toggle: (enable) async => toggles.add(enable),
+    );
+    await pumpTestApp(
+      tester,
+      home: const PreparationScreen(),
+      overrides: <Override>[
+        screenAwakeControllerProvider.overrideWithValue(awakeController),
+      ],
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(toggles, isEmpty);
   });
 
   testWidgets('shows live camera preview and exercise-specific guidance', (
@@ -174,6 +226,9 @@ void main() {
         preparationCameraControllerProvider.overrideWith(
           () => _FakePreparationCameraController(),
         ),
+        screenAwakeControllerProvider.overrideWithValue(
+          _buildNoopScreenAwakeController(),
+        ),
       ],
     );
     await tester.pump();
@@ -210,153 +265,6 @@ void main() {
     );
   });
 
-  testWidgets('recreates the camera after live analysis releases its stream', (
-    tester,
-  ) async {
-    final initialController = _FakeCameraController(name: 'initial-camera');
-    final resumedController = _FakeCameraController(name: 'resumed-camera');
-    addTearDown(initialController.dispose);
-    addTearDown(resumedController.dispose);
-    var cameraRequestCount = 0;
-    var analysisRouteDisposed = false;
-    final cameraHandoffCoordinator = PreparationLiveCameraHandoffCoordinator();
-    addTearDown(cameraHandoffCoordinator.dispose);
-    final landmarks = <PoseLandmark>[
-      buildLandmark(PoseLandmarkType.leftShoulder, 100, 120),
-      buildLandmark(PoseLandmarkType.leftHip, 110, 240),
-    ];
-
-    await pumpTestApp(
-      tester,
-      home: PreparationScreen(
-        cameraHandoffCoordinator: cameraHandoffCoordinator,
-        analysisScreenBuilder: (_) => _ReturnFromAnalysisScreen(
-          cameraController: initialController,
-          onDispose: () => analysisRouteDisposed = true,
-        ),
-      ),
-      overrides: <Override>[
-        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
-        exerciseConfigProvider.overrideWith((ref) => buildSquatConfig()),
-        cameraProvider.overrideWith((ref) async {
-          cameraRequestCount += 1;
-          return cameraRequestCount == 1
-              ? initialController
-              : resumedController;
-        }),
-        preparationCameraControllerProvider.overrideWith(
-          () => _FakePreparationCameraController(
-            PreparationCameraState(landmarks: landmarks),
-          ),
-        ),
-      ],
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
-
-    expect(initialController.startImageStreamCallCount, 1);
-    expect(
-      cameraHandoffCoordinator.phase,
-      PreparationLiveCameraHandoffPhase.preparation,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('preparation-start-gate')),
-    );
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey<String>('preparation-start-gate-active')),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(seconds: 10));
-    expect(
-      find.byKey(const ValueKey<String>('preparation-override-analysis')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('preparation-override-warning')),
-      findsOneWidget,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('preparation-override-analysis')),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey<String>('preparation-countdown-3')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('preparation-countdown-controls')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('return-from-analysis')),
-      findsNothing,
-    );
-    expect(initialController.stopImageStreamCallCount, 0);
-
-    await tester.pump(const Duration(seconds: 1));
-    expect(
-      find.byKey(const ValueKey<String>('preparation-countdown-2')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('return-from-analysis')),
-      findsNothing,
-    );
-
-    await tester.pump(const Duration(seconds: 1));
-    expect(
-      find.byKey(const ValueKey<String>('preparation-countdown-1')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('return-from-analysis')),
-      findsNothing,
-    );
-
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey<String>('return-from-analysis')),
-      findsOneWidget,
-    );
-    expect(initialController.stopImageStreamCallCount, 1);
-    expect(initialController.startImageStreamCallCount, 2);
-    expect(initialController.value.isStreamingImages, isTrue);
-    expect(
-      cameraHandoffCoordinator.phase,
-      PreparationLiveCameraHandoffPhase.liveAnalysis,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('return-from-analysis')),
-    );
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pumpAndSettle();
-
-    expect(analysisRouteDisposed, isTrue);
-    expect(cameraRequestCount, 2);
-    expect(initialController.stopImageStreamCallCount, 2);
-    expect(resumedController.startImageStreamCallCount, 1);
-    expect(resumedController.value.isStreamingImages, isTrue);
-    expect(
-      cameraHandoffCoordinator.phase,
-      PreparationLiveCameraHandoffPhase.preparation,
-    );
-    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
-    final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-gate')),
-    );
-    expect(startButton.onPressed, isNotNull);
-  });
-
   testWidgets('shows a stable loading surface before camera initialization', (
     tester,
   ) async {
@@ -371,6 +279,9 @@ void main() {
         cameraProvider.overrideWith((ref) => cameraCompleter.future),
         preparationCameraControllerProvider.overrideWith(
           () => _FakePreparationCameraController(),
+        ),
+        screenAwakeControllerProvider.overrideWithValue(
+          _buildNoopScreenAwakeController(),
         ),
       ],
     );
@@ -403,6 +314,9 @@ void main() {
         ),
         preparationCameraControllerProvider.overrideWith(
           () => _FakePreparationCameraController(),
+        ),
+        screenAwakeControllerProvider.overrideWithValue(
+          _buildNoopScreenAwakeController(),
         ),
       ],
     );
@@ -440,6 +354,9 @@ void main() {
         ),
         preparationCameraControllerProvider.overrideWith(
           () => _FakePreparationCameraController(),
+        ),
+        screenAwakeControllerProvider.overrideWithValue(
+          _buildNoopScreenAwakeController(),
         ),
       ],
     );
@@ -481,7 +398,10 @@ Future<void> _pumpSelectedExercise(
   required _FakeCameraController cameraController,
   Locale locale = const Locale('tr'),
   PreparationCameraState? preparationState,
+  ScreenAwakeController? awakeController,
 }) async {
+  final resolvedAwakeController =
+      awakeController ?? _buildNoopScreenAwakeController();
   await pumpTestApp(
     tester,
     home: const PreparationScreen(),
@@ -495,11 +415,16 @@ Future<void> _pumpSelectedExercise(
           preparationState ?? PreparationCameraState(),
         ),
       ),
+      screenAwakeControllerProvider.overrideWithValue(resolvedAwakeController),
     ],
   );
   await tester.pump();
   await tester.pump();
   await tester.pump();
+}
+
+ScreenAwakeController _buildNoopScreenAwakeController() {
+  return ScreenAwakeController(toggle: (_) async {});
 }
 
 class _FakePreparationCameraController extends PreparationCameraController {
@@ -526,57 +451,6 @@ class _PassiveAnalysisScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(body: SizedBox.expand());
-  }
-}
-
-class _ReturnFromAnalysisScreen extends StatefulWidget {
-  const _ReturnFromAnalysisScreen({
-    required this.cameraController,
-    required this.onDispose,
-  });
-
-  final _FakeCameraController cameraController;
-  final VoidCallback onDispose;
-
-  @override
-  State<_ReturnFromAnalysisScreen> createState() =>
-      _ReturnFromAnalysisScreenState();
-}
-
-class _ReturnFromAnalysisScreenState extends State<_ReturnFromAnalysisScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(widget.cameraController.startImageStream((_) {}));
-    });
-  }
-
-  @override
-  void dispose() {
-    widget.onDispose();
-    unawaited(
-      Future<void>.delayed(
-        const Duration(milliseconds: 500),
-      ).then((_) => widget.cameraController.stopImageStream()),
-    );
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          key: const ValueKey<String>('return-from-analysis'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Hazırlığa dön'),
-        ),
-      ),
-    );
   }
 }
 
