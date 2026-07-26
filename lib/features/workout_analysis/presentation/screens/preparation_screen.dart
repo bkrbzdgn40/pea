@@ -21,6 +21,7 @@ import '../providers/preparation_countdown_feedback.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../providers/screen_awake_controller.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/preparation_camera_surface.dart';
 import '../widgets/preparation_start_gate_controls.dart';
@@ -45,11 +46,13 @@ class PreparationScreen extends ConsumerStatefulWidget {
 class _PreparationScreenState extends ConsumerState<PreparationScreen>
     with WidgetsBindingObserver {
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
+  late final ScreenAwakeController _screenAwakeController;
   late final PreparationLiveCameraHandoffCoordinator _cameraHandoffCoordinator;
   late final bool _ownsCameraHandoffCoordinator;
   bool _isAppResumed = true;
   bool _isRecoveringCamera = false;
   bool _isNavigatingToPermission = false;
+  bool _holdsScreenAwake = false;
   SetupReadinessRequest? _activeReadinessRequest;
 
   @override
@@ -57,15 +60,22 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _imageStreamCoordinator = CameraImageStreamCoordinator();
+    _screenAwakeController = ref.read(screenAwakeControllerProvider);
     _cameraHandoffCoordinator =
         widget.cameraHandoffCoordinator ??
         PreparationLiveCameraHandoffCoordinator();
     _ownsCameraHandoffCoordinator = widget.cameraHandoffCoordinator == null;
     _cameraHandoffCoordinator.addListener(_handleCameraHandoffChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_refreshPreparationScreenAwake());
+      }
+    });
   }
 
   @override
   void dispose() {
+    unawaited(_setPreparationScreenAwake(false));
     WidgetsBinding.instance.removeObserver(this);
     _cameraHandoffCoordinator.removeListener(_handleCameraHandoffChanged);
     if (_ownsCameraHandoffCoordinator) {
@@ -78,7 +88,28 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   void _handleCameraHandoffChanged() {
     if (mounted) {
       setState(() {});
+      unawaited(_refreshPreparationScreenAwake());
     }
+  }
+
+  Future<void> _refreshPreparationScreenAwake() {
+    final shouldKeepAwake =
+        mounted &&
+        _isAppResumed &&
+        !_isNavigatingToPermission &&
+        _cameraHandoffCoordinator.canRecoverPreparationCamera &&
+        _hasAnalysisSelection();
+    return _setPreparationScreenAwake(shouldKeepAwake);
+  }
+
+  Future<void> _setPreparationScreenAwake(bool enable) {
+    if (_holdsScreenAwake == enable) {
+      return Future<void>.value();
+    }
+    _holdsScreenAwake = enable;
+    return enable
+        ? _screenAwakeController.acquire(ScreenAwakeOwner.preparation)
+        : _screenAwakeController.release(ScreenAwakeOwner.preparation);
   }
 
   @override
@@ -87,6 +118,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _isAppResumed = false;
+      unawaited(_setPreparationScreenAwake(false));
       if (_hasAnalysisSelection()) {
         ref.read(preparationCameraControllerProvider.notifier).clear();
       }
@@ -100,6 +132,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
 
     if (state == AppLifecycleState.resumed) {
       _isAppResumed = true;
+      unawaited(_refreshPreparationScreenAwake());
       unawaited(_recoverCameraIfAllowed());
     }
   }
@@ -146,6 +179,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     }
 
     _isNavigatingToPermission = true;
+    await _setPreparationScreenAwake(false);
     await _imageStreamCoordinator.stop();
     if (!mounted) {
       return;
@@ -198,6 +232,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   }
 
   Future<void> _releasePreparationForAnalysis() async {
+    await _setPreparationScreenAwake(false);
     await _imageStreamCoordinator.stop();
     if (_hasAnalysisSelection()) {
       ref.read(preparationCameraControllerProvider.notifier).clear();
@@ -221,6 +256,8 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     if (!mounted || !_isAppResumed || !_hasAnalysisSelection()) {
       return;
     }
+
+    await _refreshPreparationScreenAwake();
 
     // Recreate the camera after live analysis releases it. Reusing the same
     // native controller can report a streaming state while no longer

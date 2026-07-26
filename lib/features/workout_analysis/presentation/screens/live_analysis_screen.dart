@@ -4,7 +4,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 
@@ -31,6 +30,7 @@ import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_countdown_feedback.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../providers/screen_awake_controller.dart';
 import '../providers/workout_controller.dart';
 import '../providers/workout_plan_session_provider.dart';
 import '../providers/workout_session_lifecycle_controller_provider.dart';
@@ -58,6 +58,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
+  late final ScreenAwakeController _screenAwakeController;
   WorkoutSessionLifecycleOwner? _sessionLifecycle;
   ProviderSubscription<WorkoutSessionLifecycleOwner>?
   _sessionLifecycleSubscription;
@@ -70,6 +71,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _imageStreamCoordinator = CameraImageStreamCoordinator();
+    _screenAwakeController = ref.read(screenAwakeControllerProvider);
     if (_hasAnalysisSelection()) {
       _sessionLifecycleSubscription = ref
           .listenManual<WorkoutSessionLifecycleOwner>(
@@ -152,12 +154,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     sessionLifecycle.startSession(exercise: activeExercise);
   }
 
-  Future<void> _setLiveAnalysisScreenAwake(bool enable) async {
-    try {
-      await WakelockPlus.toggle(enable: enable);
-    } catch (_) {
-      // Keep the analysis flow running even if wakelock is unavailable.
-    }
+  Future<void> _setLiveAnalysisScreenAwake(bool enable) {
+    return enable
+        ? _screenAwakeController.acquire(ScreenAwakeOwner.liveAnalysis)
+        : _screenAwakeController.release(ScreenAwakeOwner.liveAnalysis);
   }
 
   @override
