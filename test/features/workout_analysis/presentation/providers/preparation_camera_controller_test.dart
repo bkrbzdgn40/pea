@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_framing_geometry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 
 import '../../../../support/workout_analysis_test_support.dart';
 
@@ -74,6 +77,63 @@ void main() {
       hasLength(2),
     );
     expect(analysisDetector.processImageCallCount, 0);
+  });
+
+  test('publishes exercise-aware framing as shadow diagnostics', () async {
+    final detector = TestQueuedPoseDetector();
+    detector.enqueue(<Pose>[
+      _pose(<PoseLandmark>[
+        buildLandmark(PoseLandmarkType.nose, 50, 20),
+        buildLandmark(PoseLandmarkType.leftShoulder, 45, 45),
+        buildLandmark(PoseLandmarkType.leftHip, 47, 90),
+        buildLandmark(PoseLandmarkType.leftKnee, 48, 130),
+        buildLandmark(PoseLandmarkType.leftAnkle, 49, 170),
+        buildLandmark(PoseLandmarkType.leftFootIndex, 50, 180),
+      ]),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        preparationPoseDetectorProvider.overrideWith((ref) => detector),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+    final subscription = container.listen<PreparationCameraState>(
+      preparationCameraControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+
+    expect(
+      container
+          .read(
+            preparationFramingAssessmentProvider((
+              imageWidth: 100,
+              imageHeight: 200,
+              mirrorHorizontally: false,
+            )),
+          )
+          ?.status,
+      SetupFramingStatus.noPerson,
+    );
+
+    await container
+        .read(preparationCameraControllerProvider.notifier)
+        .processInputImageForPreview(dummyInputImage());
+
+    final assessment = container.read(
+      preparationFramingAssessmentProvider((
+        imageWidth: 100,
+        imageHeight: 200,
+        mirrorHorizontally: false,
+      )),
+    );
+    expect(assessment, isNotNull);
+    expect(assessment!.status, SetupFramingStatus.ready);
+    expect(assessment.requiredLandmarksVisible, isTrue);
   });
 
   test('keeps detector order when pose completeness is tied', () {

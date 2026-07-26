@@ -130,6 +130,13 @@ class _PreparationPoseOverlay extends ConsumerWidget {
     final landmarks = ref.watch(
       preparationCameraControllerProvider.select((state) => state.landmarks),
     );
+    final _ = ref.watch(
+      preparationFramingAssessmentProvider((
+        imageWidth: imageSize.width,
+        imageHeight: imageSize.height,
+        mirrorHorizontally: isMirrored,
+      )),
+    );
     if (landmarks.isEmpty) {
       return const SizedBox.shrink();
     }
