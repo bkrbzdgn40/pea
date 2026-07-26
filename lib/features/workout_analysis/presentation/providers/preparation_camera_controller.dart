@@ -47,7 +47,8 @@ typedef PreparationStartPoseRequest = ({
 /// Exercise-aware start-pose diagnostics for the current preparation frame.
 ///
 /// R11 combines this result with framing and camera-view evidence inside the
-/// stable readiness state machine. It remains non-blocking until R12.
+/// stable readiness state machine. R12 consumes that stable state through the
+/// one-tap preparation start gate.
 final preparationStartPoseAssessmentProvider = Provider.autoDispose
     .family<SetupStartPoseAssessment?, PreparationStartPoseRequest>((
       ref,
@@ -81,8 +82,8 @@ final preparationStartPoseAssessmentProvider = Provider.autoDispose
 
 /// Front/side advisory for the current preparation preview.
 ///
-/// R11 feeds this diagnostic into stable readiness while keeping it
-/// non-blocking until R12.
+/// R11 feeds this diagnostic into stable readiness. R12 uses the stable
+/// result to approve or defer the transition to live analysis.
 final preparationCameraViewAssessmentProvider = Provider.autoDispose
     .family<SetupCameraViewAssessment?, PreparationCameraViewRequest>((
       ref,

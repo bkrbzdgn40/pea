@@ -117,6 +117,8 @@ class AppLocalizations {
     tr: '$exerciseName analizine başla',
     en: 'Start $exerciseName analysis',
   );
+  String get startPreparationCheck =>
+      pick(tr: 'Hazırlığı Başlat', en: 'Start Preparation');
   String get chooseExerciseFirstStep => pick(
     tr: 'İlk adımda hangi hareketi analiz edeceğini seç.',
     en: 'First choose which exercise you want to analyze.',
@@ -547,6 +549,22 @@ class AppLocalizations {
   String get preparationReadinessNeedsAdjustment =>
       pick(tr: 'Konumunu ayarla', en: 'Adjust your position');
   String get preparationReadinessReady => pick(tr: 'Hazır', en: 'Ready');
+  String get preparationGateMonitoringTitle =>
+      pick(tr: 'Hazırlık kontrolü aktif', en: 'Preparation check active');
+  String get preparationGateMonitoringMessage => pick(
+    tr: 'Kadraja geç. Hazır olduğunda analiz otomatik başlayacak.',
+    en: 'Move into the frame. Analysis will start automatically when you are ready.',
+  );
+  String get preparationGateCancel =>
+      pick(tr: 'Hazırlığı İptal Et', en: 'Cancel Preparation');
+  String get preparationGateOverrideWarning => pick(
+    tr: 'Hazırlık kontrolleri tamamlanmadı. Atlayarak başlatırsan analiz sonuçları daha az güvenilir olabilir.',
+    en: 'The preparation checks are incomplete. Starting anyway may make the analysis less reliable.',
+  );
+  String get preparationGateOverrideAction =>
+      pick(tr: 'Kontrolleri Atlayarak Başlat', en: 'Start Without Checks');
+  String get preparationGateLaunching =>
+      pick(tr: 'Analiz başlatılıyor...', en: 'Starting analysis...');
   String get preparationCheckPersonVisibility =>
       pick(tr: 'Kişi görünürlüğü', en: 'Person visibility');
   String get preparationCheckFraming => pick(tr: 'Kadraj', en: 'Framing');

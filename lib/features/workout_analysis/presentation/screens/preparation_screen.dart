@@ -10,6 +10,7 @@ import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/preparation_start_gate_state.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../preparation_live_camera_handoff_coordinator.dart';
 import '../providers/active_analysis_exercise_provider.dart';
@@ -17,9 +18,11 @@ import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_readiness_controller.dart';
+import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/preparation_camera_surface.dart';
+import '../widgets/preparation_start_gate_controls.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'live_analysis_screen.dart';
@@ -46,6 +49,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   bool _isAppResumed = true;
   bool _isRecoveringCamera = false;
   bool _isNavigatingToPermission = false;
+  SetupReadinessRequest? _activeReadinessRequest;
 
   @override
   void initState() {
@@ -84,6 +88,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       _isAppResumed = false;
       if (_hasAnalysisSelection()) {
         ref.read(preparationCameraControllerProvider.notifier).clear();
+      }
+      final readinessRequest = _activeReadinessRequest;
+      if (readinessRequest != null) {
+        ref.invalidate(preparationStartGateProvider(readinessRequest));
       }
       unawaited(_imageStreamCoordinator.stop());
       return;
@@ -154,6 +162,38 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       runLiveAnalysis: _openLiveAnalysis,
       reclaimPreparation: _resumePreparationAfterAnalysis,
     );
+  }
+
+  Future<void> _launchApprovedAnalysis(SetupReadinessRequest request) async {
+    final gateProvider = preparationStartGateProvider(request);
+    final gateController = ref.read(gateProvider.notifier);
+    if (!_canLaunchApprovedAnalysis()) {
+      gateController.reset();
+      return;
+    }
+    if (!gateController.beginLaunch()) {
+      return;
+    }
+
+    try {
+      await _startAnalysis();
+    } finally {
+      if (mounted) {
+        ref.invalidate(gateProvider);
+      }
+    }
+  }
+
+  bool _canLaunchApprovedAnalysis() {
+    final cameraController = ref.read(cameraProvider).asData?.value;
+    final cameraValue = cameraController == null
+        ? null
+        : _safeCameraValue(cameraController);
+    return ref.read(exerciseConfigProvider).hasValue &&
+        !_isRecoveringCamera &&
+        cameraValue?.isInitialized == true &&
+        cameraValue?.previewSize != null &&
+        _cameraHandoffCoordinator.canUsePreparationCamera;
   }
 
   Future<void> _releasePreparationForAnalysis() async {
@@ -281,22 +321,44 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
             imageHeight: previewSize.width,
             mirrorHorizontally: isMirrored,
           );
+    _activeReadinessRequest = readinessRequest;
+    final startGateProvider = readinessRequest == null
+        ? null
+        : preparationStartGateProvider(readinessRequest);
+    if (readinessRequest != null && startGateProvider != null) {
+      ref.listen<PreparationStartGateState>(startGateProvider, (
+        previous,
+        next,
+      ) {
+        if (previous?.phase != PreparationStartGatePhase.approved &&
+            next.phase == PreparationStartGatePhase.approved) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              unawaited(_launchApprovedAnalysis(readinessRequest));
+            }
+          });
+        }
+      });
+    }
+    final startGatePhase = startGateProvider == null
+        ? null
+        : ref.watch(startGateProvider.select((state) => state.phase));
     final activeExerciseTitle = localizations.exerciseTitle(activeExercise.id);
     final selectedExerciseTitle = localizations.exerciseTitle(
       selectedExercise.id,
     );
     final title = localizations.preparationForExercise(activeExerciseTitle);
     final description = localizations.preparationSubtitle;
-    final ctaLabel = localizations.startExerciseAnalysis(activeExerciseTitle);
     final fallbackMessage = isFallback
         ? localizations.unsupportedExerciseFallback(
             selectedExerciseTitle,
             activeExerciseTitle,
           )
         : null;
-    final canStart =
+    final canArmPreparation =
         isConfigReady &&
         isCameraReady &&
+        startGatePhase == PreparationStartGatePhase.idle &&
         _cameraHandoffCoordinator.canUsePreparationCamera;
     final isPreparing =
         configState.isLoading || cameraState.isLoading || _isRecoveringCamera;
@@ -370,37 +432,31 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 6, 24, 24),
-              child: ElevatedButton.icon(
-                key: const ValueKey<String>('preparation-start-analysis'),
-                onPressed: canStart ? () => unawaited(_startAnalysis()) : null,
-                icon: isPreparing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow_rounded),
-                label: Text(
-                  !isConfigReady
-                      ? localizations.analysisConfigLoading
-                      : !isCameraReady
-                      ? localizations.preparationCameraUnavailable
-                      : ctaLabel,
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.white24,
-                  disabledForegroundColor: Colors.white70,
-                  minimumSize: const Size.fromHeight(56),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: PreparationStartGateControls(
+                phase: startGatePhase,
+                isConfigReady: isConfigReady,
+                isCameraReady: isCameraReady,
+                isPreparing: isPreparing,
+                onArm: canArmPreparation && startGateProvider != null
+                    ? () => ref.read(startGateProvider.notifier).arm()
+                    : null,
+                onCancel:
+                    (startGatePhase == PreparationStartGatePhase.monitoring ||
+                            startGatePhase ==
+                                PreparationStartGatePhase.overrideAvailable) &&
+                        startGateProvider != null
+                    ? () => ref.read(startGateProvider.notifier).reset()
+                    : null,
+                onOverride:
+                    startGatePhase ==
+                            PreparationStartGatePhase.overrideAvailable &&
+                        isConfigReady &&
+                        isCameraReady &&
+                        _cameraHandoffCoordinator.canUsePreparationCamera &&
+                        startGateProvider != null
+                    ? () =>
+                          ref.read(startGateProvider.notifier).approveOverride()
+                    : null,
               ),
             ),
           ],

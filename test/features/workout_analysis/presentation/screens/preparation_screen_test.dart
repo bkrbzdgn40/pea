@@ -120,9 +120,9 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Squat analizine başla'), findsOneWidget);
+    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
     final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-analysis')),
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
     );
     expect(startButton.onPressed, isNotNull);
     expect(cameraController.startImageStreamCallCount, 1);
@@ -151,11 +151,63 @@ void main() {
     expect(find.textContaining('FPS'), findsNothing);
     expect(find.textContaining('Tekrar:'), findsNothing);
     expect(find.textContaining('Süre:'), findsNothing);
-    expect(find.text('Squat analizine başla'), findsOneWidget);
+    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
     final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-analysis')),
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
     );
     expect(startButton.onPressed, isNotNull);
+  });
+
+  testWidgets('arms preparation without opening live analysis', (tester) async {
+    final cameraController = _FakeCameraController();
+    addTearDown(cameraController.dispose);
+
+    await pumpTestApp(
+      tester,
+      home: PreparationScreen(
+        analysisScreenBuilder: (_) => const _PassiveAnalysisScreen(),
+      ),
+      overrides: <Override>[
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+        exerciseConfigProvider.overrideWith((ref) => buildSquatConfig()),
+        cameraProvider.overrideWith((ref) async => cameraController),
+        preparationCameraControllerProvider.overrideWith(
+          () => _FakePreparationCameraController(),
+        ),
+      ],
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate-active')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Kadraja geç. Hazır olduğunda analiz otomatik başlayacak.'),
+      findsOneWidget,
+    );
+    expect(find.byType(_PassiveAnalysisScreen), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-analysis')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-cancel-gate')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('recreates the camera after live analysis releases its stream', (
@@ -210,7 +262,26 @@ void main() {
     );
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('preparation-start-analysis')),
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate-active')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(
+      find.byKey(const ValueKey<String>('preparation-override-analysis')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-override-warning')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-override-analysis')),
     );
     await tester.pumpAndSettle();
 
@@ -242,9 +313,9 @@ void main() {
       cameraHandoffCoordinator.phase,
       PreparationLiveCameraHandoffPhase.preparation,
     );
-    expect(find.text('Squat analizine başla'), findsOneWidget);
+    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
     final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-analysis')),
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
     );
     expect(startButton.onPressed, isNotNull);
   });
@@ -410,6 +481,15 @@ class _FakePreparationCameraController extends PreparationCameraController {
     CameraLensDirection? lensDirection,
     DateTime? capturedAt,
   }) async {}
+}
+
+class _PassiveAnalysisScreen extends StatelessWidget {
+  const _PassiveAnalysisScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: SizedBox.expand());
+  }
 }
 
 class _ReturnFromAnalysisScreen extends StatefulWidget {
