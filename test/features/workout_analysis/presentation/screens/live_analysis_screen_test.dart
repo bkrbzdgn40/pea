@@ -347,6 +347,91 @@ void main() {
     );
   });
 
+  testWidgets('shows and updates automatic tracked-leg guidance', (
+    tester,
+  ) async {
+    const initialState = WorkoutState.rangeRep(
+      feedbackMessage: 'Başlangıç pozuna gel.',
+      analysis: RangeRepWorkoutAnalysisState(
+        calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
+          payload: RangeRepWorkoutCalibrationMetrics(
+            rangeRepAutomaticSideSelectionEnabled: true,
+          ),
+        ),
+      ),
+    );
+    final cameraController = _FakeCameraController();
+    late _FakeWorkoutController fakeController;
+    final container = ProviderContainer(
+      overrides: <Override>[
+        selectedExerciseProvider.overrideWith(
+          (ref) => ExerciseType.standingKneeRaise,
+        ),
+        activeAnalysisExerciseProvider.overrideWithValue(
+          ExerciseType.standingKneeRaise,
+        ),
+        exerciseConfigProvider.overrideWith(
+          (ref) => loadExerciseConfig(
+            'assets/config/exercises/standing_knee_raise.json',
+          ),
+        ),
+        workoutControllerProvider.overrideWith(
+          () => fakeController = _FakeWorkoutController(initialState),
+        ),
+        authRepositoryProvider.overrideWithValue(
+          const _FakeAuthRepository(currentUserId: 'test-user'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+        cameraProvider.overrideWith((ref) async => cameraController),
+      ],
+    );
+    addTearDown(() async {
+      await cameraController.dispose();
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('tr'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const LiveAnalysisScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('live-range-rep-side-indicator')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('otomatik seçilecek'), findsOneWidget);
+
+    fakeController.publish(
+      initialState.copyWith(
+        rangeRepAnalysis: initialState.rangeRepAnalysis!.copyWith(
+          calibrationMetrics: const WorkoutCalibrationMetrics.rangeRep(
+            payload: RangeRepWorkoutCalibrationMetrics(
+              selectedRangeRepSide: 'right',
+              rangeRepAutomaticSideSelectionEnabled: true,
+              rangeRepMovementSelectedSide: 'right',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Sağ bacak takip ediliyor'), findsOneWidget);
+  });
+
   testWidgets('uses compact non-overlapping overlays in landscape', (
     tester,
   ) async {

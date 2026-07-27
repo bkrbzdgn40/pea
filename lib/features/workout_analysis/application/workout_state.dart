@@ -22,6 +22,8 @@ class RangeRepWorkoutCalibrationMetrics {
     this.rangeRepInvalidReason,
     this.selectedRangeRepSide,
     this.rangeRepSideSelectionReason,
+    this.rangeRepAutomaticSideSelectionEnabled = false,
+    this.rangeRepMovementSelectedSide,
     this.rangeRepSideHysteresisStatus,
     this.rangeRepSideConsistencyStatus,
     this.leftRangeRepCoverage = 0,
@@ -120,6 +122,8 @@ class RangeRepWorkoutCalibrationMetrics {
   final String? rangeRepInvalidReason;
   final String? selectedRangeRepSide;
   final String? rangeRepSideSelectionReason;
+  final bool rangeRepAutomaticSideSelectionEnabled;
+  final String? rangeRepMovementSelectedSide;
   final String? rangeRepSideHysteresisStatus;
   final String? rangeRepSideConsistencyStatus;
   final int leftRangeRepCoverage;
@@ -324,6 +328,10 @@ class WorkoutCalibrationMetrics {
   String? get selectedRangeRepSide => _rangeRep?.selectedRangeRepSide;
   String? get rangeRepSideSelectionReason =>
       _rangeRep?.rangeRepSideSelectionReason;
+  bool get rangeRepAutomaticSideSelectionEnabled =>
+      _rangeRep?.rangeRepAutomaticSideSelectionEnabled ?? false;
+  String? get rangeRepMovementSelectedSide =>
+      _rangeRep?.rangeRepMovementSelectedSide;
   String? get rangeRepSideHysteresisStatus =>
       _rangeRep?.rangeRepSideHysteresisStatus;
   String? get rangeRepSideConsistencyStatus =>

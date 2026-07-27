@@ -1038,6 +1038,17 @@ class AppLocalizations {
   String get tempoMetric => 'TEMPO';
   String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
   String get asymmetryMetric => pick(tr: 'ASİMETRİ', en: 'ASYMMETRY');
+  String get automaticLegSelectionPrompt => pick(
+    tr: 'Bir bacağını hareket ettir; takip edilen taraf otomatik seçilecek.',
+    en: 'Move either leg; the tracked side will be selected automatically.',
+  );
+  String trackedLeg(String side) {
+    return switch (side.toLowerCase()) {
+      'left' => pick(tr: 'Sol bacak takip ediliyor', en: 'Tracking left leg'),
+      'right' => pick(tr: 'Sağ bacak takip ediliyor', en: 'Tracking right leg'),
+      _ => pick(tr: 'Bacak takip ediliyor', en: 'Tracking leg'),
+    };
+  }
 
   String workoutPhaseLabel(String phase) {
     return switch (phase.toUpperCase()) {

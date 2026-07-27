@@ -58,6 +58,14 @@ class RangeRepSideStabilizer {
       return selection;
     }
 
+    if (selection.reason == RangeRepSideSelectionReason.selectedMovingSide ||
+        selection.reason == RangeRepSideSelectionReason.switchedToMovingSide ||
+        selection.reason == RangeRepSideSelectionReason.keptMovingSide) {
+      _resetHysteresis(keepStatus: true);
+      _hysteresisStatus = 'movement:${_sideLabel(selectedSide) ?? '--'}';
+      return selection;
+    }
+
     if (currentSide == null) {
       _resetHysteresis(keepStatus: true);
       _hysteresisStatus = selectedSide == null

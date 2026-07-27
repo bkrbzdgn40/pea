@@ -12,5 +12,13 @@ void main() {
       PosePainter(const [], const Size(480, 640)).shouldRepaint(portrait),
       isFalse,
     );
+    expect(
+      PosePainter(
+        const [],
+        const Size(480, 640),
+        emphasizedSide: 'right',
+      ).shouldRepaint(portrait),
+      isTrue,
+    );
   });
 }

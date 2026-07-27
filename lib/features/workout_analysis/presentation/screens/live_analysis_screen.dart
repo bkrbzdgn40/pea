@@ -759,6 +759,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                             ),
                           ),
                         ),
+                        _RangeRepSideTrackingIndicator(compact: isLandscape),
                         _WorkoutFeedbackStatus(compact: isLandscape),
                       ],
                     ),
@@ -1189,7 +1190,12 @@ class _WorkoutPoseOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pose = ref.watch(
       workoutControllerProvider.select(
-        (state) => (landmarks: state.landmarks, isFormBad: state.isFormBad),
+        (state) => (
+          landmarks: state.landmarks,
+          isFormBad: state.isFormBad,
+          movementSelectedSide:
+              state.calibrationMetrics.rangeRepMovementSelectedSide,
+        ),
       ),
     );
     final landmarks = pose.landmarks;
@@ -1204,6 +1210,7 @@ class _WorkoutPoseOverlay extends ConsumerWidget {
         isFormBad: pose.isFormBad,
         isMirrored: isMirrored,
         showDebugLandmarks: showDebugLandmarks,
+        emphasizedSide: pose.movementSelectedSide,
       ),
     );
   }
@@ -1763,6 +1770,91 @@ class _WorkoutSetCompletedSection extends ConsumerWidget {
         ),
         SizedBox(height: compact ? 6 : 10),
       ],
+    );
+  }
+}
+
+class _RangeRepSideTrackingIndicator extends ConsumerWidget {
+  const _RangeRepSideTrackingIndicator({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sideState = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          enabled:
+              state.calibrationMetrics.rangeRepAutomaticSideSelectionEnabled,
+          movementSelectedSide:
+              state.calibrationMetrics.rangeRepMovementSelectedSide,
+        ),
+      ),
+    );
+    final trackingPhase = ref.watch(
+      liveTrackingControllerProvider.select((state) => state.phase),
+    );
+    if (sideState.analysisKind != EngineKind.rangeRep ||
+        !sideState.enabled ||
+        trackingPhase != LiveTrackingPhase.tracking) {
+      return const SizedBox.shrink();
+    }
+
+    final localizations = AppLocalizations.of(context);
+    final selectedSide = sideState.movementSelectedSide;
+    final hasSelectedSide = selectedSide != null;
+    final accentColor = hasSelectedSide
+        ? const Color(0xFF65D8FF)
+        : Colors.white70;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 6 : 9),
+      child: AnimatedContainer(
+        key: const ValueKey<String>('live-range-rep-side-indicator'),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 11 : 14,
+          vertical: compact ? 7 : 9,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.64),
+          borderRadius: BorderRadius.circular(compact ? 14 : 17),
+          border: Border.all(color: accentColor.withValues(alpha: 0.62)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              hasSelectedSide
+                  ? Icons.directions_walk_rounded
+                  : Icons.swap_horiz_rounded,
+              size: compact ? 17 : 20,
+              color: accentColor,
+            ),
+            SizedBox(width: compact ? 7 : 9),
+            Flexible(
+              child: Text(
+                hasSelectedSide
+                    ? localizations.trackedLeg(selectedSide)
+                    : localizations.automaticLegSelectionPrompt,
+                key: const ValueKey<String>(
+                  'live-range-rep-side-indicator-text',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 12 : 13,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

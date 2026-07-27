@@ -83,6 +83,7 @@ class RangeRepContract {
     this.formThresholdCalibrationPolicy =
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
+    this.automaticSideSelectionEnabled = false,
     this.bilateralFormPolicy = RangeRepBilateralFormPolicy.includeSync,
     this.bilateralPrimaryPolicy = RangeRepBilateralPrimaryPolicy.laggingSide,
     this.techniqueEvaluationPolicy = RangeRepTechniqueEvaluationPolicy.always,
@@ -111,6 +112,15 @@ class RangeRepContract {
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
          poseAcceptanceRequiredSignals ?? supportedSignals,
        ) {
+    if (automaticSideSelectionEnabled &&
+        sideMode != RangeRepSideMode.selectedSide) {
+      throw ArgumentError.value(
+        sideMode,
+        'sideMode',
+        'Automatic side selection requires selected-side analysis.',
+      );
+    }
+
     if (initialNeutralConfirmationDuration.isNegative) {
       throw ArgumentError.value(
         initialNeutralConfirmationDuration,
@@ -172,6 +182,13 @@ class RangeRepContract {
   final Set<RangeRepSignal> poseAcceptanceRequiredSignals;
   final RangeRepFormThresholdCalibrationPolicy formThresholdCalibrationPolicy;
   final RangeRepSideMode sideMode;
+
+  /// Lets a unilateral range-rep exercise lock onto the first side that shows
+  /// a clear movement excursion instead of silently keeping a coverage tie.
+  ///
+  /// Keep this disabled for bilateral or effectively symmetric exercises.
+  final bool automaticSideSelectionEnabled;
+
   final RangeRepBilateralFormPolicy bilateralFormPolicy;
   final RangeRepBilateralPrimaryPolicy bilateralPrimaryPolicy;
   final RangeRepTechniqueEvaluationPolicy techniqueEvaluationPolicy;
@@ -285,6 +302,7 @@ class RangeRepContract {
 abstract final class RangeRepContracts {
   static RangeRepContract _concentricPrimaryOnly({
     RangeRepSideMode sideMode = RangeRepSideMode.selectedSide,
+    bool automaticSideSelectionEnabled = false,
     RangeRepPrimaryMetricKind primaryMetricKind =
         RangeRepPrimaryMetricKind.jointAngle,
     RangeRepPrimaryMetricDirection primaryMetricDirection =
@@ -323,6 +341,7 @@ abstract final class RangeRepContracts {
       formThresholdCalibrationPolicy:
           RangeRepFormThresholdCalibrationPolicy.disabled,
       sideMode: sideMode,
+      automaticSideSelectionEnabled: automaticSideSelectionEnabled,
       primaryMetricKind: primaryMetricKind,
       primaryMetricDirection: primaryMetricDirection,
       peakEntryMargin: peakEntryMargin,
@@ -333,6 +352,7 @@ abstract final class RangeRepContracts {
   static RangeRepContract _concentricWithForm({
     required RangeRepSideMode sideMode,
     required RangeRepPrimaryMetricDirection primaryMetricDirection,
+    bool automaticSideSelectionEnabled = false,
     double peakEntryMargin = 3.0,
     bool retainPeakEvidenceAcrossActiveTransition = false,
   }) {
@@ -374,6 +394,7 @@ abstract final class RangeRepContracts {
       formThresholdCalibrationPolicy:
           RangeRepFormThresholdCalibrationPolicy.disabled,
       sideMode: sideMode,
+      automaticSideSelectionEnabled: automaticSideSelectionEnabled,
       bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
       primaryMetricDirection: primaryMetricDirection,
       peakEntryMargin: peakEntryMargin,
@@ -593,12 +614,14 @@ abstract final class RangeRepContracts {
     peakEntryMargin: 0.0,
   );
 
-  static final RangeRepContract standingHamstringCurl =
-      _concentricPrimaryOnly();
+  static final RangeRepContract standingHamstringCurl = _concentricPrimaryOnly(
+    automaticSideSelectionEnabled: true,
+  );
 
   static final RangeRepContract standingHipAbduction = _concentricWithForm(
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+    automaticSideSelectionEnabled: true,
   );
 
   static final RangeRepContract tricepsDip = RangeRepContract(
@@ -949,6 +972,7 @@ abstract final class RangeRepContracts {
   static final RangeRepContract standingHipExtension = _concentricWithForm(
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+    automaticSideSelectionEnabled: true,
     peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
   );
@@ -956,11 +980,13 @@ abstract final class RangeRepContracts {
   static final RangeRepContract standingKneeRaise = _concentricWithForm(
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+    automaticSideSelectionEnabled: true,
   );
 
   static final RangeRepContract standingStraightLegRaise = _concentricWithForm(
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+    automaticSideSelectionEnabled: true,
   );
 
   static final RangeRepContract vUp = _concentricPrimaryOnly(

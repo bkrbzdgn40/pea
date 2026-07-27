@@ -27,6 +27,7 @@ import 'engine_kind.dart';
 import 'exercise_metrics.dart';
 import 'range_rep_blocked_state_builder.dart';
 import 'range_rep_frame_policy.dart';
+import 'range_rep_movement_side_selector.dart';
 import 'range_rep_rep_outcome_tracker.dart';
 import 'range_rep_side_policy.dart';
 import 'range_rep_side_stabilizer.dart';
@@ -168,6 +169,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         const WorkoutCalibrationMetricsBuilder(),
     RangeRepFramePolicy framePolicy = const RangeRepFramePolicy(),
     RangeRepSidePolicy sidePolicy = const RangeRepSidePolicy(),
+    RangeRepMovementSideSelector? movementSideSelector,
     RangeRepSideStabilizer? sideStabilizer,
     RangeRepVisibilityPolicy? visibilityPolicy,
     RangeRepThresholdBookkeeper? thresholdBookkeeper,
@@ -200,6 +202,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
        _framePolicy = framePolicy,
        _sidePolicy = sidePolicy,
+       _movementSideSelector =
+           movementSideSelector ?? RangeRepMovementSideSelector(),
        _sideStabilizer = sideStabilizer ?? RangeRepSideStabilizer(),
        _visibilityPolicy = visibilityPolicy ?? RangeRepVisibilityPolicy(),
        _thresholdBookkeeper =
@@ -236,6 +240,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
   final RangeRepFramePolicy _framePolicy;
   final RangeRepSidePolicy _sidePolicy;
+  final RangeRepMovementSideSelector _movementSideSelector;
   final RangeRepSideStabilizer _sideStabilizer;
   final RangeRepVisibilityPolicy _visibilityPolicy;
   final RangeRepThresholdBookkeeper _thresholdBookkeeper;
@@ -283,13 +288,27 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       preferredRangeRepSide: preferredRangeRepSide,
     );
     final visibilityRunActive = _visibilityPolicy.hasActiveInvalidRun;
+    final movementPreferredSide = _movementSideSelector.selectPreferredSide(
+      leftMetrics: effectiveMetrics.leftRangeRepMetrics,
+      rightMetrics: effectiveMetrics.rightRangeRepMetrics,
+      neutralThreshold: _config.thresholdNeutral,
+      direction: _rangeRepContract.primaryMetricDirection,
+      enabled: _rangeRepContract.automaticSideSelectionEnabled,
+    );
     final sideSelection = _selectRangeRepSideForFrame(
       metrics: effectiveMetrics,
       diagnostics: preUpdateDiagnostics,
       visibilityRunActive: visibilityRunActive,
       qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
       preferredRangeRepSide: preferredRangeRepSide,
+      movementPreferredSide: movementPreferredSide,
     );
+    final previousSelectedSide = _selectedRangeRepSide;
+    if (sideSelection.selectedSide != null &&
+        sideSelection.selectedSide != previousSelectedSide &&
+        !preUpdateDiagnostics.hasRepContext) {
+      _resetSideSensitiveFilters();
+    }
     final frameAssessment = _frameAssessment(effectiveMetrics, sideSelection);
     final isEngineEligibleFrame =
         isAcceptedPoseFrame && frameAssessment.shouldUpdateEngine;
@@ -808,6 +827,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required bool visibilityRunActive,
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
+    required RangeRepSide? movementPreferredSide,
   }) {
     if (_rangeRepContract.sideMode == RangeRepSideMode.bilateral) {
       return RangeRepSideSelection(
@@ -839,6 +859,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       metrics,
       diagnostics: diagnostics,
       preferredRangeRepSide: preferredRangeRepSide,
+      movementPreferredSide: movementPreferredSide,
     );
   }
 
@@ -846,11 +867,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     ExerciseMetrics metrics, {
     RangeRepDiagnosticsSnapshot? diagnostics,
     RangeRepSide? preferredRangeRepSide,
+    RangeRepSide? movementPreferredSide,
   }) {
     final selection = _sidePolicy.select(
       metrics: metrics,
       previousSide: _selectedRangeRepSide,
       preferredSide: preferredRangeRepSide,
+      movementPreferredSide: movementPreferredSide,
       lockPreviousSide: false,
     );
     final resolvedDiagnostics = diagnostics ?? _rangeRepDiagnosticsSnapshot();
@@ -1400,6 +1423,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       rangeRepInvalidReason: rangeRepInvalidReason,
       selectedRangeRepSide: selectedRangeRepSide,
       rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+      rangeRepAutomaticSideSelectionEnabled:
+          _rangeRepContract.automaticSideSelectionEnabled,
+      rangeRepMovementSelectedSide:
+          selectedRangeRepSide ==
+              _rangeRepSideLabel(_movementSideSelector.confirmedSide)
+          ? selectedRangeRepSide
+          : null,
       leftRangeRepCoverage: leftRangeRepCoverage,
       rightRangeRepCoverage: rightRangeRepCoverage,
       leftRangeRepSideConfidence: leftRangeRepSideConfidence,
@@ -1524,15 +1554,23 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return _engine.resumeAfterBriefVisibilityGap(primaryMetric: primaryMetric);
   }
 
+  void _resetSideSensitiveFilters() {
+    _primaryMetricFilter.reset();
+    _formMetricFilter.reset();
+    _bodyLineFilter.reset();
+    _armSupportFilter.reset();
+    _legFilter.reset();
+  }
+
   void _resetVisibilityResyncState({
     String? reason,
     bool resetVisibilityPolicy = false,
   }) {
     _clearActiveRepContext(reason: reason);
-    _primaryMetricFilter.reset();
-    _formMetricFilter.reset();
+    _resetSideSensitiveFilters();
     _selectedRangeRepSide = null;
     _briefGapFrozenRangeRepSide = null;
+    _movementSideSelector.reset();
     _sideStabilizer.reset();
     _outcomeTracker.resetRepContext();
     if (resetVisibilityPolicy) {
