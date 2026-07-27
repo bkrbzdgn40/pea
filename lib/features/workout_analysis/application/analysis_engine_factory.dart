@@ -38,6 +38,8 @@ class AnalysisEngineFactory {
       retainPeakEvidenceAcrossActiveTransition:
           rangeRepContract.retainPeakEvidenceAcrossActiveTransition,
       allowSparseCycleRecovery: rangeRepContract.allowSparseCycleRecovery,
+      initialNeutralConfirmationDuration:
+          rangeRepContract.initialNeutralConfirmationDuration,
       now: now,
     );
   }

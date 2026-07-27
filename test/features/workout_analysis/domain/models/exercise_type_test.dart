@@ -42,6 +42,17 @@ void main() {
       expect(ExerciseType.wallSit.id, 'wall_sit');
       expect(ExerciseType.sidePlank.id, 'side_plank');
       expect(ExerciseType.jumpingJack.id, 'jumping_jack');
+      expect(ExerciseType.standingHipExtension.id, 'standing_hip_extension');
+      expect(ExerciseType.standingKneeRaise.id, 'standing_knee_raise');
+      expect(
+        ExerciseType.standingStraightLegRaise.id,
+        'standing_straight_leg_raise',
+      );
+      expect(ExerciseType.vUp.id, 'v_up');
+      expect(ExerciseType.frogPump.id, 'frog_pump');
+      expect(ExerciseType.lyingTricepsExtension.id, 'lying_triceps_extension');
+      expect(ExerciseType.floorChestPress.id, 'floor_chest_press');
+      expect(ExerciseType.yRaise.id, 'y_raise');
     });
 
     test('fromIdOrNull resolves every canonical exercise id', () {

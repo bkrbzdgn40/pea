@@ -22,7 +22,7 @@ void main() {
           ),
       };
 
-      expect(contracts, hasLength(26));
+      expect(contracts, hasLength(34));
       for (final entry in contracts.entries) {
         expect(entry.value.exerciseType, entry.key);
         expect(entry.value.checks, isNotEmpty);

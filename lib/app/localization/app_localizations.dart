@@ -480,6 +480,29 @@ class AppLocalizations {
       'wall_sit' => pick(tr: 'Duvar Oturuşu', en: 'Wall Sit'),
       'side_plank' => pick(tr: 'Yan Plank', en: 'Side Plank'),
       'jumping_jack' => 'Jumping Jack',
+      'standing_hip_extension' => pick(
+        tr: 'Ayakta Kalça Ekstansiyonu',
+        en: 'Standing Hip Extension',
+      ),
+      'standing_knee_raise' => pick(
+        tr: 'Ayakta Diz Kaldırma',
+        en: 'Standing Knee Raise',
+      ),
+      'standing_straight_leg_raise' => pick(
+        tr: 'Ayakta Düz Bacak Kaldırma',
+        en: 'Standing Straight-Leg Raise',
+      ),
+      'v_up' => 'V-Up',
+      'frog_pump' => 'Frog Pump',
+      'lying_triceps_extension' => pick(
+        tr: 'Yatarak Triseps Extension',
+        en: 'Lying Triceps Extension',
+      ),
+      'floor_chest_press' => pick(
+        tr: 'Yerde Göğüs Press',
+        en: 'Floor Chest Press',
+      ),
+      'y_raise' => pick(tr: 'Y Kaldırış', en: 'Y Raise'),
       _ =>
         id
             .split('_')

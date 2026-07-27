@@ -559,6 +559,270 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
     );
   }
 
+  if (exerciseType == ExerciseType.standingHipExtension) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Bacağını kontrollü geriye götür...',
+        en: 'Move your leg backward with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Bacağını kontrollü başlangıca getir...',
+        en: 'Return your leg to the start with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Çalışan dizini daha düz tut.',
+        en: 'Keep the working knee straighter.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Geri uzatışı kontrollü yap.',
+        en: 'Control the backward extension.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'Dönüşü kontrollü yap.',
+        en: 'Control the return.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Arka noktada gövdeni sabit tut.',
+        en: 'Keep your trunk steady at the back position.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Dizini düz ve gövdeni dik tut.',
+        en: 'Keep your knee straight and your trunk upright.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.standingKneeRaise) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Dizini kontrollü kaldır...',
+        en: 'Raise your knee with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Ayağını kontrollü indir...',
+        en: 'Lower your foot with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Kaldırırken dizini daha fazla bük.',
+        en: 'Bend your knee more during the raise.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Diz kaldırışını kontrollü yap.',
+        en: 'Control the knee raise.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'İnişi kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Üst noktada dengeni koru.',
+        en: 'Maintain your balance at the top.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Gövdeni dik ve dizini bükülü tut.',
+        en: 'Keep your trunk upright and your knee bent.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.standingStraightLegRaise) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Düz bacağını kontrollü kaldır...',
+        en: 'Raise your straight leg with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Bacağını kontrollü indir...',
+        en: 'Lower your leg with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Çalışan dizini daha düz tut.',
+        en: 'Keep the working knee straighter.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Kaldırışı kontrollü yap.',
+        en: 'Control the lift.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'İnişi kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Üst noktada gövdeni sabit tut.',
+        en: 'Keep your trunk steady at the top.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Dizini düz ve gövdeni dik tut.',
+        en: 'Keep your knee straight and your trunk upright.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.vUp) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Gövde ve bacaklarını birlikte kaldır...',
+        en: 'Raise your trunk and legs together...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Kontrollü uzun pozisyona dön...',
+        en: 'Return to the long position with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Gövde ve bacakları birlikte hareket ettir.',
+        en: 'Move your trunk and legs together.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Yukarı kapanışı kontrollü yap.',
+        en: 'Control the upward compression.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'Aşağı dönüşü kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Tepe noktada savrulmadan yön değiştir.',
+        en: 'Change direction at the top without swinging.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Dizlerini düz ve hareketi eş zamanlı tut.',
+        en: 'Keep your knees straight and the movement synchronized.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.frogPump) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Kalçanı kontrollü kaldır...',
+        en: 'Raise your hips with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Kalçanı kontrollü indir...',
+        en: 'Lower your hips with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Ayak tabanlarını birlikte tut.',
+        en: 'Keep the soles of your feet together.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Yükselişi kontrollü yap.',
+        en: 'Control the rise.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'İnişi kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Üst noktada kalçanı sabitle.',
+        en: 'Stabilize your hips at the top.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Dizlerini açık ve ayaklarını birlikte tut.',
+        en: 'Keep your knees open and your feet together.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.lyingTricepsExtension) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Dirseğini kontrollü aç...',
+        en: 'Extend your elbow with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Elini kontrollü başına yaklaştır...',
+        en: 'Lower your hand toward your head with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Üst kolunu omuz üzerinde sabit tut.',
+        en: 'Keep your upper arm steady above your shoulder.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Dirsek açışını kontrollü yap.',
+        en: 'Control the elbow extension.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'Aşağı dönüşü kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Üst noktada dirseğini sabitle.',
+        en: 'Stabilize your elbow at the top.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Üst kolunu hareket ettirmeden dirseğini çalıştır.',
+        en: 'Move at the elbow while keeping the upper arm steady.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.floorChestPress) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Kolunu kontrollü yukarı it...',
+        en: 'Press your arm upward with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Dirseğini kontrollü yere yaklaştır...',
+        en: 'Lower your elbow toward the floor with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Omzunu zeminde sabit tut.',
+        en: 'Keep your shoulder steady on the floor.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'İtişi kontrollü yap.',
+        en: 'Control the press.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'İnişi kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Üst noktada kolunu sabitle.',
+        en: 'Stabilize your arm at the top.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Omuz ve bilek hattını kontrollü tut.',
+        en: 'Keep your shoulder and wrist alignment controlled.',
+      ),
+    );
+  }
+
+  if (exerciseType == ExerciseType.yRaise) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Kollarını Y hattına kaldır...',
+        en: 'Raise your arms into the Y line...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Kollarını kontrollü indir...',
+        en: 'Lower your arms with control...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Dirseklerini daha düz tut.',
+        en: 'Keep your elbows straighter.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Kaldırışı kontrollü yap.',
+        en: 'Control the lift.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'İnişi kontrollü yap.',
+        en: 'Control the lowering phase.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Y pozisyonunda iki kolu sabitle.',
+        en: 'Stabilize both arms in the Y position.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Dirseklerini düz ve kollarını eşit tut.',
+        en: 'Keep your elbows straight and both arms even.',
+      ),
+    );
+  }
+
   if (exerciseType == ExerciseType.jumpingJack) {
     return _RangeRepFeedbackCopy(
       descend: localizations.pick(

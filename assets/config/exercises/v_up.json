@@ -1,22 +1,19 @@
 {
-  "name": "Glute Bridge",
+  "name": "V-Up",
   "primaryJoint": "leftHip",
   "joint1": "leftShoulder",
   "joint2": "leftKnee",
-  "thresholdNeutral": 148.0,
-  "thresholdActive": 154.0,
-  "thresholdPeak": 164.0,
-  "idealDescentSeconds": 1.2,
-  "idealAscentSeconds": 1.0,
+  "thresholdNeutral": 165.0,
+  "thresholdActive": 140.0,
+  "thresholdPeak": 85.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
   "formThreshold": 0.0,
-  "targetMinAngle": 0.0,
-  "targetMaxAngle": 170.0,
+  "targetMinAngle": 75.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
-      "first": "leftHip",
-      "middle": "leftKnee",
-      "last": "leftAnkle"
+      "source": "primaryMetric"
     },
     "depthMetric": {
       "source": "primaryMetric"
@@ -27,7 +24,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 180,
+    "minDescendingMillis": 300,
     "minAscendingMillis": 300
   }
 }

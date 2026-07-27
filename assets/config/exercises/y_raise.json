@@ -1,22 +1,22 @@
 {
-  "name": "Glute Bridge",
-  "primaryJoint": "leftHip",
-  "joint1": "leftShoulder",
-  "joint2": "leftKnee",
-  "thresholdNeutral": 148.0,
-  "thresholdActive": 154.0,
-  "thresholdPeak": 164.0,
+  "name": "Y Raise",
+  "primaryJoint": "leftShoulder",
+  "joint1": "leftElbow",
+  "joint2": "leftHip",
+  "thresholdNeutral": 20.0,
+  "thresholdActive": 50.0,
+  "thresholdPeak": 120.0,
   "idealDescentSeconds": 1.2,
   "idealAscentSeconds": 1.0,
-  "formThreshold": 0.0,
+  "formThreshold": 150.0,
   "targetMinAngle": 0.0,
-  "targetMaxAngle": 170.0,
+  "targetMaxAngle": 135.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
-      "first": "leftHip",
-      "middle": "leftKnee",
-      "last": "leftAnkle"
+      "first": "leftShoulder",
+      "middle": "leftElbow",
+      "last": "leftWrist"
     },
     "depthMetric": {
       "source": "primaryMetric"
@@ -27,7 +27,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 180,
+    "minDescendingMillis": 250,
     "minAscendingMillis": 300
   }
 }

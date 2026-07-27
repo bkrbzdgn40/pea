@@ -118,6 +118,22 @@ void main() {
       definition: catalog.definitionFor(ExerciseType.hollowHold),
       localizations: turkish,
     );
+    final vUp = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.vUp),
+      localizations: turkish,
+    );
+    final frogPump = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.frogPump),
+      localizations: turkish,
+    );
+    final lyingTricepsExtension = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.lyingTricepsExtension),
+      localizations: turkish,
+    );
+    final floorChestPress = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.floorChestPress),
+      localizations: turkish,
+    );
 
     expect(squat.startPoseInstruction, contains('omuz genişliğinde'));
     expect(plank.startPoseInstruction, contains('elbows under your shoulders'));
@@ -162,6 +178,19 @@ void main() {
     expect(
       hollowHold.startPoseTemplate,
       PreparationPoseTemplate.floorSupineStraight,
+    );
+    expect(vUp.startPoseTemplate, PreparationPoseTemplate.floorSupineStraight);
+    expect(
+      frogPump.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      lyingTricepsExtension.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineElbowsBentOverhead,
+    );
+    expect(
+      floorChestPress.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineChestPress,
     );
     expect(sidePlank.startPoseGuideTitle, isNotEmpty);
     expect(sidePlank.startPoseGuideHint, contains('iskelete'));

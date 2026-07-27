@@ -303,6 +303,54 @@ void main() {
       );
     });
 
+    test('package two keeps intended side and metric semantics', () {
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.standingHipExtension,
+        RangeRepContracts.standingKneeRaise,
+        RangeRepContracts.standingStraightLegRaise,
+        RangeRepContracts.vUp,
+      ]) {
+        expect(contract.sideMode, RangeRepSideMode.selectedSide);
+        expect(
+          contract.primaryMetricDirection,
+          RangeRepPrimaryMetricDirection.decreasingToPeak,
+        );
+        expect(
+          contract.towardPeakMuscleAction,
+          RangeRepTowardPeakMuscleAction.concentric,
+        );
+      }
+
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.frogPump,
+        RangeRepContracts.lyingTricepsExtension,
+        RangeRepContracts.floorChestPress,
+      ]) {
+        expect(contract.sideMode, RangeRepSideMode.selectedSide);
+        expect(
+          contract.primaryMetricDirection,
+          RangeRepPrimaryMetricDirection.increasingToPeak,
+        );
+      }
+
+      expect(RangeRepContracts.yRaise.sideMode, RangeRepSideMode.bilateral);
+      expect(
+        RangeRepContracts.yRaise.primaryMetricDirection,
+        RangeRepPrimaryMetricDirection.increasingToPeak,
+      );
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.standingHipExtension,
+        RangeRepContracts.standingKneeRaise,
+        RangeRepContracts.standingStraightLegRaise,
+        RangeRepContracts.yRaise,
+      ]) {
+        expect(
+          contract.requiresPoseAcceptanceSignal(RangeRepSignal.formMetric),
+          isTrue,
+        );
+      }
+    });
+
     test(
       'Good Morning keeps knee-form technique optional for pose acceptance',
       () {
@@ -394,6 +442,24 @@ void main() {
       }
     });
 
+    test('rejects a negative initial neutral confirmation duration', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          initialNeutralConfirmationDuration: const Duration(milliseconds: -1),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects a non-positive primary metric smoothing window', () {
       expect(
         () => RangeRepContract(
@@ -463,6 +529,17 @@ void main() {
             AnalysisSignalRole.technique,
           ),
           isFalse,
+        );
+        expect(RangeRepContracts.gluteBridge.peakEntryMargin, 0.0);
+        expect(
+          RangeRepContracts
+              .gluteBridge
+              .retainPeakEvidenceAcrossActiveTransition,
+          isTrue,
+        );
+        expect(
+          RangeRepContracts.gluteBridge.initialNeutralConfirmationDuration,
+          const Duration(milliseconds: 600),
         );
         expect(
           RangeRepContracts.jumpingJack.signalHasRole(

@@ -93,6 +93,7 @@ class RangeRepContract {
     this.peakEntryMargin = 3.0,
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
+    this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
     this.primaryMetricSmoothingWindow = 5,
     this.formMetricSmoothingWindow = 5,
     this.extensionProfile = RangeRepExtensionProfile.none,
@@ -110,6 +111,13 @@ class RangeRepContract {
        poseAcceptanceRequiredSignals = Set<RangeRepSignal>.unmodifiable(
          poseAcceptanceRequiredSignals ?? supportedSignals,
        ) {
+    if (initialNeutralConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        initialNeutralConfirmationDuration,
+        'initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
     if (primaryMetricSmoothingWindow <= 0) {
       throw ArgumentError.value(
         primaryMetricSmoothingWindow,
@@ -191,6 +199,13 @@ class RangeRepContract {
   /// device evidence shows that analysis FPS is too low to observe every
   /// intermediate active/return sample.
   final bool allowSparseCycleRecovery;
+
+  /// Stable neutral duration required only before the first lifecycle can arm.
+  ///
+  /// This remains short by default. Floor transitions that can cross movement
+  /// thresholds while the user is getting into position may opt into a longer
+  /// duration without delaying normal repetition completion.
+  final Duration initialNeutralConfirmationDuration;
 
   /// Number of accepted primary-metric samples used by the coordinator's
   /// moving-average filter. Fast movements can opt out of the five-frame
@@ -920,6 +935,46 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    peakEntryMargin: 0.0,
+    retainPeakEvidenceAcrossActiveTransition: true,
+    initialNeutralConfirmationDuration: const Duration(milliseconds: 600),
+  );
+
+  static final RangeRepContract standingHipExtension = _concentricWithForm(
+    sideMode: RangeRepSideMode.selectedSide,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+  );
+
+  static final RangeRepContract standingKneeRaise = _concentricWithForm(
+    sideMode: RangeRepSideMode.selectedSide,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+  );
+
+  static final RangeRepContract standingStraightLegRaise = _concentricWithForm(
+    sideMode: RangeRepSideMode.selectedSide,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+  );
+
+  static final RangeRepContract vUp = _concentricPrimaryOnly(
+    peakEntryMargin: 0.0,
+    primaryMetricSmoothingWindow: 3,
+  );
+
+  static final RangeRepContract frogPump = _concentricPrimaryOnly(
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract lyingTricepsExtension = _concentricPrimaryOnly(
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract floorChestPress = _concentricPrimaryOnly(
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract yRaise = _concentricWithForm(
+    sideMode: RangeRepSideMode.bilateral,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
   );
 

@@ -662,4 +662,193 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
       'Lowering the load without control.',
     ],
   ),
+  ExerciseType.standingHipExtension: _ExerciseGuideCopy(
+    subtitle:
+        'A standing unilateral hip-extension movement for posterior-chain control.',
+    purpose:
+        'Uses the shoulder-hip-knee angle to track the straight working leg moving backward and returning to neutral.',
+    setupSteps: [
+      'Stand side-on with the working leg closest to the camera.',
+      'Shift your weight evenly onto the support leg.',
+      'Begin with the working knee extended and the trunk upright.',
+      'Use light support from a stable surface if needed.',
+    ],
+    tips: [
+      'Move the leg backward from the hip with control.',
+      'Avoid excessively arching your lower back.',
+      'Keep the working knee as straight as possible.',
+      'Return the leg to the start with control.',
+    ],
+    commonMistakes: [
+      'Leaning the trunk forward to exaggerate the movement.',
+      'Arching excessively through the lower back.',
+      'Bending the working knee substantially.',
+      'Swinging the leg without control.',
+    ],
+  ),
+  ExerciseType.standingKneeRaise: _ExerciseGuideCopy(
+    subtitle: 'A standing unilateral knee raise for hip flexion and balance.',
+    purpose:
+        'Tracks the closing hip angle while checking that the working knee bends during each controlled raise.',
+    setupSteps: [
+      'Stand side-on with the working leg closest to the camera.',
+      'Keep your trunk upright and your support foot balanced.',
+      'Begin with the working leg extended.',
+      'Use light support if necessary.',
+    ],
+    tips: [
+      'Raise your knee toward your torso with control.',
+      'Bend the knee comfortably during the lift.',
+      'Move from the hip without leaning backward.',
+      'Return the foot to the floor with control.',
+    ],
+    commonMistakes: [
+      'Leaning the trunk backward.',
+      'Keeping the knee too straight and turning it into a leg raise.',
+      'Losing balance on the support foot.',
+      'Dropping the leg quickly.',
+    ],
+  ),
+  ExerciseType.standingStraightLegRaise: _ExerciseGuideCopy(
+    subtitle: 'A standing hip-flexion movement performed with a straight leg.',
+    purpose:
+        'Tracks forward leg raises through the hip angle while the working knee remains extended.',
+    setupSteps: [
+      'Stand side-on with the working leg closest to the camera.',
+      'Shift your weight onto the support leg.',
+      'Keep the working knee extended and the foot neutral.',
+      'Begin upright and balanced.',
+    ],
+    tips: [
+      'Raise the leg forward with control.',
+      'Keep the working knee extended throughout the movement.',
+      'Do not lean backward to gain extra range.',
+      'Lower the leg slowly to the start.',
+    ],
+    commonMistakes: [
+      'Bending the working knee.',
+      'Leaning the trunk backward.',
+      'Swinging the leg with momentum.',
+      'Dropping the leg without control.',
+    ],
+  ),
+  ExerciseType.vUp: _ExerciseGuideCopy(
+    subtitle:
+        'An advanced core movement in which the trunk and straight legs rise together.',
+    purpose:
+        'Uses the closing shoulder-hip-knee angle to track controlled V-shaped repetition cycles.',
+    setupSteps: [
+      'Lie on your back with your legs together and knees extended.',
+      'Reach your arms overhead to create a long starting line.',
+      'Position the camera side-on so the shoulder-hip-knee line is visible.',
+      'Settle into the long starting position without straining your lower back.',
+    ],
+    tips: [
+      'Raise your trunk and legs together.',
+      'Keep your knees as straight as possible.',
+      'Reach the top without swinging.',
+      'Lower back down slowly and under control.',
+    ],
+    commonMistakes: [
+      'Raising only the legs or only the trunk.',
+      'Bending the knees substantially.',
+      'Using momentum to swing upward.',
+      'Dropping back to the start without control.',
+    ],
+  ),
+  ExerciseType.frogPump: _ExerciseGuideCopy(
+    subtitle:
+        'A short-range hip-extension movement performed with the soles together and knees opened outward.',
+    purpose:
+        'Tracks the hips lifting and lowering under control while the legs remain in the frog position.',
+    setupSteps: [
+      'Lie on your back and bend your knees.',
+      'Bring the soles of your feet together and open your knees outward.',
+      'Rest your arms comfortably beside your body.',
+      'Place the camera side-on so the hip line is visible.',
+    ],
+    tips: [
+      'Raise your hips with control.',
+      'Squeeze at the top without excessively arching your lower back.',
+      'Keep the soles of your feet together.',
+      'Lower your hips with control.',
+    ],
+    commonMistakes: [
+      'Arching excessively through the lower back.',
+      'Separating the soles of the feet.',
+      'Using only a very small partial lift.',
+      'Dropping the hips without control.',
+    ],
+  ),
+  ExerciseType.lyingTricepsExtension: _ExerciseGuideCopy(
+    subtitle:
+        'A controlled elbow-extension movement performed lying on the floor.',
+    purpose:
+        'Tracks the elbow closest to the camera extending from a bent position and returning with control.',
+    setupSteps: [
+      'Lie on your back, bend your knees, and plant your feet.',
+      'Place the camera side-on so the shoulder-elbow-wrist line is visible.',
+      'Keep your upper arm positioned above the shoulder.',
+      'Bend the elbow so your hand starts near your head.',
+    ],
+    tips: [
+      'Extend the elbow with control.',
+      'Keep the upper arm steady instead of swinging at the shoulder.',
+      'Do not forcefully lock the elbow at the top.',
+      'Lower your hand toward your head with control.',
+    ],
+    commonMistakes: [
+      'Moving the upper arm from the shoulder.',
+      'Letting the elbow flare away.',
+      'Dropping the weight quickly toward the head.',
+      'Stopping at a partial extension.',
+    ],
+  ),
+  ExerciseType.floorChestPress: _ExerciseGuideCopy(
+    subtitle: 'A controlled chest-press movement performed lying on the floor.',
+    purpose:
+        'Tracks the elbow closest to the camera extending from a bent position and returning near the floor.',
+    setupSteps: [
+      'Lie on your back, bend your knees, and plant your feet.',
+      'Place the camera side-on so the shoulder-elbow-wrist line is visible.',
+      'Bend the elbow to roughly a right angle with the upper arm near the floor.',
+      'Keep the wrist balanced above the elbow.',
+    ],
+    tips: [
+      'Press the arm upward with control.',
+      'Avoid lifting the shoulder unnecessarily from the floor.',
+      'Do not forcefully lock the elbow at the top.',
+      'Lower the elbow toward the floor with control.',
+    ],
+    commonMistakes: [
+      'Lifting the shoulder forward.',
+      'Bending the wrist excessively backward.',
+      'Dropping the elbow onto the floor.',
+      'Stopping before reaching a full press.',
+    ],
+  ),
+  ExerciseType.yRaise: _ExerciseGuideCopy(
+    subtitle:
+        'A shoulder-control movement that raises both arms diagonally into a Y shape.',
+    purpose:
+        'Tracks both arms rising together into the Y line while using elbow extension as a form signal.',
+    setupSteps: [
+      'Face the camera and keep your upper body in frame.',
+      'Begin with your arms down by your sides.',
+      'Keep your elbows softly extended and your arms long.',
+      'Set your trunk upright and keep your shoulders relaxed.',
+    ],
+    tips: [
+      'Raise both arms diagonally to form a wide Y.',
+      'Move both arms at the same speed.',
+      'Maintain your elbow angle throughout the movement.',
+      'Lower the arms back to the start with control.',
+    ],
+    commonMistakes: [
+      'Bending the elbows substantially.',
+      'Raising the arms to different heights.',
+      'Shrugging the shoulders toward the ears.',
+      'Swinging the trunk backward.',
+    ],
+  ),
 };

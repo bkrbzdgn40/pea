@@ -266,6 +266,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     double peakEntryMargin = 3.0,
     bool retainPeakEvidenceAcrossActiveTransition = false,
     bool allowSparseCycleRecovery = false,
+    Duration initialNeutralConfirmationDuration = const Duration(
+      milliseconds: 100,
+    ),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _genericRepEngine = GenericRepEngine(
@@ -277,6 +280,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         retainPeakEvidenceAcrossActiveTransition:
             retainPeakEvidenceAcrossActiveTransition,
         allowSparseCycleRecovery: allowSparseCycleRecovery,
+        initialNeutralConfirmationDuration: initialNeutralConfirmationDuration,
         direction: switch (primaryMetricDirection) {
           RangeRepPrimaryMetricDirection.decreasingToPeak =>
             GenericRepMetricDirection.decreasingToPeak,

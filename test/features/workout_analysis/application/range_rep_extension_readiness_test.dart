@@ -141,6 +141,14 @@ void main() {
         ExerciseType.frontRaise,
         ExerciseType.gluteBridge,
         ExerciseType.jumpingJack,
+        ExerciseType.standingHipExtension,
+        ExerciseType.standingKneeRaise,
+        ExerciseType.standingStraightLegRaise,
+        ExerciseType.vUp,
+        ExerciseType.frogPump,
+        ExerciseType.lyingTricepsExtension,
+        ExerciseType.floorChestPress,
+        ExerciseType.yRaise,
       };
 
       for (final definition in catalog.definitions.where(

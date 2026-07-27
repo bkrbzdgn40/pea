@@ -17,6 +17,52 @@ void main() {
       );
     });
 
+    test('rejects a negative initial neutral confirmation window', () {
+      expect(
+        () => GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            initialNeutralConfirmationDuration: Duration(milliseconds: -1),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('uses a longer confirmation only for initial neutral acquisition', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 20,
+          activeThreshold: 35,
+          peakThreshold: 80,
+          direction: GenericRepMetricDirection.increasingToPeak,
+          initialNeutralConfirmationDuration: Duration(milliseconds: 600),
+          neutralConfirmationDuration: Duration(milliseconds: 100),
+        ),
+        now: clock.now,
+      );
+
+      engine.update(primaryMetric: 10);
+      clock.advance(const Duration(milliseconds: 120));
+      engine.update(primaryMetric: 10);
+      expect(engine.isArmed, isFalse);
+
+      clock.advance(const Duration(milliseconds: 480));
+      engine.update(primaryMetric: 10);
+      expect(engine.isArmed, isTrue);
+
+      _confirm(clock, engine, 45, 100);
+      _confirm(clock, engine, 90, 100);
+      _confirm(clock, engine, 65, 100);
+      final completed = _confirm(clock, engine, 10, 120);
+
+      expect(engine.repCount, 1);
+      expect(completed.completedRep, isNotNull);
+    });
+
     test(
       'counts a decreasing-to-peak repetition through the full lifecycle',
       () {
