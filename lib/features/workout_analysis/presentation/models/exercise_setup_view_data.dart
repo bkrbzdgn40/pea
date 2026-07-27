@@ -1,3 +1,5 @@
+import 'preparation_pose_guide.dart';
+
 /// Localized, presentation-ready preparation copy for one exercise.
 ///
 /// The model intentionally contains no domain enums. Screens can render this
@@ -10,6 +12,9 @@ class ExerciseSetupViewData {
     required this.cameraViewInstruction,
     required this.bodyCoverageInstruction,
     required this.startPoseInstruction,
+    required this.startPoseTemplate,
+    required this.startPoseGuideTitle,
+    required this.startPoseGuideHint,
     required this.setupPositionLabel,
     required this.cameraPlacementInstruction,
     required List<String> environmentInstructions,
@@ -23,6 +28,9 @@ class ExerciseSetupViewData {
   final String cameraViewInstruction;
   final String bodyCoverageInstruction;
   final String startPoseInstruction;
+  final PreparationPoseTemplate startPoseTemplate;
+  final String startPoseGuideTitle;
+  final String startPoseGuideHint;
   final String setupPositionLabel;
   final String cameraPlacementInstruction;
   final List<String> environmentInstructions;

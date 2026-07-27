@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/preparation_pose_guide.dart';
 import '../models/preparation_camera_geometry.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_readiness_controller.dart';
+import 'preparation_start_pose_reference.dart';
 import 'pose_painter.dart';
 
 class PreparationCameraSurface extends StatelessWidget {
@@ -16,6 +18,9 @@ class PreparationCameraSurface extends StatelessWidget {
     required this.geometry,
     required this.viewportOrientation,
     required this.isRecovering,
+    required this.startPoseTemplate,
+    required this.startPoseGuideTitle,
+    required this.startPoseGuideHint,
     required this.countdownValue,
     required this.onControllerReady,
     required this.onRetry,
@@ -27,6 +32,9 @@ class PreparationCameraSurface extends StatelessWidget {
   final PreparationCameraGeometry? geometry;
   final Orientation viewportOrientation;
   final bool isRecovering;
+  final PreparationPoseTemplate startPoseTemplate;
+  final String startPoseGuideTitle;
+  final String startPoseGuideHint;
   final int? countdownValue;
   final ValueChanged<CameraController> onControllerReady;
   final VoidCallback onRetry;
@@ -76,6 +84,11 @@ class PreparationCameraSurface extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   CameraPreview(controller),
+                  PreparationStartPoseReference(
+                    template: startPoseTemplate,
+                    title: startPoseGuideTitle,
+                    hint: startPoseGuideHint,
+                  ),
                   _PreparationPoseOverlay(
                     imageSize: imageSize,
                     isMirrored: isMirrored,
