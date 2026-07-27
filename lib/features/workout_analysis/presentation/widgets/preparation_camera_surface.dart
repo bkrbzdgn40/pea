@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/preparation_camera_geometry.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_readiness_controller.dart';
@@ -12,6 +13,8 @@ import 'pose_painter.dart';
 class PreparationCameraSurface extends StatelessWidget {
   const PreparationCameraSurface({
     required this.cameraState,
+    required this.geometry,
+    required this.viewportOrientation,
     required this.isRecovering,
     required this.countdownValue,
     required this.onControllerReady,
@@ -21,6 +24,8 @@ class PreparationCameraSurface extends StatelessWidget {
   });
 
   final AsyncValue<CameraController> cameraState;
+  final PreparationCameraGeometry? geometry;
+  final Orientation viewportOrientation;
   final bool isRecovering;
   final int? countdownValue;
   final ValueChanged<CameraController> onControllerReady;
@@ -32,7 +37,10 @@ class PreparationCameraSurface extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
 
     return AspectRatio(
-      aspectRatio: 3 / 4,
+      key: const ValueKey<String>('preparation-camera-aspect-ratio'),
+      aspectRatio:
+          geometry?.aspectRatio ??
+          (viewportOrientation == Orientation.landscape ? 4 / 3 : 3 / 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF101010),
@@ -50,15 +58,15 @@ class PreparationCameraSurface extends StatelessWidget {
               }
 
               final value = _safeCameraValue(controller);
-              final previewSize = value?.previewSize;
               if (value == null ||
                   !value.isInitialized ||
-                  previewSize == null) {
+                  value.previewSize == null ||
+                  geometry == null) {
                 return const _PreparationCameraLoading();
               }
 
               onControllerReady(controller);
-              final imageSize = Size(previewSize.height, previewSize.width);
+              final imageSize = geometry!.imageSize;
               final isMirrored =
                   controller.description.lensDirection ==
                   CameraLensDirection.front;

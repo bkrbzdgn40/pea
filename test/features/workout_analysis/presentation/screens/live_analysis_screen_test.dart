@@ -42,9 +42,10 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_session_lifecycle_controller_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/live_analysis_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/pose_painter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:wakelock_plus_platform_interface/wakelock_plus_platform_interface.dart';
-
+import 'package:flutter/services.dart';
 import '../../../../support/workout_analysis_test_support.dart';
 
 void main() {
@@ -344,6 +345,67 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('uses compact non-overlapping overlays in landscape', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(960, 420));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.plank,
+      config: _plankConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    harness.cameraController!.setDeviceOrientation(
+      DeviceOrientation.landscapeLeft,
+    );
+    await tester.pump();
+
+    final performanceHeader = find.byKey(
+      const ValueKey<String>('live-performance-header'),
+    );
+    final feedbackCard = find.byKey(
+      const ValueKey<String>('live-feedback-message-card'),
+    );
+    final pauseButton = find.byKey(const ValueKey<String>('live-pause-button'));
+
+    expect(performanceHeader, findsOneWidget);
+    expect(feedbackCard, findsOneWidget);
+    expect(tester.getSize(performanceHeader).height, 76);
+    expect(
+      tester.getRect(performanceHeader).top,
+      greaterThan(tester.getRect(pauseButton).bottom),
+    );
+    expect(
+      tester.getRect(performanceHeader).bottom,
+      lessThan(tester.getRect(feedbackCard).top),
+    );
+    expect(tester.getSize(feedbackCard).width, lessThan(760));
+    expect(tester.takeException(), isNull);
+
+    await tester.runAsync(() async {
+      await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+        _plankPose(),
+      ]);
+      harness.clock.advance(const Duration(milliseconds: 100));
+      await _analyzePoseFrame(harness.controller, harness.detector, <Pose>[
+        _plankPose(),
+      ]);
+    });
+    await tester.pump();
+
+    final posePaint = find.byWidgetPredicate(
+      (widget) => widget is CustomPaint && widget.painter is PosePainter,
+    );
+    expect(posePaint, findsOneWidget);
+    final painter =
+        tester.widget<CustomPaint>(posePaint).painter! as PosePainter;
+    expect(painter.absoluteImageSize, const Size(640, 480));
   });
 
   testWidgets('prioritizes the latest rep outcome over movement feedback', (
@@ -1659,25 +1721,31 @@ class _QueuedPoseDetector extends TestQueuedPoseDetector {}
 class _FakeClock extends TestFakeClock {}
 
 class _FakeCameraController extends CameraController {
-  _FakeCameraController()
-    : super(
-        const CameraDescription(
-          name: 'fake-camera',
-          lensDirection: CameraLensDirection.back,
-          sensorOrientation: 0,
-        ),
-        ResolutionPreset.medium,
-        enableAudio: false,
-      ) {
+  _FakeCameraController({
+    DeviceOrientation deviceOrientation = DeviceOrientation.portraitUp,
+  }) : super(
+         const CameraDescription(
+           name: 'fake-camera',
+           lensDirection: CameraLensDirection.back,
+           sensorOrientation: 0,
+         ),
+         ResolutionPreset.medium,
+         enableAudio: false,
+       ) {
     value = value.copyWith(
       isInitialized: true,
       previewSize: const Size(640, 480),
+      deviceOrientation: deviceOrientation,
       isStreamingImages: true,
     );
   }
 
   int startImageStreamCallCount = 0;
   int stopImageStreamCallCount = 0;
+
+  void setDeviceOrientation(DeviceOrientation orientation) {
+    value = value.copyWith(deviceOrientation: orientation);
+  }
 
   @override
   Widget buildPreview() => const SizedBox.expand();
