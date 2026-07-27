@@ -333,6 +333,8 @@ abstract final class RangeRepContracts {
   static RangeRepContract _concentricWithForm({
     required RangeRepSideMode sideMode,
     required RangeRepPrimaryMetricDirection primaryMetricDirection,
+    double peakEntryMargin = 3.0,
+    bool retainPeakEvidenceAcrossActiveTransition = false,
   }) {
     return RangeRepContract(
       towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
@@ -374,6 +376,9 @@ abstract final class RangeRepContracts {
       sideMode: sideMode,
       bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
       primaryMetricDirection: primaryMetricDirection,
+      peakEntryMargin: peakEntryMargin,
+      retainPeakEvidenceAcrossActiveTransition:
+          retainPeakEvidenceAcrossActiveTransition,
     );
   }
 
@@ -944,6 +949,8 @@ abstract final class RangeRepContracts {
   static final RangeRepContract standingHipExtension = _concentricWithForm(
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
+    peakEntryMargin: 0.0,
+    retainPeakEvidenceAcrossActiveTransition: true,
   );
 
   static final RangeRepContract standingKneeRaise = _concentricWithForm(

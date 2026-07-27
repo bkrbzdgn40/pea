@@ -4,12 +4,12 @@
   "joint1": "leftShoulder",
   "joint2": "leftKnee",
   "thresholdNeutral": 172.0,
-  "thresholdActive": 158.0,
-  "thresholdPeak": 138.0,
+  "thresholdActive": 170.0,
+  "thresholdPeak": 163.0,
   "idealDescentSeconds": 1.0,
   "idealAscentSeconds": 1.2,
   "formThreshold": 150.0,
-  "targetMinAngle": 130.0,
+  "targetMinAngle": 160.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
