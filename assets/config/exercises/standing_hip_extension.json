@@ -26,7 +26,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 250,
+    "minDescendingMillis": 150,
     "minAscendingMillis": 300
   }
 }
