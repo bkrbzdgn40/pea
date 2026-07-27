@@ -990,7 +990,7 @@ class ExerciseCatalog {
         ),
         rangeRepContract: RangeRepContracts.standingHipExtension,
         rangeRepValidationConfig: const RangeRepValidationConfig(
-          minAcceptableRomDelta: 25.0,
+          minAcceptableRomDelta: 10.0,
           minDescentMillis: 250,
           minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,

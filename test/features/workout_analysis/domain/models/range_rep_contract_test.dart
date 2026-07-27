@@ -542,6 +542,12 @@ void main() {
           const Duration(milliseconds: 600),
         );
         expect(
+          RangeRepContracts
+              .standingHipExtension
+              .retainPeakEvidenceAcrossActiveTransition,
+          isTrue,
+        );
+        expect(
           RangeRepContracts.jumpingJack.signalHasRole(
             RangeRepSignal.formMetric,
             AnalysisSignalRole.technique,
