@@ -480,6 +480,37 @@ class ExerciseCatalog {
         ),
       ),
       ExerciseDefinition.supported(
+        type: ExerciseType.goodMorning,
+        movementPattern: ExerciseMovementPattern.hipHinge,
+        trackingType: ExerciseTrackingType.repetitions,
+        analysisEngines: _rangeRepAnalysisEngines,
+        metricIds: _rangeRepMetricIds,
+        feedbackRuleIds: _rangeRepFeedbackRuleIds,
+        sessionSummaryFields: _rangeRepSummaryFields,
+        engineKind: EngineKind.rangeRep,
+        configAssetPath: 'assets/config/exercises/good_morning.json',
+        cameraViewContract: CameraViewContract(
+          views: const <CameraView, CameraViewSupport>{
+            CameraView.side: CameraViewSupport.preferred,
+            CameraView.front: CameraViewSupport.unsupported,
+          },
+        ),
+        setupContract: ExerciseSetupContract(
+          bodyCoverage: _sideChainCoverage,
+          startPoseFamily: StartPoseFamily.standingNeutralSide,
+          supportSurface: SetupSupportSurface.none,
+          cameraHeight: SetupCameraHeight.midBodyLevel,
+          environmentRequirements: _standingEnvironment,
+        ),
+        rangeRepContract: RangeRepContracts.goodMorning,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minAcceptableRomDelta: 25.0,
+          minDescentMillis: 350,
+          minAscentMillis: 300,
+          allowLowConfidenceOnCoverageLoss: true,
+        ),
+      ),
+      ExerciseDefinition.supported(
         type: ExerciseType.lateralRaise,
         movementPattern: ExerciseMovementPattern.shoulderAbduction,
         trackingType: ExerciseTrackingType.repetitions,

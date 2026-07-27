@@ -255,6 +255,25 @@ void main() {
       },
     );
 
+    test(
+      'Good Morning keeps knee-form technique optional for pose acceptance',
+      () {
+        final contract = RangeRepContracts.goodMorning;
+
+        expect(contract.poseAcceptanceRequiredSignals, <RangeRepSignal>{
+          RangeRepSignal.primaryMetric,
+        });
+        expect(
+          contract.signalHasRole(
+            RangeRepSignal.formMetric,
+            AnalysisSignalRole.technique,
+          ),
+          isTrue,
+        );
+        expect(contract.sideMode, RangeRepSideMode.selectedSide);
+      },
+    );
+
     test('Lateral Raise keeps sync out of elbow-form feedback', () {
       final contract = RangeRepContracts.lateralRaise;
 

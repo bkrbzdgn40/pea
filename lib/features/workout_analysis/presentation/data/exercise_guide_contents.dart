@@ -283,6 +283,34 @@ const exerciseGuideContents = [
     youtubeSourceLabel: 'Technique reference',
   ),
   ExerciseGuideContent(
+    type: ExerciseType.goodMorning,
+    subtitle:
+        'Kalça menteşesi ve arka zincir kontrolü için ayakta yapılan kontrollü kuvvet hareketi.',
+    purpose:
+        'Ana hareketi kalça açısından izler; diz açısının tekrar boyunca görece sabit kalmasını form sinyali olarak kullanır.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Ayakta dik başla ve kamerayı tam yandan yerleştir.',
+      'Ayaklarını kalça genişliğinde aç ve dizlerini hafifçe yumuşak tut.',
+      'Ellerini göğsünde veya başının arkasında rahatça konumlandır.',
+      'Kalçanı geriye göndermeden önce gövdeni sıkı ve dengeli hazırla.',
+    ],
+    tips: [
+      'Hareketi dizlerden değil kalçayı geriye göndererek başlat.',
+      'Diz açını tekrar boyunca büyük ölçüde sabit tut.',
+      'Gövde hizanı koruyabildiğin kontrollü derinlikte geri dön.',
+      'Yukarı gelirken kalçalarını ileri getir ve dik pozisyonu tamamla.',
+    ],
+    commonMistakes: [
+      'Dizleri fazla bükerek hareketi squata çevirmek.',
+      'Kontrollü kalça menteşesi yerine belden yuvarlanmak.',
+      'Hareket aralığını zorlamak için gövde hizasını kaybetmek.',
+      'Yukarı dönüşte kalçayı tamamlamadan tekrarı bitirmek.',
+    ],
+    youtubeUrl: 'https://www.youtube.com/watch?v=f23vXjoG2e8',
+    youtubeSourceLabel: 'Technique reference',
+  ),
+  ExerciseGuideContent(
     type: ExerciseType.lateralRaise,
     subtitle: 'Omuz abdüksiyonu için kontrollü iki kol kaldırma hareketi.',
     purpose:

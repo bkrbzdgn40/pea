@@ -163,6 +163,39 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
     );
   }
 
+  if (exerciseType == ExerciseType.goodMorning) {
+    return _RangeRepFeedbackCopy(
+      descend: localizations.pick(
+        tr: 'Kalçanı geriye göndererek kontrollü eğil...',
+        en: 'Send your hips back and hinge with control...',
+      ),
+      ascend: localizations.pick(
+        tr: 'Kalçalarını ileri getirerek doğrul...',
+        en: 'Drive your hips forward to stand tall...',
+      ),
+      formViolation: localizations.pick(
+        tr: 'Dizlerini biraz daha az bük.',
+        en: 'Bend your knees a little less.',
+      ),
+      controlDescent: localizations.pick(
+        tr: 'Kalça menteşesini kontrollü yap.',
+        en: 'Control the hip hinge.',
+      ),
+      controlAscent: localizations.pick(
+        tr: 'Dik pozisyona dönüşü kontrollü yap.',
+        en: 'Control the return to standing.',
+      ),
+      stabilizeTransition: localizations.pick(
+        tr: 'Alt noktada gövde hizanı koru.',
+        en: 'Maintain trunk alignment at the bottom.',
+      ),
+      maintainForm: localizations.pick(
+        tr: 'Diz açını sabit tutup kalça menteşesini koru.',
+        en: 'Keep your knee angle steady and maintain the hip hinge.',
+      ),
+    );
+  }
+
   if (exerciseType == ExerciseType.lunge) {
     return _RangeRepFeedbackCopy(
       descend: localizations.pick(

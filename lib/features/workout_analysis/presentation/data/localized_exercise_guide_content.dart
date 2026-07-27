@@ -281,6 +281,30 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
       'Bending only through the trunk instead of using a hip hinge.',
     ],
   ),
+  ExerciseType.goodMorning: _ExerciseGuideCopy(
+    subtitle:
+        'A controlled standing strength movement for the hip hinge and posterior chain.',
+    purpose:
+        'Tracks the primary movement through the hip angle and uses a relatively stable knee angle as a form signal.',
+    setupSteps: [
+      'Stand tall and place the camera directly to your side.',
+      'Set your feet about hip-width apart and keep a soft bend in your knees.',
+      'Place your hands comfortably across your chest or behind your head.',
+      'Brace your trunk and settle your balance before sending the hips backward.',
+    ],
+    tips: [
+      'Initiate the movement by sending the hips backward rather than bending the knees.',
+      'Keep your knee angle mostly stable throughout the repetition.',
+      'Turn around at a controlled depth where you can maintain trunk alignment.',
+      'Drive the hips forward and finish in a tall position as you rise.',
+    ],
+    commonMistakes: [
+      'Turning the movement into a squat by bending the knees too much.',
+      'Rounding through the lower back instead of using a controlled hip hinge.',
+      'Losing trunk alignment to force a deeper range of motion.',
+      'Ending the repetition before fully returning the hips to standing.',
+    ],
+  ),
   ExerciseType.lateralRaise: _ExerciseGuideCopy(
     subtitle: 'A controlled two-arm raising movement for shoulder abduction.',
     purpose:

@@ -87,7 +87,7 @@ class SetupStartPoseThresholds {
   final double dipSupportMinimumElbowAngleDegrees;
 }
 
-/// Resolves the 18 exercise contracts while sharing checks across pose families.
+/// Resolves the 19 exercise contracts while sharing checks across pose families.
 class SetupStartPoseContractResolver {
   const SetupStartPoseContractResolver();
 
@@ -115,6 +115,7 @@ class SetupStartPoseContractResolver {
     return switch (exerciseType) {
       ExerciseType.squat ||
       ExerciseType.romanianDeadlift ||
+      ExerciseType.goodMorning ||
       ExerciseType.calfRaise => StartPoseFamily.standingNeutralSide,
       ExerciseType.plank ||
       ExerciseType.pushUp => StartPoseFamily.floorProneSupport,
@@ -138,6 +139,7 @@ class SetupStartPoseContractResolver {
     return switch (exerciseType) {
       ExerciseType.squat ||
       ExerciseType.romanianDeadlift ||
+      ExerciseType.goodMorning ||
       ExerciseType.calfRaise => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.uprightTorso,
         SetupStartPoseCheck.kneesExtended,

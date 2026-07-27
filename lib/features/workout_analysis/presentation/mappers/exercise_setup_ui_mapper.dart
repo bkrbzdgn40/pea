@@ -192,6 +192,10 @@ String _startPoseInstruction(
       tr: 'Ayaklarını kalça genişliğinde aç, dizlerini hafif bük ve gövdeni dik başlat.',
       en: 'Stand with your feet about hip-width apart, keep a soft bend in your knees, and begin upright.',
     ),
+    ExerciseType.goodMorning => localizations.pick(
+      tr: 'Ayaklarını kalça genişliğinde aç, dizlerini hafifçe yumuşak tut ve gövdeni dik başlat.',
+      en: 'Stand with your feet about hip-width apart, keep a soft bend in your knees, and begin upright.',
+    ),
     ExerciseType.lateralRaise => localizations.pick(
       tr: 'Kollarını yanlarda aşağıda başlat ve dirseklerini hafif yumuşak tut.',
       en: 'Start with both arms down by your sides and keep a soft bend in your elbows.',
@@ -234,6 +238,7 @@ void _ensureStartPoseFamilyMatches(
   final expectedFamily = switch (exerciseType) {
     ExerciseType.squat ||
     ExerciseType.romanianDeadlift ||
+    ExerciseType.goodMorning ||
     ExerciseType.calfRaise => StartPoseFamily.standingNeutralSide,
     ExerciseType.plank ||
     ExerciseType.pushUp => StartPoseFamily.floorProneSupport,

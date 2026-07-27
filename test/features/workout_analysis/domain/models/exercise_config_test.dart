@@ -306,6 +306,20 @@ void main() {
       expect(jumpingJack.targetMaxAngle, 130.0);
     });
 
+    test('parses the Good Morning hip-hinge config', () {
+      final config = _loadConfig('assets/config/exercises/good_morning.json');
+
+      expect(config.name, 'Good Morning');
+      expect(config.primaryJoint, PoseLandmarkType.leftHip);
+      expect(config.joint1, PoseLandmarkType.leftShoulder);
+      expect(config.joint2, PoseLandmarkType.leftKnee);
+      expect(config.thresholdNeutral, 165.0);
+      expect(config.thresholdActive, 150.0);
+      expect(config.thresholdPeak, 115.0);
+      expect(config.formThreshold, 140.0);
+      expect(config.rangeRepSignals, isNotNull);
+    });
+
     test('parses wall-sit and side-plank hold configs', () {
       final wallSit = _loadConfig('assets/config/exercises/wall_sit.json');
       expect(wallSit.wallSitPosture, isNotNull);

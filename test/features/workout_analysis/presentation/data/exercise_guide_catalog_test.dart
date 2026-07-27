@@ -229,6 +229,31 @@ void main() {
       },
     );
 
+    test(
+      'Good Morning guide stays aligned with the selected-side hip-hinge contract',
+      () {
+        final definition = analysisCatalog.definitionFor(
+          ExerciseType.goodMorning,
+        );
+        final content = guideCatalog.contentFor(ExerciseType.goodMorning);
+
+        expect(definition.isAnalysisSupported, isTrue);
+        expect(definition.analysisEngineKind.name, 'rangeRep');
+        expect(content.type, ExerciseType.goodMorning);
+        expect(
+          definition.analysisCameraViewContract.supportFor(CameraView.side),
+          CameraViewSupport.preferred,
+        );
+        expect(
+          definition.analysisCameraViewContract.supportFor(CameraView.front),
+          CameraViewSupport.unsupported,
+        );
+        expect(content.setupSteps.join(' '), contains('kamerayı tam yandan'));
+        expect(content.tips.join(' '), contains('kalçayı geriye göndererek'));
+        expect(content.commonMistakes.join(' '), contains('squata çevirmek'));
+      },
+    );
+
     test('wall sit guide stays aligned with the side-view hold contract', () {
       final wallSitDefinition = analysisCatalog.definitionFor(
         ExerciseType.wallSit,

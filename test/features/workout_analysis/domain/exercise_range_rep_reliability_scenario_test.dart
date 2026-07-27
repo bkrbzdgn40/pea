@@ -23,8 +23,8 @@ void main() {
       .toList(growable: false);
 
   group('Range-rep deterministic reliability scenarios', () {
-    test('covers all 14 catalog range-rep exercises', () {
-      expect(definitions, hasLength(14));
+    test('covers all 15 catalog range-rep exercises', () {
+      expect(definitions, hasLength(15));
     });
 
     test('freezes selected-side and bilateral reliability scope', () {
@@ -36,7 +36,7 @@ void main() {
                   RangeRepSideMode.selectedSide,
             )
             .length,
-        10,
+        11,
       );
       expect(
         definitions
