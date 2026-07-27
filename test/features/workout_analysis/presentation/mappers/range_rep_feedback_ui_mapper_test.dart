@@ -315,6 +315,31 @@ void main() {
     }
   });
 
+  test('package two maps engine phases to physical cues', () {
+    const expectations = <ExerciseType, String>{
+      ExerciseType.standingHipExtension: 'Bacağını kontrollü geriye götür...',
+      ExerciseType.standingKneeRaise: 'Dizini kontrollü kaldır...',
+      ExerciseType.standingStraightLegRaise: 'Düz bacağını kontrollü kaldır...',
+      ExerciseType.vUp: 'Gövde ve bacaklarını birlikte kaldır...',
+      ExerciseType.frogPump: 'Kalçanı kontrollü kaldır...',
+      ExerciseType.lyingTricepsExtension: 'Dirseğini kontrollü aç...',
+      ExerciseType.floorChestPress: 'Kolunu kontrollü yukarı it...',
+      ExerciseType.yRaise: 'Kollarını Y hattına kaldır...',
+    };
+
+    for (final entry in expectations.entries) {
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.descend,
+          localizations: tr,
+          exerciseType: entry.key,
+        ),
+        entry.value,
+        reason: entry.key.id,
+      );
+    }
+  });
+
   test('runtime feedback supports English copy', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

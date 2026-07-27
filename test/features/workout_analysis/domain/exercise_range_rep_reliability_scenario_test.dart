@@ -23,8 +23,8 @@ void main() {
       .toList(growable: false);
 
   group('Range-rep deterministic reliability scenarios', () {
-    test('covers all 22 catalog range-rep exercises', () {
-      expect(definitions, hasLength(22));
+    test('covers all 30 catalog range-rep exercises', () {
+      expect(definitions, hasLength(30));
     });
 
     test('freezes selected-side and bilateral reliability scope', () {
@@ -36,7 +36,7 @@ void main() {
                   RangeRepSideMode.selectedSide,
             )
             .length,
-        16,
+        23,
       );
       expect(
         definitions
@@ -46,7 +46,7 @@ void main() {
                   RangeRepSideMode.bilateral,
             )
             .length,
-        6,
+        7,
       );
     });
 
@@ -345,7 +345,17 @@ void _armAtNeutral({
   required TestFakeClock clock,
   required _RangeRepScenarioMetrics metrics,
 }) {
-  _confirmMetric(engine: engine, clock: clock, metric: metrics.neutral);
+  engine.updateDetectionFrame(primaryMetric: metrics.neutral);
+
+  for (
+    var attempt = 0;
+    attempt < 10 && engine.phaseLabel == rangeRepAwaitNeutralPhaseLabel;
+    attempt++
+  ) {
+    clock.advance(_confirmationStep);
+    engine.updateDetectionFrame(primaryMetric: metrics.neutral);
+  }
+
   expect(engine.phaseLabel, 'NEUTRAL');
 }
 

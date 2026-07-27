@@ -1,16 +1,15 @@
 {
-  "name": "Glute Bridge",
+  "name": "Standing Hip Extension",
   "primaryJoint": "leftHip",
   "joint1": "leftShoulder",
   "joint2": "leftKnee",
-  "thresholdNeutral": 148.0,
-  "thresholdActive": 154.0,
-  "thresholdPeak": 164.0,
-  "idealDescentSeconds": 1.2,
-  "idealAscentSeconds": 1.0,
-  "formThreshold": 0.0,
-  "targetMinAngle": 0.0,
-  "targetMaxAngle": 170.0,
+  "thresholdNeutral": 172.0,
+  "thresholdActive": 158.0,
+  "thresholdPeak": 138.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 150.0,
+  "targetMinAngle": 130.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
@@ -27,7 +26,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 180,
+    "minDescendingMillis": 250,
     "minAscendingMillis": 300
   }
 }

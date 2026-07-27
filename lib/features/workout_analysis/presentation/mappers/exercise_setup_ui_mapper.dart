@@ -269,6 +269,38 @@ String _startPoseInstruction(
       tr: 'Ayaklarını yakın, kollarını yanlarda aşağıda tut ve dengeli dur.',
       en: 'Stand balanced with your feet close together and your arms down by your sides.',
     ),
+    ExerciseType.standingHipExtension => localizations.pick(
+      tr: 'Yan dur, ağırlığını destek bacağına aktar ve çalışan bacağını geriye uzatmaya hazır biçimde düz başlat.',
+      en: 'Stand side-on, shift your weight to the support leg, and begin with the working leg extended and ready to move backward.',
+    ),
+    ExerciseType.standingKneeRaise => localizations.pick(
+      tr: 'Yan dur, gövdeni dik tut ve kameraya yakın bacağını düz başlangıç pozisyonunda hazırla.',
+      en: 'Stand side-on, keep your torso upright, and prepare the leg closest to the camera in an extended starting position.',
+    ),
+    ExerciseType.standingStraightLegRaise => localizations.pick(
+      tr: 'Yan dur, çalışan dizini düz tut ve bacağını öne kaldırmaya hazır şekilde dengeli başla.',
+      en: 'Stand side-on, keep the working knee extended, and begin balanced and ready to raise the leg forward.',
+    ),
+    ExerciseType.vUp => localizations.pick(
+      tr: 'Sırt üstü uzan, bacaklarını düz tut ve kollarını baş üstünde uzatarak uzun bir başlangıç hattı kur.',
+      en: 'Lie on your back, keep your legs extended, and reach your arms overhead to create a long starting line.',
+    ),
+    ExerciseType.frogPump => localizations.pick(
+      tr: 'Sırt üstü uzan, ayak tabanlarını birleştir, dizlerini iki yana aç ve kalçanı zeminde başlat.',
+      en: 'Lie on your back, bring the soles of your feet together, open your knees outward, and begin with your hips on the floor.',
+    ),
+    ExerciseType.lyingTricepsExtension => localizations.pick(
+      tr: 'Sırt üstü uzan, dizlerini bük, üst kollarını omuzlarının üzerinde tut ve dirseklerini ellerin başına yaklaşacak şekilde bük.',
+      en: 'Lie on your back, bend your knees, keep your upper arms above your shoulders, and bend your elbows so your hands move toward your head.',
+    ),
+    ExerciseType.floorChestPress => localizations.pick(
+      tr: 'Sırt üstü uzan, dizlerini bük, ayaklarını yere bas ve kameraya yakın dirseğini yaklaşık dik açıyla bük.',
+      en: 'Lie on your back, bend your knees, plant your feet, and bend the elbow closest to the camera to roughly a right angle.',
+    ),
+    ExerciseType.yRaise => localizations.pick(
+      tr: 'Kameraya dön, kollarını yanlarda aşağıda başlat ve gövdeni dik tut.',
+      en: 'Face the camera, begin with your arms down by your sides, and keep your torso upright.',
+    ),
   };
 }
 
@@ -281,6 +313,9 @@ void _ensureStartPoseFamilyMatches(
     ExerciseType.romanianDeadlift ||
     ExerciseType.goodMorning ||
     ExerciseType.standingHamstringCurl ||
+    ExerciseType.standingHipExtension ||
+    ExerciseType.standingKneeRaise ||
+    ExerciseType.standingStraightLegRaise ||
     ExerciseType.calfRaise => StartPoseFamily.standingNeutralSide,
     ExerciseType.plank ||
     ExerciseType.pushUp => StartPoseFamily.floorProneSupport,
@@ -290,12 +325,17 @@ void _ensureStartPoseFamilyMatches(
     ExerciseType.reverseCrunch ||
     ExerciseType.lyingLegRaise ||
     ExerciseType.bentKneeLegRaise ||
-    ExerciseType.gluteBridge => StartPoseFamily.floorSupine,
+    ExerciseType.gluteBridge ||
+    ExerciseType.vUp ||
+    ExerciseType.frogPump ||
+    ExerciseType.lyingTricepsExtension ||
+    ExerciseType.floorChestPress => StartPoseFamily.floorSupine,
     ExerciseType.lunge => StartPoseFamily.splitStanceSide,
     ExerciseType.bicepsCurl ||
     ExerciseType.lateralRaise ||
     ExerciseType.standingHipAbduction ||
-    ExerciseType.uprightRow => StartPoseFamily.standingArmsDownFront,
+    ExerciseType.uprightRow ||
+    ExerciseType.yRaise => StartPoseFamily.standingArmsDownFront,
     ExerciseType.tricepsDip => StartPoseFamily.dipSupport,
     ExerciseType.shoulderPress || ExerciseType.overheadTricepsExtension =>
       StartPoseFamily.standingElbowsBentFront,
@@ -457,7 +497,14 @@ PreparationPoseTemplate _startPoseTemplate(
     case ExerciseType.lyingLegRaise:
     case ExerciseType.bentKneeLegRaise:
     case ExerciseType.gluteBridge:
+    case ExerciseType.frogPump:
       return PreparationPoseTemplate.floorSupineBentKnees;
+    case ExerciseType.vUp:
+      return PreparationPoseTemplate.floorSupineStraight;
+    case ExerciseType.lyingTricepsExtension:
+      return PreparationPoseTemplate.floorSupineElbowsBentOverhead;
+    case ExerciseType.floorChestPress:
+      return PreparationPoseTemplate.floorSupineChestPress;
     case ExerciseType.shoulderPress:
       return PreparationPoseTemplate.shoulderPressRack;
     default:

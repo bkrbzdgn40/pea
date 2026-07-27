@@ -292,7 +292,23 @@ void main() {
           now: clock.now,
         );
 
-        _confirmRangeRepMetric(clock, engine, scenario.neutral, 120);
+        final initialNeutralMillis =
+            scenario
+                    .contract
+                    .initialNeutralConfirmationDuration
+                    .inMilliseconds >
+                120
+            ? scenario
+                  .contract
+                  .initialNeutralConfirmationDuration
+                  .inMilliseconds
+            : 120;
+        _confirmRangeRepMetric(
+          clock,
+          engine,
+          scenario.neutral,
+          initialNeutralMillis,
+        );
         _confirmRangeRepMetric(clock, engine, scenario.active, 100);
         _confirmRangeRepMetric(clock, engine, scenario.peak, 100);
         _confirmRangeRepMetric(clock, engine, scenario.returning, 100);

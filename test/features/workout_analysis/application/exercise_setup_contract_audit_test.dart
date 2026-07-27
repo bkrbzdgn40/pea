@@ -61,6 +61,15 @@ void main() {
       ExerciseType.wallSit: StartPoseFamily.wallSupportedHold,
       ExerciseType.sidePlank: StartPoseFamily.sideSupport,
       ExerciseType.jumpingJack: StartPoseFamily.dynamicBilateralNeutral,
+      ExerciseType.standingHipExtension: StartPoseFamily.standingNeutralSide,
+      ExerciseType.standingKneeRaise: StartPoseFamily.standingNeutralSide,
+      ExerciseType.standingStraightLegRaise:
+          StartPoseFamily.standingNeutralSide,
+      ExerciseType.vUp: StartPoseFamily.floorSupine,
+      ExerciseType.frogPump: StartPoseFamily.floorSupine,
+      ExerciseType.lyingTricepsExtension: StartPoseFamily.floorSupine,
+      ExerciseType.floorChestPress: StartPoseFamily.floorSupine,
+      ExerciseType.yRaise: StartPoseFamily.standingArmsDownFront,
     };
 
     expect(expected.keys, unorderedEquals(ExerciseType.values));
@@ -101,6 +110,14 @@ void main() {
       ExerciseType.wallSit: SetupSupportSurface.wall,
       ExerciseType.sidePlank: SetupSupportSurface.floor,
       ExerciseType.jumpingJack: SetupSupportSurface.none,
+      ExerciseType.standingHipExtension: SetupSupportSurface.none,
+      ExerciseType.standingKneeRaise: SetupSupportSurface.none,
+      ExerciseType.standingStraightLegRaise: SetupSupportSurface.none,
+      ExerciseType.vUp: SetupSupportSurface.floor,
+      ExerciseType.frogPump: SetupSupportSurface.floor,
+      ExerciseType.lyingTricepsExtension: SetupSupportSurface.floor,
+      ExerciseType.floorChestPress: SetupSupportSurface.floor,
+      ExerciseType.yRaise: SetupSupportSurface.none,
     };
 
     expect(expected.keys, unorderedEquals(ExerciseType.values));
@@ -141,6 +158,14 @@ void main() {
       ExerciseType.wallSit: SetupCameraHeight.midBodyLevel,
       ExerciseType.sidePlank: SetupCameraHeight.floorLevel,
       ExerciseType.jumpingJack: SetupCameraHeight.midBodyLevel,
+      ExerciseType.standingHipExtension: SetupCameraHeight.lowerBodyLevel,
+      ExerciseType.standingKneeRaise: SetupCameraHeight.lowerBodyLevel,
+      ExerciseType.standingStraightLegRaise: SetupCameraHeight.lowerBodyLevel,
+      ExerciseType.vUp: SetupCameraHeight.floorLevel,
+      ExerciseType.frogPump: SetupCameraHeight.floorLevel,
+      ExerciseType.lyingTricepsExtension: SetupCameraHeight.floorLevel,
+      ExerciseType.floorChestPress: SetupCameraHeight.floorLevel,
+      ExerciseType.yRaise: SetupCameraHeight.upperBodyLevel,
     };
 
     expect(expected.keys, unorderedEquals(ExerciseType.values));
@@ -231,6 +256,14 @@ void main() {
       ExerciseType.wallSit: headToFeet,
       ExerciseType.sidePlank: fullBody,
       ExerciseType.jumpingJack: fullBody,
+      ExerciseType.standingHipExtension: sideChain,
+      ExerciseType.standingKneeRaise: sideChain,
+      ExerciseType.standingStraightLegRaise: sideChain,
+      ExerciseType.vUp: headToFeet,
+      ExerciseType.frogPump: sideChain,
+      ExerciseType.lyingTricepsExtension: fullBody,
+      ExerciseType.floorChestPress: fullBody,
+      ExerciseType.yRaise: upperBodyWithHead,
     };
 
     expect(expected.keys, unorderedEquals(ExerciseType.values));
@@ -260,6 +293,10 @@ void main() {
         ExerciseType.lyingLegRaise,
         ExerciseType.bentKneeLegRaise,
         ExerciseType.gluteBridge,
+        ExerciseType.vUp,
+        ExerciseType.frogPump,
+        ExerciseType.lyingTricepsExtension,
+        ExerciseType.floorChestPress,
         ExerciseType.sidePlank,
       ]) {
         expect(
@@ -292,6 +329,7 @@ void main() {
         ExerciseType.shoulderPress,
         ExerciseType.overheadTricepsExtension,
         ExerciseType.jumpingJack,
+        ExerciseType.yRaise,
       ]) {
         expect(
           catalog

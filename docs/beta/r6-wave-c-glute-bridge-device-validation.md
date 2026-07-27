@@ -52,9 +52,10 @@ Bu nedenle ankle/setup metriğinin geçici kaybı primary counting'i tek başın
 Production config:
 
 ```text
-thresholdNeutral = 135°
-thresholdActive = 145°
-thresholdPeak = 155°
+thresholdNeutral = 148°
+thresholdActive = 154°
+thresholdPeak = 164°
+initialNeutralConfirmation = 600 ms
 
 idealTowardPeakSeconds = 1.0
 idealReturnSeconds = 1.2
@@ -65,14 +66,14 @@ targetMaxAngle = 170°
 Primary direction `increasingToPeak` olduğundan lifecycle kapıları fiilen:
 
 ```text
-strict neutral acquisition = primaryMetric < 135°
-effective active entry     = primaryMetric > 148°
-strict peak acquisition    = primaryMetric > 158°
+strict neutral acquisition = primaryMetric < 148° for 600 ms
+effective active entry     = primaryMetric > 157°
+strict peak acquisition    = primaryMetric > 164°
 ```
 
-şeklindedir. Böylece resimdeki hips-down başlangıç pozisyonunun yaklaşık `125°` shoulder-hip-knee geometrisi neutral kabul edilirken, hareketin başlaması için yaklaşık `13°` ek açılma gerekir.
+şeklindedir. Gerçek cihaz kaydında hips-down başlangıç geometrisi yaklaşık `137–146°`, kontrollü köprü tepeleri ise yaklaşık `167–177°` aralığında gözlendi. `148°` neutral kapısı bu tabanı kabul eder; 600 ms yalnız ilk arm işleminde kullanıldığı için kullanıcının yere geçerken threshold'lardan kısa süreli geçmesi phantom tekrar başlatmaz. Normal tekrar tamamlanması ortak 100 ms neutral confirmation süresini korur.
 
-Önceki `105°` strict neutral kapısı, doğru sırtüstü ve dizler bükülü başlangıç pozisyonunu active aralığın içinde bıraktığı için `awaitNeutral` durumundan çıkamıyordu. Bu hardening yalnız Glute Bridge config ve ona bağlı ROM-delta validation kalibrasyonunu değiştirir; generic lifecycle'a dokunmaz.
+Bu hardening generic lifecycle'a yeni bir egzersiz dalı eklemez. Başlangıç neutral confirmation süresini contract metadata'sı üzerinden ayırır; yalnız Glute Bridge daha uzun stable-start politikasına opt-in olur.
 
 ## 3. Completed-Rep Validation
 
@@ -85,7 +86,7 @@ minAscentMillis = 300
 allowLowConfidenceOnCoverageLoss = true
 ```
 
-`minAcceptableRomDelta`, confirmed active-phase başlangıcından observed peak'e ölçülen conservative ROM consistency guard'dır; klinik veya rehabilitasyon cut-off'u değildir. Active gate `>148°`, peak gate `>158°` olacak şekilde yeniden kalibre edildiği için validation floor da bu yaklaşık `10°` lifecycle bandıyla hizalanmıştır. Peak gate değişmediğinden sığ hip raise hareketleri completed lifecycle üretmemeye devam eder.
+`minAcceptableRomDelta`, neutral başlangıç kanıtından observed peak'e taşınan ROM consistency guard'dır; klinik veya rehabilitasyon cut-off'u değildir. Glute Bridge contract'ı active confirmation sırasında son neutral metriği koruduğu için yüksek skorlu gerçek tekrarların yalnız active-to-peak bandı dar diye `insufficientRom` alması önlenir. Peak gate `>164°` olduğundan sığ hip raise hareketleri completed lifecycle üretmemeye devam eder.
 
 Ideal positive path:
 
@@ -217,7 +218,7 @@ Preflight başarısızsa threshold'a doğrudan dokunulmaz.
 2. selected shoulder/hip/knee landmark quality,
 3. selected-side stability,
 4. shoulder-hip-knee primary metric zaman serisi,
-5. neutral <135° / effective active >148° / effective peak >158° topology,
+5. initial neutral <148° for 600 ms / effective active >157° / effective peak >164° topology,
 6. sparse sampling / peak confirmation,
 7. completed-rep ROM validation,
 8. setup posture signalinin counting'e beklenmeyen etkisi,

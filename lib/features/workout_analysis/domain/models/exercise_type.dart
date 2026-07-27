@@ -33,7 +33,24 @@ enum ExerciseType {
   gluteBridge(id: 'glute_bridge', title: 'Glute Bridge'),
   wallSit(id: 'wall_sit', title: 'Wall Sit'),
   sidePlank(id: 'side_plank', title: 'Side Plank'),
-  jumpingJack(id: 'jumping_jack', title: 'Jumping Jack');
+  jumpingJack(id: 'jumping_jack', title: 'Jumping Jack'),
+  standingHipExtension(
+    id: 'standing_hip_extension',
+    title: 'Standing Hip Extension',
+  ),
+  standingKneeRaise(id: 'standing_knee_raise', title: 'Standing Knee Raise'),
+  standingStraightLegRaise(
+    id: 'standing_straight_leg_raise',
+    title: 'Standing Straight-Leg Raise',
+  ),
+  vUp(id: 'v_up', title: 'V-Up'),
+  frogPump(id: 'frog_pump', title: 'Frog Pump'),
+  lyingTricepsExtension(
+    id: 'lying_triceps_extension',
+    title: 'Lying Triceps Extension',
+  ),
+  floorChestPress(id: 'floor_chest_press', title: 'Floor Chest Press'),
+  yRaise(id: 'y_raise', title: 'Y Raise');
 
   const ExerciseType({required this.id, required this.title});
 

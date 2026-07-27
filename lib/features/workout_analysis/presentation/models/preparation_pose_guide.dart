@@ -11,6 +11,8 @@ enum PreparationPoseTemplate {
   floorSupineBentKnees,
   floorSupineTabletop,
   floorSupineBridgeSetup,
+  floorSupineElbowsBentOverhead,
+  floorSupineChestPress,
   wallSupportedHold,
   sideSupport,
   dipSupport,

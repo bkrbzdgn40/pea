@@ -249,6 +249,16 @@ void main() {
         ExerciseType.wallSit: ExerciseMovementPattern.squatHold,
         ExerciseType.sidePlank: ExerciseMovementPattern.sideCoreHold,
         ExerciseType.jumpingJack: ExerciseMovementPattern.fullBodyAbduction,
+        ExerciseType.standingHipExtension: ExerciseMovementPattern.hipExtension,
+        ExerciseType.standingKneeRaise: ExerciseMovementPattern.hipFlexion,
+        ExerciseType.standingStraightLegRaise:
+            ExerciseMovementPattern.hipFlexion,
+        ExerciseType.vUp: ExerciseMovementPattern.trunkFlexion,
+        ExerciseType.frogPump: ExerciseMovementPattern.hipExtension,
+        ExerciseType.lyingTricepsExtension:
+            ExerciseMovementPattern.elbowExtension,
+        ExerciseType.floorChestPress: ExerciseMovementPattern.horizontalPush,
+        ExerciseType.yRaise: ExerciseMovementPattern.shoulderAbduction,
       };
 
       expect(expectedPatterns.keys, unorderedEquals(ExerciseType.values));
@@ -306,6 +316,33 @@ void main() {
         sidePlank.usesAnalysisEngine(ExerciseAnalysisEngine.stability),
         isTrue,
       );
+    });
+
+    test('registers package two on the existing RangeRep engine', () {
+      final expectations = <ExerciseType, RangeRepContract>{
+        ExerciseType.standingHipExtension:
+            RangeRepContracts.standingHipExtension,
+        ExerciseType.standingKneeRaise: RangeRepContracts.standingKneeRaise,
+        ExerciseType.standingStraightLegRaise:
+            RangeRepContracts.standingStraightLegRaise,
+        ExerciseType.vUp: RangeRepContracts.vUp,
+        ExerciseType.frogPump: RangeRepContracts.frogPump,
+        ExerciseType.lyingTricepsExtension:
+            RangeRepContracts.lyingTricepsExtension,
+        ExerciseType.floorChestPress: RangeRepContracts.floorChestPress,
+        ExerciseType.yRaise: RangeRepContracts.yRaise,
+      };
+
+      for (final entry in expectations.entries) {
+        final definition = catalog.definitionFor(entry.key);
+        expect(definition.analysisEngineKind, EngineKind.rangeRep);
+        expect(definition.analysisRangeRepContract, same(entry.value));
+        expect(
+          definition.usesAnalysisEngine(ExerciseAnalysisEngine.tempo),
+          isTrue,
+          reason: entry.key.id,
+        );
+      }
     });
 
     test('exposes immutable capability collections', () {

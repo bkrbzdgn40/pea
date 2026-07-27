@@ -27,6 +27,7 @@ class GenericRepEngineConfig {
     this.activeConfirmationDuration = const Duration(milliseconds: 80),
     this.peakConfirmationDuration = const Duration(milliseconds: 80),
     this.returnConfirmationDuration = const Duration(milliseconds: 80),
+    this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
     this.neutralConfirmationDuration = const Duration(milliseconds: 100),
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
@@ -55,6 +56,13 @@ class GenericRepEngineConfig {
   final Duration activeConfirmationDuration;
   final Duration peakConfirmationDuration;
   final Duration returnConfirmationDuration;
+
+  /// Confirmation window used only while the engine is initially unarmed.
+  ///
+  /// Floor exercises can require a longer stable neutral hold before analysis
+  /// begins without forcing the same delay at the end of every repetition.
+  final Duration initialNeutralConfirmationDuration;
+
   final Duration neutralConfirmationDuration;
 
   /// Preserves a strict peak observation that arrives while active-entry
@@ -672,7 +680,7 @@ class GenericRepEngine {
   Duration _confirmationDurationFor(GenericRepTransitionType transition) {
     return switch (transition) {
       GenericRepTransitionType.acquireNeutral =>
-        config.neutralConfirmationDuration,
+        config.initialNeutralConfirmationDuration,
       GenericRepTransitionType.abortToNeutral =>
         config.neutralConfirmationDuration,
       GenericRepTransitionType.completeRep =>
@@ -702,6 +710,13 @@ class GenericRepEngine {
   }
 
   void _validateConfig() {
+    if (config.initialNeutralConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        config.initialNeutralConfirmationDuration,
+        'config.initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
     if (config.retainedPeakEvidenceMaxAge.isNegative) {
       throw ArgumentError.value(
         config.retainedPeakEvidenceMaxAge,

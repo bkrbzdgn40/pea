@@ -735,4 +735,235 @@ const exerciseGuideContents = [
         'https://www.youtube.com/results?search_query=upright+row+exercise+technique',
     youtubeSourceLabel: 'Exercise technique search',
   ),
+  ExerciseGuideContent(
+    type: ExerciseType.standingHipExtension,
+    subtitle:
+        'Ayakta tek taraflı kalça ekstansiyonu ve arka zincir kontrolü hareketi.',
+    purpose:
+        'Omuz-kalça-diz açısını kullanarak düz bacağın kontrollü biçimde geriye götürülüp başlangıca dönmesini izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya yandan dön ve çalışan bacağını kameraya yakın tut.',
+      'Ağırlığını destek bacağına dengeli biçimde aktar.',
+      'Çalışan dizini düz, gövdeni dik başlat.',
+      'Gerekirse denge için sabit bir yüzeye hafifçe tutun.',
+    ],
+    tips: [
+      'Bacağını kalçadan kontrollü biçimde geriye götür.',
+      'Belini aşırı çukurlaştırmadan kalçayı çalıştır.',
+      'Çalışan dizi mümkün olduğunca düz tut.',
+      'Bacağını başlangıca kontrollü döndür.',
+    ],
+    commonMistakes: [
+      'Gövdeyi öne eğerek hareketi büyütmek.',
+      'Belden aşırı geriye yaylanmak.',
+      'Çalışan dizi belirgin bükmek.',
+      'Bacağı kontrolsüz sallamak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=standing+hip+extension+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.standingKneeRaise,
+    subtitle:
+        'Ayakta tek taraflı diz kaldırma, kalça fleksiyonu ve denge hareketi.',
+    purpose:
+        'Kalça açısındaki kapanmayı ve dizin bükülü kalmasını izleyerek kontrollü diz kaldırma tekrarlarını sayar.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya yandan dön ve çalışan bacağını kameraya yakın tut.',
+      'Gövdeni dik ve destek ayağını dengeli tut.',
+      'Çalışan bacağını başlangıçta uzatılmış konumda hazırla.',
+      'Gerekirse hafif bir destek kullan.',
+    ],
+    tips: [
+      'Dizini gövdene doğru kontrollü kaldır.',
+      'Kaldırırken dizi rahatça bük.',
+      'Gövdeyi geriye yatırmadan kalçadan hareket et.',
+      'Ayağını zemine kontrollü döndür.',
+    ],
+    commonMistakes: [
+      'Gövdeyi geriye yatırmak.',
+      'Dizi yeterince bükmeden düz bacak gibi kaldırmak.',
+      'Destek ayağında dengeyi kaybetmek.',
+      'Bacağı hızlı ve kontrolsüz indirmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=standing+knee+raise+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.standingStraightLegRaise,
+    subtitle: 'Ayakta düz bacakla yapılan kontrollü kalça fleksiyonu hareketi.',
+    purpose:
+        'Çalışan dizin uzatılmış kaldığı öne bacak kaldırma döngülerini kalça açısı üzerinden izler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Kameraya yandan dön ve çalışan bacağını kameraya yakın tut.',
+      'Ağırlığını destek bacağına aktar.',
+      'Çalışan dizini düz ve ayağını nötr pozisyonda tut.',
+      'Gövdeni dik ve dengeli başlat.',
+    ],
+    tips: [
+      'Bacağını öne doğru kontrollü kaldır.',
+      'Çalışan dizi hareket boyunca düz tut.',
+      'Gövdeyi geriye yatırarak menzil kazanmaya çalışma.',
+      'Bacağını yavaşça başlangıca indir.',
+    ],
+    commonMistakes: [
+      'Çalışan dizi bükmek.',
+      'Gövdeyi geriye yatırmak.',
+      'Bacağı momentumla savurmak.',
+      'İnişi kontrolsüz bırakmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=standing+straight+leg+raise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.vUp,
+    subtitle:
+        'Üst gövde ve düz bacakların birlikte yükseldiği ileri seviye merkez bölge hareketi.',
+    purpose:
+        'Omuz-kalça-diz açısındaki güçlü kapanmayı kullanarak kontrollü V biçimli tekrar döngülerini izler.',
+    difficulty: ExerciseDifficulty.advanced,
+    setupSteps: [
+      'Sırt üstü uzan, bacaklarını birleştir ve dizlerini uzat.',
+      'Kollarını baş üstünde uzun biçimde uzat.',
+      'Kamerayı yandan, omuz-kalça-diz hattını görecek şekilde yerleştir.',
+      'Belini zorlamadan uzun başlangıç pozisyonuna yerleş.',
+    ],
+    tips: [
+      'Üst gövde ve bacakları birlikte kaldır.',
+      'Dizleri mümkün olduğunca düz tut.',
+      'Tepe noktasına savrulmadan kontrollü ulaş.',
+      'Aşağı dönüşü yavaşça tamamla.',
+    ],
+    commonMistakes: [
+      'Yalnız bacakları veya yalnız gövdeyi kaldırmak.',
+      'Dizleri belirgin bükmek.',
+      'Momentumla savrulmak.',
+      'Başlangıç pozisyonuna kontrolsüz düşmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=v+up+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.frogPump,
+    subtitle:
+        'Ayak tabanları birleşik ve dizler dışa açık yapılan kısa kalça ekstansiyonu hareketi.',
+    purpose:
+        'Frog pozisyonunda kalçanın zeminden kontrollü kaldırılıp indirilmesini tekrar döngüsü olarak izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan ve dizlerini bük.',
+      'Ayak tabanlarını birbirine getir ve dizlerini iki yana aç.',
+      'Kollarını gövdenin yanında rahatça yerleştir.',
+      'Kamerayı yandan kalça hattını görecek şekilde konumlandır.',
+    ],
+    tips: [
+      'Kalçanı kontrollü biçimde yukarı kaldır.',
+      'Üst noktada kalçayı sıkarken beli aşırı yaylandırma.',
+      'Ayak tabanlarının temasını koru.',
+      'Kalçanı zemine kontrollü indir.',
+    ],
+    commonMistakes: [
+      'Belden aşırı yaylanmak.',
+      'Ayak tabanlarını ayırmak.',
+      'Kalçayı yeterince kaldırmadan yarım tekrar yapmak.',
+      'Aşağı kontrolsüz düşmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=frog+pump+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.lyingTricepsExtension,
+    subtitle:
+        'Yerde sırtüstü pozisyonda yapılan kontrollü dirsek ekstansiyonu hareketi.',
+    purpose:
+        'Kameraya yakın dirseğin bükülü pozisyondan kontrollü açılıp tekrar bükülmesini izler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Sırt üstü uzan, dizlerini bük ve ayaklarını yere bas.',
+      'Kamerayı yandan, omuz-dirsek-bilek hattını görecek şekilde yerleştir.',
+      'Üst kolunu omuz üzerinde sabit tut.',
+      'Dirseğini bükerek ellerini başına yakın başlangıç konumuna getir.',
+    ],
+    tips: [
+      'Dirseğini kontrollü biçimde aç.',
+      'Üst kolu ileri-geri savurmadan sabit tut.',
+      'Üst noktada dirseği zorla kilitleme.',
+      'Ellerini başına doğru kontrollü indir.',
+    ],
+    commonMistakes: [
+      'Üst kolu omuzdan hareket ettirmek.',
+      'Dirseği yana açmak.',
+      'Ağırlığı hızla başa doğru bırakmak.',
+      'Hareketi yarım açışla tamamlamak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=lying+triceps+extension+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.floorChestPress,
+    subtitle:
+        'Yerde sırtüstü pozisyonda yapılan kontrollü göğüs press hareketi.',
+    purpose:
+        'Kameraya yakın dirseğin bükülü başlangıçtan açılıp tekrar yere yakın pozisyona dönmesini izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan, dizlerini bük ve ayaklarını yere bas.',
+      'Kamerayı yandan, omuz-dirsek-bilek hattını görecek şekilde yerleştir.',
+      'Dirseğini yaklaşık dik açıyla bük ve üst kolunu zemine yakın tut.',
+      'Bileğini dirseğinin üzerinde dengeli konumlandır.',
+    ],
+    tips: [
+      'Kolunu kontrollü biçimde yukarı it.',
+      'Omzunu zeminden gereksiz kaldırma.',
+      'Üst noktada dirseği zorla kilitleme.',
+      'Dirseğini zemine kontrollü yaklaştır.',
+    ],
+    commonMistakes: [
+      'Omzu öne kaldırmak.',
+      'Bileği aşırı geriye kırmak.',
+      'Dirseği kontrolsüz zemine bırakmak.',
+      'Tam açışa ulaşmadan yarım tekrar yapmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=floor+chest+press+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.yRaise,
+    subtitle:
+        'Kolların çapraz yukarı kaldırılarak Y şekli oluşturduğu omuz kontrol hareketi.',
+    purpose:
+        'Her iki kolun birlikte Y hattına yükselmesini ana hareket, dirseklerin düz kalmasını form sinyali olarak izler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Kameraya önden dön ve üst vücudunu kadraja al.',
+      'Kollarını yanlarda aşağıda başlat.',
+      'Dirseklerini hafif yumuşak ama uzun tut.',
+      'Gövdeni dik ve omuzlarını rahat hazırla.',
+    ],
+    tips: [
+      'Kollarını çapraz yukarı kaldırarak geniş bir Y oluştur.',
+      'İki kolu aynı hızda hareket ettir.',
+      'Dirsek açını hareket boyunca koru.',
+      'Kolları kontrollü biçimde başlangıca indir.',
+    ],
+    commonMistakes: [
+      'Dirsekleri belirgin bükmek.',
+      'Kolları farklı yüksekliklere kaldırmak.',
+      'Omuzları kulaklara doğru sıkıştırmak.',
+      'Gövdeyi geriye savurmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=y+raise+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
 ];

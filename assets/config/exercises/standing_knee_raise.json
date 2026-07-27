@@ -1,22 +1,22 @@
 {
-  "name": "Glute Bridge",
+  "name": "Standing Knee Raise",
   "primaryJoint": "leftHip",
   "joint1": "leftShoulder",
   "joint2": "leftKnee",
-  "thresholdNeutral": 148.0,
-  "thresholdActive": 154.0,
-  "thresholdPeak": 164.0,
-  "idealDescentSeconds": 1.2,
-  "idealAscentSeconds": 1.0,
-  "formThreshold": 0.0,
-  "targetMinAngle": 0.0,
-  "targetMaxAngle": 170.0,
+  "thresholdNeutral": 170.0,
+  "thresholdActive": 145.0,
+  "thresholdPeak": 95.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 55.0,
+  "targetMinAngle": 85.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
       "first": "leftHip",
       "middle": "leftKnee",
-      "last": "leftAnkle"
+      "last": "leftAnkle",
+      "transform": "complement180"
     },
     "depthMetric": {
       "source": "primaryMetric"
@@ -27,7 +27,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 180,
+    "minDescendingMillis": 250,
     "minAscendingMillis": 300
   }
 }

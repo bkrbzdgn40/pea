@@ -1,22 +1,20 @@
 {
-  "name": "Glute Bridge",
+  "name": "Frog Pump",
   "primaryJoint": "leftHip",
   "joint1": "leftShoulder",
   "joint2": "leftKnee",
-  "thresholdNeutral": 148.0,
-  "thresholdActive": 154.0,
-  "thresholdPeak": 164.0,
-  "idealDescentSeconds": 1.2,
+  "thresholdNeutral": 125.0,
+  "thresholdActive": 138.0,
+  "thresholdPeak": 150.0,
+  "idealDescentSeconds": 1.0,
   "idealAscentSeconds": 1.0,
   "formThreshold": 0.0,
   "targetMinAngle": 0.0,
-  "targetMaxAngle": 170.0,
+  "targetMaxAngle": 165.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
-      "first": "leftHip",
-      "middle": "leftKnee",
-      "last": "leftAnkle"
+      "source": "primaryMetric"
     },
     "depthMetric": {
       "source": "primaryMetric"
@@ -27,7 +25,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 180,
-    "minAscendingMillis": 300
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 250
   }
 }
