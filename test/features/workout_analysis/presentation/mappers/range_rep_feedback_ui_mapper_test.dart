@@ -153,6 +153,33 @@ void main() {
     },
   );
 
+  test('Good Morning uses hip-hinge-specific directional and form copy', () {
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.descend,
+        localizations: tr,
+        exerciseType: ExerciseType.goodMorning,
+      ),
+      'Kalçanı geriye göndererek kontrollü eğil...',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.maintainForm,
+        localizations: tr,
+        exerciseType: ExerciseType.goodMorning,
+      ),
+      'Diz açını sabit tutup kalça menteşesini koru.',
+    );
+    expect(
+      mapRangeRepFeedbackCodeToMessage(
+        RangeRepFeedbackCode.ascend,
+        localizations: en,
+        exerciseType: ExerciseType.goodMorning,
+      ),
+      'Drive your hips forward to stand tall...',
+    );
+  });
+
   test('biceps curl maps range-rep cues to simultaneous-arm copy', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

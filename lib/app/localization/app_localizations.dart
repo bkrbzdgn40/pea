@@ -451,6 +451,7 @@ class AppLocalizations {
         tr: 'Romen Deadlift',
         en: 'Romanian Deadlift',
       ),
+      'good_morning' => 'Good Morning',
       'lateral_raise' => pick(tr: 'Yana Kol Kaldırma', en: 'Lateral Raise'),
       'shoulder_press' => pick(tr: 'Omuz Press', en: 'Shoulder Press'),
       'calf_raise' => pick(tr: 'Baldır Kaldırma', en: 'Calf Raise'),

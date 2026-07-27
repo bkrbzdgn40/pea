@@ -232,6 +232,7 @@ void main() {
         ExerciseType.lyingLegRaise: ExerciseMovementPattern.hipFlexion,
         ExerciseType.tricepsDip: ExerciseMovementPattern.elbowExtension,
         ExerciseType.romanianDeadlift: ExerciseMovementPattern.hipHinge,
+        ExerciseType.goodMorning: ExerciseMovementPattern.hipHinge,
         ExerciseType.lateralRaise: ExerciseMovementPattern.shoulderAbduction,
         ExerciseType.shoulderPress: ExerciseMovementPattern.verticalPush,
         ExerciseType.calfRaise: ExerciseMovementPattern.anklePlantarFlexion,
@@ -433,6 +434,29 @@ void main() {
       );
     });
 
+    test('enables Good Morning as a selected-side hip-hinge range rep', () {
+      final definition = catalog.definitionFor(ExerciseType.goodMorning);
+
+      expect(definition.isAnalysisSupported, isTrue);
+      expect(definition.analysisEngineKind, EngineKind.rangeRep);
+      expect(
+        definition.analysisConfigAssetPath,
+        'assets/config/exercises/good_morning.json',
+      );
+      expect(
+        definition.analysisRangeRepContract,
+        same(RangeRepContracts.goodMorning),
+      );
+      expect(
+        definition.analysisRangeRepContract.sideMode,
+        RangeRepSideMode.selectedSide,
+      );
+      expect(
+        definition.analysisRangeRepValidationConfig.minAcceptableRomDelta,
+        25.0,
+      );
+    });
+
     test('declares side-only camera support for side-view exercises', () {
       for (final type in const <ExerciseType>[
         ExerciseType.squat,
@@ -444,6 +468,7 @@ void main() {
         ExerciseType.lyingLegRaise,
         ExerciseType.tricepsDip,
         ExerciseType.romanianDeadlift,
+        ExerciseType.goodMorning,
       ]) {
         final contract = catalog.definitionFor(type).analysisCameraViewContract;
 
@@ -540,6 +565,7 @@ void main() {
         ExerciseType.lyingLegRaise,
         ExerciseType.tricepsDip,
         ExerciseType.romanianDeadlift,
+        ExerciseType.goodMorning,
         ExerciseType.lateralRaise,
         ExerciseType.shoulderPress,
       ]) {

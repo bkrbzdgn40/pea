@@ -39,6 +39,7 @@ void main() {
     ExerciseType.lyingLegRaise,
     ExerciseType.tricepsDip,
     ExerciseType.romanianDeadlift,
+    ExerciseType.goodMorning,
     ExerciseType.lateralRaise,
     ExerciseType.shoulderPress,
     ExerciseType.calfRaise,
@@ -50,14 +51,14 @@ void main() {
   };
 
   group('Exercise reliability contract audit', () {
-    test('freezes the current 18-exercise supported reliability baseline', () {
+    test('freezes the current 19-exercise supported reliability baseline', () {
       final supportedTypes = catalog.definitions
           .where((definition) => definition.isAnalysisSupported)
           .map((definition) => definition.type)
           .toSet();
 
       expect(supportedTypes, reliabilityBaselineTypes);
-      expect(supportedTypes, hasLength(18));
+      expect(supportedTypes, hasLength(19));
       expect(
         catalog.definitions
             .where(
@@ -65,7 +66,7 @@ void main() {
                   definition.analysisEngineKind == EngineKind.rangeRep,
             )
             .length,
-        14,
+        15,
       );
       expect(
         catalog.definitions
@@ -276,6 +277,42 @@ void main() {
         'assets/config/exercises/romanian_deadlift.json',
       );
       final contract = RangeRepContracts.romanianDeadlift;
+
+      final supported = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: contract,
+        rangeRepSignalSet: RangeRepSignalSet.supportedAnalysis,
+        side: RangeRepSide.left,
+      );
+      final poseAcceptance = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: contract,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.left,
+      );
+
+      expect(supported.requiredLandmarks, contains(PoseLandmarkType.leftAnkle));
+      expect(
+        poseAcceptance.requiredLandmarks,
+        containsAll(<PoseLandmarkType>[
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+        ]),
+      );
+      expect(
+        poseAcceptance.requiredLandmarks,
+        isNot(contains(PoseLandmarkType.leftAnkle)),
+      );
+    });
+
+    test('Good Morning preserves the hip-hinge landmark contract', () {
+      final config = loadExerciseConfig(
+        'assets/config/exercises/good_morning.json',
+      );
+      final contract = RangeRepContracts.goodMorning;
 
       final supported = requirements.resolve(
         config: config,
