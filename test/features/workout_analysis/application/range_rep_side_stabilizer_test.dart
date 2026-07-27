@@ -36,6 +36,35 @@ void main() {
       },
     );
 
+    test('honors a confirmed moving side without duplicate hysteresis', () {
+      final stabilizer = RangeRepSideStabilizer();
+      final selection = RangeRepSideSelection(
+        selectedSide: RangeRepSide.right,
+        leftMetrics: _sideMetrics(
+          RangeRepSide.left,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          sideConfidence: 0.8,
+        ),
+        rightMetrics: _sideMetrics(
+          RangeRepSide.right,
+          hasPrimaryAngle: true,
+          hasFormMetric: true,
+          sideConfidence: 0.8,
+        ),
+        reason: RangeRepSideSelectionReason.switchedToMovingSide,
+      );
+
+      final stabilized = stabilizer.stabilizeSelection(
+        selection: selection,
+        currentSide: RangeRepSide.left,
+        hasActiveRepContext: false,
+      );
+
+      expect(stabilized.selectedSide, RangeRepSide.right);
+      expect(stabilizer.hysteresisStatus, 'movement:right');
+    });
+
     test('holds the previous side until a soft switch is reconfirmed', () {
       final stabilizer = RangeRepSideStabilizer();
       final candidate = _selection(

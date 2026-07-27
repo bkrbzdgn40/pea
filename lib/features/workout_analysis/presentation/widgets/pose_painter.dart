@@ -7,6 +7,7 @@ class PosePainter extends CustomPainter {
   final bool isFormBad;
   final bool isMirrored;
   final bool showDebugLandmarks;
+  final String? emphasizedSide;
 
   PosePainter(
     this.landmarks,
@@ -14,6 +15,7 @@ class PosePainter extends CustomPainter {
     this.isFormBad = false,
     this.isMirrored = false,
     this.showDebugLandmarks = false,
+    this.emphasizedSide,
   });
 
   @override
@@ -22,6 +24,7 @@ class PosePainter extends CustomPainter {
     final formAccentColor = const Color(0xFFFFBE78).withValues(alpha: 0.92);
     final jointColor = Colors.white.withValues(alpha: 0.86);
     final debugDotColor = Colors.white.withValues(alpha: 0.20);
+    final selectedSideColor = const Color(0xFF65D8FF).withValues(alpha: 0.98);
 
     final skeletonPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -56,6 +59,19 @@ class PosePainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
       ..color = formAccentColor;
+
+    final selectedSidePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = selectedSideColor;
+
+    final selectedSideJointPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true
+      ..color = selectedSideColor;
 
     final debugDotPaint = Paint()
       ..style = PaintingStyle.fill
@@ -132,6 +148,23 @@ class PosePainter extends CustomPainter {
       drawSegment(segment, skeletonPaint);
     }
 
+    final selectedSegments = switch (emphasizedSide?.toLowerCase()) {
+      'left' => _leftLegSegments,
+      'right' => _rightLegSegments,
+      _ => const <_PoseSegment>[],
+    };
+    final selectedJoints = switch (emphasizedSide?.toLowerCase()) {
+      'left' => _leftLegJoints,
+      'right' => _rightLegJoints,
+      _ => const <PoseLandmarkType>[],
+    };
+    for (final segment in selectedSegments) {
+      drawSegment(segment, selectedSidePaint);
+    }
+    for (final joint in selectedJoints) {
+      drawJoint(joint, selectedSideJointPaint, radius: 4.2);
+    }
+
     if (isFormBad) {
       for (final segment in _accentSkeletonSegments) {
         drawSegment(segment, accentPaint);
@@ -157,7 +190,8 @@ class PosePainter extends CustomPainter {
         oldDelegate.absoluteImageSize != absoluteImageSize ||
         oldDelegate.isFormBad != isFormBad ||
         oldDelegate.isMirrored != isMirrored ||
-        oldDelegate.showDebugLandmarks != showDebugLandmarks;
+        oldDelegate.showDebugLandmarks != showDebugLandmarks ||
+        oldDelegate.emphasizedSide != emphasizedSide;
   }
 }
 
@@ -174,6 +208,28 @@ const List<_PoseSegment> _commonSkeletonSegments = [
   _PoseSegment(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle),
   _PoseSegment(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee),
   _PoseSegment(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle),
+];
+
+const List<_PoseSegment> _leftLegSegments = [
+  _PoseSegment(PoseLandmarkType.leftHip, PoseLandmarkType.leftKnee),
+  _PoseSegment(PoseLandmarkType.leftKnee, PoseLandmarkType.leftAnkle),
+];
+
+const List<_PoseSegment> _rightLegSegments = [
+  _PoseSegment(PoseLandmarkType.rightHip, PoseLandmarkType.rightKnee),
+  _PoseSegment(PoseLandmarkType.rightKnee, PoseLandmarkType.rightAnkle),
+];
+
+const List<PoseLandmarkType> _leftLegJoints = [
+  PoseLandmarkType.leftHip,
+  PoseLandmarkType.leftKnee,
+  PoseLandmarkType.leftAnkle,
+];
+
+const List<PoseLandmarkType> _rightLegJoints = [
+  PoseLandmarkType.rightHip,
+  PoseLandmarkType.rightKnee,
+  PoseLandmarkType.rightAnkle,
 ];
 
 const List<_PoseSegment> _accentSkeletonSegments = [

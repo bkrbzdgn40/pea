@@ -103,6 +103,8 @@ void main() {
         rangeRepInvalidReason: RangeRepFrameInvalidReason.missingFormMetric,
         selectedRangeRepSide: 'left',
         rangeRepSideSelectionReason: 'locked active side',
+        rangeRepAutomaticSideSelectionEnabled: true,
+        rangeRepMovementSelectedSide: 'left',
         leftRangeRepCoverage: 7,
         rightRangeRepCoverage: 1,
         leftRangeRepSideConfidence: 0.9,
@@ -133,6 +135,8 @@ void main() {
       expect(metrics.formThreshold, 150);
       expect(metrics.rangeRepInvalidReason, 'form joints missing');
       expect(metrics.selectedRangeRepSide, 'left');
+      expect(metrics.rangeRepAutomaticSideSelectionEnabled, isTrue);
+      expect(metrics.rangeRepMovementSelectedSide, 'left');
       expect(metrics.rangeRepSideHysteresisStatus, 'locked');
       expect(metrics.currentBodyLineAngle, 170);
       expect(metrics.descendingPhaseDurationMs, 420);

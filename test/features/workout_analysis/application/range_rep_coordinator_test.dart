@@ -1080,6 +1080,64 @@ void main() {
     );
 
     test(
+      'automatic unilateral selection follows the leg that starts moving',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildStandingKneeRaiseCoordinator(clock);
+
+        for (var index = 0; index < 3; index += 1) {
+          coordinator.processFrame(
+            metrics: _selectedSideMetrics(
+              leftAngle: 172,
+              rightAngle: 172,
+              leftFormMetric: 170,
+              rightFormMetric: 170,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: RangeRepSide.left,
+          );
+          clock.advance(const Duration(milliseconds: 120));
+        }
+
+        RangeRepCoordinatorFrameResult? result;
+        for (var index = 0; index < 3; index += 1) {
+          result = coordinator.processFrame(
+            metrics: _selectedSideMetrics(
+              leftAngle: 172,
+              rightAngle: 125,
+              leftFormMetric: 170,
+              rightFormMetric: 170,
+            ),
+            now: clock.now(),
+            isAcceptedPoseFrame: true,
+            didBecomeStableTracking: false,
+            qualityAcceptedRangeRepSides: const <RangeRepSide>{
+              RangeRepSide.left,
+              RangeRepSide.right,
+            },
+            preferredRangeRepSide: RangeRepSide.left,
+          );
+          clock.advance(const Duration(milliseconds: 120));
+        }
+
+        final metrics = result!.stateSnapshot.calibrationMetrics;
+        expect(metrics.selectedRangeRepSide, 'right');
+        expect(metrics.rangeRepMovementSelectedSide, 'right');
+        expect(metrics.rangeRepAutomaticSideSelectionEnabled, isTrue);
+        expect(
+          metrics.rangeRepSideSelectionReason,
+          anyOf('switched to moving side', 'kept moving side'),
+        );
+      },
+    );
+
+    test(
       'locks the previously selected side while an active rep context is in progress',
       () {
         final clock = _TestClock();
@@ -1835,6 +1893,18 @@ DefaultRangeRepCoordinator _buildBicepsCoordinator(_TestClock clock) {
     clock,
     config: loadExerciseConfig('assets/config/exercises/biceps_curl.json'),
     contract: RangeRepContracts.bicepsCurl,
+  );
+}
+
+DefaultRangeRepCoordinator _buildStandingKneeRaiseCoordinator(
+  _TestClock clock,
+) {
+  return _buildCoordinatorWith(
+    clock,
+    config: loadExerciseConfig(
+      'assets/config/exercises/standing_knee_raise.json',
+    ),
+    contract: RangeRepContracts.standingKneeRaise,
   );
 }
 

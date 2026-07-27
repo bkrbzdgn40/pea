@@ -290,6 +290,15 @@ void main() {
         );
       }
       expect(
+        RangeRepContracts.standingHamstringCurl.automaticSideSelectionEnabled,
+        isTrue,
+      );
+      expect(
+        RangeRepContracts.standingHipAbduction.automaticSideSelectionEnabled,
+        isTrue,
+      );
+      expect(RangeRepContracts.crunch.automaticSideSelectionEnabled, isFalse);
+      expect(
         RangeRepContracts.standingHipAbduction.requiresPoseAcceptanceSignal(
           RangeRepSignal.formMetric,
         ),
@@ -300,6 +309,25 @@ void main() {
           RangeRepSignal.formMetric,
         ),
         isTrue,
+      );
+    });
+
+    test('automatic side selection rejects bilateral contracts', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          sideMode: RangeRepSideMode.bilateral,
+          automaticSideSelectionEnabled: true,
+        ),
+        throwsArgumentError,
       );
     });
 
@@ -331,6 +359,14 @@ void main() {
           contract.primaryMetricDirection,
           RangeRepPrimaryMetricDirection.increasingToPeak,
         );
+      }
+
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.standingHipExtension,
+        RangeRepContracts.standingKneeRaise,
+        RangeRepContracts.standingStraightLegRaise,
+      ]) {
+        expect(contract.automaticSideSelectionEnabled, isTrue);
       }
 
       expect(RangeRepContracts.yRaise.sideMode, RangeRepSideMode.bilateral);

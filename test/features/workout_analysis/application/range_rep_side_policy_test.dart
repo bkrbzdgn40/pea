@@ -174,6 +174,55 @@ void main() {
       );
     });
 
+    test('movement preference overrides an equally covered previous side', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 170,
+            formMetric: 70,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+          right: const RangeRepSideMetrics(
+            side: RangeRepSide.right,
+            primaryAngle: 120,
+            formMetric: 70,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+        ),
+        previousSide: RangeRepSide.left,
+        movementPreferredSide: RangeRepSide.right,
+      );
+
+      expect(selection.selectedSide, RangeRepSide.right);
+      expect(
+        selection.reason,
+        RangeRepSideSelectionReason.switchedToMovingSide,
+      );
+    });
+
+    test('keeps a movement-locked side through temporary signal loss', () {
+      final selection = policy.select(
+        metrics: _metrics(
+          left: const RangeRepSideMetrics(
+            side: RangeRepSide.left,
+            primaryAngle: 170,
+            formMetric: 70,
+            hasPrimaryAngle: true,
+            hasFormMetric: true,
+          ),
+          right: const RangeRepSideMetrics.unavailable(RangeRepSide.right),
+        ),
+        previousSide: RangeRepSide.right,
+        movementPreferredSide: RangeRepSide.right,
+      );
+
+      expect(selection.selectedSide, RangeRepSide.right);
+      expect(selection.reason, RangeRepSideSelectionReason.keptMovingSide);
+    });
+
     test('returns noAvailableSide when both sides have zero coverage', () {
       final selection = policy.select(
         metrics: _metrics(

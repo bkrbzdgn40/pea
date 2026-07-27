@@ -7,6 +7,9 @@ enum RangeRepSideSelectionReason {
   keptPreviousSide,
   switchedToHigherCoverage,
   selectedHigherCoverage,
+  selectedMovingSide,
+  switchedToMovingSide,
+  keptMovingSide,
   selectedPreferredQuality,
   selectedLeftTie,
   keptPreviousSideWithoutCoverage,
@@ -51,6 +54,12 @@ class RangeRepSideSelection {
         return 'switched to higher coverage';
       case RangeRepSideSelectionReason.selectedHigherCoverage:
         return 'selected higher coverage';
+      case RangeRepSideSelectionReason.selectedMovingSide:
+        return 'selected moving side';
+      case RangeRepSideSelectionReason.switchedToMovingSide:
+        return 'switched to moving side';
+      case RangeRepSideSelectionReason.keptMovingSide:
+        return 'kept moving side';
       case RangeRepSideSelectionReason.selectedPreferredQuality:
         return 'selected preferred quality';
       case RangeRepSideSelectionReason.selectedLeftTie:
@@ -70,6 +79,7 @@ class RangeRepSidePolicy {
     required ExerciseMetrics metrics,
     RangeRepSide? previousSide,
     RangeRepSide? preferredSide,
+    RangeRepSide? movementPreferredSide,
     bool lockPreviousSide = false,
   }) {
     final leftMetrics = metrics.leftRangeRepMetrics;
@@ -84,16 +94,29 @@ class RangeRepSidePolicy {
       );
     }
 
-    if (previousSide != null) {
-      if (lockPreviousSide) {
-        return RangeRepSideSelection(
-          selectedSide: previousSide,
-          leftMetrics: leftMetrics,
-          rightMetrics: rightMetrics,
-          reason: RangeRepSideSelectionReason.lockedActiveRepSide,
-        );
-      }
+    if (previousSide != null && lockPreviousSide) {
+      return RangeRepSideSelection(
+        selectedSide: previousSide,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.lockedActiveRepSide,
+      );
+    }
 
+    if (movementPreferredSide != null) {
+      return RangeRepSideSelection(
+        selectedSide: movementPreferredSide,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: previousSide == null
+            ? RangeRepSideSelectionReason.selectedMovingSide
+            : previousSide == movementPreferredSide
+            ? RangeRepSideSelectionReason.keptMovingSide
+            : RangeRepSideSelectionReason.switchedToMovingSide,
+      );
+    }
+
+    if (previousSide != null) {
       final previousMetrics = previousSide == RangeRepSide.left
           ? leftMetrics
           : rightMetrics;
