@@ -495,4 +495,171 @@ const _englishCopies = <ExerciseType, _ExerciseGuideCopy>{
       'Rushing through partial-range repetitions.',
     ],
   ),
+  ExerciseType.crunch: _ExerciseGuideCopy(
+    subtitle:
+        'A short trunk-flexion movement that lifts the shoulders from the floor under control.',
+    purpose:
+        'Tracks controlled closing of the shoulder-hip line and counts repetitions through a shorter range than a full sit-up.',
+    setupSteps: [
+      'Lie on your back, bend your knees, and plant your feet on the floor.',
+      'Place the camera to the side so the shoulder-hip-knee line is visible.',
+      'Keep your neck relaxed and place your hands without pulling your head.',
+      'Wait in the neutral position, ready to lift your shoulders with control.',
+    ],
+    tips: [
+      'Lift your shoulders and curl your trunk through a short controlled range.',
+      'Use your core without forcing your lower back off the floor.',
+      'Change direction at the top without swinging.',
+      'Do not let gravity control the return.',
+    ],
+    commonMistakes: [
+      'Pulling the neck forward with the hands.',
+      'Swinging through the movement quickly.',
+      'Using partial repetitions without lifting the shoulders enough.',
+      'Dropping back to the floor without control.',
+    ],
+  ),
+  ExerciseType.reverseCrunch: _ExerciseGuideCopy(
+    subtitle:
+        'A core movement that lifts the hips from the floor with control.',
+    purpose:
+        'Tracks closing of the shoulder-hip-knee angle to count controlled hip-curl cycles.',
+    setupSteps: [
+      'Lie on your back and bend your knees comfortably.',
+      'Place the camera to the side so the shoulder-hip-knee line is visible.',
+      'Keep your arms at your sides for balance and stabilize your trunk.',
+      'Settle your knees slightly beyond your hips, ready for a controlled curl.',
+    ],
+    tips: [
+      'Curl your hips with control instead of swinging your knees.',
+      'Use a small, clean hip lift at the top.',
+      'Avoid excessive range that causes lower-back discomfort.',
+      'Return to the starting position slowly.',
+    ],
+    commonMistakes: [
+      'Swinging the legs with momentum.',
+      'Moving only the knees without lifting the hips.',
+      'Losing control at the top.',
+      'Dropping through the return.',
+    ],
+  ),
+  ExerciseType.bentKneeLegRaise: _ExerciseGuideCopy(
+    subtitle:
+        'A controlled hip-flexion and core movement performed with the knees bent.',
+    purpose:
+        'Uses the shoulder-hip-knee angle to track the bent legs lifting and lowering as a repetition cycle.',
+    setupSteps: [
+      'Lie on your back, bend your knees comfortably, and keep your legs together.',
+      'Place the camera to the side so the shoulder, hip, knee, and ankle are visible.',
+      'Keep your arms at your sides for balance.',
+      'Start with the legs low without forcing your lower back.',
+    ],
+    tips: [
+      'Raise both legs together with control.',
+      'Keep your knee angle approximately consistent throughout the movement.',
+      'Do not lower past the point where you lose lower-back control.',
+      'Complete the lowering phase slowly.',
+    ],
+    commonMistakes: [
+      'Swinging the legs.',
+      'Changing the knee angle continuously through the repetition.',
+      'Lowering too far and losing lower-back control.',
+      'Dropping quickly into the start position.',
+    ],
+  ),
+  ExerciseType.standingHamstringCurl: _ExerciseGuideCopy(
+    subtitle:
+        'A standing unilateral knee-flexion movement for hamstring control.',
+    purpose:
+        'Tracks the hip-knee-ankle angle as the heel curls toward the glutes and returns to extension.',
+    setupSteps: [
+      'Stand side-on to the camera with the working leg closest to it.',
+      'Shift your weight onto the support leg in a balanced position.',
+      'Use light support from a stable surface if needed.',
+      'Begin with the working knee extended and the hips steady.',
+    ],
+    tips: [
+      'Curl your heel toward your glutes with control.',
+      'Keep the thigh as still as possible instead of moving the knee forward.',
+      'Do not swing your trunk forward or backward.',
+      'Extend the leg back to the starting position with control.',
+    ],
+    commonMistakes: [
+      'Folding forward at the hips.',
+      'Moving the knee forward to imitate a larger range.',
+      'Losing balance on the support leg.',
+      'Letting the leg drop without control.',
+    ],
+  ),
+  ExerciseType.standingHipAbduction: _ExerciseGuideCopy(
+    subtitle: 'A standing unilateral lateral leg raise for hip control.',
+    purpose:
+        'Uses the shoulder-hip-knee angle as the repetition signal and knee extension as a supporting form signal.',
+    setupSteps: [
+      'Face the camera and keep your whole body in frame.',
+      'Shift your weight onto the support leg and keep your trunk upright.',
+      'Relax your arms at your sides or use light support from a stable surface.',
+      'Begin with the working knee extended in the neutral position.',
+    ],
+    tips: [
+      'Raise the leg to the side without leaning your trunk away.',
+      'Keep the working knee as straight as possible.',
+      'Keep the foot naturally aligned and the hips facing forward.',
+      'Lower the leg back to the start with control.',
+    ],
+    commonMistakes: [
+      'Leaning the trunk to exaggerate the range.',
+      'Bending the working knee substantially.',
+      'Rotating the hips outward.',
+      'Swinging the leg without control.',
+    ],
+  ),
+  ExerciseType.overheadTricepsExtension: _ExerciseGuideCopy(
+    subtitle:
+        'A bilateral overhead elbow-extension movement performed with both arms together.',
+    purpose:
+        'Tracks both elbows extending together as the repetition signal and upper-arm position as a form signal.',
+    setupSteps: [
+      'Face the camera and keep your head, shoulders, elbows, and wrists in frame.',
+      'Bring your arms overhead and bend your elbows comfortably.',
+      'Keep your upper arms close to your head and your trunk upright.',
+      'Prepare to move both arms at the same time.',
+    ],
+    tips: [
+      'Extend both elbows together with control.',
+      'Keep your upper arms steady instead of swinging them forward and back.',
+      'Do not forcefully lock the elbows at the top.',
+      'Lower the weight behind your head with control.',
+    ],
+    commonMistakes: [
+      'Letting the upper arms flare widely.',
+      'Moving the arms at different times.',
+      'Leaning excessively backward through the lower back.',
+      'Dropping the weight quickly.',
+    ],
+  ),
+  ExerciseType.uprightRow: _ExerciseGuideCopy(
+    subtitle:
+        'A simultaneous two-arm pulling movement led upward by the elbows.',
+    purpose:
+        'Tracks both shoulder angles increasing together to count controlled upward pulls and returns.',
+    setupSteps: [
+      'Face the camera and keep both shoulder-elbow-wrist lines in frame.',
+      'Start with your arms down in front of your body.',
+      'Keep your shoulders relaxed and your trunk upright.',
+      'Prepare to guide both elbows upward at the same time.',
+    ],
+    tips: [
+      'Lead the pull with your elbows rather than your hands.',
+      'Do not force the elbows unnecessarily above shoulder height.',
+      'Move both arms together without swinging the trunk.',
+      'Complete the return under control.',
+    ],
+    commonMistakes: [
+      'Shrugging the shoulders excessively toward the ears.',
+      'Using trunk momentum to swing the load.',
+      'Pulling the arms to different heights.',
+      'Lowering the load without control.',
+    ],
+  ),
 };

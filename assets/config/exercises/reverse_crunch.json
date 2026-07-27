@@ -1,0 +1,30 @@
+{
+  "name": "Reverse Crunch",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftKnee",
+  "thresholdNeutral": 105.0,
+  "thresholdActive": 92.0,
+  "thresholdPeak": 68.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 0.0,
+  "targetMinAngle": 62.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "source": "primaryMetric"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 300
+  }
+}

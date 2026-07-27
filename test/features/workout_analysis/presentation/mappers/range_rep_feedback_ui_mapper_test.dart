@@ -291,6 +291,30 @@ void main() {
     );
   });
 
+  test('seven-exercise package maps engine phases to physical cues', () {
+    const expectations = <ExerciseType, String>{
+      ExerciseType.crunch: 'Omuzlarını kontrollü kaldır...',
+      ExerciseType.reverseCrunch: 'Kalçanı kontrollü kaldır...',
+      ExerciseType.bentKneeLegRaise: 'Dizlerini kontrollü kaldır...',
+      ExerciseType.standingHamstringCurl: 'Topuğunu kalçana doğru çek...',
+      ExerciseType.standingHipAbduction: 'Bacağını kontrollü yana kaldır...',
+      ExerciseType.overheadTricepsExtension: 'Dirseklerini kontrollü aç...',
+      ExerciseType.uprightRow: 'Dirseklerini kontrollü yukarı çek...',
+    };
+
+    for (final entry in expectations.entries) {
+      expect(
+        mapRangeRepFeedbackCodeToMessage(
+          RangeRepFeedbackCode.descend,
+          localizations: tr,
+          exerciseType: entry.key,
+        ),
+        entry.value,
+        reason: entry.key.id,
+      );
+    }
+  });
+
   test('runtime feedback supports English copy', () {
     expect(
       mapRangeRepFeedbackCodeToMessage(

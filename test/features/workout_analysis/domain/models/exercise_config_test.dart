@@ -306,6 +306,53 @@ void main() {
       expect(jumpingJack.targetMaxAngle, 130.0);
     });
 
+    test('parses the seven-exercise range-rep expansion configs', () {
+      const expectations = <String, (String, double, double, double)>{
+        'assets/config/exercises/crunch.json': ('Crunch', 120, 112, 98),
+        'assets/config/exercises/reverse_crunch.json': (
+          'Reverse Crunch',
+          105,
+          92,
+          68,
+        ),
+        'assets/config/exercises/bent_knee_leg_raise.json': (
+          'Bent-Knee Leg Raise',
+          125,
+          110,
+          78,
+        ),
+        'assets/config/exercises/standing_hamstring_curl.json': (
+          'Standing Hamstring Curl',
+          165,
+          145,
+          92,
+        ),
+        'assets/config/exercises/standing_hip_abduction.json': (
+          'Standing Hip Abduction',
+          170,
+          155,
+          128,
+        ),
+        'assets/config/exercises/overhead_triceps_extension.json': (
+          'Overhead Triceps Extension',
+          82,
+          105,
+          155,
+        ),
+        'assets/config/exercises/upright_row.json': ('Upright Row', 28, 40, 75),
+      };
+
+      for (final entry in expectations.entries) {
+        final config = _loadConfig(entry.key);
+        final expected = entry.value;
+        expect(config.name, expected.$1, reason: entry.key);
+        expect(config.thresholdNeutral, expected.$2, reason: entry.key);
+        expect(config.thresholdActive, expected.$3, reason: entry.key);
+        expect(config.thresholdPeak, expected.$4, reason: entry.key);
+        expect(config.rangeRepSignals, isNotNull, reason: entry.key);
+      }
+    });
+
     test('parses the Good Morning hip-hinge config', () {
       final config = _loadConfig('assets/config/exercises/good_morning.json');
 

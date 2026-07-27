@@ -176,6 +176,14 @@ String _startPoseInstruction(
       tr: 'Sırt üstü uzan, dizlerini bük, ayaklarını yere bas ve ellerini boynunu çekmeyecek şekilde yerleştir.',
       en: 'Lie on your back, bend your knees, plant your feet, and place your hands without pulling on your neck.',
     ),
+    ExerciseType.crunch => localizations.pick(
+      tr: 'Sırt üstü uzan, dizlerini bük, ayaklarını yere bas ve omuzlarını zeminden kaldırmaya hazırlan.',
+      en: 'Lie on your back, bend your knees, plant your feet, and prepare to lift your shoulders from the floor.',
+    ),
+    ExerciseType.reverseCrunch => localizations.pick(
+      tr: 'Sırt üstü uzan, dizlerini bük ve kalçanı kontrollü kaldırabileceğin dengeli bir pozisyon kur.',
+      en: 'Lie on your back, bend your knees, and settle into a balanced position for a controlled hip lift.',
+    ),
     ExerciseType.bicepsCurl => localizations.pick(
       tr: 'Kollarını aşağıda başlat ve dirseklerini gövdene yakın tut.',
       en: 'Start with both arms down and keep your elbows close to your torso.',
@@ -183,6 +191,18 @@ String _startPoseInstruction(
     ExerciseType.lyingLegRaise => localizations.pick(
       tr: 'Sırt üstü uzan; bacaklarını birleştir, dizlerini uzat ve bacaklarını zemine yakın başlat.',
       en: 'Lie on your back with your legs together, knees extended, and legs starting close to the floor.',
+    ),
+    ExerciseType.bentKneeLegRaise => localizations.pick(
+      tr: 'Sırt üstü uzan, dizlerini rahatça bük ve bacaklarını birlikte hareket ettirmeye hazırlan.',
+      en: 'Lie on your back, bend your knees comfortably, and prepare to move both legs together.',
+    ),
+    ExerciseType.standingHamstringCurl => localizations.pick(
+      tr: 'Yan dur, ağırlığını destek bacağına aktar ve çalışan bacağını düz pozisyonda başlat.',
+      en: 'Stand side-on, shift your weight to the support leg, and begin with the working leg extended.',
+    ),
+    ExerciseType.standingHipAbduction => localizations.pick(
+      tr: 'Kameraya dön, dik dur ve çalışan bacağını yana kaldırmak için ayaklarını yakın başlat.',
+      en: 'Face the camera, stand tall, and begin with your feet close before raising the working leg to the side.',
     ),
     ExerciseType.tricepsDip => localizations.pick(
       tr: 'Ellerini sağlam yükseltinin kenarına yerleştir, kalçanı yüzeyin önüne al ve ayaklarını öne uzat.',
@@ -203,6 +223,14 @@ String _startPoseInstruction(
     ExerciseType.shoulderPress => localizations.pick(
       tr: 'Dirseklerini bük, ellerini omuz hizasına getir ve gövdeni dik tut.',
       en: 'Bend your elbows, bring your hands to shoulder level, and keep your torso upright.',
+    ),
+    ExerciseType.overheadTricepsExtension => localizations.pick(
+      tr: 'Kollarını baş üstüne al, dirseklerini bük ve üst kollarını başına yakın tut.',
+      en: 'Bring your arms overhead, bend your elbows, and keep your upper arms close to your head.',
+    ),
+    ExerciseType.uprightRow => localizations.pick(
+      tr: 'Kollarını gövdenin önünde aşağıda başlat ve omuzlarını rahat tut.',
+      en: 'Start with your arms down in front of your body and keep your shoulders relaxed.',
     ),
     ExerciseType.calfRaise => localizations.pick(
       tr: 'Ayaklarını kalça genişliğinde aç, dizlerini uzat ve topuklarını yere basarak dengeli dur.',
@@ -239,18 +267,25 @@ void _ensureStartPoseFamilyMatches(
     ExerciseType.squat ||
     ExerciseType.romanianDeadlift ||
     ExerciseType.goodMorning ||
+    ExerciseType.standingHamstringCurl ||
     ExerciseType.calfRaise => StartPoseFamily.standingNeutralSide,
     ExerciseType.plank ||
     ExerciseType.pushUp => StartPoseFamily.floorProneSupport,
     ExerciseType.hollowHold ||
     ExerciseType.sitUp ||
+    ExerciseType.crunch ||
+    ExerciseType.reverseCrunch ||
     ExerciseType.lyingLegRaise ||
+    ExerciseType.bentKneeLegRaise ||
     ExerciseType.gluteBridge => StartPoseFamily.floorSupine,
     ExerciseType.lunge => StartPoseFamily.splitStanceSide,
     ExerciseType.bicepsCurl ||
-    ExerciseType.lateralRaise => StartPoseFamily.standingArmsDownFront,
+    ExerciseType.lateralRaise ||
+    ExerciseType.standingHipAbduction ||
+    ExerciseType.uprightRow => StartPoseFamily.standingArmsDownFront,
     ExerciseType.tricepsDip => StartPoseFamily.dipSupport,
-    ExerciseType.shoulderPress => StartPoseFamily.standingElbowsBentFront,
+    ExerciseType.shoulderPress || ExerciseType.overheadTricepsExtension =>
+      StartPoseFamily.standingElbowsBentFront,
     ExerciseType.frontRaise => StartPoseFamily.standingArmsDownSide,
     ExerciseType.wallSit => StartPoseFamily.wallSupportedHold,
     ExerciseType.sidePlank => StartPoseFamily.sideSupport,

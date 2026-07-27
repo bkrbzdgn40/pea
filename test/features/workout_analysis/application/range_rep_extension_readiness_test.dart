@@ -126,6 +126,13 @@ void main() {
     test('toward-peak muscle action metadata matches exercise mechanics', () {
       const concentricTowardPeak = <ExerciseType>{
         ExerciseType.sitUp,
+        ExerciseType.crunch,
+        ExerciseType.reverseCrunch,
+        ExerciseType.bentKneeLegRaise,
+        ExerciseType.standingHamstringCurl,
+        ExerciseType.standingHipAbduction,
+        ExerciseType.overheadTricepsExtension,
+        ExerciseType.uprightRow,
         ExerciseType.bicepsCurl,
         ExerciseType.lyingLegRaise,
         ExerciseType.lateralRaise,

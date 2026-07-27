@@ -1,0 +1,32 @@
+{
+  "name": "Standing Hip Abduction",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftKnee",
+  "thresholdNeutral": 170.0,
+  "thresholdActive": 155.0,
+  "thresholdPeak": 128.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 150.0,
+  "targetMinAngle": 120.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "first": "leftHip",
+      "middle": "leftKnee",
+      "last": "leftAnkle"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 300
+  }
+}

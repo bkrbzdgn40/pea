@@ -1,0 +1,30 @@
+{
+  "name": "Bent-Knee Leg Raise",
+  "primaryJoint": "leftHip",
+  "joint1": "leftShoulder",
+  "joint2": "leftKnee",
+  "thresholdNeutral": 125.0,
+  "thresholdActive": 110.0,
+  "thresholdPeak": 78.0,
+  "idealDescentSeconds": 1.1,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 0.0,
+  "targetMinAngle": 72.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "source": "primaryMetric"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 300,
+    "minAscendingMillis": 300
+  }
+}

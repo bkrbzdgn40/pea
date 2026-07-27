@@ -228,13 +228,21 @@ void main() {
         ExerciseType.lunge: ExerciseMovementPattern.lunge,
         ExerciseType.pushUp: ExerciseMovementPattern.horizontalPush,
         ExerciseType.sitUp: ExerciseMovementPattern.trunkFlexion,
+        ExerciseType.crunch: ExerciseMovementPattern.trunkFlexion,
+        ExerciseType.reverseCrunch: ExerciseMovementPattern.trunkFlexion,
         ExerciseType.bicepsCurl: ExerciseMovementPattern.elbowFlexion,
         ExerciseType.lyingLegRaise: ExerciseMovementPattern.hipFlexion,
+        ExerciseType.bentKneeLegRaise: ExerciseMovementPattern.hipFlexion,
+        ExerciseType.standingHamstringCurl: ExerciseMovementPattern.kneeFlexion,
+        ExerciseType.standingHipAbduction: ExerciseMovementPattern.hipAbduction,
         ExerciseType.tricepsDip: ExerciseMovementPattern.elbowExtension,
         ExerciseType.romanianDeadlift: ExerciseMovementPattern.hipHinge,
         ExerciseType.goodMorning: ExerciseMovementPattern.hipHinge,
         ExerciseType.lateralRaise: ExerciseMovementPattern.shoulderAbduction,
         ExerciseType.shoulderPress: ExerciseMovementPattern.verticalPush,
+        ExerciseType.overheadTricepsExtension:
+            ExerciseMovementPattern.elbowExtension,
+        ExerciseType.uprightRow: ExerciseMovementPattern.shoulderAbduction,
         ExerciseType.calfRaise: ExerciseMovementPattern.anklePlantarFlexion,
         ExerciseType.frontRaise: ExerciseMovementPattern.shoulderFlexion,
         ExerciseType.gluteBridge: ExerciseMovementPattern.hipExtension,
@@ -243,6 +251,7 @@ void main() {
         ExerciseType.jumpingJack: ExerciseMovementPattern.fullBodyAbduction,
       };
 
+      expect(expectedPatterns.keys, unorderedEquals(ExerciseType.values));
       for (final entry in expectedPatterns.entries) {
         expect(
           catalog.definitionFor(entry.key).movementPattern,
@@ -457,15 +466,60 @@ void main() {
       );
     });
 
+    test('registers the seven-exercise range-rep package', () {
+      final expectations = <ExerciseType, RangeRepContract>{
+        ExerciseType.crunch: RangeRepContracts.crunch,
+        ExerciseType.reverseCrunch: RangeRepContracts.reverseCrunch,
+        ExerciseType.bentKneeLegRaise: RangeRepContracts.bentKneeLegRaise,
+        ExerciseType.standingHamstringCurl:
+            RangeRepContracts.standingHamstringCurl,
+        ExerciseType.standingHipAbduction:
+            RangeRepContracts.standingHipAbduction,
+        ExerciseType.overheadTricepsExtension:
+            RangeRepContracts.overheadTricepsExtension,
+        ExerciseType.uprightRow: RangeRepContracts.uprightRow,
+      };
+
+      for (final entry in expectations.entries) {
+        final definition = catalog.definitionFor(entry.key);
+        expect(definition.analysisEngineKind, EngineKind.rangeRep);
+        expect(definition.analysisRangeRepContract, same(entry.value));
+        expect(
+          definition.analysisRangeRepValidationConfig.minAcceptableRomDelta,
+          isNotNull,
+          reason: entry.key.id,
+        );
+      }
+
+      expect(
+        catalog
+            .definitionFor(ExerciseType.overheadTricepsExtension)
+            .analysisRangeRepContract
+            .sideMode,
+        RangeRepSideMode.bilateral,
+      );
+      expect(
+        catalog
+            .definitionFor(ExerciseType.uprightRow)
+            .analysisRangeRepContract
+            .sideMode,
+        RangeRepSideMode.bilateral,
+      );
+    });
+
     test('declares side-only camera support for side-view exercises', () {
       for (final type in const <ExerciseType>[
         ExerciseType.squat,
         ExerciseType.pushUp,
         ExerciseType.sitUp,
+        ExerciseType.crunch,
+        ExerciseType.reverseCrunch,
         ExerciseType.plank,
         ExerciseType.hollowHold,
         ExerciseType.lunge,
         ExerciseType.lyingLegRaise,
+        ExerciseType.bentKneeLegRaise,
+        ExerciseType.standingHamstringCurl,
         ExerciseType.tricepsDip,
         ExerciseType.romanianDeadlift,
         ExerciseType.goodMorning,
@@ -486,12 +540,15 @@ void main() {
     });
 
     test(
-      'declares front-only camera support for bilateral upper-body exercises',
+      'declares front-only camera support for the new front-view exercises',
       () {
         for (final type in const <ExerciseType>[
           ExerciseType.bicepsCurl,
           ExerciseType.lateralRaise,
           ExerciseType.shoulderPress,
+          ExerciseType.standingHipAbduction,
+          ExerciseType.overheadTricepsExtension,
+          ExerciseType.uprightRow,
         ]) {
           final contract = catalog
               .definitionFor(type)
@@ -566,8 +623,15 @@ void main() {
         ExerciseType.tricepsDip,
         ExerciseType.romanianDeadlift,
         ExerciseType.goodMorning,
+        ExerciseType.crunch,
+        ExerciseType.reverseCrunch,
+        ExerciseType.bentKneeLegRaise,
+        ExerciseType.standingHamstringCurl,
+        ExerciseType.standingHipAbduction,
         ExerciseType.lateralRaise,
         ExerciseType.shoulderPress,
+        ExerciseType.overheadTricepsExtension,
+        ExerciseType.uprightRow,
       ]) {
         final definition = catalog.definitionFor(type);
         final config = definition.analysisRangeRepValidationConfig;

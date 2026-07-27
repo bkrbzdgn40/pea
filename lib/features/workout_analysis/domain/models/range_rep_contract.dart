@@ -268,6 +268,100 @@ class RangeRepContract {
 
 /// Predefined range-rep contracts kept separate from runtime wiring.
 abstract final class RangeRepContracts {
+  static RangeRepContract _concentricPrimaryOnly({
+    RangeRepSideMode sideMode = RangeRepSideMode.selectedSide,
+    RangeRepPrimaryMetricKind primaryMetricKind =
+        RangeRepPrimaryMetricKind.jointAngle,
+    RangeRepPrimaryMetricDirection primaryMetricDirection =
+        RangeRepPrimaryMetricDirection.decreasingToPeak,
+    double peakEntryMargin = 3.0,
+    int primaryMetricSmoothingWindow = 5,
+  }) {
+    return RangeRepContract(
+      towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+      supportedPhases: const <RangeRepPhase>{
+        RangeRepPhase.descending,
+        RangeRepPhase.peak,
+        RangeRepPhase.ascending,
+      },
+      supportedSignals: const <RangeRepSignal>{
+        RangeRepSignal.primaryMetric,
+        RangeRepSignal.formMetric,
+        RangeRepSignal.depthMetric,
+      },
+      signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+        RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+          AnalysisSignalRole.scoring,
+        },
+        RangeRepSignal.formMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.setup,
+        },
+        RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.scoring,
+        },
+      },
+      poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+        RangeRepSignal.primaryMetric,
+      },
+      formThresholdCalibrationPolicy:
+          RangeRepFormThresholdCalibrationPolicy.disabled,
+      sideMode: sideMode,
+      primaryMetricKind: primaryMetricKind,
+      primaryMetricDirection: primaryMetricDirection,
+      peakEntryMargin: peakEntryMargin,
+      primaryMetricSmoothingWindow: primaryMetricSmoothingWindow,
+    );
+  }
+
+  static RangeRepContract _concentricWithForm({
+    required RangeRepSideMode sideMode,
+    required RangeRepPrimaryMetricDirection primaryMetricDirection,
+  }) {
+    return RangeRepContract(
+      towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
+      supportedPhases: const <RangeRepPhase>{
+        RangeRepPhase.descending,
+        RangeRepPhase.peak,
+        RangeRepPhase.ascending,
+      },
+      supportedSignals: const <RangeRepSignal>{
+        RangeRepSignal.primaryMetric,
+        RangeRepSignal.formMetric,
+        RangeRepSignal.postureAngle,
+        RangeRepSignal.depthMetric,
+      },
+      signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+        RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+          AnalysisSignalRole.scoring,
+        },
+        RangeRepSignal.formMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.validation,
+          AnalysisSignalRole.technique,
+          AnalysisSignalRole.scoring,
+        },
+        RangeRepSignal.postureAngle: <AnalysisSignalRole>{
+          AnalysisSignalRole.technique,
+        },
+        RangeRepSignal.depthMetric: <AnalysisSignalRole>{
+          AnalysisSignalRole.scoring,
+        },
+      },
+      poseAcceptanceRequiredSignals: const <RangeRepSignal>{
+        RangeRepSignal.primaryMetric,
+        RangeRepSignal.formMetric,
+      },
+      formThresholdCalibrationPolicy:
+          RangeRepFormThresholdCalibrationPolicy.disabled,
+      sideMode: sideMode,
+      bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
+      primaryMetricDirection: primaryMetricDirection,
+    );
+  }
+
   static final RangeRepContract squat = RangeRepContract(
     extensionProfile: RangeRepExtensionProfile.squat,
     supportedPhases: const <RangeRepPhase>{
@@ -385,6 +479,17 @@ abstract final class RangeRepContracts {
     primaryMetricKind: RangeRepPrimaryMetricKind.imagePlaneInclination,
   );
 
+  static final RangeRepContract crunch = _concentricPrimaryOnly(
+    primaryMetricKind: RangeRepPrimaryMetricKind.imagePlaneInclination,
+    peakEntryMargin: 0.0,
+    primaryMetricSmoothingWindow: 3,
+  );
+
+  static final RangeRepContract reverseCrunch = _concentricPrimaryOnly(
+    peakEntryMargin: 0.0,
+    primaryMetricSmoothingWindow: 3,
+  );
+
   static final RangeRepContract bicepsCurl = RangeRepContract(
     towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
     extensionProfile: RangeRepExtensionProfile.bicepsCurl,
@@ -462,6 +567,18 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+  );
+
+  static final RangeRepContract bentKneeLegRaise = _concentricPrimaryOnly(
+    peakEntryMargin: 0.0,
+  );
+
+  static final RangeRepContract standingHamstringCurl =
+      _concentricPrimaryOnly();
+
+  static final RangeRepContract standingHipAbduction = _concentricWithForm(
+    sideMode: RangeRepSideMode.selectedSide,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
   );
 
   static final RangeRepContract tricepsDip = RangeRepContract(
@@ -680,6 +797,16 @@ abstract final class RangeRepContracts {
     sideMode: RangeRepSideMode.bilateral,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
   );
+  static final RangeRepContract overheadTricepsExtension = _concentricWithForm(
+    sideMode: RangeRepSideMode.bilateral,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
+  static final RangeRepContract uprightRow = _concentricPrimaryOnly(
+    sideMode: RangeRepSideMode.bilateral,
+    primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+  );
+
   static final RangeRepContract calfRaise = RangeRepContract(
     towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
     supportedPhases: const <RangeRepPhase>{

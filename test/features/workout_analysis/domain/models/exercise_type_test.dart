@@ -24,6 +24,16 @@ void main() {
       expect(ExerciseType.romanianDeadlift.id, 'romanian_deadlift');
       expect(ExerciseType.goodMorning.id, 'good_morning');
       expect(ExerciseType.goodMorning.title, 'Good Morning');
+      expect(ExerciseType.crunch.id, 'crunch');
+      expect(ExerciseType.reverseCrunch.id, 'reverse_crunch');
+      expect(ExerciseType.bentKneeLegRaise.id, 'bent_knee_leg_raise');
+      expect(ExerciseType.standingHamstringCurl.id, 'standing_hamstring_curl');
+      expect(ExerciseType.standingHipAbduction.id, 'standing_hip_abduction');
+      expect(
+        ExerciseType.overheadTricepsExtension.id,
+        'overhead_triceps_extension',
+      );
+      expect(ExerciseType.uprightRow.id, 'upright_row');
       expect(ExerciseType.lateralRaise.id, 'lateral_raise');
       expect(ExerciseType.shoulderPress.id, 'shoulder_press');
       expect(ExerciseType.calfRaise.id, 'calf_raise');

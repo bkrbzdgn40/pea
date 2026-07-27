@@ -532,4 +532,207 @@ const exerciseGuideContents = [
     youtubeUrl: 'https://www.youtube.com/watch?v=c4DAnQ6DtF8',
     youtubeSourceLabel: 'Technique reference',
   ),
+  ExerciseGuideContent(
+    type: ExerciseType.crunch,
+    subtitle:
+        'Merkez bölge kontrolü için omuzların zeminden kontrollü kaldırıldığı kısa gövde fleksiyonu.',
+    purpose:
+        'Omuz-kalça hattındaki kontrollü kapanmayı izler ve tam mekikten daha kısa bir hareket aralığında tekrar sayar.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan, dizlerini bük ve ayaklarını zemine yerleştir.',
+      'Kamerayı yandan, omuz-kalça-diz hattını görecek şekilde konumlandır.',
+      'Boynunu rahat tut ve ellerini başını çekmeyecek bir pozisyona al.',
+      'Omuzlarını kontrollü kaldırmaya hazır şekilde nötr pozisyonda bekle.',
+    ],
+    tips: [
+      'Omuzlarını zeminden kaldırırken gövdeni kısa ve kontrollü kıvır.',
+      'Belini zorla yerden koparmadan merkez bölgeni kullan.',
+      'Üst noktada savrulmadan yön değiştir.',
+      'Aşağı dönüşü yerçekimine bırakma.',
+    ],
+    commonMistakes: [
+      'Boynu ellerle öne çekmek.',
+      'Hareketi hızla savurarak tamamlamak.',
+      'Omuzları yeterince kaldırmadan yarım tekrar yapmak.',
+      'Aşağı kontrolsüz düşmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=crunch+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.reverseCrunch,
+    subtitle:
+        'Kalçanın kontrollü biçimde zeminden ayrıldığı merkez bölge hareketi.',
+    purpose:
+        'Omuz-kalça-diz açısındaki kapanmayı izleyerek kontrollü kalça kıvırma döngülerini sayar.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan ve dizlerini rahatça bük.',
+      'Kamerayı yandan, omuz-kalça-diz hattı görünür olacak şekilde yerleştir.',
+      'Kollarını denge için yanında tut ve gövdeni sabitle.',
+      'Dizlerini kalçanın biraz ilerisinde, kontrollü kıvırmaya hazır bir başlangıç konumuna getir.',
+    ],
+    tips: [
+      'Dizleri savurmak yerine kalçanı kontrollü kıvır.',
+      'Üst noktada küçük ve temiz bir kalça kaldırışı hedefle.',
+      'Belini rahatsız eden aşırı menzilden kaçın.',
+      'Başlangıç pozisyonuna yavaşça dön.',
+    ],
+    commonMistakes: [
+      'Bacakları momentumla savurmak.',
+      'Kalçayı kaldırmadan yalnız dizleri hareket ettirmek.',
+      'Üst noktada kontrolü kaybetmek.',
+      'Aşağı dönüşü hızla bırakmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=reverse+crunch+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.bentKneeLegRaise,
+    subtitle:
+        'Dizler bükülü halde yapılan kontrollü kalça fleksiyonu ve merkez bölge hareketi.',
+    purpose:
+        'Omuz-kalça-diz açısını kullanarak bükülü bacakların kaldırılıp indirilmesini tekrar döngüsü olarak izler.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Sırt üstü uzan, dizlerini rahatça bük ve bacaklarını birlikte tut.',
+      'Kamerayı yandan, omuz-kalça-diz ve ayak bileği hattını görecek şekilde yerleştir.',
+      'Kollarını denge için yanında tut.',
+      'Belini zorlamadan bacaklarını düşük başlangıç konumuna getir.',
+    ],
+    tips: [
+      'İki bacağını birlikte ve kontrollü kaldır.',
+      'Diz açını hareket boyunca yaklaşık aynı tut.',
+      'Bel kontrolünü kaybettiğin noktadan daha aşağı inme.',
+      'İnişi yavaş ve kontrollü tamamla.',
+    ],
+    commonMistakes: [
+      'Bacakları savurmak.',
+      'Diz açısını tekrar boyunca sürekli değiştirmek.',
+      'Bel kontrolünü kaybederek fazla aşağı inmek.',
+      'Başlangıç konumuna hızlı düşmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=bent+knee+leg+raise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.standingHamstringCurl,
+    subtitle:
+        'Ayakta tek taraflı diz fleksiyonu ve arka bacak kontrolü için hareket.',
+    purpose:
+        'Kalça-diz-ayak bileği açısını izleyerek topuğun kalçaya doğru çekilip tekrar uzatılmasını sayar.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya yandan dön ve çalışan bacağını kameraya yakın tut.',
+      'Ağırlığını destek bacağına dengeli biçimde aktar.',
+      'Gerekirse sabit bir yüzeye hafifçe tutun.',
+      'Çalışan dizi başlangıçta uzatılmış ve kalçayı sabit tut.',
+    ],
+    tips: [
+      'Topuğunu kalçana doğru kontrollü çek.',
+      'Dizini öne taşımadan uyluğunu mümkün olduğunca sabit tut.',
+      'Gövdeni öne veya arkaya savurma.',
+      'Bacağını başlangıç konumuna kontrollü uzat.',
+    ],
+    commonMistakes: [
+      'Kalçadan öne doğru bükülmek.',
+      'Dizi öne taşıyarak hareket aralığını taklit etmek.',
+      'Destek bacağında dengeyi kaybetmek.',
+      'Bacağı kontrolsüz bırakmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=standing+hamstring+curl+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.standingHipAbduction,
+    subtitle:
+        'Ayakta tek taraflı yanal bacak kaldırma ve kalça kontrolü hareketi.',
+    purpose:
+        'Omuz-kalça-diz açısını ana tekrar sinyali, diz açıklığını ise form sinyali olarak kullanır.',
+    difficulty: ExerciseDifficulty.beginner,
+    setupSteps: [
+      'Kameraya önden bak ve tüm vücudunu kadraja al.',
+      'Ağırlığını destek bacağına aktar ve gövdeni dik tut.',
+      'Kollarını yanında rahat bırak veya denge için sabit bir yüzeye hafifçe tutun.',
+      'Çalışan bacağını diz uzatılmış halde nötr pozisyonda başlat.',
+    ],
+    tips: [
+      'Bacağını yana kaldırırken gövdeni karşı tarafa yatırma.',
+      'Çalışan dizi mümkün olduğunca düz tut.',
+      'Ayağını doğal hizada ve kalçanı öne dönük koru.',
+      'Bacağını kontrollü biçimde başlangıca indir.',
+    ],
+    commonMistakes: [
+      'Gövdeyi yana eğerek hareketi büyütmek.',
+      'Çalışan dizi belirgin biçimde bükmek.',
+      'Kalçayı dışa döndürmek.',
+      'Bacağı kontrolsüz sallamak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=standing+hip+abduction+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.overheadTricepsExtension,
+    subtitle:
+        'İki kolun birlikte çalıştığı baş üstü dirsek ekstansiyonu hareketi.',
+    purpose:
+        'Her iki dirseğin eş zamanlı açılmasını tekrar sinyali, üst kol hizasını ise form sinyali olarak izler.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Kameraya önden bak ve baş, omuz, dirsek ve bileklerini kadraja al.',
+      'Kollarını baş üstüne getir ve dirseklerini rahatça bük.',
+      'Üst kollarını başına yakın ve gövdeni dik tut.',
+      'İki kolu aynı anda hareket ettirmeye hazırlan.',
+    ],
+    tips: [
+      'Dirseklerini birlikte ve kontrollü aç.',
+      'Üst kollarını ileri-geri savurmadan sabit tut.',
+      'Üst noktada dirsekleri zorla kilitleme.',
+      'Ağırlığı baş arkasına kontrollü indir.',
+    ],
+    commonMistakes: [
+      'Üst kolları iki yana açmak.',
+      'Kolları farklı zamanlarda hareket ettirmek.',
+      'Belden aşırı geriye yaslanmak.',
+      'Ağırlığı hızla aşağı bırakmak.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=overhead+triceps+extension+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
+  ExerciseGuideContent(
+    type: ExerciseType.uprightRow,
+    subtitle:
+        'Dirseklerin yukarı yönlendirildiği eş zamanlı iki kol çekiş hareketi.',
+    purpose:
+        'Her iki omuz açısının birlikte artmasını izleyerek kontrollü yukarı çekiş ve dönüş döngülerini sayar.',
+    difficulty: ExerciseDifficulty.intermediate,
+    setupSteps: [
+      'Kameraya önden bak ve iki omuz-dirsek-bilek hattını kadraja al.',
+      'Kollarını gövdenin önünde aşağıda başlat.',
+      'Omuzlarını rahat, gövdeni dik tut.',
+      'İki dirseği aynı anda yukarı yönlendirmeye hazırlan.',
+    ],
+    tips: [
+      'Çekişi ellerden çok dirseklerle yönlendir.',
+      'Dirsekleri omuz hizasının gereksiz üzerine çıkarma.',
+      'Gövdeyi savurmadan iki kolu birlikte hareket ettir.',
+      'Aşağı dönüşü kontrollü tamamla.',
+    ],
+    commonMistakes: [
+      'Omuzları kulaklara doğru aşırı sıkıştırmak.',
+      'Gövde momentumuyla ağırlığı savurmak.',
+      'Kolları farklı yüksekliklere çekmek.',
+      'Ağırlığı kontrolsüz indirmek.',
+    ],
+    youtubeUrl:
+        'https://www.youtube.com/results?search_query=upright+row+exercise+technique',
+    youtubeSourceLabel: 'Exercise technique search',
+  ),
 ];

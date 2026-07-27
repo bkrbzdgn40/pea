@@ -11,7 +11,7 @@ void main() {
   const catalog = ExerciseCatalog();
 
   group('SetupStartPoseContractResolver', () {
-    test('resolves a non-empty contract for all 18 supported exercises', () {
+    test('resolves a non-empty contract for all 26 supported exercises', () {
       final contracts = <ExerciseType, SetupStartPoseContract>{
         for (final exercise in ExerciseType.values)
           exercise: resolver.resolve(
@@ -22,7 +22,7 @@ void main() {
           ),
       };
 
-      expect(contracts, hasLength(19));
+      expect(contracts, hasLength(26));
       for (final entry in contracts.entries) {
         expect(entry.value.exerciseType, entry.key);
         expect(entry.value.checks, isNotEmpty);

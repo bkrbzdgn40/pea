@@ -255,6 +255,54 @@ void main() {
       },
     );
 
+    test('new range-rep package keeps intended side and metric semantics', () {
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.crunch,
+        RangeRepContracts.reverseCrunch,
+        RangeRepContracts.bentKneeLegRaise,
+        RangeRepContracts.standingHamstringCurl,
+        RangeRepContracts.standingHipAbduction,
+      ]) {
+        expect(contract.sideMode, RangeRepSideMode.selectedSide);
+        expect(
+          contract.primaryMetricDirection,
+          RangeRepPrimaryMetricDirection.decreasingToPeak,
+        );
+        expect(
+          contract.towardPeakMuscleAction,
+          RangeRepTowardPeakMuscleAction.concentric,
+        );
+        expect(contract.supportsSignal(RangeRepSignal.formMetric), isTrue);
+      }
+
+      expect(
+        RangeRepContracts.crunch.primaryMetricKind,
+        RangeRepPrimaryMetricKind.imagePlaneInclination,
+      );
+      for (final contract in <RangeRepContract>[
+        RangeRepContracts.overheadTricepsExtension,
+        RangeRepContracts.uprightRow,
+      ]) {
+        expect(contract.sideMode, RangeRepSideMode.bilateral);
+        expect(
+          contract.primaryMetricDirection,
+          RangeRepPrimaryMetricDirection.increasingToPeak,
+        );
+      }
+      expect(
+        RangeRepContracts.standingHipAbduction.requiresPoseAcceptanceSignal(
+          RangeRepSignal.formMetric,
+        ),
+        isTrue,
+      );
+      expect(
+        RangeRepContracts.overheadTricepsExtension.requiresPoseAcceptanceSignal(
+          RangeRepSignal.formMetric,
+        ),
+        isTrue,
+      );
+    });
+
     test(
       'Good Morning keeps knee-form technique optional for pose acceptance',
       () {

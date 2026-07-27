@@ -35,13 +35,20 @@ void main() {
     ExerciseType.lunge,
     ExerciseType.pushUp,
     ExerciseType.sitUp,
+    ExerciseType.crunch,
+    ExerciseType.reverseCrunch,
     ExerciseType.bicepsCurl,
     ExerciseType.lyingLegRaise,
+    ExerciseType.bentKneeLegRaise,
+    ExerciseType.standingHamstringCurl,
+    ExerciseType.standingHipAbduction,
     ExerciseType.tricepsDip,
     ExerciseType.romanianDeadlift,
     ExerciseType.goodMorning,
     ExerciseType.lateralRaise,
     ExerciseType.shoulderPress,
+    ExerciseType.overheadTricepsExtension,
+    ExerciseType.uprightRow,
     ExerciseType.calfRaise,
     ExerciseType.frontRaise,
     ExerciseType.gluteBridge,
@@ -51,14 +58,14 @@ void main() {
   };
 
   group('Exercise reliability contract audit', () {
-    test('freezes the current 19-exercise supported reliability baseline', () {
+    test('freezes the current 26-exercise supported reliability baseline', () {
       final supportedTypes = catalog.definitions
           .where((definition) => definition.isAnalysisSupported)
           .map((definition) => definition.type)
           .toSet();
 
       expect(supportedTypes, reliabilityBaselineTypes);
-      expect(supportedTypes, hasLength(19));
+      expect(supportedTypes, hasLength(26));
       expect(
         catalog.definitions
             .where(
@@ -66,7 +73,7 @@ void main() {
                   definition.analysisEngineKind == EngineKind.rangeRep,
             )
             .length,
-        15,
+        22,
       );
       expect(
         catalog.definitions

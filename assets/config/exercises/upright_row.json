@@ -1,0 +1,31 @@
+{
+  "name": "Upright Row",
+  "primaryJoint": "leftShoulder",
+  "joint1": "leftElbow",
+  "joint2": "leftHip",
+  "thresholdNeutral": 28.0,
+  "thresholdActive": 40.0,
+  "thresholdPeak": 75.0,
+  "idealDescentSeconds": 1.0,
+  "idealAscentSeconds": 1.2,
+  "formThreshold": 0.0,
+  "targetMinAngle": 0.0,
+  "targetMaxAngle": 90.0,
+  "tempoPenaltyPerSecond": 20.0,
+  "rangeRepSignals": {
+    "postureAngle": {
+      "source": "primaryMetric"
+    },
+    "depthMetric": {
+      "source": "primaryMetric"
+    }
+  },
+  "rangeRepScoreWeights": {
+    "descentControlWeight": 1.0,
+    "ascentControlWeight": 1.0
+  },
+  "rangeRepPhaseQuality": {
+    "minDescendingMillis": 250,
+    "minAscendingMillis": 300
+  }
+}

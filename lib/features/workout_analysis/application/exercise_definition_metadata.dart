@@ -8,6 +8,8 @@ enum ExerciseMovementPattern {
   trunkFlexion,
   elbowFlexion,
   hipFlexion,
+  kneeFlexion,
+  hipAbduction,
   elbowExtension,
   hipHinge,
   shoulderAbduction,

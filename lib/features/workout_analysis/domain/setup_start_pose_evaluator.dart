@@ -87,7 +87,7 @@ class SetupStartPoseThresholds {
   final double dipSupportMinimumElbowAngleDegrees;
 }
 
-/// Resolves the 19 exercise contracts while sharing checks across pose families.
+/// Resolves the 26 exercise contracts while sharing checks across pose families.
 class SetupStartPoseContractResolver {
   const SetupStartPoseContractResolver();
 
@@ -116,18 +116,25 @@ class SetupStartPoseContractResolver {
       ExerciseType.squat ||
       ExerciseType.romanianDeadlift ||
       ExerciseType.goodMorning ||
+      ExerciseType.standingHamstringCurl ||
       ExerciseType.calfRaise => StartPoseFamily.standingNeutralSide,
       ExerciseType.plank ||
       ExerciseType.pushUp => StartPoseFamily.floorProneSupport,
       ExerciseType.hollowHold ||
       ExerciseType.sitUp ||
+      ExerciseType.crunch ||
+      ExerciseType.reverseCrunch ||
       ExerciseType.lyingLegRaise ||
+      ExerciseType.bentKneeLegRaise ||
       ExerciseType.gluteBridge => StartPoseFamily.floorSupine,
       ExerciseType.lunge => StartPoseFamily.splitStanceSide,
       ExerciseType.bicepsCurl ||
-      ExerciseType.lateralRaise => StartPoseFamily.standingArmsDownFront,
+      ExerciseType.lateralRaise ||
+      ExerciseType.standingHipAbduction ||
+      ExerciseType.uprightRow => StartPoseFamily.standingArmsDownFront,
       ExerciseType.tricepsDip => StartPoseFamily.dipSupport,
-      ExerciseType.shoulderPress => StartPoseFamily.standingElbowsBentFront,
+      ExerciseType.shoulderPress || ExerciseType.overheadTricepsExtension =>
+        StartPoseFamily.standingElbowsBentFront,
       ExerciseType.frontRaise => StartPoseFamily.standingArmsDownSide,
       ExerciseType.wallSit => StartPoseFamily.wallSupportedHold,
       ExerciseType.sidePlank => StartPoseFamily.sideSupport,
@@ -140,6 +147,7 @@ class SetupStartPoseContractResolver {
       ExerciseType.squat ||
       ExerciseType.romanianDeadlift ||
       ExerciseType.goodMorning ||
+      ExerciseType.standingHamstringCurl ||
       ExerciseType.calfRaise => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.uprightTorso,
         SetupStartPoseCheck.kneesExtended,
@@ -161,12 +169,17 @@ class SetupStartPoseContractResolver {
         SetupStartPoseCheck.splitStance,
       },
       ExerciseType.sitUp ||
+      ExerciseType.crunch ||
+      ExerciseType.reverseCrunch ||
+      ExerciseType.bentKneeLegRaise ||
       ExerciseType.gluteBridge => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.horizontalTorso,
         SetupStartPoseCheck.kneesBent,
       },
       ExerciseType.bicepsCurl ||
       ExerciseType.lateralRaise ||
+      ExerciseType.standingHipAbduction ||
+      ExerciseType.uprightRow ||
       ExerciseType.frontRaise => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.uprightTorso,
         SetupStartPoseCheck.armsDown,
@@ -179,7 +192,8 @@ class SetupStartPoseContractResolver {
       ExerciseType.tricepsDip => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.dipSupport,
       },
-      ExerciseType.shoulderPress => const <SetupStartPoseCheck>{
+      ExerciseType.shoulderPress ||
+      ExerciseType.overheadTricepsExtension => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.uprightTorso,
         SetupStartPoseCheck.elbowsBent,
       },

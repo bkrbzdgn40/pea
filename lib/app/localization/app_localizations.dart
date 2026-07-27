@@ -408,6 +408,7 @@ class AppLocalizations {
             'Simultaneous standing curl demo' =>
               'Eş zamanlı ayakta biseps büküş demosu',
             'Bench dip technique reference' => 'Bench dip teknik referansı',
+            'Exercise technique search' => 'Egzersiz teknik araması',
             _ => label,
           }
         : label;
@@ -441,10 +442,24 @@ class AppLocalizations {
       'lunge' => pick(tr: 'Sabit Lunge', en: 'Stationary Lunge'),
       'push_up' => pick(tr: 'Şınav', en: 'Push-up'),
       'sit_up' => pick(tr: 'Mekik', en: 'Sit-up'),
+      'crunch' => 'Crunch',
+      'reverse_crunch' => pick(tr: 'Ters Mekik', en: 'Reverse Crunch'),
       'biceps_curl' => pick(tr: 'Biseps Curl', en: 'Biceps Curl'),
       'lying_leg_raise' => pick(
         tr: 'Yatarak Bacak Kaldırma',
         en: 'Lying Leg Raise',
+      ),
+      'bent_knee_leg_raise' => pick(
+        tr: 'Dizler Bükülü Bacak Kaldırma',
+        en: 'Bent-Knee Leg Raise',
+      ),
+      'standing_hamstring_curl' => pick(
+        tr: 'Ayakta Arka Bacak Curl',
+        en: 'Standing Hamstring Curl',
+      ),
+      'standing_hip_abduction' => pick(
+        tr: 'Ayakta Kalça Abdüksiyonu',
+        en: 'Standing Hip Abduction',
       ),
       'triceps_dip' => pick(tr: 'Bench Dip', en: 'Bench Dip'),
       'romanian_deadlift' => pick(
@@ -454,6 +469,11 @@ class AppLocalizations {
       'good_morning' => 'Good Morning',
       'lateral_raise' => pick(tr: 'Yana Kol Kaldırma', en: 'Lateral Raise'),
       'shoulder_press' => pick(tr: 'Omuz Press', en: 'Shoulder Press'),
+      'overhead_triceps_extension' => pick(
+        tr: 'Baş Üstü Triseps Extension',
+        en: 'Overhead Triceps Extension',
+      ),
+      'upright_row' => pick(tr: 'Dik Çekiş', en: 'Upright Row'),
       'calf_raise' => pick(tr: 'Baldır Kaldırma', en: 'Calf Raise'),
       'front_raise' => pick(tr: 'Öne Kol Kaldırma', en: 'Front Raise'),
       'glute_bridge' => pick(tr: 'Kalça Köprüsü', en: 'Glute Bridge'),

@@ -254,6 +254,25 @@ void main() {
       },
     );
 
+    test('seven-exercise package exposes complete guide copy', () {
+      for (final type in const <ExerciseType>[
+        ExerciseType.crunch,
+        ExerciseType.reverseCrunch,
+        ExerciseType.bentKneeLegRaise,
+        ExerciseType.standingHamstringCurl,
+        ExerciseType.standingHipAbduction,
+        ExerciseType.overheadTricepsExtension,
+        ExerciseType.uprightRow,
+      ]) {
+        final content = guideCatalog.contentFor(type);
+        expect(content.subtitle, isNotEmpty, reason: type.id);
+        expect(content.purpose, isNotEmpty, reason: type.id);
+        expect(content.setupSteps, hasLength(4), reason: type.id);
+        expect(content.tips, hasLength(4), reason: type.id);
+        expect(content.commonMistakes, hasLength(4), reason: type.id);
+      }
+    });
+
     test('wall sit guide stays aligned with the side-view hold contract', () {
       final wallSitDefinition = analysisCatalog.definitionFor(
         ExerciseType.wallSit,
