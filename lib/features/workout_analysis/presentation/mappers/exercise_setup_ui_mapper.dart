@@ -4,6 +4,7 @@ import '../../domain/models/camera_view_contract.dart';
 import '../../domain/models/exercise_setup_contract.dart';
 import '../../domain/models/exercise_type.dart';
 import '../models/exercise_setup_view_data.dart';
+import '../models/preparation_pose_guide.dart';
 
 /// Projects exercise setup metadata into localized, presentation-ready copy.
 ///
@@ -40,6 +41,18 @@ ExerciseSetupViewData mapExerciseSetupToViewData({
       definition.type,
       setup.startPoseFamily,
       localizations,
+    ),
+    startPoseTemplate: _startPoseTemplate(
+      definition.type,
+      setup.startPoseFamily,
+    ),
+    startPoseGuideTitle: localizations.pick(
+      tr: 'Örnek başlangıç pozu',
+      en: 'Reference start pose',
+    ),
+    startPoseGuideHint: localizations.pick(
+      tr: 'Vücudunu ekrandaki iskelete yaklaşık hizala. Poz hazır olunca geri sayım başlayabilir.',
+      en: 'Line your body up roughly with the on-screen skeleton. Once your pose is ready, the countdown can begin.',
     ),
     setupPositionLabel: _setupPositionLabel(
       setup.supportSurface,
@@ -428,4 +441,47 @@ String _capitalize(String value) {
     return value;
   }
   return '${value[0].toUpperCase()}${value.substring(1)}';
+}
+
+PreparationPoseTemplate _startPoseTemplate(
+  ExerciseType exerciseType,
+  StartPoseFamily family,
+) {
+  switch (exerciseType) {
+    case ExerciseType.hollowHold:
+      return PreparationPoseTemplate.floorSupineStraight;
+    case ExerciseType.sitUp:
+    case ExerciseType.crunch:
+      return PreparationPoseTemplate.floorSupineBentKnees;
+    case ExerciseType.reverseCrunch:
+    case ExerciseType.lyingLegRaise:
+    case ExerciseType.bentKneeLegRaise:
+    case ExerciseType.gluteBridge:
+      return PreparationPoseTemplate.floorSupineBentKnees;
+    case ExerciseType.shoulderPress:
+      return PreparationPoseTemplate.shoulderPressRack;
+    default:
+      break;
+  }
+
+  return switch (family) {
+    StartPoseFamily.standingNeutralSide =>
+      PreparationPoseTemplate.standingNeutralSide,
+    StartPoseFamily.standingArmsDownSide =>
+      PreparationPoseTemplate.standingArmsDownSide,
+    StartPoseFamily.standingArmsDownFront =>
+      PreparationPoseTemplate.standingArmsDownFront,
+    StartPoseFamily.standingElbowsBentFront =>
+      PreparationPoseTemplate.standingElbowsBentFront,
+    StartPoseFamily.splitStanceSide => PreparationPoseTemplate.splitStanceSide,
+    StartPoseFamily.floorProneSupport =>
+      PreparationPoseTemplate.floorProneSupport,
+    StartPoseFamily.floorSupine => PreparationPoseTemplate.floorSupineStraight,
+    StartPoseFamily.wallSupportedHold =>
+      PreparationPoseTemplate.wallSupportedHold,
+    StartPoseFamily.sideSupport => PreparationPoseTemplate.sideSupport,
+    StartPoseFamily.dipSupport => PreparationPoseTemplate.dipSupport,
+    StartPoseFamily.dynamicBilateralNeutral =>
+      PreparationPoseTemplate.dynamicBilateralNeutral,
+  };
 }

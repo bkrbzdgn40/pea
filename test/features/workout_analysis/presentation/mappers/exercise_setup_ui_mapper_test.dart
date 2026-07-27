@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_definition_metadata.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/exercise_setup_ui_mapper.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/preparation_pose_guide.dart';
 
 void main() {
   const catalog = ExerciseCatalog();
@@ -33,6 +34,8 @@ void main() {
       expect(trViewData.cameraViewInstruction, isNotEmpty);
       expect(trViewData.bodyCoverageInstruction, isNotEmpty);
       expect(trViewData.startPoseInstruction, isNotEmpty);
+      expect(trViewData.startPoseGuideTitle, isNotEmpty);
+      expect(trViewData.startPoseGuideHint, isNotEmpty);
       expect(trViewData.setupPositionLabel, isNotEmpty);
       expect(trViewData.cameraPlacementInstruction, isNotEmpty);
       expect(trViewData.environmentInstructions, isNotEmpty);
@@ -87,6 +90,34 @@ void main() {
       definition: catalog.definitionFor(ExerciseType.sidePlank),
       localizations: turkish,
     );
+    final sitUp = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.sitUp),
+      localizations: turkish,
+    );
+    final reverseCrunch = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.reverseCrunch),
+      localizations: turkish,
+    );
+    final lyingLegRaise = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.lyingLegRaise),
+      localizations: turkish,
+    );
+    final bentKneeLegRaise = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.bentKneeLegRaise),
+      localizations: turkish,
+    );
+    final gluteBridge = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.gluteBridge),
+      localizations: turkish,
+    );
+    final shoulderPress = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.shoulderPress),
+      localizations: turkish,
+    );
+    final hollowHold = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.hollowHold),
+      localizations: turkish,
+    );
 
     expect(squat.startPoseInstruction, contains('omuz genişliğinde'));
     expect(plank.startPoseInstruction, contains('elbows under your shoulders'));
@@ -94,6 +125,46 @@ void main() {
     expect(benchDip.startPoseInstruction, contains('stable raised surface'));
     expect(benchDip.startPoseInstruction, isNot(contains('parallel bar')));
     expect(sidePlank.startPoseInstruction, contains('dirseğini veya elini'));
+    expect(
+      squat.startPoseTemplate,
+      PreparationPoseTemplate.standingNeutralSide,
+    );
+    expect(plank.startPoseTemplate, PreparationPoseTemplate.floorProneSupport);
+    expect(
+      bicepsCurl.startPoseTemplate,
+      PreparationPoseTemplate.standingArmsDownFront,
+    );
+    expect(benchDip.startPoseTemplate, PreparationPoseTemplate.dipSupport);
+    expect(
+      sitUp.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      reverseCrunch.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      lyingLegRaise.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      bentKneeLegRaise.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      gluteBridge.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineBentKnees,
+    );
+    expect(
+      shoulderPress.startPoseTemplate,
+      PreparationPoseTemplate.shoulderPressRack,
+    );
+    expect(
+      hollowHold.startPoseTemplate,
+      PreparationPoseTemplate.floorSupineStraight,
+    );
+    expect(sidePlank.startPoseGuideTitle, isNotEmpty);
+    expect(sidePlank.startPoseGuideHint, contains('iskelete'));
   });
 
   test('derives body coverage from the setup contract', () {

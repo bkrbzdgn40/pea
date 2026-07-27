@@ -518,6 +518,11 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                     ),
                   ],
                   const SizedBox(height: 20),
+                  _PreparationQuickAlignCard(
+                    title: setupViewData.startPoseGuideTitle,
+                    message: setupViewData.startPoseGuideHint,
+                  ),
+                  const SizedBox(height: 16),
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
@@ -526,6 +531,9 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                         geometry: cameraGeometry,
                         viewportOrientation: viewportOrientation,
                         isRecovering: _isRecoveringCamera,
+                        startPoseTemplate: setupViewData.startPoseTemplate,
+                        startPoseGuideTitle: setupViewData.startPoseGuideTitle,
+                        startPoseGuideHint: setupViewData.startPoseGuideHint,
                         countdownValue: countdownValue,
                         onControllerReady: _ensureImageStream,
                         onRetry: () => unawaited(_recoverCameraIfAllowed()),
@@ -579,6 +587,125 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PreparationQuickAlignCard extends StatelessWidget {
+  const _PreparationQuickAlignCard({
+    required this.title,
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final steps = <String>[
+      localizations.pick(
+        tr: 'Önce ekrandaki örnek iskelete hizalan.',
+        en: 'First align yourself with the on-screen reference skeleton.',
+      ),
+      localizations.pick(
+        tr: 'Gerekli bölgeler kadraja girdiğinde hazırlık durumu iyileşir.',
+        en: 'Readiness improves once the required body regions are inside the frame.',
+      ),
+      localizations.pick(
+        tr: 'Hazırlığı başlattığında doğru pozda geri sayım otomatik ilerler.',
+        en: 'After you start preparation, the countdown advances automatically when your pose is correct.',
+      ),
+    ];
+
+    return Container(
+      key: const ValueKey<String>('preparation-quick-align-card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFB9F3E7).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB9F3E7).withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.accessibility_new_rounded,
+                  color: Color(0xFFB9F3E7),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...steps.map(
+            (step) => Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.greenAccent,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      step,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

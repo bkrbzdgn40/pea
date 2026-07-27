@@ -124,8 +124,21 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('preparation-quick-align-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-pose-reference')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey<String>('preparation-readiness-banner')),
       findsOneWidget,
+    );
+    expect(find.text('Örnek başlangıç pozu'), findsWidgets);
+    expect(
+      find.textContaining('Vücudunu ekrandaki iskelete yaklaşık hizala.'),
+      findsWidgets,
     );
     expect(
       find.text('Kadraja geç ve vücudunu kameraya göster.'),
@@ -255,6 +268,10 @@ void main() {
 
     expect(
       find.byKey(const ValueKey<String>('preparation-pose-overlay')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-pose-reference')),
       findsOneWidget,
     );
     expect(find.textContaining('FPS'), findsNothing);
