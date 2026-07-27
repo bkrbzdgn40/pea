@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_readiness_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/camera_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_config_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_readiness_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/screen_awake_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/preparation_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/pose_painter.dart';
 
 import '../../../../support/presentation_test_support.dart';
 import '../../../../support/workout_analysis_test_support.dart';
@@ -178,6 +181,60 @@ void main() {
     );
     expect(startButton.onPressed, isNotNull);
     expect(cameraController.startImageStreamCallCount, 1);
+  });
+
+  testWidgets('updates preview and readiness geometry in landscape', (
+    tester,
+  ) async {
+    final cameraController = _FakeCameraController();
+    addTearDown(cameraController.dispose);
+    final landmarks = <PoseLandmark>[
+      buildLandmark(PoseLandmarkType.leftShoulder, 160, 120),
+      buildLandmark(PoseLandmarkType.leftHip, 180, 300),
+    ];
+    double? readinessImageWidth;
+    double? readinessImageHeight;
+
+    await _pumpSelectedExercise(
+      tester,
+      cameraController: cameraController,
+      preparationState: PreparationCameraState(landmarks: landmarks),
+      additionalOverrides: <Override>[
+        preparationReadinessEvidenceProvider.overrideWith((ref, request) {
+          readinessImageWidth = request.imageWidth;
+          readinessImageHeight = request.imageHeight;
+          return const SetupReadinessEvidence();
+        }),
+      ],
+    );
+
+    AspectRatio cameraAspectRatio() => tester.widget<AspectRatio>(
+      find.byKey(const ValueKey<String>('preparation-camera-aspect-ratio')),
+    );
+
+    PosePainter posePainter() {
+      final poseOverlay = tester.widget<CustomPaint>(
+        find.byKey(const ValueKey<String>('preparation-pose-overlay')),
+      );
+      return poseOverlay.painter! as PosePainter;
+    }
+
+    expect(cameraAspectRatio().aspectRatio, closeTo(3 / 4, 1e-9));
+    expect(posePainter().absoluteImageSize, const Size(480, 640));
+    expect(readinessImageWidth, 480);
+    expect(readinessImageHeight, 640);
+
+    cameraController.setDeviceOrientation(DeviceOrientation.landscapeLeft);
+    await tester.pump();
+
+    expect(cameraAspectRatio().aspectRatio, closeTo(4 / 3, 1e-9));
+    expect(posePainter().absoluteImageSize, const Size(640, 480));
+    expect(readinessImageWidth, 640);
+    expect(readinessImageHeight, 480);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-banner')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('paints preparation landmarks without workout metrics', (
@@ -399,6 +456,7 @@ Future<void> _pumpSelectedExercise(
   Locale locale = const Locale('tr'),
   PreparationCameraState? preparationState,
   ScreenAwakeController? awakeController,
+  List<Override> additionalOverrides = const <Override>[],
 }) async {
   final resolvedAwakeController =
       awakeController ?? _buildNoopScreenAwakeController();
@@ -416,6 +474,7 @@ Future<void> _pumpSelectedExercise(
         ),
       ),
       screenAwakeControllerProvider.overrideWithValue(resolvedAwakeController),
+      ...additionalOverrides,
     ],
   );
   await tester.pump();
@@ -455,25 +514,32 @@ class _PassiveAnalysisScreen extends StatelessWidget {
 }
 
 class _FakeCameraController extends CameraController {
-  _FakeCameraController({String name = 'fake-camera'})
-    : super(
-        CameraDescription(
-          name: name,
-          lensDirection: CameraLensDirection.back,
-          sensorOrientation: 0,
-        ),
-        ResolutionPreset.medium,
-        enableAudio: false,
-      ) {
+  _FakeCameraController({
+    String name = 'fake-camera',
+    DeviceOrientation deviceOrientation = DeviceOrientation.portraitUp,
+  }) : super(
+         CameraDescription(
+           name: name,
+           lensDirection: CameraLensDirection.back,
+           sensorOrientation: 0,
+         ),
+         ResolutionPreset.medium,
+         enableAudio: false,
+       ) {
     value = value.copyWith(
       isInitialized: true,
       previewSize: const Size(640, 480),
+      deviceOrientation: deviceOrientation,
       isStreamingImages: false,
     );
   }
 
   int startImageStreamCallCount = 0;
   int stopImageStreamCallCount = 0;
+
+  void setDeviceOrientation(DeviceOrientation orientation) {
+    value = value.copyWith(deviceOrientation: orientation);
+  }
 
   @override
   Widget buildPreview() => const SizedBox.expand();

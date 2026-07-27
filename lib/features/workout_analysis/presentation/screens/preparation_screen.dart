@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
@@ -10,6 +11,7 @@ import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
+import '../models/preparation_camera_geometry.dart';
 import '../models/preparation_start_gate_state.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../preparation_live_camera_handoff_coordinator.dart';
@@ -53,6 +55,9 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   bool _isRecoveringCamera = false;
   bool _isNavigatingToPermission = false;
   bool _holdsScreenAwake = false;
+  CameraController? _observedCameraController;
+  DeviceOrientation? _observedDeviceOrientation;
+  Size? _observedPreviewSize;
   SetupReadinessRequest? _activeReadinessRequest;
 
   @override
@@ -76,6 +81,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   @override
   void dispose() {
     unawaited(_setPreparationScreenAwake(false));
+    _stopObservingCameraGeometry();
     WidgetsBinding.instance.removeObserver(this);
     _cameraHandoffCoordinator.removeListener(_handleCameraHandoffChanged);
     if (_ownsCameraHandoffCoordinator) {
@@ -162,6 +168,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         return;
       }
 
+      _stopObservingCameraGeometry();
       ref.invalidate(cameraProvider);
       await ref.read(cameraProvider.future);
     } catch (_) {
@@ -233,6 +240,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
 
   Future<void> _releasePreparationForAnalysis() async {
     await _setPreparationScreenAwake(false);
+    _stopObservingCameraGeometry();
     await _imageStreamCoordinator.stop();
     if (_hasAnalysisSelection()) {
       ref.read(preparationCameraControllerProvider.notifier).clear();
@@ -266,6 +274,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   }
 
   void _ensureImageStream(CameraController controller) {
+    _observeCameraGeometry(controller);
     _imageStreamCoordinator.ensureStarted(
       controller: controller,
       shouldStart: () =>
@@ -294,6 +303,47 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     );
   }
 
+  void _observeCameraGeometry(CameraController controller) {
+    if (identical(_observedCameraController, controller)) {
+      return;
+    }
+
+    _stopObservingCameraGeometry();
+    _observedCameraController = controller;
+    final value = _safeCameraValue(controller);
+    _observedDeviceOrientation = value?.deviceOrientation;
+    _observedPreviewSize = value?.previewSize;
+    controller.addListener(_handleObservedCameraGeometryChanged);
+  }
+
+  void _handleObservedCameraGeometryChanged() {
+    final controller = _observedCameraController;
+    if (!mounted || controller == null) {
+      return;
+    }
+
+    final value = _safeCameraValue(controller);
+    final nextOrientation = value?.deviceOrientation;
+    final nextPreviewSize = value?.previewSize;
+    if (_observedDeviceOrientation == nextOrientation &&
+        _observedPreviewSize == nextPreviewSize) {
+      return;
+    }
+
+    _observedDeviceOrientation = nextOrientation;
+    _observedPreviewSize = nextPreviewSize;
+    setState(() {});
+  }
+
+  void _stopObservingCameraGeometry() {
+    _observedCameraController?.removeListener(
+      _handleObservedCameraGeometryChanged,
+    );
+    _observedCameraController = null;
+    _observedDeviceOrientation = null;
+    _observedPreviewSize = null;
+  }
+
   void _recoverCameraAfterStreamError() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -305,6 +355,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final viewportOrientation = MediaQuery.orientationOf(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
@@ -344,19 +395,23 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     final cameraValue = cameraController == null
         ? null
         : _safeCameraValue(cameraController);
+    final cameraGeometry = const PreparationCameraGeometryResolver().resolve(
+      previewSize: cameraValue?.previewSize,
+      deviceOrientation: cameraValue?.deviceOrientation,
+      viewportOrientation: viewportOrientation,
+    );
     final isCameraReady =
         !_isRecoveringCamera &&
         cameraValue?.isInitialized == true &&
-        cameraValue?.previewSize != null;
-    final previewSize = cameraValue?.previewSize;
+        cameraGeometry != null;
     final isMirrored =
         cameraController?.description.lensDirection ==
         CameraLensDirection.front;
-    final readinessRequest = previewSize == null
+    final readinessRequest = cameraGeometry == null
         ? null
         : (
-            imageWidth: previewSize.height,
-            imageHeight: previewSize.width,
+            imageWidth: cameraGeometry.imageSize.width,
+            imageHeight: cameraGeometry.imageSize.height,
             mirrorHorizontally: isMirrored,
           );
     _activeReadinessRequest = readinessRequest;
@@ -468,6 +523,8 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: PreparationCameraSurface(
                         cameraState: cameraState,
+                        geometry: cameraGeometry,
+                        viewportOrientation: viewportOrientation,
                         isRecovering: _isRecoveringCamera,
                         countdownValue: countdownValue,
                         onControllerReady: _ensureImageStream,

@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +15,7 @@ import '../../domain/models/exercise_config.dart';
 import '../../domain/models/setup_readiness_state.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../models/live_pause_state.dart';
+import '../models/preparation_camera_geometry.dart';
 import '../models/range_rep_outcome_view_data.dart';
 import '../models/live_tracking_state.dart';
 import '../models/setup_readiness_view_data.dart';
@@ -57,6 +58,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _isRecoveringCamera = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
+  CameraController? _observedCameraController;
+  DeviceOrientation? _observedDeviceOrientation;
+  Size? _observedPreviewSize;
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
   late final ScreenAwakeController _screenAwakeController;
   WorkoutSessionLifecycleOwner? _sessionLifecycle;
@@ -107,6 +111,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   @override
   void dispose() {
     unawaited(_setLiveAnalysisScreenAwake(false));
+    _stopObservingCameraGeometry();
     _recoveryTimer?.cancel();
     _sessionLifecycleSubscription?.close();
     _exerciseConfigSubscription?.close();
@@ -268,6 +273,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   void _markCameraRecovering() {
     if (!mounted) return;
 
+    _stopObservingCameraGeometry();
     if (!_isRecoveringCamera) {
       setState(() => _isRecoveringCamera = true);
     }
@@ -603,6 +609,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     final cameraState = ref.watch(cameraProvider);
     final topInset = MediaQuery.paddingOf(context).top;
+    final viewportOrientation = MediaQuery.orientationOf(context);
+    final isLandscape = viewportOrientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -617,20 +625,25 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           }
 
           final controllerValue = _safeControllerValue(controller);
-          final previewSize = controllerValue?.previewSize;
+          final cameraGeometry = const PreparationCameraGeometryResolver()
+              .resolve(
+                previewSize: controllerValue?.previewSize,
+                deviceOrientation: controllerValue?.deviceOrientation,
+                viewportOrientation: viewportOrientation,
+              );
 
           if (controllerValue == null ||
               !controllerValue.isInitialized ||
-              previewSize == null) {
+              cameraGeometry == null) {
             return const _CameraRecoveryView();
           }
 
-          final imageSize = Size(previewSize.height, previewSize.width);
+          final imageSize = cameraGeometry.imageSize;
           final isMirrored =
               controller.description.lensDirection == CameraLensDirection.front;
           final readinessRequest = (
-            imageWidth: previewSize.height,
-            imageHeight: previewSize.width,
+            imageWidth: imageSize.width,
+            imageHeight: imageSize.height,
             mirrorHorizontally: isMirrored,
           );
           _ensureImageStream(controller, sessionLifecycle);
@@ -659,6 +672,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 ),
               _FinishSessionButton(
                 topInset: topInset,
+                compact: isLandscape,
                 isFinishing: sessionLifecycle.isFinishing,
                 onFinish: () => unawaited(
                   _finishSession(ref.read(workoutControllerProvider)),
@@ -667,12 +681,13 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
               if (pauseState.isActive)
                 _PauseSessionButton(
                   topInset: topInset,
+                  compact: isLandscape,
                   onPause: () => _pauseAnalysis(readinessRequest),
                 ),
               if (workoutDiagnosticsUiEnabled && pauseState.isActive)
                 Positioned(
-                  top: topInset + 12,
-                  left: 14,
+                  top: topInset + (isLandscape ? 8 : 12),
+                  left: isLandscape ? 10 : 14,
                   child: Material(
                     color: Colors.black54,
                     shape: const CircleBorder(),
@@ -682,11 +697,28 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           ? null
                           : _showDiagnosticsPanel,
                       color: Colors.white,
+                      iconSize: isLandscape ? 18 : 24,
+                      visualDensity: isLandscape
+                          ? VisualDensity.compact
+                          : VisualDensity.standard,
+                      constraints: BoxConstraints.tightFor(
+                        width: isLandscape ? 40 : 48,
+                        height: isLandscape ? 40 : 48,
+                      ),
                       icon: const Icon(Icons.bug_report_outlined),
                     ),
                   ),
                 ),
-              if (pauseState.isActive)
+              if (pauseState.isActive && isLandscape)
+                _LandscapeWorkoutMetricsOverlay(
+                  topInset: topInset,
+                  onToggleCalibration: () {
+                    setState(
+                      () => _showCalibrationPanel = !_showCalibrationPanel,
+                    );
+                  },
+                ),
+              if (pauseState.isActive && !isLandscape)
                 _PrimaryWorkoutMetricsOverlay(
                   topInset: topInset,
                   onToggleCalibration: () {
@@ -695,33 +727,41 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     );
                   },
                 ),
-              if (pauseState.isActive)
+              if (pauseState.isActive && !isLandscape)
                 _CanonicalMetricsOverlay(topInset: topInset),
               if (pauseState.isActive)
-                _PlannedWorkoutProgressOverlay(topInset: topInset),
+                _PlannedWorkoutProgressOverlay(
+                  topInset: topInset,
+                  compact: isLandscape,
+                ),
               if (_showCalibrationPanel && pauseState.isActive)
                 _CalibrationPanelOverlay(
                   topInset: topInset,
+                  compact: isLandscape,
                   onClose: () {
                     setState(() => _showCalibrationPanel = false);
                   },
                 ),
               if (pauseState.isActive)
                 Positioned(
-                  bottom: 40,
-                  left: 20,
-                  right: 20,
-                  child: Column(
-                    children: [
-                      _WorkoutSetCompletedSection(
-                        onAdvance: () => unawaited(
-                          _advancePlannedWorkout(
-                            ref.read(workoutControllerProvider),
+                  bottom: isLandscape ? 12 : 40,
+                  left: isLandscape ? 12 : 20,
+                  right: isLandscape ? 12 : 20,
+                  child: FractionallySizedBox(
+                    widthFactor: isLandscape ? 0.76 : 1,
+                    child: Column(
+                      children: [
+                        _WorkoutSetCompletedSection(
+                          compact: isLandscape,
+                          onAdvance: () => unawaited(
+                            _advancePlannedWorkout(
+                              ref.read(workoutControllerProvider),
+                            ),
                           ),
                         ),
-                      ),
-                      const _WorkoutFeedbackStatus(),
-                    ],
+                        _WorkoutFeedbackStatus(compact: isLandscape),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -766,6 +806,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     CameraController controller,
     WorkoutSessionLifecycleOwner sessionLifecycle,
   ) {
+    _observeCameraGeometry(controller);
     _imageStreamCoordinator.ensureStarted(
       controller: controller,
       shouldStart: () =>
@@ -801,6 +842,47 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       },
       onError: (_, _) => _markCameraRecoveringAfterFrame(),
     );
+  }
+
+  void _observeCameraGeometry(CameraController controller) {
+    if (identical(_observedCameraController, controller)) {
+      return;
+    }
+
+    _stopObservingCameraGeometry();
+    _observedCameraController = controller;
+    final value = _safeControllerValue(controller);
+    _observedDeviceOrientation = value?.deviceOrientation;
+    _observedPreviewSize = value?.previewSize;
+    controller.addListener(_handleObservedCameraGeometryChanged);
+  }
+
+  void _handleObservedCameraGeometryChanged() {
+    final controller = _observedCameraController;
+    if (!mounted || controller == null) {
+      return;
+    }
+
+    final value = _safeControllerValue(controller);
+    final nextOrientation = value?.deviceOrientation;
+    final nextPreviewSize = value?.previewSize;
+    if (_observedDeviceOrientation == nextOrientation &&
+        _observedPreviewSize == nextPreviewSize) {
+      return;
+    }
+
+    _observedDeviceOrientation = nextOrientation;
+    _observedPreviewSize = nextPreviewSize;
+    setState(() {});
+  }
+
+  void _stopObservingCameraGeometry() {
+    _observedCameraController?.removeListener(
+      _handleObservedCameraGeometryChanged,
+    );
+    _observedCameraController = null;
+    _observedDeviceOrientation = null;
+    _observedPreviewSize = null;
   }
 
   void _markCameraRecoveringAfterFrame() {
@@ -996,28 +1078,42 @@ class _LivePauseOverlay extends ConsumerWidget {
 }
 
 class _PauseSessionButton extends StatelessWidget {
-  const _PauseSessionButton({required this.topInset, required this.onPause});
+  const _PauseSessionButton({
+    required this.topInset,
+    required this.compact,
+    required this.onPause,
+  });
 
   final double topInset;
+  final bool compact;
   final VoidCallback onPause;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     return Positioned(
-      top: topInset + 12,
-      left: workoutDiagnosticsUiEnabled ? 68 : 14,
+      top: topInset + (compact ? 8 : 12),
+      left: workoutDiagnosticsUiEnabled
+          ? (compact ? 58 : 68)
+          : (compact ? 10 : 14),
       child: TextButton.icon(
         key: const ValueKey<String>('live-pause-button'),
         onPressed: onPause,
-        icon: const Icon(Icons.pause_circle_outline_rounded, size: 18),
-        label: Text(localizations.pauseWorkout),
+        icon: Icon(Icons.pause_circle_outline_rounded, size: compact ? 16 : 18),
+        label: Text(
+          localizations.pauseWorkout,
+          style: TextStyle(fontSize: compact ? 14 : 15),
+        ),
         style: TextButton.styleFrom(
           foregroundColor: Colors.white,
           backgroundColor: Colors.black54,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 6 : 8,
+          ),
+          visualDensity: compact ? VisualDensity.compact : null,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(compact ? 10 : 12),
           ),
         ),
       ),
@@ -1212,11 +1308,13 @@ class _LiveTrackingRecoveryOverlay extends ConsumerWidget {
 class _FinishSessionButton extends ConsumerWidget {
   const _FinishSessionButton({
     required this.topInset,
+    required this.compact,
     required this.isFinishing,
     required this.onFinish,
   });
 
   final double topInset;
+  final bool compact;
   final bool isFinishing;
   final VoidCallback onFinish;
 
@@ -1228,18 +1326,83 @@ class _FinishSessionButton extends ConsumerWidget {
     final localizations = AppLocalizations.of(context);
 
     return Positioned(
-      top: topInset + 12,
-      right: 14,
+      top: topInset + (compact ? 8 : 12),
+      right: compact ? 10 : 14,
       child: TextButton.icon(
         onPressed: isFinishing ? null : onFinish,
-        icon: const Icon(Icons.stop_circle_outlined, size: 18),
-        label: Text(hasPlan ? localizations.endWorkout : localizations.finish),
+        icon: Icon(Icons.stop_circle_outlined, size: compact ? 16 : 18),
+        label: Text(
+          hasPlan ? localizations.endWorkout : localizations.finish,
+          style: TextStyle(fontSize: compact ? 14 : 15),
+        ),
         style: TextButton.styleFrom(
           foregroundColor: Colors.white,
           backgroundColor: Colors.black54,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 6 : 8,
+          ),
+          visualDensity: compact ? VisualDensity.compact : null,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(compact ? 10 : 12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
+  const _LandscapeWorkoutMetricsOverlay({
+    required this.topInset,
+    required this.onToggleCalibration,
+  });
+
+  final double topInset;
+  final VoidCallback onToggleCalibration;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final hasCanonicalMetrics =
+        liveMetrics.angleDegrees != null ||
+        liveMetrics.tempo != null ||
+        liveMetrics.stabilityScore != null ||
+        liveMetrics.asymmetryScore != null;
+
+    return Positioned(
+      top: topInset + 56,
+      left: 14,
+      right: 14,
+      child: GestureDetector(
+        key: const ValueKey<String>('live-performance-header'),
+        behavior: HitTestBehavior.opaque,
+        onLongPress: onToggleCalibration,
+        child: SizedBox(
+          height: 76,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Expanded(
+                flex: 3,
+                child: _PrimaryWorkoutMetricCard(compact: true),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                flex: 2,
+                child: _SecondaryWorkoutMetricCard(compact: true),
+              ),
+              if (hasCanonicalMetrics) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
+                  child: _LiveCanonicalMetricsBar(
+                    metrics: liveMetrics,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -1283,7 +1446,9 @@ class _PrimaryWorkoutMetricsOverlay extends StatelessWidget {
 }
 
 class _PrimaryWorkoutMetricCard extends ConsumerWidget {
-  const _PrimaryWorkoutMetricCard();
+  const _PrimaryWorkoutMetricCard({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1308,21 +1473,24 @@ class _PrimaryWorkoutMetricCard extends ConsumerWidget {
           ? localizations.holdMetric
           : localizations.repMetric,
       value: value,
-      valueStyle: const TextStyle(
+      valueStyle: TextStyle(
         color: Colors.white,
-        fontSize: 52,
+        fontSize: compact ? 34 : 52,
         height: 0.96,
         fontWeight: FontWeight.w900,
         letterSpacing: -1.5,
       ),
       accentColor: Colors.greenAccent,
       emphasize: true,
+      compact: compact,
     );
   }
 }
 
 class _SecondaryWorkoutMetricCard extends ConsumerWidget {
-  const _SecondaryWorkoutMetricCard();
+  const _SecondaryWorkoutMetricCard({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1358,13 +1526,14 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
         color: isHoldAnalysis || hasRepScore
             ? Colors.greenAccent
             : Colors.white54,
-        fontSize: 31,
+        fontSize: compact ? 24 : 31,
         height: 1,
         fontWeight: FontWeight.w800,
       ),
       accentColor: isHoldAnalysis || hasRepScore
           ? Colors.greenAccent
           : Colors.white30,
+      compact: compact,
     );
   }
 }
@@ -1377,6 +1546,7 @@ class _LiveMetricSurface extends StatelessWidget {
     required this.valueStyle,
     required this.accentColor,
     this.emphasize = false,
+    this.compact = false,
   });
 
   final String label;
@@ -1384,6 +1554,7 @@ class _LiveMetricSurface extends StatelessWidget {
   final TextStyle valueStyle;
   final Color accentColor;
   final bool emphasize;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1394,20 +1565,20 @@ class _LiveMetricSurface extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         padding: EdgeInsets.symmetric(
-          horizontal: emphasize ? 20 : 16,
-          vertical: 14,
+          horizontal: compact ? (emphasize ? 14 : 12) : (emphasize ? 20 : 16),
+          vertical: compact ? 8 : 14,
         ),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: emphasize ? 0.62 : 0.54),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(compact ? 18 : 24),
           border: Border.all(
             color: accentColor.withValues(alpha: emphasize ? 0.52 : 0.28),
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
               color: Colors.black38,
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              blurRadius: compact ? 12 : 18,
+              offset: Offset(0, compact ? 4 : 8),
             ),
           ],
         ),
@@ -1418,7 +1589,9 @@ class _LiveMetricSurface extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: emphasize ? 18 : 14,
+                  width: compact
+                      ? (emphasize ? 14 : 11)
+                      : (emphasize ? 18 : 14),
                   height: 3,
                   decoration: BoxDecoration(
                     color: accentColor,
@@ -1431,17 +1604,17 @@ class _LiveMetricSurface extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 11,
+                      fontSize: compact ? 9 : 11,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.35,
+                      letterSpacing: compact ? 1.05 : 1.35,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: compact ? 4 : 8),
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -1496,9 +1669,13 @@ class _CanonicalMetricsOverlay extends ConsumerWidget {
 }
 
 class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
-  const _PlannedWorkoutProgressOverlay({required this.topInset});
+  const _PlannedWorkoutProgressOverlay({
+    required this.topInset,
+    required this.compact,
+  });
 
   final double topInset;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1516,10 +1693,10 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
     }
 
     return Positioned(
-      top: topInset + 258,
-      left: 20,
-      right: 20,
-      child: _PlannedWorkoutProgressBar(snapshot: snapshot),
+      top: topInset + (compact ? 140 : 258),
+      left: compact ? 14 : 20,
+      right: compact ? 14 : 20,
+      child: _PlannedWorkoutProgressBar(snapshot: snapshot, compact: compact),
     );
   }
 }
@@ -1527,10 +1704,12 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
 class _CalibrationPanelOverlay extends ConsumerWidget {
   const _CalibrationPanelOverlay({
     required this.topInset,
+    required this.compact,
     required this.onClose,
   });
 
   final double topInset;
+  final bool compact;
   final VoidCallback onClose;
 
   @override
@@ -1541,9 +1720,10 @@ class _CalibrationPanelOverlay extends ConsumerWidget {
     );
 
     return Positioned(
-      top: topInset + (hasPlan ? 330 : 258),
-      left: 20,
-      right: 20,
+      top: topInset + (compact ? (hasPlan ? 192 : 140) : (hasPlan ? 330 : 258)),
+      bottom: compact ? 88 : null,
+      left: compact ? 14 : 20,
+      right: compact ? 14 : 20,
       child: _CalibrationDebugPanel(
         workoutState: workoutState,
         onClose: onClose,
@@ -1553,8 +1733,12 @@ class _CalibrationPanelOverlay extends ConsumerWidget {
 }
 
 class _WorkoutSetCompletedSection extends ConsumerWidget {
-  const _WorkoutSetCompletedSection({required this.onAdvance});
+  const _WorkoutSetCompletedSection({
+    required this.compact,
+    required this.onAdvance,
+  });
 
+  final bool compact;
   final VoidCallback onAdvance;
 
   @override
@@ -1572,24 +1756,32 @@ class _WorkoutSetCompletedSection extends ConsumerWidget {
 
     return Column(
       children: [
-        _WorkoutSetCompletedCard(snapshot: snapshot, onAdvance: onAdvance),
-        const SizedBox(height: 10),
+        _WorkoutSetCompletedCard(
+          snapshot: snapshot,
+          compact: compact,
+          onAdvance: onAdvance,
+        ),
+        SizedBox(height: compact ? 6 : 10),
       ],
     );
   }
 }
 
 class _WorkoutFeedbackStatus extends StatelessWidget {
-  const _WorkoutFeedbackStatus();
+  const _WorkoutFeedbackStatus({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return const _WorkoutFeedbackMessage();
+    return _WorkoutFeedbackMessage(compact: compact);
   }
 }
 
 class _WorkoutFeedbackMessage extends ConsumerWidget {
-  const _WorkoutFeedbackMessage();
+  const _WorkoutFeedbackMessage({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1622,10 +1814,12 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
       key: const ValueKey<String>('live-feedback-message-card'),
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      padding: const EdgeInsets.fromLTRB(16, 13, 18, 14),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(12, 9, 14, 10)
+          : const EdgeInsets.fromLTRB(16, 13, 18, 14),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.68),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(compact ? 18 : 22),
         border: Border.all(color: accentColor.withValues(alpha: 0.58)),
         boxShadow: const [
           BoxShadow(
@@ -1639,15 +1833,19 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: compact ? 32 : 38,
+            height: compact ? 32 : 38,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: Icon(presentation.icon, color: accentColor, size: 22),
+            child: Icon(
+              presentation.icon,
+              color: accentColor,
+              size: compact ? 19 : 22,
+            ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: compact ? 9 : 12),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1660,22 +1858,22 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: accentColor.withValues(alpha: 0.9),
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.1,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: compact ? 2 : 4),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
                   child: Text(
                     presentation.message,
                     key: ValueKey<String>(presentation.message),
-                    maxLines: 3,
+                    maxLines: compact ? 2 : 3,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: compact ? 16 : 18,
                       height: 1.18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1811,9 +2009,13 @@ String _formatHoldSeconds(int seconds) {
 }
 
 class _PlannedWorkoutProgressBar extends StatelessWidget {
-  const _PlannedWorkoutProgressBar({required this.snapshot});
+  const _PlannedWorkoutProgressBar({
+    required this.snapshot,
+    required this.compact,
+  });
 
   final WorkoutEngineSnapshot snapshot;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1825,10 +2027,13 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
           )
         : '${_formatPlanDuration(snapshot.currentHoldDuration)} / ${_formatPlanDuration(snapshot.targetHoldDuration ?? Duration.zero)}';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 7 : 10,
+      ),
       decoration: BoxDecoration(
         color: Colors.black54,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(compact ? 18 : 14),
         border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.45)),
       ),
       child: Column(
@@ -1844,27 +2049,27 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
                     set: snapshot.setNumber,
                     totalSets: snapshot.setsInCurrentExercise,
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: compact ? 11 : 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Text(
                 target,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.cyanAccent,
-                  fontSize: 12,
+                  fontSize: compact ? 11 : 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          SizedBox(height: compact ? 4 : 7),
           LinearProgressIndicator(
             value: snapshot.progress,
-            minHeight: 5,
+            minHeight: compact ? 4 : 5,
             backgroundColor: Colors.white12,
           ),
         ],
@@ -1876,10 +2081,12 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
 class _WorkoutSetCompletedCard extends StatelessWidget {
   const _WorkoutSetCompletedCard({
     required this.snapshot,
+    required this.compact,
     required this.onAdvance,
   });
 
   final WorkoutEngineSnapshot snapshot;
+  final bool compact;
   final VoidCallback onAdvance;
 
   @override
@@ -1887,7 +2094,7 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     final isFinalSet = snapshot.completedSets >= snapshot.totalSets;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(compact ? 10 : 14),
       decoration: BoxDecoration(
         color: const Color(0xE6112A20),
         borderRadius: BorderRadius.circular(15),
@@ -1895,20 +2102,25 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
-          const SizedBox(width: 10),
+          Icon(
+            Icons.check_circle_rounded,
+            color: Colors.greenAccent,
+            size: compact ? 20 : 24,
+          ),
+          SizedBox(width: compact ? 8 : 10),
           Expanded(
             child: Text(
               isFinalSet
                   ? localizations.finalSetCompleted
                   : localizations.setCompletedContinue,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
+                fontSize: compact ? 13 : 14,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: compact ? 8 : 10),
           ElevatedButton(
             onPressed: onAdvance,
             style: ElevatedButton.styleFrom(
@@ -1917,6 +2129,7 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
             ),
             child: Text(
               isFinalSet ? localizations.finish : localizations.continueLabel,
+              style: TextStyle(fontSize: compact ? 12 : 14),
             ),
           ),
         ],
@@ -2083,9 +2296,10 @@ class _CameraPermissionFallback extends StatelessWidget {
 }
 
 class _LiveCanonicalMetricsBar extends StatelessWidget {
-  const _LiveCanonicalMetricsBar({required this.metrics});
+  const _LiveCanonicalMetricsBar({required this.metrics, this.compact = false});
 
   final WorkoutLiveMetricDisplayState metrics;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2134,10 +2348,14 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      key: const ValueKey<String>('live-canonical-metrics-bar'),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.black54,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(compact ? 18 : 14),
         border: Border.all(color: Colors.white24),
       ),
       child: Row(
@@ -2150,9 +2368,9 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
                 children: [
                   Text(
                     items[index].key,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white54,
-                      fontSize: 9,
+                      fontSize: compact ? 8 : 9,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2161,9 +2379,9 @@ class _LiveCanonicalMetricsBar extends StatelessWidget {
                     items[index].value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
+                      fontSize: compact ? 13 : 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

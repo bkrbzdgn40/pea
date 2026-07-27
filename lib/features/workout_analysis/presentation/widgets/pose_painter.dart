@@ -154,6 +154,7 @@ class PosePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant PosePainter oldDelegate) {
     return oldDelegate.landmarks != landmarks ||
+        oldDelegate.absoluteImageSize != absoluteImageSize ||
         oldDelegate.isFormBad != isFormBad ||
         oldDelegate.isMirrored != isMirrored ||
         oldDelegate.showDebugLandmarks != showDebugLandmarks;
