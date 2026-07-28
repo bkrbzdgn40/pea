@@ -619,7 +619,7 @@ void main() {
       );
 
       final armedClean = next();
-      expect(armedClean.stateSnapshot.isFormBad, isFalse);
+      expect(armedClean.stateSnapshot.isFormBad, isTrue);
       expect(
         armedClean.stateSnapshot.feedbackDirective.feedbackCode,
         RangeRepFeedbackCode.keepBodyUpright,
@@ -643,7 +643,7 @@ void main() {
       final techniqueCompletion = next();
       expect(
         techniqueCompletion.stateSnapshot.feedbackDirective.feedbackCode,
-        RangeRepFeedbackCode.stabilizeTransition,
+        RangeRepFeedbackCode.repCompleted,
       );
       expect(
         techniqueCompletion

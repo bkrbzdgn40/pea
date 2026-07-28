@@ -26,6 +26,7 @@ import 'calibration_snapshot_builder.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
 import 'range_rep_blocked_state_builder.dart';
+import 'range_rep_feedback_lifecycle.dart';
 import 'range_rep_frame_policy.dart';
 import 'range_rep_movement_side_selector.dart';
 import 'range_rep_rep_outcome_tracker.dart';
@@ -239,6 +240,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final CalibrationSnapshotBuilder _calibrationSnapshotBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
   final RangeRepFramePolicy _framePolicy;
+  final RangeRepFeedbackLifecycle _feedbackLifecycle =
+      RangeRepFeedbackLifecycle();
   final RangeRepSidePolicy _sidePolicy;
   final RangeRepMovementSideSelector _movementSideSelector;
   final RangeRepSideStabilizer _sideStabilizer;
@@ -266,6 +269,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepCompletedRepCoreData? _lastCompletedRepCoreData;
   bool _isFormBad = false;
   RangeRepFeedbackCode _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
+  String _feedbackPhaseKey = 'awaitingNeutral';
   DateTime _diagnosticsNow = DateTime.fromMillisecondsSinceEpoch(0);
   WorkoutCalibrationMetrics _lastPublishedCalibrationMetrics =
       const WorkoutCalibrationMetrics.rangeRep();
@@ -641,7 +645,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     _applyFeedbackArbitration(
       engineResult: engineResult,
       hasTechniqueViolation: hasTechniqueViolation,
-      phaseFeedbackCandidate: postUpdateTechniqueHistory.phaseFeedbackCandidate,
     );
     final didCompleteRep = engineResult.didCompleteRep;
     _outcomeTracker.activateCompletedRepOutcomeIfAny(
@@ -969,28 +972,16 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   void _applyFeedbackArbitration({
     required RangeRepEngineFrameResult engineResult,
     required bool hasTechniqueViolation,
-    required RangeRepFeedbackCode? phaseFeedbackCandidate,
   }) {
     final wasArmedAtFrameStart = engineResult.wasArmedAtFrameStart;
-    _isFormBad = wasArmedAtFrameStart && hasTechniqueViolation;
-
-    final lifecycleCandidate = _lifecycleFeedbackCandidate(
-      engineResult: engineResult,
-      phaseFeedbackCandidate: phaseFeedbackCandidate,
-    );
-    final shouldClearRecoveredPeakWindowCorrection =
-        _rangeRepContract.techniqueEvaluationPolicy ==
-            RangeRepTechniqueEvaluationPolicy.peakWindowOnly &&
-        _currentFeedbackCode ==
-            RangeRepFeedbackCode.legacyFormThresholdViolation &&
-        !hasTechniqueViolation;
+    final lifecycleCandidate = _lifecycleFeedbackCandidate(engineResult);
     final baseCandidate =
         lifecycleCandidate ??
-        (wasArmedAtFrameStart
-            ? shouldClearRecoveredPeakWindowCorrection
-                  ? _movementFeedbackFor(engineResult)
-                  : _currentFeedbackCode
+        (engineResult.isArmedAfterUpdate
+            ? _movementFeedbackFor(engineResult)
             : RangeRepFeedbackCode.awaitNeutral);
+    final hasFreshCorrectiveCandidate =
+        wasArmedAtFrameStart && hasTechniqueViolation;
     final decision = _feedbackArbitrationEngine.arbitrate<RangeRepFeedbackCode>(
       candidates: <FeedbackCandidate<RangeRepFeedbackCode>>[
         FeedbackCandidate<RangeRepFeedbackCode>(
@@ -998,7 +989,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
           value: baseCandidate,
           priority: _priorityForRangeRepFeedback(baseCandidate),
         ),
-        if (wasArmedAtFrameStart && hasTechniqueViolation)
+        if (hasFreshCorrectiveCandidate)
           const FeedbackCandidate<RangeRepFeedbackCode>(
             id: 'range_rep_live_form_correction',
             value: RangeRepFeedbackCode.legacyFormThresholdViolation,
@@ -1006,8 +997,20 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
           ),
       ],
     );
-
-    _currentFeedbackCode = decision.selectedValue ?? baseCandidate;
+    final phaseKey = _feedbackPhaseKeyFor(engineResult);
+    _currentFeedbackCode = _feedbackLifecycle.resolve(
+      now: _diagnosticsNow,
+      phaseKey: phaseKey,
+      freshCandidate: decision.selectedValue ?? baseCandidate,
+      hasFreshCorrectiveCandidate: hasFreshCorrectiveCandidate,
+      hasLifecycleTransition: lifecycleCandidate != null,
+      retainFreshCorrective:
+          _rangeRepContract.techniqueEvaluationPolicy !=
+          RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
+    );
+    _feedbackPhaseKey = phaseKey;
+    _isFormBad =
+        _currentFeedbackCode.family == RangeRepFeedbackFamily.correctiveCue;
   }
 
   RangeRepFeedbackCode _movementFeedbackFor(
@@ -1026,10 +1029,24 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         : RangeRepFeedbackCode.awaitNeutral;
   }
 
-  RangeRepFeedbackCode? _lifecycleFeedbackCandidate({
-    required RangeRepEngineFrameResult engineResult,
-    required RangeRepFeedbackCode? phaseFeedbackCandidate,
-  }) {
+  String _feedbackPhaseKeyFor(RangeRepEngineFrameResult engineResult) {
+    return switch (engineResult.confirmedTransition?.type) {
+      RangeRepConfirmedTransitionType.acquireNeutral ||
+      RangeRepConfirmedTransitionType.abortToNeutral ||
+      RangeRepConfirmedTransitionType.completeRep => 'neutral',
+      RangeRepConfirmedTransitionType.startDescending => 'descending',
+      RangeRepConfirmedTransitionType.reachPeak => 'peak',
+      RangeRepConfirmedTransitionType.startAscending => 'ascending',
+      null when engineResult.observedRepPhases.isNotEmpty =>
+        engineResult.observedRepPhases.last.name,
+      null when !engineResult.isArmedAfterUpdate => 'awaitingNeutral',
+      null => _feedbackPhaseKey,
+    };
+  }
+
+  RangeRepFeedbackCode? _lifecycleFeedbackCandidate(
+    RangeRepEngineFrameResult engineResult,
+  ) {
     return switch (engineResult.confirmedTransition?.type) {
       null => null,
       RangeRepConfirmedTransitionType.acquireNeutral =>
@@ -1042,7 +1059,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       RangeRepConfirmedTransitionType.abortToNeutral =>
         RangeRepFeedbackCode.repIncomplete,
       RangeRepConfirmedTransitionType.completeRep =>
-        phaseFeedbackCandidate ?? RangeRepFeedbackCode.repCompleted,
+        RangeRepFeedbackCode.repCompleted,
     };
   }
 
@@ -1540,6 +1557,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   void _clearActiveRepContext({String? reason}) {
     _engine.clearActiveRepContext(reason: reason);
     _techniqueHistoryTracker.clearActiveRepContext();
+    _feedbackLifecycle.reset();
+    _feedbackPhaseKey = 'awaitingNeutral';
     _isFormBad = false;
     _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
   }
