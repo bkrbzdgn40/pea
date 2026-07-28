@@ -74,6 +74,71 @@ void main() {
     expect(controller.state.phase, PreparationStartGatePhase.monitoring);
   });
 
+  test('pauses a readiness countdown during brief evidence loss', () async {
+    var now = startedAt;
+    final controller = PreparationStartGateController(
+      thresholds: PreparationStartGateThresholds(
+        manualOverrideDelay: const Duration(seconds: 10),
+        countdownStepDuration: const Duration(milliseconds: 250),
+      ),
+      clock: () => now,
+      initialReadiness: _snapshot(SetupReadinessPhase.ready, now),
+    );
+    addTearDown(controller.dispose);
+
+    controller.arm();
+    expect(controller.state.countdownValue, 3);
+
+    now = now.add(const Duration(milliseconds: 70));
+    controller.updateReadiness(
+      _snapshot(SetupReadinessPhase.temporarilyLost, now),
+    );
+
+    expect(controller.state.phase, PreparationStartGatePhase.countingDown);
+    expect(controller.state.countdownValue, 3);
+
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(controller.state.countdownValue, 3);
+
+    now = now.add(const Duration(milliseconds: 430));
+    controller.updateReadiness(_snapshot(SetupReadinessPhase.ready, now));
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(controller.state.countdownValue, 3);
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(controller.state.countdownValue, 2);
+  });
+
+  test(
+    'cancels a paused countdown after readiness loss becomes conclusive',
+    () async {
+      final controller = PreparationStartGateController(
+        thresholds: PreparationStartGateThresholds(
+          manualOverrideDelay: const Duration(seconds: 10),
+          countdownStepDuration: const Duration(milliseconds: 20),
+        ),
+        clock: () => startedAt,
+        initialReadiness: _snapshot(SetupReadinessPhase.ready, startedAt),
+      );
+      addTearDown(controller.dispose);
+
+      controller.arm();
+      controller.updateReadiness(
+        _snapshot(SetupReadinessPhase.temporarilyLost, startedAt),
+      );
+      controller.updateReadiness(
+        _snapshot(SetupReadinessPhase.noPerson, startedAt),
+      );
+
+      expect(controller.state.phase, PreparationStartGatePhase.monitoring);
+      expect(controller.state.countdownValue, isNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(controller.state.phase, PreparationStartGatePhase.monitoring);
+    },
+  );
+
   test(
     'offers a controlled override and counts down before approval',
     () async {

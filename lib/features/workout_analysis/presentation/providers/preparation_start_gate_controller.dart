@@ -53,6 +53,8 @@ class PreparationStartGateController
   SetupReadinessSnapshot _latestReadiness;
   Timer? _overrideTimer;
   Timer? _countdownTimer;
+  DateTime? _countdownTickDueAt;
+  Duration? _pausedCountdownStepRemaining;
 
   void arm() {
     if (state.phase != PreparationStartGatePhase.idle) {
@@ -78,6 +80,7 @@ class PreparationStartGateController
   }
 
   void updateReadiness(SetupReadinessSnapshot snapshot) {
+    final previousReadiness = _latestReadiness;
     _latestReadiness = snapshot;
 
     if (state.phase == PreparationStartGatePhase.idle) {
@@ -96,10 +99,17 @@ class PreparationStartGateController
     }
 
     if (state.isCountingDown &&
-        state.approvalSource == PreparationStartApprovalSource.readiness &&
-        !snapshot.isReady) {
-      _resumeMonitoringAfterCountdownCancellation(now: _clock());
-      return;
+        state.approvalSource == PreparationStartApprovalSource.readiness) {
+      final now = _clock();
+      if (snapshot.phase == SetupReadinessPhase.temporarilyLost) {
+        _pauseCountdown(now: now);
+      } else if (!snapshot.isReady) {
+        _resumeMonitoringAfterCountdownCancellation(now: now);
+        return;
+      } else if (previousReadiness.phase ==
+          SetupReadinessPhase.temporarilyLost) {
+        _resumePausedCountdown(now: now);
+      }
     }
 
     state = PreparationStartGateState(
@@ -171,18 +181,28 @@ class PreparationStartGateController
       approvalSource: source,
       countdownValue: _thresholds.countdownFrom,
     );
-    _scheduleCountdownTick();
+    _scheduleCountdownTick(now: now);
   }
 
   void _advanceCountdown() {
+    _countdownTimer = null;
+    _countdownTickDueAt = null;
+
     if (!state.isCountingDown) {
+      _pausedCountdownStepRemaining = null;
       return;
     }
 
-    if (state.approvalSource == PreparationStartApprovalSource.readiness &&
-        !_latestReadiness.isReady) {
-      _resumeMonitoringAfterCountdownCancellation(now: _clock());
-      return;
+    final now = _clock();
+    if (state.approvalSource == PreparationStartApprovalSource.readiness) {
+      if (_latestReadiness.phase == SetupReadinessPhase.temporarilyLost) {
+        _pausedCountdownStepRemaining = Duration.zero;
+        return;
+      }
+      if (!_latestReadiness.isReady) {
+        _resumeMonitoringAfterCountdownCancellation(now: now);
+        return;
+      }
     }
 
     final currentValue = state.countdownValue;
@@ -192,7 +212,7 @@ class PreparationStartGateController
     }
 
     if (currentValue <= 1) {
-      _approve(source: state.approvalSource!, now: _clock());
+      _approve(source: state.approvalSource!, now: now);
       return;
     }
 
@@ -204,11 +224,41 @@ class PreparationStartGateController
       approvalSource: state.approvalSource,
       countdownValue: currentValue - 1,
     );
-    _scheduleCountdownTick();
+    _scheduleCountdownTick(now: now);
+  }
+
+  void _pauseCountdown({required DateTime now}) {
+    final dueAt = _countdownTickDueAt;
+    if (_countdownTimer == null || dueAt == null) {
+      return;
+    }
+
+    final remaining = dueAt.difference(now);
+    var boundedRemaining = remaining;
+    if (boundedRemaining.isNegative) {
+      boundedRemaining = Duration.zero;
+    } else if (boundedRemaining > _thresholds.countdownStepDuration) {
+      boundedRemaining = _thresholds.countdownStepDuration;
+    }
+    _pausedCountdownStepRemaining = boundedRemaining;
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    _countdownTickDueAt = null;
+  }
+
+  void _resumePausedCountdown({required DateTime now}) {
+    if (!state.isCountingDown || _countdownTimer != null) {
+      return;
+    }
+
+    final remaining =
+        _pausedCountdownStepRemaining ?? _thresholds.countdownStepDuration;
+    _pausedCountdownStepRemaining = null;
+    _scheduleCountdownTick(delay: remaining, now: now);
   }
 
   void _resumeMonitoringAfterCountdownCancellation({required DateTime now}) {
-    _countdownTimer?.cancel();
+    _cancelCountdownTimer();
     final armedAt = state.armedAt ?? now;
     final elapsed = now.difference(armedAt);
     final normalizedElapsed = elapsed.isNegative ? Duration.zero : elapsed;
@@ -245,20 +295,31 @@ class PreparationStartGateController
 
   void _scheduleOverrideAvailability(Duration delay) {
     _overrideTimer?.cancel();
-    _overrideTimer = Timer(delay, _makeOverrideAvailable);
+    _overrideTimer = Timer(delay, () {
+      _overrideTimer = null;
+      _makeOverrideAvailable();
+    });
   }
 
-  void _scheduleCountdownTick() {
+  void _scheduleCountdownTick({Duration? delay, required DateTime now}) {
+    final effectiveDelay = delay ?? _thresholds.countdownStepDuration;
     _countdownTimer?.cancel();
-    _countdownTimer = Timer(
-      _thresholds.countdownStepDuration,
-      _advanceCountdown,
-    );
+    _pausedCountdownStepRemaining = null;
+    _countdownTickDueAt = now.add(effectiveDelay);
+    _countdownTimer = Timer(effectiveDelay, _advanceCountdown);
+  }
+
+  void _cancelCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    _countdownTickDueAt = null;
+    _pausedCountdownStepRemaining = null;
   }
 
   void _cancelTimers() {
     _overrideTimer?.cancel();
-    _countdownTimer?.cancel();
+    _overrideTimer = null;
+    _cancelCountdownTimer();
   }
 
   @override
