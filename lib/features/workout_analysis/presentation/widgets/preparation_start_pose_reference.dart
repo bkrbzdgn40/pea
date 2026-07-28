@@ -411,6 +411,22 @@ Map<_GuideJoint, Offset> _templatePoints(
         _GuideJoint.leftAnkle: p(0.40, 0.90),
         _GuideJoint.rightAnkle: p(0.64, 0.86),
       };
+    case PreparationPoseTemplate.stationaryLungeSetup:
+      return <_GuideJoint, Offset>{
+        _GuideJoint.nose: p(0.50, 0.10),
+        _GuideJoint.leftShoulder: p(0.46, 0.18),
+        _GuideJoint.rightShoulder: p(0.54, 0.19),
+        _GuideJoint.leftElbow: p(0.44, 0.35),
+        _GuideJoint.rightElbow: p(0.56, 0.36),
+        _GuideJoint.leftWrist: p(0.43, 0.51),
+        _GuideJoint.rightWrist: p(0.57, 0.52),
+        _GuideJoint.leftHip: p(0.46, 0.42),
+        _GuideJoint.rightHip: p(0.54, 0.43),
+        _GuideJoint.leftKnee: p(0.35, 0.64),
+        _GuideJoint.rightKnee: p(0.62, 0.64),
+        _GuideJoint.leftAnkle: p(0.23, 0.88),
+        _GuideJoint.rightAnkle: p(0.74, 0.88),
+      };
     case PreparationPoseTemplate.floorProneSupport:
       return <_GuideJoint, Offset>{
         _GuideJoint.nose: p(0.28, 0.30),
@@ -458,6 +474,38 @@ Map<_GuideJoint, Offset> _templatePoints(
         _GuideJoint.rightKnee: p(0.30, 0.33),
         _GuideJoint.leftAnkle: p(0.15, 0.49),
         _GuideJoint.rightAnkle: p(0.16, 0.54),
+      };
+    case PreparationPoseTemplate.floorSupineBentKneeRaiseSetup:
+      return <_GuideJoint, Offset>{
+        _GuideJoint.nose: p(0.82, 0.45),
+        _GuideJoint.leftShoulder: p(0.72, 0.47),
+        _GuideJoint.rightShoulder: p(0.71, 0.53),
+        _GuideJoint.leftElbow: p(0.62, 0.54),
+        _GuideJoint.rightElbow: p(0.59, 0.62),
+        _GuideJoint.leftWrist: p(0.50, 0.56),
+        _GuideJoint.rightWrist: p(0.43, 0.66),
+        _GuideJoint.leftHip: p(0.50, 0.54),
+        _GuideJoint.rightHip: p(0.50, 0.59),
+        _GuideJoint.leftKnee: p(0.33, 0.36),
+        _GuideJoint.rightKnee: p(0.33, 0.40),
+        _GuideJoint.leftAnkle: p(0.23, 0.48),
+        _GuideJoint.rightAnkle: p(0.23, 0.53),
+      };
+    case PreparationPoseTemplate.floorSupineFrogPumpSetup:
+      return <_GuideJoint, Offset>{
+        _GuideJoint.nose: p(0.82, 0.45),
+        _GuideJoint.leftShoulder: p(0.72, 0.47),
+        _GuideJoint.rightShoulder: p(0.71, 0.53),
+        _GuideJoint.leftElbow: p(0.62, 0.54),
+        _GuideJoint.rightElbow: p(0.59, 0.62),
+        _GuideJoint.leftWrist: p(0.50, 0.56),
+        _GuideJoint.rightWrist: p(0.43, 0.66),
+        _GuideJoint.leftHip: p(0.50, 0.54),
+        _GuideJoint.rightHip: p(0.50, 0.59),
+        _GuideJoint.leftKnee: p(0.32, 0.42),
+        _GuideJoint.rightKnee: p(0.32, 0.67),
+        _GuideJoint.leftAnkle: p(0.20, 0.54),
+        _GuideJoint.rightAnkle: p(0.20, 0.59),
       };
     case PreparationPoseTemplate.floorSupineTabletop:
       return <_GuideJoint, Offset>{
@@ -510,18 +558,18 @@ Map<_GuideJoint, Offset> _templatePoints(
     case PreparationPoseTemplate.floorSupineChestPress:
       return <_GuideJoint, Offset>{
         _GuideJoint.nose: p(0.82, 0.45),
-        _GuideJoint.leftShoulder: p(0.72, 0.46),
-        _GuideJoint.rightShoulder: p(0.71, 0.53),
-        _GuideJoint.leftElbow: p(0.61, 0.34),
-        _GuideJoint.rightElbow: p(0.60, 0.64),
-        _GuideJoint.leftWrist: p(0.68, 0.27),
-        _GuideJoint.rightWrist: p(0.67, 0.71),
-        _GuideJoint.leftHip: p(0.51, 0.52),
-        _GuideJoint.rightHip: p(0.50, 0.58),
-        _GuideJoint.leftKnee: p(0.29, 0.31),
-        _GuideJoint.rightKnee: p(0.30, 0.33),
-        _GuideJoint.leftAnkle: p(0.15, 0.49),
-        _GuideJoint.rightAnkle: p(0.16, 0.54),
+        _GuideJoint.leftShoulder: p(0.72, 0.48),
+        _GuideJoint.rightShoulder: p(0.71, 0.54),
+        _GuideJoint.leftElbow: p(0.58, 0.48),
+        _GuideJoint.rightElbow: p(0.58, 0.54),
+        _GuideJoint.leftWrist: p(0.58, 0.34),
+        _GuideJoint.rightWrist: p(0.58, 0.40),
+        _GuideJoint.leftHip: p(0.50, 0.54),
+        _GuideJoint.rightHip: p(0.50, 0.59),
+        _GuideJoint.leftKnee: p(0.30, 0.36),
+        _GuideJoint.rightKnee: p(0.30, 0.40),
+        _GuideJoint.leftAnkle: p(0.17, 0.54),
+        _GuideJoint.rightAnkle: p(0.17, 0.59),
       };
     case PreparationPoseTemplate.wallSupportedHold:
       return <_GuideJoint, Offset>{

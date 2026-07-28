@@ -175,8 +175,8 @@ String _startPoseInstruction(
       en: 'Lie on your back, lift your shoulders slightly, reach your arms overhead, and raise your legs.',
     ),
     ExerciseType.lunge => localizations.pick(
-      tr: 'Kameraya yakın bacağını öne al ve ayakların sabit kalacak şekilde rahat bir adım pozisyonu kur.',
-      en: 'Place the leg closest to the camera in front and settle into a comfortable split stance with both feet fixed.',
+      tr: 'Kameraya yakın ayağını öne, diğer ayağını geriye al; iki dizi neredeyse düz ve gövdeni dik tut.',
+      en: 'Place the foot closest to the camera forward and the other foot back; keep both knees nearly extended and your torso upright.',
     ),
     ExerciseType.pushUp => localizations.pick(
       tr: 'Ellerini omuzlarından biraz geniş yerleştir ve başından topuklarına düz bir hat kur.',
@@ -203,8 +203,8 @@ String _startPoseInstruction(
       en: 'Lie on your back with your legs together, knees extended, and legs starting close to the floor.',
     ),
     ExerciseType.bentKneeLegRaise => localizations.pick(
-      tr: 'Sırt üstü uzan, dizlerini rahatça bük ve bacaklarını birlikte hareket ettirmeye hazırlan.',
-      en: 'Lie on your back, bend your knees comfortably, and prepare to move both legs together.',
+      tr: 'Sırt üstü uzan; dizlerini yaklaşık dik açıyla bük, topuklarını yerden hafif kaldır ve bacaklarını bir arada tut.',
+      en: 'Lie on your back, bend your knees to roughly a right angle, lift your heels slightly from the floor, and keep your legs together.',
     ),
     ExerciseType.standingHamstringCurl => localizations.pick(
       tr: 'Yan dur, ağırlığını destek bacağına aktar ve çalışan bacağını düz pozisyonda başlat.',
@@ -283,16 +283,16 @@ String _startPoseInstruction(
       en: 'Lie on your back, keep your legs extended, and reach your arms overhead to create a long starting line.',
     ),
     ExerciseType.frogPump => localizations.pick(
-      tr: 'Sırt üstü uzan, ayak tabanlarını birleştir, dizlerini iki yana aç ve kalçanı zeminde başlat.',
-      en: 'Lie on your back, bring the soles of your feet together, open your knees outward, and begin with your hips on the floor.',
+      tr: 'Sırt üstü uzan; ayak tabanlarını birleştir, dizlerini rahat ve kontrollü bir genişlikte aç ve kalçanı zeminde tut.',
+      en: 'Lie on your back, bring the soles of your feet together, open your knees to a comfortable controlled width, and keep your hips on the floor.',
     ),
     ExerciseType.lyingTricepsExtension => localizations.pick(
       tr: 'Sırt üstü uzan, dizlerini bük, üst kollarını omuzlarının üzerinde tut ve dirseklerini ellerin başına yaklaşacak şekilde bük.',
       en: 'Lie on your back, bend your knees, keep your upper arms above your shoulders, and bend your elbows so your hands move toward your head.',
     ),
     ExerciseType.floorChestPress => localizations.pick(
-      tr: 'Sırt üstü uzan, dizlerini bük, ayaklarını yere bas ve kameraya yakın dirseğini yaklaşık dik açıyla bük.',
-      en: 'Lie on your back, bend your knees, plant your feet, and bend the elbow closest to the camera to roughly a right angle.',
+      tr: 'Sırt üstü uzan; dizlerini bük, ayaklarını yere bas, kameraya yakın üst kolunu zemine koy ve bileğini dirseğinin üzerinde tut.',
+      en: 'Lie on your back, bend your knees, plant your feet, place the upper arm closest to the camera on the floor, and keep the wrist above the elbow.',
     ),
     ExerciseType.yRaise => localizations.pick(
       tr: 'Kameraya dön, kollarını yanlarda aşağıda başlat ve gövdeni dik tut.',
@@ -502,6 +502,8 @@ PreparationPoseTemplate _startPoseTemplate(
   StartPoseFamily family,
 ) {
   switch (exerciseType) {
+    case ExerciseType.lunge:
+      return PreparationPoseTemplate.stationaryLungeSetup;
     case ExerciseType.hollowHold:
     case ExerciseType.lyingLegRaise:
       return PreparationPoseTemplate.floorSupineStraight;
@@ -509,10 +511,12 @@ PreparationPoseTemplate _startPoseTemplate(
     case ExerciseType.crunch:
       return PreparationPoseTemplate.floorSupineBentKnees;
     case ExerciseType.reverseCrunch:
-    case ExerciseType.bentKneeLegRaise:
     case ExerciseType.gluteBridge:
-    case ExerciseType.frogPump:
       return PreparationPoseTemplate.floorSupineBentKnees;
+    case ExerciseType.bentKneeLegRaise:
+      return PreparationPoseTemplate.floorSupineBentKneeRaiseSetup;
+    case ExerciseType.frogPump:
+      return PreparationPoseTemplate.floorSupineFrogPumpSetup;
     case ExerciseType.vUp:
       return PreparationPoseTemplate.floorSupineStraight;
     case ExerciseType.lyingTricepsExtension:

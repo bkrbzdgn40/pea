@@ -308,6 +308,10 @@ abstract final class RangeRepContracts {
     RangeRepPrimaryMetricDirection primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     double peakEntryMargin = 3.0,
+    bool retainPeakEvidenceAcrossActiveTransition = false,
+    Duration initialNeutralConfirmationDuration = const Duration(
+      milliseconds: 100,
+    ),
     int primaryMetricSmoothingWindow = 5,
   }) {
     return RangeRepContract(
@@ -345,6 +349,9 @@ abstract final class RangeRepContracts {
       primaryMetricKind: primaryMetricKind,
       primaryMetricDirection: primaryMetricDirection,
       peakEntryMargin: peakEntryMargin,
+      retainPeakEvidenceAcrossActiveTransition:
+          retainPeakEvidenceAcrossActiveTransition,
+      initialNeutralConfirmationDuration: initialNeutralConfirmationDuration,
       primaryMetricSmoothingWindow: primaryMetricSmoothingWindow,
     );
   }
@@ -997,6 +1004,9 @@ abstract final class RangeRepContracts {
 
   static final RangeRepContract frogPump = _concentricPrimaryOnly(
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    peakEntryMargin: 0.0,
+    retainPeakEvidenceAcrossActiveTransition: true,
+    initialNeutralConfirmationDuration: const Duration(milliseconds: 600),
   );
 
   static final RangeRepContract lyingTricepsExtension = _concentricPrimaryOnly(

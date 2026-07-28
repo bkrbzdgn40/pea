@@ -182,17 +182,27 @@ class SetupStartPoseContractResolver {
       ExerciseType.sitUp ||
       ExerciseType.crunch ||
       ExerciseType.reverseCrunch ||
-      ExerciseType.bentKneeLegRaise ||
-      ExerciseType.gluteBridge ||
-      ExerciseType.frogPump => const <SetupStartPoseCheck>{
+      ExerciseType.gluteBridge => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.horizontalTorso,
         SetupStartPoseCheck.kneesBent,
       },
-      ExerciseType.lyingTricepsExtension ||
-      ExerciseType.floorChestPress => const <SetupStartPoseCheck>{
+      ExerciseType.bentKneeLegRaise => const <SetupStartPoseCheck>{
+        SetupStartPoseCheck.horizontalTorso,
+        SetupStartPoseCheck.visibleKneeBent,
+      },
+      ExerciseType.frogPump => const <SetupStartPoseCheck>{
+        SetupStartPoseCheck.horizontalTorso,
+        SetupStartPoseCheck.feetTogether,
+      },
+      ExerciseType.lyingTricepsExtension => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.horizontalTorso,
         SetupStartPoseCheck.kneesBent,
         SetupStartPoseCheck.elbowsBent,
+      },
+      ExerciseType.floorChestPress => const <SetupStartPoseCheck>{
+        SetupStartPoseCheck.horizontalTorso,
+        SetupStartPoseCheck.visibleKneeBent,
+        SetupStartPoseCheck.visibleElbowBent,
       },
       ExerciseType.vUp => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.horizontalTorso,
@@ -315,6 +325,13 @@ class SetupStartPoseEvaluator {
         minimum: thresholds.bentJointMinimumAngleDegrees,
         maximum: thresholds.bentJointMaximumAngleDegrees,
       ),
+      SetupStartPoseCheck.visibleKneeBent => _visibleJointAngleCheck(
+        check: check,
+        pose: pose,
+        joints: _kneeTriplets,
+        minimum: thresholds.bentJointMinimumAngleDegrees,
+        maximum: thresholds.bentJointMaximumAngleDegrees,
+      ),
       SetupStartPoseCheck.armsDown => _armsDown(pose),
       SetupStartPoseCheck.armsExtended => _jointAngleCheck(
         check: check,
@@ -323,6 +340,7 @@ class SetupStartPoseEvaluator {
         minimum: thresholds.extendedJointMinimumAngleDegrees,
       ),
       SetupStartPoseCheck.elbowsBent => _elbowsBent(pose),
+      SetupStartPoseCheck.visibleElbowBent => _visibleElbowBent(pose),
       SetupStartPoseCheck.splitStance => _splitStance(pose),
       SetupStartPoseCheck.feetTogether => _feetTogether(pose),
       SetupStartPoseCheck.supportUnderShoulders => _supportUnderShoulders(pose),
@@ -401,6 +419,32 @@ class SetupStartPoseEvaluator {
     );
   }
 
+  SetupStartPoseCheckResult _visibleJointAngleCheck({
+    required SetupStartPoseCheck check,
+    required SetupStartPose pose,
+    required List<_JointTriplet> joints,
+    required double minimum,
+    required double maximum,
+  }) {
+    final values = _anglesForTriplets(pose, joints);
+    if (values.isEmpty) {
+      return _unavailable(check);
+    }
+    final matching = values
+        .where((value) => value.$1 >= minimum && value.$1 <= maximum)
+        .toList(growable: false);
+    return _thresholdResult(
+      check: check,
+      passed: matching.isNotEmpty,
+      observedValue: _average(
+        (matching.isEmpty ? values : matching).map((value) => value.$1),
+      ),
+      confidence: _average(
+        (matching.isEmpty ? values : matching).map((value) => value.$2),
+      ),
+    );
+  }
+
   SetupStartPoseCheckResult _armsDown(SetupStartPose pose) {
     final torsoLength = _torsoLength(pose);
     if (torsoLength == null) {
@@ -472,10 +516,52 @@ class SetupStartPoseEvaluator {
     );
   }
 
+  SetupStartPoseCheckResult _visibleElbowBent(SetupStartPose pose) {
+    final torsoLength = _torsoLength(pose);
+    if (torsoLength == null) {
+      return _unavailable(SetupStartPoseCheck.visibleElbowBent);
+    }
+    final values = <(double, double, double)>[];
+    for (final side in _bodySides) {
+      final shoulder = _point(pose, side.shoulder);
+      final elbow = _point(pose, side.elbow);
+      final wrist = _point(pose, side.wrist);
+      if (shoulder == null || elbow == null || wrist == null) {
+        continue;
+      }
+      values.add((
+        _angle(shoulder, elbow, wrist),
+        _distance(shoulder, wrist) / torsoLength,
+        _minimumLikelihood(<SetupStartPosePoint>[shoulder, elbow, wrist]),
+      ));
+    }
+    if (values.isEmpty) {
+      return _unavailable(SetupStartPoseCheck.visibleElbowBent);
+    }
+    final matching = values
+        .where(
+          (value) =>
+              value.$1 >= thresholds.bentJointMinimumAngleDegrees &&
+              value.$1 <= thresholds.bentJointMaximumAngleDegrees &&
+              value.$2 <= 1.05,
+        )
+        .toList(growable: false);
+    return _thresholdResult(
+      check: SetupStartPoseCheck.visibleElbowBent,
+      passed: matching.isNotEmpty,
+      observedValue: _average(
+        (matching.isEmpty ? values : matching).map((value) => value.$1),
+      ),
+      confidence: _average(
+        (matching.isEmpty ? values : matching).map((value) => value.$3),
+      ),
+    );
+  }
+
   SetupStartPoseCheckResult _splitStance(SetupStartPose pose) {
     final torsoLength = _torsoLength(pose);
-    final left = _point(pose, SetupStartPoseJoint.leftAnkle);
-    final right = _point(pose, SetupStartPoseJoint.rightAnkle);
+    final left = _footAnchor(pose, left: true);
+    final right = _footAnchor(pose, left: false);
     if (torsoLength == null || left == null || right == null) {
       return _unavailable(SetupStartPoseCheck.splitStance);
     }
@@ -485,6 +571,28 @@ class SetupStartPoseEvaluator {
       passed: ratio >= thresholds.splitStanceMinimumSeparationToTorsoRatio,
       observedValue: ratio,
       confidence: _minimumLikelihood(<SetupStartPosePoint>[left, right]),
+    );
+  }
+
+  SetupStartPosePoint? _footAnchor(SetupStartPose pose, {required bool left}) {
+    final ankle = _point(
+      pose,
+      left ? SetupStartPoseJoint.leftAnkle : SetupStartPoseJoint.rightAnkle,
+    );
+    if (ankle != null) {
+      return ankle;
+    }
+    return _midpointOrSingle(
+      _point(
+        pose,
+        left ? SetupStartPoseJoint.leftHeel : SetupStartPoseJoint.rightHeel,
+      ),
+      _point(
+        pose,
+        left
+            ? SetupStartPoseJoint.leftFootIndex
+            : SetupStartPoseJoint.rightFootIndex,
+      ),
     );
   }
 

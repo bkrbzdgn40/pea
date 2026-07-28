@@ -214,6 +214,27 @@ void main() {
       SetupBodyRegion.ankles,
       SetupBodyRegion.feet,
     };
+    const headToAnkles = <SetupBodyRegion>{
+      SetupBodyRegion.head,
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    };
+    const floorLeg = <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    };
+    const floorPress = <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.elbows,
+      SetupBodyRegion.wrists,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    };
     const lowerBody = <SetupBodyRegion>{
       SetupBodyRegion.hips,
       SetupBodyRegion.knees,
@@ -233,14 +254,14 @@ void main() {
       ExerciseType.squat: headToFeet,
       ExerciseType.plank: fullBody,
       ExerciseType.hollowHold: fullBody,
-      ExerciseType.lunge: headToFeet,
+      ExerciseType.lunge: headToAnkles,
       ExerciseType.pushUp: fullBody,
       ExerciseType.sitUp: headToFeet,
       ExerciseType.crunch: sideChain,
       ExerciseType.reverseCrunch: sideChain,
       ExerciseType.bicepsCurl: upperBody,
       ExerciseType.lyingLegRaise: sideChain,
-      ExerciseType.bentKneeLegRaise: sideChain,
+      ExerciseType.bentKneeLegRaise: floorLeg,
       ExerciseType.standingHamstringCurl: sideChain,
       ExerciseType.standingHipAbduction: fullBody,
       ExerciseType.tricepsDip: dipCoverage,
@@ -260,9 +281,9 @@ void main() {
       ExerciseType.standingKneeRaise: sideChain,
       ExerciseType.standingStraightLegRaise: sideChain,
       ExerciseType.vUp: headToFeet,
-      ExerciseType.frogPump: sideChain,
+      ExerciseType.frogPump: floorLeg,
       ExerciseType.lyingTricepsExtension: fullBody,
-      ExerciseType.floorChestPress: fullBody,
+      ExerciseType.floorChestPress: floorPress,
       ExerciseType.yRaise: upperBodyWithHead,
     };
 

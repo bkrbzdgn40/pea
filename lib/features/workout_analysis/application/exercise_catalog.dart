@@ -52,6 +52,33 @@ class ExerciseCatalog {
       SetupBodyRegion.feet,
     },
   );
+  static final SetupBodyCoverage _headToAnklesCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.head,
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    },
+  );
+  static final SetupBodyCoverage _floorLegCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    },
+  );
+  static final SetupBodyCoverage _floorPressCoverage = SetupBodyCoverage(
+    requiredRegions: const <SetupBodyRegion>{
+      SetupBodyRegion.shoulders,
+      SetupBodyRegion.elbows,
+      SetupBodyRegion.wrists,
+      SetupBodyRegion.hips,
+      SetupBodyRegion.knees,
+      SetupBodyRegion.ankles,
+    },
+  );
   static final SetupBodyCoverage _lowerBodyCoverage = SetupBodyCoverage(
     requiredRegions: const <SetupBodyRegion>{
       SetupBodyRegion.hips,
@@ -279,7 +306,7 @@ class ExerciseCatalog {
           },
         ),
         setupContract: ExerciseSetupContract(
-          bodyCoverage: _headToFeetCoverage,
+          bodyCoverage: _headToAnklesCoverage,
           startPoseFamily: StartPoseFamily.splitStanceSide,
           supportSurface: SetupSupportSurface.none,
           cameraHeight: SetupCameraHeight.midBodyLevel,
@@ -496,7 +523,7 @@ class ExerciseCatalog {
           },
         ),
         setupContract: ExerciseSetupContract(
-          bodyCoverage: _sideChainCoverage,
+          bodyCoverage: _floorLegCoverage,
           startPoseFamily: StartPoseFamily.floorSupine,
           supportSurface: SetupSupportSurface.floor,
           cameraHeight: SetupCameraHeight.floorLevel,
@@ -1107,7 +1134,7 @@ class ExerciseCatalog {
           },
         ),
         setupContract: ExerciseSetupContract(
-          bodyCoverage: _sideChainCoverage,
+          bodyCoverage: _floorLegCoverage,
           startPoseFamily: StartPoseFamily.floorSupine,
           supportSurface: SetupSupportSurface.floor,
           cameraHeight: SetupCameraHeight.floorLevel,
@@ -1169,7 +1196,7 @@ class ExerciseCatalog {
           },
         ),
         setupContract: ExerciseSetupContract(
-          bodyCoverage: _fullBodyCoverage,
+          bodyCoverage: _floorPressCoverage,
           startPoseFamily: StartPoseFamily.floorSupine,
           supportSurface: SetupSupportSurface.floor,
           cameraHeight: SetupCameraHeight.floorLevel,

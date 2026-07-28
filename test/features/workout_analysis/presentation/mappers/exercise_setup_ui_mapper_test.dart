@@ -90,6 +90,10 @@ void main() {
       definition: catalog.definitionFor(ExerciseType.sidePlank),
       localizations: turkish,
     );
+    final stationaryLunge = mapExerciseSetupToViewData(
+      definition: catalog.definitionFor(ExerciseType.lunge),
+      localizations: turkish,
+    );
     final sitUp = mapExerciseSetupToViewData(
       definition: catalog.definitionFor(ExerciseType.sitUp),
       localizations: turkish,
@@ -151,6 +155,14 @@ void main() {
       PreparationPoseTemplate.standingArmsDownFront,
     );
     expect(benchDip.startPoseTemplate, PreparationPoseTemplate.benchDipSetup);
+    expect(
+      stationaryLunge.startPoseTemplate,
+      PreparationPoseTemplate.stationaryLungeSetup,
+    );
+    expect(
+      stationaryLunge.startPoseInstruction,
+      contains('diğer ayağını geriye'),
+    );
     expect(benchDip.startPoseGuideHint, contains('front edge'));
     expect(
       sitUp.startPoseTemplate,
@@ -166,7 +178,7 @@ void main() {
     );
     expect(
       bentKneeLegRaise.startPoseTemplate,
-      PreparationPoseTemplate.floorSupineBentKnees,
+      PreparationPoseTemplate.floorSupineBentKneeRaiseSetup,
     );
     expect(
       gluteBridge.startPoseTemplate,
@@ -183,7 +195,7 @@ void main() {
     expect(vUp.startPoseTemplate, PreparationPoseTemplate.floorSupineStraight);
     expect(
       frogPump.startPoseTemplate,
-      PreparationPoseTemplate.floorSupineBentKnees,
+      PreparationPoseTemplate.floorSupineFrogPumpSetup,
     );
     expect(
       lyingTricepsExtension.startPoseTemplate,
@@ -193,6 +205,9 @@ void main() {
       floorChestPress.startPoseTemplate,
       PreparationPoseTemplate.floorSupineChestPress,
     );
+    expect(bentKneeLegRaise.startPoseInstruction, contains('topuklarını'));
+    expect(frogPump.startPoseInstruction, contains('rahat ve kontrollü'));
+    expect(floorChestPress.startPoseInstruction, contains('bileğini'));
     expect(sidePlank.startPoseGuideTitle, isNotEmpty);
     expect(sidePlank.startPoseGuideHint, contains('iskelete'));
   });

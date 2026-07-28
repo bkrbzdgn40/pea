@@ -197,6 +197,102 @@ void main() {
       expect(assessment.passedChecks, contains(SetupStartPoseCheck.elbowsBent));
     });
 
+    test(
+      'matches the dedicated stationary-lunge setup with a foot fallback',
+      () {
+        final assessment = evaluator.evaluate(
+          contract: _contractFor(ExerciseType.lunge),
+          pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+            SetupStartPoseJoint.leftShoulder: _point(0.5, 0.2),
+            SetupStartPoseJoint.leftHip: _point(0.5, 0.45),
+            SetupStartPoseJoint.leftHeel: _point(0.25, 0.85),
+            SetupStartPoseJoint.leftFootIndex: _point(0.20, 0.86),
+            SetupStartPoseJoint.rightAnkle: _point(0.75, 0.85),
+          }),
+        );
+
+        expect(assessment.status, SetupStartPoseStatus.matched);
+        expect(
+          assessment.passedChecks,
+          contains(SetupStartPoseCheck.splitStance),
+        );
+      },
+    );
+
+    test('matches bent-knee leg raise when the camera-near knee is bent', () {
+      final assessment = evaluator.evaluate(
+        contract: _contractFor(ExerciseType.bentKneeLegRaise),
+        pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+          SetupStartPoseJoint.leftShoulder: _point(0.75, 0.5),
+          SetupStartPoseJoint.leftHip: _point(0.5, 0.5),
+          SetupStartPoseJoint.leftKnee: _point(0.32, 0.38),
+          SetupStartPoseJoint.leftAnkle: _point(0.24, 0.56),
+          SetupStartPoseJoint.rightHip: _point(0.5, 0.56),
+          SetupStartPoseJoint.rightKnee: _point(0.3, 0.56),
+          SetupStartPoseJoint.rightAnkle: _point(0.1, 0.56),
+        }),
+      );
+
+      expect(assessment.status, SetupStartPoseStatus.matched);
+      expect(
+        assessment.passedChecks,
+        contains(SetupStartPoseCheck.visibleKneeBent),
+      );
+    });
+
+    test(
+      'matches frog-pump setup without trusting an out-of-plane knee angle',
+      () {
+        final assessment = evaluator.evaluate(
+          contract: _contractFor(ExerciseType.frogPump),
+          pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+            SetupStartPoseJoint.leftShoulder: _point(0.75, 0.5),
+            SetupStartPoseJoint.leftHip: _point(0.5, 0.5),
+            SetupStartPoseJoint.leftAnkle: _point(0.22, 0.53),
+            SetupStartPoseJoint.rightAnkle: _point(0.23, 0.57),
+          }),
+        );
+
+        expect(assessment.status, SetupStartPoseStatus.matched);
+        expect(
+          assessment.passedChecks,
+          contains(SetupStartPoseCheck.feetTogether),
+        );
+      },
+    );
+
+    test(
+      'matches floor chest press from one reliable side-view arm and leg',
+      () {
+        final assessment = evaluator.evaluate(
+          contract: _contractFor(ExerciseType.floorChestPress),
+          pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+            SetupStartPoseJoint.leftShoulder: _point(0.75, 0.5),
+            SetupStartPoseJoint.leftElbow: _point(0.6, 0.5),
+            SetupStartPoseJoint.leftWrist: _point(0.6, 0.35),
+            SetupStartPoseJoint.leftHip: _point(0.5, 0.5),
+            SetupStartPoseJoint.leftKnee: _point(0.32, 0.38),
+            SetupStartPoseJoint.leftAnkle: _point(0.24, 0.56),
+            SetupStartPoseJoint.rightShoulder: _point(0.75, 0.56),
+            SetupStartPoseJoint.rightElbow: _point(0.6, 0.56),
+            SetupStartPoseJoint.rightWrist: _point(0.45, 0.56),
+            SetupStartPoseJoint.rightHip: _point(0.5, 0.56),
+            SetupStartPoseJoint.rightKnee: _point(0.3, 0.56),
+            SetupStartPoseJoint.rightAnkle: _point(0.1, 0.56),
+          }),
+        );
+
+        expect(assessment.status, SetupStartPoseStatus.matched);
+        expect(
+          assessment.passedChecks,
+          containsAll(<SetupStartPoseCheck>{
+            SetupStartPoseCheck.visibleKneeBent,
+            SetupStartPoseCheck.visibleElbowBent,
+          }),
+        );
+      },
+    );
+
     test('matches a wall-sit depth without running the hold engine', () {
       final assessment = evaluator.evaluate(
         contract: _contractFor(ExerciseType.wallSit),
