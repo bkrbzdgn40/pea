@@ -556,6 +556,94 @@ void main() {
   });
 
   testWidgets(
+    'hides invalid-attempt scores and marks low-confidence scores as cautionary',
+    (tester) async {
+      const invalidState = WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(
+          repCount: 1,
+          lastRepScore: 92,
+          calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
+            payload: RangeRepWorkoutCalibrationMetrics(
+              hasLastRangeRepValidation: true,
+              lastRangeRepValidationStatus: 'invalid',
+              lastRangeRepValidatedRepIndex: 2,
+            ),
+          ),
+        ),
+      );
+      final cameraController = _FakeCameraController();
+      late _FakeWorkoutController fakeController;
+      final container = ProviderContainer(
+        overrides: <Override>[
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
+          exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
+          workoutControllerProvider.overrideWith(
+            () => fakeController = _FakeWorkoutController(invalidState),
+          ),
+          authRepositoryProvider.overrideWithValue(
+            const _FakeAuthRepository(currentUserId: 'test-user'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+          cameraProvider.overrideWith((ref) async => cameraController),
+        ],
+      );
+      addTearDown(() async {
+        await cameraController.dispose();
+        container.dispose();
+      });
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('tr'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const LiveAnalysisScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final scoreCard = find.byKey(
+        const ValueKey<String>('live-secondary-metric-card'),
+      );
+      expect(
+        find.descendant(of: scoreCard, matching: find.text('—')),
+        findsOneWidget,
+      );
+
+      fakeController.publish(
+        const WorkoutState.rangeRep(
+          analysis: RangeRepWorkoutAnalysisState(
+            repCount: 2,
+            lastRepScore: 78,
+            calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
+              payload: RangeRepWorkoutCalibrationMetrics(
+                hasLastRangeRepValidation: true,
+                lastRangeRepValidationStatus: 'low confidence',
+                lastRangeRepValidatedRepIndex: 3,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final scoreText = tester.widget<Text>(
+        find.descendant(of: scoreCard, matching: find.text('78')),
+      );
+      expect(scoreText.style?.color, Colors.amberAccent);
+    },
+  );
+
+  testWidgets(
     'replaces exercise feedback with reposition guidance while tracking is lost',
     (tester) async {
       const initialState = WorkoutState.rangeRep(

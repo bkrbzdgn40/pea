@@ -23,6 +23,7 @@ class RangeRepRepOutcomeTracker {
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
   RangeRepValidationResult? _lastRangeRepValidationResult;
   int? _lastRangeRepValidatedRepIndex;
+  int _rangeRepAcceptedCount = 0;
   int _rangeRepValidatedCount = 0;
   int _rangeRepLowConfidenceCount = 0;
   int _rangeRepInvalidCount = 0;
@@ -32,6 +33,7 @@ class RangeRepRepOutcomeTracker {
   RangeRepValidationResult? get lastRangeRepValidationResult =>
       _lastRangeRepValidationResult;
   int? get lastRangeRepValidatedRepIndex => _lastRangeRepValidatedRepIndex;
+  int get rangeRepAcceptedCount => _rangeRepAcceptedCount;
   int get rangeRepValidatedCount => _rangeRepValidatedCount;
   int get rangeRepLowConfidenceCount => _rangeRepLowConfidenceCount;
   int get rangeRepInvalidCount => _rangeRepInvalidCount;
@@ -155,9 +157,11 @@ class RangeRepRepOutcomeTracker {
 
     switch (outcome.status) {
       case RangeRepValidationStatus.valid:
+        _rangeRepAcceptedCount += 1;
         _rangeRepValidatedCount += 1;
         break;
       case RangeRepValidationStatus.lowConfidence:
+        _rangeRepAcceptedCount += 1;
         _rangeRepLowConfidenceCount += 1;
         break;
       case RangeRepValidationStatus.invalid:

@@ -17,6 +17,7 @@ void main() {
       expect(document['ownerId'], session.ownerId);
       expect(document['durationSeconds'], session.durationSec);
       expect(document['validReps'], 1);
+      expect(document['lowConfidenceReps'], 1);
       expect(document['invalidReps'], 1);
       expect(document['worstScore'], 77.0);
       expect(document['holdDurationSeconds'], session.totalHoldSeconds);
@@ -39,6 +40,7 @@ void main() {
           'durationSec': 600,
           'totalReps': 8,
           'validReps': 6,
+          'lowConfidenceReps': 1,
           'invalidReps': 1,
           'averageScore': 82.5,
           'bestScore': 95.0,
@@ -58,6 +60,7 @@ void main() {
       expect(session.ownerId, 'owner_1');
       expect(session.durationSec, 600);
       expect(session.validReps, 6);
+      expect(session.lowConfidenceReps, 1);
       expect(session.invalidReps, 1);
       expect(session.worstScore, 70.0);
       expect(session.totalHoldSeconds, 0.0);
@@ -119,6 +122,7 @@ WorkoutSession _sessionWithReps() {
     bestScore: 90.0,
     worstScore: 77.0,
     validReps: 1,
+    lowConfidenceReps: 1,
     invalidReps: 1,
     formWarningCount: 2,
     totalHoldSeconds: 0.0,
@@ -138,9 +142,17 @@ WorkoutSession _sessionWithReps() {
         repIndex: 2,
         exerciseType: 'squat',
         analysisKind: 'rangeRep',
+        validationStatus: 'lowConfidence',
+        validationReasons: <String>['excessive descent speed'],
+        score: 77.0,
+      ),
+      WorkoutRep(
+        repIndex: 3,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
         validationStatus: 'invalid',
         validationReasons: <String>['insufficient rom'],
-        score: 77.0,
+        score: 20.0,
       ),
     ],
   );

@@ -42,8 +42,14 @@ void main() {
         ],
       );
 
-      expect(localizedSessionReportSummary(tr, report), contains('2 tekrarın'));
-      expect(localizedSessionReportSummary(en, report), contains('of 2 reps'));
+      expect(
+        localizedSessionReportSummary(tr, report),
+        contains('2 tekrar sayıldı'),
+      );
+      expect(
+        localizedSessionReportSummary(en, report),
+        contains('2 reps counted'),
+      );
       expect(
         localizedSessionReportIssues(tr, report),
         contains('Yetersiz hareket açıklığı'),

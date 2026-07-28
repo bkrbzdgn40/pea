@@ -119,6 +119,46 @@ void main() {
         contains('insufficient rom'),
       );
       expect(calibrationMetrics.rangeRepInvalidCount, 1);
+      expect(completedResult.stateSnapshot.repCount, 0);
+      expect(completedResult.stateSnapshot.lastRepScore, 0);
+      expect(completedResult.stateSnapshot.lastRepRom, 0);
+    });
+
+    test('counts low-confidence completions and keeps their score', () {
+      final clock = _TestClock();
+      final config = _squatConfig();
+      final engine = const AnalysisEngineFactory().createRangeRep(
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        now: clock.now,
+      );
+      final coordinator = DefaultRangeRepCoordinator(
+        engine: engine,
+        config: config,
+        rangeRepContract: RangeRepContracts.squat,
+        rangeRepValidationConfig: const RangeRepValidationConfig(
+          minDescentMillis: 10000,
+        ),
+      );
+
+      final completedResult = _completeCleanSquatRep(coordinator, clock);
+
+      expect(
+        completedResult
+            .stateSnapshot
+            .calibrationMetrics
+            .lastRangeRepValidationStatus,
+        'low confidence',
+      );
+      expect(completedResult.stateSnapshot.repCount, 1);
+      expect(completedResult.stateSnapshot.lastRepScore, greaterThan(0));
+      expect(
+        completedResult
+            .stateSnapshot
+            .calibrationMetrics
+            .rangeRepLowConfidenceCount,
+        1,
+      );
     });
 
     test('reuses completed-rep telemetry between ordinary runtime frames', () {
@@ -1739,7 +1779,7 @@ void main() {
 
       expect(result.stateSnapshot.repCount, 0);
       expect(result.stateSnapshot.currentPhase, 'NEUTRAL');
-      expect(result.stateSnapshot.lastRepRom, 180.0);
+      expect(result.stateSnapshot.lastRepRom, 0.0);
     });
 
     test('near-target bilateral ROM completes and keeps a full ROM score', () {

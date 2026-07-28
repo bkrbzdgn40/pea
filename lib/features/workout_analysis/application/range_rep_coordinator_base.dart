@@ -261,6 +261,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   List<PoseLandmark>? _lastPublishedLandmarks;
   double _lastPublishedCurrentAngle = 0.0;
   double _lastRepScore = 0.0;
+  double _lastAcceptedRepRom = 0.0;
   RepScoreBreakdown? _lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? _lastCompletedRepCoreData;
   bool _isFormBad = false;
@@ -395,11 +396,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
           return RangeRepCoordinatorFrameResult(
             stateSnapshot: _rememberStateSnapshot(
               landmarks: _lastPublishedLandmarks,
-              repCount: _engine.repCount,
+              repCount: _outcomeTracker.rangeRepAcceptedCount,
               isFormBad: _isFormBad,
               currentAngle: _lastPublishedCurrentAngle,
               lastRepScore: _lastRepScore,
-              lastRepRom: _engine.lastRepRom,
+              lastRepRom: _lastAcceptedRepRom,
               currentPhase: _engine.phaseLabel,
               calibrationMetrics: _lastPublishedCalibrationMetrics,
               feedbackDirective: _coordinatorFeedbackDirective(),
@@ -472,11 +473,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
     return _rememberStateSnapshot(
       landmarks: _lastPublishedLandmarks,
-      repCount: _engine.repCount,
+      repCount: _outcomeTracker.rangeRepAcceptedCount,
       isFormBad: _isFormBad,
       currentAngle: _lastPublishedCurrentAngle,
       lastRepScore: _lastRepScore,
-      lastRepRom: _engine.lastRepRom,
+      lastRepRom: _lastAcceptedRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: _lastPublishedCalibrationMetrics,
       feedbackDirective: _coordinatorFeedbackDirective(),
@@ -643,12 +644,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       phaseFeedbackCandidate: postUpdateTechniqueHistory.phaseFeedbackCandidate,
     );
     final didCompleteRep = engineResult.didCompleteRep;
-    if (completedRepCoreData != null) {
-      _scoreCompletedRep(
-        completedRepCoreData: completedRepCoreData,
-        postUpdateDiagnostics: postUpdateDiagnostics,
-      );
-    }
     _outcomeTracker.activateCompletedRepOutcomeIfAny(
       engineKind: EngineKind.rangeRep,
       analysisKindLabel: EngineKind.rangeRep.name,
@@ -658,6 +653,17 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         ? null
         : _outcomeTracker.lastRangeRepValidationResult;
     if (completedRepCoreData != null) {
+      if (completedRepValidationResult?.shouldPublishScore ?? false) {
+        _scoreCompletedRep(
+          completedRepCoreData: completedRepCoreData,
+          postUpdateDiagnostics: postUpdateDiagnostics,
+        );
+        _lastAcceptedRepRom = _engine.lastRepRom;
+      } else {
+        _lastRepScore = 0.0;
+        _lastAcceptedRepRom = 0.0;
+        _lastRepScoreBreakdown = null;
+      }
       _refreshRepTelemetry();
     }
     _outcomeTracker.resetRepContextIfCycleEnded(
@@ -715,11 +721,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final didReacquire = didBecomeStableTracking && _hasAcceptedPoseForAnalysis;
     final stateSnapshot = _rememberStateSnapshot(
       landmarks: metrics.landmarks,
-      repCount: _engine.repCount,
+      repCount: _outcomeTracker.rangeRepAcceptedCount,
       isFormBad: _isFormBad,
       currentAngle: _currentAngleForState(analysisFrame),
       lastRepScore: _lastRepScore,
-      lastRepRom: _engine.lastRepRom,
+      lastRepRom: _lastAcceptedRepRom,
       currentPhase: _engine.phaseLabel,
       calibrationMetrics: calibrationMetrics,
       feedbackDirective: _coordinatorFeedbackDirective(),
@@ -1203,9 +1209,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       tempo: tempoScore,
       technique: completedRepCoreData.hadFormViolation ? 50.0 : 100.0,
       consistency: consistencyScore,
-      confidence: ((_outcomeTracker.activeRepConfidence ?? 1.0) * 100.0)
-          .clamp(0.0, 100.0)
-          .toDouble(),
+      confidence:
+          ((_outcomeTracker.lastRangeRepRepSummaryCandidate?.confidence ??
+                      1.0) *
+                  100.0)
+              .clamp(0.0, 100.0)
+              .toDouble(),
     );
     final penaltyTraces = <RepScorePenaltyTrace>[];
     if (romScore < 100.0) {
@@ -1647,11 +1656,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
     return _rememberStateSnapshot(
       landmarks: metrics.landmarks,
-      repCount: _engine.repCount,
+      repCount: _outcomeTracker.rangeRepAcceptedCount,
       isFormBad: false,
       currentAngle: preview.previewAngle,
       lastRepScore: _lastRepScore,
-      lastRepRom: _engine.lastRepRom,
+      lastRepRom: _lastAcceptedRepRom,
       currentPhase: currentPhase,
       calibrationMetrics: calibrationMetrics,
       feedbackDirective: feedbackDirective,

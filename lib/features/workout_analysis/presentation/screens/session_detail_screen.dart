@@ -466,7 +466,7 @@ class _RepTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  localizations.repNumber(rep.repIndex),
+                  localizations.attemptNumber(rep.repIndex),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -756,6 +756,11 @@ List<MapEntry<String, String>> _overviewMetrics({
   final metrics = <MapEntry<String, String>>[
     MapEntry(localizations.totalReps, report.totalReps.toString()),
     MapEntry(localizations.valid, report.validReps.toString()),
+    if (report.lowConfidenceReps > 0)
+      MapEntry(
+        localizations.lowConfidence,
+        report.lowConfidenceReps.toString(),
+      ),
     MapEntry(localizations.invalid, report.invalidReps.toString()),
     if (report.unknownReps > 0)
       MapEntry(localizations.uncertain, report.unknownReps.toString()),
@@ -808,7 +813,7 @@ List<MapEntry<String, String>> _overviewMetrics({
 String _repStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
   return switch (rep.validationStatus) {
     'valid' => localizations.valid,
-    'low confidence' => localizations.lowConfidence,
+    'low confidence' || 'lowConfidence' => localizations.lowConfidence,
     'invalid' => localizations.invalid,
     _ => localizations.uncertain,
   };
@@ -817,7 +822,7 @@ String _repStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
 Color _repStatusColor(WorkoutRep rep) {
   return switch (rep.validationStatus) {
     'valid' => Colors.greenAccent,
-    'low confidence' => Colors.amberAccent,
+    'low confidence' || 'lowConfidence' => Colors.amberAccent,
     'invalid' => Colors.redAccent,
     _ => Colors.white70,
   };

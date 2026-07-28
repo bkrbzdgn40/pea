@@ -79,4 +79,11 @@ class RangeRepValidationResult {
   final List<RangeRepValidationReason> reasons;
 
   bool get isValid => status == RangeRepValidationStatus.valid;
+
+  /// A valid or cautionary completed movement counts as a user repetition.
+  /// Invalid attempts remain visible as corrective outcomes but do not advance
+  /// the live repetition total or publish a score.
+  bool get countsTowardReps => status != RangeRepValidationStatus.invalid;
+
+  bool get shouldPublishScore => countsTowardReps;
 }

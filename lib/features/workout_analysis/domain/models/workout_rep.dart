@@ -68,10 +68,17 @@ class WorkoutRep {
 
   bool get isValidatedAsValid => validationStatus == 'valid';
 
+  bool get isValidatedAsLowConfidence {
+    return validationStatus == 'lowConfidence' ||
+        validationStatus == 'low confidence';
+  }
+
   bool get isValidatedAsInvalid => validationStatus == 'invalid';
 
   bool get isValidationUnknown {
-    return !isValidatedAsValid && !isValidatedAsInvalid;
+    return !isValidatedAsValid &&
+        !isValidatedAsLowConfidence &&
+        !isValidatedAsInvalid;
   }
 
   String? get primaryValidationReason {

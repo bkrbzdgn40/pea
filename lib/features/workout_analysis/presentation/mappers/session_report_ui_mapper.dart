@@ -34,6 +34,7 @@ String localizedSessionReportSummary(
   return localizations.sessionReportRangeSummary(
     totalReps: report.totalReps,
     validReps: report.validReps,
+    lowConfidenceReps: report.lowConfidenceReps,
     invalidReps: report.invalidReps,
     unknownReps: report.unknownReps,
     averageScore: report.averageScore,

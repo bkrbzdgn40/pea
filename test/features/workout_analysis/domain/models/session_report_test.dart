@@ -21,6 +21,7 @@ void main() {
           bestScore: 92.0,
           worstScore: 67.0,
           validReps: 9,
+          lowConfidenceReps: 2,
           invalidReps: 2,
           formWarningCount: 3,
         );
@@ -31,6 +32,7 @@ void main() {
         expect(report.hasRepDetails, isFalse);
         expect(report.totalReps, 12);
         expect(report.validReps, 9);
+        expect(report.lowConfidenceReps, 2);
         expect(report.invalidReps, 2);
         expect(report.unknownReps, 1);
         expect(report.averageScore, 81.5);
@@ -50,7 +52,7 @@ void main() {
           startedAt: DateTime.utc(2026, 1, 1, 12),
           endedAt: DateTime.utc(2026, 1, 1, 12, 10),
           durationSec: 600,
-          totalReps: 4,
+          totalReps: 2,
           averageScore: 0,
           bestScore: 0,
           worstScore: 0,
@@ -102,20 +104,21 @@ void main() {
         final report = SessionReport.fromSession(session: session, reps: reps);
 
         expect(report.hasRepDetails, isTrue);
-        expect(report.totalReps, 4);
+        expect(report.totalReps, 2);
         expect(report.validReps, 1);
+        expect(report.lowConfidenceReps, 1);
         expect(report.invalidReps, 2);
-        expect(report.unknownReps, 1);
-        expect(report.averageScore, closeTo(70.75, 0.001));
+        expect(report.unknownReps, 0);
+        expect(report.averageScore, closeTo(81.5, 0.001));
         expect(report.bestScore, 91.0);
-        expect(report.worstScore, 58.0);
+        expect(report.worstScore, 72.0);
         expect(report.topIssues.first, 'yetersiz hareket açıklığı');
         expect(report.topIssues, contains('görünürlük kaybı'));
         expect(report.coverageDropCount, 2);
         expect(report.sideSwitchCount, 1);
         expect(report.formViolationCount, 1);
-        expect(report.bestReps.map((rep) => rep.repIndex), <int>[1, 3, 2]);
-        expect(report.weakestReps.map((rep) => rep.repIndex), <int>[4, 2, 3]);
+        expect(report.bestReps.map((rep) => rep.repIndex), <int>[1, 3]);
+        expect(report.weakestReps.map((rep) => rep.repIndex), <int>[3, 1]);
         expect(report.summaryMessage, contains('En sık sorun'));
         expect(
           report.recommendations.join(' '),
@@ -162,8 +165,9 @@ void main() {
         final report = SessionReport.fromSession(session: session, reps: reps);
 
         expect(report.validReps, 0);
+        expect(report.lowConfidenceReps, 1);
         expect(report.invalidReps, 0);
-        expect(report.unknownReps, 2);
+        expect(report.unknownReps, 1);
         expect(report.hasScoreData, isFalse);
         expect(report.bestReps, isEmpty);
         expect(report.weakestReps, isEmpty);
@@ -196,6 +200,7 @@ void main() {
         final report = SessionReport.fromSession(session: session);
 
         expect(report.isHoldSession, isTrue);
+        expect(report.lowConfidenceReps, 0);
         expect(report.totalHoldSeconds, 42);
         expect(report.bestHoldSeconds, 18);
         expect(report.formBreakCount, 2);

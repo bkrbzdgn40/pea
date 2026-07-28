@@ -12,6 +12,8 @@ void main() {
 
       expect(result.status, RangeRepValidationStatus.valid);
       expect(result.reasons, isEmpty);
+      expect(result.countsTowardReps, isTrue);
+      expect(result.shouldPublishScore, isTrue);
     });
 
     test(
@@ -21,6 +23,8 @@ void main() {
 
         expect(result.status, RangeRepValidationStatus.lowConfidence);
         expect(result.reasons, [RangeRepValidationReason.coverageLoss]);
+        expect(result.countsTowardReps, isTrue);
+        expect(result.shouldPublishScore, isTrue);
       },
     );
 
@@ -32,6 +36,8 @@ void main() {
         result.reasons,
         contains(RangeRepValidationReason.incompletePhase),
       );
+      expect(result.countsTowardReps, isFalse);
+      expect(result.shouldPublishScore, isFalse);
     });
 
     test('returns invalid when ROM stays above the acceptable threshold', () {

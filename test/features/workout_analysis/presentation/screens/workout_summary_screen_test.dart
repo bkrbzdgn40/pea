@@ -89,6 +89,72 @@ void main() {
     },
   );
 
+  testWidgets('separates counted low-confidence reps from rejected attempts', (
+    WidgetTester tester,
+  ) async {
+    final startedAt = DateTime(2024, 1, 5, 9, 30);
+    final session = WorkoutSession(
+      id: 'summary-validation-semantics',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      analysisKind: 'rangeRep',
+      startedAt: startedAt,
+      endedAt: startedAt.add(const Duration(seconds: 30)),
+      durationSec: 30,
+      totalReps: 3,
+      averageScore: 80,
+      bestScore: 90,
+      worstScore: 70,
+      validReps: 2,
+      lowConfidenceReps: 1,
+      invalidReps: 1,
+      formWarningCount: 0,
+      reps: const <WorkoutRep>[
+        WorkoutRep(
+          repIndex: 1,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'valid',
+          score: 90,
+        ),
+        WorkoutRep(
+          repIndex: 2,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'lowConfidence',
+          score: 80,
+        ),
+        WorkoutRep(
+          repIndex: 3,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'valid',
+          score: 70,
+        ),
+        WorkoutRep(
+          repIndex: 4,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'invalid',
+        ),
+      ],
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    await tester.scrollUntilVisible(find.text('Düşük Güven'), 200);
+
+    expect(find.text('Toplam tekrar'), findsOneWidget);
+    expect(find.text('Düşük Güven'), findsOneWidget);
+    expect(find.text('Geçersiz deneme'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+  });
+
   testWidgets('renders rich live metrics captured at session completion', (
     WidgetTester tester,
   ) async {

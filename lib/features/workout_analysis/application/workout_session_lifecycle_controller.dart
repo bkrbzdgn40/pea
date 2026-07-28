@@ -136,6 +136,10 @@ class WorkoutSessionLifecycleController
   ExerciseType? _activeSessionExercise;
   DateTime? _sessionStartedAt;
   int _lastObservedRepCount = 0;
+  int? _lastObservedValidationAttemptIndex;
+  int _validOutcomeCount = 0;
+  int _lowConfidenceOutcomeCount = 0;
+  int _invalidOutcomeCount = 0;
   double _repScoreSum = 0.0;
   int _scoredRepCount = 0;
   double _bestScore = 0.0;
@@ -180,6 +184,10 @@ class WorkoutSessionLifecycleController
     _activeSessionExercise = exercise;
     _sessionStartedAt = _clock();
     _lastObservedRepCount = 0;
+    _lastObservedValidationAttemptIndex = null;
+    _validOutcomeCount = 0;
+    _lowConfidenceOutcomeCount = 0;
+    _invalidOutcomeCount = 0;
     _repScoreSum = 0.0;
     _scoredRepCount = 0;
     _bestScore = 0.0;
@@ -199,7 +207,8 @@ class WorkoutSessionLifecycleController
     final rangeRepAnalysis = next.rangeRepAnalysis;
     if (rangeRepAnalysis != null) {
       final repDelta = next.repCount - _lastObservedRepCount;
-      if (repDelta > 0) {
+      final hasNewValidationOutcome = _recordValidationOutcomeIfNew(next);
+      if (hasNewValidationOutcome) {
         final collectedRep = _collectCompletedWorkoutRep(
           next: next,
           repDelta: repDelta,
@@ -224,6 +233,34 @@ class WorkoutSessionLifecycleController
 
     _lastObservedRepCount = rangeRepAnalysis?.repCount ?? 0;
     _previousFormBad = rangeRepAnalysis?.isFormBad ?? false;
+  }
+
+  bool _recordValidationOutcomeIfNew(WorkoutState next) {
+    final metrics = next.calibrationMetrics;
+    final attemptIndex = metrics.lastRangeRepValidatedRepIndex;
+    if (!metrics.hasLastRangeRepValidation || attemptIndex == null) {
+      return false;
+    }
+    if (_lastObservedValidationAttemptIndex == attemptIndex) {
+      return false;
+    }
+
+    switch (metrics.lastRangeRepValidationStatus) {
+      case 'valid':
+        _validOutcomeCount += 1;
+        break;
+      case 'lowConfidence':
+      case 'low confidence':
+        _lowConfidenceOutcomeCount += 1;
+        break;
+      case 'invalid':
+        _invalidOutcomeCount += 1;
+        break;
+      default:
+        return false;
+    }
+    _lastObservedValidationAttemptIndex = attemptIndex;
+    return true;
   }
 
   @override
@@ -377,14 +414,15 @@ class WorkoutSessionLifecycleController
       return null;
     }
 
-    final explicitRepIndex = metrics.lastRangeRepValidatedRepIndex;
-    final repIndex =
-        explicitRepIndex ?? (repDelta == 1 ? rangeRepAnalysis.repCount : null);
-    if (repIndex == null ||
-        repIndex < 1 ||
-        repIndex > rangeRepAnalysis.repCount) {
+    final attemptIndex = metrics.lastRangeRepValidatedRepIndex;
+    if (attemptIndex == null || attemptIndex < 1) {
       return null;
     }
+    final isInvalid = metrics.lastRangeRepValidationStatus == 'invalid';
+    if (!isInvalid && repDelta < 1) {
+      return null;
+    }
+    final repIndex = attemptIndex;
 
     final towardPeakMuscleAction = _exerciseCatalog
         .definitionFor(activeSessionExercise)
@@ -407,12 +445,12 @@ class WorkoutSessionLifecycleController
       analysisKind: next.analysisKind.name,
       recordedAt: _clock(),
       validationStatus: metrics.hasLastRangeRepValidation
-          ? metrics.lastRangeRepValidationStatus
+          ? _canonicalValidationStatus(metrics.lastRangeRepValidationStatus)
           : 'unknown',
       validationReasons: metrics.hasLastRangeRepValidation
           ? List<String>.from(metrics.lastRangeRepValidationReasons)
           : const <String>[],
-      score: rangeRepAnalysis.lastRepScore,
+      score: isInvalid ? null : rangeRepAnalysis.lastRepScore,
       minPrimaryMetric: metrics.lastRangeRepSummaryMinAngle,
       worstFormMetric: metrics.lastRangeRepSummaryWorstFormMetric,
       descentMillis: metrics.lastRangeRepSummaryDescentMillis,
@@ -459,14 +497,17 @@ class WorkoutSessionLifecycleController
       startedAt: startedAt,
       endedAt: endedAt,
       durationSec: durationSec < 0 ? 0 : durationSec,
-      totalReps: finalState.repCount,
+      totalReps: isHoldAnalysis
+          ? finalState.repCount
+          : _validOutcomeCount + _lowConfidenceOutcomeCount,
       averageScore: isHoldAnalysis
           ? 0
           : (_scoredRepCount == 0 ? 0 : _repScoreSum / _scoredRepCount),
       bestScore: isHoldAnalysis ? 0 : _bestScore,
       worstScore: isHoldAnalysis ? 0 : _worstRepScore(),
-      validReps: isHoldAnalysis ? 0 : _validRepCount(),
-      invalidReps: isHoldAnalysis ? 0 : _invalidRepCount(),
+      validReps: isHoldAnalysis ? 0 : _validOutcomeCount,
+      lowConfidenceReps: isHoldAnalysis ? 0 : _lowConfidenceOutcomeCount,
+      invalidReps: isHoldAnalysis ? 0 : _invalidOutcomeCount,
       formWarningCount: isHoldAnalysis ? 0 : _formWarningCount,
       totalHoldSeconds: _holdSessionCollector.totalHoldSeconds,
       bestHoldSeconds: _holdSessionCollector.bestHoldSeconds,
@@ -475,14 +516,11 @@ class WorkoutSessionLifecycleController
     );
   }
 
-  int _validRepCount() {
-    return _completedWorkoutReps.where((rep) => rep.isValidatedAsValid).length;
-  }
-
-  int _invalidRepCount() {
-    return _completedWorkoutReps
-        .where((rep) => rep.isValidatedAsInvalid)
-        .length;
+  String _canonicalValidationStatus(String? status) {
+    if (status == null) {
+      return 'unknown';
+    }
+    return status == 'low confidence' ? 'lowConfidence' : status;
   }
 
   double _worstRepScore() {

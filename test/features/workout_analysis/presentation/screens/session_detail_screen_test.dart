@@ -56,7 +56,7 @@ void main() {
       expect(find.textContaining('1:05'), findsWidgets);
       expect(find.text('89.6'), findsNWidgets(4));
       expect(find.text('Tekrar Detayları'), findsOneWidget);
-      expect(find.text('Tekrar 1'), findsOneWidget);
+      expect(find.text('Deneme 1'), findsOneWidget);
       expect(find.text('Geçerli'), findsWidgets);
       expect(find.text('450 ms / 550 ms'), findsOneWidget);
       expect(find.text('Sol'), findsOneWidget);
@@ -133,6 +133,6 @@ void main() {
 
     expect(find.text('Push-up'), findsOneWidget);
     expect(find.textContaining('Feedback: Rep completed!'), findsOneWidget);
-    expect(find.textContaining('1 of 1 reps were valid'), findsOneWidget);
+    expect(find.textContaining('1 reps counted: 1 were valid'), findsOneWidget);
   });
 }

@@ -10,6 +10,7 @@ class SessionReport {
     required this.hasScoreData,
     required this.totalReps,
     required this.validReps,
+    required this.lowConfidenceReps,
     required this.invalidReps,
     required this.unknownReps,
     required this.averageScore,
@@ -46,17 +47,23 @@ class SessionReport {
       return _buildSummaryOnlyRangeRepReport(session);
     }
 
+    final acceptedReps = normalizedReps
+        .where((rep) => !rep.isValidatedAsInvalid)
+        .toList(growable: false);
     final totalReps = session.totalReps > 0
         ? session.totalReps
-        : normalizedReps.length;
-    final validReps = normalizedReps
+        : acceptedReps.length;
+    final validReps = acceptedReps
         .where((rep) => rep.isValidatedAsValid)
+        .length;
+    final lowConfidenceReps = acceptedReps
+        .where((rep) => rep.isValidatedAsLowConfidence)
         .length;
     final invalidReps = normalizedReps
         .where((rep) => rep.isValidatedAsInvalid)
         .length;
-    final unknownReps = normalizedReps.length - validReps - invalidReps;
-    final scoredReps = normalizedReps
+    final unknownReps = totalReps - validReps - lowConfidenceReps;
+    final scoredReps = acceptedReps
         .where((rep) => rep.score != null)
         .toList(growable: false);
     final scores = scoredReps.map((rep) => rep.score!).toList(growable: false);
@@ -88,6 +95,7 @@ class SessionReport {
       hasScoreData: scores.isNotEmpty || _sessionHasScoreData(session),
       totalReps: totalReps,
       validReps: validReps,
+      lowConfidenceReps: lowConfidenceReps,
       invalidReps: invalidReps,
       unknownReps: unknownReps < 0 ? 0 : unknownReps,
       averageScore: averageScore,
@@ -106,6 +114,7 @@ class SessionReport {
       summaryMessage: _buildRangeRepSummary(
         totalReps: totalReps,
         validReps: validReps,
+        lowConfidenceReps: lowConfidenceReps,
         invalidReps: invalidReps,
         unknownReps: unknownReps,
         averageScore: averageScore,
@@ -127,6 +136,7 @@ class SessionReport {
   final bool hasScoreData;
   final int totalReps;
   final int validReps;
+  final int lowConfidenceReps;
   final int invalidReps;
   final int unknownReps;
   final double averageScore;
@@ -147,7 +157,8 @@ class SessionReport {
 
   static SessionReport _buildSummaryOnlyRangeRepReport(WorkoutSession session) {
     final totalReps = session.totalReps;
-    final unknownReps = totalReps - session.validReps - session.invalidReps;
+    final unknownReps =
+        totalReps - session.validReps - session.lowConfidenceReps;
 
     return SessionReport(
       isHoldSession: false,
@@ -155,6 +166,7 @@ class SessionReport {
       hasScoreData: _sessionHasScoreData(session),
       totalReps: totalReps,
       validReps: session.validReps,
+      lowConfidenceReps: session.lowConfidenceReps,
       invalidReps: session.invalidReps,
       unknownReps: unknownReps < 0 ? 0 : unknownReps,
       averageScore: session.averageScore,
@@ -183,6 +195,7 @@ class SessionReport {
       hasScoreData: false,
       totalReps: session.totalReps,
       validReps: 0,
+      lowConfidenceReps: 0,
       invalidReps: 0,
       unknownReps: 0,
       averageScore: 0,
@@ -258,6 +271,7 @@ class SessionReport {
   static String _buildRangeRepSummary({
     required int totalReps,
     required int validReps,
+    required int lowConfidenceReps,
     required int invalidReps,
     required int unknownReps,
     required double averageScore,
@@ -267,13 +281,18 @@ class SessionReport {
       return 'Bu oturumda tamamlanmış tekrar kaydı yok.';
     }
 
-    final parts = <String>['$totalReps tekrarın $validReps tanesi geçerli'];
+    final parts = <String>[
+      '$totalReps tekrar sayıldı: $validReps tanesi geçerli',
+    ];
 
-    if (invalidReps > 0) {
-      parts.add('$invalidReps tanesi geçersiz');
+    if (lowConfidenceReps > 0) {
+      parts.add('$lowConfidenceReps tanesi düşük güvenli');
     }
     if (unknownReps > 0) {
       parts.add('$unknownReps tanesi belirsiz');
+    }
+    if (invalidReps > 0) {
+      parts.add('$invalidReps geçersiz deneme sayaca eklenmedi');
     }
 
     final summary = '${parts.join(', ')}.';

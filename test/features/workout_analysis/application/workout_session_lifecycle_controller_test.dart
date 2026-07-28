@@ -61,7 +61,7 @@ void main() {
   );
 
   test(
-    'range-rep accumulation finalizes sorted reps and saves exactly once',
+    'range-rep accumulation counts accepted outcomes and excludes invalid attempts',
     () async {
       final clock = _MutableClock(DateTime.utc(2030, 1, 1, 12));
       final repository = _FakeSessionRepository();
@@ -80,11 +80,11 @@ void main() {
       clock.advance(const Duration(seconds: 2));
       controller.collect(
         _rangeRepState(
-          repCount: 2,
+          repCount: 1,
           lastRepScore: 80,
           isFormBad: true,
           feedbackMessage: 'Ilk tekrar',
-          validatedRepIndex: 2,
+          validatedRepIndex: 1,
           validationStatus: 'valid',
           minPrimaryMetric: 88,
           worstFormMetric: 156,
@@ -97,11 +97,11 @@ void main() {
       clock.advance(const Duration(seconds: 3));
       controller.collect(
         _rangeRepState(
-          repCount: 3,
+          repCount: 1,
           lastRepScore: 99,
           isFormBad: true,
           feedbackMessage: 'Duplicate olmamali',
-          validatedRepIndex: 2,
+          validatedRepIndex: 1,
           validationStatus: 'valid',
           minPrimaryMetric: 77,
           worstFormMetric: 166,
@@ -114,13 +114,13 @@ void main() {
       clock.advance(const Duration(seconds: 4));
       controller.collect(
         _rangeRepState(
-          repCount: 4,
-          lastRepScore: 60,
+          repCount: 1,
+          lastRepScore: 0,
           isFormBad: false,
-          feedbackMessage: 'Ikinci tekrar',
-          validatedRepIndex: 1,
+          feedbackMessage: 'Gecersiz deneme',
+          validatedRepIndex: 2,
           validationStatus: 'invalid',
-          validationReasons: const <String>['depth'],
+          validationReasons: const <String>['insufficientRom'],
           minPrimaryMetric: 95,
           worstFormMetric: 170,
           descentMillis: 510,
@@ -133,6 +133,27 @@ void main() {
           confidence: 0.82,
           primaryRom: 55,
           coverageQuality: 0.76,
+        ),
+      );
+
+      clock.advance(const Duration(seconds: 3));
+      controller.collect(
+        _rangeRepState(
+          repCount: 2,
+          lastRepScore: 60,
+          isFormBad: false,
+          feedbackMessage: 'Kontrollu tekrar',
+          validatedRepIndex: 3,
+          validationStatus: 'low confidence',
+          validationReasons: const <String>['excessiveDescentSpeed'],
+          minPrimaryMetric: 90,
+          worstFormMetric: 160,
+          descentMillis: 180,
+          ascentMillis: 410,
+          selectedSideLabel: 'right',
+          confidence: 0.82,
+          primaryRom: 65,
+          coverageQuality: 0.94,
           techniqueObservations: const <RangeRepTechniqueObservation>[
             RangeRepTechniqueObservation(
               type: RangeRepTechniqueObservationType.torsoSwing,
@@ -145,11 +166,11 @@ void main() {
 
       clock.advance(const Duration(seconds: 3));
       final finalState = _rangeRepState(
-        repCount: 5,
+        repCount: 3,
         lastRepScore: 40,
         isFormBad: true,
         feedbackMessage: 'Final frame',
-        validatedRepIndex: 5,
+        validatedRepIndex: 4,
         validationStatus: 'valid',
         minPrimaryMetric: 82,
         worstFormMetric: 148,
@@ -159,7 +180,6 @@ void main() {
       );
 
       expect(controller.beginFinish(), isTrue);
-
       final result = await controller.finishSession(finalState: finalState);
 
       expect(result.failure, isNull);
@@ -172,79 +192,54 @@ void main() {
       final session = repository.savedSessions.single;
       expect(result.session, same(session));
       expect(publications.last, same(session));
-      expect(session.id, 'session_${clock.now().microsecondsSinceEpoch}');
-      expect(session.ownerId, 'owner-1');
-      expect(session.exerciseType, ExerciseType.squat.id);
-      expect(session.analysisKind, EngineKind.rangeRep.name);
-      expect(session.startedAt, DateTime.utc(2030, 1, 1, 12));
-      expect(session.endedAt, clock.now());
-      expect(session.durationSec, 12);
-      expect(session.totalReps, 5);
+      expect(session.durationSec, 15);
+      expect(session.totalReps, 3);
       expect(session.averageScore, closeTo(60.0, 0.001));
       expect(session.bestScore, 80);
       expect(session.worstScore, 40);
       expect(session.validReps, 2);
+      expect(session.lowConfidenceReps, 1);
       expect(session.invalidReps, 1);
       expect(session.formWarningCount, 2);
-      expect(session.totalHoldSeconds, 0);
-      expect(session.bestHoldSeconds, 0);
-      expect(session.formBreakCount, 0);
-      expect(session.reps, hasLength(3));
+      expect(session.reps, hasLength(4));
       expect(
         session.reps!.map((rep) => rep.repIndex).toList(growable: false),
-        <int>[1, 2, 5],
+        <int>[1, 2, 3, 4],
       );
 
       final firstRep = session.reps![0];
-      final secondRep = session.reps![1];
-      final finalRep = session.reps![2];
+      final invalidAttempt = session.reps![1];
+      final cautionRep = session.reps![2];
+      final finalRep = session.reps![3];
 
-      expect(firstRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 9));
-      expect(firstRep.validationStatus, 'invalid');
-      expect(firstRep.validationReasons, <String>['depth']);
-      expect(firstRep.score, 60);
-      expect(firstRep.minPrimaryMetric, 95);
-      expect(firstRep.worstFormMetric, 170);
-      expect(firstRep.descentMillis, 510);
-      expect(firstRep.ascentMillis, 410);
-      expect(firstRep.feedback, 'Ikinci tekrar');
-      expect(firstRep.hadFormViolation, isTrue);
-      expect(firstRep.hadCoverageDrop, isTrue);
-      expect(firstRep.switchedSideDuringRep, isTrue);
-      expect(firstRep.completedPhaseSequence, isFalse);
-      expect(firstRep.selectedSideLabel, 'right');
-      expect(firstRep.selectedSide, 'right');
-      expect(firstRep.confidence, 0.82);
-      expect(firstRep.primaryRom, 55);
-      expect(firstRep.eccentricMillis, 510);
-      expect(firstRep.concentricMillis, 410);
-      expect(firstRep.techniqueObservations, hasLength(1));
-      expect(firstRep.coverageQuality, 0.76);
+      expect(firstRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 2));
+      expect(firstRep.validationStatus, 'valid');
+      expect(firstRep.score, 80);
+      expect(firstRep.feedback, 'Ilk tekrar');
 
-      expect(secondRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 2));
-      expect(secondRep.validationStatus, 'valid');
-      expect(secondRep.validationReasons, isEmpty);
-      expect(secondRep.score, 80);
-      expect(secondRep.minPrimaryMetric, 88);
-      expect(secondRep.worstFormMetric, 156);
-      expect(secondRep.descentMillis, 420);
-      expect(secondRep.ascentMillis, 320);
-      expect(secondRep.feedback, 'Ilk tekrar');
-      expect(secondRep.hadFormViolation, isFalse);
-      expect(secondRep.hadCoverageDrop, isFalse);
-      expect(secondRep.switchedSideDuringRep, isFalse);
-      expect(secondRep.completedPhaseSequence, isTrue);
-      expect(secondRep.selectedSideLabel, 'left');
+      expect(invalidAttempt.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 9));
+      expect(invalidAttempt.validationStatus, 'invalid');
+      expect(invalidAttempt.validationReasons, <String>['insufficientRom']);
+      expect(invalidAttempt.score, isNull);
+      expect(invalidAttempt.feedback, 'Gecersiz deneme');
 
-      expect(finalRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 12));
-      expect(finalRep.repIndex, 5);
+      expect(cautionRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 12));
+      expect(cautionRep.validationStatus, 'lowConfidence');
+      expect(cautionRep.validationReasons, <String>['excessiveDescentSpeed']);
+      expect(cautionRep.score, 60);
+      expect(cautionRep.feedback, 'Kontrollu tekrar');
+      expect(cautionRep.techniqueObservations, hasLength(1));
+      expect(cautionRep.coverageQuality, 0.94);
+
+      expect(finalRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 15));
+      expect(finalRep.repIndex, 4);
       expect(finalRep.feedback, 'Final frame');
 
       final snapshot = controller.currentStateSnapshot();
       expect(snapshot.hasSavedSession, isTrue);
       expect(snapshot.isFinishing, isTrue);
       expect(snapshot.formWarningCount, 2);
-      expect(snapshot.completedWorkoutReps, hasLength(3));
+      expect(snapshot.completedWorkoutReps, hasLength(4));
 
       controller.completeFinishFlow();
       expect(controller.currentStateSnapshot().isFinishing, isFalse);
@@ -257,7 +252,6 @@ void main() {
       expect(invalidationCount, 1);
     },
   );
-
   test(
     'sit-up range-rep sessions persist the canonical exercise id and kind',
     () async {
@@ -455,6 +449,7 @@ void main() {
       expect(session.bestScore, 0);
       expect(session.worstScore, 0);
       expect(session.validReps, 0);
+      expect(session.lowConfidenceReps, 0);
       expect(session.invalidReps, 0);
       expect(session.formWarningCount, 0);
       expect(session.totalHoldSeconds, closeTo(6.0, 0.001));

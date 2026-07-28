@@ -58,6 +58,50 @@ void main() {
       },
     );
 
+    test('excludes invalid attempts from ROM and tempo aggregates', () {
+      final session = WorkoutSession(
+        id: 'session',
+        ownerId: 'owner',
+        exerciseType: 'squat',
+        startedAt: DateTime.utc(2030, 1, 1),
+        endedAt: DateTime.utc(2030, 1, 1, 0, 1),
+        durationSec: 60,
+        totalReps: 1,
+        averageScore: 90,
+        bestScore: 90,
+        formWarningCount: 0,
+        reps: const <WorkoutRep>[
+          WorkoutRep(
+            repIndex: 1,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            validationStatus: 'valid',
+            primaryRom: 60,
+            descentMillis: 600,
+            ascentMillis: 400,
+          ),
+          WorkoutRep(
+            repIndex: 2,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            validationStatus: 'invalid',
+            primaryRom: 10,
+            descentMillis: 100,
+            ascentMillis: 100,
+          ),
+        ],
+      );
+
+      final snapshot = builder.build(session);
+
+      expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 1);
+      expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 60);
+      expect(
+        snapshot.valueFor(ExerciseMetricRegistry.tempo),
+        const Duration(milliseconds: 1000),
+      );
+    });
+
     test('builds hold duration without inventing repetition metrics', () {
       final session = WorkoutSession(
         id: 'hold',

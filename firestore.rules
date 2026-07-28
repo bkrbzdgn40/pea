@@ -70,6 +70,7 @@ service cloud.firestore {
         'durationSeconds',
         'totalReps',
         'validReps',
+        'lowConfidenceReps',
         'invalidReps',
         'averageScore',
         'bestScore',
@@ -91,6 +92,7 @@ service cloud.firestore {
         'durationSeconds',
         'totalReps',
         'validReps',
+        'lowConfidenceReps',
         'invalidReps',
         'averageScore',
         'bestScore',
@@ -120,8 +122,10 @@ service cloud.firestore {
         isNonNegativeInt(request.resource.data.durationSeconds) &&
         isNonNegativeInt(request.resource.data.totalReps) &&
         isNonNegativeInt(request.resource.data.validReps) &&
+        isNonNegativeInt(request.resource.data.lowConfidenceReps) &&
         isNonNegativeInt(request.resource.data.invalidReps) &&
-        request.resource.data.validReps + request.resource.data.invalidReps <=
+        request.resource.data.validReps +
+          request.resource.data.lowConfidenceReps <=
           request.resource.data.totalReps &&
         isScore(request.resource.data.averageScore) &&
         isScore(request.resource.data.bestScore) &&
