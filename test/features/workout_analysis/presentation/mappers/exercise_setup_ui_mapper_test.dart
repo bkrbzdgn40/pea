@@ -150,7 +150,8 @@ void main() {
       bicepsCurl.startPoseTemplate,
       PreparationPoseTemplate.standingArmsDownFront,
     );
-    expect(benchDip.startPoseTemplate, PreparationPoseTemplate.dipSupport);
+    expect(benchDip.startPoseTemplate, PreparationPoseTemplate.benchDipSetup);
+    expect(benchDip.startPoseGuideHint, contains('front edge'));
     expect(
       sitUp.startPoseTemplate,
       PreparationPoseTemplate.floorSupineBentKnees,

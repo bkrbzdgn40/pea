@@ -130,6 +130,11 @@ class _PreparationStartPoseReferencePainter extends CustomPainter {
       ..isAntiAlias = true
       ..color = const Color(0xFFB9F3E7).withValues(alpha: 0.18);
 
+    final supportFillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true
+      ..color = const Color(0xFFB9F3E7).withValues(alpha: 0.08);
+
     final frame =
         Offset(size.width * 0.08, size.height * 0.06) &
         Size(size.width * 0.84, size.height * 0.88);
@@ -167,6 +172,53 @@ class _PreparationStartPoseReferencePainter extends CustomPainter {
       canvas.drawLine(
         Offset(wallX, frame.top + frame.height * 0.12),
         Offset(wallX, frame.bottom - frame.height * 0.06),
+        accentPaint,
+      );
+    }
+    if (template == PreparationPoseTemplate.benchDipSetup) {
+      final seat = RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          frame.left + frame.width * 0.59,
+          frame.top + frame.height * 0.49,
+          frame.left + frame.width * 0.90,
+          frame.top + frame.height * 0.57,
+        ),
+        const Radius.circular(8),
+      );
+      final frontLeg = RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          frame.left + frame.width * 0.64,
+          frame.top + frame.height * 0.57,
+          frame.left + frame.width * 0.69,
+          frame.top + frame.height * 0.84,
+        ),
+        const Radius.circular(5),
+      );
+      final rearLeg = RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          frame.left + frame.width * 0.84,
+          frame.top + frame.height * 0.57,
+          frame.left + frame.width * 0.89,
+          frame.top + frame.height * 0.84,
+        ),
+        const Radius.circular(5),
+      );
+
+      canvas.drawRRect(seat, supportFillPaint);
+      canvas.drawRRect(seat, accentPaint);
+      canvas.drawRRect(frontLeg, supportFillPaint);
+      canvas.drawRRect(frontLeg, accentPaint);
+      canvas.drawRRect(rearLeg, supportFillPaint);
+      canvas.drawRRect(rearLeg, accentPaint);
+      canvas.drawLine(
+        Offset(
+          frame.left + frame.width * 0.08,
+          frame.top + frame.height * 0.84,
+        ),
+        Offset(
+          frame.left + frame.width * 0.92,
+          frame.top + frame.height * 0.84,
+        ),
         accentPaint,
       );
     }
@@ -502,6 +554,22 @@ Map<_GuideJoint, Offset> _templatePoints(
         _GuideJoint.rightKnee: p(0.78, 0.50),
         _GuideJoint.leftAnkle: p(0.89, 0.50),
         _GuideJoint.rightAnkle: p(0.93, 0.54),
+      };
+    case PreparationPoseTemplate.benchDipSetup:
+      return <_GuideJoint, Offset>{
+        _GuideJoint.nose: p(0.47, 0.22),
+        _GuideJoint.leftShoulder: p(0.48, 0.31),
+        _GuideJoint.rightShoulder: p(0.52, 0.34),
+        _GuideJoint.leftElbow: p(0.55, 0.40),
+        _GuideJoint.rightElbow: p(0.58, 0.42),
+        _GuideJoint.leftWrist: p(0.59, 0.49),
+        _GuideJoint.rightWrist: p(0.62, 0.51),
+        _GuideJoint.leftHip: p(0.45, 0.50),
+        _GuideJoint.rightHip: p(0.49, 0.53),
+        _GuideJoint.leftKnee: p(0.31, 0.61),
+        _GuideJoint.rightKnee: p(0.34, 0.64),
+        _GuideJoint.leftAnkle: p(0.14, 0.73),
+        _GuideJoint.rightAnkle: p(0.17, 0.76),
       };
     case PreparationPoseTemplate.dipSupport:
       return <_GuideJoint, Offset>{

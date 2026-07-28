@@ -50,10 +50,7 @@ ExerciseSetupViewData mapExerciseSetupToViewData({
       tr: 'Örnek başlangıç pozu',
       en: 'Reference start pose',
     ),
-    startPoseGuideHint: localizations.pick(
-      tr: 'Vücudunu ekrandaki iskelete yaklaşık hizala. Poz hazır olunca geri sayım başlayabilir.',
-      en: 'Line your body up roughly with the on-screen skeleton. Once your pose is ready, the countdown can begin.',
-    ),
+    startPoseGuideHint: _startPoseGuideHint(definition.type, localizations),
     setupPositionLabel: _setupPositionLabel(
       setup.supportSurface,
       localizations,
@@ -476,6 +473,23 @@ String _joinLocalized(List<String> values, AppLocalizations localizations) {
   return '$leading, and ${values.last}';
 }
 
+String _startPoseGuideHint(
+  ExerciseType exerciseType,
+  AppLocalizations localizations,
+) {
+  if (exerciseType == ExerciseType.tricepsDip) {
+    return localizations.pick(
+      tr: 'Ellerini yükseltinin ön kenarına yerleştir; kalçanı kenarın hemen önünde tut ve ayaklarını öne uzat.',
+      en: 'Place your hands on the front edge of the raised surface, keep your hips just in front of it, and extend your feet forward.',
+    );
+  }
+
+  return localizations.pick(
+    tr: 'Vücudunu ekrandaki iskelete yaklaşık hizala. Poz hazır olunca geri sayım başlayabilir.',
+    en: 'Line your body up roughly with the on-screen skeleton. Once your pose is ready, the countdown can begin.',
+  );
+}
+
 String _capitalize(String value) {
   if (value.isEmpty) {
     return value;
@@ -505,6 +519,8 @@ PreparationPoseTemplate _startPoseTemplate(
       return PreparationPoseTemplate.floorSupineElbowsBentOverhead;
     case ExerciseType.floorChestPress:
       return PreparationPoseTemplate.floorSupineChestPress;
+    case ExerciseType.tricepsDip:
+      return PreparationPoseTemplate.benchDipSetup;
     case ExerciseType.shoulderPress:
       return PreparationPoseTemplate.shoulderPressRack;
     default:

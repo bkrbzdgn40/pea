@@ -464,6 +464,7 @@ void main() {
         expect(contract.primaryMetricSmoothingWindow, 1);
       }
       expect(RangeRepContracts.tricepsDip.formMetricSmoothingWindow, 5);
+      expect(RangeRepContracts.tricepsDip.peakEntryMargin, 0.0);
       expect(RangeRepContracts.jumpingJack.formMetricSmoothingWindow, 1);
 
       for (final contract in <RangeRepContract>[

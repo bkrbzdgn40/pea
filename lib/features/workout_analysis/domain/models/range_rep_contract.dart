@@ -657,6 +657,7 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
     allowSparseCycleRecovery: true,
     primaryMetricSmoothingWindow: 1,
