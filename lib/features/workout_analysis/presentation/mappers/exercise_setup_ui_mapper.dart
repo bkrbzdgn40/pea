@@ -503,12 +503,12 @@ PreparationPoseTemplate _startPoseTemplate(
 ) {
   switch (exerciseType) {
     case ExerciseType.hollowHold:
+    case ExerciseType.lyingLegRaise:
       return PreparationPoseTemplate.floorSupineStraight;
     case ExerciseType.sitUp:
     case ExerciseType.crunch:
       return PreparationPoseTemplate.floorSupineBentKnees;
     case ExerciseType.reverseCrunch:
-    case ExerciseType.lyingLegRaise:
     case ExerciseType.bentKneeLegRaise:
     case ExerciseType.gluteBridge:
     case ExerciseType.frogPump:

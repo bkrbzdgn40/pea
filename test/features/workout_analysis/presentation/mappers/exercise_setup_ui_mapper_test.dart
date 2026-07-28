@@ -162,7 +162,7 @@ void main() {
     );
     expect(
       lyingLegRaise.startPoseTemplate,
-      PreparationPoseTemplate.floorSupineBentKnees,
+      PreparationPoseTemplate.floorSupineStraight,
     );
     expect(
       bentKneeLegRaise.startPoseTemplate,
