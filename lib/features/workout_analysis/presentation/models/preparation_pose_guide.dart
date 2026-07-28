@@ -15,6 +15,7 @@ enum PreparationPoseTemplate {
   floorSupineChestPress,
   wallSupportedHold,
   sideSupport,
+  benchDipSetup,
   dipSupport,
   dynamicBilateralNeutral,
   shoulderPressRack,

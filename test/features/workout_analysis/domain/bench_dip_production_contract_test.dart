@@ -34,6 +34,16 @@ void main() {
       expect(engine.repCount, 1);
     });
 
+    test('counts a controlled 98-degree device bottom', () {
+      _confirm(engine, clock, 165);
+      _confirm(engine, clock, 126);
+      _confirm(engine, clock, 98);
+      _confirm(engine, clock, 112);
+      _confirm(engine, clock, 160);
+
+      expect(engine.repCount, 1);
+    });
+
     test(
       'recovers a valid bottom sampled during active-entry confirmation',
       () {
