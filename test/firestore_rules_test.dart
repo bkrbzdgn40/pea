@@ -105,6 +105,31 @@ void main() {
       expect(response.statusCode, 403, reason: response.body);
     });
 
+    test('accepted validation counts cannot exceed total reps', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['validReps'] = 12
+        ..['lowConfidenceReps'] = 1;
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('negative low-confidence count is rejected', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['lowConfidenceReps'] = -1;
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
     test('unknown extra session field is rejected', () async {
       final response = await ownerClient.setDocument(
         _sessionPath(ownerClient.uid!, 'session_a'),
@@ -360,6 +385,7 @@ Map<String, Object?> _validSessionData({
     'durationSeconds': 600,
     'totalReps': 12,
     'validReps': 10,
+    'lowConfidenceReps': 1,
     'invalidReps': 1,
     'averageScore': 82.5,
     'bestScore': 95.0,

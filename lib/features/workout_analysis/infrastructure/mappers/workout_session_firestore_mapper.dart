@@ -21,6 +21,7 @@ class WorkoutSessionFirestoreMapper {
       'durationSeconds': session.durationSec,
       'totalReps': session.totalReps,
       'validReps': _resolveValidRepCount(session),
+      'lowConfidenceReps': _resolveLowConfidenceRepCount(session),
       'invalidReps': _resolveInvalidRepCount(session),
       'averageScore': session.averageScore,
       'bestScore': session.bestScore,
@@ -49,6 +50,7 @@ class WorkoutSessionFirestoreMapper {
       'durationSeconds': data['durationSeconds'] ?? data['durationSec'],
       'totalReps': data['totalReps'],
       'validReps': data['validReps'],
+      'lowConfidenceReps': data['lowConfidenceReps'],
       'invalidReps': data['invalidReps'],
       'averageScore': data['averageScore'],
       'bestScore': data['bestScore'],
@@ -73,6 +75,15 @@ class WorkoutSessionFirestoreMapper {
     return reps.where((rep) => rep.isValidatedAsValid).length;
   }
 
+  int _resolveLowConfidenceRepCount(WorkoutSession session) {
+    final reps = session.reps;
+    if (reps == null) {
+      return session.lowConfidenceReps;
+    }
+
+    return reps.where((rep) => rep.isValidatedAsLowConfidence).length;
+  }
+
   int _resolveInvalidRepCount(WorkoutSession session) {
     final reps = session.reps;
     if (reps == null) {
@@ -84,7 +95,8 @@ class WorkoutSessionFirestoreMapper {
 
   double _resolveWorstScore(WorkoutSession session) {
     final scoredReps = session.reps
-        ?.map((rep) => rep.score)
+        ?.where((rep) => !rep.isValidatedAsInvalid)
+        .map((rep) => rep.score)
         .whereType<double>()
         .toList(growable: false);
     if (scoredReps == null || scoredReps.isEmpty) {

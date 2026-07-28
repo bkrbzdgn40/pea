@@ -57,7 +57,7 @@ void main() {
         expect(sessions.single.reps, isNull);
         expect(sessions.single.validReps, 1);
         expect(sessions.single.invalidReps, 1);
-        expect(sessions.single.worstScore, 77.0);
+        expect(sessions.single.worstScore, 90.0);
       },
     );
 

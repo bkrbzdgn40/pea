@@ -267,6 +267,18 @@ List<MapEntry<String, String>> _summaryValues(
     return values;
   }
 
+  final hasValidationBreakdown =
+      session.validReps > 0 || session.invalidReps > 0;
+  final persistedLowConfidenceReps = session.reps
+      ?.where(
+        (rep) =>
+            rep.validationStatus == 'lowConfidence' ||
+            rep.validationStatus == 'low confidence',
+      )
+      .length;
+  final lowConfidenceReps =
+      persistedLowConfidenceReps ?? session.lowConfidenceReps;
+
   final values = <MapEntry<String, String>>[
     MapEntry(
       localizations.exerciseType,
@@ -284,11 +296,13 @@ List<MapEntry<String, String>> _summaryValues(
       localizations.workoutSummaryBestScore,
       WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
-    if (session.validReps > 0 || session.invalidReps > 0) ...[
+    if (hasValidationBreakdown || lowConfidenceReps > 0) ...[
       MapEntry(
         localizations.workoutSummaryValidReps,
         session.validReps.toString(),
       ),
+      if (lowConfidenceReps > 0)
+        MapEntry(localizations.lowConfidence, lowConfidenceReps.toString()),
       MapEntry(
         localizations.workoutSummaryInvalidReps,
         session.invalidReps.toString(),

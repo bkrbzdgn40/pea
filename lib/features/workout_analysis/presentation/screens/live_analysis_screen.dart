@@ -1508,12 +1508,18 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
           repCount: state.repCount,
           bestHoldSeconds: _displayWholeSeconds(state.bestHoldSeconds),
           lastRepScore: _displayScore(state.lastRepScore),
+          lastValidationStatus:
+              state.calibrationMetrics.lastRangeRepValidationStatus,
         ),
       ),
     );
     final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
     final localizations = AppLocalizations.of(context);
-    final hasRepScore = metric.repCount > 0;
+    final isInvalidLastAttempt = metric.lastValidationStatus == 'invalid';
+    final isLowConfidenceLastRep =
+        metric.lastValidationStatus == 'low confidence' ||
+        metric.lastValidationStatus == 'lowConfidence';
+    final hasRepScore = metric.repCount > 0 && !isInvalidLastAttempt;
     final String value;
     if (isHoldAnalysis) {
       value = _formatHoldSeconds(metric.bestHoldSeconds);
@@ -1531,14 +1537,18 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
       value: value,
       valueStyle: TextStyle(
         color: isHoldAnalysis || hasRepScore
-            ? Colors.greenAccent
+            ? isLowConfidenceLastRep
+                  ? Colors.amberAccent
+                  : Colors.greenAccent
             : Colors.white54,
         fontSize: compact ? 24 : 31,
         height: 1,
         fontWeight: FontWeight.w800,
       ),
       accentColor: isHoldAnalysis || hasRepScore
-          ? Colors.greenAccent
+          ? isLowConfidenceLastRep
+                ? Colors.amberAccent
+                : Colors.greenAccent
           : Colors.white30,
       compact: compact,
     );

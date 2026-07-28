@@ -15,6 +15,7 @@ class WorkoutSession {
     required this.bestScore,
     this.worstScore = 0.0,
     this.validReps = 0,
+    this.lowConfidenceReps = 0,
     this.invalidReps = 0,
     required this.formWarningCount,
     this.totalHoldSeconds = 0.0,
@@ -37,6 +38,7 @@ class WorkoutSession {
   final double bestScore;
   final double worstScore;
   final int validReps;
+  final int lowConfidenceReps;
   final int invalidReps;
   final int formWarningCount;
   final double totalHoldSeconds;
@@ -67,6 +69,7 @@ class WorkoutSession {
     double? bestScore,
     double? worstScore,
     int? validReps,
+    int? lowConfidenceReps,
     int? invalidReps,
     int? formWarningCount,
     double? totalHoldSeconds,
@@ -89,6 +92,7 @@ class WorkoutSession {
       bestScore: bestScore ?? this.bestScore,
       worstScore: worstScore ?? this.worstScore,
       validReps: validReps ?? this.validReps,
+      lowConfidenceReps: lowConfidenceReps ?? this.lowConfidenceReps,
       invalidReps: invalidReps ?? this.invalidReps,
       formWarningCount: formWarningCount ?? this.formWarningCount,
       totalHoldSeconds: totalHoldSeconds ?? this.totalHoldSeconds,
@@ -118,6 +122,7 @@ class WorkoutSession {
       'bestScore': bestScore,
       'worstScore': worstScore,
       'validReps': validReps,
+      'lowConfidenceReps': lowConfidenceReps,
       'invalidReps': invalidReps,
       'formWarningCount': formWarningCount,
       'totalHoldSeconds': totalHoldSeconds,
@@ -143,6 +148,7 @@ class WorkoutSession {
       bestScore: _readDouble(map, 'bestScore'),
       worstScore: _readDoubleOrDefault(map, 'worstScore', 0),
       validReps: _readIntOrDefault(map, 'validReps', 0),
+      lowConfidenceReps: _readIntOrDefault(map, 'lowConfidenceReps', 0),
       invalidReps: _readIntOrDefault(map, 'invalidReps', 0),
       formWarningCount: _readInt(map, 'formWarningCount'),
       totalHoldSeconds: _readDoubleWithFallback(

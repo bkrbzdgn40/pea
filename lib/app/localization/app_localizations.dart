@@ -863,6 +863,8 @@ class AppLocalizations {
   String get worstForm => pick(tr: 'En Kötü Form', en: 'Worst Form');
   String get descentAscent => pick(tr: 'İniş / Çıkış', en: 'Descent / Ascent');
   String repNumber(int index) => pick(tr: 'Tekrar $index', en: 'Rep $index');
+  String attemptNumber(int index) =>
+      pick(tr: 'Deneme $index', en: 'Attempt $index');
   String primaryIssue(String issue) =>
       pick(tr: 'Birincil sorun: $issue', en: 'Primary issue: $issue');
   String feedbackLabel(String feedback) =>
@@ -1014,7 +1016,7 @@ class AppLocalizations {
   String get workoutSummaryValidReps =>
       pick(tr: 'Geçerli tekrar', en: 'Valid reps');
   String get workoutSummaryInvalidReps =>
-      pick(tr: 'Geçersiz tekrar', en: 'Invalid reps');
+      pick(tr: 'Geçersiz deneme', en: 'Rejected attempts');
   String get averageRom => pick(tr: 'Ortalama ROM', en: 'Average ROM');
   String get averageTempo => pick(tr: 'Ortalama tempo', en: 'Average tempo');
   String get fastestRep => pick(tr: 'En hızlı tekrar', en: 'Fastest rep');
@@ -1291,18 +1293,24 @@ class AppLocalizations {
   String sessionReportRangeSummary({
     required int totalReps,
     required int validReps,
+    required int lowConfidenceReps,
     required int invalidReps,
     required int unknownReps,
     required double averageScore,
     String? topIssue,
   }) {
     if (isTurkish) {
-      final parts = <String>['$totalReps tekrarın $validReps tanesi geçerli'];
-      if (invalidReps > 0) {
-        parts.add('$invalidReps tanesi geçersiz');
+      final parts = <String>[
+        '$totalReps tekrar sayıldı: $validReps tanesi geçerli',
+      ];
+      if (lowConfidenceReps > 0) {
+        parts.add('$lowConfidenceReps tanesi düşük güvenli');
       }
       if (unknownReps > 0) {
         parts.add('$unknownReps tanesi belirsiz');
+      }
+      if (invalidReps > 0) {
+        parts.add('$invalidReps geçersiz deneme sayaca eklenmedi');
       }
       final summary = '${parts.join(', ')}.';
       if (topIssue != null && topIssue.isNotEmpty) {
@@ -1314,12 +1322,15 @@ class AppLocalizations {
       return summary;
     }
 
-    final parts = <String>['$validReps of $totalReps reps were valid'];
-    if (invalidReps > 0) {
-      parts.add('$invalidReps were invalid');
+    final parts = <String>['$totalReps reps counted: $validReps were valid'];
+    if (lowConfidenceReps > 0) {
+      parts.add('$lowConfidenceReps were low-confidence');
     }
     if (unknownReps > 0) {
       parts.add('$unknownReps were uncertain');
+    }
+    if (invalidReps > 0) {
+      parts.add('$invalidReps invalid attempts were excluded from the count');
     }
     final summary = '${parts.join(', ')}.';
     if (topIssue != null && topIssue.isNotEmpty) {

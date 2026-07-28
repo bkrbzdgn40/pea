@@ -52,7 +52,10 @@ class WorkoutSessionMetricSnapshotBuilder {
     builder.set(ExerciseMetricRegistry.repetitionCount, session.totalReps);
 
     final reps = session.reps ?? const <WorkoutRep>[];
-    final romValues = reps
+    final acceptedReps = reps
+        .where((rep) => !rep.isValidatedAsInvalid)
+        .toList(growable: false);
+    final romValues = acceptedReps
         .map((rep) => rep.primaryRom)
         .whereType<double>()
         .where((value) => value.isFinite)
@@ -64,7 +67,7 @@ class WorkoutSessionMetricSnapshotBuilder {
       );
     }
 
-    final durations = reps
+    final durations = acceptedReps
         .map((rep) => rep.observedDuration)
         .whereType<Duration>()
         .toList(growable: false);
