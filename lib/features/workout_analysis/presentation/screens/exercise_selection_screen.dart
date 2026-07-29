@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_definition.dart';
 import '../../application/exercise_definition_metadata.dart';
@@ -22,40 +23,34 @@ class ExerciseSelectionScreen extends ConsumerWidget {
     const catalog = ExerciseCatalog();
     const guideCatalog = ExerciseGuideCatalog();
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(localizations.selectExercise),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          itemCount: catalog.definitions.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final definition = catalog.definitions[index];
-            final content = localizedExerciseGuideContent(
-              content: guideCatalog.contentFor(definition.type),
-              isTurkish: localizations.isTurkish,
-            );
-            final setupViewData = definition.isAnalysisSupported
-                ? mapExerciseSetupToViewData(
-                    definition: definition,
-                    localizations: localizations,
-                  )
-                : null;
-            return _ExerciseSelectionCard(
-              content: content,
-              setupViewData: setupViewData,
-              trackingType: definition.trackingType,
-              isAnalysisSupported: definition.isAnalysisSupported,
-              onTap: () => _handleExerciseTap(context, ref, definition),
-            );
-          },
-        ),
+    return AppScaffoldShell(
+      title: localizations.selectExercise,
+      currentPage: AppDestination.exerciseSelection,
+      padding: EdgeInsets.zero,
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        itemCount: catalog.definitions.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final definition = catalog.definitions[index];
+          final content = localizedExerciseGuideContent(
+            content: guideCatalog.contentFor(definition.type),
+            isTurkish: localizations.isTurkish,
+          );
+          final setupViewData = definition.isAnalysisSupported
+              ? mapExerciseSetupToViewData(
+                  definition: definition,
+                  localizations: localizations,
+                )
+              : null;
+          return _ExerciseSelectionCard(
+            content: content,
+            setupViewData: setupViewData,
+            trackingType: definition.trackingType,
+            isAnalysisSupported: definition.isAnalysisSupported,
+            onTap: () => _handleExerciseTap(context, ref, definition),
+          );
+        },
       ),
     );
   }
