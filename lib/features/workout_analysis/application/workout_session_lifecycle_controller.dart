@@ -22,6 +22,7 @@ class WorkoutSessionLifecycleStateSnapshot {
     required this.bestHoldSeconds,
     required this.formBreakCount,
     required this.completedWorkoutReps,
+    required this.hasSavableProgress,
     required this.isFinishing,
     required this.hasSavedSession,
   });
@@ -38,6 +39,7 @@ class WorkoutSessionLifecycleStateSnapshot {
   final double bestHoldSeconds;
   final int formBreakCount;
   final List<WorkoutRep> completedWorkoutReps;
+  final bool hasSavableProgress;
   final bool isFinishing;
   final bool hasSavedSession;
 }
@@ -88,6 +90,8 @@ abstract class WorkoutSessionLifecycleOwner {
   bool get isFinishing;
 
   bool get hasSavedSession;
+
+  bool get hasSavableProgress;
 
   WorkoutSessionLifecycleStateSnapshot currentStateSnapshot();
 
@@ -158,6 +162,13 @@ class WorkoutSessionLifecycleController
   bool get hasSavedSession => _hasSavedSession;
 
   @override
+  bool get hasSavableProgress =>
+      _validOutcomeCount > 0 ||
+      _lowConfidenceOutcomeCount > 0 ||
+      _invalidOutcomeCount > 0 ||
+      _holdSessionCollector.totalHoldSeconds > 0;
+
+  @override
   WorkoutSessionLifecycleStateSnapshot currentStateSnapshot() {
     return WorkoutSessionLifecycleStateSnapshot(
       activeSessionExercise: _activeSessionExercise,
@@ -174,6 +185,7 @@ class WorkoutSessionLifecycleController
       completedWorkoutReps: List<WorkoutRep>.unmodifiable(
         _completedWorkoutReps,
       ),
+      hasSavableProgress: hasSavableProgress,
       isFinishing: _isFinishing,
       hasSavedSession: _hasSavedSession,
     );

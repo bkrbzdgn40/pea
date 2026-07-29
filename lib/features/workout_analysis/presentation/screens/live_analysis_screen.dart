@@ -52,9 +52,13 @@ class LiveAnalysisScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveAnalysisScreen> createState() => _LiveAnalysisScreenState();
 }
 
+enum _LiveExitDecision { returnToWorkout, saveAndFinish, exitWithoutSaving }
+
 class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
+  bool _isExitDialogVisible = false;
+  bool _allowRoutePop = false;
   bool _isRecoveringCamera = false;
   bool _isRecoveringCameraRefreshInFlight = false;
   bool _showCalibrationPanel = false;
@@ -157,6 +161,125 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
 
     ref.read(completedSessionMetricsProvider.notifier).state = null;
     sessionLifecycle.startSession(exercise: activeExercise);
+  }
+
+  Widget _buildExitGuard(Widget child) {
+    return PopScope<Object?>(
+      canPop: _allowRoutePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        unawaited(_requestSessionExit());
+      },
+      child: child,
+    );
+  }
+
+  Future<void> _requestSessionExit() async {
+    final sessionLifecycle = _sessionLifecycle;
+    if (!mounted ||
+        _isExitDialogVisible ||
+        (sessionLifecycle?.isFinishing ?? false)) {
+      return;
+    }
+
+    if (sessionLifecycle == null ||
+        sessionLifecycle.hasSavedSession ||
+        !sessionLifecycle.hasSavableProgress) {
+      await _closeLiveRoute(resetWorkoutPlan: true);
+      return;
+    }
+
+    _isExitDialogVisible = true;
+    final decision = await showDialog<_LiveExitDecision>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final localizations = AppLocalizations.of(dialogContext);
+        return PopScope<Object?>(
+          canPop: false,
+          child: AlertDialog(
+            key: const ValueKey<String>('live-exit-dialog'),
+            title: Text(localizations.liveExitDialogTitle),
+            content: Text(localizations.liveExitDialogMessage),
+            actions: <Widget>[
+              TextButton(
+                key: const ValueKey<String>('live-exit-return-button'),
+                onPressed: () => Navigator.of(
+                  dialogContext,
+                ).pop(_LiveExitDecision.returnToWorkout),
+                child: Text(localizations.returnToWorkout),
+              ),
+              TextButton(
+                key: const ValueKey<String>('live-exit-discard-button'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(dialogContext).colorScheme.error,
+                ),
+                onPressed: () => Navigator.of(
+                  dialogContext,
+                ).pop(_LiveExitDecision.exitWithoutSaving),
+                child: Text(localizations.exitWithoutSaving),
+              ),
+              FilledButton(
+                key: const ValueKey<String>('live-exit-save-button'),
+                onPressed: () => Navigator.of(
+                  dialogContext,
+                ).pop(_LiveExitDecision.saveAndFinish),
+                child: Text(localizations.saveAndFinish),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    _isExitDialogVisible = false;
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (decision) {
+      case _LiveExitDecision.returnToWorkout:
+      case null:
+        return;
+      case _LiveExitDecision.saveAndFinish:
+        await _finishSession(ref.read(workoutControllerProvider));
+        return;
+      case _LiveExitDecision.exitWithoutSaving:
+        await _closeLiveRoute(resetWorkoutPlan: true);
+        return;
+    }
+  }
+
+  Future<void> _closeLiveRoute({required bool resetWorkoutPlan}) async {
+    if (!mounted || _allowRoutePop) {
+      return;
+    }
+
+    ref.read(livePauseControllerProvider.notifier).cancelResume();
+    if (_hasAnalysisSelection() && ref.read(exerciseConfigProvider).hasValue) {
+      ref
+          .read(workoutControllerProvider.notifier)
+          .handleLifecycleInterruption(reason: 'live session exit');
+    }
+    ref.read(livePauseControllerProvider.notifier).reset();
+    ref.read(preparationCameraControllerProvider.notifier).clear();
+    if (resetWorkoutPlan && ref.read(workoutPlanSessionProvider).hasPlan) {
+      ref.read(workoutPlanSessionProvider.notifier).reset();
+    }
+
+    await _stopImageStreamIfNeeded();
+    await _setLiveAnalysisScreenAwake(false);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _allowRoutePop = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _setLiveAnalysisScreenAwake(bool enable) {
@@ -566,43 +689,53 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
     if (selectedExercise == null || activeExercise == null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: AnalysisSelectionRequiredView(
-          title: localizations.liveAnalysisSelectionTitle,
-          message: localizations.liveAnalysisSelectionMessage,
-          onSelectExercise: _goToExerciseSelectionScreen,
+      return _buildExitGuard(
+        Scaffold(
+          backgroundColor: Colors.black,
+          body: AnalysisSelectionRequiredView(
+            title: localizations.liveAnalysisSelectionTitle,
+            message: localizations.liveAnalysisSelectionMessage,
+            onSelectExercise: _goToExerciseSelectionScreen,
+          ),
         ),
       );
     }
 
     final sessionLifecycle = _sessionLifecycle;
     if (sessionLifecycle == null) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: _CameraRecoveryView(),
+      return _buildExitGuard(
+        const Scaffold(
+          backgroundColor: Colors.black,
+          body: _CameraRecoveryView(),
+        ),
       );
     }
 
     if (sessionLifecycle.isFinishing) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: _CameraRecoveryView(),
+      return _buildExitGuard(
+        const Scaffold(
+          backgroundColor: Colors.black,
+          body: _CameraRecoveryView(),
+        ),
       );
     }
 
     final configState = ref.watch(exerciseConfigProvider);
     if (configState.isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: _ExerciseConfigLoadingView(),
+      return _buildExitGuard(
+        const Scaffold(
+          backgroundColor: Colors.black,
+          body: _ExerciseConfigLoadingView(),
+        ),
       );
     }
     if (configState.hasError) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: _ExerciseConfigErrorView(
-          onRetry: () => ref.invalidate(exerciseConfigProvider),
+      return _buildExitGuard(
+        Scaffold(
+          backgroundColor: Colors.black,
+          body: _ExerciseConfigErrorView(
+            onRetry: () => ref.invalidate(exerciseConfigProvider),
+          ),
         ),
       );
     }
@@ -612,174 +745,178 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final viewportOrientation = MediaQuery.orientationOf(context);
     final isLandscape = viewportOrientation == Orientation.landscape;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: cameraState.when(
-        skipLoadingOnRefresh: false,
-        skipLoadingOnReload: false,
-        data: (controller) {
-          // Riverpod can keep the previous controller during refresh; hide the
-          // preview while recovery is active so a disposing controller is not used.
-          if (_isRecoveringCamera || cameraState.isLoading) {
-            return const _CameraRecoveryView();
-          }
+    return _buildExitGuard(
+      Scaffold(
+        backgroundColor: Colors.black,
+        body: cameraState.when(
+          skipLoadingOnRefresh: false,
+          skipLoadingOnReload: false,
+          data: (controller) {
+            // Riverpod can keep the previous controller during refresh; hide the
+            // preview while recovery is active so a disposing controller is not used.
+            if (_isRecoveringCamera || cameraState.isLoading) {
+              return const _CameraRecoveryView();
+            }
 
-          final controllerValue = _safeControllerValue(controller);
-          final cameraGeometry = const PreparationCameraGeometryResolver()
-              .resolve(
-                previewSize: controllerValue?.previewSize,
-                deviceOrientation: controllerValue?.deviceOrientation,
-                viewportOrientation: viewportOrientation,
-              );
+            final controllerValue = _safeControllerValue(controller);
+            final cameraGeometry = const PreparationCameraGeometryResolver()
+                .resolve(
+                  previewSize: controllerValue?.previewSize,
+                  deviceOrientation: controllerValue?.deviceOrientation,
+                  viewportOrientation: viewportOrientation,
+                );
 
-          if (controllerValue == null ||
-              !controllerValue.isInitialized ||
-              cameraGeometry == null) {
-            return const _CameraRecoveryView();
-          }
+            if (controllerValue == null ||
+                !controllerValue.isInitialized ||
+                cameraGeometry == null) {
+              return const _CameraRecoveryView();
+            }
 
-          final imageSize = cameraGeometry.imageSize;
-          final isMirrored =
-              controller.description.lensDirection == CameraLensDirection.front;
-          final readinessRequest = (
-            imageWidth: imageSize.width,
-            imageHeight: imageSize.height,
-            mirrorHorizontally: isMirrored,
-          );
-          _ensureImageStream(controller, sessionLifecycle);
+            final imageSize = cameraGeometry.imageSize;
+            final isMirrored =
+                controller.description.lensDirection ==
+                CameraLensDirection.front;
+            final readinessRequest = (
+              imageWidth: imageSize.width,
+              imageHeight: imageSize.height,
+              mirrorHorizontally: isMirrored,
+            );
+            _ensureImageStream(controller, sessionLifecycle);
 
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              CameraPreview(controller),
-              if (pauseState.isActive)
-                _WorkoutPoseOverlay(
-                  imageSize: imageSize,
-                  isMirrored: isMirrored,
-                  showDebugLandmarks: _showCalibrationPanel,
-                )
-              else
-                _PausedPoseOverlay(
-                  imageSize: imageSize,
-                  isMirrored: isMirrored,
-                ),
-              if (pauseState.isActive) const _LiveTrackingRecoveryOverlay(),
-              if (pauseState.isPaused)
-                _LivePauseOverlay(
-                  readinessRequest: readinessRequest,
-                  onResume: () => _requestResume(readinessRequest),
-                  onCancelResume: _cancelResume,
-                ),
-              _FinishSessionButton(
-                topInset: topInset,
-                compact: isLandscape,
-                isFinishing: sessionLifecycle.isFinishing,
-                onFinish: () => unawaited(
-                  _finishSession(ref.read(workoutControllerProvider)),
-                ),
-              ),
-              if (pauseState.isActive)
-                _PauseSessionButton(
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                CameraPreview(controller),
+                if (pauseState.isActive)
+                  _WorkoutPoseOverlay(
+                    imageSize: imageSize,
+                    isMirrored: isMirrored,
+                    showDebugLandmarks: _showCalibrationPanel,
+                  )
+                else
+                  _PausedPoseOverlay(
+                    imageSize: imageSize,
+                    isMirrored: isMirrored,
+                  ),
+                if (pauseState.isActive) const _LiveTrackingRecoveryOverlay(),
+                if (pauseState.isPaused)
+                  _LivePauseOverlay(
+                    readinessRequest: readinessRequest,
+                    onResume: () => _requestResume(readinessRequest),
+                    onCancelResume: _cancelResume,
+                  ),
+                _FinishSessionButton(
                   topInset: topInset,
                   compact: isLandscape,
-                  onPause: () => _pauseAnalysis(readinessRequest),
+                  isFinishing: sessionLifecycle.isFinishing,
+                  onFinish: () => unawaited(_requestSessionExit()),
                 ),
-              if (workoutDiagnosticsUiEnabled && pauseState.isActive)
-                Positioned(
-                  top: topInset + (isLandscape ? 8 : 12),
-                  left: isLandscape ? 10 : 14,
-                  child: Material(
-                    color: Colors.black54,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      tooltip: 'Beta Diagnostics',
-                      onPressed: sessionLifecycle.isFinishing
-                          ? null
-                          : _showDiagnosticsPanel,
-                      color: Colors.white,
-                      iconSize: isLandscape ? 18 : 24,
-                      visualDensity: isLandscape
-                          ? VisualDensity.compact
-                          : VisualDensity.standard,
-                      constraints: BoxConstraints.tightFor(
-                        width: isLandscape ? 40 : 48,
-                        height: isLandscape ? 40 : 48,
+                if (pauseState.isActive)
+                  _PauseSessionButton(
+                    topInset: topInset,
+                    compact: isLandscape,
+                    onPause: () => _pauseAnalysis(readinessRequest),
+                  ),
+                if (workoutDiagnosticsUiEnabled && pauseState.isActive)
+                  Positioned(
+                    top: topInset + (isLandscape ? 8 : 12),
+                    left: isLandscape ? 10 : 14,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: 'Beta Diagnostics',
+                        onPressed: sessionLifecycle.isFinishing
+                            ? null
+                            : _showDiagnosticsPanel,
+                        color: Colors.white,
+                        iconSize: isLandscape ? 18 : 24,
+                        visualDensity: isLandscape
+                            ? VisualDensity.compact
+                            : VisualDensity.standard,
+                        constraints: BoxConstraints.tightFor(
+                          width: isLandscape ? 40 : 48,
+                          height: isLandscape ? 40 : 48,
+                        ),
+                        icon: const Icon(Icons.bug_report_outlined),
                       ),
-                      icon: const Icon(Icons.bug_report_outlined),
                     ),
                   ),
-                ),
-              if (pauseState.isActive && isLandscape)
-                _LandscapeWorkoutMetricsOverlay(
-                  topInset: topInset,
-                  onToggleCalibration: () {
-                    setState(
-                      () => _showCalibrationPanel = !_showCalibrationPanel,
-                    );
-                  },
-                ),
-              if (pauseState.isActive && !isLandscape)
-                _PrimaryWorkoutMetricsOverlay(
-                  topInset: topInset,
-                  onToggleCalibration: () {
-                    setState(
-                      () => _showCalibrationPanel = !_showCalibrationPanel,
-                    );
-                  },
-                ),
-              if (pauseState.isActive && !isLandscape)
-                _CanonicalMetricsOverlay(topInset: topInset),
-              if (pauseState.isActive)
-                _PlannedWorkoutProgressOverlay(
-                  topInset: topInset,
-                  compact: isLandscape,
-                ),
-              if (_showCalibrationPanel && pauseState.isActive)
-                _CalibrationPanelOverlay(
-                  topInset: topInset,
-                  compact: isLandscape,
-                  onClose: () {
-                    setState(() => _showCalibrationPanel = false);
-                  },
-                ),
-              if (pauseState.isActive)
-                Positioned(
-                  bottom: isLandscape ? 12 : 40,
-                  left: isLandscape ? 12 : 20,
-                  right: isLandscape ? 12 : 20,
-                  child: FractionallySizedBox(
-                    widthFactor: isLandscape ? 0.76 : 1,
-                    child: Column(
-                      children: [
-                        _WorkoutSetCompletedSection(
-                          compact: isLandscape,
-                          onAdvance: () => unawaited(
-                            _advancePlannedWorkout(
-                              ref.read(workoutControllerProvider),
+                if (pauseState.isActive && isLandscape)
+                  _LandscapeWorkoutMetricsOverlay(
+                    topInset: topInset,
+                    onToggleCalibration: () {
+                      setState(
+                        () => _showCalibrationPanel = !_showCalibrationPanel,
+                      );
+                    },
+                  ),
+                if (pauseState.isActive && !isLandscape)
+                  _PrimaryWorkoutMetricsOverlay(
+                    topInset: topInset,
+                    onToggleCalibration: () {
+                      setState(
+                        () => _showCalibrationPanel = !_showCalibrationPanel,
+                      );
+                    },
+                  ),
+                if (pauseState.isActive && !isLandscape)
+                  _CanonicalMetricsOverlay(topInset: topInset),
+                if (pauseState.isActive)
+                  _PlannedWorkoutProgressOverlay(
+                    topInset: topInset,
+                    compact: isLandscape,
+                  ),
+                if (_showCalibrationPanel && pauseState.isActive)
+                  _CalibrationPanelOverlay(
+                    topInset: topInset,
+                    compact: isLandscape,
+                    onClose: () {
+                      setState(() => _showCalibrationPanel = false);
+                    },
+                  ),
+                if (pauseState.isActive)
+                  Positioned(
+                    bottom: isLandscape ? 12 : 40,
+                    left: isLandscape ? 12 : 20,
+                    right: isLandscape ? 12 : 20,
+                    child: FractionallySizedBox(
+                      widthFactor: isLandscape ? 0.76 : 1,
+                      child: Column(
+                        children: [
+                          _WorkoutSetCompletedSection(
+                            compact: isLandscape,
+                            onAdvance: () => unawaited(
+                              _advancePlannedWorkout(
+                                ref.read(workoutControllerProvider),
+                              ),
                             ),
                           ),
-                        ),
-                        _RangeRepSideTrackingIndicator(compact: isLandscape),
-                        _WorkoutFeedbackStatus(compact: isLandscape),
-                      ],
+                          _RangeRepSideTrackingIndicator(compact: isLandscape),
+                          _WorkoutFeedbackStatus(compact: isLandscape),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
-          );
-        },
-        loading: () => const _CameraRecoveryView(),
-        error: (error, _) {
-          if (error is CameraException && error.code == 'cameraPermission') {
-            return _CameraPermissionFallback(onPressed: _goToPermissionScreen);
-          }
+              ],
+            );
+          },
+          loading: () => const _CameraRecoveryView(),
+          error: (error, _) {
+            if (error is CameraException && error.code == 'cameraPermission') {
+              return _CameraPermissionFallback(
+                onPressed: _goToPermissionScreen,
+              );
+            }
 
-          if (_isRecoveringCamera && _isTransientCameraLifecycleError(error)) {
-            return const _CameraRecoveryView();
-          }
+            if (_isRecoveringCamera &&
+                _isTransientCameraLifecycleError(error)) {
+              return const _CameraRecoveryView();
+            }
 
-          return Center(child: Text(localizations.cameraOpenFailed(error)));
-        },
+            return Center(child: Text(localizations.cameraOpenFailed(error)));
+          },
+        ),
       ),
     );
   }

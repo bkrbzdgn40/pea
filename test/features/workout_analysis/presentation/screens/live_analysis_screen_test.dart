@@ -1,5 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages
 
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -990,8 +992,7 @@ void main() {
       expect(harness.sessionRepository.listSessionsCallCount, 1);
 
       final initialPushCount = harness.navigationObserver.pushCount;
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1011,6 +1012,228 @@ void main() {
       expect(harness.container.read(completedSessionProvider), same(session));
     },
   );
+
+  testWidgets(
+    'back on an active session opens the exit dialog and return keeps analysis open',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        showFinishButton: true,
+        pushFromLauncher: true,
+      );
+      addTearDown(harness.dispose);
+
+      await tester.runAsync(() async {
+        await _completeCleanRangeRepOnScreen(
+          harness.controller,
+          harness.detector,
+          harness.clock,
+        );
+      });
+      await tester.pump();
+
+      expect(
+        harness.container
+            .read(workoutSessionLifecycleControllerProvider)
+            .hasSavableProgress,
+        isTrue,
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('live-exit-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-exit-return-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-exit-save-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-exit-discard-button')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('live-exit-return-button')),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('live-exit-dialog')),
+        findsNothing,
+      );
+      expect(find.text('Bitir'), findsOneWidget);
+      expect(harness.sessionRepository.saveCallCount, 0);
+      expect(harness.sessionRepository.savedSessions, isEmpty);
+    },
+  );
+
+  testWidgets('back save action finishes the session exactly once', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+      pushFromLauncher: true,
+    );
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await _completeCleanRangeRepOnScreen(
+        harness.controller,
+        harness.detector,
+        harness.clock,
+      );
+    });
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    final pushCountAfterDialog = harness.navigationObserver.pushCount;
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('live-exit-save-button')),
+    );
+    await tester.pump();
+    await _pumpUntilRoutePush(
+      tester,
+      harness.navigationObserver,
+      pushCountAfterDialog + 1,
+    );
+
+    expect(harness.sessionRepository.saveCallCount, 1);
+    expect(harness.sessionRepository.savedSessions, hasLength(1));
+  });
+
+  testWidgets('exit without saving closes live route without persistence', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+      pushFromLauncher: true,
+    );
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await _completeCleanRangeRepOnScreen(
+        harness.controller,
+        harness.detector,
+        harness.clock,
+      );
+    });
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('live-exit-discard-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('open-live-analysis')),
+      findsOneWidget,
+    );
+    expect(harness.sessionRepository.saveCallCount, 0);
+    expect(harness.sessionRepository.savedSessions, isEmpty);
+  });
+
+  testWidgets('back with no savable progress exits without showing a dialog', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+      pushFromLauncher: true,
+    );
+    addTearDown(harness.dispose);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('live-exit-dialog')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('open-live-analysis')),
+      findsOneWidget,
+    );
+    expect(harness.sessionRepository.saveCallCount, 0);
+  });
+
+  testWidgets('back while saving does not start a second finish operation', (
+    tester,
+  ) async {
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+      pushFromLauncher: true,
+    );
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await _completeCleanRangeRepOnScreen(
+        harness.controller,
+        harness.detector,
+        harness.clock,
+      );
+    });
+    await tester.pump();
+
+    harness.sessionRepository.saveCompleter = Completer<void>();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('live-exit-save-button')),
+    );
+    await tester.pump();
+
+    expect(harness.sessionRepository.saveCallCount, 1);
+    expect(
+      harness.container
+          .read(workoutSessionLifecycleControllerProvider)
+          .isFinishing,
+      isTrue,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('live-exit-dialog')),
+      findsNothing,
+    );
+    expect(harness.sessionRepository.saveCallCount, 1);
+
+    final pushCountBeforeSaveCompletes = harness.navigationObserver.pushCount;
+    harness.sessionRepository.saveCompleter!.complete();
+    await _pumpUntilRoutePush(
+      tester,
+      harness.navigationObserver,
+      pushCountBeforeSaveCompletes + 1,
+    );
+
+    expect(harness.sessionRepository.saveCallCount, 1);
+    expect(harness.sessionRepository.savedSessions, hasLength(1));
+  });
 
   testWidgets(
     'successful finish keeps finishing true and camera stopped until summary '
@@ -1038,8 +1261,7 @@ void main() {
       );
       final initialPushCount = harness.navigationObserver.pushCount;
 
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1086,8 +1308,7 @@ void main() {
       expect(harness.container.read(workoutControllerProvider).repCount, 1);
       final initialPushCount = harness.navigationObserver.pushCount;
 
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1123,9 +1344,20 @@ void main() {
       expect(restartedLifecycle.hasSavedSession, isFalse);
       expect(restartedLifecycle.isFinishing, isFalse);
 
-      final secondPushCount = harness.navigationObserver.pushCount;
-      await tester.tap(find.text('Bitir'));
+      final restartedController = harness.container.read(
+        workoutControllerProvider.notifier,
+      );
+      await tester.runAsync(() async {
+        await _completeCleanRangeRepOnScreen(
+          restartedController,
+          harness.detector,
+          harness.clock,
+        );
+      });
       await tester.pump();
+
+      final secondPushCount = harness.navigationObserver.pushCount;
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1173,8 +1405,7 @@ void main() {
       expect(harness.sessionRepository.listSessionsCallCount, 1);
       final initialPushCount = harness.navigationObserver.pushCount;
 
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1240,8 +1471,7 @@ void main() {
       expect(harness.sessionRepository.listSessionsCallCount, 1);
       final initialPushCount = harness.navigationObserver.pushCount;
 
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1296,8 +1526,7 @@ void main() {
       expect(find.text('Bitir'), findsOneWidget);
 
       final initialPushCount = harness.navigationObserver.pushCount;
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1343,8 +1572,7 @@ void main() {
       expect(find.text('Bitir'), findsOneWidget);
 
       final initialPushCount = harness.navigationObserver.pushCount;
-      await tester.tap(find.text('Bitir'));
-      await tester.pump();
+      await _requestSaveAndFinish(tester);
       await _pumpUntilRoutePush(
         tester,
         harness.navigationObserver,
@@ -1434,6 +1662,18 @@ Future<void> _driveUntilPhase(
   throw TestFailure(
     'Expected phase $expectedPhase for primaryAngle $primaryAngle',
   );
+}
+
+Future<void> _requestSaveAndFinish(WidgetTester tester) async {
+  await tester.tap(find.text('Bitir'));
+  await tester.pump();
+
+  expect(
+    find.byKey(const ValueKey<String>('live-exit-dialog')),
+    findsOneWidget,
+  );
+  await tester.tap(find.byKey(const ValueKey<String>('live-exit-save-button')));
+  await tester.pump();
 }
 
 Future<void> _pumpUntilRoutePush(
@@ -1613,6 +1853,7 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
   required ExerciseType exerciseType,
   required ExerciseConfig config,
   bool showFinishButton = false,
+  bool pushFromLauncher = false,
 }) async {
   final detector = _QueuedPoseDetector();
   final clock = _FakeClock();
@@ -1654,12 +1895,34 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: const LiveAnalysisScreen(),
+        home: pushFromLauncher
+            ? Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      key: const ValueKey<String>('open-live-analysis'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LiveAnalysisScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Open live analysis'),
+                    ),
+                  ),
+                ),
+              )
+            : const LiveAnalysisScreen(),
         navigatorObservers: <NavigatorObserver>[navigationObserver],
       ),
     ),
   );
   await tester.pump();
+  if (pushFromLauncher) {
+    await tester.tap(find.byKey(const ValueKey<String>('open-live-analysis')));
+    await tester.pump();
+  }
   await tester.pump();
 
   return _LiveScreenHarness(
@@ -1946,9 +2209,19 @@ class _FakeCameraController extends CameraController {
 class _FakeSessionRepository implements SessionRepository {
   final List<WorkoutSession> savedSessions = <WorkoutSession>[];
   var listSessionsCallCount = 0;
+  var saveCallCount = 0;
+  Completer<void>? saveCompleter;
 
   @override
   Future<void> saveSession(WorkoutSession session) async {
+    saveCallCount += 1;
+    final completer = saveCompleter;
+    if (completer != null) {
+      await completer.future;
+      if (identical(saveCompleter, completer)) {
+        saveCompleter = null;
+      }
+    }
     savedSessions.add(session);
   }
 
@@ -2022,8 +2295,10 @@ class _TestNavigatorObserver extends NavigatorObserver {
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    pushCount += 1;
-    lastPushedRoute = route;
+    if (route is! DialogRoute<dynamic>) {
+      pushCount += 1;
+      lastPushedRoute = route;
+    }
     super.didPush(route, previousRoute);
   }
 }
