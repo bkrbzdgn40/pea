@@ -387,9 +387,24 @@ RangeRepEngineFrameResult _confirmMetric({
   required TestFakeClock clock,
   required double metric,
 }) {
-  engine.updateDetectionFrame(primaryMetric: metric);
+  final first = engine.updateDetectionFrame(primaryMetric: metric);
   clock.advance(_confirmationStep);
-  return engine.updateDetectionFrame(primaryMetric: metric);
+  final second = engine.updateDetectionFrame(primaryMetric: metric);
+
+  if (_hasObservableLifecycleEvent(second)) {
+    return second;
+  }
+  if (_hasObservableLifecycleEvent(first)) {
+    return first;
+  }
+  return second;
+}
+
+bool _hasObservableLifecycleEvent(RangeRepEngineFrameResult result) {
+  return result.repStarted ||
+      result.repAborted ||
+      result.completedRepDetectionData != null ||
+      result.confirmedTransitions.isNotEmpty;
 }
 
 void _repeatMetric({

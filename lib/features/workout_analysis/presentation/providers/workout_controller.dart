@@ -108,9 +108,17 @@ typedef WorkoutFramePosePipelineFactory =
 
 final workoutFramePosePipelineFactoryProvider =
     Provider<WorkoutFramePosePipelineFactory>((ref) {
+      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+      final analysisFrameInterval = activeExercise == null
+          ? const Duration(milliseconds: 100)
+          : const ExerciseCatalog()
+                .definitionFor(activeExercise)
+                .analysisFrameInterval;
+
       return ({required PoseAcceptanceStabilizer poseAcceptanceStabilizer}) {
         return WorkoutFramePosePipeline(
           poseAcceptanceStabilizer: poseAcceptanceStabilizer,
+          analysisFrameInterval: analysisFrameInterval,
         );
       };
     });

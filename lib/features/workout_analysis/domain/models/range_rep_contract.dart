@@ -105,6 +105,8 @@ class RangeRepContract {
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
     this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
+    this.returnConfirmationDuration = const Duration(milliseconds: 80),
+    this.neutralConfirmationDuration = const Duration(milliseconds: 100),
     this.neutralBaselineWindow = Duration.zero,
     this.neutralBaselineThresholdMargin = 0.0,
     this.primaryMetricSmoothingWindow = 5,
@@ -137,6 +139,20 @@ class RangeRepContract {
       throw ArgumentError.value(
         initialNeutralConfirmationDuration,
         'initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (returnConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        returnConfirmationDuration,
+        'returnConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (neutralConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        neutralConfirmationDuration,
+        'neutralConfirmationDuration',
         'Must not be negative.',
       );
     }
@@ -270,6 +286,18 @@ class RangeRepContract {
   /// thresholds while the user is getting into position may opt into a longer
   /// duration without delaying normal repetition completion.
   final Duration initialNeutralConfirmationDuration;
+
+  /// Confirmation required when leaving the peak range.
+  ///
+  /// Fast cyclic movements may opt into an immediate single-frame transition
+  /// when device sampling proves the exit window is physically brief.
+  final Duration returnConfirmationDuration;
+
+  /// Confirmation required for aborting or completing at neutral.
+  ///
+  /// Keep the default for ordinary exercises. A zero duration is an explicit
+  /// fast-motion contract and confirms the first matching analysis sample.
+  final Duration neutralConfirmationDuration;
 
   /// Optional recent-neutral window used to calculate a median start metric.
   /// Disabled by default so other exercises retain their existing lifecycle.
@@ -1141,6 +1169,8 @@ abstract final class RangeRepContracts {
     peakEntryMargin: 0.0,
     retainPeakEvidenceAcrossActiveTransition: true,
     allowSparseCycleRecovery: true,
+    returnConfirmationDuration: Duration.zero,
+    neutralConfirmationDuration: Duration.zero,
     primaryMetricSmoothingWindow: 1,
     formMetricSmoothingWindow: 1,
   );

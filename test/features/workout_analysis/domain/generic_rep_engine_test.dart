@@ -31,6 +31,31 @@ void main() {
       );
     });
 
+    test('rejects negative return and neutral confirmation windows', () {
+      expect(
+        () => GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            returnConfirmationDuration: Duration(milliseconds: -1),
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            neutralConfirmationDuration: Duration(milliseconds: -1),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects a negative neutral baseline window', () {
       expect(
         () => GenericRepEngine(
@@ -76,6 +101,44 @@ void main() {
       expect(engine.repCount, 1);
       expect(completed.completedRep, isNotNull);
     });
+
+    test(
+      'zero-duration return and neutral confirmations accept one matching frame',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 20,
+            activeThreshold: 55,
+            peakThreshold: 120,
+            direction: GenericRepMetricDirection.increasingToPeak,
+            peakEntryMargin: 0,
+            returnConfirmationDuration: Duration.zero,
+            neutralConfirmationDuration: Duration.zero,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 10, 120);
+        _confirm(clock, engine, 70, 100);
+        _confirm(clock, engine, 125, 100);
+
+        final returning = engine.update(primaryMetric: 100);
+        expect(
+          returning.confirmedTransition?.type,
+          GenericRepTransitionType.startReturning,
+        );
+        expect(engine.phase, GenericRepPhase.returning);
+
+        final completed = engine.update(primaryMetric: 10);
+        expect(
+          completed.confirmedTransition?.type,
+          GenericRepTransitionType.completeRep,
+        );
+        expect(completed.completedRep, isNotNull);
+        expect(engine.repCount, 1);
+      },
+    );
 
     test(
       'counts a decreasing-to-peak repetition through the full lifecycle',

@@ -987,6 +987,7 @@ class ExerciseCatalog {
           environmentRequirements: _standingOverheadEnvironment,
         ),
         rangeRepContract: RangeRepContracts.jumpingJack,
+        analysisFrameInterval: const Duration(milliseconds: 50),
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 80.0,
           minDescentMillis: 150,

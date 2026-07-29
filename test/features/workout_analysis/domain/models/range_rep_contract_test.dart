@@ -430,6 +430,8 @@ void main() {
         RangeRepTechniqueEvaluationPolicy.peakWindowOnly,
       );
       expect(contract.peakEntryMargin, 0.0);
+      expect(contract.returnConfirmationDuration, Duration.zero);
+      expect(contract.neutralConfirmationDuration, Duration.zero);
       expect(
         contract.shouldEvaluateTechnique(
           primaryMetric: 15,
@@ -494,6 +496,41 @@ void main() {
             },
           },
           initialNeutralConfirmationDuration: const Duration(milliseconds: -1),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects negative fast-motion confirmation durations', () {
+      RangeRepContract build({
+        Duration returnConfirmationDuration = const Duration(milliseconds: 80),
+        Duration neutralConfirmationDuration = const Duration(
+          milliseconds: 100,
+        ),
+      }) {
+        return RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          returnConfirmationDuration: returnConfirmationDuration,
+          neutralConfirmationDuration: neutralConfirmationDuration,
+        );
+      }
+
+      expect(
+        () =>
+            build(returnConfirmationDuration: const Duration(milliseconds: -1)),
+        throwsArgumentError,
+      );
+      expect(
+        () => build(
+          neutralConfirmationDuration: const Duration(milliseconds: -1),
         ),
         throwsArgumentError,
       );

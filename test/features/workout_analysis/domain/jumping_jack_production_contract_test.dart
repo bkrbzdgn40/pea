@@ -72,6 +72,25 @@ void main() {
       expect(engine.phaseLabel, 'NEUTRAL');
     });
 
+    test(
+      'completes when the closed angle is visible for only one analysis frame',
+      () {
+        _confirm(engine, clock, 10);
+        _confirm(engine, clock, 70);
+        _confirm(engine, clock, 125);
+
+        final returning = engine.updateDetectionFrame(primaryMetric: 100);
+        expect(returning.confirmedTransition?.type.name, 'startAscending');
+        expect(engine.phaseLabel, 'ASCENDING');
+
+        final completed = engine.updateDetectionFrame(primaryMetric: 10);
+        expect(completed.confirmedTransition?.type.name, 'completeRep');
+        expect(completed.didCompleteRep, isTrue);
+        expect(engine.repCount, 1);
+        expect(engine.phaseLabel, 'NEUTRAL');
+      },
+    );
+
     test('rejects a partial opening below the calibrated peak band', () {
       _confirm(engine, clock, 10);
 

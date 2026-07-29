@@ -34,6 +34,23 @@ void main() {
       }
     });
 
+    test('assigns the fast live-analysis profile only to Jumping Jack', () {
+      expect(
+        catalog.definitionFor(ExerciseType.jumpingJack).analysisFrameInterval,
+        const Duration(milliseconds: 50),
+      );
+
+      for (final definition in catalog.definitions.where(
+        (definition) => definition.type != ExerciseType.jumpingJack,
+      )) {
+        expect(
+          definition.analysisFrameInterval,
+          const Duration(milliseconds: 100),
+          reason: definition.id,
+        );
+      }
+    });
+
     test('declares complete centralized capabilities for every exercise', () {
       for (final definition in catalog.definitions) {
         expect(definition.analysisEngines, isNotEmpty, reason: definition.id);

@@ -788,6 +788,11 @@ class GenericRepEngine {
 
     if (_pendingTransition != transition ||
         _pendingTransitionStartedAt == null) {
+      final requiredDuration = _confirmationDurationFor(transition);
+      if (requiredDuration == Duration.zero) {
+        _clearPendingTransition();
+        return now;
+      }
       _pendingTransition = transition;
       _pendingTransitionStartedAt = now;
       return null;
@@ -839,6 +844,20 @@ class GenericRepEngine {
       throw ArgumentError.value(
         config.initialNeutralConfirmationDuration,
         'config.initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (config.returnConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        config.returnConfirmationDuration,
+        'config.returnConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (config.neutralConfirmationDuration.isNegative) {
+      throw ArgumentError.value(
+        config.neutralConfirmationDuration,
+        'config.neutralConfirmationDuration',
         'Must not be negative.',
       );
     }

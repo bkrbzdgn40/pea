@@ -43,6 +43,8 @@ class AnalysisEngineFactory {
       allowSparseCycleRecovery: rangeRepContract.allowSparseCycleRecovery,
       initialNeutralConfirmationDuration:
           rangeRepContract.initialNeutralConfirmationDuration,
+      returnConfirmationDuration: rangeRepContract.returnConfirmationDuration,
+      neutralConfirmationDuration: rangeRepContract.neutralConfirmationDuration,
       neutralBaselineWindow: rangeRepContract.neutralBaselineWindow,
       neutralBaselineThresholdMargin:
           rangeRepContract.neutralBaselineThresholdMargin,

@@ -29,6 +29,7 @@ class ExerciseDefinition {
     this.rangeRepContract,
     this.rangeRepValidationConfig,
     this.holdContract,
+    this.analysisFrameInterval = const Duration(milliseconds: 100),
   }) : isAnalysisSupported = true,
        // ignore: prefer_initializing_formals
        cameraViewContract = cameraViewContract,
@@ -49,6 +50,7 @@ class ExerciseDefinition {
        assert(metricIds.every(ExerciseMetricRegistry.contains)),
        assert(feedbackRuleIds.isNotEmpty),
        assert(sessionSummaryFields.isNotEmpty),
+       assert(analysisFrameInterval > Duration.zero),
        assert(
          engineKind != EngineKind.rangeRep ||
              analysisEngines.contains(ExerciseAnalysisEngine.rangeRep),
@@ -95,7 +97,8 @@ class ExerciseDefinition {
        sessionSummaryFields = const <ExerciseSessionSummaryField>{},
        rangeRepContract = null,
        rangeRepValidationConfig = null,
-       holdContract = null;
+       holdContract = null,
+       analysisFrameInterval = const Duration(milliseconds: 100);
 
   final ExerciseType type;
   final ExerciseMovementPattern movementPattern;
@@ -112,6 +115,13 @@ class ExerciseDefinition {
   final RangeRepContract? rangeRepContract;
   final RangeRepValidationConfig? rangeRepValidationConfig;
   final HoldContract? holdContract;
+
+  /// Minimum wall-clock spacing between accepted live-analysis attempts.
+  ///
+  /// The default caps ordinary exercises at roughly 10 analysis starts per
+  /// second. Fast temporal movements may opt into a shorter interval while the
+  /// frame pipeline still prevents concurrent detector work.
+  final Duration analysisFrameInterval;
 
   String get id => type.id;
 

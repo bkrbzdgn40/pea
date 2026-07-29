@@ -272,6 +272,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     Duration initialNeutralConfirmationDuration = const Duration(
       milliseconds: 100,
     ),
+    Duration returnConfirmationDuration = const Duration(milliseconds: 80),
+    Duration neutralConfirmationDuration = const Duration(milliseconds: 100),
     Duration neutralBaselineWindow = Duration.zero,
     double neutralBaselineThresholdMargin = 0.0,
     DateTime Function()? now,
@@ -289,6 +291,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
             retainPeakEvidenceAcrossActiveTransition,
         allowSparseCycleRecovery: allowSparseCycleRecovery,
         initialNeutralConfirmationDuration: initialNeutralConfirmationDuration,
+        returnConfirmationDuration: returnConfirmationDuration,
+        neutralConfirmationDuration: neutralConfirmationDuration,
         neutralBaselineWindow: neutralBaselineWindow,
         neutralBaselineThresholdMargin: neutralBaselineThresholdMargin,
         direction: switch (primaryMetricDirection) {
