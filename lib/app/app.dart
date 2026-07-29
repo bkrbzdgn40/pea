@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/auth/presentation/screens/auth_bootstrap_gate.dart';
 import '../features/workout_analysis/presentation/providers/settings_provider.dart';
 import 'localization/app_localizations.dart';
+import 'navigation/app_routes.dart';
 import 'theme/app_theme.dart';
 
 class PoseAnalysisApp extends ConsumerWidget {
@@ -26,6 +27,7 @@ class PoseAnalysisApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      routes: AppRoutes.builders,
       home: const AuthBootstrapGate(),
     );
   }

@@ -1,0 +1,31 @@
+import 'package:flutter/material.dart';
+
+import '../localization/app_localizations.dart';
+
+enum AppDestination {
+  home(icon: Icons.home_rounded, routeName: '/home'),
+  howToUse(icon: Icons.help_outline_rounded, routeName: '/how-to-use'),
+  exerciseSelection(
+    icon: Icons.directions_run_rounded,
+    routeName: '/exercises',
+  ),
+  sessionHistory(icon: Icons.history_rounded, routeName: '/history'),
+  guide(icon: Icons.menu_book_rounded, routeName: '/guide'),
+  settings(icon: Icons.settings_rounded, routeName: '/settings');
+
+  const AppDestination({required this.icon, required this.routeName});
+
+  final IconData icon;
+  final String routeName;
+
+  String label(AppLocalizations localizations) {
+    return switch (this) {
+      AppDestination.home => localizations.home,
+      AppDestination.howToUse => localizations.howToUse,
+      AppDestination.exerciseSelection => localizations.selectExercise,
+      AppDestination.sessionHistory => localizations.sessionHistory,
+      AppDestination.guide => localizations.exerciseGuide,
+      AppDestination.settings => localizations.settings,
+    };
+  }
+}

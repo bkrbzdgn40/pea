@@ -1,69 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../localization/app_localizations.dart';
+import '../../navigation/app_destination.dart';
+import '../../navigation/app_destination_navigator.dart';
 import '../../theme/app_design_tokens.dart';
-import '../../../features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
-import '../../../features/workout_analysis/presentation/screens/guide_screen.dart';
-import '../../../features/workout_analysis/presentation/screens/how_to_use_screen.dart';
-import '../../../features/workout_analysis/presentation/screens/home_screen.dart';
-import '../../../features/workout_analysis/presentation/screens/session_history_screen.dart';
-import '../../../features/workout_analysis/presentation/screens/settings_screen.dart';
 import 'app_surface_card.dart';
 
-enum AppDestination {
-  home(
-    icon: Icons.home_rounded,
-    builder: _buildHome,
-    suppressPushWhenCurrent: true,
-  ),
-  howToUse(
-    icon: Icons.help_outline_rounded,
-    builder: _buildHowToUse,
-    suppressPushWhenCurrent: true,
-  ),
-  exerciseSelection(
-    icon: Icons.directions_run_rounded,
-    builder: _buildExerciseSelection,
-  ),
-  sessionHistory(icon: Icons.history_rounded, builder: _buildSessionHistory),
-  guide(icon: Icons.menu_book_rounded, builder: _buildGuide),
-  settings(icon: Icons.settings_rounded, builder: _buildSettings);
-
-  const AppDestination({
-    required this.icon,
-    required this.builder,
-    this.suppressPushWhenCurrent = false,
-  });
-
-  final IconData icon;
-  final WidgetBuilder builder;
-  final bool suppressPushWhenCurrent;
-
-  String label(AppLocalizations localizations) {
-    return switch (this) {
-      AppDestination.home => localizations.home,
-      AppDestination.howToUse => localizations.howToUse,
-      AppDestination.exerciseSelection => localizations.selectExercise,
-      AppDestination.sessionHistory => localizations.sessionHistory,
-      AppDestination.guide => localizations.exerciseGuide,
-      AppDestination.settings => localizations.settings,
-    };
-  }
-
-  static Widget _buildHome(BuildContext context) => const HomeScreen();
-
-  static Widget _buildHowToUse(BuildContext context) => const HowToUseScreen();
-
-  static Widget _buildExerciseSelection(BuildContext context) =>
-      const ExerciseSelectionScreen();
-
-  static Widget _buildSessionHistory(BuildContext context) =>
-      const SessionHistoryScreen();
-
-  static Widget _buildGuide(BuildContext context) => const GuideScreen();
-
-  static Widget _buildSettings(BuildContext context) => const SettingsScreen();
-}
+export '../../navigation/app_destination.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, this.currentPage});
@@ -125,10 +68,10 @@ class AppDrawer extends StatelessWidget {
                             icon: destination.icon,
                             label: destination.label(localizations),
                             isSelected: currentPage == destination,
-                            onTap: () => _open(
+                            onTap: () => AppDestinationNavigator.open(
                               context,
-                              destination,
-                              isCurrent: currentPage == destination,
+                              destination: destination,
+                              currentDestination: currentPage,
                             ),
                           ),
                         )
@@ -141,17 +84,6 @@ class AppDrawer extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _open(
-    BuildContext context,
-    AppDestination destination, {
-    bool isCurrent = false,
-  }) {
-    final navigator = Navigator.of(context);
-    navigator.pop();
-    if (isCurrent && destination.suppressPushWhenCurrent) return;
-    navigator.push(MaterialPageRoute(builder: destination.builder));
   }
 }
 

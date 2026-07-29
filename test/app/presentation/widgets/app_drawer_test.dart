@@ -3,12 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
+import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
+import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
+import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/guide_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 
 import '../../../support/presentation_test_support.dart';
 
 void main() {
-  test('AppDestination exposes the exact typed drawer metadata set', () {
+  test('AppDestination exposes route-only drawer metadata', () {
     expect(AppDestination.values, <AppDestination>[
       AppDestination.home,
       AppDestination.howToUse,
@@ -50,11 +58,15 @@ void main() {
       },
     );
     expect(
-      AppDestination.values
-          .map((destination) => destination.name)
-          .toSet()
-          .length,
-      6,
+      AppDestination.values.map((destination) => destination.routeName).toSet(),
+      <String>{
+        '/home',
+        '/how-to-use',
+        '/exercises',
+        '/history',
+        '/guide',
+        '/settings',
+      },
     );
     expect(
       AppDestination.values.map((destination) => destination.icon).toList(),
@@ -67,152 +79,266 @@ void main() {
         Icons.settings_rounded,
       ],
     );
-    expect(
-      <AppDestination, bool>{
-        for (final destination in AppDestination.values)
-          destination: destination.suppressPushWhenCurrent,
-      },
-      <AppDestination, bool>{
-        AppDestination.home: true,
-        AppDestination.howToUse: true,
-        AppDestination.exerciseSelection: false,
-        AppDestination.sessionHistory: false,
-        AppDestination.guide: false,
-        AppDestination.settings: false,
-      },
-    );
   });
 
-  testWidgets(
-    'keeps the selected home destination highlighted and does not push it',
-    (WidgetTester tester) async {
-      final observer = RecordingNavigatorObserver();
-
-      await pumpTestApp(
-        tester,
-        navigatorObservers: [observer],
-        locale: const Locale('tr'),
-        home: Scaffold(
-          appBar: AppBar(title: const Text('Drawer Host')),
-          drawer: const AppDrawer(currentPage: AppDestination.home),
-          body: const SizedBox.shrink(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.menu).first);
-      await tester.pumpAndSettle();
-
-      final selectedTile = tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'Ana Sayfa'),
-      );
-      final selectedShape = selectedTile.shape! as RoundedRectangleBorder;
-      final pushCountAfterOpening = observer.pushCount;
-
-      expect(selectedTile.selected, isTrue);
-      expect(selectedShape.borderRadius, BorderRadius.circular(AppRadii.small));
-
-      await tester.tap(find.text('Ana Sayfa'));
-      await tester.pumpAndSettle();
-
-      expect(observer.pushCount, pushCountAfterOpening);
-    },
-  );
-
-  testWidgets(
-    'keeps the selected how-to-use destination highlighted and does not push it',
-    (WidgetTester tester) async {
-      final observer = RecordingNavigatorObserver();
-
-      await pumpTestApp(
-        tester,
-        navigatorObservers: [observer],
-        locale: const Locale('tr'),
-        home: Scaffold(
-          appBar: AppBar(title: const Text('Drawer Host')),
-          drawer: const AppDrawer(currentPage: AppDestination.howToUse),
-          body: const SizedBox.shrink(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.menu).first);
-      await tester.pumpAndSettle();
-
-      final selectedTile = tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'Nasıl Kullanılır'),
-      );
-      final pushCountAfterOpening = observer.pushCount;
-
-      expect(selectedTile.selected, isTrue);
-
-      await tester.tap(find.text('Nasıl Kullanılır'));
-      await tester.pumpAndSettle();
-
-      expect(observer.pushCount, pushCountAfterOpening);
-    },
-  );
-
-  testWidgets(
-    'pushes the current exercise selection destination to preserve legacy reselect behavior',
-    (WidgetTester tester) async {
-      final observer = RecordingNavigatorObserver();
-
-      await pumpTestApp(
-        tester,
-        navigatorObservers: [observer],
-        locale: const Locale('tr'),
-        home: Scaffold(
-          appBar: AppBar(title: const Text('Drawer Host')),
-          drawer: const AppDrawer(
-            currentPage: AppDestination.exerciseSelection,
-          ),
-          body: const SizedBox.shrink(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.menu).first);
-      await tester.pumpAndSettle();
-
-      final pushCountAfterOpening = observer.pushCount;
-
-      await tester.tap(find.text('Hareket Seç'));
-      await tester.pumpAndSettle();
-
-      expect(observer.pushCount, pushCountAfterOpening + 1);
-      expect(observer.lastPushedRoute, isA<MaterialPageRoute<dynamic>>());
-      expect(find.byType(ExerciseSelectionScreen), findsOneWidget);
-    },
-  );
-
-  testWidgets('pushes a MaterialPageRoute for a different destination', (
+  testWidgets('current destination selection only closes the drawer', (
     WidgetTester tester,
   ) async {
-    final observer = RecordingNavigatorObserver();
+    final observer = _RootNavigationObserver();
 
     await pumpTestApp(
       tester,
-      navigatorObservers: [observer],
+      navigatorObservers: <NavigatorObserver>[observer],
       locale: const Locale('tr'),
-      home: Scaffold(
-        appBar: AppBar(title: const Text('Drawer Host')),
-        drawer: const AppDrawer(currentPage: AppDestination.howToUse),
-        body: const SizedBox.shrink(),
-      ),
+      home: const _DrawerHost(currentPage: AppDestination.settings),
     );
     await tester.pumpAndSettle();
+
+    final replaceCountBefore = observer.replaceCount;
+    final pushCountBefore = observer.pushCount;
+
+    await _selectDrawerDestination(tester, 'Ayarlar');
+
+    expect(observer.replaceCount, replaceCountBefore);
+    expect(observer.pushCount, pushCountBefore);
+    expect(find.text('Drawer Host'), findsOneWidget);
+  });
+
+  testWidgets('repeated history selection never grows the route stack', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      home: const _DrawerHost(currentPage: AppDestination.sessionHistory),
+    );
+    await tester.pumpAndSettle();
+
+    final replaceCountBefore = observer.replaceCount;
+    final pushCountBefore = observer.pushCount;
+
+    for (var index = 0; index < 5; index += 1) {
+      await _selectDrawerDestination(tester, 'Geçmiş Oturumlar');
+    }
+
+    expect(observer.replaceCount, replaceCountBefore);
+    expect(observer.pushCount, pushCountBefore);
+    expect(find.text('Drawer Host'), findsOneWidget);
+  });
+
+  testWidgets('home stays below the first drawer destination', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      home: const _DrawerHost(currentPage: AppDestination.home),
+    );
+    await tester.pumpAndSettle();
+
+    final pushCountBefore = observer.pushCount;
+    final replaceCountBefore = observer.replaceCount;
+
+    await _selectDrawerDestination(tester, 'Hareket Seç');
+
+    expect(observer.pushCount, pushCountBefore + 1);
+    expect(observer.replaceCount, replaceCountBefore);
+    expect(observer.lastNewRoute?.settings.name, '/exercises');
+    expect(find.byType(ExerciseSelectionScreen), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Drawer Host'), findsOneWidget);
+    expect(find.byType(ExerciseSelectionScreen), findsNothing);
+  });
+
+  testWidgets('different drawer destination replaces the current drawer root', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      home: const _DrawerHost(currentPage: AppDestination.home),
+    );
+    await tester.pumpAndSettle();
+
+    await _selectDrawerDestination(tester, 'Nasıl Kullanılır');
+    final replaceCountBefore = observer.replaceCount;
+
+    await _selectDrawerDestination(tester, 'Hareket Seç');
+
+    expect(observer.replaceCount, replaceCountBefore + 1);
+    expect(observer.lastNewRoute?.settings.name, '/exercises');
+    expect(find.byType(ExerciseSelectionScreen), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.menu).first);
     await tester.pumpAndSettle();
 
-    final pushCountAfterOpening = observer.pushCount;
+    final selectedTileFinder = find.widgetWithText(ListTile, 'Hareket Seç');
+    final selectedTile = tester.widget<ListTile>(selectedTileFinder);
+    final selectedShape = selectedTile.shape! as RoundedRectangleBorder;
 
-    await tester.tap(find.text('Hareket Seç'));
+    expect(selectedTile.selected, isTrue);
+    expect(selectedShape.borderRadius, BorderRadius.circular(AppRadii.small));
+
+    Navigator.of(tester.element(selectedTileFinder)).pop();
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(observer.pushCount, pushCountAfterOpening + 1);
-    expect(observer.lastPushedRoute, isA<MaterialPageRoute<dynamic>>());
-    expect(find.byType(ExerciseSelectionScreen), findsOneWidget);
+    expect(find.text('Drawer Host'), findsOneWidget);
+    expect(find.byType(ExerciseSelectionScreen), findsNothing);
   });
+
+  testWidgets('home selection resets the complete root stack', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      overrides: [
+        homeDashboardProvider.overrideWith(
+          (ref) =>
+              HomeDashboardData.fallback(source: HomeDashboardSource.empty),
+        ),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.empty,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+      home: const _DrawerHost(currentPage: AppDestination.guide),
+    );
+    await tester.pumpAndSettle();
+
+    final pushCountBefore = observer.pushCount;
+
+    await _selectDrawerDestination(tester, 'Ana Sayfa');
+
+    expect(observer.pushCount, pushCountBefore + 1);
+    expect(observer.lastNewRoute?.settings.name, '/home');
+    expect(observer.removeCount, greaterThanOrEqualTo(1));
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('replacement keeps the previous non-root route predictable', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      home: const _NavigationRootHost(),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open drawer route'));
+    await tester.pumpAndSettle();
+    await _selectDrawerDestination(tester, 'Hareket Rehberi');
+
+    expect(find.byType(GuideScreen), findsOneWidget);
+    expect(observer.lastNewRoute?.settings.name, '/guide');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Navigation Root'), findsOneWidget);
+    expect(find.byType(GuideScreen), findsNothing);
+  });
+}
+
+Future<void> _selectDrawerDestination(WidgetTester tester, String label) async {
+  await tester.tap(find.byIcon(Icons.menu).first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(ListTile, label));
+  await tester.pumpAndSettle();
+}
+
+class _DrawerHost extends StatelessWidget {
+  const _DrawerHost({required this.currentPage});
+
+  final AppDestination currentPage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Drawer Host')),
+      drawer: AppDrawer(currentPage: currentPage),
+      body: const SizedBox.shrink(),
+    );
+  }
+}
+
+class _NavigationRootHost extends StatelessWidget {
+  const _NavigationRootHost();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: FilledButton(
+          onPressed: () {
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    const _DrawerHost(currentPage: AppDestination.settings),
+              ),
+            );
+          },
+          child: const Text('Open drawer route'),
+        ),
+      ),
+      appBar: AppBar(title: const Text('Navigation Root')),
+    );
+  }
+}
+
+class _RootNavigationObserver extends NavigatorObserver {
+  int pushCount = 0;
+  int replaceCount = 0;
+  int removeCount = 0;
+  Route<dynamic>? lastNewRoute;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushCount += 1;
+    lastNewRoute = route;
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    replaceCount += 1;
+    lastNewRoute = newRoute;
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    removeCount += 1;
+    super.didRemove(route, previousRoute);
+  }
 }

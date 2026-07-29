@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_design_tokens.dart';
 import 'app_drawer.dart';
 
-export 'app_drawer.dart' show AppDestination;
+export '../../navigation/app_destination.dart' show AppDestination;
 
 class AppScaffoldShell extends StatelessWidget {
   const AppScaffoldShell({

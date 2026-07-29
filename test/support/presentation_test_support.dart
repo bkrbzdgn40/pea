@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/app/navigation/app_routes.dart';
 import 'package:pose_estimation_app/app/theme/app_theme.dart';
 import 'package:pose_estimation_app/features/auth/application/repositories/auth_repository.dart';
 import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
@@ -219,6 +220,7 @@ Future<void> pumpTestApp(
           GlobalCupertinoLocalizations.delegate,
         ],
         navigatorObservers: navigatorObservers,
+        routes: AppRoutes.builders,
         home: home,
       ),
     ),
