@@ -39,6 +39,32 @@ class AppLocalizations {
   String get low => pick(tr: 'Düşük', en: 'Low');
   String get medium => pick(tr: 'Orta', en: 'Medium');
   String get high => pick(tr: 'Yüksek', en: 'High');
+  String get liveFeedback =>
+      pick(tr: 'Canlı geri bildirim', en: 'Live feedback');
+  String get voiceCoach => pick(tr: 'Sesli koç', en: 'Voice coach');
+  String get voiceCoachDescription => pick(
+    tr: 'Anlık form yönergelerini sesli olarak iletir.',
+    en: 'Speaks live form guidance during analysis.',
+  );
+  String get feedbackFrequency =>
+      pick(tr: 'Geri bildirim sıklığı', en: 'Feedback frequency');
+  String get feedbackFrequencyDescription => pick(
+    tr: 'Aynı sesli uyarının ne kadar sık tekrarlanacağını belirler.',
+    en: 'Controls how often the same voice cue may repeat.',
+  );
+  String get feedbackFrequencyReduced => pick(tr: 'Az', en: 'Reduced');
+  String get feedbackFrequencyNormal => pick(tr: 'Normal', en: 'Normal');
+  String get feedbackFrequencyFrequent => pick(tr: 'Sık', en: 'Frequent');
+  String preparationFeedbackNotice({required bool voiceEnabled}) {
+    if (!voiceEnabled) {
+      return '';
+    }
+    return pick(
+      tr: 'Sesli koç açık. Bu seçeneği Ayarlar ekranından değiştirebilirsin.',
+      en: 'Voice coaching is on. You can change it in Settings.',
+    );
+  }
+
   String get settingsLoadFailed =>
       pick(tr: 'Ayarlar yüklenemedi.', en: 'Settings could not be loaded.');
   String get dataLoadFailed =>

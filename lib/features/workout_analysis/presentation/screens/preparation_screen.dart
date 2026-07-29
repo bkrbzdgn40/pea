@@ -19,11 +19,11 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/preparation_camera_controller.dart';
-import '../providers/preparation_countdown_feedback.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/screen_awake_controller.dart';
+import '../providers/settings_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/preparation_camera_surface.dart';
 import '../widgets/preparation_start_gate_controls.dart';
@@ -382,6 +382,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       );
     }
 
+    final settings = ref.watch(runtimeWorkoutSettingsProvider);
+    final feedbackNotice = localizations.preparationFeedbackNotice(
+      voiceEnabled: settings.voiceCoachEnabled,
+    );
     final configState = ref.watch(exerciseConfigProvider);
     final cameraState = ref.watch(cameraProvider);
     final definition = const ExerciseCatalog().definitionFor(activeExercise);
@@ -423,17 +427,8 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         previous,
         next,
       ) {
-        final countdownChanged =
-            next.phase == PreparationStartGatePhase.countingDown &&
-            (previous?.phase != PreparationStartGatePhase.countingDown ||
-                previous?.countdownValue != next.countdownValue);
-        if (countdownChanged) {
-          unawaited(ref.read(preparationCountdownFeedbackProvider).tick());
-        }
-
         if (previous?.phase == PreparationStartGatePhase.countingDown &&
             next.phase == PreparationStartGatePhase.approved) {
-          unawaited(ref.read(preparationCountdownFeedbackProvider).complete());
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               unawaited(_launchApprovedAnalysis(readinessRequest));
@@ -507,6 +502,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                       height: 1.4,
                     ),
                   ),
+                  if (feedbackNotice.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _PreparationFeedbackNotice(message: feedbackNotice),
+                  ],
                   if (fallbackMessage != null) ...[
                     const SizedBox(height: 16),
                     _PreparationMessageCard(message: fallbackMessage),
@@ -587,6 +586,46 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PreparationFeedbackNotice extends StatelessWidget {
+  const _PreparationFeedbackNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('preparation-feedback-notice'),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.greenAccent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.record_voice_over_outlined,
+            color: Colors.greenAccent,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -5,41 +5,34 @@ void main() {
   group('FeedbackDeliveryController', () {
     late _FakeClock clock;
     late _RecordingVoiceOutput voice;
-    late _RecordingHapticOutput haptic;
+    late FeedbackDeliveryPreferences preferences;
     late FeedbackDeliveryController controller;
 
     setUp(() {
       clock = _FakeClock(DateTime.utc(2030, 1, 1));
       voice = _RecordingVoiceOutput();
-      haptic = _RecordingHapticOutput();
+      preferences = const FeedbackDeliveryPreferences();
       controller = FeedbackDeliveryController(
         voiceOutput: voice,
-        hapticOutput: haptic,
         now: clock.now,
+        preferencesResolver: () => preferences,
       );
     });
 
-    test(
-      'delivers corrective feedback through voice and medium haptic',
-      () async {
-        final result = await controller.deliver(
-          const FeedbackDeliveryCue(
-            id: 'range:maintain_form',
-            message: 'Formunu koru',
-            kind: FeedbackDeliveryKind.corrective,
-          ),
-        );
+    test('delivers corrective feedback through voice', () async {
+      final result = await controller.deliver(
+        const FeedbackDeliveryCue(
+          id: 'range:maintain_form',
+          message: 'Formunu koru',
+          kind: FeedbackDeliveryKind.corrective,
+        ),
+      );
 
-        expect(result.wasDelivered, isTrue);
-        expect(result.hapticPattern, FeedbackHapticPattern.medium);
-        expect(voice.messages, <String>['Formunu koru']);
-        expect(haptic.patterns, <FeedbackHapticPattern>[
-          FeedbackHapticPattern.medium,
-        ]);
-      },
-    );
+      expect(result.wasDelivered, isTrue);
+      expect(voice.messages, <String>['Formunu koru']);
+    });
 
-    test('suppresses the exact same cue inside its repeat cooldown', () async {
+    test('suppresses the same message inside its repeat cooldown', () async {
       const cue = FeedbackDeliveryCue(
         id: 'range:maintain_form',
         message: 'Formunu koru',
@@ -52,57 +45,44 @@ void main() {
 
       expect(repeated.disposition, FeedbackDeliveryDisposition.repeatedTooSoon);
       expect(voice.messages, hasLength(1));
-      expect(haptic.patterns, hasLength(1));
     });
 
-    test(
-      'keeps repeated speech silent after the haptic cooldown expires',
-      () async {
-        const cue = FeedbackDeliveryCue(
+    test('repeats voice after the cooldown expires', () async {
+      const cue = FeedbackDeliveryCue(
+        id: 'range:maintain_form',
+        message: 'Formunu koru',
+        kind: FeedbackDeliveryKind.corrective,
+      );
+
+      await controller.deliver(cue);
+      clock.advance(const Duration(seconds: 3));
+      final repeated = await controller.deliver(cue);
+
+      expect(repeated.wasDelivered, isTrue);
+      expect(voice.messages, hasLength(2));
+    });
+
+    test('delivers a different message immediately', () async {
+      await controller.deliver(
+        const FeedbackDeliveryCue(
+          id: 'range:descend',
+          message: 'Asagi in',
+          kind: FeedbackDeliveryKind.movement,
+        ),
+      );
+      clock.advance(const Duration(milliseconds: 100));
+
+      final corrective = await controller.deliver(
+        const FeedbackDeliveryCue(
           id: 'range:maintain_form',
           message: 'Formunu koru',
           kind: FeedbackDeliveryKind.corrective,
-        );
+        ),
+      );
 
-        await controller.deliver(cue);
-        clock.advance(const Duration(seconds: 3));
-        final repeated = await controller.deliver(cue);
-
-        expect(repeated.wasDelivered, isTrue);
-        expect(repeated.hapticPattern, FeedbackHapticPattern.medium);
-        expect(voice.messages, hasLength(1));
-        expect(haptic.patterns, hasLength(2));
-      },
-    );
-
-    test(
-      'delivers a different cue immediately during the previous cooldown',
-      () async {
-        await controller.deliver(
-          const FeedbackDeliveryCue(
-            id: 'range:descend',
-            message: 'Asagi in',
-            kind: FeedbackDeliveryKind.movement,
-          ),
-        );
-        clock.advance(const Duration(milliseconds: 100));
-
-        final corrective = await controller.deliver(
-          const FeedbackDeliveryCue(
-            id: 'range:maintain_form',
-            message: 'Formunu koru',
-            kind: FeedbackDeliveryKind.corrective,
-          ),
-        );
-
-        expect(corrective.wasDelivered, isTrue);
-        expect(voice.messages, <String>['Asagi in', 'Formunu koru']);
-        expect(haptic.patterns, <FeedbackHapticPattern>[
-          FeedbackHapticPattern.light,
-          FeedbackHapticPattern.medium,
-        ]);
-      },
-    );
+      expect(corrective.wasDelivered, isTrue);
+      expect(voice.messages, <String>['Asagi in', 'Formunu koru']);
+    });
 
     test('does not repeat identical speech from a different cue id', () async {
       await controller.deliver(
@@ -121,67 +101,116 @@ void main() {
         ),
       );
 
-      expect(sameSpeech.wasDelivered, isTrue);
+      expect(
+        sameSpeech.disposition,
+        FeedbackDeliveryDisposition.repeatedTooSoon,
+      );
       expect(voice.messages, <String>['Ritmi koru']);
-      expect(haptic.patterns, <FeedbackHapticPattern>[
-        FeedbackHapticPattern.light,
-        FeedbackHapticPattern.medium,
-      ]);
+    });
+
+    test('speaks an earlier message again after the text changes', () async {
+      const descend = FeedbackDeliveryCue(
+        id: 'range:descend',
+        message: 'Asagi in',
+        kind: FeedbackDeliveryKind.movement,
+      );
+      const ascend = FeedbackDeliveryCue(
+        id: 'range:ascend',
+        message: 'Yukari cik',
+        kind: FeedbackDeliveryKind.movement,
+      );
+
+      await controller.deliver(descend);
+      await controller.deliver(ascend);
+      await controller.deliver(descend);
+
+      expect(voice.messages, <String>['Asagi in', 'Yukari cik', 'Asagi in']);
+    });
+
+    test('voice disabled returns disabled without speech', () async {
+      preferences = const FeedbackDeliveryPreferences(voiceEnabled: false);
+
+      final result = await controller.deliver(
+        const FeedbackDeliveryCue(
+          id: 'range:maintain_form',
+          message: 'Formunu koru',
+          kind: FeedbackDeliveryKind.corrective,
+        ),
+      );
+
+      expect(result.disposition, FeedbackDeliveryDisposition.disabled);
+      expect(voice.messages, isEmpty);
     });
 
     test(
-      'speaks an earlier message again after the feedback text changes',
+      'runtime preference changes apply without recreating controller',
       () async {
-        const descend = FeedbackDeliveryCue(
-          id: 'range:descend',
-          message: 'Asagi in',
-          kind: FeedbackDeliveryKind.movement,
-        );
-        const ascend = FeedbackDeliveryCue(
-          id: 'range:ascend',
-          message: 'Yukari cik',
-          kind: FeedbackDeliveryKind.movement,
+        const cue = FeedbackDeliveryCue(
+          id: 'range:maintain_form',
+          message: 'Formunu koru',
+          kind: FeedbackDeliveryKind.corrective,
         );
 
-        await controller.deliver(descend);
-        await controller.deliver(ascend);
-        await controller.deliver(descend);
+        preferences = const FeedbackDeliveryPreferences(voiceEnabled: false);
+        await controller.deliver(cue);
 
-        expect(voice.messages, <String>['Asagi in', 'Yukari cik', 'Asagi in']);
+        preferences = const FeedbackDeliveryPreferences();
+        final enabled = await controller.deliver(cue);
+
+        expect(enabled.wasDelivered, isTrue);
+        expect(voice.messages, <String>['Formunu koru']);
       },
     );
 
-    test('status feedback is spoken without haptic output', () async {
-      final result = await controller.deliver(
-        const FeedbackDeliveryCue(
-          id: 'range:ready',
-          message: 'Hazir',
-          kind: FeedbackDeliveryKind.status,
-        ),
+    test('reduced frequency extends voice repeat cooldown', () async {
+      preferences = const FeedbackDeliveryPreferences(
+        frequency: FeedbackFrequency.reduced,
+      );
+      const cue = FeedbackDeliveryCue(
+        id: 'range:maintain_form',
+        message: 'Formunu koru',
+        kind: FeedbackDeliveryKind.corrective,
       );
 
-      expect(result.wasDelivered, isTrue);
-      expect(result.hapticPattern, FeedbackHapticPattern.none);
-      expect(voice.messages, <String>['Hazir']);
-      expect(haptic.patterns, isEmpty);
+      await controller.deliver(cue);
+      clock.advance(const Duration(seconds: 5));
+      final suppressed = await controller.deliver(cue);
+      clock.advance(const Duration(seconds: 1));
+      final repeated = await controller.deliver(cue);
+
+      expect(
+        suppressed.disposition,
+        FeedbackDeliveryDisposition.repeatedTooSoon,
+      );
+      expect(repeated.wasDelivered, isTrue);
+      expect(voice.messages, hasLength(2));
     });
 
-    test('blocking feedback uses heavy haptic output', () async {
-      final result = await controller.deliver(
-        const FeedbackDeliveryCue(
-          id: 'range:body_not_visible',
-          message: 'Vucut net gorunmuyor',
-          kind: FeedbackDeliveryKind.blocking,
-        ),
+    test('frequent frequency shortens voice repeat cooldown', () async {
+      preferences = const FeedbackDeliveryPreferences(
+        frequency: FeedbackFrequency.frequent,
+      );
+      const cue = FeedbackDeliveryCue(
+        id: 'range:maintain_form',
+        message: 'Formunu koru',
+        kind: FeedbackDeliveryKind.corrective,
       );
 
-      expect(result.hapticPattern, FeedbackHapticPattern.heavy);
-      expect(haptic.patterns, <FeedbackHapticPattern>[
-        FeedbackHapticPattern.heavy,
-      ]);
+      await controller.deliver(cue);
+      clock.advance(const Duration(milliseconds: 1499));
+      final suppressed = await controller.deliver(cue);
+      clock.advance(const Duration(milliseconds: 1));
+      final repeated = await controller.deliver(cue);
+
+      expect(
+        suppressed.disposition,
+        FeedbackDeliveryDisposition.repeatedTooSoon,
+      );
+      expect(repeated.wasDelivered, isTrue);
+      expect(voice.messages, hasLength(2));
     });
 
-    test('empty messages do not reach either output', () async {
+    test('empty messages do not reach voice output', () async {
       final result = await controller.deliver(
         const FeedbackDeliveryCue(
           id: 'empty',
@@ -192,7 +221,6 @@ void main() {
 
       expect(result.disposition, FeedbackDeliveryDisposition.emptyMessage);
       expect(voice.messages, isEmpty);
-      expect(haptic.patterns, isEmpty);
     });
 
     test('reset clears repeat suppression state', () async {
@@ -242,14 +270,5 @@ class _RecordingVoiceOutput implements VoiceFeedbackOutput {
   @override
   Future<void> stop() async {
     stopCallCount++;
-  }
-}
-
-class _RecordingHapticOutput implements HapticFeedbackOutput {
-  final List<FeedbackHapticPattern> patterns = <FeedbackHapticPattern>[];
-
-  @override
-  Future<void> trigger(FeedbackHapticPattern pattern) async {
-    patterns.add(pattern);
   }
 }

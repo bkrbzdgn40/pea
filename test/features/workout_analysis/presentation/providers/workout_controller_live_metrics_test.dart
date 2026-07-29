@@ -188,7 +188,6 @@ class _NoopFeedbackDelivery implements FeedbackDeliveryPort {
     return FeedbackDeliveryResult(
       disposition: FeedbackDeliveryDisposition.delivered,
       cue: cue,
-      hapticPattern: FeedbackHapticPattern.none,
     );
   }
 
