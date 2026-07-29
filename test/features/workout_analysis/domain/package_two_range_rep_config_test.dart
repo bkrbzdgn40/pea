@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_catalog.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/legacy_range_rep_technique_evaluator.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
@@ -61,6 +62,29 @@ void main() {
           expect(config.targetMaxAngle, isNotNull, reason: type.id);
       }
     }
+  });
+
+  test('Y raise allows a soft elbow bend before form feedback', () {
+    final definition = catalog.definitionFor(ExerciseType.yRaise);
+    final config = ExerciseConfig.fromMap(
+      jsonDecode(File(definition.analysisConfigAssetPath).readAsStringSync())
+          as Map<String, dynamic>,
+    );
+    const evaluator = LegacyRangeRepTechniqueEvaluator();
+
+    expect(config.formThreshold, 145.0);
+    expect(
+      evaluator
+          .evaluate(formMetric: 145.0, formThreshold: config.formThreshold)
+          .hasObservations,
+      isFalse,
+    );
+    expect(
+      evaluator
+          .evaluate(formMetric: 144.0, formThreshold: config.formThreshold)
+          .hasObservations,
+      isTrue,
+    );
   });
 
   test('knee raise uses knee-flexion form and Y raise is bilateral', () {
