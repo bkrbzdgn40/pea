@@ -885,6 +885,11 @@ String _formatIssueLabel(AppLocalizations localizations, String value) {
       return localizations.excessiveDescentSpeed;
     case 'excessive ascent speed':
       return localizations.excessiveAscentSpeed;
+    case 'excessive rep speed':
+      return localizations.pick(
+        tr: 'Toplam tekrar süresi çok kısa',
+        en: 'Total rep duration too short',
+      );
     case 'persistent form break':
       return localizations.persistentFormBreak;
     case 'coverage loss':

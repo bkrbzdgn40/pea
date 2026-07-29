@@ -2,6 +2,8 @@
 
 Bu protokol `Calf Raise` için başlangıç pozisyonu ve gerçek cihaz peak-acquisition hardening değişikliğini tanımlar.
 
+Bu belge R6 cihaz turundaki tarihsel kalibrasyonu kaydeder. Daha sonraki P2.2 gerçek cihaz turu, tekrarlanabilir güvenli tepenin `123-125°` bandında kaldığını ve `140°` hedefinin erişilemez olduğunu göstermiştir. Güncel production sözleşmesi için `docs/beta/p2-calf-raise-boundary-calibration.md` dosyasına bakılır.
+
 Shared range-rep visibility, lifecycle ve persistence davranışları merkezi reliability testleriyle korunur. Bu çalışma yalnız Calf Raise primary-metric lifecycle kalibrasyonuna odaklanır.
 
 ## 1. Production Contract

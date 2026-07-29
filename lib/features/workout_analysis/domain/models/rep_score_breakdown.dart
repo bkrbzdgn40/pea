@@ -64,6 +64,8 @@ class RepScoreBreakdown {
     this.weightedBaseScore,
     this.phaseQualityPenalty,
     this.phaseAdjustedScore,
+    this.totalRepSeconds,
+    this.totalRepTempoScore,
   });
 
   final double minAngle;
@@ -100,4 +102,12 @@ class RepScoreBreakdown {
   final double? weightedBaseScore;
   final double? phaseQualityPenalty;
   final double? phaseAdjustedScore;
+
+  /// Complete start-to-neutral duration used by exercises whose phase
+  /// thresholds are too close for reliable segment timing.
+  final double? totalRepSeconds;
+
+  /// Tempo score derived from [totalRepSeconds] when total-duration scoring is
+  /// enabled for the exercise.
+  final double? totalRepTempoScore;
 }

@@ -53,6 +53,7 @@ RangeRepValidationReason? _selectPrimaryReason(
     RangeRepValidationReason.coverageLoss,
     RangeRepValidationReason.sideSwitchDuringRep,
     RangeRepValidationReason.persistentFormBreak,
+    RangeRepValidationReason.excessiveRepSpeed,
     RangeRepValidationReason.excessiveDescentSpeed,
     RangeRepValidationReason.excessiveAscentSpeed,
   ];
@@ -98,6 +99,10 @@ String _invalidMessage(
       tr: 'Yükseliş çok hızlı olduğu için tekrar güvenilir biçimde değerlendirilemedi.',
       en: 'The rep could not be evaluated reliably because the ascent was too fast.',
     ),
+    RangeRepValidationReason.excessiveRepSpeed => localizations.pick(
+      tr: 'Toplam hareket süresi çok kısa olduğu için tekrar güvenilir biçimde değerlendirilemedi.',
+      en: 'The rep could not be evaluated reliably because the total movement was too fast.',
+    ),
     null => localizations.pick(
       tr: 'Tekrar doğrulama koşullarını karşılamadı.',
       en: 'The rep did not meet the validation requirements.',
@@ -129,6 +134,10 @@ String _lowConfidenceMessage(
     RangeRepValidationReason.excessiveAscentSpeed => localizations.pick(
       tr: 'Tekrar tamamlandı, ancak yükseliş çok hızlıydı.',
       en: 'The rep was completed, but the ascent was too fast.',
+    ),
+    RangeRepValidationReason.excessiveRepSpeed => localizations.pick(
+      tr: 'Tekrar tamamlandı, ancak toplam hareket süresi 1,5 saniyenin altındaydı.',
+      en: 'The rep was completed, but the total movement lasted less than 1.5 seconds.',
     ),
     RangeRepValidationReason.incompletePhase => localizations.pick(
       tr: 'Tekrar tamamlandı, ancak hareket dizisi tam doğrulanamadı.',

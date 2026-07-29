@@ -169,16 +169,31 @@ void main() {
             contains(RangeRepSignal.primaryMetric),
             reason: definition.id,
           );
-          expect(
-            validation.minDescentMillis,
-            greaterThan(0),
-            reason: definition.id,
-          );
-          expect(
-            validation.minAscentMillis,
-            greaterThan(0),
-            reason: definition.id,
-          );
+          final minTotalRepMillis = validation.minTotalRepMillis;
+          if (minTotalRepMillis == null) {
+            expect(
+              validation.minDescentMillis,
+              greaterThan(0),
+              reason: definition.id,
+            );
+            expect(
+              validation.minAscentMillis,
+              greaterThan(0),
+              reason: definition.id,
+            );
+          } else {
+            expect(minTotalRepMillis, greaterThan(0), reason: definition.id);
+            expect(
+              validation.minDescentMillis,
+              greaterThanOrEqualTo(0),
+              reason: definition.id,
+            );
+            expect(
+              validation.minAscentMillis,
+              greaterThanOrEqualTo(0),
+              reason: definition.id,
+            );
+          }
 
           final minRomDelta = validation.minAcceptableRomDelta;
           if (contract.primaryMetricDirection ==

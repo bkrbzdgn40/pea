@@ -336,6 +336,13 @@ class SessionReport {
         'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.',
       );
     }
+    if (issueSet.contains(
+      _issueLabel(RangeRepValidationReason.excessiveRepSpeed.debugLabel),
+    )) {
+      recommendations.add(
+        'Toplam tekrar süresini biraz uzat ve yükselme-dönüş ritmini kontrollü tut.',
+      );
+    }
     if (formWarningCount > 0 ||
         formViolationCount > 0 ||
         issueSet.contains(
@@ -439,6 +446,8 @@ class SessionReport {
         return 'iniş çok hızlı';
       case 'excessive ascent speed':
         return 'çıkış çok hızlı';
+      case 'excessive rep speed':
+        return 'toplam tekrar süresi çok kısa';
       case 'persistent form break':
         return 'kalıcı form bozulması';
       case 'coverage loss':

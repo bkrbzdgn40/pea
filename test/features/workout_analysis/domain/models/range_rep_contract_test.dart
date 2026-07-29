@@ -497,6 +497,33 @@ void main() {
       );
     });
 
+    test('rejects invalid neutral baseline configuration', () {
+      RangeRepContract build({
+        Duration window = Duration.zero,
+        double thresholdMargin = 0.0,
+      }) {
+        return RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          neutralBaselineWindow: window,
+          neutralBaselineThresholdMargin: thresholdMargin,
+        );
+      }
+
+      expect(
+        () => build(window: const Duration(milliseconds: -1)),
+        throwsArgumentError,
+      );
+      expect(() => build(thresholdMargin: -1.0), throwsArgumentError);
+    });
+
     test('rejects a non-positive primary metric smoothing window', () {
       expect(
         () => RangeRepContract(

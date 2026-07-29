@@ -263,12 +263,16 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     RangeRepTowardPeakMuscleAction towardPeakMuscleAction =
         RangeRepTowardPeakMuscleAction.eccentric,
+    double activeEntryMargin = 3.0,
     double peakEntryMargin = 3.0,
+    double peakExitMargin = 8.0,
     bool retainPeakEvidenceAcrossActiveTransition = false,
     bool allowSparseCycleRecovery = false,
     Duration initialNeutralConfirmationDuration = const Duration(
       milliseconds: 100,
     ),
+    Duration neutralBaselineWindow = Duration.zero,
+    double neutralBaselineThresholdMargin = 0.0,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _genericRepEngine = GenericRepEngine(
@@ -276,11 +280,15 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         neutralThreshold: config.thresholdNeutral,
         activeThreshold: config.thresholdActive,
         peakThreshold: config.thresholdPeak,
+        activeEntryMargin: activeEntryMargin,
         peakEntryMargin: peakEntryMargin,
+        peakExitMargin: peakExitMargin,
         retainPeakEvidenceAcrossActiveTransition:
             retainPeakEvidenceAcrossActiveTransition,
         allowSparseCycleRecovery: allowSparseCycleRecovery,
         initialNeutralConfirmationDuration: initialNeutralConfirmationDuration,
+        neutralBaselineWindow: neutralBaselineWindow,
+        neutralBaselineThresholdMargin: neutralBaselineThresholdMargin,
         direction: switch (primaryMetricDirection) {
           RangeRepPrimaryMetricDirection.decreasingToPeak =>
             GenericRepMetricDirection.decreasingToPeak,

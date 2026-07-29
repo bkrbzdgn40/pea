@@ -70,7 +70,14 @@ enum RangeRepTowardPeakMuscleAction { eccentric, concentric }
 ///
 /// This is semantic metadata, not object identity. A copied contract therefore
 /// keeps the same behavior without relying on `identical(...)`.
-enum RangeRepExtensionProfile { none, squat, pushUp, bicepsCurl, shoulderPress }
+enum RangeRepExtensionProfile {
+  none,
+  squat,
+  pushUp,
+  bicepsCurl,
+  shoulderPress,
+  calfRaise,
+}
 
 /// Immutable contract describing which phases and normalized signals a
 /// range-rep exercise supports.
@@ -91,10 +98,14 @@ class RangeRepContract {
     this.primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
     this.towardPeakMuscleAction = RangeRepTowardPeakMuscleAction.eccentric,
+    this.activeEntryMargin = 3.0,
     this.peakEntryMargin = 3.0,
+    this.peakExitMargin = 8.0,
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
     this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
+    this.neutralBaselineWindow = Duration.zero,
+    this.neutralBaselineThresholdMargin = 0.0,
     this.primaryMetricSmoothingWindow = 5,
     this.formMetricSmoothingWindow = 5,
     this.extensionProfile = RangeRepExtensionProfile.none,
@@ -125,6 +136,20 @@ class RangeRepContract {
       throw ArgumentError.value(
         initialNeutralConfirmationDuration,
         'initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (neutralBaselineWindow.isNegative) {
+      throw ArgumentError.value(
+        neutralBaselineWindow,
+        'neutralBaselineWindow',
+        'Must not be negative.',
+      );
+    }
+    if (neutralBaselineThresholdMargin < 0.0) {
+      throw ArgumentError.value(
+        neutralBaselineThresholdMargin,
+        'neutralBaselineThresholdMargin',
         'Must not be negative.',
       );
     }
@@ -196,12 +221,26 @@ class RangeRepContract {
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final RangeRepTowardPeakMuscleAction towardPeakMuscleAction;
 
+  /// Exercise-specific hysteresis margin applied when entering the active range.
+  ///
+  /// The default preserves the shared lifecycle's 3-degree noise guard. Small-
+  /// excursion movements may opt into the literal configured active threshold
+  /// when device evidence shows that the shared margin consumes safe ROM.
+  final double activeEntryMargin;
+
   /// Exercise-specific hysteresis margin applied when entering the peak range.
   ///
   /// The default preserves the shared lifecycle's 3-degree noise guard. Some
   /// movements can opt into a literal configured peak threshold when sparse
   /// analysis sampling makes the extra entry margin too restrictive.
   final double peakEntryMargin;
+
+  /// Exercise-specific hysteresis margin applied when leaving the peak range.
+  ///
+  /// The default preserves the shared lifecycle's 8-degree noise guard. Small-
+  /// excursion movements may opt into a narrower exit margin when device data
+  /// shows that the default overlaps their natural neutral range.
+  final double peakExitMargin;
 
   /// Retains a strict peak sample observed before active-entry confirmation.
   ///
@@ -223,6 +262,14 @@ class RangeRepContract {
   /// thresholds while the user is getting into position may opt into a longer
   /// duration without delaying normal repetition completion.
   final Duration initialNeutralConfirmationDuration;
+
+  /// Optional recent-neutral window used to calculate a median start metric.
+  /// Disabled by default so other exercises retain their existing lifecycle.
+  final Duration neutralBaselineWindow;
+
+  /// Required distance from neutral threshold before a sample contributes to
+  /// the median baseline. This prevents threshold-edge jitter from shrinking ROM.
+  final double neutralBaselineThresholdMargin;
 
   /// Number of accepted primary-metric samples used by the coordinator's
   /// moving-average filter. Fast movements can opt out of the five-frame
@@ -895,9 +942,14 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    activeEntryMargin: 0.0,
     peakEntryMargin: 0.0,
+    peakExitMargin: 1.0,
     retainPeakEvidenceAcrossActiveTransition: true,
+    neutralBaselineWindow: const Duration(milliseconds: 1500),
+    neutralBaselineThresholdMargin: 2.0,
     primaryMetricSmoothingWindow: 1,
+    extensionProfile: RangeRepExtensionProfile.calfRaise,
   );
 
   static final RangeRepContract frontRaise = RangeRepContract(

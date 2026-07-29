@@ -4,13 +4,13 @@
   "joint1": "leftKnee",
   "joint2": "leftFootIndex",
   "thresholdNeutral": 120.0,
-  "thresholdActive": 123.0,
-  "thresholdPeak": 130.0,
+  "thresholdActive": 121.0,
+  "thresholdPeak": 122.0,
   "idealDescentSeconds": 1.0,
   "idealAscentSeconds": 1.0,
   "formThreshold": 160.0,
   "targetMinAngle": 0.0,
-  "targetMaxAngle": 140.0,
+  "targetMaxAngle": 125.0,
   "tempoPenaltyPerSecond": 20.0,
   "rangeRepSignals": {
     "postureAngle": {
@@ -27,7 +27,7 @@
     "ascentControlWeight": 1.0
   },
   "rangeRepPhaseQuality": {
-    "minDescendingMillis": 250,
-    "minAscendingMillis": 250
+    "minDescendingMillis": 0,
+    "minAscendingMillis": 0
   }
 }

@@ -28,6 +28,63 @@ void main() {
       },
     );
 
+    test('keeps a persistent form break low confidence by default', () {
+      final result = policy.evaluate(_summary(hadFormViolation: true));
+
+      expect(result.status, RangeRepValidationStatus.lowConfidence);
+      expect(result.reasons, [RangeRepValidationReason.persistentFormBreak]);
+      expect(result.countsTowardReps, isTrue);
+      expect(result.shouldPublishScore, isTrue);
+    });
+
+    test('can invalidate a persistent form break for one exercise', () {
+      const strictPolicy = RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(invalidateOnPersistentFormBreak: true),
+      );
+
+      final result = strictPolicy.evaluate(_summary(hadFormViolation: true));
+
+      expect(result.status, RangeRepValidationStatus.invalid);
+      expect(result.reasons, [RangeRepValidationReason.persistentFormBreak]);
+      expect(result.countsTowardReps, isFalse);
+      expect(result.shouldPublishScore, isFalse);
+    });
+
+    test('accepts a total repetition lasting exactly 1.5 seconds', () {
+      const totalTempoPolicy = RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(
+          minDescentMillis: 0,
+          minAscentMillis: 0,
+          minTotalRepMillis: 1500,
+        ),
+      );
+
+      final result = totalTempoPolicy.evaluate(
+        _summary(totalRepDuration: const Duration(milliseconds: 1500)),
+      );
+
+      expect(result.status, RangeRepValidationStatus.valid);
+      expect(result.reasons, isEmpty);
+    });
+
+    test('flags a total repetition below 1.5 seconds', () {
+      const totalTempoPolicy = RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(
+          minDescentMillis: 0,
+          minAscentMillis: 0,
+          minTotalRepMillis: 1500,
+        ),
+      );
+
+      final result = totalTempoPolicy.evaluate(
+        _summary(totalRepDuration: const Duration(milliseconds: 1499)),
+      );
+
+      expect(result.status, RangeRepValidationStatus.lowConfidence);
+      expect(result.reasons, [RangeRepValidationReason.excessiveRepSpeed]);
+      expect(result.countsTowardReps, isTrue);
+    });
+
     test('returns invalid when the phase sequence is incomplete', () {
       final result = policy.evaluate(_summary(completedPhaseSequence: false));
 
@@ -87,6 +144,7 @@ RangeRepRepSummary _summary({
   double worstFormMetric = 60,
   Duration descentDuration = const Duration(milliseconds: 400),
   Duration ascentDuration = const Duration(milliseconds: 300),
+  Duration? totalRepDuration,
   bool hadFormViolation = false,
   bool hadCoverageDrop = false,
   bool switchedSideDuringRep = false,
@@ -98,6 +156,7 @@ RangeRepRepSummary _summary({
     worstFormMetric: worstFormMetric,
     descentDuration: descentDuration,
     ascentDuration: ascentDuration,
+    totalRepDuration: totalRepDuration,
     hadFormViolation: hadFormViolation,
     hadCoverageDrop: hadCoverageDrop,
     switchedSideDuringRep: switchedSideDuringRep,

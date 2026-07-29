@@ -108,6 +108,36 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
       .diagnosticMetric(RangeRepExtensionDiagnostic.bicepsRomDelta);
 
   @override
+  double adaptPrimaryMetricForDetection({
+    required ExerciseMetrics metrics,
+    required RangeRepSide? selectedSide,
+    required double primaryMetric,
+    required double neutralThreshold,
+    required double activeThreshold,
+    required String currentPhase,
+    required bool hasActiveRepContext,
+    required DateTime now,
+  }) {
+    final extension = _exerciseAnalysisExtension;
+    if (selectedSide == null || extension is! RangeRepDetectionFrameAdapter) {
+      return primaryMetric;
+    }
+
+    return (extension as RangeRepDetectionFrameAdapter).adaptPrimaryMetric(
+      RangeRepDetectionFrameContext(
+        metrics: metrics,
+        selectedSide: selectedSide,
+        primaryMetric: primaryMetric,
+        neutralThreshold: neutralThreshold,
+        activeThreshold: activeThreshold,
+        currentPhase: currentPhase,
+        hasActiveRepContext: hasActiveRepContext,
+        now: now,
+      ),
+    );
+  }
+
+  @override
   base.RangeRepCoordinatorFrameResult processFrame({
     required ExerciseMetrics metrics,
     required DateTime now,

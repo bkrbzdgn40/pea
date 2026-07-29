@@ -210,6 +210,23 @@ class ExerciseLandmarkRequirements {
       );
     }
 
+    // Exercise extensions may require landmarks that are movement-identity
+    // evidence rather than scalar angle signals. Calf Raise must observe the
+    // heel relative to the planted forefoot and the selected-side torso;
+    // otherwise a hip hinge can distort the ankle angle without any real
+    // plantar flexion.
+    if (rangeRepContract.extensionProfile ==
+        RangeRepExtensionProfile.calfRaise) {
+      addSegment(
+        sideLandmark(PoseLandmarkType.leftShoulder),
+        sideLandmark(PoseLandmarkType.leftHip),
+      );
+      addSegment(
+        sideLandmark(PoseLandmarkType.leftHeel),
+        sideLandmark(PoseLandmarkType.leftFootIndex),
+      );
+    }
+
     return ExerciseLandmarkRequirementSet(
       requiredLandmarks: Set<PoseLandmarkType>.unmodifiable(requiredLandmarks),
       requiredAngleTriplets: List<PoseAngleTriplet>.unmodifiable(
