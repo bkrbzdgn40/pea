@@ -329,9 +329,9 @@ void main() {
         ),
         'assets/config/exercises/standing_hip_abduction.json': (
           'Standing Hip Abduction',
-          170,
+          173,
           155,
-          128,
+          140,
         ),
         'assets/config/exercises/overhead_triceps_extension.json': (
           'Overhead Triceps Extension',

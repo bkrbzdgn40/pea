@@ -37,6 +37,7 @@ class AnalysisEngineFactory {
       activeEntryMargin: rangeRepContract.activeEntryMargin,
       peakEntryMargin: rangeRepContract.peakEntryMargin,
       peakExitMargin: rangeRepContract.peakExitMargin,
+      completionThreshold: rangeRepContract.completionThreshold,
       retainPeakEvidenceAcrossActiveTransition:
           rangeRepContract.retainPeakEvidenceAcrossActiveTransition,
       allowSparseCycleRecovery: rangeRepContract.allowSparseCycleRecovery,

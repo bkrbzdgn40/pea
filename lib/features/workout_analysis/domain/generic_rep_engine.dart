@@ -19,6 +19,7 @@ class GenericRepEngineConfig {
     required this.neutralThreshold,
     required this.activeThreshold,
     required this.peakThreshold,
+    this.completionThreshold,
     this.direction = GenericRepMetricDirection.decreasingToPeak,
     this.minimumRom = 0.0,
     this.activeEntryMargin = 3.0,
@@ -43,6 +44,13 @@ class GenericRepEngineConfig {
   final double neutralThreshold;
   final double activeThreshold;
   final double peakThreshold;
+
+  /// Optional inclusive threshold used only to complete a returning rep.
+  ///
+  /// Initial neutral acquisition continues to use [neutralThreshold]. When
+  /// omitted, completion preserves the existing strict neutral semantics.
+  final double? completionThreshold;
+
   final GenericRepMetricDirection direction;
 
   /// Minimum primary-metric range required before a completed lifecycle is
@@ -433,7 +441,7 @@ class GenericRepEngine {
         _recordMetric(primaryMetric);
         final completedAt = _confirmTransition(
           transition: GenericRepTransitionType.completeRep,
-          condition: isNeutralMetric(primaryMetric),
+          condition: isCompletionMetric(primaryMetric),
           now: now,
         );
         if (completedAt != null) {
@@ -477,6 +485,19 @@ class GenericRepEngine {
         value > config.neutralThreshold,
       GenericRepMetricDirection.increasingToPeak =>
         value < config.neutralThreshold,
+    };
+  }
+
+  bool isCompletionMetric(double value) {
+    final completionThreshold = config.completionThreshold;
+    if (completionThreshold == null) {
+      return isNeutralMetric(value);
+    }
+    return switch (config.direction) {
+      GenericRepMetricDirection.decreasingToPeak =>
+        value >= completionThreshold,
+      GenericRepMetricDirection.increasingToPeak =>
+        value <= completionThreshold,
     };
   }
 
@@ -570,7 +591,7 @@ class GenericRepEngine {
     return config.allowSparseCycleRecovery &&
         peakAt != null &&
         now.difference(peakAt) <= config.retainedPeakEvidenceMaxAge &&
-        isNeutralMetric(primaryMetric);
+        isCompletionMetric(primaryMetric);
   }
 
   void cancelPendingTransition() {
@@ -855,6 +876,26 @@ class GenericRepEngine {
         'Thresholds must be ordered from neutral to active to peak for the '
             'configured metric direction.',
       );
+    }
+
+    final completionThreshold = config.completionThreshold;
+    if (completionThreshold != null) {
+      final isCompletionThresholdOrdered = switch (config.direction) {
+        GenericRepMetricDirection.decreasingToPeak =>
+          completionThreshold > config.activeThreshold &&
+              completionThreshold <= config.neutralThreshold,
+        GenericRepMetricDirection.increasingToPeak =>
+          completionThreshold < config.activeThreshold &&
+              completionThreshold >= config.neutralThreshold,
+      };
+      if (!isCompletionThresholdOrdered) {
+        throw ArgumentError.value(
+          completionThreshold,
+          'config.completionThreshold',
+          'Completion threshold must stay between active and neutral for the '
+              'configured metric direction.',
+        );
+      }
     }
   }
 }

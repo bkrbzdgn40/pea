@@ -101,6 +101,7 @@ class RangeRepContract {
     this.activeEntryMargin = 3.0,
     this.peakEntryMargin = 3.0,
     this.peakExitMargin = 8.0,
+    this.completionThreshold,
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
     this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
@@ -241,6 +242,13 @@ class RangeRepContract {
   /// excursion movements may opt into a narrower exit margin when device data
   /// shows that the default overlaps their natural neutral range.
   final double peakExitMargin;
+
+  /// Optional inclusive threshold used only when completing a returning rep.
+  ///
+  /// Initial neutral acquisition still uses the configured neutral threshold.
+  /// Keep this null unless device evidence requires asymmetric start and finish
+  /// acceptance.
+  final double? completionThreshold;
 
   /// Retains a strict peak sample observed before active-entry confirmation.
   ///
@@ -408,7 +416,10 @@ abstract final class RangeRepContracts {
     required RangeRepPrimaryMetricDirection primaryMetricDirection,
     bool automaticSideSelectionEnabled = false,
     double peakEntryMargin = 3.0,
+    double? completionThreshold,
     bool retainPeakEvidenceAcrossActiveTransition = false,
+    Duration neutralBaselineWindow = Duration.zero,
+    double neutralBaselineThresholdMargin = 0.0,
   }) {
     return RangeRepContract(
       towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
@@ -452,8 +463,11 @@ abstract final class RangeRepContracts {
       bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
       primaryMetricDirection: primaryMetricDirection,
       peakEntryMargin: peakEntryMargin,
+      completionThreshold: completionThreshold,
       retainPeakEvidenceAcrossActiveTransition:
           retainPeakEvidenceAcrossActiveTransition,
+      neutralBaselineWindow: neutralBaselineWindow,
+      neutralBaselineThresholdMargin: neutralBaselineThresholdMargin,
     );
   }
 
@@ -676,6 +690,14 @@ abstract final class RangeRepContracts {
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
     automaticSideSelectionEnabled: true,
+    peakEntryMargin: 0.0,
+    completionThreshold: 168.0,
+    neutralBaselineWindow: const Duration(milliseconds: 1500),
+    // The calibrated neutral is 173 degrees. Requiring an extra 2-degree
+    // margin left repeated device reps without a baseline whenever the user
+    // settled naturally at 173-174 degrees, so the engine fell back to the
+    // active-edge sample and under-reported ROM.
+    neutralBaselineThresholdMargin: 0.0,
   );
 
   static final RangeRepContract tricepsDip = RangeRepContract(

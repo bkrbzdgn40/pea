@@ -297,6 +297,8 @@ void main() {
         RangeRepContracts.standingHipAbduction.automaticSideSelectionEnabled,
         isTrue,
       );
+      expect(RangeRepContracts.standingHipAbduction.peakEntryMargin, 0.0);
+      expect(RangeRepContracts.standingHipAbduction.completionThreshold, 168.0);
       expect(RangeRepContracts.crunch.automaticSideSelectionEnabled, isFalse);
       expect(
         RangeRepContracts.standingHipAbduction.requiresPoseAcceptanceSignal(

@@ -266,6 +266,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     double activeEntryMargin = 3.0,
     double peakEntryMargin = 3.0,
     double peakExitMargin = 8.0,
+    double? completionThreshold,
     bool retainPeakEvidenceAcrossActiveTransition = false,
     bool allowSparseCycleRecovery = false,
     Duration initialNeutralConfirmationDuration = const Duration(
@@ -283,6 +284,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         activeEntryMargin: activeEntryMargin,
         peakEntryMargin: peakEntryMargin,
         peakExitMargin: peakExitMargin,
+        completionThreshold: completionThreshold,
         retainPeakEvidenceAcrossActiveTransition:
             retainPeakEvidenceAcrossActiveTransition,
         allowSparseCycleRecovery: allowSparseCycleRecovery,

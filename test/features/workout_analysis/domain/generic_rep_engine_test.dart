@@ -112,6 +112,42 @@ void main() {
     );
 
     test(
+      'uses an opt-in finish threshold without relaxing initial neutral',
+      () {
+        final clock = _Clock();
+        final engine = GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 145,
+            peakThreshold: 105,
+            completionThreshold: 155,
+          ),
+          now: clock.now,
+        );
+
+        _confirm(clock, engine, 155, 120);
+        expect(engine.isArmed, isFalse);
+
+        _confirm(clock, engine, 170, 120);
+        expect(engine.isArmed, isTrue);
+
+        _confirm(clock, engine, 140, 100);
+        _confirm(clock, engine, 90, 100);
+        _confirm(clock, engine, 120, 100);
+
+        final belowFinish = _confirm(clock, engine, 154, 120);
+        expect(engine.repCount, 0);
+        expect(engine.phase, GenericRepPhase.returning);
+        expect(belowFinish.completedRep, isNull);
+
+        final completed = _confirm(clock, engine, 155, 120);
+        expect(engine.repCount, 1);
+        expect(engine.phase, GenericRepPhase.neutral);
+        expect(completed.completedRep, isNotNull);
+      },
+    );
+
+    test(
       'preserves the first active-crossing metric across confirmation lag',
       () {
         final clock = _Clock();
