@@ -15,6 +15,7 @@ import '../../application/workout_state.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/setup_readiness_state.dart';
 import '../camera_image_stream_coordinator.dart';
+import '../errors/workout_camera_error_presentation.dart';
 import '../models/live_pause_state.dart';
 import '../models/preparation_camera_geometry.dart';
 import '../models/range_rep_outcome_view_data.dart';
@@ -867,33 +868,30 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
           },
           loading: () => const _CameraRecoveryView(),
           error: (error, _) {
-            if (error is CameraException && error.code == 'cameraPermission') {
+            final failure = presentWorkoutCameraError(
+              error: error,
+              localizations: localizations,
+            );
+            if (failure.requiresPermissionAction) {
               return _CameraPermissionFallback(
                 onPressed: _goToPermissionScreen,
               );
             }
 
             if (_isRecoveringCamera &&
-                _isTransientCameraLifecycleError(error)) {
+                isTransientWorkoutCameraLifecycleError(error)) {
               return const _CameraRecoveryView();
             }
 
-            return Center(child: Text(localizations.cameraOpenFailed(error)));
+            return _LiveCameraFailureView(
+              message: failure.message,
+              actionLabel: failure.actionLabel,
+              onRetry: () => unawaited(_recoverCameraIfAllowed()),
+            );
           },
         ),
       ),
     );
-  }
-
-  bool _isTransientCameraLifecycleError(Object error) {
-    final message = error.toString().toLowerCase();
-
-    return message.contains('dispose') ||
-        message.contains('disposed') ||
-        message.contains('controller') ||
-        message.contains('initialize') ||
-        message.contains('camera is closed') ||
-        message.contains('camera closed');
   }
 
   CameraValue? _safeControllerValue(CameraController controller) {
@@ -2439,6 +2437,50 @@ class _CameraRecoveryView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LiveCameraFailureView extends StatelessWidget {
+  const _LiveCameraFailureView({
+    required this.message,
+    required this.actionLabel,
+    required this.onRetry,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: const ValueKey<String>('live-camera-error'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.photo_camera_outlined,
+              color: Colors.greenAccent,
+              size: 42,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: onRetry, child: Text(actionLabel)),
+          ],
+        ),
       ),
     );
   }

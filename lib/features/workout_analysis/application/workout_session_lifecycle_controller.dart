@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'repositories/session_repository.dart';
 import 'exercise_catalog.dart';
 import 'engine_kind.dart';
@@ -321,7 +323,13 @@ class WorkoutSessionLifecycleController
       _publishCompletedSession(session);
       _hasSavedSession = true;
       return FinishWorkoutSessionResult.success(session);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      developer.log(
+        'Workout session persistence failed.',
+        name: 'workout.session.persistence',
+        error: error,
+        stackTrace: stackTrace,
+      );
       _isFinishing = false;
       return const FinishWorkoutSessionResult.failure(
         FinishWorkoutSessionFailure.persistenceFailure,

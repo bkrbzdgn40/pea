@@ -15,6 +15,54 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('shows actionable camera errors without raw exception text', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: <Override>[
+        selectedAssessmentProvider.overrideWith(
+          (ref) => const AssessmentSelection(type: AssessmentType.squat),
+        ),
+        cameraProvider.overrideWith(
+          (ref) async => throw StateError('private assessment camera detail'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('en'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const AssessmentLiveScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('assessment-camera-error')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('The camera could not be started'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('private assessment camera detail'),
+      findsNothing,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+  });
+
   testWidgets('keeps result CTA disabled until assessment evidence is ready', (
     tester,
   ) async {
