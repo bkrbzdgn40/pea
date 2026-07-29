@@ -3,10 +3,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/feedback_delivery_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/settings_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../../support/presentation_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,11 +76,43 @@ void main() {
       FeedbackFrequency.frequent.name,
     );
   });
+  testWidgets('deletes all history only after confirmation', (
+    WidgetTester tester,
+  ) async {
+    final sessions = TestSessionRepository();
+    await _pumpSettings(
+      tester,
+      overrides: [
+        authRepositoryProvider.overrideWithValue(
+          const TestAuthRepository(currentUserId: 'owner-1'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(sessions),
+      ],
+    );
+
+    final action = find.byKey(
+      const ValueKey<String>('settings-delete-all-history'),
+    );
+    await tester.scrollUntilVisible(action, 240);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('confirm-delete-all-history')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(sessions.deletedAllOwnerIds, ['owner-1']);
+    expect(find.text('Tüm antrenman geçmişi silindi.'), findsOneWidget);
+  });
 }
 
-Future<void> _pumpSettings(WidgetTester tester) async {
+Future<void> _pumpSettings(
+  WidgetTester tester, {
+  List<Override> overrides = const <Override>[],
+}) async {
   await tester.pumpWidget(
     ProviderScope(
+      overrides: overrides,
       child: Consumer(
         builder: (context, ref, _) {
           final settingsState = ref.watch(settingsControllerProvider);

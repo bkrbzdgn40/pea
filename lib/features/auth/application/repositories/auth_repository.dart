@@ -10,4 +10,6 @@ abstract interface class AuthRepository {
   Future<void> signInAnonymously();
 
   Future<void> signOut();
+
+  Future<void> deleteCurrentUser();
 }

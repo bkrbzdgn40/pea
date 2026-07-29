@@ -50,6 +50,24 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
+  @override
+  Future<void> deleteCurrentUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw const AuthFailure(message: 'No authenticated user to delete.');
+    }
+
+    try {
+      await user.delete();
+    } on firebase_auth.FirebaseAuthException catch (error, stackTrace) {
+      throw AuthFailure(
+        message: 'User account could not be deleted.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   AuthUser? _toAuthUser(firebase_auth.User? user) {
     if (user == null) {
       return null;

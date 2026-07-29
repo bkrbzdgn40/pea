@@ -55,4 +55,9 @@ class FirestoreSessionRepository implements SessionRepository {
   }) {
     return _remoteSource.deleteSession(ownerId: ownerId, sessionId: sessionId);
   }
+
+  @override
+  Future<void> deleteAllSessions({required String ownerId}) {
+    return _remoteSource.deleteAllSessions(ownerId: ownerId);
+  }
 }

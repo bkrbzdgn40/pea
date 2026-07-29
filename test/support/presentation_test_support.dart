@@ -34,6 +34,9 @@ class TestAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteCurrentUser() async {}
 }
 
 class TestSessionRepository implements SessionRepository {
@@ -47,6 +50,7 @@ class TestSessionRepository implements SessionRepository {
     this.getSessionByIdError,
     this.listSessionRepsError,
     this.deleteSessionError,
+    this.deleteAllSessionsError,
   }) : _sessions = List<WorkoutSession>.from(sessions),
        _sessionById = Map<String, WorkoutSession?>.from(sessionById),
        _repsBySessionId = Map<String, List<WorkoutRep>>.from(repsBySessionId);
@@ -58,7 +62,9 @@ class TestSessionRepository implements SessionRepository {
   final Object? getSessionByIdError;
   final Object? listSessionRepsError;
   final Object? deleteSessionError;
+  final Object? deleteAllSessionsError;
   final List<String> deletedSessionIds = <String>[];
+  final List<String> deletedAllOwnerIds = <String>[];
 
   @override
   Future<void> saveSession(WorkoutSession session) async {
@@ -161,6 +167,23 @@ class TestSessionRepository implements SessionRepository {
     );
     _sessionById.remove(sessionId);
     _repsBySessionId.remove(sessionId);
+  }
+
+  @override
+  Future<void> deleteAllSessions({required String ownerId}) async {
+    if (deleteAllSessionsError != null) {
+      throw deleteAllSessionsError!;
+    }
+    deletedAllOwnerIds.add(ownerId);
+    final sessionIds = _sessions
+        .where((session) => session.ownerId == ownerId)
+        .map((session) => session.id)
+        .toList();
+    _sessions.removeWhere((session) => session.ownerId == ownerId);
+    for (final sessionId in sessionIds) {
+      _sessionById.remove(sessionId);
+      _repsBySessionId.remove(sessionId);
+    }
   }
 }
 

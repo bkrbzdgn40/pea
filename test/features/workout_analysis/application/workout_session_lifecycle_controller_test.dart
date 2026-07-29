@@ -806,4 +806,7 @@ class _FakeSessionRepository implements SessionRepository {
       (session) => session.ownerId == ownerId && session.id == sessionId,
     );
   }
+
+  @override
+  Future<void> deleteAllSessions({required String ownerId}) async {}
 }

@@ -26,4 +26,6 @@ abstract interface class SessionRepository {
     required String ownerId,
     required String sessionId,
   });
+
+  Future<void> deleteAllSessions({required String ownerId});
 }

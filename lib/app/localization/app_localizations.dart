@@ -65,6 +65,48 @@ class AppLocalizations {
     );
   }
 
+  String get privacyAndData =>
+      pick(tr: 'Gizlilik ve Verilerim', en: 'Privacy and My Data');
+  String get savedWorkoutDataExplanation => pick(
+    tr: 'Kamera görüntüleri saklanmaz. Tekrar, süre, skor ve teknik ölçümler antrenman geçmişin için bulutta tutulur.',
+    en: 'Camera images are not stored. Reps, duration, scores, and technical measurements are kept in the cloud for your workout history.',
+  );
+  String get deleteAllHistory =>
+      pick(tr: 'Tüm Geçmişi Sil', en: 'Delete All History');
+  String get deleteAllHistoryDescription => pick(
+    tr: 'Kaydedilmiş tüm antrenmanları ve tekrar detaylarını kaldırır.',
+    en: 'Removes every saved workout and its repetition details.',
+  );
+  String get deleteAllHistoryTitle =>
+      pick(tr: 'Tüm geçmiş silinsin mi?', en: 'Delete all history?');
+  String get deleteAllHistoryMessage => pick(
+    tr: 'Bütün antrenman oturumların ve tekrar detayların kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+    en: 'All workout sessions and repetition details will be permanently deleted. This action cannot be undone.',
+  );
+  String get allHistoryDeleted => pick(
+    tr: 'Tüm antrenman geçmişi silindi.',
+    en: 'All workout history was deleted.',
+  );
+  String get allHistoryDeleteFailed => pick(
+    tr: 'Tüm geçmiş silinemedi. Bazı kayıtlar silinmiş olabilir; bağlantını kontrol edip tekrar dene.',
+    en: 'All history could not be deleted. Some records may already be removed; check your connection and try again.',
+  );
+  String get deleteAccountAndData =>
+      pick(tr: 'Hesabı ve Verileri Sil', en: 'Delete Account and Data');
+  String get deleteAccountAndDataDescription => pick(
+    tr: 'Anonim hesabı ve ona bağlı bütün antrenman verilerini kaldırır.',
+    en: 'Removes the anonymous account and all workout data linked to it.',
+  );
+  String get deleteAccountTitle =>
+      pick(tr: 'Hesap ve veriler silinsin mi?', en: 'Delete account and data?');
+  String get deleteAccountMessage => pick(
+    tr: 'Önce bütün antrenman verilerin, ardından anonim hesabın kalıcı olarak silinecek. Uygulamayı kullanmaya devam edersen yeni ve boş bir anonim hesap oluşturulur.',
+    en: 'All workout data will be deleted first, followed by the anonymous account. Continuing to use the app creates a new, empty anonymous account.',
+  );
+  String get accountDeleteFailed => pick(
+    tr: 'Hesap tamamen silinemedi. Verilerin silinmiş olabilir; bağlantını kontrol edip tekrar dene.',
+    en: 'The account could not be fully deleted. Your workout data may already be removed; check your connection and try again.',
+  );
   String get settingsLoadFailed =>
       pick(tr: 'Ayarlar yüklenemedi.', en: 'Settings could not be loaded.');
   String get dataLoadFailed =>

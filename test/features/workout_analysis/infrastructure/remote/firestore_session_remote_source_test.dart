@@ -132,6 +132,40 @@ void main() {
         expect(repsSnapshot.docs, isEmpty);
       },
     );
+
+    test('deleteAllSessions removes every session and rep document', () async {
+      final first = _session();
+      final second = WorkoutSession(
+        id: 'session_2',
+        ownerId: first.ownerId,
+        exerciseType: 'plank',
+        analysisKind: 'hold',
+        startedAt: DateTime.utc(2026, 1, 2, 12),
+        endedAt: DateTime.utc(2026, 1, 2, 12, 1),
+        durationSec: 60,
+        totalReps: 0,
+        averageScore: 0,
+        bestScore: 0,
+        formWarningCount: 0,
+        totalHoldSeconds: 30,
+        bestHoldSeconds: 30,
+        reps: const <WorkoutRep>[],
+      );
+
+      await remoteSource.saveSession(first);
+      await remoteSource.saveSession(second);
+      await remoteSource.deleteAllSessions(ownerId: first.ownerId);
+
+      final sessions = await firestore
+          .collection(FirestorePaths.userSessions(first.ownerId))
+          .get();
+      final firstReps = await firestore
+          .collection(FirestorePaths.userSessionReps(first.ownerId, first.id))
+          .get();
+
+      expect(sessions.docs, isEmpty);
+      expect(firstReps.docs, isEmpty);
+    });
   });
 }
 
