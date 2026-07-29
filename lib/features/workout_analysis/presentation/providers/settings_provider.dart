@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../application/feedback_delivery_controller.dart';
 
 enum AppLanguage {
   turkish('tr'),
@@ -31,24 +32,36 @@ class WorkoutSettings {
     this.language = AppLanguage.turkish,
     this.cameraPreference = WorkoutCameraPreference.front,
     this.cameraQuality = WorkoutCameraQuality.low,
+    this.voiceCoachEnabled = true,
+    this.feedbackFrequency = FeedbackFrequency.normal,
   });
 
   final AppLanguage language;
   final WorkoutCameraPreference cameraPreference;
   final WorkoutCameraQuality cameraQuality;
+  final bool voiceCoachEnabled;
+  final FeedbackFrequency feedbackFrequency;
 
   WorkoutSettings copyWith({
     AppLanguage? language,
     WorkoutCameraPreference? cameraPreference,
     WorkoutCameraQuality? cameraQuality,
+    bool? voiceCoachEnabled,
+    FeedbackFrequency? feedbackFrequency,
   }) {
     return WorkoutSettings(
       language: language ?? this.language,
       cameraPreference: cameraPreference ?? this.cameraPreference,
       cameraQuality: cameraQuality ?? this.cameraQuality,
+      voiceCoachEnabled: voiceCoachEnabled ?? this.voiceCoachEnabled,
+      feedbackFrequency: feedbackFrequency ?? this.feedbackFrequency,
     );
   }
 }
+
+final runtimeWorkoutSettingsProvider = StateProvider<WorkoutSettings>(
+  (ref) => const WorkoutSettings(),
+);
 
 final settingsControllerProvider =
     AsyncNotifierProvider<SettingsController, WorkoutSettings>(
@@ -59,6 +72,8 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
   static const _languageKey = 'settings.language';
   static const _cameraPreferenceKey = 'settings.cameraPreference';
   static const _cameraQualityKey = 'settings.cameraQuality';
+  static const _voiceCoachEnabledKey = 'settings.voiceCoachEnabled';
+  static const _feedbackFrequencyKey = 'settings.feedbackFrequency';
 
   @override
   Future<WorkoutSettings> build() async {
@@ -71,8 +86,12 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
       cameraQuality: _cameraQualityFromName(
         preferences.getString(_cameraQualityKey),
       ),
+      voiceCoachEnabled: preferences.getBool(_voiceCoachEnabledKey) ?? true,
+      feedbackFrequency: _feedbackFrequencyFromName(
+        preferences.getString(_feedbackFrequencyKey),
+      ),
     );
-    ref.read(runtimeAppLanguageProvider.notifier).state = settings.language;
+    _publishRuntimeSettings(settings);
     return settings;
   }
 
@@ -81,8 +100,8 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
       language: language,
     );
 
-    ref.read(runtimeAppLanguageProvider.notifier).state = language;
     state = AsyncData(updated);
+    _publishRuntimeSettings(updated);
     await _save(updated);
   }
 
@@ -92,6 +111,7 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
     );
 
     state = AsyncData(updated);
+    _publishRuntimeSettings(updated);
     await _save(updated);
   }
 
@@ -101,7 +121,33 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
     );
 
     state = AsyncData(updated);
+    _publishRuntimeSettings(updated);
     await _save(updated);
+  }
+
+  Future<void> setVoiceCoachEnabled(bool enabled) async {
+    final updated = (state.valueOrNull ?? const WorkoutSettings()).copyWith(
+      voiceCoachEnabled: enabled,
+    );
+
+    state = AsyncData(updated);
+    _publishRuntimeSettings(updated);
+    await _save(updated);
+  }
+
+  Future<void> setFeedbackFrequency(FeedbackFrequency frequency) async {
+    final updated = (state.valueOrNull ?? const WorkoutSettings()).copyWith(
+      feedbackFrequency: frequency,
+    );
+
+    state = AsyncData(updated);
+    _publishRuntimeSettings(updated);
+    await _save(updated);
+  }
+
+  void _publishRuntimeSettings(WorkoutSettings settings) {
+    ref.read(runtimeWorkoutSettingsProvider.notifier).state = settings;
+    ref.read(runtimeAppLanguageProvider.notifier).state = settings.language;
   }
 
   Future<void> _save(WorkoutSettings settings) async {
@@ -113,6 +159,14 @@ class SettingsController extends AsyncNotifier<WorkoutSettings> {
       settings.cameraPreference.name,
     );
     await preferences.setString(_cameraQualityKey, settings.cameraQuality.name);
+    await preferences.setBool(
+      _voiceCoachEnabledKey,
+      settings.voiceCoachEnabled,
+    );
+    await preferences.setString(
+      _feedbackFrequencyKey,
+      settings.feedbackFrequency.name,
+    );
   }
 }
 
@@ -134,5 +188,12 @@ WorkoutCameraQuality _cameraQualityFromName(String? name) {
   return WorkoutCameraQuality.values.firstWhere(
     (quality) => quality.name == name,
     orElse: () => WorkoutCameraQuality.low,
+  );
+}
+
+FeedbackFrequency _feedbackFrequencyFromName(String? name) {
+  return FeedbackFrequency.values.firstWhere(
+    (frequency) => frequency.name == name,
+    orElse: () => FeedbackFrequency.normal,
   );
 }

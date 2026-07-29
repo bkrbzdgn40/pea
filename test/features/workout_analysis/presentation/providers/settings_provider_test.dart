@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/feedback_delivery_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +19,20 @@ void main() {
 
     expect(settings.language, AppLanguage.turkish);
     expect(container.read(runtimeAppLanguageProvider), AppLanguage.turkish);
+  });
+
+  test('defaults voice feedback preferences to enabled and normal', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final settings = await container.read(settingsControllerProvider.future);
+
+    expect(settings.voiceCoachEnabled, isTrue);
+    expect(settings.feedbackFrequency, FeedbackFrequency.normal);
+
+    final runtimeSettings = container.read(runtimeWorkoutSettingsProvider);
+    expect(runtimeSettings.voiceCoachEnabled, isTrue);
+    expect(runtimeSettings.feedbackFrequency, FeedbackFrequency.normal);
   });
 
   test('loads and persists the selected application language', () async {
@@ -45,6 +60,42 @@ void main() {
     expect(
       preferences.getString('settings.language'),
       AppLanguage.turkish.name,
+    );
+  });
+
+  test('loads and persists voice feedback preferences', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'settings.voiceCoachEnabled': false,
+      'settings.feedbackFrequency': FeedbackFrequency.reduced.name,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final initial = await container.read(settingsControllerProvider.future);
+    expect(initial.voiceCoachEnabled, isFalse);
+    expect(initial.feedbackFrequency, FeedbackFrequency.reduced);
+
+    final initialRuntime = container.read(runtimeWorkoutSettingsProvider);
+    expect(initialRuntime.voiceCoachEnabled, isFalse);
+    expect(initialRuntime.feedbackFrequency, FeedbackFrequency.reduced);
+
+    final controller = container.read(settingsControllerProvider.notifier);
+    await controller.setVoiceCoachEnabled(true);
+    await controller.setFeedbackFrequency(FeedbackFrequency.frequent);
+
+    final updated = container.read(settingsControllerProvider).valueOrNull;
+    expect(updated?.voiceCoachEnabled, isTrue);
+    expect(updated?.feedbackFrequency, FeedbackFrequency.frequent);
+
+    final updatedRuntime = container.read(runtimeWorkoutSettingsProvider);
+    expect(updatedRuntime.voiceCoachEnabled, isTrue);
+    expect(updatedRuntime.feedbackFrequency, FeedbackFrequency.frequent);
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool('settings.voiceCoachEnabled'), isTrue);
+    expect(
+      preferences.getString('settings.feedbackFrequency'),
+      FeedbackFrequency.frequent.name,
     );
   });
 

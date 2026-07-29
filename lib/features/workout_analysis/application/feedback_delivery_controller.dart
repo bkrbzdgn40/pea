@@ -4,7 +4,17 @@
 /// selected cue is delivered to the user.
 enum FeedbackDeliveryKind { status, movement, corrective, blocking }
 
-enum FeedbackHapticPattern { none, light, medium, heavy }
+enum FeedbackFrequency { reduced, normal, frequent }
+
+class FeedbackDeliveryPreferences {
+  const FeedbackDeliveryPreferences({
+    this.voiceEnabled = true,
+    this.frequency = FeedbackFrequency.normal,
+  });
+
+  final bool voiceEnabled;
+  final FeedbackFrequency frequency;
+}
 
 class FeedbackDeliveryCue {
   const FeedbackDeliveryCue({
@@ -24,10 +34,6 @@ abstract interface class VoiceFeedbackOutput {
   Future<void> stop();
 }
 
-abstract interface class HapticFeedbackOutput {
-  Future<void> trigger(FeedbackHapticPattern pattern);
-}
-
 abstract interface class FeedbackDeliveryPort {
   Future<FeedbackDeliveryResult> deliver(FeedbackDeliveryCue cue);
 
@@ -36,62 +42,61 @@ abstract interface class FeedbackDeliveryPort {
   void reset();
 }
 
-enum FeedbackDeliveryDisposition { delivered, emptyMessage, repeatedTooSoon }
+enum FeedbackDeliveryDisposition {
+  delivered,
+  disabled,
+  emptyMessage,
+  repeatedTooSoon,
+}
 
 class FeedbackDeliveryResult {
-  const FeedbackDeliveryResult({
-    required this.disposition,
-    required this.cue,
-    required this.hapticPattern,
-  });
+  const FeedbackDeliveryResult({required this.disposition, required this.cue});
 
   final FeedbackDeliveryDisposition disposition;
   final FeedbackDeliveryCue cue;
-  final FeedbackHapticPattern hapticPattern;
 
   bool get wasDelivered => disposition == FeedbackDeliveryDisposition.delivered;
 }
 
-/// Delivers already-arbitrated feedback through voice and haptic outputs.
+/// Delivers already-arbitrated feedback through the voice coach.
 ///
-/// Spoken feedback is edge-triggered by its normalized message.
-///
-/// The same text is spoken once and remains silent until a different message is
-/// selected. Haptic feedback keeps its category-specific repeat cooldown so this
-/// change does not alter the existing tactile guidance policy.
+/// Preferences are resolved for every cue so Settings changes apply without
+/// rebuilding the workout analysis controller. Visual feedback remains outside
+/// this delivery layer and is never suppressed here.
 class FeedbackDeliveryController implements FeedbackDeliveryPort {
   FeedbackDeliveryController({
     required VoiceFeedbackOutput voiceOutput,
-    required HapticFeedbackOutput hapticOutput,
     DateTime Function()? now,
-    this.voiceEnabled = true,
-    this.hapticEnabled = true,
-    Map<FeedbackDeliveryKind, Duration>? repeatCooldowns,
+    FeedbackDeliveryPreferences Function()? preferencesResolver,
+    Map<FeedbackDeliveryKind, Duration>? normalRepeatCooldowns,
   }) : _voiceOutput = voiceOutput,
-       _hapticOutput = hapticOutput,
        _now = now ?? DateTime.now,
-       _repeatCooldowns = Map<FeedbackDeliveryKind, Duration>.unmodifiable(
-         repeatCooldowns ?? _defaultRepeatCooldowns,
-       );
+       _preferencesResolver =
+           preferencesResolver ?? _defaultPreferencesResolver,
+       _normalRepeatCooldowns =
+           Map<FeedbackDeliveryKind, Duration>.unmodifiable(
+             normalRepeatCooldowns ?? _defaultNormalRepeatCooldowns,
+           );
 
-  static const Map<FeedbackDeliveryKind, Duration> _defaultRepeatCooldowns =
-      <FeedbackDeliveryKind, Duration>{
-        FeedbackDeliveryKind.status: Duration(seconds: 4),
-        FeedbackDeliveryKind.movement: Duration(seconds: 2),
-        FeedbackDeliveryKind.corrective: Duration(seconds: 3),
-        FeedbackDeliveryKind.blocking: Duration(seconds: 3),
-      };
+  static const Map<FeedbackDeliveryKind, Duration>
+  _defaultNormalRepeatCooldowns = <FeedbackDeliveryKind, Duration>{
+    FeedbackDeliveryKind.status: Duration(seconds: 4),
+    FeedbackDeliveryKind.movement: Duration(seconds: 2),
+    FeedbackDeliveryKind.corrective: Duration(seconds: 3),
+    FeedbackDeliveryKind.blocking: Duration(seconds: 3),
+  };
+
+  static FeedbackDeliveryPreferences _defaultPreferencesResolver() {
+    return const FeedbackDeliveryPreferences();
+  }
 
   final VoiceFeedbackOutput _voiceOutput;
-  final HapticFeedbackOutput _hapticOutput;
   final DateTime Function() _now;
-  final bool voiceEnabled;
-  final bool hapticEnabled;
-  final Map<FeedbackDeliveryKind, Duration> _repeatCooldowns;
+  final FeedbackDeliveryPreferences Function() _preferencesResolver;
+  final Map<FeedbackDeliveryKind, Duration> _normalRepeatCooldowns;
 
   String? _lastSpokenMessage;
-  String? _lastHapticCueId;
-  DateTime? _lastHapticAt;
+  DateTime? _lastSpokenAt;
 
   @override
   Future<FeedbackDeliveryResult> deliver(FeedbackDeliveryCue cue) async {
@@ -100,62 +105,54 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
       return FeedbackDeliveryResult(
         disposition: FeedbackDeliveryDisposition.emptyMessage,
         cue: cue,
-        hapticPattern: FeedbackHapticPattern.none,
       );
     }
 
-    final shouldSpeak = voiceEnabled && _lastSpokenMessage != normalizedMessage;
+    final preferences = _preferencesResolver();
+    if (!preferences.voiceEnabled) {
+      return FeedbackDeliveryResult(
+        disposition: FeedbackDeliveryDisposition.disabled,
+        cue: cue,
+      );
+    }
 
     final now = _now();
-    final candidateHapticPattern = hapticEnabled
-        ? _hapticPatternFor(cue.kind)
-        : FeedbackHapticPattern.none;
-    final hapticCooldown = _repeatCooldowns[cue.kind] ?? Duration.zero;
-    final lastHapticAt = _lastHapticAt;
-    final isExactHapticRepeat = _lastHapticCueId == cue.id;
-    final shouldTriggerHaptic =
-        candidateHapticPattern != FeedbackHapticPattern.none &&
-        !(isExactHapticRepeat &&
-            lastHapticAt != null &&
-            now.difference(lastHapticAt) < hapticCooldown);
+    final repeatCooldown = _repeatCooldownFor(cue.kind, preferences.frequency);
+    final lastSpokenAt = _lastSpokenAt;
+    final isSameSpokenMessage = _lastSpokenMessage == normalizedMessage;
+    final shouldSpeak =
+        !isSameSpokenMessage ||
+        lastSpokenAt == null ||
+        now.difference(lastSpokenAt) >= repeatCooldown;
 
-    final hasEnabledOutput =
-        voiceEnabled || candidateHapticPattern != FeedbackHapticPattern.none;
-    if (hasEnabledOutput && !shouldSpeak && !shouldTriggerHaptic) {
+    if (!shouldSpeak) {
       return FeedbackDeliveryResult(
         disposition: FeedbackDeliveryDisposition.repeatedTooSoon,
         cue: cue,
-        hapticPattern: FeedbackHapticPattern.none,
       );
     }
 
-    if (shouldSpeak) {
-      _lastSpokenMessage = normalizedMessage;
-      await _voiceOutput.speak(normalizedMessage);
-    }
-
-    if (shouldTriggerHaptic) {
-      _lastHapticCueId = cue.id;
-      _lastHapticAt = now;
-      await _hapticOutput.trigger(candidateHapticPattern);
-    }
+    _lastSpokenMessage = normalizedMessage;
+    _lastSpokenAt = now;
+    await _voiceOutput.speak(normalizedMessage);
 
     return FeedbackDeliveryResult(
       disposition: FeedbackDeliveryDisposition.delivered,
       cue: cue,
-      hapticPattern: shouldTriggerHaptic
-          ? candidateHapticPattern
-          : FeedbackHapticPattern.none,
     );
   }
 
-  FeedbackHapticPattern _hapticPatternFor(FeedbackDeliveryKind kind) {
-    return switch (kind) {
-      FeedbackDeliveryKind.status => FeedbackHapticPattern.none,
-      FeedbackDeliveryKind.movement => FeedbackHapticPattern.light,
-      FeedbackDeliveryKind.corrective => FeedbackHapticPattern.medium,
-      FeedbackDeliveryKind.blocking => FeedbackHapticPattern.heavy,
+  Duration _repeatCooldownFor(
+    FeedbackDeliveryKind kind,
+    FeedbackFrequency frequency,
+  ) {
+    final normal = _normalRepeatCooldowns[kind] ?? Duration.zero;
+    final multiplier = switch (frequency) {
+      FeedbackFrequency.reduced => 2.0,
+      FeedbackFrequency.normal => 1.0,
+      FeedbackFrequency.frequent => 0.5,
     };
+    return Duration(microseconds: (normal.inMicroseconds * multiplier).round());
   }
 
   @override
@@ -164,7 +161,6 @@ class FeedbackDeliveryController implements FeedbackDeliveryPort {
   @override
   void reset() {
     _lastSpokenMessage = null;
-    _lastHapticCueId = null;
-    _lastHapticAt = null;
+    _lastSpokenAt = null;
   }
 }

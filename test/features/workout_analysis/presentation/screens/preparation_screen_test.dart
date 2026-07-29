@@ -124,6 +124,11 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('preparation-feedback-notice')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Sesli koç açık.'), findsOneWidget);
+    expect(
       find.byKey(const ValueKey<String>('preparation-quick-align-card')),
       findsOneWidget,
     );
@@ -437,10 +442,16 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey<String>('preparation-camera-error')),
-      findsOneWidget,
+    final cameraError = find.byKey(
+      const ValueKey<String>('preparation-camera-error'),
     );
+    await tester.scrollUntilVisible(
+      cameraError,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(cameraError, findsOneWidget);
     expect(find.textContaining('Camera could not be opened'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text('Camera is not ready yet'), findsOneWidget);

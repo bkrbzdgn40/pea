@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../application/feedback_delivery_controller.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -21,6 +22,7 @@ class SettingsScreen extends ConsumerWidget {
       padding: EdgeInsets.zero,
       body: settingsState.when(
         data: (settings) {
+          final controller = ref.read(settingsControllerProvider.notifier);
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
@@ -38,11 +40,45 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (language) {
                       if (language == null) return;
 
-                      unawaited(
-                        ref
-                            .read(settingsControllerProvider.notifier)
-                            .setLanguage(language),
-                      );
+                      unawaited(controller.setLanguage(language));
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _SettingsSection(
+                title: localizations.liveFeedback,
+                children: [
+                  _SettingsSwitchTile(
+                    key: const ValueKey<String>('settings-voice-coach-switch'),
+                    title: localizations.voiceCoach,
+                    subtitle: localizations.voiceCoachDescription,
+                    value: settings.voiceCoachEnabled,
+                    onChanged: (enabled) {
+                      unawaited(controller.setVoiceCoachEnabled(enabled));
+                    },
+                  ),
+                  const Divider(height: 1, color: Colors.white12),
+                  _SettingsDropdownTile<FeedbackFrequency>(
+                    key: const ValueKey<String>(
+                      'settings-feedback-frequency-dropdown',
+                    ),
+                    title: localizations.feedbackFrequency,
+                    subtitle: localizations.feedbackFrequencyDescription,
+                    value: settings.feedbackFrequency,
+                    values: FeedbackFrequency.values,
+                    labelFor: (frequency) => switch (frequency) {
+                      FeedbackFrequency.reduced =>
+                        localizations.feedbackFrequencyReduced,
+                      FeedbackFrequency.normal =>
+                        localizations.feedbackFrequencyNormal,
+                      FeedbackFrequency.frequent =>
+                        localizations.feedbackFrequencyFrequent,
+                    },
+                    onChanged: (frequency) {
+                      if (frequency == null) return;
+
+                      unawaited(controller.setFeedbackFrequency(frequency));
                     },
                   ),
                 ],
@@ -63,11 +99,7 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (preference) {
                       if (preference == null) return;
 
-                      unawaited(
-                        ref
-                            .read(settingsControllerProvider.notifier)
-                            .setCameraPreference(preference),
-                      );
+                      unawaited(controller.setCameraPreference(preference));
                     },
                   ),
                   const Divider(height: 1, color: Colors.white12),
@@ -83,11 +115,7 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (quality) {
                       if (quality == null) return;
 
-                      unawaited(
-                        ref
-                            .read(settingsControllerProvider.notifier)
-                            .setCameraQuality(quality),
-                      );
+                      unawaited(controller.setCameraQuality(quality));
                     },
                   ),
                 ],
@@ -139,7 +167,9 @@ class SettingsScreen extends ConsumerWidget {
 
 class _SettingsDropdownTile<T> extends StatelessWidget {
   const _SettingsDropdownTile({
+    super.key,
     required this.title,
+    this.subtitle,
     required this.value,
     required this.values,
     required this.labelFor,
@@ -147,6 +177,7 @@ class _SettingsDropdownTile<T> extends StatelessWidget {
   });
 
   final String title;
+  final String? subtitle;
   final T value;
   final List<T> values;
   final String Function(T value) labelFor;
@@ -157,7 +188,7 @@ class _SettingsDropdownTile<T> extends StatelessWidget {
     return ListTile(
       title: Text(title),
       subtitle: Text(
-        labelFor(value),
+        subtitle ?? labelFor(value),
         style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
       ),
       trailing: DropdownButton<T>(
@@ -174,6 +205,35 @@ class _SettingsDropdownTile<T> extends StatelessWidget {
             .toList(),
         onChanged: onChanged,
       ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  const _SettingsSwitchTile({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      title: Text(title),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
+      ),
+      value: value,
+      onChanged: onChanged,
+      activeThumbColor: Colors.greenAccent,
     );
   }
 }

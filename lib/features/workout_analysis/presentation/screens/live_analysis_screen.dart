@@ -28,7 +28,6 @@ import '../providers/live_pause_controller.dart';
 import '../providers/live_range_rep_outcome_controller.dart';
 import '../providers/live_tracking_controller.dart';
 import '../providers/preparation_camera_controller.dart';
-import '../providers/preparation_countdown_feedback.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/screen_awake_controller.dart';
@@ -632,16 +631,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final localizations = AppLocalizations.of(context);
     final pauseState = ref.watch(livePauseControllerProvider);
     ref.listen<LivePauseState>(livePauseControllerProvider, (previous, next) {
-      final countdownChanged =
-          next.isCountingDown &&
-          (previous?.isCountingDown != true ||
-              previous?.countdownValue != next.countdownValue);
-      if (countdownChanged) {
-        unawaited(ref.read(preparationCountdownFeedbackProvider).tick());
-      }
-
       if (previous?.isCountingDown == true && next.isActive) {
-        unawaited(ref.read(preparationCountdownFeedbackProvider).complete());
         ref.read(preparationCameraControllerProvider.notifier).clear();
         ref.read(workoutControllerProvider.notifier).handleManualResume();
       }
