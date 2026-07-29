@@ -1,0 +1,972 @@
+PEA - GÜNCEL PROJE DETAYLI TEKNİK ANALİZ RAPORU
+Tarih: 29 Temmuz 2026
+İncelenen paket: pose_estimation_app.tar(99).gz
+Rol: Senior Yazılım Mühendisi teknik incelemesi
+Rapor türü: Statik kaynak kodu, mimari, test, veri, güvenlik, performans ve release incelemesi
+
+======================================================================
+0. RAPORUN SINIRI VE DÜRÜSTLÜK NOTU
+======================================================================
+
+Bu inceleme, yüklenen arşivdeki kaynak kodu ve belgeler üzerinden yapıldı.
+Arşivde .git klasörü bulunmadığı için commit SHA, branch, son commit geçmişi ve
+hangi dosyaların gerçekten Git tarafından takip edildiği doğrulanamadı.
+
+Çalışma ortamında Flutter ve Dart SDK kurulu değildi. Bu nedenle aşağıdaki
+komutlar çalıştırılamadı:
+
+- dart format .
+- flutter analyze
+- flutter test
+- flutter test --coverage
+- Android/iOS build
+- gerçek cihaz profillemesi
+
+Dolayısıyla bu rapor "testler temiz" veya "build alınabiliyor" iddiasında
+bulunmaz. Böyle bir iddia kaynak koda bakarak yapılamaz. Aksi, mühendislik değil
+fal bakmaktır.
+
+Statik olarak incelenen ana kapsam:
+
+- 259 adet lib Dart dosyası, yaklaşık 56.474 satır
+- 177 adet test/support Dart dosyası, yaklaşık 51.834 satır
+- Toplam 436 Dart dosyası, yaklaşık 108.308 satır
+- 174 adet *_test.dart dosyası
+- Yaklaşık 1.347 test/testWidgets bildirimi ve 130 group bildirimi
+- 34 egzersiz JSON konfigürasyonu
+- Firebase/Firestore veri yolu ve güvenlik kuralları
+- Android ve iOS proje ayarları
+- GitHub Actions iş akışları
+- Güncel ve tarihsel proje belgeleri
+
+======================================================================
+1. YÖNETİCİ ÖZETİ
+======================================================================
+
+Kısa hüküm:
+
+Bu proje basit bir öğrenci demosu seviyesini aşmış durumda. Egzersiz contract'ları,
+state machine yapıları, kalite politikaları, kamera lifecycle yönetimi, tanılama
+altyapısı ve test yatırımı ciddi. Kod tabanında düşünülmüş mühendislik var.
+
+Fakat proje şu anda "güvenli ve doğru analiz yapan production ürünü" diye rahatça
+sunulacak olgunlukta değil. Bunun ana nedeni analiz matematiğinin tamamen kötü
+olması değil. Ana nedenler şunlar:
+
+1. Kod 34 egzersizi production için supported ilan ederken README ve güncel
+   doğrulama matrisi hâlâ 18 egzersiz anlatıyor.
+2. Yeni destek kapsamının gerçek cihaz ve formal kabul kanıtı kodla aynı hızda
+   ilerlememiş görünüyor.
+3. Oturum kaydı başarısız olursa dayanıklı yerel kuyruk yok; uygulama kapanırsa
+   kullanıcının raporu kaybolabilir.
+4. Release Android build'i debug anahtarıyla imzalanıyor.
+5. Privacy, retention, veri dışa aktarma ve hesap silme akışı görünmüyor.
+6. Analiz sırasında oluşan bazı hatalar release kullanıcı arayüzüne taşınmadan
+   yakalanıyor; kullanıcı donmuş veya eski görünen veriye bakabilir.
+7. Birden fazla kişi kadraja girdiğinde en kaliteli kişi seçiliyor fakat kişi
+   kimliği kareler arasında kilitlenmiyor.
+8. En kritik çalışma sınıfları aşırı büyümüş; değişiklik riski ve inceleme maliyeti
+   yükselmiş.
+
+Genel değerlendirme:
+
+- Mühendislik olgunluğu: 6/10
+- Analiz çekirdeği tasarımı: 7/10
+- Otomatik test disiplini: 8/10
+- Bakım yapılabilirlik: 5/10
+- Veri dayanıklılığı: 5/10
+- Privacy ve ürün güvenliği hazırlığı: 4/10
+- Release hazırlığı: 4/10
+- Formal egzersiz doğrulama kanıtı: 4/10
+
+Bu puanlar "proje kötü" demiyor. Daha rahatsız edici bir şey söylüyor: proje iyi
+parçalar içeriyor fakat ürün iddiası, kanıt ve operasyon disiplini aynı seviyede
+değil.
+
+======================================================================
+2. EN KRİTİK BULGU: 34 SUPPORTED, BELGELERDE 18
+======================================================================
+
+Kod gerçeği:
+
+- ExerciseType içinde 34 egzersiz var:
+  lib/features/workout_analysis/domain/models/exercise_type.dart:1-53
+- ExerciseCatalog içinde 34 adet ExerciseDefinition.supported(...) kaydı var.
+- Unsupported kayıt yok.
+- assets/config/exercises altında 34 JSON config var.
+
+Belge gerçeği:
+
+- README.md:43 ve README.md:310, 18 canonical hareketin aktif olduğunu söylüyor.
+- docs/current_exercise_validation_matrix.md:20, canonical hareket sayısını 18
+  olarak kaydediyor.
+- Aynı belge kendisini güncel çalışma gerçeğinin kaynağı olarak tanımlıyor ve
+  ExerciseType değiştiğinde güncellenmesi gerektiğini belirtiyor.
+
+Sonuç:
+
+Dokümantasyon yalnız eskimemiş. Ürünün destek sınırı ile doğrulama sınırı kopmuş.
+Kullanıcı arayüzü katalogdaki tüm supported hareketleri açıyorsa 16 ek hareket,
+mevcut "güncel 18 hareket doğrulandı" kanıtının dışında production yoluna girmiş
+olabilir.
+
+Risk:
+
+- Kullanıcıya doğrulanmamış güven hissi verme
+- Hatalı tekrar sayımı veya hatalı form uyarısı
+- Egzersiz bazında gerçek cihaz regresyonlarının görünmemesi
+- README, sunum, yatırımcı anlatımı ve uygulama davranışının çelişmesi
+- Yeni UI roadmap'inde yanlış kapsamın parlatılması
+
+Karar:
+
+Bu konu P0'dır. İki dürüst seçenek vardır:
+
+A) Formal doğrulama tamamlanmayan hareketleri geçici olarak unsupported/beta
+   durumuna çekmek.
+
+B) 34 hareket için build SHA, cihaz, OS, kamera, yön, ışık, kıyafet kontrastı,
+   ikinci kişi, tekrar ground truth'u ve hata oranlarını içeren güncel kabul
+   matrisi oluşturmak.
+
+"Kodda çalışıyor" ile "güvenli ve doğru çalıştığı kanıtlandı" aynı cümle değildir.
+Proje belgeleri bunu teoride biliyor, fakat güncel uygulama bu kurala uymuyor.
+
+======================================================================
+3. MİMARİ DEĞERLENDİRME
+======================================================================
+
+3.1 Güçlü taraflar
+
+- workout_analysis özelliğinde domain/application/infrastructure/presentation
+  ayrımı var.
+- ExerciseDefinition, RangeRepContract, HoldContract, validation policy ve metric
+  registry gibi açık kontratlar kullanılıyor.
+- Analiz motorları doğrudan ekran widget'larına gömülmemiş.
+- Riverpod ile dependency injection ve test override noktaları oluşturulmuş.
+- Kamera akışı, analiz koordinatörü, tanılama ve persistence ayrı sınıflara
+  bölünmeye çalışılmış.
+- Hold ailesi her statik hareket için körlemesine genellenmemiş; aile semantiği
+  açık tutulmuş.
+
+3.2 Katman sınırı gerçekte temiz değil
+
+Domain katmanı google_mlkit_pose_detection paketini doğrudan import ediyor.
+Application katmanında 28 dosya ML Kit tiplerine bağlı. Ayrıca application
+katmanındaki common_frame_pose_pipeline, infrastructure içindeki
+InputImageConverter'a bağlı.
+
+Bu şu anlama gelir:
+
+- Core analiz modeli vendor tiplerinden bağımsız değil.
+- Alternatif pose sağlayıcısı eklemek pahalı olur.
+- Saf domain testleri ile platform/SDK bağımlılığı birbirine yaklaşır.
+- "Clean architecture" klasör yapısı var, fakat bağımlılık yönü tam temiz değil.
+
+Öneri:
+
+ML Kit Pose ve PoseLandmark tiplerini infrastructure adapter'ında uygulamaya ait
+PoseFrame/PoseLandmarkSnapshot modeline çevir. Domain ve application yalnız bu
+uygulama modelini görsün.
+
+3.3 God class ve god screen problemi
+
+En büyük production dosyaları:
+
+- live_analysis_screen.dart: 3.120 satır
+- range_rep_coordinator_base.dart: 1.853 satır
+- workout_controller.dart: 1.455 satır
+- app_localizations.dart: 1.450 satır
+- range_rep_engine.dart: 1.320 satır
+- exercise_catalog.dart: 1.303 satır
+- workout_diagnostics.dart: 1.211 satır
+- range_rep_contract.dart: 1.182 satır
+- range_rep_feedback_ui_mapper.dart: 1.029 satır
+
+LiveAnalysisScreen yalnız ekran çizmez. Kamera kurtarma, image stream lifecycle,
+navigation, plan geçişleri, pause/resume, countdown, diagnostics ve çok sayıda UI
+parçasını yönetiyor.
+
+WorkoutController; frame conversion, pose quality, engine orchestration,
+diagnostics, live metrics, hata yakalama ve UI feedback mapping sorumluluklarını
+aynı sınıfta topluyor.
+
+Sonuç:
+
+- Küçük değişiklik geniş regresyon alanına sahip.
+- Review sırasında zihinsel yük çok yüksek.
+- Merge conflict ihtimali artar.
+- Testler de devleşir; test dosyalarının 2.000-3.700 satıra ulaşması tesadüf değil.
+- Yeni geliştirici için davranışın gerçek sahibi belirsizleşir.
+
+Önerilen ayrım:
+
+- LiveAnalysisSessionCoordinator
+- CameraStreamLifecycleController
+- AnalysisRecoveryController
+- WorkoutPlanRuntimeCoordinator
+- LiveAnalysisNavigationCoordinator
+- LiveAnalysisOverlayViewModel
+- DiagnosticsExportCoordinator
+- RangeRepLifecycleCoordinator
+- RangeRepValidationCoordinator
+- RangeRepFeedbackCoordinator
+
+Bu refactor davranış değiştirmeden, karakterizasyon testleri korunarak yapılmalı.
+Bir kerede "temiz mimari devrimi" yapılmamalı. İnsanlar büyük refactor sırasında
+hata üretip sonra bunu modernizasyon diye sunmayı seviyor.
+
+3.4 ExerciseCatalog senkronizasyon yükü
+
+ExerciseCatalog tek dosyada 34 uzun tanım taşıyor. Enum, catalog, JSON config,
+guide içeriği, localization, setup contract, engine contract ve test fixture'ları
+birbirinden ayrı kaynaklarda tutuluyor.
+
+Compile-time bazı bütünlük kontrolleri olsa da "doğrulama kanıtı var mı?" bilgisi
+catalog support kararına bağlı değil.
+
+Öneri:
+
+- Her egzersizi ayrı definition dosyasına ayır.
+- Catalog'u generated registry veya küçük bir açık registry haline getir.
+- Definition metadata'sına maturity ekle:
+  experimental / internal / beta / validated.
+- supported bool yerine kullanıcıya açılma politikasını maturity + build channel
+  üzerinden belirle.
+- CI'da enum, config, guide, localization ve validation matrix kapsam eşitliği
+  testi çalıştır.
+
+======================================================================
+4. ANALİZ DOĞRULUĞU VE KULLANICI GÜVENLİĞİ
+======================================================================
+
+4.1 Olumlu gelişmeler
+
+common_frame_pose_pipeline artık yalnız poses.first kullanmıyor. Tüm pose adayları
+assess ediliyor; accepted adaylar arasından qualityScore, accepted landmark count
+ve detector index sırasıyla seçim yapılıyor:
+
+- common_frame_pose_pipeline.dart:168-226
+
+Bu, tarihsel "ilk bulunan kişi" riskine göre ciddi iyileşmedir.
+
+Ayrıca:
+
+- Frame reentrancy gate var.
+- Analiz throttling var; varsayılan yaklaşık 100 ms, bazı hızlı hareketlerde daha
+  sık örnekleme uygulanıyor.
+- Pose acceptance stabilizer var.
+- Coverage ve selected-side politikaları var.
+- Lifecycle pause sonrası engine/reacquisition resetleri düşünülmüş.
+- Kamera stream ownership/generation mantığı stale callback riskini azaltıyor.
+- Image-plane geometri 3D anatomi gibi pazarlanmıyor; bu dürüst bir sınır.
+
+4.2 Çoklu kişi kimliği kilitlenmiyor
+
+Mevcut seçim her karede yeniden en kaliteli adayı seçiyor. Önceki karede seçilen
+kişinin konumu, gövde merkezi, ölçeği veya tracking kimliği ile devamlılık bağı
+görünmüyor.
+
+Senaryo:
+
+- Kullanıcı egzersiz yapıyor.
+- Kadraja daha net görünen ikinci kişi giriyor.
+- Sistem yeni karede ikinci kişiyi seçebilir.
+- Rep state machine bir kişinin başladığı döngüyü diğer kişinin hareketiyle
+  tamamlayabilir veya anlamsız feedback üretebilir.
+
+Bu özellikle spor salonu, evde başka biri, ayna/ekran ve kalabalık arka plan için
+önemlidir.
+
+Öneri:
+
+- Session başında kişi lock oluştur.
+- Normalized torso center, bounding box IoU, ölçek ve landmark hareket devamlılığı
+  ile temporal identity score hesapla.
+- Belirli tolerans dışında kişi değişiminde analizi pause et ve kullanıcıya
+  "Kadrajdaki kişi değişti" durumu göster.
+- İkinci kişi senaryosunu formal cihaz matrisine ekle.
+
+4.3 Analiz hataları kullanıcıya yeterince taşınmıyor
+
+WorkoutController.processCameraImage içindeki genel catch bloğu hatayı diagnostics'e
+kaydettikten sonra yalnız debugPrint yapıyor:
+
+- workout_controller.dart:453
+
+Release modunda kullanıcıya açık bir analysis error/recovery state görünmüyor.
+Converter da desteklenmeyen görüntü formatlarında çoğunlukla null döndürüyor.
+
+Risk:
+
+- Sayaç ve feedback güncellenmeden kalabilir.
+- Kullanıcı formunun düzgün olduğunu sanabilir.
+- UI canlı görünürken analiz fiilen durmuş olabilir.
+- Cihaz-spesifik kamera formatı sorunları kök neden vermeden "poz yok" gibi
+  davranabilir.
+
+Öneri:
+
+- Error taxonomy oluştur: converterUnsupportedFormat, detectorFailure,
+  cameraStreamFailure, engineFailure, persistentNoPose.
+- Kısa transient hataları otomatik toparla.
+- Belirli süre/tekrar sayısından sonra analizi güvenli şekilde pause et.
+- Kullanıcıya eski metriği göstermeyi bırak ve açık hata durumu göster.
+- Release için privacy-safe hata sayacı ve crash reporting politikası tanımla.
+
+4.4 Saat bağımlılığı tutarsız
+
+WorkoutController pek çok yerde enjekte edilen clock kullanırken converter drop
+süresinde doğrudan DateTime.now() kullanıyor:
+
+- workout_controller.dart:504
+
+Bu küçük görünür fakat deterministik test, replay ve diagnostics zaman doğruluğunu
+bozar. Tek clock kaynağı kullanılmalı.
+
+4.5 Genel tavsiyeler egzersize özgü değil
+
+SessionReport domain modeli şu tür genel tavsiyeler üretiyor:
+
+- Ortalama skor 75 altındaysa tempoyu yavaşlat.
+- Hold 20 saniye altındaysa süreyi artır.
+- Form bozulmasında gövde ve diz kontrolünü sıkı tut.
+
+Bunlar her egzersiz için aynı doğrulukta değildir. Örneğin her form problemi diz
+kontrolüyle ilgili değildir; her kullanıcı için 20 saniye anlamlı eşik değildir.
+
+Risk:
+
+- Ölçümün desteklemediği tavsiye üretmek
+- Kullanıcı seviyesini, ağrıyı, sakatlığı veya egzersiz varyasyonunu bilmeden
+  preskriptif dil kullanmak
+- "Analiz" ile "antrenman önerisi" sınırını karıştırmak
+
+Öneri:
+
+Domain yalnız RecommendationCode + evidence taşımalı. Egzersiz definition'ı hangi
+recommendation code'un hangi metrikle üretilebileceğini tanımlamalı. UI dili
+"tespit edilen davranış" seviyesinde kalmalı; tıbbi veya sakatlık önleyici garanti
+vermemeli.
+
+4.6 Skor yokluğu ile sıfır skor karışabiliyor
+
+_sessionHasScoreData yalnız average/best/worst değerlerinden biri 0'dan büyükse
+score verisi var kabul ediyor:
+
+- session_report.dart:219-223
+
+Firestore session şeması hold oturumlarında da averageScore, bestScore ve
+worstScore alanlarını zorunlu tutuyor; hold raporu bunları 0 ile taşıyıp UI'da
+gizliyor.
+
+Sorun:
+
+- "Skor üretilmedi" ile "gerçek skor 0" aynı numeric değere dönüşebilir.
+- Downstream analytics hold oturumlarını yanlışlıkla sıfır performans olarak
+  yorumlayabilir.
+- Null/missing semantiği model seviyesinde korunmuyor.
+
+Öneri:
+
+- Skor alanlarını nullable yap veya sessionSummary union/sealed model kullan.
+- RangeRepSessionSummary ve HoldSessionSummary şemalarını ayır.
+- hasScoreData'yı numeric büyüklükten değil açık analysis capability'den üret.
+
+4.7 Saklanan feedback metni locale bağımlı
+
+WorkoutRep feedback'i String olarak saklıyor. Session detail tarafı eski Türkçe
+ve İngilizce cümleleri normalize edip feedback code'a geri çevirmeye çalışıyor:
+
+- session_report_ui_mapper.dart:63 ve devamı
+
+Bu tersine mühendislik kırılgandır:
+
+- Metin değişince eski kayıt eşleşmeyebilir.
+- Üçüncü dil eklenince ölçeklenmez.
+- Noktalama veya farklı egzersiz copy'si historical localization'ı bozabilir.
+
+Öneri:
+
+Firestore'a feedbackCode, feedbackArgs ve schemaVersion yaz. Gösterim metnini
+her zaman güncel locale'de UI katmanı üretsin. Raw display string yalnız legacy
+fallback olsun.
+
+======================================================================
+5. PERFORMANS, ISINMA VE AKICILIK
+======================================================================
+
+5.1 İyi kararlar
+
+- Aynı anda birden fazla frame işlenmesini engelleyen processing gate var.
+- Frame throttling uygulanıyor.
+- Diagnostics debug/profile ile sınırlı; release overhead azaltılıyor.
+- Riverpod select kullanımı bazı yüksek frekanslı UI alanlarında rebuild'i
+  sınırlandırıyor.
+- Kamera stream başlatma/durdurma işlemleri serialize ediliyor.
+- Uygulama arka plana gidince analiz state'i sıfırlanıyor.
+
+5.2 Termal risk hâlâ gerçek cihaz kanıtı gerektiriyor
+
+Kullanıcı kamera kalitesini low/medium/high seçebiliyor. Pose analizi 10 Hz veya
+bazı hareketlerde yaklaşık 20 Hz çalışırken high resolution kamera buffer'ları
+üretmek, cihazdan cihaza gereksiz CPU/GPU/memory bandwidth ve ısınma yaratabilir.
+
+Bu statik incelemeyle "kesin kastırır" denemez. Ancak profile matrisi olmadan
+"performans sorunu yok" da denemez.
+
+Ölçülmesi gerekenler:
+
+- Kamera FPS p50/p95
+- Analiz FPS p50/p95
+- Frame processing p50/p95/max
+- Dropped frame oranı
+- Converter reject oranı
+- CPU ve memory trendi
+- 5, 10 ve 20 dakikada termal durum
+- Battery drain
+- UI jank / missed frames
+- Low, mid ve high cihaz sınıfı
+- Ön/arka kamera, portrait/landscape, low/medium/high resolution
+
+Karar önerisi:
+
+- Default medium veya ölçümle kanıtlanan en düşük yeterli çözünürlük olmalı.
+- High seçeneği "daha doğru" diye sunulmamalı; landmark doğruluğuna gerçek katkısı
+  ölçülmeli.
+- Adaptif kalite değerlendirilmeli: termal/jank artınca çözünürlük veya analiz
+  sıklığı düşürülebilir.
+
+5.3 Büyük widget/controller performans ve bakım riski
+
+3.120 satırlık LiveAnalysisScreen doğrudan her frame'i rebuild etmese bile state
+bağlantılarını takip etmeyi zorlaştırır. Yanlış bir watch/select eklenmesi geniş
+widget ağacını yüksek frekansta yeniden çizdirebilir.
+
+Öneri:
+
+- Rebuild sınırlarını ayrı ConsumerWidget'lara böl.
+- Flutter DevTools rebuild stats ile doğrula.
+- Skeleton/overlay paint için shouldRepaint kontratlarını test et.
+- Frame callback içinde allocation profili çıkar.
+- Diagnostics paneli kapalıyken ağır formatlama yapılmadığını ölç.
+
+5.4 Firestore canlı analiz sırasında ana darboğaz değil
+
+Kodda Firestore yazımı her kamera frame'inde yapılmıyor. Oturum bitiminde session
+ve rep detayları toplu kaydediliyor. Bu nedenle mevcut yapıda Firestore upload'un
+canlı analiz FPS'ini doğrudan düşürmesi beklenmez.
+
+Asıl risk oturum sonundaki bekleme, ağ hatası ve dayanıklılıktır. Yani Firestore
+telefonu her frame'de boğan canavar değil; kaydı tek şansa bırakan bürokrat.
+
+======================================================================
+6. VERİ KALICILIĞI, FIRESTORE VE OFFLINE DAVRANIŞ
+======================================================================
+
+6.1 Güçlü taraflar
+
+- Veri yolu kullanıcı UID'si altında scope edilmiş.
+- Session ve rep belgelerinde owner/session ilişkisi doğrulanıyor.
+- Firestore rules allowlist kullanıyor.
+- Fallback rule tüm diğer yolları reddediyor.
+- Session ve rep yazımı aynı batch içinde tutuluyor; batch sınırı içindeyse
+  atomiklik sağlanıyor.
+- Raw kamera frame'i veya landmark dizisi persistence yolunda görünmüyor.
+
+6.2 Dayanıklı yerel kayıt kuyruğu yok
+
+WorkoutSessionLifecycleController repository.saveSession çağırıyor. Firestore
+remote source session ve rep'leri tek seferde batch commit ediyor. Başarısızlıkta
+UI retry verebilir, fakat disk tabanlı pending session/outbox görünmüyor.
+
+Risk senaryosu:
+
+1. Kullanıcı 20 dakikalık antrenmanı bitirir.
+2. Ağ yok veya Firebase geçici hata verir.
+3. Kullanıcı uygulamayı kapatır ya da OS süreci öldürür.
+4. Session yalnız bellekteyse rapor kaybolur.
+
+Bu, ürünün "daha sonra detaylı rapor" amacına doğrudan zarar verir.
+
+P0 öneri:
+
+- Session tamamlanır tamamlanmaz local database'e immutable pending record yaz.
+- UI raporu local record üzerinden açsın.
+- Firestore sync ayrı outbox worker ile retry/backoff yapsın.
+- Synced/pending/failed durumları açıkça gösterilsin.
+- Aynı session id ile idempotent overwrite korunsun.
+- Uygulama yeniden açıldığında pending queue devam etsin.
+
+6.3 Tek batch sınırsız büyüyor
+
+saveSession önce mevcut tüm rep belgelerini okuyor, hepsini batch delete'e ekliyor,
+sonra session ve yeni rep belgelerini aynı batch'e koyuyor:
+
+- firestore_session_remote_source.dart:23-47
+
+DeleteSession da tüm rep belgelerini tek batch'e ekliyor:
+
+- firestore_session_remote_source.dart:145-160
+
+Firestore batch'leri sonlu operasyon sınırına sahiptir. Uzun session veya overwrite
+senaryosunda mevcut silmeler + yeni yazmalar bu sınırı aşabilir.
+
+Öneri:
+
+- Rep sayısına hard ürün limiti koymak tek başına yeterli değil.
+- Chunked delete/write veya server-side recursive delete stratejisi belirle.
+- Overwrite sırasında önce yeni generation yazıp pointer swap yaklaşımını düşün.
+- Limit sınırı testini fake değil emulator veya contract test ile doğrula.
+
+6.4 Client timestamp kullanımı
+
+WorkoutSessionFirestoreMapper createdAt/updatedAt için DateTime.now() kullanıyor:
+
+- workout_session_firestore_mapper.dart:10
+
+Cihaz saati yanlışsa kayıt sırası ve audit zamanı yanlış olur. startedAt da client
+zamanına dayanıyor ve pagination cursor olarak kullanılıyor.
+
+Öneri:
+
+- createdAt/updatedAt için server timestamp.
+- Egzersiz olay zamanı ayrı clientCapturedAt olarak saklanabilir.
+- Sync zamanı ve kullanıcı cihaz zamanı birbirine karıştırılmamalı.
+
+6.5 Rules list içeriğini yeterince sınırlamıyor
+
+validationReasons ve techniqueObservations alanları list mi diye kontrol ediliyor,
+fakat eleman tipi, map alanları, uzunluk ve içerik boyutu sıkı değil.
+
+Risk:
+
+- Beklenmeyen büyük veya bozuk payload
+- Şema drift'i
+- İstemci mapper'ında sessiz veri kaybı
+- Maliyet ve sorgu sorunları
+
+Öneri:
+
+- validationReasons için max öğe ve string türü kontratı.
+- techniqueObservations için açık map schema veya alt koleksiyon.
+- Metin uzunluk limitleri.
+- analysisKind/exerciseType/validationStatus için enum allowlist.
+
+6.6 Auth ve kullanıcı yaşam döngüsü
+
+Anonymous Firebase Auth kullanılıyor. Fakat kullanıcıya ait şu akışlar görünmüyor:
+
+- Hesabı ve bağlı veriyi silme
+- Veri dışa aktarma
+- Retention süresi
+- Privacy/consent kabulü
+- Anonymous hesabın cihaz değişiminde ne olacağı
+- Beta/prod ortam ayrımı
+
+Anonymous auth "kullanıcı adı sormuyoruz" demektir; "privacy problemi yok" demek
+değildir.
+
+======================================================================
+7. GÜVENLİK VE PRIVACY
+======================================================================
+
+7.1 Olumlu taraflar
+
+- Firestore ownership kuralları belirgin.
+- Genel read/write fallback kapalı.
+- Raw frame/landmark persistence görünmüyor.
+- Diagnostics belgeleri privacy-minimized yaklaşımı hedefliyor.
+- Kamera izin ekranında privacy mesajı var.
+
+7.2 Eksikler
+
+- App Check entegrasyonu görünmüyor.
+- API key/app id değerleri tek Firebase projesine bağlı; bunlar tek başına gizli
+  anahtar değildir fakat environment separation eksikliğini gösterir.
+- Privacy policy/retention/delete-account akışı yok.
+- Crash reporting/operasyonel monitoring görünmüyor.
+- Debug/beta/prod Firebase ayrımı görünmüyor.
+- Firebase bootstrap başarısızsa runApp çağrılmadan uygulama açılışı kesiliyor.
+
+7.3 Firebase açılış bağımlılığı
+
+main, FirebaseBootstrap.ensureInitialized tamamlanmadan runApp çağırmıyor:
+
+- lib/main.dart:8-13
+
+Firebase init hatasında kamera tabanlı ana ürün dahi açılmıyor. Eğer ürünün temel
+analizi offline çalışabiliyorsa bu gereksiz bir single point of failure'dır.
+
+Öneri:
+
+- Uygulama shell'ini aç.
+- Firebase init'i recoverable bootstrap state ile yönet.
+- Offline analiz ve local raporu çalıştır.
+- Cloud sync kullanılamıyorsa açık durum göster.
+
+======================================================================
+8. TESTLER VE KALİTE KAPILARI
+======================================================================
+
+8.1 Güçlü taraflar
+
+Test yatırımı projenin en iyi bölümlerinden biri:
+
+- Yaklaşık 1.347 test/testWidgets bildirimi
+- Domain engine testleri
+- Coordinator testleri
+- Production path controller testleri
+- Reliability scenario testleri
+- Camera lifecycle ve orientation testleri
+- Firestore source/mapper testleri
+- Emulator tabanlı Firestore/Auth rules job'u
+- Build metadata/SHA contract testi
+
+Bu ölçekte test yazılması tesadüfi değildir. Projede regresyonları ciddiye alan
+bir çalışma kültürü oluşmuş.
+
+8.2 Bu snapshot için test sonucu bilinmiyor
+
+Flutter/Dart bulunmadığı için testleri çalıştırmadım. Arşivde coverage/lcov.info
+yok. Bu nedenle pass sayısı, skip sayısı ve coverage yüzdesi hakkında güncel bir
+iddia üretmiyorum.
+
+8.3 Coverage threshold yok
+
+CI coverage artifact üretiyor fakat minimum satır/branch coverage kapısı yok.
+Coverage düşse de job başarılı olabilir.
+
+Ayrıca quality job önce flutter test, sonra flutter test --coverage çalıştırıyor.
+Test suite iki kez koşuyor. Büyük suite büyüdükçe gereksiz süre ve kaynak tüketimi
+oluşur.
+
+Öneri:
+
+- Tek kez flutter test --coverage çalıştır.
+- Kritik paketler için ayrı minimumlar tanımla.
+- Genel yüzdeye kör güvenme; controller/engine/repository için hedef koy.
+- Slow test raporu ve shard yaklaşımı ekle.
+
+8.4 Flutter sürümü tutarsız
+
+Ana CI `channel: stable` kullanıyor; profile artifact workflow Flutter 3.41.2'ye
+sabitlenmiş.
+
+Sonuç:
+
+- PR'da test edilen SDK ile artifact üreten SDK farklı olabilir.
+- Stable güncellendiğinde haber verilmeden CI davranışı değişebilir.
+
+Öneri:
+
+- Tek bir pinned Flutter sürümü tanımla.
+- Dependabot/Renovate benzeri kontrollü update PR'larıyla yükselt.
+- pubspec SDK constraint, CI Flutter ve artifact Flutter aynı matriste tutulmalı.
+
+8.5 Eksik test kategorileri
+
+Arşivde:
+
+- integration_test klasörü yok.
+- Golden test referansı bulunmadı.
+- iOS build CI kapısı yok.
+- Android production release/AAB build kapısı yok.
+- Gerçek ML Kit + kamera E2E testi otomatik değil.
+
+Widget/unit testler kamera ve cihaz davranışının yerine geçmez. Özellikle
+orientation, camera format, autofocus, termal throttling ve ikinci kişi ancak
+cihaz kanıtıyla kapanır.
+
+8.6 Analyzer kuralları zayıf
+
+analysis_options yalnız flutter_lints üzerine iki ek kural koyuyor:
+
+- always_declare_return_types
+- avoid_print
+
+Bu proje ölçeği için daha sıkı kurallar değerlendirilmeli:
+
+- discarded_futures
+- unawaited_futures politikası
+- avoid_dynamic_calls
+- strict-casts / strict-inference
+- cancel_subscriptions
+- close_sinks
+- use_build_context_synchronously denetimi
+- public API docs ve immutable model politikaları
+
+Kurallar bir anda açılmamalı; baseline ve kademeli kapatma yapılmalı.
+
+======================================================================
+9. RELEASE VE PLATFORM HAZIRLIĞI
+======================================================================
+
+9.1 Android release debug anahtarıyla imzalanıyor
+
+android/app/build.gradle.kts:36-40 release build için debug signing kullanıyor.
+Bu production release için kabul edilemez.
+
+P0 çözüm:
+
+- Keystore'u CI secret üzerinden bağla.
+- release signing config'i ayrı kur.
+- Debug key ile release build'i CI'da yasakla.
+- AAB üret, signature ve checksum artifact'i oluştur.
+- Key rotation ve erişim sahibi belirle.
+
+9.2 Branding tutarsız
+
+- Flutter app title: PEA/Pose Analysis bağlamı
+- Android label: pose_estimation_app
+- iOS display name: Pose Estimation App
+- Package/application id: com.bekir.pose_estimation_app
+- Version: 1.0.0+1
+
+Bu değerler teknik demo izleri taşıyor. Production kimliği, bundle id, app name,
+icon, versioning ve environment suffix'leri netleştirilmeli.
+
+9.3 iOS kamera izin metni yalnız Türkçe
+
+Uygulama Türkçe ve İngilizce destekliyor, fakat Info.plist içindeki
+NSCameraUsageDescription Türkçe sabit. InfoPlist.strings lokalizasyonu görünmüyor.
+İngilizce cihazda sistem izin ekranı Türkçe çıkabilir.
+
+9.4 Platform kapsamı belirsiz
+
+Repo web, Windows, Linux ve macOS scaffold'ları içeriyor. Ancak Firebase options
+macOS/Windows/Linux için açıkça UnsupportedError fırlatıyor. Kamera/ML Kit analiz
+yolu da mobil odaklı.
+
+Öneri:
+
+- Desteklenen platformları README ve build config'te açıkça Android/iOS ile
+  sınırla veya diğer scaffold'ları kaldır.
+- Web/desktop açılışında kontrollü "desteklenmiyor" ekranı göster.
+- Yanlışlıkla unsupported target build edilmesini CI'da engelle.
+
+9.5 Kamera capability filtresi
+
+Android manifest camera ve autofocus özelliklerini required=false belirtmeden
+tanımlıyor. Store cihaz filtrelemesine etkisi merged manifest üzerinden
+incelenmeli. Autofocus olmayan fakat uygulamayı çalıştırabilecek cihazların
+haksız yere dışlanmadığı doğrulanmalı.
+
+======================================================================
+10. UI/UX İÇİN TEKNİK ZEMİN NOTLARI
+======================================================================
+
+Bu rapor ayrı gelecek sert UI roadmap'inin yerine geçmez. Ancak roadmap başlamadan
+önce bilinmesi gereken teknik gerçekler şunlar:
+
+- Navigation 60'tan fazla doğrudan Navigator/MaterialPageRoute kullanımıyla
+  ekranlara dağılmış.
+- Merkezi route modeli veya typed navigation yok.
+- LiveAnalysisScreen ve PreparationScreen hem davranış hem görünüm taşıyor.
+- Localization tek 1.450 satırlık manuel sınıfta; yeni metin eklemek çift dilde
+  elle senkronizasyon gerektiriyor.
+- Egzersiz guide içeriği yaklaşık 969 satır, feedback mapper 1.029 satır.
+- Domain SessionReport içinde Türkçe kullanıcı metni üretiliyor.
+- Semantics bazı kritik countdown/overlay noktalarında var, fakat proje genelinde
+  sistematik accessibility audit kanıtı yok.
+- Golden test yok; görsel regresyonlar otomatik yakalanmıyor.
+- Büyük ekranlarda absolute/stack konumları ve text scaling ayrıca test edilmeli.
+
+UI roadmap sırasında yapılmaması gereken hata:
+
+Önce renkleri, kartları ve animasyonları cilalayıp ürünün destek/doğrulama
+belirsizliğini saklamak. Kullanıcı dostu görünmek, kullanıcıya doğru davranmakla
+aynı şey değildir.
+
+======================================================================
+11. DOKÜMANTASYON VE ÜRÜN GERÇEĞİ
+======================================================================
+
+Belgeler genel olarak güçlü. FRONTEND_ENGINEERING, beta validation, diagnostics,
+measurement contract ve historical findings dosyaları mühendislik hafızası
+oluşturuyor.
+
+Fakat güncel belgelerle kod ayrıştığında belge hacmi fayda değil yanıltıcı güven
+üretir.
+
+Açık sorunlar:
+
+- README 18 egzersiz diyor, kod 34 destekliyor.
+- Current validation matrix 18 diyor.
+- Matrix kendi güncelleme kuralını ihlal ediyor.
+- Tarihsel beta belgeleri bol, yeni 16 hareket için aynı formal kanıt seviyesi
+  görünmüyor.
+- Arşivde Git metadata yok; rapordaki snapshot belirli commit'e bağlanamıyor.
+
+Öneri:
+
+Tek bir generated capability manifest üret:
+
+- exercise id
+- engine family
+- maturity
+- enabled build channels
+- config schema version
+- automated contract test status
+- last device validation SHA
+- validated device classes
+- known limitations
+
+README ve validation matrix bu manifestten üretilsin veya CI ile karşılaştırılsın.
+
+======================================================================
+12. ÖNCELİKLENDİRİLMİŞ RİSK KAYDI
+======================================================================
+
+P0 - UI roadmap'i production'a taşımadan önce
+
+P0.1  34 supported / 18 validated gerçeğini düzelt.
+       Ya kapsamı kapat ya kanıtı tamamla.
+
+P0.2  Session local outbox ve restart sonrası sync ekle.
+       Kullanıcının bitmiş raporu ağ yüzünden kaybolmamalı.
+
+P0.3  Android production signing'i kur.
+       Debug imzalı release üretimini yasakla.
+
+P0.4  Privacy, retention, account deletion ve environment separation kararını
+       ürün kontratı haline getir.
+
+P0.5  Persistent analysis failure durumunda kullanıcıya açık safe-pause/error
+       state ekle; stale metriği göstermeyi bırak.
+
+P0.6  Firebase init başarısızlığında offline analiz shell'inin açılmasını sağla.
+
+P1 - Sonraki sertleştirme dalgası
+
+P1.1  Multi-person temporal identity lock.
+P1.2  LiveAnalysisScreen ve WorkoutController sorumluluk ayrımı.
+P1.3  RangeRep/Hold session summary veri modellerini ayır.
+P1.4  Stored feedback string yerine code + args + schemaVersion.
+P1.5  Firestore batch chunking ve büyük session testleri.
+P1.6  Server timestamp ve sync metadata.
+P1.7  Firestore list/map alanlarını sıkı doğrula.
+P1.8  Flutter sürümünü CI boyunca pinle.
+P1.9  Coverage threshold ve tek test koşusu.
+P1.10 Android release build ve iOS build CI kapıları.
+
+P2 - Ölçeklenebilirlik ve geliştirici deneyimi
+
+P2.1  ML Kit tiplerini domain/application sınırından çıkar.
+P2.2  ExerciseCatalog'u egzersiz bazlı modüllere böl.
+P2.3  Generated localization/ARB yapısına geç.
+P2.4  Typed merkezi navigation.
+P2.5  Golden/accessibility testleri.
+P2.6  Analyzer strictness'i kademeli artır.
+P2.7  Test sharding, slow-test budget ve mutation test pilotu.
+P2.8  Adaptif kamera kalite/termal stratejisi.
+
+======================================================================
+13. ÖNERİLEN PATCH İLERLEME DİSİPLİNİ
+======================================================================
+
+Bu sohbet patch tabanlı ilerleyeceği için her değişiklik şu sırayı izlemeli:
+
+1. Tek bir problem ve açık kabul kriteri.
+2. Önce davranışı sabitleyen test veya mevcut test kanıtı.
+3. Küçük, geri alınabilir patch.
+4. git apply --check.
+5. git apply.
+6. dart format .
+7. flutter analyze.
+8. Hedef test.
+9. İlgili test paketi.
+10. Tam flutter test.
+11. git diff --check.
+12. Gerekliyse gerçek cihaz smoke/profile testi.
+13. Değişen ürün gerçeği için README/matrix güncellemesi.
+
+Bir patch aynı anda mimari refactor, threshold değişimi, UI redesign ve persistence
+şeması taşımamalı. Böyle patch review edilemez; yalnız umut edilir.
+
+======================================================================
+14. İLK UYGULANMASI GEREKEN TEKNİK PAKET ÖNERİSİ
+======================================================================
+
+UI roadmap gelmeden önce ilk kod değişikliği olarak şunu öneriyorum:
+
+"Exercise maturity ve validation truth gate"
+
+İçerik:
+
+- ExerciseDefinition'a maturity alanı ekle.
+- Mevcut 18 doğrulanmış hareket için validated veya ownerValidated.
+- Kalan 16 hareket için experimental/beta.
+- Production catalog UI yalnız validated hareketleri göstersin.
+- Internal/profile build beta hareketleri açabilsin.
+- Enum/config/catalog/matrix eşitliği için test ekle.
+- README ve current validation matrix'i 34 toplam / maturity dağılımı şeklinde
+  düzelt.
+
+Neden ilk bu?
+
+Çünkü UI roadmap'te kullanıcıya hangi hareketlerin gösterileceği, kart tasarımından
+önce ürün doğruluğu kararıdır. Yanlış kapsamı güzel göstermek yalnız daha etkili
+bir yanlış üretir.
+
+======================================================================
+15. BU RAPORU NEDEN YAPTIM?
+======================================================================
+
+- UI çalışmasına başlamadan önce teknik zeminin gerçek durumunu sabitlemek için.
+- Kodun söylediğiyle belgenin söylediğini ayırmak için.
+- Test sayısını güvenlik kanıtı sanmamak için.
+- Analiz doğruluğu, veri kaydı, privacy ve release hazırlığını tek risk listesinde
+  toplamak için.
+- Sonraki patch'leri "çalıştı" değil, ölçülebilir kabul kriterleriyle yönetmek için.
+- Yöneticiye hoş gelen cümleler değil, karar vermeyi kolaylaştıran rahatsız edici
+  gerçekler vermek için.
+
+======================================================================
+16. BU MESAJ SONUNDA HAYATIMIZDA NE DEĞİŞTİ?
+======================================================================
+
+Yöneticinin hayatında değişen:
+
+- Artık "proje 34 egzersizi destekliyor" cümlesinin arkasında 34 egzersizlik
+  formal kanıt olmadığını biliyorsun.
+- UI roadmap'inin önünde altı net P0 ürün riski var.
+- Firestore'un canlı analizde ana FPS darboğazı olmadığını, asıl problemin rapor
+  dayanıklılığı olduğunu biliyorsun.
+- Sonraki patch'leri hangi sıra ve kabul kriteriyle isteyeceğin daha net.
+
+Benim hayatımda değişen:
+
+- Bu snapshot için teknik baseline oluştu.
+- Sonraki patch'lerde yalnız lokal sorunu değil; 34/18 truth gap, veri kaybı,
+  analysis failure, release ve privacy regresyonlarını da kontrol edeceğim.
+- Projenin güçlü test kültürünü koruyup dev sınıfları ve kanıtsız support
+  genişlemesini normal kabul etmeyeceğim.
+
+Kodun hayatında değişen:
+
+- Henüz runtime davranışı değişmedi.
+- Bu patch yalnız bu raporu docs altına ekler.
+- Yani uygulama daha güvenli olmadı; yalnız nereden başlayacağımız artık daha az
+  belirsiz. İnsanların belge yazınca problemin çözüldüğünü sanması engellendi.
+
+======================================================================
+17. SON HÜKÜM
+======================================================================
+
+Bu proje çöpe atılacak bir kod tabanı değil. Tam tersine, korunmaya değer ciddi
+bir analiz çekirdeği ve test yatırımı var. Fakat production iddiası için şu anki
+en büyük açıklar daha fazla egzersiz eklemek veya daha şık ekran yapmak değil:
+
+- destek kapsamının doğruluğu,
+- raporun kaybolmaması,
+- hata halinde güvenli duruş,
+- privacy/veri yaşam döngüsü,
+- production signing,
+- gerçek cihaz ve çoklu kişi kanıtı,
+- dev sınıfların kontrollü parçalanmasıdır.
+
+UI roadmap bu gerçekleri dikkate alırsa proje kullanıcı dostu olur. Dikkate
+almazsa yalnız daha güzel görünen, aynı belirsizlikleri taşıyan bir ürün olur.
+
+Rapor sonu.
