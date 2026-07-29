@@ -147,18 +147,23 @@ class FirestoreSessionRemoteSource {
     required String sessionId,
   }) async {
     try {
-      final batch = _firestore.batch();
-      final repDocuments = await _sessionRepsCollection(
-        ownerId,
-        sessionId,
-      ).get();
+      const deleteBatchSize = 400;
+      final repsCollection = _sessionRepsCollection(ownerId, sessionId);
 
-      for (final document in repDocuments.docs) {
-        batch.delete(document.reference);
+      while (true) {
+        final repDocuments = await repsCollection.limit(deleteBatchSize).get();
+        if (repDocuments.docs.isEmpty) {
+          break;
+        }
+
+        final batch = _firestore.batch();
+        for (final document in repDocuments.docs) {
+          batch.delete(document.reference);
+        }
+        await batch.commit();
       }
 
-      batch.delete(_sessionDocument(ownerId, sessionId));
-      await batch.commit();
+      await _sessionDocument(ownerId, sessionId).delete();
     } on FirebaseException catch (error, stackTrace) {
       throw FirestoreFailure(
         message: 'Workout session could not be deleted.',

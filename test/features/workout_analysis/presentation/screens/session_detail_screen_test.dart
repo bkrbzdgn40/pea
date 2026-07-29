@@ -135,4 +135,127 @@ void main() {
     expect(find.textContaining('Feedback: Rep completed!'), findsOneWidget);
     expect(find.textContaining('1 reps counted: 1 were valid'), findsOneWidget);
   });
+
+  testWidgets('deletes a session only after explicit confirmation', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'session-delete',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 8, 12),
+      totalReps: 1,
+    );
+    final repository = TestSessionRepository(
+      sessions: [session],
+      sessionById: {'session-delete': session},
+    );
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(
+      const ValueKey<String>('session-delete-button'),
+    );
+    await tester.scrollUntilVisible(
+      deleteButton,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Oturum silinsin mi?'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('session-delete-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedSessionIds, ['session-delete']);
+  });
+
+  testWidgets('cancel keeps the saved session', (WidgetTester tester) async {
+    final session = buildWorkoutSession(
+      id: 'session-cancel',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 8, 12),
+      totalReps: 1,
+    );
+    final repository = TestSessionRepository(
+      sessionById: {'session-cancel': session},
+    );
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(
+      const ValueKey<String>('session-delete-button'),
+    );
+    await tester.scrollUntilVisible(
+      deleteButton,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('session-delete-cancel')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedSessionIds, isEmpty);
+  });
+
+  testWidgets('shows an actionable error when deletion fails', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'session-failure',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 8, 12),
+      totalReps: 1,
+    );
+    final repository = TestSessionRepository(
+      sessionById: {'session-failure': session},
+      deleteSessionError: StateError('offline'),
+    );
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(
+      const ValueKey<String>('session-delete-button'),
+    );
+    await tester.scrollUntilVisible(
+      deleteButton,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('session-delete-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Oturum silinemedi. Bağlantını kontrol edip tekrar dene.'),
+      findsOneWidget,
+    );
+    expect(repository.deletedSessionIds, isEmpty);
+  });
 }

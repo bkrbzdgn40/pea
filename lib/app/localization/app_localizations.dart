@@ -582,8 +582,12 @@ class AppLocalizations {
     en: 'Helps count valid repetitions.',
   );
   String get cameraPrivacyNotice => pick(
-    tr: 'Görüntüler kesinlikle depolanmaz veya bir yere gönderilmez.',
-    en: 'Camera images are never stored or sent anywhere.',
+    tr: 'Kamera görüntüleri cihazda işlenir; depolanmaz ve sunucuya gönderilmez.',
+    en: 'Camera images are processed on the device; they are not stored or sent to a server.',
+  );
+  String get workoutDataStorageNotice => pick(
+    tr: 'Tekrar, süre, skor ve teknik ölçümler antrenman geçmişin için buluta kaydedilir.',
+    en: 'Repetitions, duration, scores, and technique measurements are saved to the cloud for your workout history.',
   );
   String get selectExerciseBeforeCameraTitle => pick(
     tr: 'Analiz için hareket seç',
@@ -864,6 +868,21 @@ class AppLocalizations {
   String get bestShort => pick(tr: 'En İyi', en: 'Best');
   String get warnings => pick(tr: 'Uyarı', en: 'Warnings');
   String get sessionReport => pick(tr: 'Oturum Raporu', en: 'Session Report');
+  String get deleteSession =>
+      pick(tr: 'Bu Oturumu Sil', en: 'Delete This Session');
+  String get deleteSessionTitle =>
+      pick(tr: 'Oturum silinsin mi?', en: 'Delete session?');
+  String get deleteSessionMessage => pick(
+    tr: 'Bu antrenman ve tekrar detayları kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+    en: 'This workout and its repetition details will be permanently deleted. This action cannot be undone.',
+  );
+  String get cancel => pick(tr: 'İptal', en: 'Cancel');
+  String get delete => pick(tr: 'Sil', en: 'Delete');
+  String get deleting => pick(tr: 'Siliniyor...', en: 'Deleting...');
+  String get sessionDeleteFailed => pick(
+    tr: 'Oturum silinemedi. Bağlantını kontrol edip tekrar dene.',
+    en: 'The session could not be deleted. Check your connection and try again.',
+  );
   String get repDetailsLoadFailed => pick(
     tr: 'Tekrar detayları yüklenemedi. Lütfen tekrar dene.',
     en: 'Rep details could not be loaded. Please try again.',
