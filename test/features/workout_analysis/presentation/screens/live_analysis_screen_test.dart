@@ -1286,7 +1286,7 @@ void main() {
   );
 
   testWidgets(
-    'returning from summary restarts live analysis with clean state and allows another finish',
+    'retry preserves the completed session and starts a clean session with a new id',
     (tester) async {
       final harness = await _pumpLiveAnalysisScreen(
         tester,
@@ -1322,10 +1322,14 @@ void main() {
         isNotNull,
       );
 
-      await tester.tap(find.text('Tekrar Dene'));
+      final firstSessionId = harness.sessionRepository.savedSessions.single.id;
+
+      await tester.tap(find.text('Aynı Hareketi Tekrarla'));
       await tester.pumpAndSettle();
 
-      expect(harness.sessionRepository.savedSessions, isEmpty);
+      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      expect(harness.sessionRepository.deleteCallCount, 0);
+      expect(harness.sessionRepository.savedSessions.single.id, firstSessionId);
 
       final restartedState = harness.container.read(workoutControllerProvider);
       final restartedLifecycle = harness.container
@@ -1364,7 +1368,18 @@ void main() {
         secondPushCount + 1,
       );
 
-      expect(harness.sessionRepository.savedSessions, hasLength(1));
+      expect(harness.sessionRepository.savedSessions, hasLength(2));
+      expect(harness.sessionRepository.deleteCallCount, 0);
+      expect(
+        harness.sessionRepository.savedSessions.map((session) => session.id),
+        contains(firstSessionId),
+      );
+      expect(
+        harness.sessionRepository.savedSessions
+            .map((session) => session.id)
+            .toSet(),
+        hasLength(2),
+      );
     },
   );
 
@@ -2210,6 +2225,7 @@ class _FakeSessionRepository implements SessionRepository {
   final List<WorkoutSession> savedSessions = <WorkoutSession>[];
   var listSessionsCallCount = 0;
   var saveCallCount = 0;
+  var deleteCallCount = 0;
   Completer<void>? saveCompleter;
 
   @override
@@ -2257,6 +2273,7 @@ class _FakeSessionRepository implements SessionRepository {
     required String ownerId,
     required String sessionId,
   }) async {
+    deleteCallCount += 1;
     savedSessions.removeWhere(
       (session) => session.ownerId == ownerId && session.id == sessionId,
     );
