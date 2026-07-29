@@ -35,6 +35,7 @@ void main() {
           hadHoldFormBreak: true,
         ),
       );
+      expect(controller.hasSavableProgress, isTrue);
 
       clock.advance(const Duration(seconds: 15));
       controller.startSession(exercise: ExerciseType.squat);
@@ -52,6 +53,8 @@ void main() {
       expect(snapshot.bestHoldSeconds, 0);
       expect(snapshot.formBreakCount, 0);
       expect(snapshot.completedWorkoutReps, isEmpty);
+      expect(snapshot.hasSavableProgress, isFalse);
+      expect(controller.hasSavableProgress, isFalse);
       expect(snapshot.isFinishing, isFalse);
       expect(snapshot.hasSavedSession, isFalse);
       expect(publications, <WorkoutSession?>[null, null]);
@@ -59,6 +62,30 @@ void main() {
       expect(repository.saveCallCount, 0);
     },
   );
+
+  test('rejected range-rep attempt is still savable session progress', () {
+    final controller = WorkoutSessionLifecycleController(
+      sessionRepository: _FakeSessionRepository(),
+      resolveOwnerId: () => 'owner-1',
+      invalidateUserSessionsSnapshot: () {},
+      publishCompletedSession: (_) {},
+    );
+
+    controller.startSession(exercise: ExerciseType.squat);
+    expect(controller.hasSavableProgress, isFalse);
+
+    controller.collect(
+      _rangeRepState(
+        repCount: 0,
+        lastRepScore: 0,
+        validatedRepIndex: 1,
+        validationStatus: 'invalid',
+      ),
+    );
+
+    expect(controller.hasSavableProgress, isTrue);
+    expect(controller.currentStateSnapshot().hasSavableProgress, isTrue);
+  });
 
   test(
     'range-rep accumulation counts accepted outcomes and excludes invalid attempts',

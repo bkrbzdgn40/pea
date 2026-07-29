@@ -1031,6 +1031,20 @@ class AppLocalizations {
       pick(tr: 'Asimetri skoru', en: 'Asymmetry score');
   String get finish => pick(tr: 'Bitir', en: 'Finish');
   String get endWorkout => pick(tr: 'Antrenmanı Bitir', en: 'End Workout');
+  String get liveExitDialogTitle => pick(
+    tr: 'Antrenmanı bitirmek istiyor musun?',
+    en: 'Do you want to end the workout?',
+  );
+  String get liveExitDialogMessage => pick(
+    tr: 'Bu oturumda kaydedilebilir ilerleme var. Antrenmana dönebilir, sonucu kaydedebilir veya kaydetmeden çıkabilirsin.',
+    en: 'This session has progress that can be saved. You can return to the workout, save the result, or exit without saving.',
+  );
+  String get returnToWorkout =>
+      pick(tr: 'Antrenmana Dön', en: 'Return to Workout');
+  String get saveAndFinish =>
+      pick(tr: 'Kaydet ve Bitir', en: 'Save and Finish');
+  String get exitWithoutSaving =>
+      pick(tr: 'Kaydetmeden Çık', en: 'Exit Without Saving');
   String get continueLabel => pick(tr: 'Devam', en: 'Continue');
   String get holdMetric => pick(tr: 'TUTUŞ', en: 'HOLD');
   String get repMetric => pick(tr: 'TEKRAR', en: 'REPS');
