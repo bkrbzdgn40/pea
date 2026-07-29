@@ -8,6 +8,7 @@ enum HoldSignal {
   alignment,
   support,
   supportStacking,
+  hipClearance,
   extension,
   compression,
   armExtension,
@@ -174,7 +175,10 @@ abstract final class HoldContracts {
       HoldSignal.support,
       HoldSignal.extension,
     },
-    supportedSignals: const <HoldSignal>{HoldSignal.supportStacking},
+    supportedSignals: const <HoldSignal>{
+      HoldSignal.supportStacking,
+      HoldSignal.hipClearance,
+    },
     signalRoles: const <HoldSignal, Set<AnalysisSignalRole>>{
       HoldSignal.alignment: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
@@ -185,6 +189,10 @@ abstract final class HoldContracts {
         AnalysisSignalRole.validation,
       },
       HoldSignal.supportStacking: <AnalysisSignalRole>{
+        AnalysisSignalRole.detection,
+        AnalysisSignalRole.validation,
+      },
+      HoldSignal.hipClearance: <AnalysisSignalRole>{
         AnalysisSignalRole.detection,
         AnalysisSignalRole.validation,
       },

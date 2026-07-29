@@ -235,6 +235,7 @@ HoldSignalValues _validHoldSignals({
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
           HoldSignal.supportStacking: 1.0,
+          HoldSignal.hipClearance: 0.20,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );
@@ -286,6 +287,7 @@ HoldSignalValues _invalidStartSignals({
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
           HoldSignal.supportStacking: 1.0,
+          HoldSignal.hipClearance: 0.20,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );
@@ -338,6 +340,7 @@ HoldSignalValues _graceEligibleSignals({
           HoldSignal.support:
               (posture.armSupportMinAngle + posture.armSupportMaxAngle) / 2.0,
           HoldSignal.supportStacking: 1.0,
+          HoldSignal.hipClearance: 0.20,
           HoldSignal.extension: posture.legExtensionMinAngle,
         },
       );

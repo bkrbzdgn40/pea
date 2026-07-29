@@ -230,6 +230,53 @@ void main() {
       );
     });
 
+    test('side plank does not start until the hips clear the floor line', () {
+      final clock = _TestClock();
+      final config = _plankConfig();
+      final engine = const AnalysisEngineFactory().createHold(
+        config: config,
+        holdContract: HoldContracts.sidePlank,
+        now: clock.now,
+      );
+      final coordinator = DefaultHoldCoordinator(
+        engine: engine,
+        config: config,
+        holdContract: HoldContracts.sidePlank,
+      );
+
+      coordinator.selectHoldSideForAcceptedPose(
+        _acceptedHoldAssessment(HoldSide.left),
+      );
+      final collapsed = coordinator.processFrame(
+        metrics: _sidePlankMetrics(
+          shoulderX: 0,
+          shoulderY: 0,
+          elbowX: 0,
+          elbowY: 2,
+          hipX: 5,
+          hipY: 2,
+          ankleX: 10,
+          ankleY: 2,
+        ),
+        now: clock.now(),
+        isAcceptedPoseFrame: true,
+        didBecomeStableTracking: false,
+      );
+
+      expect(collapsed.stateSnapshot.isHolding, isFalse);
+      expect(collapsed.stateSnapshot.currentHoldSeconds, 0);
+      expect(collapsed.stateSnapshot.holdEnginePhase, HoldPhase.broken);
+      expect(
+        collapsed.stateSnapshot.holdFeedbackCode,
+        HoldFeedbackCode.liftHips,
+      );
+      expect(
+        collapsed.stateSnapshot.calibrationMetrics.holdSignalValidity
+            .validityFor(HoldSignal.hipClearance),
+        isFalse,
+      );
+    });
+
     test('reads invalid-frame target signals from engine diagnostics', () {
       final coordinator = DefaultHoldCoordinator(
         engine: _FakeHoldAnalysisEngine(
@@ -498,6 +545,12 @@ ExerciseMetrics _sidePlankMetrics({
   required double shoulderY,
   required double elbowX,
   required double elbowY,
+  double? wristX,
+  double? wristY,
+  double hipX = 5,
+  double hipY = 0,
+  double ankleX = 10,
+  double ankleY = 2,
   double armSupportAngle = 90,
 }) {
   return ExerciseMetrics(
@@ -518,6 +571,27 @@ ExerciseMetrics _sidePlankMetrics({
         type: PoseLandmarkType.leftElbow,
         x: elbowX,
         y: elbowY,
+        z: 0,
+        likelihood: 0.99,
+      ),
+      PoseLandmark(
+        type: PoseLandmarkType.leftWrist,
+        x: wristX ?? elbowX,
+        y: wristY ?? (elbowY + 1),
+        z: 0,
+        likelihood: 0.99,
+      ),
+      PoseLandmark(
+        type: PoseLandmarkType.leftHip,
+        x: hipX,
+        y: hipY,
+        z: 0,
+        likelihood: 0.99,
+      ),
+      PoseLandmark(
+        type: PoseLandmarkType.leftAnkle,
+        x: ankleX,
+        y: ankleY,
         z: 0,
         likelihood: 0.99,
       ),

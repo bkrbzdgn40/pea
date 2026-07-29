@@ -24,6 +24,7 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
       _basePolicy = HoldPosturePolicy(config: config);
 
   static final double minSupportStackingVerticalComponent = 1 / math.sqrt(2);
+  static const double minHipClearanceRatio = 0.08;
 
   final HoldPostureConfig _config;
   final HoldPosturePolicy _basePolicy;
@@ -36,11 +37,12 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
 
   @override
   HoldSignalValues targetSignalValues({required bool isHolding}) {
-    return _basePolicy.targetSignalValues(isHolding: isHolding).mergedWith(
-      <HoldSignal, double?>{
-        HoldSignal.supportStacking: minSupportStackingVerticalComponent,
-      },
-    );
+    return _basePolicy
+        .targetSignalValues(isHolding: isHolding)
+        .mergedWith(<HoldSignal, double?>{
+          HoldSignal.supportStacking: minSupportStackingVerticalComponent,
+          HoldSignal.hipClearance: minHipClearanceRatio,
+        });
   }
 
   @override
@@ -51,6 +53,7 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
     final base = _basePolicy.evaluate(signals, isHolding: isHolding);
     final supportAngle = signals.valueFor(HoldSignal.support);
     final supportStacking = signals.valueFor(HoldSignal.supportStacking);
+    final hipClearance = signals.valueFor(HoldSignal.hipClearance);
 
     final isForearmSupport =
         supportAngle != null &&
@@ -66,6 +69,10 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
         supportStacking != null &&
         supportStacking.isFinite &&
         supportStacking >= minSupportStackingVerticalComponent;
+    final isHipLifted =
+        hipClearance != null &&
+        hipClearance.isFinite &&
+        hipClearance >= minHipClearanceRatio;
 
     final baseValidity = base.postureDiagnostics.signalValidity;
     final isBodyAligned =
@@ -73,16 +80,19 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
     final areLegsExtended =
         baseValidity.validityFor(HoldSignal.extension) ?? false;
     final hasCompleteMetrics =
-        base.hasCompleteMetrics && supportStacking != null;
+        base.hasCompleteMetrics &&
+        supportStacking != null &&
+        hipClearance != null;
     final isValidHoldPosture =
         hasCompleteMetrics &&
         isBodyAligned &&
         isSupportAngleValid &&
         isSupportStacked &&
+        isHipLifted &&
         areLegsExtended;
     final supportsGraceWindow =
         hasCompleteMetrics &&
-        !isBodyAligned &&
+        (!isBodyAligned || !isHipLifted) &&
         isSupportAngleValid &&
         isSupportStacked &&
         areLegsExtended;
@@ -92,6 +102,7 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
         ...baseValidity.asMap(),
         HoldSignal.support: isSupportAngleValid,
         HoldSignal.supportStacking: isSupportStacked,
+        HoldSignal.hipClearance: isHipLifted,
       },
     );
 
@@ -99,11 +110,13 @@ class SidePlankPosturePolicy implements HoldFormPolicy {
         ? HoldFeedbackCode.placeSupportElbowUnderShoulder
         : (!isSupportAngleValid
               ? HoldFeedbackCode.useForearmSupport
-              : (!isBodyAligned
-                    ? HoldFeedbackCode.alignHips
-                    : (!areLegsExtended
-                          ? HoldFeedbackCode.extendLegs
-                          : HoldFeedbackCode.correctForm)));
+              : (!isHipLifted
+                    ? HoldFeedbackCode.liftHips
+                    : (!isBodyAligned
+                          ? HoldFeedbackCode.alignHips
+                          : (!areLegsExtended
+                                ? HoldFeedbackCode.extendLegs
+                                : HoldFeedbackCode.correctForm))));
 
     return HoldFormEvaluation(
       hasActivePosture: base.hasActivePosture,

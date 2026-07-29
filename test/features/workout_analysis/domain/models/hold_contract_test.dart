@@ -150,8 +150,16 @@ void main() {
         HoldSignal.extension,
       });
       expect(contract.supportsSignal(HoldSignal.supportStacking), isTrue);
+      expect(contract.supportsSignal(HoldSignal.hipClearance), isTrue);
       expect(
         contract.rolesForSignal(HoldSignal.supportStacking),
+        const <AnalysisSignalRole>{
+          AnalysisSignalRole.detection,
+          AnalysisSignalRole.validation,
+        },
+      );
+      expect(
+        contract.rolesForSignal(HoldSignal.hipClearance),
         const <AnalysisSignalRole>{
           AnalysisSignalRole.detection,
           AnalysisSignalRole.validation,

@@ -123,6 +123,7 @@ bool _matchesLegacyHoldFeedback(String normalized, HoldFeedbackCode code) {
     HoldFeedbackCode.holdPosition => 'Pozisyonu Koru',
     HoldFeedbackCode.bodyNotVisible => 'Vucut net gorunmuyor.',
     HoldFeedbackCode.alignHips => 'Kalcayi Hizala',
+    HoldFeedbackCode.liftHips => 'Kalcayi Yerden Kaldir',
     HoldFeedbackCode.adjustElbowSupport => 'Dirsek Destegini Duzelt',
     HoldFeedbackCode.placeSupportElbowUnderShoulder =>
       'Destek Dirsegini Omzunun Altina Yerlestir',

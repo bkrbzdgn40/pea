@@ -32,6 +32,11 @@ void main() {
             family: HoldFeedbackFamily.correctiveCue,
           ),
           (
+            code: HoldFeedbackCode.liftHips,
+            stableCode: 'lift_hips',
+            family: HoldFeedbackFamily.correctiveCue,
+          ),
+          (
             code: HoldFeedbackCode.adjustElbowSupport,
             stableCode: 'adjust_elbow_support',
             family: HoldFeedbackFamily.correctiveCue,
@@ -110,6 +115,7 @@ void main() {
           .map((scenario) => scenario.code),
       <HoldFeedbackCode>[
         HoldFeedbackCode.alignHips,
+        HoldFeedbackCode.liftHips,
         HoldFeedbackCode.adjustElbowSupport,
         HoldFeedbackCode.placeSupportElbowUnderShoulder,
         HoldFeedbackCode.useForearmSupport,

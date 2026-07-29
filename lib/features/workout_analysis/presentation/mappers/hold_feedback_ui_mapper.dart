@@ -23,6 +23,11 @@ String mapHoldFeedbackCodeToMessage(
       );
     case HoldFeedbackCode.alignHips:
       return localizations.pick(tr: 'Kalçanı hizala.', en: 'Align your hips.');
+    case HoldFeedbackCode.liftHips:
+      return localizations.pick(
+        tr: 'Kalçanı yerden kaldır.',
+        en: 'Lift your hips off the floor.',
+      );
     case HoldFeedbackCode.adjustElbowSupport:
       return localizations.pick(
         tr: 'Dirsek desteğini düzelt.',

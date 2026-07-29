@@ -27,6 +27,8 @@ class HoldPostureDiagnosticsSnapshot {
     return supportAngleValid && (supportStackingValid ?? true);
   }
 
+  bool get isHipLifted => validityFor(HoldSignal.hipClearance) ?? false;
+
   bool get areLegsExtended => validityFor(HoldSignal.extension) ?? false;
 }
 

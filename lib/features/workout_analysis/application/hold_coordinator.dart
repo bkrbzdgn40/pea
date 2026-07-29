@@ -22,6 +22,7 @@ import 'hollow_hold_limb_elevation_measurement.dart';
 import 'plank_hip_deviation_measurement.dart';
 import 'plank_shoulder_elbow_offset_measurement.dart';
 import 'pose_quality_policy.dart';
+import 'side_plank_hip_clearance_measurement.dart';
 import 'side_plank_support_stacking_measurement.dart';
 import 'workout_calibration_metrics_builder.dart';
 import 'workout_state.dart';
@@ -152,7 +153,11 @@ class DefaultHoldCoordinator implements HoldCoordinator {
       <HoldSignal, MovingAverageFilter>{
         for (final signal in HoldSignal.values)
           signal: MovingAverageFilter(
-            windowSize: signal == HoldSignal.supportStacking ? 1 : 5,
+            windowSize:
+                signal == HoldSignal.supportStacking ||
+                    signal == HoldSignal.hipClearance
+                ? 1
+                : 5,
           ),
       };
 
@@ -164,6 +169,8 @@ class DefaultHoldCoordinator implements HoldCoordinator {
   final SidePlankSupportStackingMeasurement
   _sidePlankSupportStackingMeasurement =
       const SidePlankSupportStackingMeasurement();
+  final SidePlankHipClearanceMeasurement _sidePlankHipClearanceMeasurement =
+      const SidePlankHipClearanceMeasurement();
   final PlankTechniqueAnalyzer _plankTechniqueAnalyzer =
       const PlankTechniqueAnalyzer();
   final HollowHoldLimbElevationMeasurement _hollowHoldLimbElevationMeasurement =
@@ -506,16 +513,31 @@ class DefaultHoldCoordinator implements HoldCoordinator {
         for (final landmark in metrics.landmarks) landmark.type: landmark,
       },
     );
+    final referenceSide = _configHoldReferenceSide();
     final supportStacking = _sidePlankSupportStackingMeasurement.measure(
       pose,
       side: side,
-      referenceSide: _configHoldReferenceSide(),
+      referenceSide: referenceSide,
+    );
+    final supportAngle = metrics.holdSignalValues.valueFor(HoldSignal.support);
+    final holdPosture = _config.holdPosture;
+    final straightArmSupportMinAngle = holdPosture == null
+        ? 150.0
+        : (holdPosture.armSupportMaxAngle + 180.0) / 2;
+    final hipClearance = _sidePlankHipClearanceMeasurement.measure(
+      pose,
+      side: side,
+      referenceSide: referenceSide,
+      useWristSupport:
+          supportAngle != null && supportAngle >= straightArmSupportMinAngle,
     );
 
     return metrics.copyWith(
-      holdSignalValues: metrics.holdSignalValues.mergedWith(
-        <HoldSignal, double?>{HoldSignal.supportStacking: supportStacking},
-      ),
+      holdSignalValues: metrics.holdSignalValues
+          .mergedWith(<HoldSignal, double?>{
+            HoldSignal.supportStacking: supportStacking,
+            HoldSignal.hipClearance: hipClearance,
+          }),
     );
   }
 

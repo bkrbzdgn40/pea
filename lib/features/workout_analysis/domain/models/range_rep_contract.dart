@@ -443,6 +443,8 @@ abstract final class RangeRepContracts {
     required RangeRepSideMode sideMode,
     required RangeRepPrimaryMetricDirection primaryMetricDirection,
     bool automaticSideSelectionEnabled = false,
+    RangeRepTechniqueEvaluationPolicy techniqueEvaluationPolicy =
+        RangeRepTechniqueEvaluationPolicy.always,
     double peakEntryMargin = 3.0,
     double? completionThreshold,
     bool retainPeakEvidenceAcrossActiveTransition = false,
@@ -489,6 +491,7 @@ abstract final class RangeRepContracts {
       sideMode: sideMode,
       automaticSideSelectionEnabled: automaticSideSelectionEnabled,
       bilateralFormPolicy: RangeRepBilateralFormPolicy.sideFormOnly,
+      techniqueEvaluationPolicy: techniqueEvaluationPolicy,
       primaryMetricDirection: primaryMetricDirection,
       peakEntryMargin: peakEntryMargin,
       completionThreshold: completionThreshold,
@@ -1093,6 +1096,8 @@ abstract final class RangeRepContracts {
     sideMode: RangeRepSideMode.selectedSide,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.decreasingToPeak,
     automaticSideSelectionEnabled: true,
+    techniqueEvaluationPolicy:
+        RangeRepTechniqueEvaluationPolicy.activeMovementOnly,
   );
 
   static final RangeRepContract standingStraightLegRaise = _concentricWithForm(

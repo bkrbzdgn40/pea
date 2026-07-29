@@ -5,6 +5,7 @@ enum HoldFeedbackCode {
   holdPosition,
   bodyNotVisible,
   alignHips,
+  liftHips,
   adjustElbowSupport,
   placeSupportElbowUnderShoulder,
   useForearmSupport,
@@ -29,6 +30,7 @@ extension HoldFeedbackCodeX on HoldFeedbackCode {
       case HoldFeedbackCode.bodyNotVisible:
         return HoldFeedbackFamily.systemState;
       case HoldFeedbackCode.alignHips:
+      case HoldFeedbackCode.liftHips:
       case HoldFeedbackCode.adjustElbowSupport:
       case HoldFeedbackCode.placeSupportElbowUnderShoulder:
       case HoldFeedbackCode.useForearmSupport:
@@ -53,6 +55,8 @@ extension HoldFeedbackCodeX on HoldFeedbackCode {
         return 'body_not_visible';
       case HoldFeedbackCode.alignHips:
         return 'align_hips';
+      case HoldFeedbackCode.liftHips:
+        return 'lift_hips';
       case HoldFeedbackCode.adjustElbowSupport:
         return 'adjust_elbow_support';
       case HoldFeedbackCode.placeSupportElbowUnderShoulder:

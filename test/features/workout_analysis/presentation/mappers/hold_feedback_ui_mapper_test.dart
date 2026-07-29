@@ -14,6 +14,7 @@ void main() {
       (code: HoldFeedbackCode.holdPosition, message: 'Pozisyonu koru.'),
       (code: HoldFeedbackCode.bodyNotVisible, message: 'Vücut net görünmüyor.'),
       (code: HoldFeedbackCode.alignHips, message: 'Kalçanı hizala.'),
+      (code: HoldFeedbackCode.liftHips, message: 'Kalçanı yerden kaldır.'),
       (
         code: HoldFeedbackCode.adjustElbowSupport,
         message: 'Dirsek desteğini düzelt.',
@@ -62,6 +63,13 @@ void main() {
         localizations: en,
       ),
       'Hold the position.',
+    );
+    expect(
+      mapHoldFeedbackCodeToMessage(
+        HoldFeedbackCode.liftHips,
+        localizations: en,
+      ),
+      'Lift your hips off the floor.',
     );
     expect(
       mapHoldFeedbackCodeToMessage(

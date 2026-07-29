@@ -20,6 +20,7 @@ void main() {
 
   HoldSignalValues signals({
     required double supportStacking,
+    double hipClearance = 0.20,
     double supportAngle = 90,
     double alignment = 170,
     double extension = 170,
@@ -29,6 +30,7 @@ void main() {
         HoldSignal.alignment: alignment,
         HoldSignal.support: supportAngle,
         HoldSignal.supportStacking: supportStacking,
+        HoldSignal.hipClearance: hipClearance,
         HoldSignal.extension: extension,
       },
     );
@@ -73,6 +75,23 @@ void main() {
       expect(evaluation.correctiveFeedbackCode, HoldFeedbackCode.correctForm);
     },
   );
+
+  test('does not start while the hip remains on the support line', () {
+    final evaluation = policy.evaluate(
+      signals(supportStacking: 0.95, hipClearance: 0.02),
+      isHolding: false,
+    );
+
+    expect(evaluation.isValidHoldPosture, isFalse);
+    expect(evaluation.hasActivePosture, isTrue);
+    expect(
+      evaluation.postureDiagnostics.signalValidity.validityFor(
+        HoldSignal.hipClearance,
+      ),
+      isFalse,
+    );
+    expect(evaluation.correctiveFeedbackCode, HoldFeedbackCode.liftHips);
+  });
 
   test('rejects a support arm that is not stacked below the shoulder', () {
     final evaluation = policy.evaluate(
@@ -144,6 +163,7 @@ void main() {
         values: <HoldSignal, double>{
           HoldSignal.alignment: 170,
           HoldSignal.support: 90,
+          HoldSignal.hipClearance: 0.20,
           HoldSignal.extension: 170,
         },
       ),

@@ -1021,8 +1021,11 @@ class ExerciseCatalog {
         rangeRepContract: RangeRepContracts.standingHipExtension,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 10.0,
-          minDescentMillis: 150,
-          minAscentMillis: 300,
+          minDescentMillis: 0,
+          minAscentMillis: 0,
+          // Millisecond precision makes 1501 the first duration strictly
+          // greater than the requested 1.5-second fast-rep boundary.
+          minTotalRepMillis: 1501,
           allowLowConfidenceOnCoverageLoss: true,
         ),
       ),

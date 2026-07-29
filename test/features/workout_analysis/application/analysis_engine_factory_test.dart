@@ -9,6 +9,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/hold_analys
 import 'package:pose_estimation_app/features/workout_analysis/domain/hold_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_frame.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/side_plank_posture_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/stability_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
@@ -555,6 +556,7 @@ void main() {
               HoldSignal.alignment: 170.0,
               HoldSignal.support: 90.0,
               HoldSignal.supportStacking: 1.0,
+              HoldSignal.hipClearance: 0.20,
               HoldSignal.extension: 170.0,
             },
           ),
@@ -571,6 +573,12 @@ void main() {
           closeTo(1 / 1.41421356237, 0.001),
         );
         expect(
+          engine.diagnosticsSnapshot.targetSignalValues.valueFor(
+            HoldSignal.hipClearance,
+          ),
+          SidePlankPosturePolicy.minHipClearanceRatio,
+        );
+        expect(
           stabilitySource.currentStability?.signalSummaries.keys,
           containsAll(<HoldSignal>[
             HoldSignal.alignment,
@@ -581,6 +589,10 @@ void main() {
         expect(
           stabilitySource.currentStability?.signalSummaries.keys,
           isNot(contains(HoldSignal.supportStacking)),
+        );
+        expect(
+          stabilitySource.currentStability?.signalSummaries.keys,
+          isNot(contains(HoldSignal.hipClearance)),
         );
       },
     );
