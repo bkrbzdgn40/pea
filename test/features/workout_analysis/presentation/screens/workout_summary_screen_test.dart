@@ -12,7 +12,9 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/model
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_metrics_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/completed_session_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/workout_summary_screen.dart';
 
 import '../../../../support/presentation_test_support.dart';
@@ -275,6 +277,86 @@ void main() {
     },
   );
 
+  testWidgets('repeat action returns true to the live analysis flow', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'summary-repeat',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'squat',
+      totalReps: 8,
+      averageScore: 88,
+      bestScore: 94,
+      durationSec: 50,
+    );
+    bool? retryResult;
+
+    await pumpTestApp(
+      tester,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                retryResult = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute<bool>(
+                    builder: (_) => const WorkoutSummaryScreen(),
+                  ),
+                );
+              },
+              child: const Text('Open summary'),
+            ),
+          ),
+        ),
+      ),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+
+    await tester.tap(find.text('Open summary'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aynı Hareketi Tekrarla'));
+    await tester.pumpAndSettle();
+
+    expect(retryResult, isTrue);
+    expect(find.text('Open summary'), findsOneWidget);
+  });
+
+  testWidgets('details action opens the saved session report', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'summary-details',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'squat',
+      totalReps: 8,
+      averageScore: 88,
+      bestScore: 94,
+      durationSec: 50,
+    );
+    final repository = TestSessionRepository(
+      sessions: <WorkoutSession>[session],
+      sessionById: <String, WorkoutSession?>{session.id: session},
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [
+        completedSessionProvider.overrideWith((ref) => session),
+        sessionRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pump();
+
+    final detailsButton = find.widgetWithText(TextButton, 'Detayı Gör');
+    await tester.ensureVisible(detailsButton);
+    await tester.tap(detailsButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionDetailScreen), findsOneWidget);
+  });
+
   testWidgets('keeps the explicit home navigation behavior', (
     WidgetTester tester,
   ) async {
@@ -311,7 +393,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Ana Sayfa'));
+    await tester.tap(find.text('Ana Sayfaya Dön'));
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);

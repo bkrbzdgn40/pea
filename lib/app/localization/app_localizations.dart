@@ -44,6 +44,8 @@ class AppLocalizations {
   String get dataLoadFailed =>
       pick(tr: 'Veriler yüklenemedi.', en: 'Data could not be loaded.');
   String get retry => pick(tr: 'Tekrar Dene', en: 'Retry');
+  String get repeatSameExercise =>
+      pick(tr: 'Aynı Hareketi Tekrarla', en: 'Repeat Same Exercise');
   String get loading => pick(tr: 'Yükleniyor...', en: 'Loading...');
   String get home => pick(tr: 'Ana Sayfa', en: 'Home');
   String get howToUse => pick(tr: 'Nasıl Kullanılır', en: 'How to Use');
@@ -1232,14 +1234,6 @@ class AppLocalizations {
   );
 
   // Runtime errors / retry / persistence
-  String get noCompletedSessionToDelete => pick(
-    tr: 'Silinecek tamamlanmış oturum bulunamadı.',
-    en: 'No completed session was found to delete.',
-  );
-  String get previousSessionDeleteFailed => pick(
-    tr: 'Önceki oturum silinemedi. Tekrar deneme başlatılmadı.',
-    en: 'The previous session could not be deleted. A retry was not started.',
-  );
   String get analysisSessionPreparationFailed => pick(
     tr: 'Analiz oturumu hazırlanamadı. Lütfen tekrar dene.',
     en: 'The analysis session could not be prepared. Please try again.',

@@ -12,11 +12,10 @@ import '../formatters/workout_presentation_formatter.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/completed_session_provider.dart';
 import 'home_screen.dart';
+import 'session_detail_screen.dart';
 
 class WorkoutSummaryScreen extends ConsumerStatefulWidget {
-  const WorkoutSummaryScreen({super.key, this.onRetryRequested});
-
-  final Future<bool> Function()? onRetryRequested;
+  const WorkoutSummaryScreen({super.key});
 
   @override
   ConsumerState<WorkoutSummaryScreen> createState() =>
@@ -24,26 +23,8 @@ class WorkoutSummaryScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
-  bool _isRetrying = false;
-
-  Future<void> _retry() async {
-    if (_isRetrying) {
-      return;
-    }
-
-    setState(() => _isRetrying = true);
-    final onRetryRequested = widget.onRetryRequested;
-    final canRetry = onRetryRequested == null ? true : await onRetryRequested();
-    if (!mounted) {
-      return;
-    }
-
-    if (canRetry) {
-      Navigator.pop(context, true);
-      return;
-    }
-
-    setState(() => _isRetrying = false);
+  void _retry() {
+    Navigator.pop(context, true);
   }
 
   @override
@@ -118,17 +99,15 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _isRetrying ? null : _retry,
-            icon: _isRetrying
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.replay_rounded),
-            label: Text(
-              _isRetrying ? localizations.preparing : localizations.retry,
-            ),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.home_outlined),
+            label: Text(localizations.returnHome),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.greenAccent,
               foregroundColor: Colors.black,
@@ -141,15 +120,9 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
-            },
-            icon: const Icon(Icons.home_outlined),
-            label: Text(localizations.home),
+            onPressed: _retry,
+            icon: const Icon(Icons.replay_rounded),
+            label: Text(localizations.repeatSameExercise),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
@@ -159,6 +132,21 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
               ),
             ),
           ),
+          if (session != null) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => SessionDetailScreen(session: session),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.insights_outlined),
+              label: Text(localizations.viewDetails),
+            ),
+          ],
         ],
       ),
     );

@@ -52,22 +52,6 @@ enum FinishWorkoutSessionFailure {
   alreadySaved,
 }
 
-enum DiscardWorkoutSessionFailure { noSavedSession, persistenceFailure }
-
-class DiscardWorkoutSessionResult {
-  const DiscardWorkoutSessionResult._({required this.failure});
-
-  const DiscardWorkoutSessionResult.success() : this._(failure: null);
-
-  const DiscardWorkoutSessionResult.failure(
-    DiscardWorkoutSessionFailure failure,
-  ) : this._(failure: failure);
-
-  final DiscardWorkoutSessionFailure? failure;
-
-  bool get isSuccess => failure == null;
-}
-
 class FinishWorkoutSessionResult {
   const FinishWorkoutSessionResult._({
     required this.failure,
@@ -104,8 +88,6 @@ abstract class WorkoutSessionLifecycleOwner {
   Future<FinishWorkoutSessionResult> finishSession({
     required WorkoutState finalState,
   });
-
-  Future<DiscardWorkoutSessionResult> discardSavedSession();
 
   void completeFinishFlow();
 }
@@ -153,7 +135,6 @@ class WorkoutSessionLifecycleController
   bool _isFinishing = false;
   bool _hasSavedSession = false;
   bool _finishArmed = false;
-  WorkoutSession? _savedSession;
 
   @override
   bool get isFinishing => _isFinishing;
@@ -210,7 +191,6 @@ class WorkoutSessionLifecycleController
     _isFinishing = false;
     _hasSavedSession = false;
     _finishArmed = false;
-    _savedSession = null;
     _publishCompletedSession(null);
   }
 
@@ -340,39 +320,11 @@ class WorkoutSessionLifecycleController
       _invalidateUserSessionsSnapshot();
       _publishCompletedSession(session);
       _hasSavedSession = true;
-      _savedSession = session;
       return FinishWorkoutSessionResult.success(session);
     } catch (_) {
       _isFinishing = false;
       return const FinishWorkoutSessionResult.failure(
         FinishWorkoutSessionFailure.persistenceFailure,
-      );
-    }
-  }
-
-  @override
-  Future<DiscardWorkoutSessionResult> discardSavedSession() async {
-    final session = _savedSession;
-    if (!_hasSavedSession || session == null) {
-      return const DiscardWorkoutSessionResult.failure(
-        DiscardWorkoutSessionFailure.noSavedSession,
-      );
-    }
-
-    try {
-      await _sessionRepository.deleteSession(
-        ownerId: session.ownerId,
-        sessionId: session.id,
-      );
-      _invalidateUserSessionsSnapshot();
-      _hasSavedSession = false;
-      _isFinishing = false;
-      _finishArmed = false;
-      _savedSession = null;
-      return const DiscardWorkoutSessionResult.success();
-    } catch (_) {
-      return const DiscardWorkoutSessionResult.failure(
-        DiscardWorkoutSessionFailure.persistenceFailure,
       );
     }
   }
