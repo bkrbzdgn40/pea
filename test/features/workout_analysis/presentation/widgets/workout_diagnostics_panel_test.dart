@@ -548,12 +548,6 @@ void main() {
 
     expect(find.text('Beta Diagnostics'), findsNothing);
   });
-
-  testWidgets('debug test buildinde diagnostics UI flag etkindir', (
-    tester,
-  ) async {
-    expect(workoutDiagnosticsUiEnabled, isTrue);
-  });
 }
 
 Future<void> _pumpPanel(

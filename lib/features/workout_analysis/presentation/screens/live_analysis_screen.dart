@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/localization/app_localizations.dart';
 
 import '../../application/engine_kind.dart';
+import '../../application/workout_developer_ui_config.dart';
 import '../../application/workout_engine.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import '../../application/workout_state.dart';
@@ -611,7 +612,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   }
 
   void _showDiagnosticsPanel() {
-    if (!workoutDiagnosticsUiEnabled) {
+    if (!workoutDeveloperUiEnabled) {
       return;
     }
     final controller = ref.read(workoutControllerProvider.notifier);
@@ -742,7 +743,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   _WorkoutPoseOverlay(
                     imageSize: imageSize,
                     isMirrored: isMirrored,
-                    showDebugLandmarks: _showCalibrationPanel,
+                    showDebugLandmarks:
+                        workoutDeveloperUiEnabled && _showCalibrationPanel,
                   )
                 else
                   _PausedPoseOverlay(
@@ -768,7 +770,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     compact: isLandscape,
                     onPause: () => _pauseAnalysis(readinessRequest),
                   ),
-                if (workoutDiagnosticsUiEnabled && pauseState.isActive)
+                if (workoutDeveloperUiEnabled && pauseState.isActive)
                   Positioned(
                     top: topInset + (isLandscape ? 8 : 12),
                     left: isLandscape ? 10 : 14,
@@ -776,6 +778,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       color: Colors.black54,
                       shape: const CircleBorder(),
                       child: IconButton(
+                        key: const ValueKey<String>('live-diagnostics-button'),
                         tooltip: 'Beta Diagnostics',
                         onPressed: sessionLifecycle.isFinishing
                             ? null
@@ -796,29 +799,39 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 if (pauseState.isActive && isLandscape)
                   _LandscapeWorkoutMetricsOverlay(
                     topInset: topInset,
-                    onToggleCalibration: () {
-                      setState(
-                        () => _showCalibrationPanel = !_showCalibrationPanel,
-                      );
-                    },
+                    onToggleCalibration: workoutDeveloperUiEnabled
+                        ? () {
+                            setState(
+                              () => _showCalibrationPanel =
+                                  !_showCalibrationPanel,
+                            );
+                          }
+                        : null,
                   ),
                 if (pauseState.isActive && !isLandscape)
                   _PrimaryWorkoutMetricsOverlay(
                     topInset: topInset,
-                    onToggleCalibration: () {
-                      setState(
-                        () => _showCalibrationPanel = !_showCalibrationPanel,
-                      );
-                    },
+                    onToggleCalibration: workoutDeveloperUiEnabled
+                        ? () {
+                            setState(
+                              () => _showCalibrationPanel =
+                                  !_showCalibrationPanel,
+                            );
+                          }
+                        : null,
                   ),
-                if (pauseState.isActive && !isLandscape)
+                if (workoutDeveloperUiEnabled &&
+                    pauseState.isActive &&
+                    !isLandscape)
                   _CanonicalMetricsOverlay(topInset: topInset),
                 if (pauseState.isActive)
                   _PlannedWorkoutProgressOverlay(
                     topInset: topInset,
                     compact: isLandscape,
                   ),
-                if (_showCalibrationPanel && pauseState.isActive)
+                if (workoutDeveloperUiEnabled &&
+                    _showCalibrationPanel &&
+                    pauseState.isActive)
                   _CalibrationPanelOverlay(
                     topInset: topInset,
                     compact: isLandscape,
@@ -1182,7 +1195,7 @@ class _PauseSessionButton extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     return Positioned(
       top: topInset + (compact ? 8 : 12),
-      left: workoutDiagnosticsUiEnabled
+      left: workoutDeveloperUiEnabled
           ? (compact ? 58 : 68)
           : (compact ? 10 : 14),
       child: TextButton.icon(
@@ -1454,16 +1467,17 @@ class _LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
   });
 
   final double topInset;
-  final VoidCallback onToggleCalibration;
+  final VoidCallback? onToggleCalibration;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final liveMetrics = ref.watch(workoutLiveMetricsProvider);
     final hasCanonicalMetrics =
-        liveMetrics.angleDegrees != null ||
-        liveMetrics.tempo != null ||
-        liveMetrics.stabilityScore != null ||
-        liveMetrics.asymmetryScore != null;
+        workoutDeveloperUiEnabled &&
+        (liveMetrics.angleDegrees != null ||
+            liveMetrics.tempo != null ||
+            liveMetrics.stabilityScore != null ||
+            liveMetrics.asymmetryScore != null);
 
     return Positioned(
       top: topInset + 56,
@@ -1512,7 +1526,7 @@ class _PrimaryWorkoutMetricsOverlay extends StatelessWidget {
   });
 
   final double topInset;
-  final VoidCallback onToggleCalibration;
+  final VoidCallback? onToggleCalibration;
 
   @override
   Widget build(BuildContext context) {
