@@ -779,8 +779,8 @@ class AppLocalizations {
     en: 'Perform the movement with control.',
   );
   String get analysisConfigLoadFailed => pick(
-    tr: 'Analiz yapılandırması yüklenemedi.',
-    en: 'Analysis configuration could not be loaded.',
+    tr: 'Analiz modeli hazırlanamadı. Tekrar dene; sorun sürerse hareketi yeniden seç.',
+    en: 'The analysis model could not be prepared. Try again; if the problem continues, choose the exercise again.',
   );
   String get analysisConfigLoading => pick(
     tr: 'Analiz yapılandırması hazırlanıyor...',
@@ -834,9 +834,13 @@ class AppLocalizations {
     tr: 'Önce bir değerlendirme seçmelisin.',
     en: 'Choose an assessment first.',
   );
-  String cameraOpenFailed(Object error) => pick(
-    tr: 'Kamera açılamadı: $error',
-    en: 'Camera could not be opened: $error',
+  String get cameraInUseMessage => pick(
+    tr: 'Kamera başka bir uygulama tarafından kullanılıyor olabilir. Diğer kamera uygulamalarını kapatıp tekrar dene.',
+    en: 'The camera may be in use by another app. Close other camera apps and try again.',
+  );
+  String get cameraStartFailedMessage => pick(
+    tr: 'Kamera başlatılamadı. Tekrar dene; sorun sürerse uygulamayı veya telefonu yeniden başlat.',
+    en: 'The camera could not be started. Try again; if the problem continues, restart the app or device.',
   );
   String get viewResult => pick(tr: 'Sonucu Gör', en: 'View Result');
   String validSamples(int count) =>
@@ -1247,9 +1251,6 @@ class AppLocalizations {
   );
   String get checkPermission =>
       pick(tr: 'İzni Kontrol Et', en: 'Check Permission');
-  String errorWithDetail(Object error) =>
-      pick(tr: 'Hata: $error', en: 'Error: $error');
-
   // Runtime coaching / voice
   String get ttsLanguageTag => isTurkish ? 'tr-TR' : 'en-US';
 
@@ -1322,16 +1323,16 @@ class AppLocalizations {
 
   // Runtime errors / retry / persistence
   String get analysisSessionPreparationFailed => pick(
-    tr: 'Analiz oturumu hazırlanamadı. Lütfen tekrar dene.',
-    en: 'The analysis session could not be prepared. Please try again.',
+    tr: 'Analiz oturumu hazırlanamadı. Bağlantını kontrol edip tekrar dene.',
+    en: 'The analysis session could not be prepared. Check your connection and try again.',
   );
   String get selectValidExerciseBeforeAnalysis => pick(
     tr: 'Analiz için önce geçerli bir hareket seçmelisin.',
     en: 'Choose a valid exercise before starting the analysis.',
   );
   String get sessionSaveFailed => pick(
-    tr: 'Oturum kaydedilemedi. Lütfen tekrar dene.',
-    en: 'The session could not be saved. Please try again.',
+    tr: 'Oturum kaydedilemedi. Bağlantını kontrol edip tekrar dene.',
+    en: 'The session could not be saved. Check your connection and try again.',
   );
   String get plannedStepMissingUser => pick(
     tr: 'Antrenman adımı kaydedilemedi: kullanıcı bulunamadı.',
@@ -1342,8 +1343,8 @@ class AppLocalizations {
     en: 'The active workout exercise could not be found.',
   );
   String get plannedStepSaveFailed => pick(
-    tr: 'Antrenman adımı kaydedilemedi.',
-    en: 'The workout step could not be saved.',
+    tr: 'Antrenman adımı kaydedilemedi. Bağlantını kontrol edip tekrar dene.',
+    en: 'The workout step could not be saved. Check your connection and try again.',
   );
   String get cameraPermissionAnalysisRequired => pick(
     tr: 'Kamera izni olmadan analiz başlatılamaz.',

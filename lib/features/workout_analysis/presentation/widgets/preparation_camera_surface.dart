@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../errors/workout_camera_error_presentation.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/preparation_pose_guide.dart';
 import '../models/preparation_camera_geometry.dart';
@@ -107,16 +108,16 @@ class PreparationCameraSurface extends StatelessWidget {
             },
             loading: () => const _PreparationCameraLoading(),
             error: (error, _) {
-              final isPermissionError =
-                  error is CameraException && error.code == 'cameraPermission';
+              final failure = presentWorkoutCameraError(
+                error: error,
+                localizations: localizations,
+              );
               return _PreparationCameraError(
-                message: isPermissionError
-                    ? localizations.cameraPermissionFallbackBody
-                    : localizations.cameraOpenFailed(error),
-                actionLabel: isPermissionError
-                    ? localizations.checkPermission
-                    : localizations.retry,
-                onPressed: isPermissionError ? onCheckPermission : onRetry,
+                message: failure.message,
+                actionLabel: failure.actionLabel,
+                onPressed: failure.requiresPermissionAction
+                    ? onCheckPermission
+                    : onRetry,
               );
             },
           ),

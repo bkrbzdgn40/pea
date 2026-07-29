@@ -452,7 +452,13 @@ void main() {
     );
 
     expect(cameraError, findsOneWidget);
-    expect(find.textContaining('Camera could not be opened'), findsOneWidget);
+    expect(
+      find.text(
+        'The camera may be in use by another app. Close other camera apps and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('camera busy'), findsNothing);
     expect(find.text('Retry'), findsOneWidget);
     expect(find.text('Camera is not ready yet'), findsOneWidget);
     expect(

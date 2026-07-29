@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 
 import '../../domain/models/assessment_models.dart';
 import '../camera_image_stream_coordinator.dart';
+import '../errors/workout_camera_error_presentation.dart';
 import '../providers/assessment_live_controller.dart';
 import '../providers/camera_provider.dart';
 import '../providers/selected_assessment_provider.dart';
@@ -141,18 +143,25 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              localizations.cameraOpenFailed(error),
-              style: const TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
+        error: (error, _) {
+          final failure = presentWorkoutCameraError(
+            error: error,
+            localizations: localizations,
+          );
+          return _AssessmentCameraFailureView(
+            message: failure.message,
+            actionLabel: failure.actionLabel,
+            onPressed: failure.requiresPermissionAction
+                ? () => unawaited(_openCameraSettings())
+                : () => unawaited(_recoverCameraIfAllowed()),
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _openCameraSettings() async {
+    await openAppSettings();
   }
 
   void _ensureImageStream(CameraController controller) {
@@ -221,6 +230,50 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
         setState(() => _isRecoveringCamera = false);
       }
     }
+  }
+}
+
+class _AssessmentCameraFailureView extends StatelessWidget {
+  const _AssessmentCameraFailureView({
+    required this.message,
+    required this.actionLabel,
+    required this.onPressed,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: const ValueKey<String>('assessment-camera-error'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.photo_camera_outlined,
+              color: Colors.greenAccent,
+              size: 42,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: onPressed, child: Text(actionLabel)),
+          ],
+        ),
+      ),
+    );
   }
 }
 

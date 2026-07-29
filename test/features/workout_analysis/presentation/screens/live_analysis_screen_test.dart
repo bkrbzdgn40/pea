@@ -67,6 +67,56 @@ void main() {
     wakelockPlusPlatformInstance = originalWakelockPlatform;
   });
 
+  testWidgets('shows actionable camera errors without raw exception text', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: <Override>[
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+        activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
+        exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
+        poseDetectorProvider.overrideWith((ref) => _FakePoseDetector()),
+        authRepositoryProvider.overrideWithValue(
+          const _FakeAuthRepository(currentUserId: 'test-user'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+        cameraProvider.overrideWith(
+          (ref) async => throw StateError('private live camera detail'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('en'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const LiveAnalysisScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('live-camera-error')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('The camera could not be started'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('private live camera detail'), findsNothing);
+    expect(find.text('Retry'), findsOneWidget);
+  });
+
   testWidgets(
     'starting another live session clears stale metrics after route build',
     (tester) async {

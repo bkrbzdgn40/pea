@@ -16,29 +16,46 @@ final cameraProvider = FutureProvider.autoDispose<CameraController>((
     );
   }
 
-  final settings = await ref.watch(settingsControllerProvider.future);
-  final cameras = await availableCameras();
+  CameraController? controller;
+  try {
+    final settings = await ref.watch(settingsControllerProvider.future);
+    final cameras = await availableCameras();
 
-  final selectedCamera = cameras.firstWhere(
-    (camera) =>
-        camera.lensDirection == _cameraLensDirection(settings.cameraPreference),
-    orElse: () => cameras.first,
-  );
+    if (cameras.isEmpty) {
+      throw CameraException(
+        'cameraUnavailable',
+        'No camera is available on this device.',
+      );
+    }
 
-  final controller = CameraController(
-    selectedCamera,
-    _resolutionPreset(settings.cameraQuality),
-    enableAudio: false,
-    imageFormatGroup: _cameraImageFormatGroup,
-  );
+    final selectedCamera = cameras.firstWhere(
+      (camera) =>
+          camera.lensDirection ==
+          _cameraLensDirection(settings.cameraPreference),
+      orElse: () => cameras.first,
+    );
 
-  await controller.initialize();
+    final initializedController = CameraController(
+      selectedCamera,
+      _resolutionPreset(settings.cameraQuality),
+      enableAudio: false,
+      imageFormatGroup: _cameraImageFormatGroup,
+    );
+    controller = initializedController;
 
-  ref.onDispose(() {
-    controller.dispose();
-  });
+    await initializedController.initialize();
 
-  return controller;
+    ref.onDispose(() {
+      initializedController.dispose();
+    });
+
+    return initializedController;
+  } catch (error, stackTrace) {
+    await controller?.dispose();
+    debugPrint('Workout camera initialization failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 });
 
 CameraLensDirection _cameraLensDirection(WorkoutCameraPreference preference) {
