@@ -1011,6 +1011,8 @@ abstract final class RangeRepContracts {
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
     primaryMetricDirection: RangeRepPrimaryMetricDirection.increasingToPeak,
+    neutralBaselineWindow: const Duration(milliseconds: 1500),
+    neutralBaselineThresholdMargin: 0.0,
   );
 
   static final RangeRepContract gluteBridge = RangeRepContract(
