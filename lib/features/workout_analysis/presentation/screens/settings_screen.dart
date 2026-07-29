@@ -5,14 +5,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../auth/presentation/providers/auth_bootstrap_provider.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/feedback_delivery_controller.dart';
 import '../providers/settings_provider.dart';
+import '../providers/user_data_management_provider.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isDeletingHistory = false;
+  bool _isDeletingAccount = false;
+
+  bool get _isDeletingData => _isDeletingHistory || _isDeletingAccount;
+
+  @override
+  Widget build(BuildContext context) {
     final settingsState = ref.watch(settingsControllerProvider);
     final localizations = AppLocalizations.of(context);
 
@@ -120,6 +133,38 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              _SettingsSection(
+                title: localizations.privacyAndData,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                    child: Text(
+                      localizations.savedWorkoutDataExplanation,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Colors.white12),
+                  _DestructiveSettingsTile(
+                    key: const ValueKey<String>('settings-delete-all-history'),
+                    title: localizations.deleteAllHistory,
+                    subtitle: localizations.deleteAllHistoryDescription,
+                    isBusy: _isDeletingHistory,
+                    onTap: _isDeletingData ? null : _deleteAllHistory,
+                  ),
+                  const Divider(height: 1, color: Colors.white12),
+                  _DestructiveSettingsTile(
+                    key: const ValueKey<String>('settings-delete-account'),
+                    title: localizations.deleteAccountAndData,
+                    subtitle: localizations.deleteAccountAndDataDescription,
+                    isBusy: _isDeletingAccount,
+                    onTap: _isDeletingData ? null : _deleteAccountAndData,
+                  ),
+                ],
+              ),
             ],
           );
         },
@@ -161,6 +206,126 @@ class SettingsScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  Future<void> _deleteAllHistory() async {
+    final localizations = AppLocalizations.of(context);
+    final confirmed = await _confirmDestructiveAction(
+      title: localizations.deleteAllHistoryTitle,
+      message: localizations.deleteAllHistoryMessage,
+      confirmKey: const ValueKey<String>('confirm-delete-all-history'),
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isDeletingHistory = true);
+    try {
+      await ref.read(userDataManagementControllerProvider).deleteAllHistory();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(localizations.allHistoryDeleted)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.allHistoryDeleteFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeletingHistory = false);
+    }
+  }
+
+  Future<void> _deleteAccountAndData() async {
+    final localizations = AppLocalizations.of(context);
+    final confirmed = await _confirmDestructiveAction(
+      title: localizations.deleteAccountTitle,
+      message: localizations.deleteAccountMessage,
+      confirmKey: const ValueKey<String>('confirm-delete-account'),
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isDeletingAccount = true);
+    try {
+      await ref
+          .read(userDataManagementControllerProvider)
+          .deleteAccountAndData();
+      ref.invalidate(authStateChangesProvider);
+      ref.invalidate(authBootstrapProvider);
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.accountDeleteFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
+    }
+  }
+
+  Future<bool> _confirmDestructiveAction({
+    required String title,
+    required String message,
+    required Key confirmKey,
+  }) async {
+    final localizations = AppLocalizations.of(context);
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: Text(title),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(localizations.cancel),
+                ),
+                TextButton(
+                  key: confirmKey,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                  ),
+                  child: Text(localizations.delete),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+  }
+}
+
+class _DestructiveSettingsTile extends StatelessWidget {
+  const _DestructiveSettingsTile({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.isBusy,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool isBusy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title, style: const TextStyle(color: Colors.redAccent)),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
+      ),
+      trailing: isBusy
+          ? const SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.delete_outline, color: Colors.redAccent),
+      enabled: onTap != null,
+      onTap: onTap,
     );
   }
 }

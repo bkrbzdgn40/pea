@@ -173,6 +173,34 @@ class FirestoreSessionRemoteSource {
     }
   }
 
+  Future<void> deleteAllSessions({required String ownerId}) async {
+    try {
+      const sessionPageSize = 50;
+      final sessionsCollection = _sessionsCollection(ownerId);
+
+      while (true) {
+        final sessionDocuments = await sessionsCollection
+            .limit(sessionPageSize)
+            .get();
+        if (sessionDocuments.docs.isEmpty) {
+          break;
+        }
+
+        for (final document in sessionDocuments.docs) {
+          await deleteSession(ownerId: ownerId, sessionId: document.id);
+        }
+      }
+    } on FirestoreFailure {
+      rethrow;
+    } on FirebaseException catch (error, stackTrace) {
+      throw FirestoreFailure(
+        message: 'Workout history could not be deleted.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   CollectionReference<Map<String, dynamic>> _sessionsCollection(
     String ownerId,
   ) {

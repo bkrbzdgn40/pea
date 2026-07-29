@@ -2278,6 +2278,9 @@ class _FakeSessionRepository implements SessionRepository {
       (session) => session.ownerId == ownerId && session.id == sessionId,
     );
   }
+
+  @override
+  Future<void> deleteAllSessions({required String ownerId}) async {}
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -2304,6 +2307,9 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> deleteCurrentUser() async {}
 }
 
 class _TestNavigatorObserver extends NavigatorObserver {
