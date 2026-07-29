@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,8 +12,6 @@ import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../infrastructure/services/diagnostics_json_file_exporter.dart';
-
-bool get workoutDiagnosticsUiEnabled => kDebugMode || kProfileMode;
 
 typedef DiagnosticsJsonFileExporter =
     Future<void> Function({
@@ -53,9 +50,6 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
   @override
   void initState() {
     super.initState();
-    if (!workoutDiagnosticsUiEnabled) {
-      return;
-    }
     _snapshot = _tryReadSnapshot();
     _pollingTimer = Timer.periodic(widget.refreshInterval, (_) {
       _refreshSnapshot();
@@ -70,10 +64,6 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    if (!workoutDiagnosticsUiEnabled) {
-      return const SizedBox.shrink();
-    }
-
     final snapshot = _snapshot;
     final hasHoldTypedState =
         snapshot?.presentedHoldFeedbackCode != null ||

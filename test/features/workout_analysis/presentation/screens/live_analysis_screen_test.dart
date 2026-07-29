@@ -14,6 +14,7 @@ import 'package:pose_estimation_app/features/auth/domain/models/auth_user.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_developer_ui_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
@@ -1608,7 +1609,7 @@ void main() {
     },
   );
 
-  testWidgets('range-rep debug panel uses generic primary and form labels', (
+  testWidgets('developer workout UI follows the compile-time flag', (
     tester,
   ) async {
     final harness = await _pumpLiveAnalysisScreen(
@@ -1619,9 +1620,36 @@ void main() {
     );
     addTearDown(harness.dispose);
 
-    await tester.longPress(
-      find.byKey(const ValueKey<String>('live-performance-header')),
+    harness.container
+        .read(workoutLiveMetricsProvider.notifier)
+        .publish(angleDegrees: 90);
+    await tester.pump();
+
+    final performanceHeader = find.byKey(
+      const ValueKey<String>('live-performance-header'),
     );
+    final headerGesture = tester.widget<GestureDetector>(performanceHeader);
+
+    expect(
+      find.byKey(const ValueKey<String>('live-diagnostics-button')),
+      workoutDeveloperUiEnabled ? findsOneWidget : findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-canonical-metrics-bar')),
+      workoutDeveloperUiEnabled ? findsOneWidget : findsNothing,
+    );
+    expect(
+      headerGesture.onLongPress,
+      workoutDeveloperUiEnabled ? isNotNull : isNull,
+    );
+
+    if (!workoutDeveloperUiEnabled) {
+      expect(find.text('primary/current'), findsNothing);
+      expect(find.text('form/current'), findsNothing);
+      return;
+    }
+
+    await tester.longPress(performanceHeader);
     await tester.pump();
 
     expect(find.text('primary/current'), findsOneWidget);

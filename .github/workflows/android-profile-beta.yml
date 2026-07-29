@@ -49,6 +49,14 @@ jobs:
           --dart-define=REQUIRE_PEA_COMMIT_SHA=true
           --reporter expanded
 
+      - name: Verify developer UI compile-time flag contract
+        run: >-
+          flutter test
+          test/features/workout_analysis/application/workout_developer_ui_config_test.dart
+          --dart-define=ENABLE_WORKOUT_DEVELOPER_UI=true
+          --dart-define=EXPECT_WORKOUT_DEVELOPER_UI=true
+          --reporter expanded
+
       - name: Build Android profile APK
         shell: bash
         run: |
@@ -56,7 +64,8 @@ jobs:
           flutter build apk \
             --profile \
             --no-pub \
-            --dart-define=PEA_COMMIT_SHA="${GITHUB_SHA}"
+            --dart-define=PEA_COMMIT_SHA="${GITHUB_SHA}" \
+            --dart-define=ENABLE_WORKOUT_DEVELOPER_UI=true
 
       - name: Prepare artifact files
         shell: bash
@@ -117,6 +126,7 @@ jobs:
             echo "java_version=17"
             echo "build_mode=profile"
             echo "dart_define_PEA_COMMIT_SHA=${GITHUB_SHA}"
+            echo "dart_define_ENABLE_WORKOUT_DEVELOPER_UI=true"
             echo "apk_filename=${APK_NAME}"
             echo "app_version=${APP_VERSION}"
             echo "signing_class=engineering_profile"
