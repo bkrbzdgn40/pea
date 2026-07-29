@@ -6,14 +6,30 @@ class RangeRepValidationConfig {
     this.minAcceptableRomAngle = 110.0,
     this.minDescentMillis = 250,
     this.minAscentMillis = 200,
+    this.minTotalRepMillis,
     this.allowLowConfidenceOnCoverageLoss = true,
+    this.invalidateOnPersistentFormBreak = false,
     this.minAcceptableRomDelta,
   });
 
   final double minAcceptableRomAngle;
   final int minDescentMillis;
   final int minAscentMillis;
+
+  /// Optional floor for the complete start-to-neutral repetition duration.
+  ///
+  /// Small-ROM exercises can cross their active and peak thresholds within a
+  /// single camera interval, making individual phase durations unsuitable for
+  /// speed validation. Those exercises should set their phase minima to zero
+  /// and validate the complete repetition with this value instead.
+  final int? minTotalRepMillis;
+
   final bool allowLowConfidenceOnCoverageLoss;
+
+  /// Promotes a completed rep with a persistent form break from cautionary to
+  /// invalid. Keep this disabled unless the form metric also determines whether
+  /// the primary movement metric is biomechanically trustworthy.
+  final bool invalidateOnPersistentFormBreak;
 
   /// Optional delta-based ROM floor. When present, validation uses
   /// `startAngle - peakAngle` instead of an absolute minimum angle.
@@ -65,8 +81,21 @@ class RangeRepValidationPolicy {
       lowConfidenceReasons.add(RangeRepValidationReason.excessiveAscentSpeed);
     }
 
+    final minTotalRepMillis = config.minTotalRepMillis;
+    final totalRepDuration = summary.totalRepDuration;
+    if (minTotalRepMillis != null &&
+        totalRepDuration != null &&
+        totalRepDuration.inMilliseconds < minTotalRepMillis) {
+      lowConfidenceReasons.add(RangeRepValidationReason.excessiveRepSpeed);
+    }
+
     if (summary.hadFormViolation) {
-      lowConfidenceReasons.add(RangeRepValidationReason.persistentFormBreak);
+      const reason = RangeRepValidationReason.persistentFormBreak;
+      if (config.invalidateOnPersistentFormBreak) {
+        invalidReasons.add(reason);
+      } else {
+        lowConfidenceReasons.add(reason);
+      }
     }
 
     if (invalidReasons.isNotEmpty) {

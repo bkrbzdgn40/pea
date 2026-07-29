@@ -471,8 +471,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Lower your heels with control...',
       ),
       formViolation: localizations.pick(
-        tr: 'Diz hattını daha sabit tut.',
-        en: 'Keep your knee alignment more stable.',
+        tr: 'Gövdeni dik, dizlerini sabit tut.',
+        en: 'Keep your torso upright and your knees stable.',
       ),
       controlDescent: localizations.pick(
         tr: 'Yükselişi kontrollü yap.',
@@ -487,8 +487,8 @@ _RangeRepFeedbackCopy _rangeRepFeedbackCopyFor(
         en: 'Keep your balance at the top.',
       ),
       maintainForm: localizations.pick(
-        tr: 'Diz hattını sabit tut.',
-        en: 'Keep your knee alignment steady.',
+        tr: 'Gövde ve diz hattını sabit tut.',
+        en: 'Keep your torso and knee alignment steady.',
       ),
     );
   }

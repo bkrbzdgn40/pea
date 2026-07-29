@@ -72,6 +72,63 @@ void main() {
       );
     });
 
+    test('calf raise requires heel and torso movement identity evidence', () {
+      final config = loadExerciseConfig(
+        'assets/config/exercises/calf_raise.json',
+      );
+      final left = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.calfRaise,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.left,
+      );
+      final right = requirements.resolve(
+        config: config,
+        engineKind: EngineKind.rangeRep,
+        rangeRepContract: RangeRepContracts.calfRaise,
+        rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
+        side: RangeRepSide.right,
+      );
+
+      expect(
+        left.requiredLandmarks,
+        containsAll(<PoseLandmarkType>{
+          PoseLandmarkType.leftShoulder,
+          PoseLandmarkType.leftHip,
+          PoseLandmarkType.leftKnee,
+          PoseLandmarkType.leftAnkle,
+          PoseLandmarkType.leftHeel,
+          PoseLandmarkType.leftFootIndex,
+        }),
+      );
+      expect(
+        left.requiredSegments.map(_segmentKey),
+        containsAll(<String>[
+          'leftShoulder->leftHip',
+          'leftHeel->leftFootIndex',
+        ]),
+      );
+      expect(
+        right.requiredLandmarks,
+        containsAll(<PoseLandmarkType>{
+          PoseLandmarkType.rightShoulder,
+          PoseLandmarkType.rightHip,
+          PoseLandmarkType.rightKnee,
+          PoseLandmarkType.rightAnkle,
+          PoseLandmarkType.rightHeel,
+          PoseLandmarkType.rightFootIndex,
+        }),
+      );
+      expect(
+        right.requiredSegments.map(_segmentKey),
+        containsAll(<String>[
+          'rightShoulder->rightHip',
+          'rightHeel->rightFootIndex',
+        ]),
+      );
+    });
+
     test(
       'sit-up pose acceptance only requires the primary shoulder-hip segment',
       () {

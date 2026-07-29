@@ -16,6 +16,7 @@ class RangeRepRepSummary {
     this.primaryRom,
     this.confidence,
     this.coverageQuality,
+    this.totalRepDuration,
   });
 
   final int repIndex;
@@ -23,6 +24,7 @@ class RangeRepRepSummary {
   final double worstFormMetric;
   final Duration descentDuration;
   final Duration ascentDuration;
+  final Duration? totalRepDuration;
   final bool hadFormViolation;
   final bool hadCoverageDrop;
   final bool switchedSideDuringRep;

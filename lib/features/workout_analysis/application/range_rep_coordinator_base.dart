@@ -367,6 +367,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         metrics: effectiveMetrics,
         selectedMetrics: frameAssessment.selectedMetrics,
       );
+      final adaptedAnalysisFrame = _adaptAnalysisFrameForDetection(
+        frame: analysisFrame,
+        metrics: effectiveMetrics,
+        selectedSide: frameAssessment.selection.selectedSide,
+        currentPhase: _engine.phaseLabel,
+        hasActiveRepContext: preUpdateDiagnostics.hasRepContext,
+      );
       final formThresholdResolution = _thresholdBookkeeper.resolve(
         baseThreshold: _config.formThreshold,
         sessionCalibrationBaseline: _sessionCalibrationBaseline,
@@ -375,7 +382,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         ),
       );
       final engineFrame = _applyFormThresholdResolution(
-        analysisFrame,
+        adaptedAnalysisFrame,
         formThresholdResolution,
       );
       var recordBriefOcclusionRecovery = false;
@@ -465,6 +472,25 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       didBecomeStableTracking: didBecomeStableTracking,
       recordBriefOcclusionRecovery: false,
     );
+  }
+
+  /// Exercise-owned adaptation point for the scalar sent to the detection
+  /// engine after pose-quality filtering and selected-side resolution.
+  ///
+  /// The default implementation is identity-only. Production exercise
+  /// extensions may override this without duplicating the generic visibility,
+  /// lifecycle, validation, and scoring pipeline.
+  double adaptPrimaryMetricForDetection({
+    required ExerciseMetrics metrics,
+    required RangeRepSide? selectedSide,
+    required double primaryMetric,
+    required double neutralThreshold,
+    required double activeThreshold,
+    required String currentPhase,
+    required bool hasActiveRepContext,
+    required DateTime now,
+  }) {
+    return primaryMetric;
   }
 
   @override
@@ -591,13 +617,20 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       metrics: metrics,
       selectedMetrics: frameAssessment.selectedMetrics,
     );
+    final adaptedAnalysisFrame = _adaptAnalysisFrameForDetection(
+      frame: analysisFrame,
+      metrics: metrics,
+      selectedSide: frameAssessment.selection.selectedSide,
+      currentPhase: _engine.phaseLabel,
+      hasActiveRepContext: preUpdateDiagnostics.hasRepContext,
+    );
     final formThresholdResolution = _thresholdBookkeeper.resolve(
       baseThreshold: _config.formThreshold,
       sessionCalibrationBaseline: _sessionCalibrationBaseline,
       selectedRangeRepSide: selectedSideLabel,
     );
     final engineFrame = _applyFormThresholdResolution(
-      analysisFrame,
+      adaptedAnalysisFrame,
       formThresholdResolution,
     );
     final usesLegacyFormMetricTechnique = _rangeRepContract.signalHasRole(
@@ -630,6 +663,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final completedRepCoreData = _buildCompletedRepCoreData(
       detectionData: engineResult.completedRepDetectionData,
       techniqueData: completedTechniqueData,
+      totalRepDuration: engineResult.completedTempo?.totalRepDuration,
     );
     if (completedRepCoreData != null) {
       _lastCompletedRepCoreData = completedRepCoreData;
@@ -953,6 +987,33 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
   }
 
+  AnalysisFrame _adaptAnalysisFrameForDetection({
+    required AnalysisFrame frame,
+    required ExerciseMetrics metrics,
+    required RangeRepSide? selectedSide,
+    required String currentPhase,
+    required bool hasActiveRepContext,
+  }) {
+    final adaptedPrimaryMetric = adaptPrimaryMetricForDetection(
+      metrics: metrics,
+      selectedSide: selectedSide,
+      primaryMetric: frame.primaryMetric,
+      neutralThreshold: _config.thresholdNeutral,
+      activeThreshold: _config.thresholdActive,
+      currentPhase: currentPhase,
+      hasActiveRepContext: hasActiveRepContext,
+      now: _diagnosticsNow,
+    );
+    if (adaptedPrimaryMetric == frame.primaryMetric) {
+      return frame;
+    }
+    return AnalysisFrame(
+      primaryMetric: adaptedPrimaryMetric,
+      formMetric: frame.formMetric,
+      holdSignalValues: frame.holdSignalValues,
+    );
+  }
+
   AnalysisFrame _applyFormThresholdResolution(
     AnalysisFrame frame,
     RangeRepThresholdResolution resolution,
@@ -1084,6 +1145,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({
     required RangeRepCompletedRepDetectionData? detectionData,
     required LegacyRangeRepCompletedTechniqueData? techniqueData,
+    required Duration? totalRepDuration,
   }) {
     if (detectionData == null) {
       return null;
@@ -1104,6 +1166,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       ascentDuration: detectionData.ascentDuration,
       hadFormViolation: techniqueData.hadFormViolation,
       completedPhaseSequence: detectionData.completedPhaseSequence,
+      totalRepDuration: totalRepDuration,
     );
   }
 
@@ -1166,18 +1229,38 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         };
     final descentSeconds =
         completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
-    final descentScore = _scorer.calculateTempoScore(
+    final phaseDescentScore = _scorer.calculateTempoScore(
       actualSeconds: descentSeconds,
       idealSeconds: _config.idealDescentSeconds,
       tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
     );
     final ascentSeconds =
         completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
-    final ascentScore = _scorer.calculateTempoScore(
+    final phaseAscentScore = _scorer.calculateTempoScore(
       actualSeconds: ascentSeconds,
       idealSeconds: _config.idealAscentSeconds,
       tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
     );
+    final totalRepDuration = completedRepCoreData.totalRepDuration;
+    final totalRepSeconds = totalRepDuration == null
+        ? null
+        : totalRepDuration.inMilliseconds / 1000.0;
+    final minTotalRepMillis = _rangeRepValidationConfig.minTotalRepMillis;
+    final minTotalRepSeconds = minTotalRepMillis == null
+        ? null
+        : minTotalRepMillis / 1000.0;
+    final totalRepTempoScore =
+        totalRepSeconds == null || minTotalRepSeconds == null
+        ? null
+        : totalRepSeconds >= minTotalRepSeconds
+        ? 100.0
+        : _scorer.calculateTempoScore(
+            actualSeconds: totalRepSeconds,
+            idealSeconds: minTotalRepSeconds,
+            tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
+          );
+    final descentScore = totalRepTempoScore ?? phaseDescentScore;
+    final ascentScore = totalRepTempoScore ?? phaseAscentScore;
     final tempoScore = (descentScore + ascentScore) / 2;
     final depthScore = romScore;
     final descentControlScore = descentScore;
@@ -1249,31 +1332,47 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         ),
       );
     }
-    if (descentScore < 100.0) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.tempo,
-          code: 'descent_tempo_deviation',
-          evidenceCode: 'eccentric_duration_observation',
-          penaltyPoints: 100.0 - descentScore,
-          observedValue: descentSeconds,
-          referenceValue: _config.idealDescentSeconds,
-          observationUnit: 'seconds',
-        ),
-      );
-    }
-    if (ascentScore < 100.0) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.tempo,
-          code: 'ascent_tempo_deviation',
-          evidenceCode: 'concentric_duration_observation',
-          penaltyPoints: 100.0 - ascentScore,
-          observedValue: ascentSeconds,
-          referenceValue: _config.idealAscentSeconds,
-          observationUnit: 'seconds',
-        ),
-      );
+    if (totalRepTempoScore != null) {
+      if (totalRepTempoScore < 100.0) {
+        penaltyTraces.add(
+          RepScorePenaltyTrace(
+            component: RepScoreComponentKind.tempo,
+            code: 'total_rep_tempo_shortfall',
+            evidenceCode: 'total_rep_duration_observation',
+            penaltyPoints: 100.0 - totalRepTempoScore,
+            observedValue: totalRepSeconds,
+            referenceValue: minTotalRepSeconds,
+            observationUnit: 'seconds',
+          ),
+        );
+      }
+    } else {
+      if (descentScore < 100.0) {
+        penaltyTraces.add(
+          RepScorePenaltyTrace(
+            component: RepScoreComponentKind.tempo,
+            code: 'descent_tempo_deviation',
+            evidenceCode: 'eccentric_duration_observation',
+            penaltyPoints: 100.0 - descentScore,
+            observedValue: descentSeconds,
+            referenceValue: _config.idealDescentSeconds,
+            observationUnit: 'seconds',
+          ),
+        );
+      }
+      if (ascentScore < 100.0) {
+        penaltyTraces.add(
+          RepScorePenaltyTrace(
+            component: RepScoreComponentKind.tempo,
+            code: 'ascent_tempo_deviation',
+            evidenceCode: 'concentric_duration_observation',
+            penaltyPoints: 100.0 - ascentScore,
+            observedValue: ascentSeconds,
+            referenceValue: _config.idealAscentSeconds,
+            observationUnit: 'seconds',
+          ),
+        );
+      }
     }
     if (completedRepCoreData.hadFormViolation) {
       penaltyTraces.add(
@@ -1342,6 +1441,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       weightedBaseScore: weightedBaseScore,
       phaseQualityPenalty: phaseQualityPenalty,
       phaseAdjustedScore: phaseAdjustedScore,
+      totalRepSeconds: totalRepSeconds,
+      totalRepTempoScore: totalRepTempoScore,
     );
   }
 

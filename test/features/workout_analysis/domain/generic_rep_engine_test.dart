@@ -31,6 +31,20 @@ void main() {
       );
     });
 
+    test('rejects a negative neutral baseline window', () {
+      expect(
+        () => GenericRepEngine(
+          config: const GenericRepEngineConfig(
+            neutralThreshold: 160,
+            activeThreshold: 150,
+            peakThreshold: 95,
+            neutralBaselineWindow: Duration(milliseconds: -1),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('uses a longer confirmation only for initial neutral acquisition', () {
       final clock = _Clock();
       final engine = GenericRepEngine(
@@ -586,6 +600,54 @@ void main() {
       expect(peak.confirmedTransitions, isEmpty);
       expect(neutral.completedRep, isNull);
       expect(engine.repCount, 0);
+    });
+
+    test('uses an opt-in median neutral baseline for increasing movements', () {
+      final clock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 120,
+          activeThreshold: 121,
+          peakThreshold: 122,
+          direction: GenericRepMetricDirection.increasingToPeak,
+          activeEntryMargin: 0,
+          peakEntryMargin: 0,
+          peakExitMargin: 1,
+          retainPeakEvidenceAcrossActiveTransition: true,
+          neutralBaselineWindow: Duration(milliseconds: 1500),
+          neutralBaselineThresholdMargin: 2,
+        ),
+        now: clock.now,
+      );
+
+      _confirm(clock, engine, 110, 120);
+      engine.update(primaryMetric: 117);
+      clock.advance(const Duration(milliseconds: 250));
+      engine.update(primaryMetric: 123);
+      clock.advance(const Duration(milliseconds: 50));
+      engine.update(primaryMetric: 121);
+      clock.advance(const Duration(milliseconds: 250));
+      engine.update(primaryMetric: 120);
+      clock.advance(const Duration(milliseconds: 250));
+      engine.update(primaryMetric: 124);
+      clock.advance(const Duration(milliseconds: 100));
+      engine.update(primaryMetric: 125);
+      clock.advance(const Duration(milliseconds: 100));
+      engine.update(primaryMetric: 125);
+      clock.advance(const Duration(milliseconds: 100));
+      engine.update(primaryMetric: 120);
+      clock.advance(const Duration(milliseconds: 100));
+      engine.update(primaryMetric: 120);
+      clock.advance(const Duration(milliseconds: 120));
+      engine.update(primaryMetric: 110);
+      clock.advance(const Duration(milliseconds: 120));
+      final completed = engine.update(primaryMetric: 110);
+
+      expect(engine.repCount, 1);
+      expect(completed.completedRep, isNotNull);
+      expect(completed.completedRep!.startMetric, 110.0);
+      expect(completed.completedRep!.peakMetric, 125.0);
+      expect(completed.completedRep!.rom, 15.0);
     });
 
     test(

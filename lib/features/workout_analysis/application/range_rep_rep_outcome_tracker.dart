@@ -108,6 +108,7 @@ class RangeRepRepOutcomeTracker {
       primaryRom: completedRepCoreData.primaryRom,
       confidence: activeRepConfidence,
       coverageQuality: activeRepCoverageQuality,
+      totalRepDuration: completedRepCoreData.totalRepDuration,
     );
     final validationOutcome = RangeRepValidationOutcome(
       summary: summaryCandidate,

@@ -17,6 +17,7 @@ enum RangeRepValidationReason {
   insufficientRom,
   excessiveDescentSpeed,
   excessiveAscentSpeed,
+  excessiveRepSpeed,
   persistentFormBreak,
   coverageLoss,
   sideSwitchDuringRep,
@@ -32,6 +33,8 @@ extension RangeRepValidationReasonX on RangeRepValidationReason {
         return 'excessive descent speed';
       case RangeRepValidationReason.excessiveAscentSpeed:
         return 'excessive ascent speed';
+      case RangeRepValidationReason.excessiveRepSpeed:
+        return 'excessive rep speed';
       case RangeRepValidationReason.persistentFormBreak:
         return 'persistent form break';
       case RangeRepValidationReason.coverageLoss:

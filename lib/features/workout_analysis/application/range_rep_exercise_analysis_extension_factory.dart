@@ -1,5 +1,6 @@
 import '../domain/models/range_rep_contract.dart';
 import 'biceps_curl_range_rep_analysis_extension.dart';
+import 'calf_raise_range_rep_analysis_extension.dart';
 import 'push_up_range_rep_analysis_extension.dart';
 import 'range_rep_exercise_analysis_extension.dart';
 import 'range_rep_noop_analysis_extension.dart';
@@ -24,6 +25,8 @@ class RangeRepExerciseAnalysisExtensionFactory {
         BicepsCurlRangeRepExerciseAnalysisExtension(),
       RangeRepExtensionProfile.shoulderPress =>
         ShoulderPressRangeRepExerciseAnalysisExtension(),
+      RangeRepExtensionProfile.calfRaise =>
+        CalfRaiseRangeRepAnalysisExtension(),
     };
   }
 }

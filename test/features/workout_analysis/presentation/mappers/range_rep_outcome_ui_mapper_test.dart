@@ -60,6 +60,20 @@ void main() {
     );
   });
 
+  test('explains total repetition speed with the calibrated floor', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 5,
+      status: RangeRepValidationStatus.lowConfidence,
+      reasons: const <RangeRepValidationReason>[
+        RangeRepValidationReason.excessiveRepSpeed,
+      ],
+      localizations: tr,
+    );
+
+    expect(result.primaryReason, RangeRepValidationReason.excessiveRepSpeed);
+    expect(result.message, contains('1,5 saniyenin altındaydı'));
+  });
+
   test('falls back without exposing enum names', () {
     final result = mapRangeRepOutcomeToViewData(
       repIndex: 1,

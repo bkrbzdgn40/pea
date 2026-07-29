@@ -276,10 +276,6 @@ void main() {
 
 const Duration _confirmationStep = Duration(milliseconds: 120);
 
-// Mirrors GenericRepEngineConfig.peakExitMargin so the deterministic fixture
-// uses a distinct sample that can actually confirm the returning phase.
-const double _genericPeakExitMargin = 8.0;
-
 class _RangeRepScenarioMetrics {
   const _RangeRepScenarioMetrics({
     required this.neutral,
@@ -297,14 +293,20 @@ class _RangeRepScenarioMetrics {
   }) {
     switch (contract.primaryMetricDirection) {
       case RangeRepPrimaryMetricDirection.decreasingToPeak:
+        final activeBoundary =
+            config.thresholdActive - contract.activeEntryMargin;
+        final peakBoundary = config.thresholdPeak - contract.peakEntryMargin;
+        final legacyActive = config.thresholdActive - 5.0;
         return _RangeRepScenarioMetrics(
           neutral: config.thresholdNeutral + 10.0,
-          active: config.thresholdActive - 5.0,
+          active: legacyActive > peakBoundary
+              ? legacyActive
+              : (activeBoundary + peakBoundary) / 2.0,
           peak: config.thresholdPeak - 10.0,
           returning:
               (config.thresholdNeutral +
                   config.thresholdPeak +
-                  _genericPeakExitMargin) /
+                  contract.peakExitMargin) /
               2.0,
           wrongDirection: (config.thresholdNeutral + 25.0)
               .clamp(0.0, 180.0)
@@ -313,14 +315,20 @@ class _RangeRepScenarioMetrics {
           activeJitterFar: config.thresholdActive - 2.0,
         );
       case RangeRepPrimaryMetricDirection.increasingToPeak:
+        final activeBoundary =
+            config.thresholdActive + contract.activeEntryMargin;
+        final peakBoundary = config.thresholdPeak + contract.peakEntryMargin;
+        final legacyActive = config.thresholdActive + 5.0;
         return _RangeRepScenarioMetrics(
           neutral: config.thresholdNeutral - 10.0,
-          active: config.thresholdActive + 5.0,
+          active: legacyActive < peakBoundary
+              ? legacyActive
+              : (activeBoundary + peakBoundary) / 2.0,
           peak: config.thresholdPeak + 10.0,
           returning:
               (config.thresholdNeutral +
                   config.thresholdPeak -
-                  _genericPeakExitMargin) /
+                  contract.peakExitMargin) /
               2.0,
           wrongDirection: (config.thresholdNeutral - 25.0)
               .clamp(0.0, 180.0)

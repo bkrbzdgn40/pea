@@ -34,12 +34,17 @@ class AnalysisEngineFactory {
       config: config,
       primaryMetricDirection: rangeRepContract.primaryMetricDirection,
       towardPeakMuscleAction: rangeRepContract.towardPeakMuscleAction,
+      activeEntryMargin: rangeRepContract.activeEntryMargin,
       peakEntryMargin: rangeRepContract.peakEntryMargin,
+      peakExitMargin: rangeRepContract.peakExitMargin,
       retainPeakEvidenceAcrossActiveTransition:
           rangeRepContract.retainPeakEvidenceAcrossActiveTransition,
       allowSparseCycleRecovery: rangeRepContract.allowSparseCycleRecovery,
       initialNeutralConfirmationDuration:
           rangeRepContract.initialNeutralConfirmationDuration,
+      neutralBaselineWindow: rangeRepContract.neutralBaselineWindow,
+      neutralBaselineThresholdMargin:
+          rangeRepContract.neutralBaselineThresholdMargin,
       now: now,
     );
   }

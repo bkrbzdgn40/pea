@@ -843,10 +843,12 @@ class ExerciseCatalog {
         ),
         rangeRepContract: RangeRepContracts.calfRaise,
         rangeRepValidationConfig: const RangeRepValidationConfig(
-          minAcceptableRomDelta: 15.0,
-          minDescentMillis: 200,
-          minAscentMillis: 200,
+          minAcceptableRomDelta: 10.0,
+          minDescentMillis: 0,
+          minAscentMillis: 0,
+          minTotalRepMillis: 1500,
           allowLowConfidenceOnCoverageLoss: true,
+          invalidateOnPersistentFormBreak: true,
         ),
       ),
       ExerciseDefinition.supported(

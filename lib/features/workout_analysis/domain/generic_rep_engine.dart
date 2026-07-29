@@ -29,13 +29,16 @@ class GenericRepEngineConfig {
     this.returnConfirmationDuration = const Duration(milliseconds: 80),
     this.initialNeutralConfirmationDuration = const Duration(milliseconds: 100),
     this.neutralConfirmationDuration = const Duration(milliseconds: 100),
+    this.neutralBaselineWindow = Duration.zero,
+    this.neutralBaselineThresholdMargin = 0.0,
     this.retainPeakEvidenceAcrossActiveTransition = false,
     this.allowSparseCycleRecovery = false,
     this.retainedPeakEvidenceMaxAge = const Duration(milliseconds: 750),
   }) : assert(minimumRom >= 0.0),
        assert(activeEntryMargin >= 0.0),
        assert(peakEntryMargin >= 0.0),
-       assert(peakExitMargin >= 0.0);
+       assert(peakExitMargin >= 0.0),
+       assert(neutralBaselineThresholdMargin >= 0.0);
 
   final double neutralThreshold;
   final double activeThreshold;
@@ -64,6 +67,17 @@ class GenericRepEngineConfig {
   final Duration initialNeutralConfirmationDuration;
 
   final Duration neutralConfirmationDuration;
+
+  /// Optional look-back window used to resolve a stable neutral baseline.
+  ///
+  /// Disabled by default so existing exercises preserve their first-crossing
+  /// semantics. Small-excursion movements may opt in when the final neutral
+  /// sample before active confirmation is too noisy to represent true start.
+  final Duration neutralBaselineWindow;
+
+  /// Distance from the configured neutral threshold required before a sample
+  /// may contribute to the neutral baseline.
+  final double neutralBaselineThresholdMargin;
 
   /// Preserves a strict peak observation that arrives while active-entry
   /// confirmation is still pending. This is opt-in because it relaxes the
@@ -138,6 +152,16 @@ class GenericRepEngineFrameResult {
       confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
 }
 
+class _TimedNeutralMetricSample {
+  const _TimedNeutralMetricSample({
+    required this.metric,
+    required this.observedAt,
+  });
+
+  final double metric;
+  final DateTime observedAt;
+}
+
 /// Reusable, metric-driven repetition lifecycle engine.
 ///
 /// The engine deliberately knows nothing about pose landmarks, technique
@@ -169,6 +193,8 @@ class GenericRepEngine {
   double? _currentRepStartMetric;
   double? _currentRepMinMetric;
   double? _currentRepMaxMetric;
+  final List<_TimedNeutralMetricSample> _neutralBaselineSamples =
+      <_TimedNeutralMetricSample>[];
 
   bool get isArmed => _isArmed;
   GenericRepTransitionType? get pendingTransition => _pendingTransition;
@@ -183,6 +209,11 @@ class GenericRepEngine {
     final now = _now();
     final wasArmedAtFrameStart = _isArmed;
     final phaseBeforeUpdate = phase;
+
+    if ((!_isArmed || phase == GenericRepPhase.neutral) &&
+        _isNeutralBaselineMetric(primaryMetric)) {
+      _recordNeutralBaseline(primaryMetric, now);
+    }
 
     if (!_isArmed) {
       final armedAt = _confirmTransition(
@@ -225,7 +256,10 @@ class GenericRepEngine {
         if (_canRecoverSparsePeak(primaryMetric, now)) {
           final startAt =
               _pendingTransitionStartedAt ?? _lastNeutralObservedAt ?? now;
-          final repStartMetric = _lastNeutralMetric ?? primaryMetric;
+          final repStartMetric = _resolvedNeutralBaseline(
+            fallback: _lastNeutralMetric ?? primaryMetric,
+            now: now,
+          );
           _pendingStartTowardPeakMetric = null;
           _clearPendingTransition();
           _startRep(repStartMetric);
@@ -268,11 +302,16 @@ class GenericRepEngine {
           now: now,
         );
         if (confirmedAt != null) {
-          final repStartMetric = config.retainPeakEvidenceAcrossActiveTransition
+          final fallbackStartMetric =
+              config.retainPeakEvidenceAcrossActiveTransition
               ? (_lastNeutralMetric ??
                     _pendingStartTowardPeakMetric ??
                     primaryMetric)
               : (_pendingStartTowardPeakMetric ?? primaryMetric);
+          final repStartMetric = _resolvedNeutralBaseline(
+            fallback: fallbackStartMetric,
+            now: now,
+          );
           _pendingStartTowardPeakMetric = null;
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.startTowardPeak,
@@ -546,6 +585,7 @@ class GenericRepEngine {
     _pendingStartTowardPeakMetric = null;
     _lastNeutralMetric = null;
     _lastNeutralObservedAt = null;
+    _neutralBaselineSamples.clear();
     _sparsePeakObservedAt = null;
     _clearRetainedPeakEvidence();
     _clearPendingTransition();
@@ -615,8 +655,72 @@ class GenericRepEngine {
     _retainedPeakMetric = null;
   }
 
+  bool _isNeutralBaselineMetric(double value) {
+    if (config.neutralBaselineWindow == Duration.zero) {
+      return false;
+    }
+    return switch (config.direction) {
+      GenericRepMetricDirection.decreasingToPeak =>
+        value >=
+            config.neutralThreshold + config.neutralBaselineThresholdMargin,
+      GenericRepMetricDirection.increasingToPeak =>
+        value <=
+            config.neutralThreshold - config.neutralBaselineThresholdMargin,
+    };
+  }
+
+  void _recordNeutralBaseline(double primaryMetric, DateTime now) {
+    _pruneNeutralBaseline(now);
+    _neutralBaselineSamples.add(
+      _TimedNeutralMetricSample(metric: primaryMetric, observedAt: now),
+    );
+    const maxSamples = 24;
+    if (_neutralBaselineSamples.length > maxSamples) {
+      _neutralBaselineSamples.removeRange(
+        0,
+        _neutralBaselineSamples.length - maxSamples,
+      );
+    }
+  }
+
+  double _resolvedNeutralBaseline({
+    required double fallback,
+    required DateTime now,
+  }) {
+    if (config.neutralBaselineWindow == Duration.zero) {
+      return fallback;
+    }
+    _pruneNeutralBaseline(now);
+    if (_neutralBaselineSamples.isEmpty) {
+      return fallback;
+    }
+
+    final sorted =
+        _neutralBaselineSamples
+            .map((sample) => sample.metric)
+            .toList(growable: false)
+          ..sort();
+    final middle = sorted.length ~/ 2;
+    if (sorted.length.isOdd) {
+      return sorted[middle];
+    }
+    return (sorted[middle - 1] + sorted[middle]) / 2.0;
+  }
+
+  void _pruneNeutralBaseline(DateTime now) {
+    final window = config.neutralBaselineWindow;
+    if (window == Duration.zero) {
+      _neutralBaselineSamples.clear();
+      return;
+    }
+    _neutralBaselineSamples.removeWhere(
+      (sample) => now.difference(sample.observedAt) > window,
+    );
+  }
+
   void _startRep(double primaryMetric) {
     _currentRepStartMetric = primaryMetric;
+    _neutralBaselineSamples.clear();
     _currentRepMinMetric = primaryMetric;
     _currentRepMaxMetric = primaryMetric;
   }
@@ -714,6 +818,13 @@ class GenericRepEngine {
       throw ArgumentError.value(
         config.initialNeutralConfirmationDuration,
         'config.initialNeutralConfirmationDuration',
+        'Must not be negative.',
+      );
+    }
+    if (config.neutralBaselineWindow.isNegative) {
+      throw ArgumentError.value(
+        config.neutralBaselineWindow,
+        'config.neutralBaselineWindow',
         'Must not be negative.',
       );
     }
