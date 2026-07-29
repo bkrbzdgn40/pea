@@ -46,6 +46,7 @@ class TestSessionRepository implements SessionRepository {
     this.listSessionsError,
     this.getSessionByIdError,
     this.listSessionRepsError,
+    this.deleteSessionError,
   }) : _sessions = List<WorkoutSession>.from(sessions),
        _sessionById = Map<String, WorkoutSession?>.from(sessionById),
        _repsBySessionId = Map<String, List<WorkoutRep>>.from(repsBySessionId);
@@ -56,6 +57,8 @@ class TestSessionRepository implements SessionRepository {
   final Object? listSessionsError;
   final Object? getSessionByIdError;
   final Object? listSessionRepsError;
+  final Object? deleteSessionError;
+  final List<String> deletedSessionIds = <String>[];
 
   @override
   Future<void> saveSession(WorkoutSession session) async {
@@ -149,6 +152,10 @@ class TestSessionRepository implements SessionRepository {
     required String ownerId,
     required String sessionId,
   }) async {
+    if (deleteSessionError != null) {
+      throw deleteSessionError!;
+    }
+    deletedSessionIds.add(sessionId);
     _sessions.removeWhere(
       (session) => session.ownerId == ownerId && session.id == sessionId,
     );

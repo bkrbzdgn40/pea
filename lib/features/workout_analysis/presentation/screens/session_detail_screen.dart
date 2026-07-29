@@ -29,6 +29,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   List<WorkoutRep>? _reps;
   bool _isLoadingRepDetails = true;
   bool _repLoadFailed = false;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -86,6 +87,57 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     }
   }
 
+  Future<void> _confirmAndDeleteSession() async {
+    if (_isDeleting) {
+      return;
+    }
+
+    final localizations = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(localizations.deleteSessionTitle),
+        content: Text(localizations.deleteSessionMessage),
+        actions: [
+          TextButton(
+            key: const ValueKey<String>('session-delete-cancel'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(localizations.cancel),
+          ),
+          TextButton(
+            key: const ValueKey<String>('session-delete-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: Text(localizations.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _isDeleting = true);
+    try {
+      await ref
+          .read(sessionRepositoryProvider)
+          .deleteSession(ownerId: _session.ownerId, sessionId: _session.id);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(localizations.sessionDeleteFailed)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
@@ -117,6 +169,28 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               isLoading: _isLoadingRepDetails,
               hasLoadError: _repLoadFailed,
               onRetry: _loadSessionDetails,
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              key: const ValueKey<String>('session-delete-button'),
+              onPressed: _isDeleting ? null : _confirmAndDeleteSession,
+              icon: _isDeleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline_rounded),
+              label: Text(
+                _isDeleting
+                    ? localizations.deleting
+                    : localizations.deleteSession,
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                minimumSize: const Size.fromHeight(52),
+              ),
             ),
           ],
         ),

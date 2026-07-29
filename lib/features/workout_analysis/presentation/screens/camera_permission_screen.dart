@@ -256,6 +256,10 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
                     _PermissionBenefit(text: localizations.cameraEvaluatesForm),
                     _PermissionBenefit(text: localizations.cameraCountsReps),
                     _PermissionBenefit(text: localizations.cameraPrivacyNotice),
+                    _PermissionBenefit(
+                      text: localizations.workoutDataStorageNotice,
+                      icon: Icons.cloud_outlined,
+                    ),
                   ],
                 ),
               ),
@@ -304,9 +308,13 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
 }
 
 class _PermissionBenefit extends StatelessWidget {
-  const _PermissionBenefit({required this.text});
+  const _PermissionBenefit({
+    required this.text,
+    this.icon = Icons.check_circle_outline,
+  });
 
   final String text;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -315,11 +323,7 @@ class _PermissionBenefit extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.check_circle_outline,
-            color: Colors.greenAccent,
-            size: 20,
-          ),
+          Icon(icon, color: Colors.greenAccent, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

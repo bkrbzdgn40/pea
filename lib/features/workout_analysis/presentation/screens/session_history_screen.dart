@@ -210,13 +210,18 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
               final session = _sessions[index];
               return InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  final deleted = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
                       builder: (_) => SessionDetailScreen(session: session),
                     ),
                   );
+                  if (deleted == true && mounted) {
+                    setState(() {
+                      _sessions.removeWhere((item) => item.id == session.id);
+                    });
+                  }
                 },
                 child: _SessionCard(
                   session: session,
