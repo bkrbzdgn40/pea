@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/saved_workout_plan.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/saved_workout_plans_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/workout_plan_setup_screen.dart';
@@ -8,6 +9,34 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import '../../../../support/presentation_test_support.dart';
 
 void main() {
+  testWidgets('opens the plan builder in a modal bottom sheet', (tester) async {
+    _useTallPhoneViewport(tester);
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsNothing,
+    );
+
+    await _openNewPlanBuilder(tester);
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('Plan henüz boş'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-name-field')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('builds an ordered plan and allows duplicate exercises', (
     WidgetTester tester,
   ) async {
@@ -19,9 +48,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('Planlı Antrenman'), findsOneWidget);
-    expect(find.text('Plan henüz boş'), findsOneWidget);
+    await _openNewPlanBuilder(tester);
 
     await _addExercise(tester, ExerciseType.squat);
     await _addExercise(tester, ExerciseType.plank);
@@ -48,6 +75,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
     await _addExercise(tester, ExerciseType.squat);
     await _addExercise(tester, ExerciseType.plank);
@@ -73,7 +101,7 @@ void main() {
     expect(find.text('30 sn'), findsOneWidget);
   });
 
-  testWidgets('saves a named plan and restores it from saved plans', (
+  testWidgets('selects a saved plan before opening its summary and editor', (
     WidgetTester tester,
   ) async {
     _useTallPhoneViewport(tester);
@@ -84,6 +112,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('workout-plan-name-field')),
@@ -105,7 +134,52 @@ void main() {
       ExerciseType.bicepsCurl,
     );
     expect(find.text('Plan kaydedildi.'), findsOneWidget);
-    expect(find.text('Plan henüz boş'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsNothing,
+    );
+
+    final reviewButton = find.byKey(
+      const ValueKey<String>('review-selected-workout-plan'),
+    );
+    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNull);
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('load-plan-${repository.plans.single.id}')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNotNull);
+
+    await tester.tap(reviewButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plan Özeti'), findsOneWidget);
+    expect(find.text('Ev Planı'), findsOneWidget);
+    expect(find.text('Biseps Curl'), findsOneWidget);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey<String>('review-save-plan')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.text('Düzenle'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('1. Biseps Curl'), findsOneWidget);
+    expect(find.text('Plan güncel.'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(
@@ -113,18 +187,8 @@ void main() {
           )
           .controller!
           .text,
-      isEmpty,
+      'Ev Planı',
     );
-    expect(tester.widget<OutlinedButton>(saveButton).onPressed, isNull);
-
-    await tester.tap(
-      find.byKey(ValueKey<String>('load-plan-${repository.plans.single.id}')),
-    );
-    await tester.pump();
-
-    expect(find.text('1. Biseps Curl'), findsOneWidget);
-    expect(find.text('Plan güncel.'), findsOneWidget);
-    expect(tester.widget<OutlinedButton>(saveButton).onPressed, isNull);
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('workout-plan-name-field')),
@@ -134,6 +198,50 @@ void main() {
 
     expect(find.text('Kaydedilmemiş değişiklikler var.'), findsOneWidget);
     expect(tester.widget<OutlinedButton>(saveButton).onPressed, isNotNull);
+  });
+
+  testWidgets('stacks saved plans vertically inside the page scroll', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _MemoryWorkoutPlanRepository();
+    repository.plans.addAll(
+      List<SavedWorkoutPlan>.generate(
+        6,
+        (index) => _savedPlan(
+          id: 'plan-$index',
+          name: 'Plan ${index + 1}',
+          exercise: index.isEven ? ExerciseType.squat : ExerciseType.plank,
+        ),
+      ),
+    );
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    final firstCard = find.byKey(
+      const ValueKey<String>('saved-plan-card-plan-0'),
+    );
+    final secondCard = find.byKey(
+      const ValueKey<String>('saved-plan-card-plan-1'),
+    );
+    expect(
+      tester.getTopLeft(secondCard).dy,
+      greaterThan(tester.getBottomLeft(firstCard).dy),
+    );
+
+    await tester.ensureVisible(find.text('Plan 6'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plan 6'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('opens a plan summary only after name and exercises exist', (
@@ -147,6 +255,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
     final reviewButton = find.byKey(
       const ValueKey<String>('review-workout-plan'),
@@ -166,7 +275,6 @@ void main() {
 
     expect(find.text('Plan Özeti'), findsOneWidget);
     expect(find.text('Core Planı'), findsOneWidget);
-    expect(find.text('1. Plank'), findsNothing);
     expect(find.text('Plank'), findsOneWidget);
     expect(
       find.text('1 set • 30 saniye tutuş • set sonrası 15 sn dinlenme'),
@@ -186,10 +294,15 @@ void main() {
 
     await tester.tap(find.text('Düzenle'));
     await tester.pumpAndSettle();
-    expect(find.text('Plan henüz boş'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('1. Plank'), findsOneWidget);
+    expect(find.text('Plan güncel.'), findsOneWidget);
   });
 
-  testWidgets('protects an unsaved draft before starting a new plan', (
+  testWidgets('protects an unsaved draft before closing the builder sheet', (
     WidgetTester tester,
   ) async {
     _useTallPhoneViewport(tester);
@@ -200,6 +313,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('workout-plan-name-field')),
@@ -207,9 +321,9 @@ void main() {
     );
     await _addExercise(tester, ExerciseType.squat);
 
-    final newPlanButton = find.text('Yeni plan');
-    await tester.ensureVisible(newPlanButton);
-    await tester.tap(newPlanButton);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('close-workout-plan-builder')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Değişiklikler silinsin mi?'), findsOneWidget);
@@ -217,28 +331,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1. Squat'), findsOneWidget);
 
-    await tester.tap(newPlanButton);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('close-workout-plan-builder')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Değişiklikleri Sil'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Plan henüz boş'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsNothing,
+    );
   });
 
-  testWidgets('protects an unsaved draft when leaving the builder', (
+  testWidgets('protects an unsaved modal draft on Android back', (
     WidgetTester tester,
   ) async {
     _useTallPhoneViewport(tester);
     final repository = _MemoryWorkoutPlanRepository();
     await pumpTestApp(
       tester,
-      home: const _WorkoutPlanSetupHost(),
+      home: const WorkoutPlanSetupScreen(),
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
-    await tester.tap(find.byKey(const ValueKey<String>('open-plan-builder')));
-    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey<String>('workout-plan-name-field')),
       'Kaydedilmemiş Plan',
@@ -249,23 +367,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Değişiklikler silinsin mi?'), findsOneWidget);
-    await tester.tap(find.text('İptal'));
-    await tester.pumpAndSettle();
-    expect(find.text('1. Squat'), findsOneWidget);
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Değişiklikleri Sil'));
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey<String>('open-plan-builder')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
+      findsNothing,
     );
-    expect(find.text('1. Squat'), findsNothing);
+    expect(find.text('Planlı Antrenman'), findsOneWidget);
   });
 
-  testWidgets('keeps builder usable on a compact phone viewport', (
+  testWidgets('keeps the modal builder usable on a compact phone viewport', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -280,6 +392,7 @@ void main() {
       overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
 
     await _addExercise(tester, ExerciseType.plank);
     final reviewButton = find.byKey(
@@ -300,6 +413,11 @@ void _useTallPhoneViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+Future<void> _openNewPlanBuilder(WidgetTester tester) async {
+  await tester.tap(find.text('Yeni plan'));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _addExercise(WidgetTester tester, ExerciseType exercise) async {
   final addButton = find.byKey(const ValueKey<String>('add-plan-exercise'));
   await tester.ensureVisible(addButton);
@@ -312,6 +430,30 @@ Future<void> _addExercise(WidgetTester tester, ExerciseType exercise) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(ValueKey<String>('plan-picker-${exercise.id}')));
   await tester.pumpAndSettle();
+}
+
+SavedWorkoutPlan _savedPlan({
+  required String id,
+  required String name,
+  required ExerciseType exercise,
+}) {
+  return SavedWorkoutPlan(
+    id: id,
+    name: name,
+    rounds: 1,
+    entries: [
+      SavedWorkoutPlanEntry(
+        id: '$id-entry',
+        exercise: exercise,
+        sets: 1,
+        target: exercise == ExerciseType.plank
+            ? const WorkoutTarget.hold(Duration(seconds: 30))
+            : const WorkoutTarget.repetitions(10),
+        restAfterSet: const Duration(seconds: 15),
+      ),
+    ],
+    updatedAt: DateTime(2026, 7, 30),
+  );
 }
 
 class _MemoryWorkoutPlanRepository implements WorkoutPlanRepository {
@@ -333,28 +475,5 @@ class _MemoryWorkoutPlanRepository implements WorkoutPlanRepository {
     saveCalls += 1;
     plans.removeWhere((existing) => existing.id == plan.id);
     plans.insert(0, plan);
-  }
-}
-
-class _WorkoutPlanSetupHost extends StatelessWidget {
-  const _WorkoutPlanSetupHost();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: ElevatedButton(
-          key: const ValueKey<String>('open-plan-builder'),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const WorkoutPlanSetupScreen(),
-              ),
-            );
-          },
-          child: const Text('Plan oluşturucuyu aç'),
-        ),
-      ),
-    );
   }
 }

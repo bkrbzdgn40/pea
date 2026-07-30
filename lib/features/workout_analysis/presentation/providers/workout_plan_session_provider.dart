@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/workout_engine.dart';
 import '../../application/workout_state.dart';
 import '../../domain/models/exercise_type.dart';
+import 'selected_exercise_provider.dart';
 
 class WorkoutPlanSessionState {
   const WorkoutPlanSessionState({this.plan, this.snapshot});
@@ -34,15 +35,23 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
   ExerciseType? _lastForwardedExercise;
   int? _lastForwardedRepCount;
   Duration? _lastForwardedHoldDuration;
+  ExerciseType? _selectedExerciseBeforePlan;
+  bool _restoreSelectedExerciseOnReset = false;
 
   @override
   WorkoutPlanSessionState build() => const WorkoutPlanSessionState();
 
-  WorkoutEngineSnapshot start(WorkoutPlan plan) {
+  WorkoutEngineSnapshot start(
+    WorkoutPlan plan, {
+    ExerciseType? selectedExerciseBeforePlan,
+    bool restoreSelectedExerciseOnReset = false,
+  }) {
     final engine = WorkoutEngine(plan: plan);
     _engine = engine;
     final snapshot = engine.start();
     _seedObservationGate(snapshot);
+    _selectedExerciseBeforePlan = selectedExerciseBeforePlan;
+    _restoreSelectedExerciseOnReset = restoreSelectedExerciseOnReset;
     state = WorkoutPlanSessionState(plan: plan, snapshot: snapshot);
     return snapshot;
   }
@@ -208,9 +217,17 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
   }
 
   void reset() {
+    final shouldRestoreSelection =
+        state.hasPlan && _restoreSelectedExerciseOnReset;
+    final selectionBeforePlan = _selectedExerciseBeforePlan;
     _engine?.reset();
     _engine = null;
     _clearObservationGate();
+    _selectedExerciseBeforePlan = null;
+    _restoreSelectedExerciseOnReset = false;
     state = const WorkoutPlanSessionState();
+    if (shouldRestoreSelection) {
+      ref.read(selectedExerciseProvider.notifier).state = selectionBeforePlan;
+    }
   }
 }

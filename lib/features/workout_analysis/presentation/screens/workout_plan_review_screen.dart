@@ -11,15 +11,19 @@ import '../providers/selected_exercise_provider.dart';
 import '../providers/workout_plan_session_provider.dart';
 import 'camera_permission_screen.dart';
 
+enum WorkoutPlanReviewResult { edit }
+
 class WorkoutPlanReviewScreen extends ConsumerStatefulWidget {
   const WorkoutPlanReviewScreen({
     super.key,
     required this.plan,
     required this.onSaved,
+    this.initiallySaved = false,
   });
 
   final SavedWorkoutPlan plan;
   final VoidCallback onSaved;
+  final bool initiallySaved;
 
   @override
   ConsumerState<WorkoutPlanReviewScreen> createState() =>
@@ -29,7 +33,13 @@ class WorkoutPlanReviewScreen extends ConsumerStatefulWidget {
 class _WorkoutPlanReviewScreenState
     extends ConsumerState<WorkoutPlanReviewScreen> {
   bool _isSaving = false;
-  bool _isSaved = false;
+  late bool _isSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSaved = widget.initiallySaved;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +103,8 @@ class _WorkoutPlanReviewScreenState
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () =>
+                      Navigator.pop(context, WorkoutPlanReviewResult.edit),
                   icon: const Icon(Icons.edit_rounded),
                   label: Text(localizations.editPlan),
                 ),
@@ -171,9 +182,14 @@ class _WorkoutPlanReviewScreenState
   }
 
   void _start() {
+    final selectedExerciseBeforePlan = ref.read(selectedExerciseProvider);
     final snapshot = ref
         .read(workoutPlanSessionProvider.notifier)
-        .start(widget.plan.toWorkoutPlan());
+        .start(
+          widget.plan.toWorkoutPlan(),
+          selectedExerciseBeforePlan: selectedExerciseBeforePlan,
+          restoreSelectedExerciseOnReset: true,
+        );
     final firstExercise = snapshot.currentExercise;
     if (firstExercise == null) {
       return;

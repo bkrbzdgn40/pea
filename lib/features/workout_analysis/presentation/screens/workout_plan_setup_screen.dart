@@ -23,18 +23,160 @@ class WorkoutPlanSetupScreen extends ConsumerStatefulWidget {
       _WorkoutPlanSetupScreenState();
 }
 
+enum _WorkoutPlanBuilderResult { saved }
+
 class _WorkoutPlanSetupScreenState
     extends ConsumerState<WorkoutPlanSetupScreen> {
+  String? _selectedPlanId;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final savedPlans = ref.watch(savedWorkoutPlansProvider);
+    final selectedPlan = _findSelectedPlan(savedPlans.valueOrNull);
+
+    return AppScaffoldShell(
+      title: localizations.plannedWorkout,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      body: ListView(
+        key: const ValueKey<String>('workout-plan-home-scroll'),
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          Text(
+            localizations.plannedWorkoutBuilderIntro,
+            style: const TextStyle(color: Colors.white60, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          _SavedPlansSection(
+            plans: savedPlans,
+            selectedPlanId: _selectedPlanId,
+            onSelect: (plan) => setState(() => _selectedPlanId = plan.id),
+            onDelete: _confirmDeletePlan,
+            onNew: () => _openPlanBuilder(),
+            onReview: selectedPlan == null
+                ? null
+                : () => _openSelectedPlanReview(selectedPlan),
+          ),
+        ],
+      ),
+    );
+  }
+
+  SavedWorkoutPlan? _findSelectedPlan(List<SavedWorkoutPlan>? plans) {
+    final selectedPlanId = _selectedPlanId;
+    if (selectedPlanId == null || plans == null) {
+      return null;
+    }
+    for (final plan in plans) {
+      if (plan.id == selectedPlanId) {
+        return plan;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openSelectedPlanReview(SavedWorkoutPlan plan) async {
+    final result = await Navigator.push<WorkoutPlanReviewResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutPlanReviewScreen(
+          plan: plan,
+          initiallySaved: true,
+          onSaved: () {},
+        ),
+      ),
+    );
+    if (!mounted || result != WorkoutPlanReviewResult.edit) {
+      return;
+    }
+    await _openPlanBuilder(plan);
+  }
+
+  Future<void> _openPlanBuilder([SavedWorkoutPlan? plan]) async {
+    final result = await showModalBottomSheet<_WorkoutPlanBuilderResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (_) => _WorkoutPlanBuilderSheet(initialPlan: plan),
+    );
+    if (!mounted || result != _WorkoutPlanBuilderResult.saved) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).planSaved)),
+    );
+  }
+
+  Future<void> _confirmDeletePlan(SavedWorkoutPlan plan) async {
+    final localizations = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(localizations.deletePlan),
+        content: Text(localizations.deletePlanConfirmation(plan.name)),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(localizations.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(localizations.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    await ref.read(savedWorkoutPlansProvider.notifier).delete(plan.id);
+    if (mounted && _selectedPlanId == plan.id) {
+      setState(() => _selectedPlanId = null);
+    }
+  }
+}
+
+class _WorkoutPlanBuilderSheet extends ConsumerStatefulWidget {
+  const _WorkoutPlanBuilderSheet({this.initialPlan});
+
+  final SavedWorkoutPlan? initialPlan;
+
+  @override
+  ConsumerState<_WorkoutPlanBuilderSheet> createState() =>
+      _WorkoutPlanBuilderSheetState();
+}
+
+class _WorkoutPlanBuilderSheetState
+    extends ConsumerState<_WorkoutPlanBuilderSheet> {
   static const ExerciseCatalog _catalog = ExerciseCatalog();
 
-  final TextEditingController _nameController = TextEditingController();
+  late final TextEditingController _nameController;
   final List<SavedWorkoutPlanEntry> _entries = <SavedWorkoutPlanEntry>[];
   String? _planId;
   int _rounds = 1;
   int _entrySequence = 0;
   bool _isSaving = false;
-  bool _allowRoutePop = false;
+  bool _allowSheetPop = false;
   SavedWorkoutPlan? _loadedPlanBaseline;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPlan = widget.initialPlan;
+    _nameController = TextEditingController(text: initialPlan?.name ?? '');
+    if (initialPlan != null) {
+      _planId = initialPlan.id;
+      _rounds = initialPlan.rounds;
+      _entries.addAll(initialPlan.entries);
+      _loadedPlanBaseline = initialPlan;
+    }
+  }
 
   @override
   void dispose() {
@@ -45,93 +187,147 @@ class _WorkoutPlanSetupScreenState
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final savedPlans = ref.watch(savedWorkoutPlansProvider);
-    final header = _buildBuilderHeader(localizations, savedPlans);
+    final header = _buildBuilderHeader(localizations);
     final footer = _buildBuilderFooter(localizations);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return PopScope<Object?>(
-      canPop: _allowRoutePop || !_hasUnsavedChanges,
+      canPop: _allowSheetPop || !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          unawaited(_requestRoutePop());
+          unawaited(_requestSheetPop());
         }
       },
-      child: AppScaffoldShell(
-        title: localizations.plannedWorkout,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        body: _entries.isEmpty
-            ? ListView(
-                key: const ValueKey<String>('workout-plan-builder-scroll'),
-                padding: EdgeInsets.zero,
-                children: [
-                  header,
-                  const SizedBox(height: 12),
-                  _EmptyPlan(onAddExercise: _showExercisePicker),
-                  const SizedBox(height: 12),
-                  footer,
-                ],
-              )
-            : ReorderableListView.builder(
-                key: const ValueKey<String>('workout-plan-entry-list'),
-                buildDefaultDragHandles: false,
-                padding: EdgeInsets.zero,
-                header: header,
-                footer: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: footer,
+      child: FractionallySizedBox(
+        heightFactor: 0.94,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: Material(
+            key: const ValueKey<String>('workout-plan-builder-sheet'),
+            color: const Color(0xFF11171D),
+            clipBehavior: Clip.antiAlias,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            child: Column(
+              children: <Widget>[
+                const SizedBox(height: 10),
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
-                itemCount: _entries.length,
-                onReorder: _reorder,
-                proxyDecorator: (child, index, animation) => Material(
-                  color: Colors.transparent,
-                  elevation: 8,
-                  child: child,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 8, 8),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          widget.initialPlan?.name ?? localizations.newPlan,
+                          key: const ValueKey<String>(
+                            'workout-plan-builder-title',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey<String>(
+                          'close-workout-plan-builder',
+                        ),
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).closeButtonTooltip,
+                        onPressed: _isSaving ? null : _requestSheetPop,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
                 ),
-                itemBuilder: (context, index) {
-                  final entry = _entries[index];
-                  final definition = _catalog.definitionFor(entry.exercise);
-                  return Padding(
-                    key: ValueKey<String>(entry.id),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _WorkoutPlanEntryCard(
-                      index: index,
-                      entry: entry,
-                      trackingType: definition.trackingType,
-                      onChanged: (updated) {
-                        setState(() => _entries[index] = updated);
-                      },
-                      onDuplicate: () => _duplicateEntry(index),
-                      onRemove: () => setState(() => _entries.removeAt(index)),
-                    ),
-                  );
-                },
-              ),
+                const Divider(height: 1),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                    child: _entries.isEmpty
+                        ? ListView(
+                            key: const ValueKey<String>(
+                              'workout-plan-builder-scroll',
+                            ),
+                            padding: EdgeInsets.zero,
+                            children: <Widget>[
+                              header,
+                              const SizedBox(height: 12),
+                              _EmptyPlan(onAddExercise: _showExercisePicker),
+                              const SizedBox(height: 12),
+                              footer,
+                            ],
+                          )
+                        : ReorderableListView.builder(
+                            key: const ValueKey<String>(
+                              'workout-plan-entry-list',
+                            ),
+                            buildDefaultDragHandles: false,
+                            padding: EdgeInsets.zero,
+                            header: header,
+                            footer: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: footer,
+                            ),
+                            itemCount: _entries.length,
+                            onReorder: _reorder,
+                            proxyDecorator: (child, index, animation) =>
+                                Material(
+                                  color: Colors.transparent,
+                                  elevation: 8,
+                                  child: child,
+                                ),
+                            itemBuilder: (context, index) {
+                              final entry = _entries[index];
+                              final definition = _catalog.definitionFor(
+                                entry.exercise,
+                              );
+                              return Padding(
+                                key: ValueKey<String>(entry.id),
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _WorkoutPlanEntryCard(
+                                  index: index,
+                                  entry: entry,
+                                  trackingType: definition.trackingType,
+                                  onChanged: (updated) {
+                                    setState(() => _entries[index] = updated);
+                                  },
+                                  onDuplicate: () => _duplicateEntry(index),
+                                  onRemove: () =>
+                                      setState(() => _entries.removeAt(index)),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildBuilderHeader(
-    AppLocalizations localizations,
-    AsyncValue<List<SavedWorkoutPlan>> savedPlans,
-  ) {
+  Widget _buildBuilderHeader(AppLocalizations localizations) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          localizations.plannedWorkoutBuilderIntro,
-          style: const TextStyle(color: Colors.white60, height: 1.35),
-        ),
-        const SizedBox(height: 12),
-        _SavedPlansSection(
-          plans: savedPlans,
-          onLoad: (plan) => _loadPlan(plan),
-          onDelete: _confirmDeletePlan,
-          onNew: _requestNewPlan,
-        ),
-        const SizedBox(height: 12),
+      children: <Widget>[
         AppSurfaceCard(
           child: Column(
-            children: [
+            children: <Widget>[
               TextField(
                 key: const ValueKey<String>('workout-plan-name-field'),
                 controller: _nameController,
@@ -147,7 +343,7 @@ class _WorkoutPlanSetupScreenState
               ),
               const SizedBox(height: 10),
               Row(
-                children: [
+                children: <Widget>[
                   Expanded(
                     child: Text(
                       localizations.roundCount,
@@ -169,10 +365,10 @@ class _WorkoutPlanSetupScreenState
                   ),
                 ],
               ),
-              if (_hasDraftContent) ...[
+              if (_hasDraftContent) ...<Widget>[
                 const SizedBox(height: 10),
                 Row(
-                  children: [
+                  children: <Widget>[
                     Icon(
                       _hasUnsavedChanges
                           ? Icons.edit_note_rounded
@@ -205,7 +401,7 @@ class _WorkoutPlanSetupScreenState
         ),
         const SizedBox(height: 12),
         Row(
-          children: [
+          children: <Widget>[
             Expanded(
               child: Text(
                 localizations.exerciseOrder,
@@ -264,11 +460,15 @@ class _WorkoutPlanSetupScreenState
         if (stackActions) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [saveButton, const SizedBox(height: 8), reviewButton],
+            children: <Widget>[
+              saveButton,
+              const SizedBox(height: 8),
+              reviewButton,
+            ],
           );
         }
         return Row(
-          children: [
+          children: <Widget>[
             Expanded(child: saveButton),
             const SizedBox(width: 10),
             Expanded(child: reviewButton),
@@ -330,15 +530,7 @@ class _WorkoutPlanSetupScreenState
     return true;
   }
 
-  void _resetDraftState() {
-    _planId = null;
-    _loadedPlanBaseline = null;
-    _nameController.clear();
-    _rounds = 1;
-    _entries.clear();
-  }
-
-  Future<void> _requestRoutePop() async {
+  Future<void> _requestSheetPop() async {
     if (_isSaving || !mounted) {
       return;
     }
@@ -346,39 +538,11 @@ class _WorkoutPlanSetupScreenState
       return;
     }
 
-    setState(() => _allowRoutePop = true);
+    setState(() => _allowSheetPop = true);
     await WidgetsBinding.instance.endOfFrame;
     if (mounted && Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
-  }
-
-  Future<void> _requestNewPlan() async {
-    if (!await _confirmDiscardDraft() || !mounted) {
-      return;
-    }
-    setState(_resetDraftState);
-  }
-
-  Future<void> _loadPlan(SavedWorkoutPlan plan) async {
-    if (_planId == plan.id && !_hasUnsavedChanges) {
-      return;
-    }
-    if (!await _confirmDiscardDraft()) {
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _planId = plan.id;
-      _loadedPlanBaseline = plan;
-      _nameController.text = plan.name;
-      _rounds = plan.rounds;
-      _entries
-        ..clear()
-        ..addAll(plan.entries);
-    });
   }
 
   Future<bool> _confirmDiscardDraft() async {
@@ -391,7 +555,7 @@ class _WorkoutPlanSetupScreenState
           builder: (context) => AlertDialog(
             title: Text(localizations.discardPlanChangesTitle),
             content: Text(localizations.discardPlanChangesBody),
-            actions: [
+            actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: Text(localizations.cancel),
@@ -406,35 +570,6 @@ class _WorkoutPlanSetupScreenState
         false;
   }
 
-  Future<void> _confirmDeletePlan(SavedWorkoutPlan plan) async {
-    final localizations = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(localizations.deletePlan),
-        content: Text(localizations.deletePlanConfirmation(plan.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(localizations.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(localizations.delete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    await ref.read(savedWorkoutPlansProvider.notifier).delete(plan.id);
-    if (_planId == plan.id && mounted) {
-      setState(_resetDraftState);
-    }
-  }
-
   Future<void> _savePlan() async {
     if (!_canSave) {
       return;
@@ -447,14 +582,12 @@ class _WorkoutPlanSetupScreenState
         return;
       }
       setState(() {
-        _isSaving = false;
-        _resetDraftState();
+        _allowSheetPop = true;
       });
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).planSaved)),
-      );
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) {
+        Navigator.of(context).pop(_WorkoutPlanBuilderResult.saved);
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -469,15 +602,20 @@ class _WorkoutPlanSetupScreenState
   }
 
   void _openReview() {
+    final plan = _buildPlan();
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => WorkoutPlanReviewScreen(
-          plan: _buildPlan(),
+          plan: plan,
           onSaved: () {
-            if (mounted) {
-              setState(_resetDraftState);
+            if (!mounted) {
+              return;
             }
+            setState(() {
+              _planId = plan.id;
+              _loadedPlanBaseline = plan;
+            });
           },
         ),
       ),
@@ -538,21 +676,25 @@ class _WorkoutPlanSetupScreenState
 class _SavedPlansSection extends StatelessWidget {
   const _SavedPlansSection({
     required this.plans,
-    required this.onLoad,
+    required this.selectedPlanId,
+    required this.onSelect,
     required this.onDelete,
     required this.onNew,
+    required this.onReview,
   });
 
   final AsyncValue<List<SavedWorkoutPlan>> plans;
-  final ValueChanged<SavedWorkoutPlan> onLoad;
+  final String? selectedPlanId;
+  final ValueChanged<SavedWorkoutPlan> onSelect;
   final ValueChanged<SavedWorkoutPlan> onDelete;
   final VoidCallback onNew;
+  final VoidCallback? onReview;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     return AppSurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -568,88 +710,180 @@ class _SavedPlansSection extends StatelessWidget {
                 ),
               ),
               TextButton.icon(
+                key: const ValueKey<String>('new-workout-plan'),
                 onPressed: onNew,
                 icon: const Icon(Icons.add_rounded),
                 label: Text(localizations.newPlan),
               ),
             ],
           ),
+          const SizedBox(height: 4),
           plans.when(
             data: (items) {
               if (items.isEmpty) {
-                return Text(
-                  localizations.noSavedPlans,
-                  style: const TextStyle(color: Colors.white54),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      localizations.noSavedPlans,
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                    const SizedBox(height: 14),
+                    _ReviewSelectedPlanButton(onPressed: null),
+                  ],
                 );
               }
-              return SizedBox(
-                height: 66,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final plan = items[index];
-                    return Container(
-                      width: 155,
-                      padding: const EdgeInsets.only(left: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.surfaceBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              key: ValueKey<String>('load-plan-${plan.id}'),
-                              onTap: () => onLoad(plan),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    plan.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  Text(
-                                    localizations.savedPlanSummary(
-                                      exercises: plan.entries.length,
-                                      sets: plan.totalSets,
-                                    ),
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: localizations.deletePlan,
-                            onPressed: () => onDelete(plan),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+              return Column(
+                key: const ValueKey<String>('saved-workout-plan-list'),
+                children: [
+                  for (var index = 0; index < items.length; index += 1) ...[
+                    _SavedPlanTile(
+                      plan: items[index],
+                      isSelected: items[index].id == selectedPlanId,
+                      onTap: () => onSelect(items[index]),
+                      onDelete: () => onDelete(items[index]),
+                    ),
+                    if (index != items.length - 1) const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 14),
+                  _ReviewSelectedPlanButton(onPressed: onReview),
+                ],
               );
             },
-            loading: () => const LinearProgressIndicator(),
-            error: (_, _) => Text(
-              localizations.savedPlansLoadFailed,
-              style: const TextStyle(color: Colors.orangeAccent),
+            loading: () => const Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(),
+                SizedBox(height: 14),
+                _ReviewSelectedPlanButton(onPressed: null),
+              ],
+            ),
+            error: (_, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  localizations.savedPlansLoadFailed,
+                  style: const TextStyle(color: Colors.orangeAccent),
+                ),
+                const SizedBox(height: 14),
+                _ReviewSelectedPlanButton(onPressed: null),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SavedPlanTile extends StatelessWidget {
+  const _SavedPlanTile({
+    required this.plan,
+    required this.isSelected,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final SavedWorkoutPlan plan;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final accent = Colors.greenAccent;
+    return AnimatedContainer(
+      key: ValueKey<String>('saved-plan-card-${plan.id}'),
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? accent.withValues(alpha: 0.09)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isSelected
+              ? accent.withValues(alpha: 0.58)
+              : AppColors.surfaceBorder,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey<String>('load-plan-${plan.id}'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 11, 6, 11),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: isSelected ? accent : Colors.white38,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plan.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        localizations.savedPlanSummary(
+                          exercises: plan.entries.length,
+                          sets: plan.totalSets,
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey<String>('delete-plan-${plan.id}'),
+                  tooltip: localizations.deletePlan,
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewSelectedPlanButton extends StatelessWidget {
+  const _ReviewSelectedPlanButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return ElevatedButton.icon(
+      key: const ValueKey<String>('review-selected-workout-plan'),
+      onPressed: onPressed,
+      icon: const Icon(Icons.summarize_rounded),
+      label: Text(localizations.reviewPlan),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        backgroundColor: Colors.greenAccent,
+        foregroundColor: Colors.black,
       ),
     );
   }

@@ -40,6 +40,7 @@ import '../providers/workout_plan_session_provider.dart';
 import '../providers/workout_session_lifecycle_controller_provider.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../widgets/analysis_selection_required_view.dart';
+import '../widgets/planned_workout_live_hud.dart';
 import '../widgets/pose_painter.dart';
 import '../widgets/workout_diagnostics_panel.dart';
 import 'camera_permission_screen.dart';
@@ -47,6 +48,8 @@ import 'exercise_selection_screen.dart';
 import 'workout_plan_summary_screen.dart';
 import 'workout_rest_screen.dart';
 import 'workout_summary_screen.dart';
+
+enum LiveAnalysisExitDisposition { stayInPreparation, leavePreparation }
 
 /// Runs the live camera analysis session and handles camera lifecycle recovery.
 class LiveAnalysisScreen extends ConsumerStatefulWidget {
@@ -279,6 +282,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       return;
     }
 
+    final shouldLeavePreparation =
+        resetWorkoutPlan && ref.read(workoutPlanSessionProvider).hasPlan;
     ref.read(livePauseControllerProvider.notifier).cancelResume();
     if (_hasAnalysisSelection() && ref.read(exerciseConfigProvider).hasValue) {
       ref
@@ -300,7 +305,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     setState(() => _allowRoutePop = true);
     await WidgetsBinding.instance.endOfFrame;
     if (mounted && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(
+        shouldLeavePreparation
+            ? LiveAnalysisExitDisposition.leavePreparation
+            : LiveAnalysisExitDisposition.stayInPreparation,
+      );
     }
   }
 
@@ -879,6 +888,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
 
     final cameraState = ref.watch(cameraProvider);
+    final hasWorkoutPlan = ref.watch(
+      workoutPlanSessionProvider.select((state) => state.hasPlan),
+    );
     final topInset = MediaQuery.paddingOf(context).top;
     final viewportOrientation = MediaQuery.orientationOf(context);
     final isLandscape = viewportOrientation == Orientation.landscape;
@@ -944,17 +956,29 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     onResume: () => _requestResume(readinessRequest),
                     onCancelResume: _cancelResume,
                   ),
-                _FinishSessionButton(
-                  topInset: topInset,
-                  compact: isLandscape,
-                  isFinishing: sessionLifecycle.isFinishing,
-                  onFinish: () => unawaited(_requestSessionExit()),
-                ),
-                if (pauseState.isActive)
+                if (!hasWorkoutPlan || pauseState.isPaused)
+                  _FinishSessionButton(
+                    topInset: topInset,
+                    compact: isLandscape,
+                    isFinishing: sessionLifecycle.isFinishing,
+                    onFinish: () => unawaited(_requestSessionExit()),
+                  ),
+                if (pauseState.isActive && !hasWorkoutPlan)
                   _PauseSessionButton(
                     topInset: topInset,
                     compact: isLandscape,
                     onPause: () => _pauseAnalysis(readinessRequest),
+                  ),
+                if (pauseState.isActive && hasWorkoutPlan)
+                  Positioned.fill(
+                    child: PlannedWorkoutLiveHud(
+                      topInset: topInset,
+                      compact: isLandscape,
+                      isFinishing: sessionLifecycle.isFinishing,
+                      reserveLeadingDeveloperControl: workoutDeveloperUiEnabled,
+                      onPause: () => _pauseAnalysis(readinessRequest),
+                      onFinish: () => unawaited(_requestSessionExit()),
+                    ),
                   ),
                 if (workoutDeveloperUiEnabled && pauseState.isActive)
                   Positioned(
@@ -982,7 +1006,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       ),
                     ),
                   ),
-                if (pauseState.isActive && isLandscape)
+                if (pauseState.isActive && !hasWorkoutPlan && isLandscape)
                   _LandscapeWorkoutMetricsOverlay(
                     topInset: topInset,
                     onToggleCalibration: workoutDeveloperUiEnabled
@@ -994,7 +1018,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           }
                         : null,
                   ),
-                if (pauseState.isActive && !isLandscape)
+                if (pauseState.isActive && !hasWorkoutPlan && !isLandscape)
                   _PrimaryWorkoutMetricsOverlay(
                     topInset: topInset,
                     onToggleCalibration: workoutDeveloperUiEnabled
@@ -1010,11 +1034,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                     pauseState.isActive &&
                     !isLandscape)
                   _CanonicalMetricsOverlay(topInset: topInset),
-                if (pauseState.isActive)
-                  _PlannedWorkoutProgressOverlay(
-                    topInset: topInset,
-                    compact: isLandscape,
-                  ),
                 if (workoutDeveloperUiEnabled &&
                     _showCalibrationPanel &&
                     pauseState.isActive)
@@ -1025,7 +1044,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       setState(() => _showCalibrationPanel = false);
                     },
                   ),
-                if (pauseState.isActive)
+                if (pauseState.isActive && !hasWorkoutPlan)
                   Positioned(
                     bottom: isLandscape ? 12 : 40,
                     left: isLandscape ? 12 : 20,
@@ -1043,6 +1062,17 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           _WorkoutFeedbackStatus(compact: isLandscape),
                         ],
                       ),
+                    ),
+                  ),
+                if (pauseState.isActive && hasWorkoutPlan)
+                  Positioned(
+                    bottom: isLandscape ? 122 : 232,
+                    left: isLandscape ? 12 : 20,
+                    right: isLandscape ? 12 : 20,
+                    child: _WorkoutSetCompletedSection(
+                      compact: isLandscape,
+                      showNonFinal: _planAdvanceFailed,
+                      onAdvance: () => unawaited(_retryPlannedAdvance()),
                     ),
                   ),
                 if (_plannedResumeCountdownValue != null)
@@ -2037,44 +2067,6 @@ class _CanonicalMetricsOverlay extends ConsumerWidget {
   }
 }
 
-class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
-  const _PlannedWorkoutProgressOverlay({
-    required this.topInset,
-    required this.compact,
-  });
-
-  final double topInset;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plan = ref.watch(
-      workoutPlanSessionProvider.select(
-        (state) => (
-          snapshot: state.snapshot,
-          isWorkoutCompleted: state.isWorkoutCompleted,
-          planName: state.plan?.name ?? '',
-        ),
-      ),
-    );
-    final snapshot = plan.snapshot;
-    if (snapshot == null || plan.isWorkoutCompleted) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      top: topInset + (compact ? 140 : 294),
-      left: compact ? 14 : 20,
-      right: compact ? 14 : 20,
-      child: _PlannedWorkoutProgressBar(
-        snapshot: snapshot,
-        compact: compact,
-        planName: plan.planName,
-      ),
-    );
-  }
-}
-
 class _CalibrationPanelOverlay extends ConsumerWidget {
   const _CalibrationPanelOverlay({
     required this.topInset,
@@ -2525,91 +2517,6 @@ String _formatHoldSeconds(int seconds) {
   return '$minutes:$remainingSeconds';
 }
 
-class _PlannedWorkoutProgressBar extends StatelessWidget {
-  const _PlannedWorkoutProgressBar({
-    required this.snapshot,
-    required this.compact,
-    required this.planName,
-  });
-
-  final WorkoutEngineSnapshot snapshot;
-  final bool compact;
-  final String planName;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final target = snapshot.targetRepetitions != null
-        ? localizations.repetitionProgress(
-            snapshot.currentRepetitions,
-            snapshot.targetRepetitions!,
-          )
-        : '${_formatPlanDuration(snapshot.currentHoldDuration)} / ${_formatPlanDuration(snapshot.targetHoldDuration ?? Duration.zero)}';
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
-        vertical: compact ? 7 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(compact ? 18 : 14),
-        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.45)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (planName.isNotEmpty) ...[
-            Text(
-              planName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: compact ? 10 : 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: compact ? 3 : 5),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.plannedWorkoutProgress(
-                    round: snapshot.roundNumber,
-                    totalRounds: snapshot.totalRounds,
-                    set: snapshot.setNumber,
-                    totalSets: snapshot.setsInCurrentExercise,
-                  ),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: compact ? 11 : 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                target,
-                style: TextStyle(
-                  color: Colors.cyanAccent,
-                  fontSize: compact ? 11 : 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: compact ? 4 : 7),
-          LinearProgressIndicator(
-            value: snapshot.progress,
-            minHeight: compact ? 4 : 5,
-            backgroundColor: Colors.white12,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _WorkoutSetCompletedCard extends StatelessWidget {
   const _WorkoutSetCompletedCard({
     super.key,
@@ -2668,12 +2575,6 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatPlanDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '$minutes:$seconds';
 }
 
 class _ExerciseConfigLoadingView extends StatelessWidget {

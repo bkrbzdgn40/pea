@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
 
 void main() {
@@ -435,6 +436,59 @@ void main() {
     );
     expect(completed!.isSetCompleted, isTrue);
     expect(completed.currentRepetitions, 1);
+  });
+
+  test('restores the explicit exercise selection after a plan ends', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.pushUp;
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(10),
+          ),
+        ],
+      ),
+      selectedExerciseBeforePlan: container.read(selectedExerciseProvider),
+      restoreSelectedExerciseOnReset: true,
+    );
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+
+    controller.reset();
+
+    expect(container.read(workoutPlanSessionProvider).hasPlan, isFalse);
+    expect(container.read(selectedExerciseProvider), ExerciseType.pushUp);
+  });
+
+  test('clears the plan exercise when no explicit selection existed', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(10),
+          ),
+        ],
+      ),
+      selectedExerciseBeforePlan: container.read(selectedExerciseProvider),
+      restoreSelectedExerciseOnReset: true,
+    );
+    container.read(selectedExerciseProvider.notifier).state =
+        ExerciseType.squat;
+
+    controller.reset();
+
+    expect(container.read(selectedExerciseProvider), isNull);
   });
 
   test('reset clears the active workout plan', () {
