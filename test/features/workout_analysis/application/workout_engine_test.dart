@@ -127,6 +127,86 @@ void main() {
       expect(state.completedSets, 2);
     });
 
+    test('rebases the next set after movement during rest', () {
+      final engine = WorkoutEngine(
+        plan: WorkoutPlan(
+          exercises: const <WorkoutExerciseBlock>[
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.squat,
+              target: WorkoutTarget.repetitions(2),
+              sets: 2,
+            ),
+          ],
+        ),
+      )..start();
+
+      engine.observe(
+        const WorkoutProgressObservation.repetitions(
+          exercise: ExerciseType.squat,
+          cumulativeRepCount: 2,
+        ),
+      );
+      var state = engine.advance(repetitionBaseline: 5);
+      expect(state.currentRepetitions, 0);
+
+      state = engine.observe(
+        const WorkoutProgressObservation.repetitions(
+          exercise: ExerciseType.squat,
+          cumulativeRepCount: 5,
+        ),
+      );
+      expect(state.currentRepetitions, 0);
+
+      state = engine.observe(
+        const WorkoutProgressObservation.repetitions(
+          exercise: ExerciseType.squat,
+          cumulativeRepCount: 6,
+        ),
+      );
+      expect(state.currentRepetitions, 1);
+      expect(state.isSetCompleted, isFalse);
+    });
+
+    test('rebases the next hold set after holding during rest', () {
+      final engine = WorkoutEngine(
+        plan: WorkoutPlan(
+          exercises: const <WorkoutExerciseBlock>[
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.plank,
+              target: WorkoutTarget.hold(Duration(seconds: 10)),
+              sets: 2,
+            ),
+          ],
+        ),
+      )..start();
+
+      engine.observe(
+        const WorkoutProgressObservation.hold(
+          exercise: ExerciseType.plank,
+          currentHoldDuration: Duration(seconds: 10),
+        ),
+      );
+      var state = engine.advance(holdBaseline: const Duration(seconds: 14));
+      expect(state.currentHoldDuration, Duration.zero);
+
+      state = engine.observe(
+        const WorkoutProgressObservation.hold(
+          exercise: ExerciseType.plank,
+          currentHoldDuration: Duration(seconds: 14),
+        ),
+      );
+      expect(state.currentHoldDuration, Duration.zero);
+
+      state = engine.observe(
+        const WorkoutProgressObservation.hold(
+          exercise: ExerciseType.plank,
+          currentHoldDuration: Duration(seconds: 15),
+        ),
+      );
+      expect(state.currentHoldDuration, const Duration(seconds: 1));
+      expect(state.isSetCompleted, isFalse);
+    });
+
     test('rep counter reset is accepted within a same-exercise workout', () {
       final engine = WorkoutEngine(
         plan: WorkoutPlan(
@@ -471,6 +551,75 @@ void main() {
                 exercise: ExerciseType.squat,
                 target: WorkoutTarget.repetitions(1),
                 sets: 0,
+              ),
+            ],
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('preserves duplicate exercise blocks in the configured order', () {
+      final engine = WorkoutEngine(
+        plan: WorkoutPlan(
+          name: 'Duplicate order',
+          exercises: const <WorkoutExerciseBlock>[
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.squat,
+              target: WorkoutTarget.repetitions(1),
+              restAfterSet: Duration(seconds: 15),
+            ),
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.plank,
+              target: WorkoutTarget.hold(Duration(seconds: 1)),
+              restAfterSet: Duration(seconds: 30),
+            ),
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.squat,
+              target: WorkoutTarget.repetitions(2),
+              restAfterSet: Duration(seconds: 45),
+            ),
+          ],
+        ),
+      );
+
+      var snapshot = engine.start();
+      expect(snapshot.currentExercise, ExerciseType.squat);
+      expect(snapshot.restAfterSet, const Duration(seconds: 15));
+
+      snapshot = engine.observe(
+        const WorkoutProgressObservation.repetitions(
+          exercise: ExerciseType.squat,
+          cumulativeRepCount: 1,
+        ),
+      );
+      expect(snapshot.isSetCompleted, isTrue);
+      snapshot = engine.advance();
+      expect(snapshot.currentExercise, ExerciseType.plank);
+      expect(snapshot.restAfterSet, const Duration(seconds: 30));
+
+      snapshot = engine.observe(
+        const WorkoutProgressObservation.hold(
+          exercise: ExerciseType.plank,
+          currentHoldDuration: Duration(seconds: 1),
+        ),
+      );
+      expect(snapshot.isSetCompleted, isTrue);
+      snapshot = engine.advance();
+      expect(snapshot.currentExercise, ExerciseType.squat);
+      expect(snapshot.targetRepetitions, 2);
+      expect(snapshot.restAfterSet, const Duration(seconds: 45));
+    });
+
+    test('rejects negative rest durations', () {
+      expect(
+        () => WorkoutEngine(
+          plan: WorkoutPlan(
+            exercises: const <WorkoutExerciseBlock>[
+              WorkoutExerciseBlock(
+                exercise: ExerciseType.squat,
+                target: WorkoutTarget.repetitions(1),
+                restAfterSet: Duration(seconds: -1),
               ),
             ],
           ),

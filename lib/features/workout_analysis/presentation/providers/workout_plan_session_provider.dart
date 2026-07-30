@@ -180,13 +180,25 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     return null;
   }
 
-  WorkoutEngineSnapshot advance() {
+  WorkoutEngineSnapshot advance({WorkoutState? resumeState}) {
     final engine = _engine;
     if (engine == null) {
       throw StateError('No active workout plan.');
     }
     final previousExercise = state.snapshot?.currentExercise;
-    final snapshot = engine.advance();
+    final snapshot = resumeState == null
+        ? engine.advance()
+        : engine.advance(
+            repetitionBaseline: resumeState.rangeRepAnalysis == null
+                ? null
+                : resumeState.repCount,
+            holdBaseline: resumeState.holdAnalysis == null
+                ? null
+                : Duration(
+                    milliseconds: (resumeState.currentHoldSeconds * 1000)
+                        .round(),
+                  ),
+          );
     _seedObservationGate(
       snapshot,
       preserveForSameExercise: snapshot.currentExercise == previousExercise,

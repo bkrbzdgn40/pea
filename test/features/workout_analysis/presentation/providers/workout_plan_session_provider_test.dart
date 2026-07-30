@@ -63,6 +63,57 @@ void main() {
     expect(next.setNumber, 2);
   });
 
+  test('rebases the next same-exercise set after rest movement', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(2),
+            sets: 2,
+          ),
+        ],
+      ),
+    );
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 2),
+      ),
+    );
+
+    controller.advance(
+      resumeState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 5),
+      ),
+    );
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 5),
+      ),
+    );
+    expect(
+      container.read(workoutPlanSessionProvider).snapshot!.currentRepetitions,
+      0,
+    );
+
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: const WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(repCount: 6),
+      ),
+    );
+    expect(
+      container.read(workoutPlanSessionProvider).snapshot!.currentRepetitions,
+      1,
+    );
+  });
+
   test('exposes the next exercise and completes a mixed rep-hold plan', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

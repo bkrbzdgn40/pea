@@ -1066,6 +1066,116 @@ class AppLocalizations {
     tr: 'Hareketleri seç. Her dinamik hareket 10 tekrar, hold hareketi 30 saniye olarak başlar. Set tamamlanınca sonraki adıma sen geçersin.',
     en: 'Choose your exercises. Each dynamic exercise starts at 10 reps and each hold exercise at 30 seconds. You advance to the next step after completing a set.',
   );
+  String get plannedWorkoutBuilderIntro => pick(
+    tr: 'Hareketleri istediğin sırada ekle; set, hedef ve dinlenme sürelerini düzenle. Aynı hareketi plana birden fazla kez ekleyebilirsin.',
+    en: 'Add exercises in the order you want, then edit sets, targets, and rest. The same exercise can appear more than once.',
+  );
+  String get planName => pick(tr: 'Plan adı', en: 'Plan name');
+  String get planNameHint =>
+      pick(tr: 'Örn. Evde üst vücut', en: 'e.g. Upper body at home');
+  String get savedPlans => pick(tr: 'Kayıtlı planlar', en: 'Saved plans');
+  String get newPlan => pick(tr: 'Yeni plan', en: 'New plan');
+  String get noSavedPlans =>
+      pick(tr: 'Henüz kayıtlı plan yok.', en: 'No saved plans yet.');
+  String get savedPlansLoadFailed => pick(
+    tr: 'Kayıtlı planlar yüklenemedi.',
+    en: 'Saved plans could not be loaded.',
+  );
+  String savedPlanSummary({required int exercises, required int sets}) => pick(
+    tr: '$exercises adım • $sets set',
+    en: '$exercises steps • $sets sets',
+  );
+  String get deletePlan => pick(tr: 'Planı sil', en: 'Delete plan');
+  String deletePlanConfirmation(String name) => pick(
+    tr: '“$name” planı kalıcı olarak silinsin mi?',
+    en: 'Permanently delete the “$name” plan?',
+  );
+  String get planSaved => pick(tr: 'Plan kaydedildi.', en: 'Plan saved.');
+  String get savePlanChanges =>
+      pick(tr: 'Değişiklikleri Kaydet', en: 'Save Changes');
+  String get unsavedPlanChanges => pick(
+    tr: 'Kaydedilmemiş değişiklikler var.',
+    en: 'There are unsaved changes.',
+  );
+  String get planUpToDate =>
+      pick(tr: 'Plan güncel.', en: 'Plan is up to date.');
+  String get discardPlanChangesTitle =>
+      pick(tr: 'Değişiklikler silinsin mi?', en: 'Discard changes?');
+  String get discardPlanChangesBody => pick(
+    tr: 'Kaydetmediğin plan değişiklikleri kaybolacak.',
+    en: 'Your unsaved plan changes will be lost.',
+  );
+  String get discardChanges =>
+      pick(tr: 'Değişiklikleri Sil', en: 'Discard Changes');
+  String get planSaveFailed => pick(
+    tr: 'Plan kaydedilemedi. Tekrar dene.',
+    en: 'The plan could not be saved. Try again.',
+  );
+  String get exerciseOrder => pick(tr: 'Hareket sırası', en: 'Exercise order');
+  String get addExercise => pick(tr: 'Hareket ekle', en: 'Add exercise');
+  String get emptyPlanTitle =>
+      pick(tr: 'Plan henüz boş', en: 'Your plan is empty');
+  String get emptyPlanBody => pick(
+    tr: 'İlk hareketi ekleyerek sıralamayı oluşturmaya başla.',
+    en: 'Add the first exercise to start building the order.',
+  );
+  String get duplicateExercise =>
+      pick(tr: 'Hareketi çoğalt', en: 'Duplicate exercise');
+  String get removeExercise =>
+      pick(tr: 'Hareketi kaldır', en: 'Remove exercise');
+  String get setCount => pick(tr: 'Set', en: 'Sets');
+  String get repTarget => pick(tr: 'Tekrar hedefi', en: 'Rep target');
+  String get holdTarget => pick(tr: 'Tutuş hedefi', en: 'Hold target');
+  String get restDuration => pick(tr: 'Dinlenme', en: 'Rest');
+  String get secondsShort => pick(tr: 'sn', en: 'sec');
+  String get repetitionsShort => pick(tr: 'tekrar', en: 'reps');
+  String get savePlan => pick(tr: 'Planı Kaydet', en: 'Save Plan');
+  String get reviewPlan => pick(tr: 'Özeti Gör', en: 'Review Plan');
+  String get defaultRepTarget => pick(
+    tr: 'Varsayılan: 10 tekrar • 15 sn dinlenme',
+    en: 'Default: 10 reps • 15 sec rest',
+  );
+  String get defaultHoldTarget => pick(
+    tr: 'Varsayılan: 30 saniye • 15 sn dinlenme',
+    en: 'Default: 30 seconds • 15 sec rest',
+  );
+  String get planSummary => pick(tr: 'Plan Özeti', en: 'Plan Summary');
+  String get exerciseEntries => pick(tr: 'Hareket adımı', en: 'Exercise steps');
+  String get totalPlannedSets =>
+      pick(tr: 'Toplam planlanan set', en: 'Total planned sets');
+  String get estimatedRest =>
+      pick(tr: 'Tahmini dinlenme', en: 'Estimated rest');
+  String get editPlan => pick(tr: 'Düzenle', en: 'Edit');
+  String get startPlan => pick(tr: 'Planı Başlat', en: 'Start Plan');
+  String repTargetSummary(int repetitions) =>
+      pick(tr: '$repetitions tekrar', en: '$repetitions reps');
+  String holdTargetSummary(int seconds) =>
+      pick(tr: '$seconds saniye tutuş', en: '$seconds-second hold');
+  String planEntrySummary({
+    required int sets,
+    required String target,
+    required int restSeconds,
+  }) => pick(
+    tr: '$sets set • $target • set sonrası $restSeconds sn dinlenme',
+    en: '$sets sets • $target • $restSeconds sec rest after each set',
+  );
+  String restCountdown(String duration) =>
+      pick(tr: 'Dinlenme: $duration', en: 'Rest: $duration');
+  String get restScreenTitle => pick(tr: 'Dinlenme', en: 'Rest');
+  String get restSetCompleted =>
+      pick(tr: 'Set tamamlandı', en: 'Set completed');
+  String nextPlannedStep(String exerciseName, int setNumber) => pick(
+    tr: 'Sırada: $exerciseName • Set $setNumber',
+    en: 'Next: $exerciseName • Set $setNumber',
+  );
+  String get restTipTitle => pick(tr: 'Kısa mola', en: 'Quick reset');
+  String get restTipBody => pick(
+    tr: 'Nefesini düzenle, bir yudum su al ve sıradaki başlangıç pozisyonuna hazırlan.',
+    en: 'Settle your breathing, take a sip of water, and prepare for the next starting position.',
+  );
+  String get nextSetStarting =>
+      pick(tr: 'Yeni set başlıyor', en: 'Next set starting');
+  String get skipRest => pick(tr: 'Dinlenmeyi Atla', en: 'Skip Rest');
   String get roundCount => pick(tr: 'Tur sayısı', en: 'Number of rounds');
   String get selectAtLeastOneExercise =>
       pick(tr: 'En az bir hareket seç', en: 'Select at least one exercise');

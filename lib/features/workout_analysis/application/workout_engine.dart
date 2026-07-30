@@ -27,19 +27,27 @@ class WorkoutExerciseBlock {
     required this.exercise,
     required this.target,
     this.sets = 1,
+    this.restAfterSet = const Duration(seconds: 60),
   });
 
   final ExerciseType exercise;
   final WorkoutTarget target;
   final int sets;
+  final Duration restAfterSet;
 }
 
 class WorkoutPlan {
-  WorkoutPlan({required List<WorkoutExerciseBlock> exercises, this.rounds = 1})
-    : exercises = List<WorkoutExerciseBlock>.unmodifiable(exercises);
+  WorkoutPlan({
+    required List<WorkoutExerciseBlock> exercises,
+    this.rounds = 1,
+    this.id,
+    this.name = '',
+  }) : exercises = List<WorkoutExerciseBlock>.unmodifiable(exercises);
 
   final List<WorkoutExerciseBlock> exercises;
   final int rounds;
+  final String? id;
+  final String name;
 }
 
 enum WorkoutEnginePhase { idle, active, setCompleted, completed }
@@ -160,6 +168,7 @@ class WorkoutEngineSnapshot {
     required this.targetRepetitions,
     required this.currentHoldDuration,
     required this.targetHoldDuration,
+    required this.restAfterSet,
     required this.progress,
     required this.startedAt,
     required this.completedAt,
@@ -183,6 +192,7 @@ class WorkoutEngineSnapshot {
   final int? targetRepetitions;
   final Duration currentHoldDuration;
   final Duration? targetHoldDuration;
+  final Duration restAfterSet;
   final double progress;
   final DateTime? startedAt;
   final DateTime? completedAt;
@@ -285,7 +295,10 @@ class WorkoutEngine {
     return _buildSnapshot();
   }
 
-  WorkoutEngineSnapshot advance() {
+  WorkoutEngineSnapshot advance({
+    int? repetitionBaseline,
+    Duration? holdBaseline,
+  }) {
     if (_phase != WorkoutEnginePhase.setCompleted) {
       throw StateError('WorkoutEngine can only advance after a completed set.');
     }
@@ -313,11 +326,13 @@ class WorkoutEngine {
 
     final nextExercise = _currentBlock.exercise;
     final isSameExercise = nextExercise == previousExercise;
-    _repBaseline = isSameExercise ? previousRepCount : 0;
-    _lastObservedRepCount = isSameExercise ? previousRepCount : 0;
-    _holdBaseline = isSameExercise ? previousHoldDuration : Duration.zero;
+    final effectiveRepBaseline = repetitionBaseline ?? previousRepCount;
+    final effectiveHoldBaseline = holdBaseline ?? previousHoldDuration;
+    _repBaseline = isSameExercise ? effectiveRepBaseline : 0;
+    _lastObservedRepCount = isSameExercise ? effectiveRepBaseline : 0;
+    _holdBaseline = isSameExercise ? effectiveHoldBaseline : Duration.zero;
     _lastObservedHoldDuration = isSameExercise
-        ? previousHoldDuration
+        ? effectiveHoldBaseline
         : Duration.zero;
     _currentRepetitions = 0;
     _currentHoldDuration = Duration.zero;
@@ -484,6 +499,7 @@ class WorkoutEngine {
       targetRepetitions: targetRepetitions,
       currentHoldDuration: _currentHoldDuration,
       targetHoldDuration: targetHoldDuration,
+      restAfterSet: block?.restAfterSet ?? Duration.zero,
       progress: progress.clamp(0.0, 1.0).toDouble(),
       startedAt: _startedAt,
       completedAt: _completedAt,
@@ -552,6 +568,13 @@ class WorkoutEngine {
           block.sets,
           'block.sets',
           'Exercise blocks must contain at least one set.',
+        );
+      }
+      if (block.restAfterSet.isNegative) {
+        throw ArgumentError.value(
+          block.restAfterSet,
+          'block.restAfterSet',
+          'Rest duration cannot be negative.',
         );
       }
 
