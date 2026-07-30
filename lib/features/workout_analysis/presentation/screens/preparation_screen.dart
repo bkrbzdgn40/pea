@@ -58,6 +58,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   DeviceOrientation? _observedDeviceOrientation;
   Size? _observedPreviewSize;
   SetupReadinessRequest? _activeReadinessRequest;
+  bool _leavePreparationAfterAnalysis = false;
 
   @override
   void initState() {
@@ -198,6 +199,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   }
 
   Future<void> _startAnalysis() {
+    _leavePreparationAfterAnalysis = false;
     return _cameraHandoffCoordinator.run(
       releasePreparation: _releasePreparationForAnalysis,
       runLiveAnalysis: _openLiveAnalysis,
@@ -251,16 +253,31 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       return;
     }
 
-    final route = MaterialPageRoute<void>(
+    final route = MaterialPageRoute<LiveAnalysisExitDisposition>(
       builder:
           widget.analysisScreenBuilder ?? (_) => const LiveAnalysisScreen(),
     );
-    await Navigator.push<void>(context, route);
+    final disposition = await Navigator.push<LiveAnalysisExitDisposition>(
+      context,
+      route,
+    );
+    _leavePreparationAfterAnalysis =
+        disposition == LiveAnalysisExitDisposition.leavePreparation;
     await route.completed;
   }
 
   Future<void> _resumePreparationAfterAnalysis() async {
-    if (!mounted || !_isAppResumed || !_hasAnalysisSelection()) {
+    if (!mounted) {
+      return;
+    }
+    if (_leavePreparationAfterAnalysis) {
+      _leavePreparationAfterAnalysis = false;
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+    if (!_isAppResumed || !_hasAnalysisSelection()) {
       return;
     }
 

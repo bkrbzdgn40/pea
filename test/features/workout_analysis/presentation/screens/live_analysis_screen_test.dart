@@ -16,6 +16,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/engine
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_developer_ui_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/repositories/session_repository.dart';
@@ -43,6 +44,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_session_lifecycle_controller_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/live_analysis_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/pose_painter.dart';
@@ -583,6 +585,67 @@ void main() {
     await tester.pump();
 
     expect(find.text('Sağ bacak takip ediliyor'), findsOneWidget);
+  });
+
+  testWidgets('uses the dedicated planned workout HUD only for a plan', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await _pumpLiveAnalysisScreen(
+      tester,
+      exerciseType: ExerciseType.squat,
+      config: _squatConfig(),
+      showFinishButton: true,
+    );
+    addTearDown(harness.dispose);
+
+    expect(
+      find.byKey(const ValueKey<String>('live-primary-metric-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('planned-workout-live-hud')),
+      findsNothing,
+    );
+
+    harness.container
+        .read(workoutPlanSessionProvider.notifier)
+        .start(
+          WorkoutPlan(
+            name: 'Bacak Günü',
+            exercises: const <WorkoutExerciseBlock>[
+              WorkoutExerciseBlock(
+                exercise: ExerciseType.squat,
+                target: WorkoutTarget.repetitions(5),
+                sets: 3,
+                restAfterSet: Duration(seconds: 15),
+              ),
+            ],
+          ),
+        );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('planned-workout-live-hud')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('planned-workout-primary-metric')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('planned-workout-progress-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-primary-metric-card')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('uses compact non-overlapping overlays in landscape', (
@@ -1345,6 +1408,49 @@ void main() {
     expect(harness.sessionRepository.saveCallCount, 0);
   });
 
+  testWidgets(
+    'planned workout back requests leaving the preparation route as well',
+    (tester) async {
+      final harness = await _pumpLiveAnalysisScreen(
+        tester,
+        exerciseType: ExerciseType.squat,
+        config: _squatConfig(),
+        showFinishButton: true,
+        pushFromLauncher: true,
+        workoutPlan: WorkoutPlan(
+          name: 'İki hareketli plan',
+          exercises: const <WorkoutExerciseBlock>[
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.squat,
+              target: WorkoutTarget.repetitions(5),
+            ),
+            WorkoutExerciseBlock(
+              exercise: ExerciseType.plank,
+              target: WorkoutTarget.hold(Duration(seconds: 30)),
+            ),
+          ],
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.routeResult.value,
+        LiveAnalysisExitDisposition.leavePreparation,
+      );
+      expect(
+        harness.container.read(workoutPlanSessionProvider).hasPlan,
+        isFalse,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('open-live-analysis')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('back while saving does not start a second finish operation', (
     tester,
   ) async {
@@ -2042,6 +2148,7 @@ class _LiveScreenHarness {
     required this.sessionRepository,
     required this.cameraController,
     required this.navigationObserver,
+    required this.routeResult,
   });
 
   final ProviderContainer container;
@@ -2051,9 +2158,11 @@ class _LiveScreenHarness {
   final _FakeSessionRepository sessionRepository;
   final _FakeCameraController? cameraController;
   final _TestNavigatorObserver navigationObserver;
+  final ValueNotifier<LiveAnalysisExitDisposition?> routeResult;
 
   Future<void> dispose() async {
     await cameraController?.dispose();
+    routeResult.dispose();
     container.dispose();
   }
 }
@@ -2064,12 +2173,14 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
   required ExerciseConfig config,
   bool showFinishButton = false,
   bool pushFromLauncher = false,
+  WorkoutPlan? workoutPlan,
 }) async {
   final detector = _QueuedPoseDetector();
   final clock = _FakeClock();
   final sessionRepository = _FakeSessionRepository();
   final cameraController = showFinishButton ? _FakeCameraController() : null;
   final navigationObserver = _TestNavigatorObserver();
+  final routeResult = ValueNotifier<LiveAnalysisExitDisposition?>(null);
   final container = ProviderContainer(
     overrides: <Override>[
       selectedExerciseProvider.overrideWith((ref) => exerciseType),
@@ -2094,6 +2205,10 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
     ],
   );
 
+  if (workoutPlan != null) {
+    container.read(workoutPlanSessionProvider.notifier).start(workoutPlan);
+  }
+
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -2112,11 +2227,13 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
                     child: ElevatedButton(
                       key: const ValueKey<String>('open-live-analysis'),
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const LiveAnalysisScreen(),
-                          ),
-                        );
+                        Navigator.of(context)
+                            .push<LiveAnalysisExitDisposition>(
+                              MaterialPageRoute<LiveAnalysisExitDisposition>(
+                                builder: (_) => const LiveAnalysisScreen(),
+                              ),
+                            )
+                            .then((value) => routeResult.value = value);
                       },
                       child: const Text('Open live analysis'),
                     ),
@@ -2143,6 +2260,7 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
     sessionRepository: sessionRepository,
     cameraController: cameraController,
     navigationObserver: navigationObserver,
+    routeResult: routeResult,
   );
 }
 
