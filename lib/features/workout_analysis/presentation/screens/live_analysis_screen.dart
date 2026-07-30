@@ -1491,6 +1491,11 @@ class _LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Expanded(
+                flex: 2,
+                child: _ActiveExerciseName(compact: true),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
                 flex: 3,
                 child: _PrimaryWorkoutMetricCard(compact: true),
               ),
@@ -1537,14 +1542,74 @@ class _PrimaryWorkoutMetricsOverlay extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onLongPress: onToggleCalibration,
         child: const SizedBox(
-          height: 116,
-          child: Row(
+          height: 152,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
-              SizedBox(width: 10),
-              Expanded(flex: 2, child: _SecondaryWorkoutMetricCard()),
+              SizedBox(height: 28, child: _ActiveExerciseName()),
+              SizedBox(height: 8),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
+                    SizedBox(width: 10),
+                    Expanded(flex: 2, child: _SecondaryWorkoutMetricCard()),
+                  ],
+                ),
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveExerciseName extends ConsumerWidget {
+  const _ActiveExerciseName({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exercise = ref.watch(activeAnalysisExerciseProvider);
+    if (exercise == null) {
+      return const SizedBox.shrink();
+    }
+
+    final title = AppLocalizations.of(context).exerciseTitle(exercise.id);
+    return Semantics(
+      label: title,
+      excludeSemantics: true,
+      child: Container(
+        key: const ValueKey<String>('live-active-exercise-name'),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 14,
+          vertical: compact ? 6 : 2,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: compact ? 0.58 : 0.48),
+          borderRadius: BorderRadius.circular(compact ? 16 : 14),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: compact ? 0.18 : 0.14),
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            maxLines: compact ? 2 : 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 14 : 20,
+              height: 1.05,
+              fontWeight: FontWeight.w800,
+              letterSpacing: compact ? 0 : 0.2,
+            ),
           ),
         ),
       ),
@@ -1777,7 +1842,7 @@ class _CanonicalMetricsOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final liveMetrics = ref.watch(workoutLiveMetricsProvider);
     return Positioned(
-      top: topInset + 202,
+      top: topInset + 238,
       left: 20,
       right: 20,
       child: _LiveCanonicalMetricsBar(metrics: liveMetrics),
@@ -1810,7 +1875,7 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
     }
 
     return Positioned(
-      top: topInset + (compact ? 140 : 258),
+      top: topInset + (compact ? 140 : 294),
       left: compact ? 14 : 20,
       right: compact ? 14 : 20,
       child: _PlannedWorkoutProgressBar(snapshot: snapshot, compact: compact),
@@ -1837,7 +1902,7 @@ class _CalibrationPanelOverlay extends ConsumerWidget {
     );
 
     return Positioned(
-      top: topInset + (compact ? (hasPlan ? 192 : 140) : (hasPlan ? 330 : 258)),
+      top: topInset + (compact ? (hasPlan ? 192 : 140) : (hasPlan ? 366 : 294)),
       bottom: compact ? 88 : null,
       left: compact ? 14 : 20,
       right: compact ? 14 : 20,
@@ -1941,7 +2006,7 @@ class _RangeRepSideTrackingIndicator extends ConsumerWidget {
               hasSelectedSide
                   ? Icons.directions_walk_rounded
                   : Icons.swap_horiz_rounded,
-              size: compact ? 17 : 20,
+              size: compact ? 19 : 23,
               color: accentColor,
             ),
             SizedBox(width: compact ? 7 : 9),
@@ -1956,9 +2021,9 @@ class _RangeRepSideTrackingIndicator extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: compact ? 12 : 13,
+                  fontSize: compact ? 13 : 15,
                   height: 1.2,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -2017,8 +2082,8 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       padding: compact
-          ? const EdgeInsets.fromLTRB(12, 9, 14, 10)
-          : const EdgeInsets.fromLTRB(16, 13, 18, 14),
+          ? const EdgeInsets.fromLTRB(14, 10, 16, 11)
+          : const EdgeInsets.fromLTRB(18, 15, 20, 16),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.68),
         borderRadius: BorderRadius.circular(compact ? 18 : 22),
@@ -2035,8 +2100,8 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: compact ? 32 : 38,
-            height: compact ? 32 : 38,
+            width: compact ? 38 : 46,
+            height: compact ? 38 : 46,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.14),
               shape: BoxShape.circle,
@@ -2044,10 +2109,10 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
             child: Icon(
               presentation.icon,
               color: accentColor,
-              size: compact ? 19 : 22,
+              size: compact ? 23 : 28,
             ),
           ),
-          SizedBox(width: compact ? 9 : 12),
+          SizedBox(width: compact ? 11 : 14),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -2075,9 +2140,9 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: compact ? 16 : 18,
-                      height: 1.18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: compact ? 18 : 22,
+                      height: 1.16,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
