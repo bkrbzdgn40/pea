@@ -400,6 +400,106 @@ void main() {
     );
   });
 
+  testWidgets(
+    'keeps exercise, repetition, score, and remote feedback visible',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      const initialState = WorkoutState.rangeRep(
+        feedbackMessage: 'Formunu koru.',
+        analysis: RangeRepWorkoutAnalysisState(
+          repCount: 4,
+          lastRepScore: 86,
+          currentPhase: 'ASCENDING',
+        ),
+      );
+      final cameraController = _FakeCameraController();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+          activeAnalysisExerciseProvider.overrideWithValue(ExerciseType.squat),
+          exerciseConfigProvider.overrideWith((ref) => _squatConfig()),
+          workoutControllerProvider.overrideWith(
+            () => _FakeWorkoutController(initialState),
+          ),
+          authRepositoryProvider.overrideWithValue(
+            const _FakeAuthRepository(currentUserId: 'test-user'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(_FakeSessionRepository()),
+          cameraProvider.overrideWith((ref) async => cameraController),
+        ],
+      );
+      addTearDown(() async {
+        await cameraController.dispose();
+        container.dispose();
+      });
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('tr'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: const LiveAnalysisScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final performanceHeader = find.byKey(
+        const ValueKey<String>('live-performance-header'),
+      );
+      final primaryMetric = find.byKey(
+        const ValueKey<String>('live-primary-metric-card'),
+      );
+      final secondaryMetric = find.byKey(
+        const ValueKey<String>('live-secondary-metric-card'),
+      );
+      final feedbackCard = find.byKey(
+        const ValueKey<String>('live-feedback-message-card'),
+      );
+
+      expect(performanceHeader, findsOneWidget);
+      expect(tester.getSize(performanceHeader).height, 152);
+      expect(
+        find.byKey(const ValueKey<String>('live-active-exercise-name')),
+        findsOneWidget,
+      );
+      expect(find.text('Squat'), findsOneWidget);
+      expect(
+        find.descendant(of: primaryMetric, matching: find.text('4')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: secondaryMetric, matching: find.text('86')),
+        findsOneWidget,
+      );
+      expect(find.text('Detaylar'), findsNothing);
+
+      final feedbackText = tester.widget<Text>(
+        find.descendant(of: feedbackCard, matching: find.text('Formunu koru.')),
+      );
+      expect(feedbackText.style?.fontSize, 22);
+      expect(feedbackText.style?.fontWeight, FontWeight.w800);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('shows and updates automatic tracked-leg guidance', (
     tester,
   ) async {
@@ -488,8 +588,10 @@ void main() {
   testWidgets('uses compact non-overlapping overlays in landscape', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(960, 420));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.view.physicalSize = const Size(960, 420);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
     final harness = await _pumpLiveAnalysisScreen(
       tester,
@@ -516,6 +618,11 @@ void main() {
     expect(feedbackCard, findsOneWidget);
     expect(tester.getSize(performanceHeader).height, 76);
     expect(
+      find.byKey(const ValueKey<String>('live-active-exercise-name')),
+      findsOneWidget,
+    );
+    expect(find.text('Plank'), findsOneWidget);
+    expect(
       tester.getRect(performanceHeader).top,
       greaterThan(tester.getRect(pauseButton).bottom),
     );
@@ -524,6 +631,16 @@ void main() {
       lessThan(tester.getRect(feedbackCard).top),
     );
     expect(tester.getSize(feedbackCard).width, lessThan(760));
+    final landscapeFeedbackText = find.descendant(
+      of: feedbackCard,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.style?.fontSize == 18 &&
+            widget.style?.fontWeight == FontWeight.w800,
+      ),
+    );
+    expect(landscapeFeedbackText, findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.runAsync(() async {
