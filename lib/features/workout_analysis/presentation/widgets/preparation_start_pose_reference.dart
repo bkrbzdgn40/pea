@@ -6,13 +6,11 @@ class PreparationStartPoseReference extends StatelessWidget {
   const PreparationStartPoseReference({
     required this.template,
     required this.title,
-    required this.hint,
     super.key,
   });
 
   final PreparationPoseTemplate template;
   final String title;
-  final String hint;
 
   @override
   Widget build(BuildContext context) {
@@ -67,34 +65,6 @@ class PreparationStartPoseReference extends StatelessWidget {
               CustomPaint(
                 key: const ValueKey<String>('preparation-start-pose-reference'),
                 painter: _PreparationStartPoseReferencePainter(template),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  key: const ValueKey<String>('preparation-start-pose-hint'),
-                  constraints: const BoxConstraints(maxWidth: 340),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.54),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFFB9F3E7).withValues(alpha: 0.42),
-                    ),
-                  ),
-                  child: Text(
-                    hint,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      height: 1.3,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ),
             ],
           ),

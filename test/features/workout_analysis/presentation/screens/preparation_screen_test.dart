@@ -99,7 +99,7 @@ void main() {
     expect(toggles, isEmpty);
   });
 
-  testWidgets('shows live camera preview and exercise-specific guidance', (
+  testWidgets('shows a compact camera-first surface and dynamic guide', (
     tester,
   ) async {
     final cameraController = _FakeCameraController();
@@ -113,7 +113,11 @@ void main() {
 
     expect(find.byType(PreparationScreen), findsOneWidget);
     expect(find.text('Hazırlık'), findsOneWidget);
-    expect(find.text('Squat analizi öncesi'), findsOneWidget);
+    expect(find.text('Squat'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-compact-header')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('preparation-camera-preview')),
       findsOneWidget,
@@ -124,15 +128,6 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('preparation-feedback-notice')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('Sesli koç açık.'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('preparation-quick-align-card')),
-      findsOneWidget,
-    );
-    expect(
       find.byKey(const ValueKey<String>('preparation-start-pose-reference')),
       findsOneWidget,
     );
@@ -140,57 +135,29 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-readiness-banner')),
       findsOneWidget,
     );
-    expect(find.text('Örnek başlangıç pozu'), findsWidgets);
     expect(
-      find.textContaining('Vücudunu ekrandaki iskelete yaklaşık hizala.'),
-      findsWidgets,
-    );
-    expect(
-      find.text('Kadraja geç ve vücudunu kameraya göster.'),
-      findsOneWidget,
-    );
-    final readinessCard = find.byKey(
-      const ValueKey<String>('preparation-readiness-card'),
-    );
-    await tester.scrollUntilVisible(
-      readinessCard,
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(readinessCard, findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('preparation-check-person')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('preparation-feedback-notice')),
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey<String>('preparation-check-framing')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('preparation-quick-align-card')),
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey<String>('preparation-check-cameraView')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('preparation-readiness-card')),
+      findsNothing,
     );
+    expect(find.text('Sağ veya sol yanını kameraya dön.'), findsNothing);
+
+    final readinessMessage = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('preparation-readiness-message')),
+    );
+    expect(readinessMessage.data, 'Kadraja geç ve vücudunu kameraya göster.');
+    expect(readinessMessage.style?.fontSize, 20);
+    expect(readinessMessage.style?.fontWeight, FontWeight.w900);
+
     expect(
-      find.byKey(const ValueKey<String>('preparation-check-startPose')),
-      findsOneWidget,
-    );
-    final readinessStatus = tester.widget<Text>(
-      find.byKey(const ValueKey<String>('preparation-readiness-status')),
-    );
-    expect(readinessStatus.data, 'Konumunu ayarla');
-    final cameraViewInstruction = find.text(
-      'Sağ veya sol yanını kameraya dön.',
-    );
-    await tester.scrollUntilVisible(
-      cameraViewInstruction,
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(cameraViewInstruction, findsOneWidget);
-    expect(
-      find.text(
-        'Başın, omuzların, kalçan, dizlerin, ayak bileklerin ve ayakların kadrajda tamamen görünsün.',
-      ),
+      find.byKey(const ValueKey<String>('preparation-guide-action')),
       findsOneWidget,
     );
     expect(find.text('Hazırlığı Başlat'), findsOneWidget);
@@ -198,6 +165,90 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-start-gate')),
     );
     expect(startButton.onPressed, isNotNull);
+    expect(cameraController.startImageStreamCallCount, 1);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-guide-action')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsOneWidget,
+    );
+    expect(find.text('Squat için hazırlık'), findsOneWidget);
+    expect(find.text('Örnek başlangıç pozu'), findsWidgets);
+    expect(
+      find.textContaining('Vücudunu ekrandaki iskelete yaklaşık hizala.'),
+      findsOneWidget,
+    );
+    expect(find.text('Sağ veya sol yanını kameraya dön.'), findsOneWidget);
+    expect(
+      find.text(
+        'Başın, omuzların, kalçan, dizlerin, ayak bileklerin ve ayakların kadrajda tamamen görünsün.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-voice-status')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Sesli koç açık.'), findsOneWidget);
+    expect(cameraController.startImageStreamCallCount, 1);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-guide-close')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsNothing,
+    );
+    expect(cameraController.startImageStreamCallCount, 1);
+  });
+
+  testWidgets('dismisses the guide from the barrier and Android back', (
+    tester,
+  ) async {
+    final cameraController = _FakeCameraController();
+    addTearDown(cameraController.dispose);
+
+    await _pumpSelectedExercise(tester, cameraController: cameraController);
+
+    final guideAction = find.byKey(
+      const ValueKey<String>('preparation-guide-action'),
+    );
+    await tester.tap(guideAction);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Hızlı hazırlık adımları'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsOneWidget,
+    );
+
+    await tester.tapAt(const Offset(20, 300));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsNothing,
+    );
+
+    await tester.tap(guideAction);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsNothing,
+    );
     expect(cameraController.startImageStreamCallCount, 1);
   });
 
@@ -241,6 +292,17 @@ void main() {
     expect(posePainter().absoluteImageSize, const Size(480, 640));
     expect(readinessImageWidth, 480);
     expect(readinessImageHeight, 640);
+    final cameraRight = tester
+        .getTopRight(
+          find.byKey(const ValueKey<String>('preparation-camera-stage')),
+        )
+        .dx;
+    final headerLeft = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('preparation-compact-header')),
+        )
+        .dx;
+    expect(cameraRight, lessThan(headerLeft));
 
     cameraController.setDeviceOrientation(DeviceOrientation.landscapeLeft);
     await tester.pump();
@@ -253,6 +315,50 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-readiness-banner')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('supports portrait layout and text scale 2.0', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final cameraController = _FakeCameraController();
+    addTearDown(cameraController.dispose);
+
+    await _pumpSelectedExercise(
+      tester,
+      cameraController: cameraController,
+      textScaler: TextScaler.linear(2),
+    );
+
+    expect(tester.takeException(), isNull);
+    final headerBottom = tester
+        .getBottomLeft(
+          find.byKey(const ValueKey<String>('preparation-compact-header')),
+        )
+        .dy;
+    final cameraTop = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('preparation-camera-stage')),
+        )
+        .dy;
+    expect(headerBottom, lessThan(cameraTop));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('preparation-guide-action')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-overlay')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-guide-scroll')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paints preparation landmarks without workout metrics', (
@@ -445,12 +551,6 @@ void main() {
     final cameraError = find.byKey(
       const ValueKey<String>('preparation-camera-error'),
     );
-    await tester.scrollUntilVisible(
-      cameraError,
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-
     expect(cameraError, findsOneWidget);
     expect(
       find.text(
@@ -490,13 +590,24 @@ Future<void> _pumpSelectedExercise(
   Locale locale = const Locale('tr'),
   PreparationCameraState? preparationState,
   ScreenAwakeController? awakeController,
+  TextScaler? textScaler,
   List<Override> additionalOverrides = const <Override>[],
 }) async {
   final resolvedAwakeController =
       awakeController ?? _buildNoopScreenAwakeController();
+  final screen = textScaler == null
+      ? const PreparationScreen()
+      : MediaQuery(
+          data: MediaQueryData(
+            size: tester.view.physicalSize / tester.view.devicePixelRatio,
+            devicePixelRatio: tester.view.devicePixelRatio,
+            textScaler: textScaler,
+          ),
+          child: const PreparationScreen(),
+        );
   await pumpTestApp(
     tester,
-    home: const PreparationScreen(),
+    home: screen,
     locale: locale,
     overrides: <Override>[
       selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
