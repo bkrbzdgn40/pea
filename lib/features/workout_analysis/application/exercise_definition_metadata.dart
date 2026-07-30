@@ -1,3 +1,5 @@
+import '../domain/models/exercise_type.dart';
+
 /// Canonical movement-pattern families used to describe an exercise without
 /// coupling the catalog to a concrete analysis implementation.
 enum ExerciseMovementPattern {
@@ -20,6 +22,52 @@ enum ExerciseMovementPattern {
   squatHold,
   sideCoreHold,
   fullBodyAbduction,
+}
+
+/// Product-facing body regions used to browse the exercise catalog.
+enum ExerciseBodyRegion { lowerBody, upperBody, core, fullBody }
+
+/// Keeps exercise discovery metadata exhaustive and independent from the
+/// runtime analysis implementation.
+extension ExerciseBodyRegionMetadata on ExerciseType {
+  ExerciseBodyRegion get bodyRegion {
+    return switch (this) {
+      ExerciseType.squat ||
+      ExerciseType.lunge ||
+      ExerciseType.standingHamstringCurl ||
+      ExerciseType.standingHipAbduction ||
+      ExerciseType.romanianDeadlift ||
+      ExerciseType.goodMorning ||
+      ExerciseType.calfRaise ||
+      ExerciseType.gluteBridge ||
+      ExerciseType.wallSit ||
+      ExerciseType.standingHipExtension ||
+      ExerciseType.standingStraightLegRaise ||
+      ExerciseType.frogPump => ExerciseBodyRegion.lowerBody,
+      ExerciseType.pushUp ||
+      ExerciseType.bicepsCurl ||
+      ExerciseType.tricepsDip ||
+      ExerciseType.lateralRaise ||
+      ExerciseType.shoulderPress ||
+      ExerciseType.overheadTricepsExtension ||
+      ExerciseType.uprightRow ||
+      ExerciseType.frontRaise ||
+      ExerciseType.lyingTricepsExtension ||
+      ExerciseType.floorChestPress ||
+      ExerciseType.yRaise => ExerciseBodyRegion.upperBody,
+      ExerciseType.plank ||
+      ExerciseType.hollowHold ||
+      ExerciseType.sitUp ||
+      ExerciseType.crunch ||
+      ExerciseType.reverseCrunch ||
+      ExerciseType.lyingLegRaise ||
+      ExerciseType.bentKneeLegRaise ||
+      ExerciseType.sidePlank ||
+      ExerciseType.standingKneeRaise ||
+      ExerciseType.vUp => ExerciseBodyRegion.core,
+      ExerciseType.jumpingJack => ExerciseBodyRegion.fullBody,
+    };
+  }
 }
 
 /// Declares whether an exercise is tracked as repetitions or as a timed hold.

@@ -457,6 +457,34 @@ class AppLocalizations {
   );
 
   // Exercise selection / guide shell
+  String get searchExercises => pick(tr: 'Hareket ara', en: 'Search exercises');
+  String get searchExercisesHint => pick(
+    tr: 'Hareket adı veya hedef bölge ara',
+    en: 'Search by exercise or target area',
+  );
+  String get exerciseCategories => pick(tr: 'Hedef bölge', en: 'Target area');
+  String get lowerBody => pick(tr: 'Alt Vücut', en: 'Lower Body');
+  String get upperBody => pick(tr: 'Üst Vücut', en: 'Upper Body');
+  String get core => 'Core';
+  String get fullBody => pick(tr: 'Tüm Vücut', en: 'Full Body');
+  String get recentExercises =>
+      pick(tr: 'Son Kullanılanlar', en: 'Recently Used');
+  String get allExercises => pick(tr: 'Tüm Hareketler', en: 'All Exercises');
+  String exerciseResultCount(int count) => pick(
+    tr: '$count hareket',
+    en: count == 1 ? '1 exercise' : '$count exercises',
+  );
+  String get noExercisesFound =>
+      pick(tr: 'Hareket bulunamadı', en: 'No exercises found');
+  String get noExercisesFoundBody => pick(
+    tr: 'Arama metnini veya hedef bölge filtresini değiştir.',
+    en: 'Change the search text or target-area filter.',
+  );
+  String get exerciseSearchResults =>
+      pick(tr: 'Arama Sonuçları', en: 'Search Results');
+  String get clearSearch => pick(tr: 'Aramayı temizle', en: 'Clear search');
+  String get clearExerciseFilters =>
+      pick(tr: 'Filtreleri temizle', en: 'Clear filters');
   String get analysisActive => pick(tr: 'Analiz aktif', en: 'Analysis active');
   String get guideOnlyForNow =>
       pick(tr: 'Şimdilik rehber içeriği', en: 'Guide content only for now');
