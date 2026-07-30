@@ -171,8 +171,8 @@ String _startPoseInstruction(
       en: 'Place your elbows under your shoulders and form a straight line from head to heels.',
     ),
     ExerciseType.hollowHold => localizations.pick(
-      tr: 'Sırt üstü uzan; omuzlarını hafif kaldır, kollarını baş üstüne uzat ve bacaklarını yerden kaldır.',
-      en: 'Lie on your back, lift your shoulders slightly, reach your arms overhead, and raise your legs.',
+      tr: 'Sırt üstü düz uzan ve bacaklarını uzat; kollarını rahat ettiğin bir pozisyonda tutabilirsin.',
+      en: 'Lie flat on your back with your legs extended; keep your arms in any comfortable position.',
     ),
     ExerciseType.lunge => localizations.pick(
       tr: 'Kameraya yakın ayağını öne, diğer ayağını geriye al; iki dizi neredeyse düz ve gövdeni dik tut.',

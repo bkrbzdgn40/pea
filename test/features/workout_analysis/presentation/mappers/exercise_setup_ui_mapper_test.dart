@@ -192,6 +192,7 @@ void main() {
       hollowHold.startPoseTemplate,
       PreparationPoseTemplate.floorSupineStraight,
     );
+    expect(hollowHold.startPoseInstruction, contains('kollarını rahat'));
     expect(vUp.startPoseTemplate, PreparationPoseTemplate.floorSupineStraight);
     expect(
       frogPump.startPoseTemplate,

@@ -390,12 +390,15 @@ abstract final class RangeRepContracts {
         RangeRepPrimaryMetricKind.jointAngle,
     RangeRepPrimaryMetricDirection primaryMetricDirection =
         RangeRepPrimaryMetricDirection.decreasingToPeak,
+    double activeEntryMargin = 3.0,
     double peakEntryMargin = 3.0,
     bool retainPeakEvidenceAcrossActiveTransition = false,
     Duration initialNeutralConfirmationDuration = const Duration(
       milliseconds: 100,
     ),
     int primaryMetricSmoothingWindow = 5,
+    Duration neutralBaselineWindow = Duration.zero,
+    double neutralBaselineThresholdMargin = 0.0,
   }) {
     return RangeRepContract(
       towardPeakMuscleAction: RangeRepTowardPeakMuscleAction.concentric,
@@ -431,11 +434,14 @@ abstract final class RangeRepContracts {
       automaticSideSelectionEnabled: automaticSideSelectionEnabled,
       primaryMetricKind: primaryMetricKind,
       primaryMetricDirection: primaryMetricDirection,
+      activeEntryMargin: activeEntryMargin,
       peakEntryMargin: peakEntryMargin,
       retainPeakEvidenceAcrossActiveTransition:
           retainPeakEvidenceAcrossActiveTransition,
       initialNeutralConfirmationDuration: initialNeutralConfirmationDuration,
       primaryMetricSmoothingWindow: primaryMetricSmoothingWindow,
+      neutralBaselineWindow: neutralBaselineWindow,
+      neutralBaselineThresholdMargin: neutralBaselineThresholdMargin,
     );
   }
 
@@ -621,8 +627,11 @@ abstract final class RangeRepContracts {
 
   static final RangeRepContract crunch = _concentricPrimaryOnly(
     primaryMetricKind: RangeRepPrimaryMetricKind.imagePlaneInclination,
+    activeEntryMargin: 0.0,
     peakEntryMargin: 0.0,
     primaryMetricSmoothingWindow: 3,
+    neutralBaselineWindow: const Duration(milliseconds: 1500),
+    neutralBaselineThresholdMargin: 0.0,
   );
 
   static final RangeRepContract reverseCrunch = _concentricPrimaryOnly(
