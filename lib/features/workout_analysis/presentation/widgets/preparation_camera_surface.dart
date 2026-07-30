@@ -21,7 +21,6 @@ class PreparationCameraSurface extends StatelessWidget {
     required this.isRecovering,
     required this.startPoseTemplate,
     required this.startPoseGuideTitle,
-    required this.startPoseGuideHint,
     required this.countdownValue,
     required this.onControllerReady,
     required this.onRetry,
@@ -35,7 +34,6 @@ class PreparationCameraSurface extends StatelessWidget {
   final bool isRecovering;
   final PreparationPoseTemplate startPoseTemplate;
   final String startPoseGuideTitle;
-  final String startPoseGuideHint;
   final int? countdownValue;
   final ValueChanged<CameraController> onControllerReady;
   final VoidCallback onRetry;
@@ -88,7 +86,6 @@ class PreparationCameraSurface extends StatelessWidget {
                   PreparationStartPoseReference(
                     template: startPoseTemplate,
                     title: startPoseGuideTitle,
-                    hint: startPoseGuideHint,
                   ),
                   _PreparationPoseOverlay(
                     imageSize: imageSize,
@@ -289,47 +286,39 @@ class _PreparationReadinessBanner extends StatelessWidget {
         child: AnimatedContainer(
           key: const ValueKey<String>('preparation-readiness-banner'),
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.76),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.7)),
+            color: Colors.black.withValues(alpha: 0.84),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.86), width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(
                 _readinessIcon(readiness.visualState),
                 color: color,
-                size: 22,
+                size: 30,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      readiness.statusLabel,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      readiness.message,
-                      key: const ValueKey<String>(
-                        'preparation-readiness-message',
-                      ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        height: 1.3,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  readiness.message,
+                  key: const ValueKey<String>('preparation-readiness-message'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    height: 1.22,
+                    fontWeight: FontWeight.w900,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                  ),
                 ),
               ),
             ],

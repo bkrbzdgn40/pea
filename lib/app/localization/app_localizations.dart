@@ -55,16 +55,6 @@ class AppLocalizations {
   String get feedbackFrequencyReduced => pick(tr: 'Az', en: 'Reduced');
   String get feedbackFrequencyNormal => pick(tr: 'Normal', en: 'Normal');
   String get feedbackFrequencyFrequent => pick(tr: 'Sık', en: 'Frequent');
-  String preparationFeedbackNotice({required bool voiceEnabled}) {
-    if (!voiceEnabled) {
-      return '';
-    }
-    return pick(
-      tr: 'Sesli koç açık. Bu seçeneği Ayarlar ekranından değiştirebilirsin.',
-      en: 'Voice coaching is on. You can change it in Settings.',
-    );
-  }
-
   String get privacyAndData =>
       pick(tr: 'Gizlilik ve Verilerim', en: 'Privacy and My Data');
   String get savedWorkoutDataExplanation => pick(
@@ -676,14 +666,20 @@ class AppLocalizations {
     tr: 'Hazırlık ve analiz adımlarına geçmeden önce geçerli bir hareket seçimi gerekiyor.',
     en: 'A valid exercise selection is required before preparation and analysis can begin.',
   );
-  String preparationForExercise(String exerciseName) => pick(
-    tr: '$exerciseName analizi öncesi',
-    en: 'Before $exerciseName analysis',
-  );
-  String get preparationSubtitle => pick(
-    tr: 'Daha doğru sonuçlar için kısa bir hazırlık kontrolü yap.',
-    en: 'Complete a quick preparation check for more reliable results.',
-  );
+  String get preparationGuide => pick(tr: 'Kılavuz', en: 'Guide');
+  String preparationGuideForExercise(String exerciseName) =>
+      pick(tr: '$exerciseName için hazırlık', en: 'Prepare for $exerciseName');
+  String get preparationGuideSteps =>
+      pick(tr: 'Hızlı hazırlık adımları', en: 'Quick setup steps');
+  String preparationVoiceCoachStatus({required bool enabled}) => enabled
+      ? pick(
+          tr: 'Sesli koç açık. Analiz sırasında anlık yönlendirmeleri duyacaksın.',
+          en: 'Voice coaching is on. You will hear live guidance during analysis.',
+        )
+      : pick(
+          tr: 'Sesli koç kapalı. Görsel yönlendirmeler çalışmaya devam eder.',
+          en: 'Voice coaching is off. Visual guidance remains available.',
+        );
   String get preparationCameraLoading =>
       pick(tr: 'Kamera hazırlanıyor...', en: 'Preparing the camera...');
   String get preparationCameraUnavailable =>

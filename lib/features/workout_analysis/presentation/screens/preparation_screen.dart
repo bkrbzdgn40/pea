@@ -10,7 +10,6 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
-import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/preparation_camera_geometry.dart';
 import '../models/preparation_start_gate_state.dart';
 import '../models/setup_readiness_view_data.dart';
@@ -19,13 +18,13 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/preparation_camera_controller.dart';
-import '../providers/preparation_readiness_controller.dart';
 import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/screen_awake_controller.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
 import '../widgets/preparation_camera_surface.dart';
+import '../widgets/preparation_guide_overlay.dart';
 import '../widgets/preparation_start_gate_controls.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
@@ -352,6 +351,47 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     });
   }
 
+  Future<void> _showPreparationGuide({
+    required String exerciseName,
+    required String startPoseTitle,
+    required String startPoseHint,
+    required List<String> instructions,
+    required bool voiceCoachEnabled,
+  }) {
+    final localizations = AppLocalizations.of(context);
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: localizations.close,
+      barrierColor: Colors.black.withValues(alpha: 0.76),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (dialogContext, _, _) {
+        return PreparationGuideOverlay(
+          exerciseName: exerciseName,
+          startPoseTitle: startPoseTitle,
+          startPoseHint: startPoseHint,
+          instructions: instructions,
+          voiceCoachEnabled: voiceCoachEnabled,
+          onClose: () => Navigator.of(dialogContext).pop(),
+        );
+      },
+      transitionBuilder: (_, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
@@ -383,9 +423,6 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     }
 
     final settings = ref.watch(runtimeWorkoutSettingsProvider);
-    final feedbackNotice = localizations.preparationFeedbackNotice(
-      voiceEnabled: settings.voiceCoachEnabled,
-    );
     final configState = ref.watch(exerciseConfigProvider);
     final cameraState = ref.watch(cameraProvider);
     final definition = const ExerciseCatalog().definitionFor(activeExercise);
@@ -454,8 +491,6 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     final selectedExerciseTitle = localizations.exerciseTitle(
       selectedExercise.id,
     );
-    final title = localizations.preparationForExercise(activeExerciseTitle);
-    final description = localizations.preparationSubtitle;
     final fallbackMessage = isFallback
         ? localizations.unsupportedExerciseFallback(
             selectedExerciseTitle,
@@ -470,282 +505,250 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     final isPreparing =
         configState.isLoading || cameraState.isLoading || _isRecoveringCamera;
 
+    final cameraSurface = PreparationCameraSurface(
+      cameraState: cameraState,
+      geometry: cameraGeometry,
+      viewportOrientation: viewportOrientation,
+      isRecovering: _isRecoveringCamera,
+      startPoseTemplate: setupViewData.startPoseTemplate,
+      startPoseGuideTitle: setupViewData.startPoseGuideTitle,
+      countdownValue: countdownValue,
+      onControllerReady: _ensureImageStream,
+      onRetry: () => unawaited(_recoverCameraIfAllowed()),
+      onCheckPermission: () => unawaited(_goToPermissionScreen()),
+    );
+    final startControls = PreparationStartGateControls(
+      phase: startGatePhase,
+      countdownValue: countdownValue,
+      isConfigReady: isConfigReady,
+      isCameraReady: isCameraReady,
+      isPreparing: isPreparing,
+      onArm: canArmPreparation && startGateProvider != null
+          ? () => ref.read(startGateProvider.notifier).arm()
+          : null,
+      onCancel:
+          (startGatePhase == PreparationStartGatePhase.monitoring ||
+                  startGatePhase ==
+                      PreparationStartGatePhase.overrideAvailable ||
+                  startGatePhase == PreparationStartGatePhase.countingDown) &&
+              startGateProvider != null
+          ? () => ref.read(startGateProvider.notifier).reset()
+          : null,
+      onOverride:
+          startGatePhase == PreparationStartGatePhase.overrideAvailable &&
+              isConfigReady &&
+              isCameraReady &&
+              _cameraHandoffCoordinator.canUsePreparationCamera &&
+              startGateProvider != null
+          ? () => ref.read(startGateProvider.notifier).approveOverride()
+          : null,
+    );
+    final compactSummary =
+        '${setupViewData.cameraViewLabel} • ${setupViewData.setupPositionLabel}';
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text(localizations.preparation),
         backgroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          TextButton.icon(
+            key: const ValueKey<String>('preparation-guide-action'),
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            onPressed: () {
+              unawaited(
+                _showPreparationGuide(
+                  exerciseName: activeExerciseTitle,
+                  startPoseTitle: setupViewData.startPoseGuideTitle,
+                  startPoseHint: setupViewData.startPoseGuideHint,
+                  instructions: setupViewData.orderedInstructions,
+                  voiceCoachEnabled: settings.voiceCoachEnabled,
+                ),
+              );
+            },
+            icon: const Icon(Icons.help_outline_rounded, size: 20),
+            label: Text(localizations.preparationGuide),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 16,
-                      height: 1.4,
-                    ),
-                  ),
-                  if (feedbackNotice.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _PreparationFeedbackNotice(message: feedbackNotice),
-                  ],
-                  if (fallbackMessage != null) ...[
-                    const SizedBox(height: 16),
-                    _PreparationMessageCard(message: fallbackMessage),
-                  ],
-                  if (configState.hasError) ...[
-                    const SizedBox(height: 16),
-                    _PreparationConfigError(
-                      onRetry: () => ref.invalidate(exerciseConfigProvider),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  _PreparationQuickAlignCard(
-                    title: setupViewData.startPoseGuideTitle,
-                    message: setupViewData.startPoseGuideHint,
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: PreparationCameraSurface(
-                        cameraState: cameraState,
-                        geometry: cameraGeometry,
-                        viewportOrientation: viewportOrientation,
-                        isRecovering: _isRecoveringCamera,
-                        startPoseTemplate: setupViewData.startPoseTemplate,
-                        startPoseGuideTitle: setupViewData.startPoseGuideTitle,
-                        startPoseGuideHint: setupViewData.startPoseGuideHint,
-                        countdownValue: countdownValue,
-                        onControllerReady: _ensureImageStream,
-                        onRetry: () => unawaited(_recoverCameraIfAllowed()),
-                        onCheckPermission: () =>
-                            unawaited(_goToPermissionScreen()),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isLandscape = viewportOrientation == Orientation.landscape;
+            final header = _PreparationHeader(
+              exerciseName: activeExerciseTitle,
+              summary: compactSummary,
+            );
+            final notices = _PreparationNotices(
+              fallbackMessage: fallbackMessage,
+              hasConfigError: configState.hasError,
+              onRetryConfig: () => ref.invalidate(exerciseConfigProvider),
+            );
+            final cameraStage = _PreparationCameraStage(
+              aspectRatio:
+                  cameraGeometry?.aspectRatio ?? (isLandscape ? 4 / 3 : 3 / 4),
+              child: cameraSurface,
+            );
+
+            if (isLandscape) {
+              final sideWidth = (constraints.maxWidth * 0.38)
+                  .clamp(260.0, 360.0)
+                  .toDouble();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: cameraStage),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: sideWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [header, notices],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          startControls,
+                        ],
                       ),
                     ),
-                  ),
-                  if (isCameraReady && readinessRequest != null) ...[
-                    const SizedBox(height: 18),
-                    _PreparationReadinessCard(request: readinessRequest),
                   ],
-                  const SizedBox(height: 18),
-                  _PreparationGuidanceCard(
-                    guidanceItems: setupViewData.orderedInstructions,
-                  ),
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  notices,
+                  const SizedBox(height: 12),
+                  Expanded(child: cameraStage),
+                  const SizedBox(height: 12),
+                  startControls,
                 ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 6, 24, 24),
-              child: PreparationStartGateControls(
-                phase: startGatePhase,
-                countdownValue: countdownValue,
-                isConfigReady: isConfigReady,
-                isCameraReady: isCameraReady,
-                isPreparing: isPreparing,
-                onArm: canArmPreparation && startGateProvider != null
-                    ? () => ref.read(startGateProvider.notifier).arm()
-                    : null,
-                onCancel:
-                    (startGatePhase == PreparationStartGatePhase.monitoring ||
-                            startGatePhase ==
-                                PreparationStartGatePhase.overrideAvailable ||
-                            startGatePhase ==
-                                PreparationStartGatePhase.countingDown) &&
-                        startGateProvider != null
-                    ? () => ref.read(startGateProvider.notifier).reset()
-                    : null,
-                onOverride:
-                    startGatePhase ==
-                            PreparationStartGatePhase.overrideAvailable &&
-                        isConfigReady &&
-                        isCameraReady &&
-                        _cameraHandoffCoordinator.canUsePreparationCamera &&
-                        startGateProvider != null
-                    ? () =>
-                          ref.read(startGateProvider.notifier).approveOverride()
-                    : null,
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _PreparationFeedbackNotice extends StatelessWidget {
-  const _PreparationFeedbackNotice({required this.message});
+class _PreparationHeader extends StatelessWidget {
+  const _PreparationHeader({required this.exerciseName, required this.summary});
 
-  final String message;
+  final String exerciseName;
+  final String summary;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey<String>('preparation-feedback-notice'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.greenAccent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.record_voice_over_outlined,
-            color: Colors.greenAccent,
-            size: 20,
+    return Column(
+      key: const ValueKey<String>('preparation-compact-header'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          exerciseName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            height: 1.1,
+            fontWeight: FontWeight.w900,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.35,
-              ),
-            ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          summary,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFFB9F3E7),
+            fontSize: 15,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _PreparationQuickAlignCard extends StatelessWidget {
-  const _PreparationQuickAlignCard({
-    required this.title,
-    required this.message,
+class _PreparationNotices extends StatelessWidget {
+  const _PreparationNotices({
+    required this.fallbackMessage,
+    required this.hasConfigError,
+    required this.onRetryConfig,
   });
 
-  final String title;
-  final String message;
+  final String? fallbackMessage;
+  final bool hasConfigError;
+  final VoidCallback onRetryConfig;
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final steps = <String>[
-      localizations.pick(
-        tr: 'Önce ekrandaki örnek iskelete hizalan.',
-        en: 'First align yourself with the on-screen reference skeleton.',
-      ),
-      localizations.pick(
-        tr: 'Gerekli bölgeler kadraja girdiğinde hazırlık durumu iyileşir.',
-        en: 'Readiness improves once the required body regions are inside the frame.',
-      ),
-      localizations.pick(
-        tr: 'Hazırlığı başlattığında doğru pozda geri sayım otomatik ilerler.',
-        en: 'After you start preparation, the countdown advances automatically when your pose is correct.',
-      ),
-    ];
+    if (fallbackMessage == null && !hasConfigError) {
+      return const SizedBox.shrink();
+    }
 
-    return Container(
-      key: const ValueKey<String>('preparation-quick-align-card'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFB9F3E7).withValues(alpha: 0.35),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFB9F3E7).withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.accessibility_new_rounded,
-                  color: Color(0xFFB9F3E7),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        height: 1.35,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...steps.map(
-            (step) => Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.greenAccent,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      step,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          if (fallbackMessage != null)
+            _PreparationMessageCard(message: fallbackMessage!),
+          if (fallbackMessage != null && hasConfigError)
+            const SizedBox(height: 10),
+          if (hasConfigError) _PreparationConfigError(onRetry: onRetryConfig),
         ],
       ),
+    );
+  }
+}
+
+class _PreparationCameraStage extends StatelessWidget {
+  const _PreparationCameraStage({
+    required this.aspectRatio,
+    required this.child,
+  });
+
+  final double aspectRatio;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var width = constraints.maxWidth;
+        var height = width / aspectRatio;
+        if (height > constraints.maxHeight) {
+          height = constraints.maxHeight;
+          width = height * aspectRatio;
+        }
+
+        return Center(
+          child: SizedBox(
+            key: const ValueKey<String>('preparation-camera-stage'),
+            width: width,
+            height: height,
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
@@ -807,181 +810,6 @@ class _PreparationConfigError extends StatelessWidget {
             child: Text(AppLocalizations.of(context).retry),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PreparationReadinessCard extends ConsumerWidget {
-  const _PreparationReadinessCard({required this.request});
-
-  final SetupReadinessRequest request;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final localizations = AppLocalizations.of(context);
-    final viewData = mapSetupReadinessToViewData(
-      localizations: localizations,
-      readinessSnapshot: ref.watch(preparationReadinessStateProvider(request)),
-    );
-    final statusColor = _readinessColor(viewData.visualState);
-
-    return Container(
-      key: const ValueKey<String>('preparation-readiness-card'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                _readinessIcon(viewData.visualState),
-                color: statusColor,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  localizations.preparationReadinessTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                viewData.statusLabel,
-                key: const ValueKey<String>('preparation-readiness-status'),
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ...viewData.checks.map(_PreparationReadinessCheckRow.new),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreparationReadinessCheckRow extends StatelessWidget {
-  const _PreparationReadinessCheckRow(this.item);
-
-  final SetupReadinessCheckItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _checkColor(item.state);
-    return Padding(
-      key: ValueKey<String>('preparation-check-${item.type.name}'),
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Icon(_checkIcon(item.state), color: color, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              item.label,
-              style: TextStyle(
-                color: item.state == SetupReadinessCheckState.pending
-                    ? Colors.white54
-                    : Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Color _readinessColor(SetupReadinessVisualState state) {
-  return switch (state) {
-    SetupReadinessVisualState.checking => Colors.amberAccent,
-    SetupReadinessVisualState.needsAdjustment => Colors.orangeAccent,
-    SetupReadinessVisualState.ready => Colors.greenAccent,
-  };
-}
-
-IconData _readinessIcon(SetupReadinessVisualState state) {
-  return switch (state) {
-    SetupReadinessVisualState.checking => Icons.manage_search_rounded,
-    SetupReadinessVisualState.needsAdjustment => Icons.tune_rounded,
-    SetupReadinessVisualState.ready => Icons.check_circle_rounded,
-  };
-}
-
-Color _checkColor(SetupReadinessCheckState state) {
-  return switch (state) {
-    SetupReadinessCheckState.pending => Colors.white38,
-    SetupReadinessCheckState.needsAdjustment => Colors.orangeAccent,
-    SetupReadinessCheckState.complete => Colors.greenAccent,
-  };
-}
-
-IconData _checkIcon(SetupReadinessCheckState state) {
-  return switch (state) {
-    SetupReadinessCheckState.pending => Icons.radio_button_unchecked_rounded,
-    SetupReadinessCheckState.needsAdjustment => Icons.tune_rounded,
-    SetupReadinessCheckState.complete => Icons.check_circle_rounded,
-  };
-}
-
-class _PreparationGuidanceCard extends StatelessWidget {
-  const _PreparationGuidanceCard({required this.guidanceItems});
-
-  final List<String> guidanceItems;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        children: guidanceItems
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      color: Colors.greenAccent,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
       ),
     );
   }
