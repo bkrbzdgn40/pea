@@ -308,7 +308,7 @@ void main() {
 
     test('parses the seven-exercise range-rep expansion configs', () {
       const expectations = <String, (String, double, double, double)>{
-        'assets/config/exercises/crunch.json': ('Crunch', 120, 112, 98),
+        'assets/config/exercises/crunch.json': ('Crunch', 120, 112, 108),
         'assets/config/exercises/reverse_crunch.json': (
           'Reverse Crunch',
           105,

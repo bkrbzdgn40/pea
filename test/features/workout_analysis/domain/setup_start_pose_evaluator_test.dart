@@ -49,7 +49,10 @@ void main() {
         expect(hollowHold.family, StartPoseFamily.floorSupine);
         expect(
           hollowHold.checks,
-          contains(SetupStartPoseCheck.hollowCompression),
+          equals(<SetupStartPoseCheck>{
+            SetupStartPoseCheck.horizontalTorso,
+            SetupStartPoseCheck.kneesExtended,
+          }),
         );
         expect(sitUp.checks, contains(SetupStartPoseCheck.kneesBent));
         expect(
@@ -166,6 +169,38 @@ void main() {
         }),
       );
     });
+
+    test(
+      'matches a flat Hollow Hold start pose without requiring arm landmarks',
+      () {
+        final assessment = evaluator.evaluate(
+          contract: _contractFor(ExerciseType.hollowHold),
+          pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+            SetupStartPoseJoint.leftShoulder: _point(0.75, 0.5),
+            SetupStartPoseJoint.leftHip: _point(0.5, 0.5),
+            SetupStartPoseJoint.leftKnee: _point(0.3, 0.5),
+            SetupStartPoseJoint.leftAnkle: _point(0.1, 0.5),
+          }),
+        );
+
+        expect(assessment.status, SetupStartPoseStatus.matched);
+        expect(
+          assessment.passedChecks,
+          containsAll(<SetupStartPoseCheck>{
+            SetupStartPoseCheck.horizontalTorso,
+            SetupStartPoseCheck.kneesExtended,
+          }),
+        );
+        expect(
+          assessment.results.containsKey(SetupStartPoseCheck.armsExtended),
+          isFalse,
+        );
+        expect(
+          assessment.results.containsKey(SetupStartPoseCheck.hollowCompression),
+          isFalse,
+        );
+      },
+    );
 
     test('matches an arms-down standing exercise start pose', () {
       final assessment = evaluator.evaluate(

@@ -172,8 +172,6 @@ class SetupStartPoseContractResolver {
       ExerciseType.hollowHold => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.horizontalTorso,
         SetupStartPoseCheck.kneesExtended,
-        SetupStartPoseCheck.armsExtended,
-        SetupStartPoseCheck.hollowCompression,
       },
       ExerciseType.lunge => const <SetupStartPoseCheck>{
         SetupStartPoseCheck.uprightTorso,
