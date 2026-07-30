@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/localization/app_localizations.dart';
 
 import '../../application/engine_kind.dart';
+import '../../application/feedback_delivery_controller.dart';
 import '../../application/workout_developer_ui_config.dart';
 import '../../application/workout_engine.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
@@ -26,6 +27,7 @@ import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/exercise_config_provider.dart';
+import '../providers/feedback_delivery_provider.dart';
 import '../providers/live_pause_controller.dart';
 import '../providers/live_range_rep_outcome_controller.dart';
 import '../providers/live_tracking_controller.dart';
@@ -43,6 +45,7 @@ import '../widgets/workout_diagnostics_panel.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
 import 'workout_plan_summary_screen.dart';
+import 'workout_rest_screen.dart';
 import 'workout_summary_screen.dart';
 
 /// Runs the live camera analysis session and handles camera lifecycle recovery.
@@ -74,6 +77,13 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   Timer? _recoveryTimer;
   ProviderSubscription<AsyncValue<ExerciseConfig>>? _exerciseConfigSubscription;
   ProviderSubscription<WorkoutState>? _workoutStateSubscription;
+  Timer? _plannedResumeCountdownTimer;
+  int? _plannedResumeCountdownValue;
+  bool _isPlanTransitionLocked = false;
+  bool _isRestRouteVisible = false;
+  bool _planAdvanceFailed = false;
+  int _lastHandledCompletedSetCount = 0;
+  WorkoutState? _completedPlannedSetState;
 
   @override
   void initState() {
@@ -118,6 +128,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     unawaited(_setLiveAnalysisScreenAwake(false));
     _stopObservingCameraGeometry();
     _recoveryTimer?.cancel();
+    _plannedResumeCountdownTimer?.cancel();
     _sessionLifecycleSubscription?.close();
     _exerciseConfigSubscription?.close();
     _workoutStateSubscription?.close();
@@ -137,11 +148,21 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       (_, next) {
         sessionLifecycle.collect(next);
         final activeExercise = ref.read(activeAnalysisExerciseProvider);
-        if (activeExercise != null) {
-          ref
-              .read(workoutPlanSessionProvider.notifier)
-              .observe(exercise: activeExercise, workoutState: next);
+        if (activeExercise == null) {
+          return;
         }
+
+        final snapshot = ref
+            .read(workoutPlanSessionProvider.notifier)
+            .observe(exercise: activeExercise, workoutState: next);
+        if (snapshot == null ||
+            !snapshot.isSetCompleted ||
+            snapshot.completedSets <= _lastHandledCompletedSetCount) {
+          return;
+        }
+        _lastHandledCompletedSetCount = snapshot.completedSets;
+        _completedPlannedSetState = next;
+        unawaited(_handlePlannedSetCompleted(snapshot));
       },
     );
   }
@@ -518,6 +539,167 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     setState(() {});
   }
 
+  Future<void> _handlePlannedSetCompleted(
+    WorkoutEngineSnapshot snapshot,
+  ) async {
+    if (!mounted || _isPlanTransitionLocked) {
+      return;
+    }
+
+    setState(() {
+      _isPlanTransitionLocked = true;
+      _planAdvanceFailed = false;
+    });
+    ref
+        .read(workoutControllerProvider.notifier)
+        .handleLifecycleInterruption(reason: 'planned set completed');
+    final feedbackDelivery = ref.read(feedbackDeliveryProvider);
+    await feedbackDelivery.stop();
+    feedbackDelivery.reset();
+    await _stopImageStreamIfNeeded();
+    if (!mounted) {
+      return;
+    }
+
+    if (snapshot.completedSets >= snapshot.totalSets) {
+      setState(() {});
+      return;
+    }
+
+    if (snapshot.restAfterSet.compareTo(Duration.zero) <= 0) {
+      _startPlannedResumeCountdown();
+      return;
+    }
+
+    final planController = ref.read(workoutPlanSessionProvider.notifier);
+    final nextExercise = planController.nextExerciseAfterCompletedSet;
+    if (nextExercise == null || _isRestRouteVisible) {
+      _startPlannedResumeCountdown();
+      return;
+    }
+
+    final localizations = AppLocalizations.of(context);
+    final planName = ref.read(workoutPlanSessionProvider).plan?.name.trim();
+    final nextSetNumber =
+        nextExercise == snapshot.currentExercise &&
+            snapshot.setNumber < snapshot.setsInCurrentExercise
+        ? snapshot.setNumber + 1
+        : 1;
+
+    _isRestRouteVisible = true;
+    await Navigator.of(context).push<WorkoutRestResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => WorkoutRestScreen(
+          duration: snapshot.restAfterSet,
+          planName: planName == null || planName.isEmpty
+              ? localizations.plannedWorkout
+              : planName,
+          nextExerciseName: localizations.exerciseTitle(nextExercise.id),
+          nextSetNumber: nextSetNumber,
+        ),
+      ),
+    );
+    _isRestRouteVisible = false;
+    if (!mounted || !ref.read(workoutPlanSessionProvider).isSetCompleted) {
+      return;
+    }
+    _startPlannedResumeCountdown();
+  }
+
+  void _startPlannedResumeCountdown() {
+    _plannedResumeCountdownTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _plannedResumeCountdownValue = 3);
+    _announcePlannedResumeCountdown(3);
+    _plannedResumeCountdownTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) {
+      if (!mounted || !_isPlanTransitionLocked) {
+        timer.cancel();
+        return;
+      }
+      final currentValue = _plannedResumeCountdownValue;
+      if (currentValue == null || currentValue <= 1) {
+        timer.cancel();
+        unawaited(_advanceAfterPlannedTransition());
+        return;
+      }
+      final nextValue = currentValue - 1;
+      setState(() => _plannedResumeCountdownValue = nextValue);
+      _announcePlannedResumeCountdown(nextValue);
+    });
+  }
+
+  void _announcePlannedResumeCountdown(int value) {
+    unawaited(
+      ref
+          .read(feedbackDeliveryProvider)
+          .deliver(
+            FeedbackDeliveryCue(
+              id: 'planned-resume-countdown-$_lastHandledCompletedSetCount-$value',
+              message: '$value',
+              kind: FeedbackDeliveryKind.status,
+            ),
+          ),
+    );
+  }
+
+  Future<void> _advanceAfterPlannedTransition() async {
+    final WorkoutState? finalState =
+        _completedPlannedSetState ?? ref.read(workoutControllerProvider);
+    if (finalState == null) {
+      if (mounted) {
+        setState(() {
+          _plannedResumeCountdownValue = null;
+          _planAdvanceFailed = true;
+        });
+      }
+      return;
+    }
+
+    final activeExercise = ref.read(activeAnalysisExerciseProvider);
+    final nextExercise = ref
+        .read(workoutPlanSessionProvider.notifier)
+        .nextExerciseAfterCompletedSet;
+    final changesExercise =
+        nextExercise == null || nextExercise != activeExercise;
+    final advanced = await _advancePlannedWorkout(finalState);
+    if (!mounted) {
+      return;
+    }
+    if (!advanced) {
+      setState(() {
+        _plannedResumeCountdownValue = null;
+        _planAdvanceFailed = true;
+      });
+      return;
+    }
+    if (ref.read(workoutPlanSessionProvider).isWorkoutCompleted) {
+      return;
+    }
+
+    if (!changesExercise) {
+      ref.read(workoutControllerProvider.notifier).handleManualResume();
+    }
+    ref.read(feedbackDeliveryProvider).reset();
+    setState(() {
+      _plannedResumeCountdownValue = null;
+      _completedPlannedSetState = null;
+      _planAdvanceFailed = false;
+      _isPlanTransitionLocked = false;
+    });
+  }
+
+  Future<void> _retryPlannedAdvance() async {
+    if (!_isPlanTransitionLocked) {
+      return;
+    }
+    await _advanceAfterPlannedTransition();
+  }
+
   Future<bool> _finishPlannedExerciseSession(WorkoutState workoutState) async {
     ref.read(livePauseControllerProvider.notifier).cancelResume();
     final sessionLifecycle = _sessionLifecycle;
@@ -566,10 +748,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     }
   }
 
-  Future<void> _advancePlannedWorkout(WorkoutState workoutState) async {
+  Future<bool> _advancePlannedWorkout(WorkoutState workoutState) async {
     final planState = ref.read(workoutPlanSessionProvider);
     if (!planState.isSetCompleted) {
-      return;
+      return false;
     }
 
     final activeExercise = ref.read(activeAnalysisExerciseProvider);
@@ -581,26 +763,28 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (changesExercise) {
       await _stopImageStreamIfNeeded();
       if (!mounted) {
-        return;
+        return false;
       }
       final saved = await _finishPlannedExerciseSession(workoutState);
       if (!saved || !mounted) {
-        return;
+        return false;
       }
       _sessionLifecycle?.completeFinishFlow();
     }
 
-    final nextSnapshot = planController.advance();
+    final nextSnapshot = planController.advance(
+      resumeState: ref.read(workoutControllerProvider),
+    );
     if (nextSnapshot.isWorkoutCompleted) {
       await _setLiveAnalysisScreenAwake(false);
       if (!mounted) {
-        return;
+        return false;
       }
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const WorkoutPlanSummaryScreen()),
       );
-      return;
+      return true;
     }
 
     if (changesExercise && nextExercise != null) {
@@ -610,6 +794,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       ref.read(selectedExerciseProvider.notifier).state = nextExercise;
       _sessionLifecycle?.startSession(exercise: nextExercise);
     }
+    return true;
   }
 
   void _showDiagnosticsPanel() {
@@ -851,17 +1036,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         children: [
                           _WorkoutSetCompletedSection(
                             compact: isLandscape,
-                            onAdvance: () => unawaited(
-                              _advancePlannedWorkout(
-                                ref.read(workoutControllerProvider),
-                              ),
-                            ),
+                            showNonFinal: _planAdvanceFailed,
+                            onAdvance: () => unawaited(_retryPlannedAdvance()),
                           ),
                           _RangeRepSideTrackingIndicator(compact: isLandscape),
                           _WorkoutFeedbackStatus(compact: isLandscape),
                         ],
                       ),
                     ),
+                  ),
+                if (_plannedResumeCountdownValue != null)
+                  _PlannedResumeCountdownOverlay(
+                    value: _plannedResumeCountdownValue!,
                   ),
               ],
             );
@@ -912,10 +1098,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
       shouldStart: () =>
           mounted &&
           !_isRecoveringCamera &&
+          !_isPlanTransitionLocked &&
           !sessionLifecycle.isFinishing &&
           _hasAnalysisSelection(),
       onFrame: (image, streamController) {
-        if (!mounted) {
+        if (!mounted || _isPlanTransitionLocked) {
           return;
         }
         final cameraValue = _safeControllerValue(streamController);
@@ -1866,6 +2053,7 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
         (state) => (
           snapshot: state.snapshot,
           isWorkoutCompleted: state.isWorkoutCompleted,
+          planName: state.plan?.name ?? '',
         ),
       ),
     );
@@ -1878,7 +2066,11 @@ class _PlannedWorkoutProgressOverlay extends ConsumerWidget {
       top: topInset + (compact ? 140 : 294),
       left: compact ? 14 : 20,
       right: compact ? 14 : 20,
-      child: _PlannedWorkoutProgressBar(snapshot: snapshot, compact: compact),
+      child: _PlannedWorkoutProgressBar(
+        snapshot: snapshot,
+        compact: compact,
+        planName: plan.planName,
+      ),
     );
   }
 }
@@ -1914,13 +2106,63 @@ class _CalibrationPanelOverlay extends ConsumerWidget {
   }
 }
 
+class _PlannedResumeCountdownOverlay extends StatelessWidget {
+  const _PlannedResumeCountdownOverlay({required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.62),
+        child: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  localizations.nextSetStarting,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Semantics(
+                  liveRegion: true,
+                  label: '$value',
+                  child: Text(
+                    '$value',
+                    key: ValueKey<String>('planned-resume-countdown-$value'),
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 104,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WorkoutSetCompletedSection extends ConsumerWidget {
   const _WorkoutSetCompletedSection({
     required this.compact,
+    required this.showNonFinal,
     required this.onAdvance,
   });
 
   final bool compact;
+  final bool showNonFinal;
   final VoidCallback onAdvance;
 
   @override
@@ -1936,10 +2178,18 @@ class _WorkoutSetCompletedSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final isFinalSet = snapshot.completedSets >= snapshot.totalSets;
+    if (!isFinalSet && !showNonFinal) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
         _WorkoutSetCompletedCard(
-          snapshot: snapshot,
+          key: ValueKey<String>(
+            'planned-set-${snapshot.roundNumber}-${snapshot.exerciseIndex}-${snapshot.setNumber}-${snapshot.completedSets}',
+          ),
+          isFinalSet: isFinalSet,
           compact: compact,
           onAdvance: onAdvance,
         ),
@@ -2279,10 +2529,12 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
   const _PlannedWorkoutProgressBar({
     required this.snapshot,
     required this.compact,
+    required this.planName,
   });
 
   final WorkoutEngineSnapshot snapshot;
   final bool compact;
+  final String planName;
 
   @override
   Widget build(BuildContext context) {
@@ -2306,6 +2558,19 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (planName.isNotEmpty) ...[
+            Text(
+              planName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            SizedBox(height: compact ? 3 : 5),
+          ],
           Row(
             children: [
               Expanded(
@@ -2347,19 +2612,19 @@ class _PlannedWorkoutProgressBar extends StatelessWidget {
 
 class _WorkoutSetCompletedCard extends StatelessWidget {
   const _WorkoutSetCompletedCard({
-    required this.snapshot,
+    super.key,
+    required this.isFinalSet,
     required this.compact,
     required this.onAdvance,
   });
 
-  final WorkoutEngineSnapshot snapshot;
+  final bool isFinalSet;
   final bool compact;
   final VoidCallback onAdvance;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final isFinalSet = snapshot.completedSets >= snapshot.totalSets;
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 14),
       decoration: BoxDecoration(

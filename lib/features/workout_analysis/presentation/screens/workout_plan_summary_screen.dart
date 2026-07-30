@@ -13,7 +13,8 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
-    final snapshot = ref.watch(workoutPlanSessionProvider).snapshot;
+    final planState = ref.watch(workoutPlanSessionProvider);
+    final snapshot = planState.snapshot;
     if (snapshot == null) {
       return AppScaffoldShell(
         title: localizations.workoutSummary,
@@ -36,6 +37,17 @@ class WorkoutPlanSummaryScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if ((planState.plan?.name ?? '').isNotEmpty) ...[
+                  Text(
+                    planState.plan!.name,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 Text(
                   localizations.planCompleted,
                   style: TextStyle(
