@@ -370,6 +370,11 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                               ),
                             ],
                           ),
+                          if (snapshot.analysisKind == 'rangeRep')
+                            _DiagnosticsSection(
+                              title: 'Range-rep timing trace',
+                              children: _buildRangeRepTimingTraceRows(snapshot),
+                            ),
                           _DiagnosticsSection(
                             title: 'G\u00fcncel egzersiz sonucu',
                             children: [
@@ -737,6 +742,76 @@ List<Widget> _buildCameraViewRows(CameraViewContract contract) {
         label: 'Camera ${view.name}',
         value: contract.supportFor(view).name,
       ),
+  ];
+}
+
+List<Widget> _buildRangeRepTimingTraceRows(
+  WorkoutDiagnosticsSnapshot snapshot,
+) {
+  final trace =
+      snapshot.activeRangeRepTimingTrace ??
+      snapshot.lastEndedRangeRepTimingTrace;
+  if (trace == null) {
+    return <Widget>[
+      _DiagnosticsRow(label: 'Trace', value: _missingDiagnosticsValue),
+      _DiagnosticsRow(
+        label: 'Non-monotonic observations',
+        value: snapshot.nonMonotonicRangeRepObservationCount.toString(),
+      ),
+    ];
+  }
+
+  final transitionSummary = trace.transitions.isEmpty
+      ? _missingDiagnosticsValue
+      : trace.transitions
+            .map(
+              (transition) =>
+                  '${transition.type} (+${transition.confirmationLagMs}ms)',
+            )
+            .join(' > ');
+
+  return <Widget>[
+    _DiagnosticsRow(label: 'Outcome', value: trace.outcome.name),
+    _DiagnosticsRow(label: 'Samples', value: trace.sampleCount.toString()),
+    _DiagnosticsRow(
+      label: 'Phase samples',
+      value:
+          '${trace.towardPeakSampleCount} / '
+          '${trace.peakSampleCount} / ${trace.returnSampleCount}',
+    ),
+    _DiagnosticsRow(
+      label: 'Observation interval avg',
+      value: _formatDouble(trace.averageObservationIntervalMs, suffix: ' ms'),
+    ),
+    _DiagnosticsRow(
+      label: 'Observation interval max',
+      value: _formatMilliseconds(trace.maxObservationIntervalMs),
+    ),
+    _DiagnosticsRow(
+      label: 'Processing lag last',
+      value: _formatMilliseconds(trace.lastProcessingLagMs),
+    ),
+    _DiagnosticsRow(
+      label: 'Processing lag max',
+      value: _formatMilliseconds(trace.maxProcessingLagMs),
+    ),
+    _DiagnosticsRow(
+      label: 'Direction changes',
+      value: trace.directionChangeCount.toString(),
+    ),
+    _DiagnosticsRow(
+      label: 'Visibility gap',
+      value: trace.hadVisibilityGap ? 'yes' : 'no',
+    ),
+    _DiagnosticsRow(
+      label: 'Non-monotonic observations',
+      value: snapshot.nonMonotonicRangeRepObservationCount.toString(),
+    ),
+    _DiagnosticsRow(
+      label: 'Invalid processing lags',
+      value: trace.invalidProcessingLagCount.toString(),
+    ),
+    _DiagnosticsRow(label: 'Transitions', value: transitionSummary),
   ];
 }
 

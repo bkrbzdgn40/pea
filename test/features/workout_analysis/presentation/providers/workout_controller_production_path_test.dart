@@ -26,6 +26,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/active_analysis_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_pause_state.dart';
@@ -73,7 +74,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v6',
+      'v7',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -87,7 +88,7 @@ void main() {
         final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 6);
+        expect(snapshot.schemaVersion, 7);
         expect(snapshot.exerciseType, 'squat');
         expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
         expect(snapshot.contractProfile, 'rangeRep:squat');
@@ -103,7 +104,7 @@ void main() {
         expect(snapshot.poseQualitySampleCount, 2);
         expect(snapshot.minimumRequiredLikelihoodP50, 0.40);
         expect(snapshot.meanRequiredLikelihoodP50, 0.40);
-        expect(json['schema_version'], 6);
+        expect(json['schema_version'], 7);
         expect(json['exercise_type'], 'squat');
         expect(
           snapshot.cameraViewContract,
@@ -306,12 +307,13 @@ void main() {
     );
 
     test(
-      'converter-drop diagnostics keep wall-clock timing semantics',
+      'converter-drop diagnostics use elapsed processing time independent of observation clock',
       () async {
         final converterDropClock = _FakeClock()
           ..advance(const Duration(days: -2500));
         final spyPipeline = _SpyWorkoutFramePosePipeline(
           result: const FramePosePipelineResult.converterDrop(),
+          processingDelay: const Duration(milliseconds: 2),
         );
         final harness = _createHarness(
           exerciseType: ExerciseType.squat,
@@ -500,6 +502,8 @@ void main() {
       );
 
       final state = harness.container.read(workoutControllerProvider);
+      final diagnostics = harness.controller.diagnosticsSnapshot();
+      final timingTrace = diagnostics.lastEndedRangeRepTimingTrace;
 
       expect(spyCoordinator.processFrameCallCount, greaterThan(0));
       expect(
@@ -516,6 +520,23 @@ void main() {
       expect(
         state.calibrationMetrics.lastRangeRepSummaryCompletedPhaseSequence,
         isTrue,
+      );
+      expect(timingTrace, isNotNull);
+      final completedTimingTrace = timingTrace!;
+      expect(
+        completedTimingTrace.outcome,
+        RangeRepTimingTraceOutcome.completed,
+      );
+      expect(completedTimingTrace.sampleCount, greaterThan(0));
+      expect(completedTimingTrace.maxProcessingLagMs, isNotNull);
+      expect(
+        completedTimingTrace.transitions.map((transition) => transition.type),
+        containsAllInOrder(<String>[
+          'startTowardPeak',
+          'reachPeak',
+          'startReturning',
+          'completeRep',
+        ]),
       );
     });
 
@@ -2944,9 +2965,13 @@ class _QueuedPoseDetector extends TestQueuedPoseDetector {}
 class _FakeClock extends TestFakeClock {}
 
 class _SpyWorkoutFramePosePipeline extends WorkoutFramePosePipeline {
-  _SpyWorkoutFramePosePipeline({required this.result});
+  _SpyWorkoutFramePosePipeline({
+    required this.result,
+    this.processingDelay = Duration.zero,
+  });
 
   final FramePosePipelineResult result;
+  final Duration processingDelay;
 
   int processInputImageCallCount = 0;
   InputImage? lastInputImage;
@@ -2962,6 +2987,9 @@ class _SpyWorkoutFramePosePipeline extends WorkoutFramePosePipeline {
     required PoseQualityAssessor assessPose,
   }) async {
     processInputImageCallCount += 1;
+    if (processingDelay > Duration.zero) {
+      await Future<void>.delayed(processingDelay);
+    }
     lastInputImage = inputImage;
     lastAssessPose = assessPose;
     if (result.selectedPose != null) {

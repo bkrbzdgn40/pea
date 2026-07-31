@@ -10,6 +10,7 @@ abstract interface class RangeRepAnalysisEngine
         RangeRepVisibilityGapControl {
   RangeRepEngineFrameResult updateDetectionFrame({
     required double primaryMetric,
+    DateTime? observedAt,
   });
 
   /// Controls whether the current toward-peak phase may confirm PEAK.

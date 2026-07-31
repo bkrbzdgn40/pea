@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+import '../../../../core/utils/monotonic_datetime_clock.dart';
+
 import '../../application/analysis_engine_factory.dart';
 import '../../application/common_frame_pose_pipeline.dart';
 import '../../application/engine_kind.dart';
@@ -98,7 +100,8 @@ class WorkoutLiveMetricsController
 }
 
 final workoutClockProvider = Provider<DateTime Function()>((ref) {
-  return DateTime.now;
+  final clock = MonotonicDateTimeClock();
+  return clock.now;
 });
 
 typedef WorkoutFramePosePipelineFactory =
@@ -172,7 +175,7 @@ final holdCoordinatorFactoryProvider = Provider<HoldCoordinatorFactory>((ref) {
 
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
-  DateTime _lastFpsCalculationTime = DateTime.now();
+  late DateTime _lastFpsCalculationTime;
   int _cameraFrameCount = 0;
   int _analysisFrameCount = 0;
   double _cameraFps = 0.0;
@@ -418,7 +421,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       return;
     }
 
-    final processingStartedAt = now;
+    final processingStopwatch = Stopwatch()..start();
     if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
 
     try {
@@ -438,7 +441,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _consumeFramePosePipelineResult(
         result,
         frameCapturedAt: now,
-        processingStartedAt: processingStartedAt,
+        processingStopwatch: processingStopwatch,
       );
       if (_isDiagnosticsEnabled &&
           result.kind != FramePosePipelineResultKind.converterDrop) {
@@ -450,9 +453,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     } catch (e) {
       if (_isDiagnosticsEnabled) {
         _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(
-          _clock().difference(processingStartedAt),
-        );
+        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
       }
       debugPrint("ANALIZ HATASI: $e");
     } finally {
@@ -463,6 +464,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   @visibleForTesting
   Future<void> processInputImageForAnalysis(InputImage inputImage) async {
     final now = _clock();
+    final processingStopwatch = Stopwatch()..start();
     if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
 
     try {
@@ -479,7 +481,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _consumeFramePosePipelineResult(
         result,
         frameCapturedAt: now,
-        processingStartedAt: now,
+        processingStopwatch: processingStopwatch,
       );
       if (_isDiagnosticsEnabled) {
         _diagnostics.updateLivePerformance(
@@ -490,7 +492,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     } catch (e) {
       if (_isDiagnosticsEnabled) {
         _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(_clock().difference(now));
+        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
       }
       rethrow;
     }
@@ -499,14 +501,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _consumeFramePosePipelineResult(
     FramePosePipelineResult result, {
     required DateTime frameCapturedAt,
-    required DateTime processingStartedAt,
+    required Stopwatch processingStopwatch,
   }) {
     if (result.kind == FramePosePipelineResultKind.converterDrop) {
       if (_isDiagnosticsEnabled) {
         _diagnostics.recordConverterDrop();
-        _diagnostics.recordProcessingDuration(
-          DateTime.now().difference(processingStartedAt),
-        );
+        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
       }
       return;
     }
@@ -531,9 +531,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     if (_isDiagnosticsEnabled) {
       _diagnostics.recordAnalysisCompleted();
-      _diagnostics.recordProcessingDuration(
-        _clock().difference(processingStartedAt),
-      );
+      _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
     }
   }
 
@@ -752,6 +750,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }) {
     _processAlternatingRepSidecar(
       metrics: metrics,
+      observedAt: now,
       isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
     );
     final result = _rangeRepCoordinatorOrThrow().processFrame(
@@ -943,6 +942,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   void _processAlternatingRepSidecar({
     required ExerciseMetrics metrics,
+    required DateTime observedAt,
     required bool isAcceptedPoseFrame,
   }) {
     final engine = _alternatingRepEngine;
@@ -960,6 +960,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     engine.update(
       leftPrimaryMetric: left.hasPrimaryAngle ? left.primaryAngle : null,
       rightPrimaryMetric: right.hasPrimaryAngle ? right.primaryAngle : null,
+      observedAt: observedAt,
     );
   }
 
@@ -1198,6 +1199,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       analysisFps: _analysisFps,
     );
     if (_engineKind == EngineKind.rangeRep) {
+      final timingDiagnostics =
+          _rangeRepEngineOrThrow().detectionDiagnosticsSnapshot;
       _diagnostics.updateRangeRepState(
         repCount: publishedState.repCount,
         currentPhase: publishedState.currentPhase,
@@ -1208,6 +1211,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
                   .calibrationMetrics
                   .calibrationThresholdOffsetCandidate
             : null,
+        activeTimingTrace: timingDiagnostics.activeTimingTrace,
+        lastEndedTimingTrace: timingDiagnostics.lastEndedTimingTrace,
+        nonMonotonicObservationCount:
+            timingDiagnostics.nonMonotonicObservationCount,
       );
       return;
     }

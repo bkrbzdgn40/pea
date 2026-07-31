@@ -13,6 +13,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -84,6 +85,55 @@ void main() {
     expect(find.text('setup'), findsNWidgets(2));
     expect(find.text('validation, technique, scoring'), findsNothing);
     expect(find.text('alignment roles'), findsNothing);
+  });
+
+  testWidgets('range-rep timing trace renders observation diagnostics', (
+    tester,
+  ) async {
+    final base = DateTime.utc(2030, 1, 1, 0, 0, 0);
+    final trace = RangeRepTimingTraceSnapshot(
+      outcome: RangeRepTimingTraceOutcome.completed,
+      sampleCount: 7,
+      towardPeakSampleCount: 3,
+      peakSampleCount: 1,
+      returnSampleCount: 3,
+      directionChangeCount: 2,
+      averageObservationIntervalMs: 103.3,
+      maxObservationIntervalMs: 120,
+      lastProcessingLagMs: 340,
+      maxProcessingLagMs: 680,
+      hadVisibilityGap: true,
+      transitions: <RangeRepTimingTransitionTrace>[
+        RangeRepTimingTransitionTrace(
+          type: 'startTowardPeak',
+          effectiveAt: base,
+          confirmedAt: base.add(const Duration(milliseconds: 100)),
+        ),
+      ],
+    );
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(
+        lastEndedTimingTrace: trace,
+        nonMonotonicObservationCount: 2,
+      ),
+      onReset: () {},
+    );
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Range-rep timing trace'),
+      300,
+      scrollable: scrollable,
+    );
+
+    expect(find.text('Range-rep timing trace'), findsOneWidget);
+    expect(find.text('completed'), findsOneWidget);
+    expect(find.text('3 / 1 / 3'), findsOneWidget);
+    expect(find.text('103.3 ms'), findsOneWidget);
+    expect(find.text('680 ms'), findsOneWidget);
+    expect(find.text('startTowardPeak (+100ms)'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
   });
 
   testWidgets('active camera-view contract renders in canonical order', (
@@ -371,7 +421,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 6);
+    expect(decoded['schema_version'], 7);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -427,7 +477,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v6_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v7_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -572,7 +622,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 6,
+  int schemaVersion = 7,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -627,6 +677,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
   Map<HoldSignal, Set<AnalysisSignalRole>> holdSignalRoles =
       const <HoldSignal, Set<AnalysisSignalRole>>{},
   CameraViewContract? cameraViewContract,
+  RangeRepTimingTraceSnapshot? activeTimingTrace,
+  RangeRepTimingTraceSnapshot? lastEndedTimingTrace,
+  int nonMonotonicObservationCount = 0,
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -677,6 +730,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
             currentSelectedSide: currentSelectedSide,
             lastCalibrationOffsetDegrees: lastCalibrationOffsetDegrees,
             signalRoles: rangeRepSignalRoles,
+            activeTimingTrace: activeTimingTrace,
+            lastEndedTimingTrace: lastEndedTimingTrace,
+            nonMonotonicObservationCount: nonMonotonicObservationCount,
           )
         : null,
     holdDiagnostics: analysisKind == 'hold'

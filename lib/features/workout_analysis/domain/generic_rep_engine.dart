@@ -109,10 +109,16 @@ class GenericRepConfirmedTransition {
   const GenericRepConfirmedTransition({
     required this.type,
     required this.effectiveAt,
-  });
+    DateTime? confirmedAt,
+  }) : confirmedAt = confirmedAt ?? effectiveAt;
 
   final GenericRepTransitionType type;
+
+  /// First observation at which the transition condition became true.
   final DateTime effectiveAt;
+
+  /// Observation that completed the configured confirmation window.
+  final DateTime confirmedAt;
 }
 
 class GenericRepCompletedRep {
@@ -140,6 +146,9 @@ class GenericRepEngineFrameResult {
     this.repStarted = false,
     this.repAborted = false,
     this.completedRep,
+    this.observedAt,
+    this.observationAccepted = true,
+    this.observationIssue,
   }) : confirmedTransitions = List<GenericRepConfirmedTransition>.unmodifiable(
          confirmedTransitions ??
              (confirmedTransition == null
@@ -155,6 +164,15 @@ class GenericRepEngineFrameResult {
   final bool repStarted;
   final bool repAborted;
   final GenericRepCompletedRep? completedRep;
+
+  /// Observation time used by lifecycle and tempo calculations.
+  final DateTime? observedAt;
+
+  /// False when a frame was rejected before lifecycle mutation.
+  final bool observationAccepted;
+
+  /// Machine-readable reason for a rejected observation.
+  final String? observationIssue;
 
   GenericRepConfirmedTransition? get confirmedTransition =>
       confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
@@ -188,6 +206,8 @@ class GenericRepEngine {
   GenericRepPhase phase = GenericRepPhase.neutral;
   int repCount = 0;
 
+  DateTime? _lastObservedAt;
+  int _nonMonotonicObservationCount = 0;
   bool _isArmed = false;
   GenericRepTransitionType? _pendingTransition;
   DateTime? _pendingTransitionStartedAt;
@@ -205,6 +225,7 @@ class GenericRepEngine {
       <_TimedNeutralMetricSample>[];
 
   bool get isArmed => _isArmed;
+  int get nonMonotonicObservationCount => _nonMonotonicObservationCount;
   GenericRepTransitionType? get pendingTransition => _pendingTransition;
   DateTime? get pendingTransitionStartedAt => _pendingTransitionStartedAt;
 
@@ -213,10 +234,27 @@ class GenericRepEngine {
     return transition == null ? null : _confirmationDurationFor(transition);
   }
 
-  GenericRepEngineFrameResult update({required double primaryMetric}) {
-    final now = _now();
+  GenericRepEngineFrameResult update({
+    required double primaryMetric,
+    DateTime? observedAt,
+  }) {
+    final now = observedAt ?? _now();
     final wasArmedAtFrameStart = _isArmed;
     final phaseBeforeUpdate = phase;
+    final previousObservedAt = _lastObservedAt;
+    if (previousObservedAt != null && now.isBefore(previousObservedAt)) {
+      _nonMonotonicObservationCount++;
+      return GenericRepEngineFrameResult(
+        wasArmedAtFrameStart: wasArmedAtFrameStart,
+        isArmedAfterUpdate: _isArmed,
+        phaseBeforeUpdate: phaseBeforeUpdate,
+        phaseAfterUpdate: phase,
+        observedAt: now,
+        observationAccepted: false,
+        observationIssue: 'nonMonotonicObservation',
+      );
+    }
+    _lastObservedAt = now;
 
     if ((!_isArmed || phase == GenericRepPhase.neutral) &&
         _isNeutralBaselineMetric(primaryMetric)) {
@@ -240,11 +278,13 @@ class GenericRepEngine {
         isArmedAfterUpdate: _isArmed,
         phaseBeforeUpdate: phaseBeforeUpdate,
         phaseAfterUpdate: phase,
+        observedAt: now,
         confirmedTransition: armedAt == null
             ? null
             : GenericRepConfirmedTransition(
                 type: GenericRepTransitionType.acquireNeutral,
                 effectiveAt: armedAt,
+                confirmedAt: now,
               ),
       );
     }
@@ -279,14 +319,17 @@ class GenericRepEngine {
             isArmedAfterUpdate: _isArmed,
             phaseBeforeUpdate: phaseBeforeUpdate,
             phaseAfterUpdate: phase,
+            observedAt: now,
             confirmedTransitions: <GenericRepConfirmedTransition>[
               GenericRepConfirmedTransition(
                 type: GenericRepTransitionType.startTowardPeak,
                 effectiveAt: startAt,
+                confirmedAt: now,
               ),
               GenericRepConfirmedTransition(
                 type: GenericRepTransitionType.reachPeak,
                 effectiveAt: now,
+                confirmedAt: now,
               ),
             ],
             repStarted: true,
@@ -324,6 +367,7 @@ class GenericRepEngine {
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.startTowardPeak,
             effectiveAt: confirmedAt,
+            confirmedAt: now,
           );
           repStarted = true;
           phase = GenericRepPhase.towardPeak;
@@ -357,6 +401,7 @@ class GenericRepEngine {
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.reachPeak,
             effectiveAt: peakConfirmedAt,
+            confirmedAt: now,
           );
           phase = GenericRepPhase.peak;
           if (config.allowSparseCycleRecovery) {
@@ -374,6 +419,7 @@ class GenericRepEngine {
             confirmedTransition = GenericRepConfirmedTransition(
               type: GenericRepTransitionType.abortToNeutral,
               effectiveAt: abortConfirmedAt,
+              confirmedAt: now,
             );
             repAborted = true;
             phase = GenericRepPhase.neutral;
@@ -409,14 +455,17 @@ class GenericRepEngine {
             isArmedAfterUpdate: _isArmed,
             phaseBeforeUpdate: phaseBeforeUpdate,
             phaseAfterUpdate: phase,
+            observedAt: now,
             confirmedTransitions: <GenericRepConfirmedTransition>[
               GenericRepConfirmedTransition(
                 type: GenericRepTransitionType.startReturning,
                 effectiveAt: returnAt,
+                confirmedAt: now,
               ),
               GenericRepConfirmedTransition(
                 type: GenericRepTransitionType.completeRep,
                 effectiveAt: now,
+                confirmedAt: now,
               ),
             ],
             repAborted: repAborted,
@@ -432,6 +481,7 @@ class GenericRepEngine {
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.startReturning,
             effectiveAt: returnConfirmedAt,
+            confirmedAt: now,
           );
           phase = GenericRepPhase.returning;
         }
@@ -448,6 +498,7 @@ class GenericRepEngine {
           confirmedTransition = GenericRepConfirmedTransition(
             type: GenericRepTransitionType.completeRep,
             effectiveAt: completedAt,
+            confirmedAt: now,
           );
           final completion = _buildCompletion();
           if (completion.rom >= config.minimumRom) {
@@ -472,6 +523,7 @@ class GenericRepEngine {
       isArmedAfterUpdate: _isArmed,
       phaseBeforeUpdate: phaseBeforeUpdate,
       phaseAfterUpdate: phase,
+      observedAt: now,
       confirmedTransition: confirmedTransition,
       repStarted: repStarted,
       repAborted: repAborted,
@@ -615,6 +667,8 @@ class GenericRepEngine {
 
   void reset() {
     repCount = 0;
+    _lastObservedAt = null;
+    _nonMonotonicObservationCount = 0;
     clearActiveRepContext();
   }
 

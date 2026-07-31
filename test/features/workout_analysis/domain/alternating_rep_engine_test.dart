@@ -54,6 +54,66 @@ void main() {
       );
     });
 
+    test('uses observation time instead of processing completion time', () {
+      final processingClock = _AlternatingRepTestClock();
+      final engine = AlternatingRepEngine(
+        repConfig: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 145,
+          peakThreshold: 115,
+          minimumRom: 20,
+          activeConfirmationDuration: Duration.zero,
+          peakConfirmationDuration: Duration.zero,
+          returnConfirmationDuration: Duration.zero,
+          initialNeutralConfirmationDuration: Duration.zero,
+          neutralConfirmationDuration: Duration.zero,
+        ),
+        now: processingClock.now,
+      );
+      final base = DateTime.utc(2026, 7, 31, 8);
+
+      engine.update(
+        leftPrimaryMetric: 170,
+        rightPrimaryMetric: 170,
+        observedAt: base,
+      );
+      engine.update(
+        leftPrimaryMetric: 135,
+        rightPrimaryMetric: 170,
+        observedAt: base.add(const Duration(milliseconds: 200)),
+      );
+      engine.update(
+        leftPrimaryMetric: 100,
+        rightPrimaryMetric: 170,
+        observedAt: base.add(const Duration(milliseconds: 500)),
+      );
+      engine.update(
+        leftPrimaryMetric: 130,
+        rightPrimaryMetric: 170,
+        observedAt: base.add(const Duration(milliseconds: 650)),
+      );
+      final result = engine.update(
+        leftPrimaryMetric: 170,
+        rightPrimaryMetric: 170,
+        observedAt: base.add(const Duration(milliseconds: 900)),
+      );
+
+      final tempo = result.completedRep?.tempoBreakdown;
+      expect(result.completedRep, isNotNull);
+      expect(tempo, isNotNull);
+      final completedTempo = tempo!;
+      expect(
+        completedTempo.towardPeakDuration,
+        const Duration(milliseconds: 300),
+      );
+      expect(completedTempo.returnDuration, const Duration(milliseconds: 250));
+      expect(
+        completedTempo.totalRepDuration,
+        const Duration(milliseconds: 700),
+      );
+      expect(processingClock.now(), DateTime(2026, 1, 1, 12));
+    });
+
     test('reports the side and tempo for a completed repetition', () {
       final clock = _AlternatingRepTestClock();
       final engine = _buildEngine(clock);

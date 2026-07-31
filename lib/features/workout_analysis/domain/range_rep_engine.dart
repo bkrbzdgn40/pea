@@ -15,12 +15,16 @@ import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
 import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
+import 'range_rep_timing_trace.dart';
 import 'tempo_engine.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
 extension _GenericRepTransitionX on GenericRepTransitionType {
-  RangeRepConfirmedTransition confirmedAt(DateTime effectiveAt) {
+  RangeRepConfirmedTransition confirmedAt({
+    required DateTime effectiveAt,
+    required DateTime confirmedAt,
+  }) {
     final type = switch (this) {
       GenericRepTransitionType.acquireNeutral =>
         RangeRepConfirmedTransitionType.acquireNeutral,
@@ -35,7 +39,11 @@ extension _GenericRepTransitionX on GenericRepTransitionType {
       GenericRepTransitionType.completeRep =>
         RangeRepConfirmedTransitionType.completeRep,
     };
-    return RangeRepConfirmedTransition(type: type, effectiveAt: effectiveAt);
+    return RangeRepConfirmedTransition(
+      type: type,
+      effectiveAt: effectiveAt,
+      confirmedAt: confirmedAt,
+    );
   }
 
   String get legacyDebugLabel {
@@ -201,6 +209,209 @@ class _MutableRangeRepPhaseQuality {
   }
 }
 
+class _MutableRangeRepTimingTrace {
+  static const double _directionEpsilon = 0.5;
+
+  bool _isActive = false;
+  int _sampleCount = 0;
+  int _towardPeakSampleCount = 0;
+  int _peakSampleCount = 0;
+  int _returnSampleCount = 0;
+  int _directionChangeCount = 0;
+  int _nonMonotonicObservationCount = 0;
+  int _invalidProcessingLagCount = 0;
+  int _intervalSampleCount = 0;
+  int _totalObservationIntervalUs = 0;
+  int? _maxObservationIntervalMs;
+  int? _lastProcessingLagMs;
+  int? _maxProcessingLagMs;
+  DateTime? _firstObservedAt;
+  DateTime? _lastObservedAt;
+  double? _firstPrimaryMetric;
+  double? _lastPrimaryMetric;
+  double? _minPrimaryMetric;
+  double? _maxPrimaryMetric;
+  int _lastDirection = 0;
+  bool _hadVisibilityGap = false;
+  final List<RangeRepTimingTransitionTrace> _transitions =
+      <RangeRepTimingTransitionTrace>[];
+
+  bool get isActive => _isActive;
+
+  void start() {
+    reset();
+    _isActive = true;
+  }
+
+  void record({
+    required GenericRepPhase phase,
+    required double primaryMetric,
+    required DateTime observedAt,
+    required DateTime processedAt,
+  }) {
+    if (!_isActive) {
+      return;
+    }
+
+    final previousObservedAt = _lastObservedAt;
+    if (previousObservedAt != null) {
+      final interval = observedAt.difference(previousObservedAt);
+      if (interval.isNegative) {
+        _nonMonotonicObservationCount++;
+        return;
+      }
+      _intervalSampleCount++;
+      _totalObservationIntervalUs += interval.inMicroseconds;
+      final intervalMs = interval.inMilliseconds;
+      _maxObservationIntervalMs =
+          _maxObservationIntervalMs == null ||
+              intervalMs > _maxObservationIntervalMs!
+          ? intervalMs
+          : _maxObservationIntervalMs;
+    }
+
+    final processingLag = processedAt.difference(observedAt);
+    if (processingLag.isNegative) {
+      _invalidProcessingLagCount++;
+    } else {
+      final processingLagMs = processingLag.inMilliseconds;
+      _lastProcessingLagMs = processingLagMs;
+      _maxProcessingLagMs =
+          _maxProcessingLagMs == null || processingLagMs > _maxProcessingLagMs!
+          ? processingLagMs
+          : _maxProcessingLagMs;
+    }
+
+    _firstObservedAt ??= observedAt;
+    _lastObservedAt = observedAt;
+    _firstPrimaryMetric ??= primaryMetric;
+    final previousMetric = _lastPrimaryMetric;
+    if (previousMetric != null) {
+      final delta = primaryMetric - previousMetric;
+      final direction = delta > _directionEpsilon
+          ? 1
+          : delta < -_directionEpsilon
+          ? -1
+          : 0;
+      if (direction != 0) {
+        if (_lastDirection != 0 && direction != _lastDirection) {
+          _directionChangeCount++;
+        }
+        _lastDirection = direction;
+      }
+    }
+    _lastPrimaryMetric = primaryMetric;
+    _minPrimaryMetric =
+        _minPrimaryMetric == null || primaryMetric < _minPrimaryMetric!
+        ? primaryMetric
+        : _minPrimaryMetric;
+    _maxPrimaryMetric =
+        _maxPrimaryMetric == null || primaryMetric > _maxPrimaryMetric!
+        ? primaryMetric
+        : _maxPrimaryMetric;
+
+    _sampleCount++;
+    switch (phase) {
+      case GenericRepPhase.neutral:
+        break;
+      case GenericRepPhase.towardPeak:
+        _towardPeakSampleCount++;
+        break;
+      case GenericRepPhase.peak:
+        _peakSampleCount++;
+        break;
+      case GenericRepPhase.returning:
+        _returnSampleCount++;
+        break;
+    }
+  }
+
+  void recordRejectedObservation() {
+    if (_isActive) {
+      _nonMonotonicObservationCount++;
+    }
+  }
+
+  void addTransitions(Iterable<GenericRepConfirmedTransition> transitions) {
+    if (!_isActive) {
+      return;
+    }
+    for (final transition in transitions) {
+      _transitions.add(
+        RangeRepTimingTransitionTrace(
+          type: transition.type.name,
+          effectiveAt: transition.effectiveAt,
+          confirmedAt: transition.confirmedAt,
+        ),
+      );
+    }
+  }
+
+  void markVisibilityGap() {
+    if (_isActive) {
+      _hadVisibilityGap = true;
+    }
+  }
+
+  RangeRepTimingTraceSnapshot snapshot({
+    required RangeRepTimingTraceOutcome outcome,
+  }) {
+    final averageObservationIntervalMs = _intervalSampleCount == 0
+        ? null
+        : (_totalObservationIntervalUs / _intervalSampleCount) / 1000.0;
+    return RangeRepTimingTraceSnapshot(
+      outcome: outcome,
+      sampleCount: _sampleCount,
+      towardPeakSampleCount: _towardPeakSampleCount,
+      peakSampleCount: _peakSampleCount,
+      returnSampleCount: _returnSampleCount,
+      directionChangeCount: _directionChangeCount,
+      nonMonotonicObservationCount: _nonMonotonicObservationCount,
+      invalidProcessingLagCount: _invalidProcessingLagCount,
+      intervalSampleCount: _intervalSampleCount,
+      averageObservationIntervalMs: averageObservationIntervalMs,
+      maxObservationIntervalMs: _maxObservationIntervalMs,
+      lastProcessingLagMs: _lastProcessingLagMs,
+      maxProcessingLagMs: _maxProcessingLagMs,
+      firstObservedAt: _firstObservedAt,
+      lastObservedAt: _lastObservedAt,
+      firstPrimaryMetric: _firstPrimaryMetric,
+      lastPrimaryMetric: _lastPrimaryMetric,
+      minPrimaryMetric: _minPrimaryMetric,
+      maxPrimaryMetric: _maxPrimaryMetric,
+      hadVisibilityGap: _hadVisibilityGap,
+      transitions: List<RangeRepTimingTransitionTrace>.unmodifiable(
+        _transitions,
+      ),
+    );
+  }
+
+  void reset() {
+    _isActive = false;
+    _sampleCount = 0;
+    _towardPeakSampleCount = 0;
+    _peakSampleCount = 0;
+    _returnSampleCount = 0;
+    _directionChangeCount = 0;
+    _nonMonotonicObservationCount = 0;
+    _invalidProcessingLagCount = 0;
+    _intervalSampleCount = 0;
+    _totalObservationIntervalUs = 0;
+    _maxObservationIntervalMs = null;
+    _lastProcessingLagMs = null;
+    _maxProcessingLagMs = null;
+    _firstObservedAt = null;
+    _lastObservedAt = null;
+    _firstPrimaryMetric = null;
+    _lastPrimaryMetric = null;
+    _minPrimaryMetric = null;
+    _maxPrimaryMetric = null;
+    _lastDirection = 0;
+    _hadVisibilityGap = false;
+    _transitions.clear();
+  }
+}
+
 /// Current range-rep engine backing the workout analysis flow.
 class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   final ExerciseConfig config;
@@ -256,6 +467,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   final _MutableRangeRepPhaseQuality _ascendingPhaseQuality =
       _MutableRangeRepPhaseQuality();
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
+  final _MutableRangeRepTimingTrace _activeTimingTrace =
+      _MutableRangeRepTimingTrace();
+  RangeRepTimingTraceSnapshot? _lastEndedTimingTrace;
+  int _nonMonotonicObservationCount = 0;
 
   RangeRepEngine({
     required this.config,
@@ -345,6 +560,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       pendingTransitionLabel:
           _genericRepEngine.pendingTransition?.legacyDebugLabel,
       lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
+      activeTimingTrace: _activeTimingTrace.isActive
+          ? _activeTimingTrace.snapshot(
+              outcome: RangeRepTimingTraceOutcome.active,
+            )
+          : null,
+      lastEndedTimingTrace: _lastEndedTimingTrace,
+      nonMonotonicObservationCount: _nonMonotonicObservationCount,
     );
   }
 
@@ -393,15 +615,24 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         peakPhaseAssessment: peakPhaseAssessment,
         ascendingPhaseAssessment: ascendingPhaseAssessment,
       )?.code,
+      activeTimingTrace: _activeTimingTrace.isActive
+          ? _activeTimingTrace.snapshot(
+              outcome: RangeRepTimingTraceOutcome.active,
+            )
+          : null,
+      lastEndedTimingTrace: _lastEndedTimingTrace,
+      nonMonotonicObservationCount: _nonMonotonicObservationCount,
     );
   }
 
   @override
   RangeRepEngineFrameResult updateDetectionFrame({
     required double primaryMetric,
+    DateTime? observedAt,
   }) {
     return _updateFrame(
       primaryMetric: primaryMetric,
+      observedAt: observedAt,
       calculateCompatibilityScore: false,
     );
   }
@@ -441,10 +672,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   RangeRepEngineFrameResult _updateFrame({
     required double primaryMetric,
+    DateTime? observedAt,
     double? compatibilityFormMetric,
     RangeRepTechniqueAssessment? techniqueAssessment,
     required bool calculateCompatibilityScore,
   }) {
+    final processedAt = _now();
+    final effectiveObservedAt = observedAt ?? processedAt;
     final wasArmedAtFrameStart = _isArmed;
     final tracksCompatibilityTechnique =
         compatibilityFormMetric != null && techniqueAssessment != null;
@@ -459,6 +693,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     }
     final lifecycleFacts = _processState(
       primaryMetric,
+      observedAt: effectiveObservedAt,
+      processedAt: processedAt,
       compatibilityFormMetric: compatibilityFormMetric,
       hasTechniqueViolation: hasTechniqueViolation,
       tracksCompatibilityTechnique: tracksCompatibilityTechnique,
@@ -485,6 +721,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   _RangeRepLifecycleFacts _processState(
     double angle, {
+    required DateTime observedAt,
+    required DateTime processedAt,
     required double? compatibilityFormMetric,
     required bool hasTechniqueViolation,
     required bool tracksCompatibilityTechnique,
@@ -503,10 +741,37 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         : angle;
     final genericResult = _genericRepEngine.update(
       primaryMetric: detectionMetric,
+      observedAt: observedAt,
     );
+    if (!genericResult.observationAccepted) {
+      _nonMonotonicObservationCount++;
+      _activeTimingTrace.recordRejectedObservation();
+      return _RangeRepLifecycleFacts(
+        repStarted: false,
+        repAborted: false,
+        completedRepDetectionData: null,
+        completedRepCoreData: null,
+        confirmedTransitions: const <RangeRepConfirmedTransition>[],
+        observedRepPhases: const <RangeRepPhase>[],
+      );
+    }
     final completedTempo = _tempoEngine.process(genericResult);
     final genericTransitions = genericResult.confirmedTransitions;
     final stateBefore = _movementPhaseFor(genericResult.phaseBeforeUpdate);
+
+    if (genericResult.repStarted) {
+      _activeTimingTrace.start();
+    }
+    if (_activeTimingTrace.isActive) {
+      _activeTimingTrace
+        ..record(
+          phase: _timingTracePhaseFor(genericResult),
+          primaryMetric: angle,
+          observedAt: observedAt,
+          processedAt: processedAt,
+        )
+        ..addTransitions(genericTransitions);
+    }
 
     _isArmed = genericResult.isArmedAfterUpdate;
     state = _movementPhaseFor(genericResult.phaseAfterUpdate);
@@ -568,7 +833,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     for (final transition in genericTransitions) {
       _lastConfirmedTransitionLabel = transition.type.legacyDebugLabel;
       confirmedTransitions.add(
-        transition.type.confirmedAt(transition.effectiveAt),
+        transition.type.confirmedAt(
+          effectiveAt: transition.effectiveAt,
+          confirmedAt: transition.confirmedAt,
+        ),
       );
 
       switch (transition.type) {
@@ -681,6 +949,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       }
     }
 
+    if (completedRepDetectionData != null) {
+      _finishTimingTrace(RangeRepTimingTraceOutcome.completed);
+    } else if (repAborted) {
+      _finishTimingTrace(RangeRepTimingTraceOutcome.aborted);
+    }
+
     return _RangeRepLifecycleFacts(
       repStarted: repStarted,
       repAborted: repAborted,
@@ -690,6 +964,29 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       observedRepPhases: observedRepPhases,
       completedTempo: completedTempo,
     );
+  }
+
+  GenericRepPhase _timingTracePhaseFor(GenericRepEngineFrameResult result) {
+    final transitionTypes = result.confirmedTransitions
+        .map((transition) => transition.type)
+        .toSet();
+    if (transitionTypes.contains(GenericRepTransitionType.startReturning) ||
+        transitionTypes.contains(GenericRepTransitionType.completeRep)) {
+      return GenericRepPhase.returning;
+    }
+    if (result.repStarted ||
+        transitionTypes.contains(GenericRepTransitionType.reachPeak)) {
+      return GenericRepPhase.towardPeak;
+    }
+    return result.phaseBeforeUpdate;
+  }
+
+  void _finishTimingTrace(RangeRepTimingTraceOutcome outcome) {
+    if (!_activeTimingTrace.isActive) {
+      return;
+    }
+    _lastEndedTimingTrace = _activeTimingTrace.snapshot(outcome: outcome);
+    _activeTimingTrace.reset();
   }
 
   MovementPhase _movementPhaseFor(GenericRepPhase phase) {
@@ -1168,12 +1465,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   @override
-  void beginBriefVisibilityGap() {
+  void beginBriefVisibilityGap({DateTime? observedAt}) {
     if (_briefVisibilityGapWindow.isActive) {
       return;
     }
 
-    _briefVisibilityGapWindow.begin(_now());
+    _activeTimingTrace.markVisibilityGap();
+    _briefVisibilityGapWindow.begin(observedAt ?? _now());
     _briefVisibilityGapFrozenPhase = state;
     _briefVisibilityGapWasArmed = _isArmed;
     _genericRepEngine.cancelPendingTransition();
@@ -1182,6 +1480,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   @override
   VisibilityGapResumeResult resumeAfterBriefVisibilityGap({
     required double primaryMetric,
+    DateTime? observedAt,
   }) {
     if (!_briefVisibilityGapWindow.isActive) {
       return const VisibilityGapResumeResult(
@@ -1203,7 +1502,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       );
     }
 
-    final gapDuration = _briefVisibilityGapWindow.consume(_now())!;
+    final gapDuration = _briefVisibilityGapWindow.consume(
+      observedAt ?? _now(),
+    )!;
     _shiftActivePhaseTiming(gapDuration);
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
@@ -1243,10 +1544,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
     _lastCompletedPhaseQualityTelemetry = null;
+    _lastEndedTimingTrace = null;
+    _nonMonotonicObservationCount = 0;
+    _activeTimingTrace.reset();
     _disarm();
   }
 
   void _disarm() {
+    _finishTimingTrace(RangeRepTimingTraceOutcome.interrupted);
     _peakEntryAllowed = true;
     _genericRepEngine.clearActiveRepContext();
     _tempoEngine.interrupt();

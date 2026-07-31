@@ -1043,6 +1043,118 @@ void main() {
       expect(gapEngine.lastAscentTime, _transitionConfirmationWindow);
     });
 
+    test(
+      'timing trace separates observation time from processing completion time',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+        final base = clock.now();
+
+        RangeRepEngineFrameResult process({
+          required double angle,
+          required int observedMs,
+          required int processedMs,
+        }) {
+          final processedAt = base.add(Duration(milliseconds: processedMs));
+          clock.advance(processedAt.difference(clock.now()));
+          return engine.updateDetectionFrame(
+            primaryMetric: angle,
+            observedAt: base.add(Duration(milliseconds: observedMs)),
+          );
+        }
+
+        process(angle: 170, observedMs: 0, processedMs: 500);
+        process(angle: 170, observedMs: 120, processedMs: 620);
+        process(angle: 140, observedMs: 220, processedMs: 900);
+        process(angle: 140, observedMs: 320, processedMs: 1000);
+        process(angle: 90, observedMs: 420, processedMs: 1100);
+        process(angle: 90, observedMs: 520, processedMs: 1200);
+        process(angle: 110, observedMs: 620, processedMs: 1300);
+        process(angle: 110, observedMs: 720, processedMs: 1400);
+        process(angle: 170, observedMs: 820, processedMs: 1500);
+        final completed = process(
+          angle: 170,
+          observedMs: 940,
+          processedMs: 1620,
+        );
+
+        final trace = engine.diagnosticsSnapshot.lastEndedTimingTrace;
+        final tempo = completed.completedTempo;
+
+        expect(completed.didCompleteRep, isTrue);
+        expect(tempo, isNotNull);
+        final completedTempo = tempo!;
+        expect(completedTempo.towardPeakDuration.inMilliseconds, 200);
+        expect(completedTempo.returnDuration.inMilliseconds, 200);
+        expect(completedTempo.totalRepDuration.inMilliseconds, 600);
+
+        expect(trace, isNotNull);
+        final completedTrace = trace!;
+        expect(completedTrace.outcome.name, 'completed');
+        expect(completedTrace.sampleCount, 7);
+        expect(completedTrace.towardPeakSampleCount, 3);
+        expect(completedTrace.peakSampleCount, 1);
+        expect(completedTrace.returnSampleCount, 3);
+        expect(
+          completedTrace.averageObservationIntervalMs,
+          closeTo(103.33, 0.01),
+        );
+        expect(completedTrace.maxObservationIntervalMs, 120);
+        expect(completedTrace.maxProcessingLagMs, 680);
+        expect(completedTrace.nonMonotonicObservationCount, 0);
+        expect(completedTrace.invalidProcessingLagCount, 0);
+        expect(
+          completedTrace.transitions.map((transition) => transition.type),
+          <String>[
+            'startTowardPeak',
+            'reachPeak',
+            'startReturning',
+            'completeRep',
+          ],
+        );
+        expect(
+          completedTrace.transitions.map(
+            (transition) => transition.confirmationLagMs,
+          ),
+          <int>[100, 100, 100, 120],
+        );
+      },
+    );
+
+    test(
+      'rejects non-monotonic range-rep observations and traces the event',
+      () {
+        final clock = _TestClock();
+        final engine = RangeRepEngine(config: _squatConfig(), now: clock.now);
+        final base = clock.now();
+
+        void process({required double angle, required int observedMs}) {
+          clock.advance(const Duration(milliseconds: 120));
+          engine.updateDetectionFrame(
+            primaryMetric: angle,
+            observedAt: base.add(Duration(milliseconds: observedMs)),
+          );
+        }
+
+        process(angle: 170, observedMs: 0);
+        process(angle: 170, observedMs: 120);
+        process(angle: 140, observedMs: 220);
+        process(angle: 140, observedMs: 320);
+
+        final before = engine.diagnosticsSnapshot.activeTimingTrace;
+        process(angle: 90, observedMs: 319);
+        final diagnostics = engine.diagnosticsSnapshot;
+
+        expect(before, isNotNull);
+        expect(diagnostics.nonMonotonicObservationCount, 1);
+        expect(diagnostics.activeTimingTrace, isNotNull);
+        expect(diagnostics.activeTimingTrace!.sampleCount, before!.sampleCount);
+        expect(diagnostics.activeTimingTrace!.nonMonotonicObservationCount, 1);
+        expect(engine.repCount, 0);
+        expect(engine.state, MovementPhase.descending);
+      },
+    );
+
     test('brief gap duration is excluded from phase-quality timing', () {
       final gapClock = _TestClock();
       final gapEngine = RangeRepEngine(
