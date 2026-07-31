@@ -1212,6 +1212,14 @@ class AppLocalizations {
   );
   String get nextSetStarting =>
       pick(tr: 'Yeni set başlıyor', en: 'Next set starting');
+  String get restReadyTitle => pick(tr: 'Hazırsın', en: 'You’re Ready');
+  String get restReadyMessage => pick(
+    tr: 'Hazır olduğunda sıradaki sete geç.',
+    en: 'Continue to the next set when you are ready.',
+  );
+  String get readyForNextSet => pick(tr: 'Hazırım', en: 'I’m Ready');
+  String addRestTime(int seconds) =>
+      pick(tr: '+$seconds sn', en: '+$seconds sec');
   String get skipRest => pick(tr: 'Dinlenmeyi Atla', en: 'Skip Rest');
   String get roundCount => pick(tr: 'Tur sayısı', en: 'Number of rounds');
   String get selectAtLeastOneExercise =>
