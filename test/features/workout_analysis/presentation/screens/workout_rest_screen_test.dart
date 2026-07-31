@@ -5,7 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import '../../../../support/presentation_test_support.dart';
 
 void main() {
-  testWidgets('returns automatically when the rest timer finishes', (
+  testWidgets('waits for user confirmation when the rest timer finishes', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(tester, home: const _WorkoutRestHost());
@@ -23,13 +23,22 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(find.text('0:00'), findsOneWidget);
+    expect(find.text('Hazırsın'), findsOneWidget);
+    expect(find.text('Dinlenme'), findsNothing);
+    expect(find.text('completed'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('complete-planned-rest')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('completed'), findsOneWidget);
-    expect(find.text('Dinlenme'), findsNothing);
   });
 
-  testWidgets('stays usable in a compact landscape viewport', (
+  testWidgets('uses a split layout in a compact landscape viewport', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(844, 390);
@@ -51,18 +60,88 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(
-      find.byKey(const ValueKey<String>('skip-planned-rest')),
+      find.byKey(const ValueKey<String>('planned-rest-split-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('complete-planned-rest')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('add-planned-rest-time')),
       findsOneWidget,
     );
   });
 
-  testWidgets('skip rest returns immediately', (WidgetTester tester) async {
+  testWidgets('keeps large text usable in compact landscape', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(568, 320);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutRestScreen(
+        duration: Duration(seconds: 30),
+        planName: 'Ev Planı',
+        nextExerciseName: 'Standing Knee Raise',
+        nextSetNumber: 2,
+        tickDuration: Duration(minutes: 1),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('planned-rest-stacked-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('adds fifteen seconds without leaving the rest screen', (
+    WidgetTester tester,
+  ) async {
     await pumpTestApp(tester, home: const _WorkoutRestHost());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('open-rest-screen')));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const ValueKey<String>('skip-planned-rest')));
+
+    expect(find.text('0:02'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('add-planned-rest-time')),
+    );
+    await tester.pump();
+
+    expect(find.text('0:17'), findsOneWidget);
+    expect(find.text('completed'), findsNothing);
+  });
+
+  testWidgets('ready action returns immediately', (WidgetTester tester) async {
+    await pumpTestApp(tester, home: const _WorkoutRestHost());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('open-rest-screen')));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('complete-planned-rest')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('completed'), findsOneWidget);
+  });
+
+  testWidgets('Android back returns skipped', (WidgetTester tester) async {
+    await pumpTestApp(tester, home: const _WorkoutRestHost());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('open-rest-screen')));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
     expect(find.text('skipped'), findsOneWidget);
@@ -85,7 +164,7 @@ class _WorkoutRestHostState extends State<_WorkoutRestHost> {
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
+          children: <Widget>[
             ElevatedButton(
               key: const ValueKey<String>('open-rest-screen'),
               onPressed: () async {

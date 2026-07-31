@@ -404,6 +404,61 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(reviewButton, findsOneWidget);
   });
+
+  testWidgets('uses split plan editing in landscape', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(844, 390);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-split-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-settings-scroll')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('falls back to stacked editing with large landscape text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(844, 390);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-plan-builder-stacked-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _useTallPhoneViewport(WidgetTester tester) {

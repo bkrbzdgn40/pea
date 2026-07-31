@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
@@ -37,27 +38,44 @@ class _WorkoutPlanSetupScreenState
 
     return AppScaffoldShell(
       title: localizations.plannedWorkout,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      body: ListView(
-        key: const ValueKey<String>('workout-plan-home-scroll'),
-        padding: EdgeInsets.zero,
-        children: <Widget>[
-          Text(
-            localizations.plannedWorkoutBuilderIntro,
-            style: const TextStyle(color: Colors.white60, height: 1.35),
-          ),
-          const SizedBox(height: 12),
-          _SavedPlansSection(
-            plans: savedPlans,
-            selectedPlanId: _selectedPlanId,
-            onSelect: (plan) => setState(() => _selectedPlanId = plan.id),
-            onDelete: _confirmDeletePlan,
-            onNew: () => _openPlanBuilder(),
-            onReview: selectedPlan == null
-                ? null
-                : () => _openSelectedPlanReview(selectedPlan),
-          ),
-        ],
+      padding: EdgeInsets.zero,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = AppLayout.of(context, constraints: constraints);
+          return Padding(
+            padding: layout.pagePadding,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 980),
+                child: ListView(
+                  key: const ValueKey<String>('workout-plan-home-scroll'),
+                  padding: EdgeInsets.zero,
+                  children: <Widget>[
+                    Text(
+                      localizations.plannedWorkoutBuilderIntro,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        height: 1.35,
+                      ),
+                    ),
+                    SizedBox(height: layout.sectionGap),
+                    _SavedPlansSection(
+                      plans: savedPlans,
+                      selectedPlanId: _selectedPlanId,
+                      onSelect: (plan) =>
+                          setState(() => _selectedPlanId = plan.id),
+                      onDelete: _confirmDeletePlan,
+                      onNew: () => _openPlanBuilder(),
+                      onReview: selectedPlan == null
+                          ? null
+                          : () => _openSelectedPlanReview(selectedPlan),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -97,6 +115,7 @@ class _WorkoutPlanSetupScreenState
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) => _WorkoutPlanBuilderSheet(initialPlan: plan),
@@ -187,8 +206,6 @@ class _WorkoutPlanBuilderSheetState
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final header = _buildBuilderHeader(localizations);
-    final footer = _buildBuilderFooter(localizations);
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return PopScope<Object?>(
@@ -198,151 +215,276 @@ class _WorkoutPlanBuilderSheetState
           unawaited(_requestSheetPop());
         }
       },
-      child: FractionallySizedBox(
-        heightFactor: 0.94,
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: keyboardInset),
-          child: Material(
-            key: const ValueKey<String>('workout-plan-builder-sheet'),
-            color: const Color(0xFF11171D),
-            clipBehavior: Clip.antiAlias,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            child: Column(
-              children: <Widget>[
-                const SizedBox(height: 10),
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = AppLayout.of(context, constraints: constraints);
+          final useSplitLayout =
+              layout.isLandscape &&
+              constraints.maxWidth >= 720 &&
+              !layout.hasLargeText;
+          final sheetRadius = useSplitLayout
+              ? BorderRadius.circular(24)
+              : const BorderRadius.vertical(top: Radius.circular(28));
+
+          return Align(
+            alignment: useSplitLayout
+                ? Alignment.center
+                : Alignment.bottomCenter,
+            child: AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: FractionallySizedBox(
+                key: ValueKey<String>(
+                  useSplitLayout
+                      ? 'workout-plan-builder-split-layout'
+                      : 'workout-plan-builder-stacked-layout',
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 8, 8),
-                  child: Row(
+                widthFactor: useSplitLayout ? 0.96 : 1,
+                heightFactor: useSplitLayout ? 0.96 : 0.94,
+                child: Material(
+                  key: const ValueKey<String>('workout-plan-builder-sheet'),
+                  color: const Color(0xFF11171D),
+                  clipBehavior: Clip.antiAlias,
+                  borderRadius: sheetRadius,
+                  child: Column(
                     children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          widget.initialPlan?.name ?? localizations.newPlan,
-                          key: const ValueKey<String>(
-                            'workout-plan-builder-title',
+                      if (!useSplitLayout) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(999),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        ),
+                      ],
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          useSplitLayout ? 14 : 10,
+                          8,
+                          8,
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                widget.initialPlan?.name ??
+                                    localizations.newPlan,
+                                key: const ValueKey<String>(
+                                  'workout-plan-builder-title',
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: const ValueKey<String>(
+                                'close-workout-plan-builder',
+                              ),
+                              tooltip: MaterialLocalizations.of(
+                                context,
+                              ).closeButtonTooltip,
+                              onPressed: _isSaving ? null : _requestSheetPop,
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        key: const ValueKey<String>(
-                          'close-workout-plan-builder',
+                      const Divider(height: 1),
+                      Expanded(
+                        child: _buildBuilderContent(
+                          localizations,
+                          constraints: constraints,
+                          layout: layout,
+                          useSplitLayout: useSplitLayout,
                         ),
-                        tooltip: MaterialLocalizations.of(
-                          context,
-                        ).closeButtonTooltip,
-                        onPressed: _isSaving ? null : _requestSheetPop,
-                        icon: const Icon(Icons.close_rounded),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                    child: _entries.isEmpty
-                        ? ListView(
-                            key: const ValueKey<String>(
-                              'workout-plan-builder-scroll',
-                            ),
-                            padding: EdgeInsets.zero,
-                            children: <Widget>[
-                              header,
-                              const SizedBox(height: 12),
-                              _EmptyPlan(onAddExercise: _showExercisePicker),
-                              const SizedBox(height: 12),
-                              footer,
-                            ],
-                          )
-                        : ReorderableListView.builder(
-                            key: const ValueKey<String>(
-                              'workout-plan-entry-list',
-                            ),
-                            buildDefaultDragHandles: false,
-                            padding: EdgeInsets.zero,
-                            header: header,
-                            footer: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: footer,
-                            ),
-                            itemCount: _entries.length,
-                            onReorder: _reorder,
-                            proxyDecorator: (child, index, animation) =>
-                                Material(
-                                  color: Colors.transparent,
-                                  elevation: 8,
-                                  child: child,
-                                ),
-                            itemBuilder: (context, index) {
-                              final entry = _entries[index];
-                              final definition = _catalog.definitionFor(
-                                entry.exercise,
-                              );
-                              return Padding(
-                                key: ValueKey<String>(entry.id),
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _WorkoutPlanEntryCard(
-                                  index: index,
-                                  entry: entry,
-                                  trackingType: definition.trackingType,
-                                  onChanged: (updated) {
-                                    setState(() => _entries[index] = updated);
-                                  },
-                                  onDuplicate: () => _duplicateEntry(index),
-                                  onRemove: () =>
-                                      setState(() => _entries.removeAt(index)),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildBuilderHeader(AppLocalizations localizations) {
-    return Column(
+  Widget _buildBuilderContent(
+    AppLocalizations localizations, {
+    required BoxConstraints constraints,
+    required AppLayout layout,
+    required bool useSplitLayout,
+  }) {
+    if (!useSplitLayout) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: _buildEntryList(
+          localizations,
+          includeSettings: true,
+          includeFooter: true,
+        ),
+      );
+    }
+
+    final settingsWidth = (constraints.maxWidth * 0.34)
+        .clamp(300.0, 370.0)
+        .toDouble();
+    return Padding(
+      padding: layout.pagePadding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          SizedBox(
+            width: settingsWidth,
+            child: SingleChildScrollView(
+              key: const ValueKey<String>('workout-plan-settings-scroll'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _buildPlanSettingsCard(localizations),
+                  SizedBox(height: layout.sectionGap),
+                  _buildBuilderFooter(localizations),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(width: layout.panelGap),
+          Expanded(
+            child: _buildEntryList(
+              localizations,
+              includeSettings: false,
+              includeFooter: false,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntryList(
+    AppLocalizations localizations, {
+    required bool includeSettings,
+    required bool includeFooter,
+  }) {
+    final header = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        AppSurfaceCard(
-          child: Column(
-            children: <Widget>[
-              TextField(
-                key: const ValueKey<String>('workout-plan-name-field'),
-                controller: _nameController,
-                maxLength: 60,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: localizations.planName,
-                  hintText: localizations.planNameHint,
-                  counterText: '',
-                  prefixIcon: const Icon(Icons.edit_note_rounded),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 10),
-              Row(
+        if (includeSettings) ...<Widget>[
+          _buildPlanSettingsCard(localizations),
+          const SizedBox(height: 12),
+        ],
+        _buildExerciseSectionHeader(localizations),
+      ],
+    );
+
+    if (_entries.isEmpty) {
+      return ListView(
+        key: const ValueKey<String>('workout-plan-builder-scroll'),
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          header,
+          const SizedBox(height: 12),
+          _EmptyPlan(onAddExercise: _showExercisePicker),
+          if (includeFooter) ...<Widget>[
+            const SizedBox(height: 12),
+            _buildBuilderFooter(localizations),
+          ],
+        ],
+      );
+    }
+
+    return ReorderableListView.builder(
+      key: const ValueKey<String>('workout-plan-entry-list'),
+      buildDefaultDragHandles: false,
+      padding: EdgeInsets.zero,
+      header: header,
+      footer: includeFooter
+          ? Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: _buildBuilderFooter(localizations),
+            )
+          : null,
+      itemCount: _entries.length,
+      onReorder: _reorder,
+      proxyDecorator: (child, index, animation) =>
+          Material(color: Colors.transparent, elevation: 8, child: child),
+      itemBuilder: (context, index) {
+        final entry = _entries[index];
+        final definition = _catalog.definitionFor(entry.exercise);
+        return Padding(
+          key: ValueKey<String>(entry.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _WorkoutPlanEntryCard(
+            index: index,
+            entry: entry,
+            trackingType: definition.trackingType,
+            onChanged: (updated) {
+              setState(() => _entries[index] = updated);
+            },
+            onDuplicate: () => _duplicateEntry(index),
+            onRemove: () => setState(() => _entries.removeAt(index)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlanSettingsCard(AppLocalizations localizations) {
+    return AppSurfaceCard(
+      child: Column(
+        children: <Widget>[
+          TextField(
+            key: const ValueKey<String>('workout-plan-name-field'),
+            controller: _nameController,
+            maxLength: 60,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: localizations.planName,
+              hintText: localizations.planNameHint,
+              counterText: '',
+              prefixIcon: const Icon(Icons.edit_note_rounded),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final stackRounds =
+                  constraints.maxWidth < 300 || textScale >= 1.5;
+              final editor = _PlanNumberEditor(
+                value: _rounds,
+                minimum: 1,
+                maximum: 10,
+                semanticLabel: localizations.roundCount,
+                onChanged: (value) => setState(() => _rounds = value),
+              );
+              if (stackRounds) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      localizations.roundCount,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    editor,
+                  ],
+                );
+              }
+              return Row(
                 children: <Widget>[
                   Expanded(
                     child: Text(
@@ -353,75 +495,70 @@ class _WorkoutPlanBuilderSheetState
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: 155,
-                    child: _PlanNumberEditor(
-                      value: _rounds,
-                      minimum: 1,
-                      maximum: 10,
-                      semanticLabel: localizations.roundCount,
-                      onChanged: (value) => setState(() => _rounds = value),
-                    ),
-                  ),
+                  SizedBox(width: 155, child: editor),
                 ],
-              ),
-              if (_hasDraftContent) ...<Widget>[
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      _hasUnsavedChanges
-                          ? Icons.edit_note_rounded
-                          : Icons.check_circle_outline_rounded,
-                      size: 18,
+              );
+            },
+          ),
+          if (_hasDraftContent) ...<Widget>[
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                Icon(
+                  _hasUnsavedChanges
+                      ? Icons.edit_note_rounded
+                      : Icons.check_circle_outline_rounded,
+                  size: 18,
+                  color: _hasUnsavedChanges
+                      ? Colors.orangeAccent
+                      : Colors.greenAccent,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _hasUnsavedChanges
+                        ? localizations.unsavedPlanChanges
+                        : localizations.planUpToDate,
+                    style: TextStyle(
                       color: _hasUnsavedChanges
                           ? Colors.orangeAccent
                           : Colors.greenAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _hasUnsavedChanges
-                            ? localizations.unsavedPlanChanges
-                            : localizations.planUpToDate,
-                        style: TextStyle(
-                          color: _hasUnsavedChanges
-                              ? Colors.orangeAccent
-                              : Colors.greenAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                localizations.exerciseOrder,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            FilledButton.tonalIcon(
-              key: const ValueKey<String>('add-plan-exercise'),
-              onPressed: _showExercisePicker,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(localizations.addExercise),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseSectionHeader(AppLocalizations localizations) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              localizations.exerciseOrder,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          FilledButton.tonalIcon(
+            key: const ValueKey<String>('add-plan-exercise'),
+            onPressed: _showExercisePicker,
+            icon: const Icon(Icons.add_rounded),
+            label: Text(localizations.addExercise),
+          ),
+        ],
+      ),
     );
   }
 
@@ -957,90 +1094,151 @@ class _WorkoutPlanEntryCard extends StatelessWidget {
         ? entry.target.holdDuration!.inSeconds
         : entry.target.repetitions!;
 
+    final editors = <Widget>[
+      _LabeledNumberEditor(
+        label: localizations.setCount,
+        value: entry.sets,
+        minimum: 1,
+        maximum: 10,
+        step: 1,
+        onChanged: (value) => onChanged(entry.copyWith(sets: value)),
+      ),
+      _LabeledNumberEditor(
+        label: isHold ? localizations.holdTarget : localizations.repTarget,
+        value: targetValue,
+        minimum: isHold ? 5 : 1,
+        maximum: isHold ? 300 : 100,
+        step: isHold ? 5 : 1,
+        suffix: isHold
+            ? localizations.secondsShort
+            : localizations.repetitionsShort,
+        onChanged: (value) => onChanged(
+          entry.copyWith(
+            target: isHold
+                ? WorkoutTarget.hold(Duration(seconds: value))
+                : WorkoutTarget.repetitions(value),
+          ),
+        ),
+      ),
+      _LabeledNumberEditor(
+        label: localizations.restDuration,
+        value: entry.restAfterSet.inSeconds,
+        minimum: 0,
+        maximum: 300,
+        step: 15,
+        suffix: localizations.secondsShort,
+        onChanged: (value) =>
+            onChanged(entry.copyWith(restAfterSet: Duration(seconds: value))),
+      ),
+    ];
+
     return AppSurfaceCard(
-      padding: const EdgeInsets.fromLTRB(12, 8, 10, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.drag_indicator_rounded),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final stackHeader = constraints.maxWidth < 360 || textScale >= 1.5;
+          final inlineEditors = constraints.maxWidth >= 680 && textScale < 1.5;
+
+          final title = Text(
+            '${index + 1}. ${localizations.exerciseTitle(entry.exercise.id)}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          );
+          final actions = <Widget>[
+            IconButton(
+              key: ValueKey<String>('duplicate-${entry.id}'),
+              tooltip: localizations.duplicateExercise,
+              onPressed: onDuplicate,
+              icon: const Icon(Icons.copy_rounded),
+            ),
+            IconButton(
+              key: ValueKey<String>('remove-${entry.id}'),
+              tooltip: localizations.removeExercise,
+              onPressed: onRemove,
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ];
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (stackHeader) ...<Widget>[
+                Row(
+                  children: <Widget>[
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.drag_indicator_rounded),
+                      ),
+                    ),
+                    Expanded(child: title),
+                  ],
                 ),
-              ),
-              Expanded(
-                child: Text(
-                  '${index + 1}. ${localizations.exerciseTitle(entry.exercise.id)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+                ),
+              ] else
+                Row(
+                  children: <Widget>[
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.drag_indicator_rounded),
+                      ),
+                    ),
+                    Expanded(child: title),
+                    ...actions,
+                  ],
+                ),
+              const SizedBox(height: 8),
+              if (inlineEditors)
+                Row(
+                  key: const ValueKey<String>(
+                    'workout-plan-entry-inline-editors',
                   ),
-                ),
-              ),
-              IconButton(
-                key: ValueKey<String>('duplicate-${entry.id}'),
-                tooltip: localizations.duplicateExercise,
-                onPressed: onDuplicate,
-                icon: const Icon(Icons.copy_rounded),
-              ),
-              IconButton(
-                key: ValueKey<String>('remove-${entry.id}'),
-                tooltip: localizations.removeExercise,
-                onPressed: onRemove,
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _LabeledNumberEditor(
-                label: localizations.setCount,
-                value: entry.sets,
-                minimum: 1,
-                maximum: 10,
-                step: 1,
-                onChanged: (value) => onChanged(entry.copyWith(sets: value)),
-              ),
-              _LabeledNumberEditor(
-                label: isHold
-                    ? localizations.holdTarget
-                    : localizations.repTarget,
-                value: targetValue,
-                minimum: isHold ? 5 : 1,
-                maximum: isHold ? 300 : 100,
-                step: isHold ? 5 : 1,
-                suffix: isHold
-                    ? localizations.secondsShort
-                    : localizations.repetitionsShort,
-                onChanged: (value) => onChanged(
-                  entry.copyWith(
-                    target: isHold
-                        ? WorkoutTarget.hold(Duration(seconds: value))
-                        : WorkoutTarget.repetitions(value),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    for (
+                      var editorIndex = 0;
+                      editorIndex < editors.length;
+                      editorIndex += 1
+                    ) ...<Widget>[
+                      Expanded(child: editors[editorIndex]),
+                      if (editorIndex != editors.length - 1)
+                        const SizedBox(width: 10),
+                    ],
+                  ],
+                )
+              else
+                Column(
+                  key: const ValueKey<String>(
+                    'workout-plan-entry-stacked-editors',
                   ),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    for (
+                      var editorIndex = 0;
+                      editorIndex < editors.length;
+                      editorIndex += 1
+                    ) ...<Widget>[
+                      editors[editorIndex],
+                      if (editorIndex != editors.length - 1)
+                        const SizedBox(height: 10),
+                    ],
+                  ],
                 ),
-              ),
-              _LabeledNumberEditor(
-                label: localizations.restDuration,
-                value: entry.restAfterSet.inSeconds,
-                minimum: 0,
-                maximum: 300,
-                step: 15,
-                suffix: localizations.secondsShort,
-                onChanged: (value) => onChanged(
-                  entry.copyWith(restAfterSet: Duration(seconds: value)),
-                ),
-              ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1067,31 +1265,28 @@ class _LabeledNumberEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 155,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 4),
-          _PlanNumberEditor(
-            value: value,
-            minimum: minimum,
-            maximum: maximum,
-            step: step,
-            suffix: suffix,
-            semanticLabel: label,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 5),
+        _PlanNumberEditor(
+          value: value,
+          minimum: minimum,
+          maximum: maximum,
+          step: step,
+          suffix: suffix,
+          semanticLabel: label,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }
@@ -1130,7 +1325,7 @@ class _PlanNumberEditor extends StatelessWidget {
           children: [
             IconButton(
               tooltip: '$semanticLabel -',
-              constraints: const BoxConstraints.tightFor(width: 40, height: 46),
+              constraints: const BoxConstraints.tightFor(width: 48, height: 48),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
               onPressed: value <= minimum
@@ -1159,7 +1354,7 @@ class _PlanNumberEditor extends StatelessWidget {
             ),
             IconButton(
               tooltip: '$semanticLabel +',
-              constraints: const BoxConstraints.tightFor(width: 40, height: 46),
+              constraints: const BoxConstraints.tightFor(width: 48, height: 48),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
               onPressed: value >= maximum
