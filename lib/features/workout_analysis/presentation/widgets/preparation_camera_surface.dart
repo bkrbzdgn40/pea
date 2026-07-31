@@ -229,13 +229,7 @@ class _PreparationReadinessOverlay extends ConsumerWidget {
       readinessSnapshot: ref.watch(preparationReadinessStateProvider(request)),
     );
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _PreparationSafeZoneOverlay(readiness: readiness),
-        _PreparationReadinessBanner(readiness: readiness),
-      ],
-    );
+    return _PreparationSafeZoneOverlay(readiness: readiness);
   }
 }
 
@@ -246,21 +240,25 @@ class _PreparationSafeZoneOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _readinessColor(readiness.visualState);
+    final color = _readinessColor(
+      readiness.visualState,
+    ).withValues(alpha: 0.88);
     return Positioned.fill(
       child: IgnorePointer(
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: AnimatedContainer(
-            key: const ValueKey<String>('preparation-safe-zone'),
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
             duration: const Duration(milliseconds: 180),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: color.withValues(alpha: 0.82),
-                width: readiness.isReady ? 3 : 2,
-              ),
-            ),
+            builder: (context, animatedColor, _) {
+              return CustomPaint(
+                key: const ValueKey<String>('preparation-safe-zone'),
+                painter: _PreparationSafeZonePainter(
+                  color: animatedColor ?? color,
+                  strokeWidth: readiness.isReady ? 3 : 2,
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -268,64 +266,44 @@ class _PreparationSafeZoneOverlay extends StatelessWidget {
   }
 }
 
-class _PreparationReadinessBanner extends StatelessWidget {
-  const _PreparationReadinessBanner({required this.readiness});
+class _PreparationSafeZonePainter extends CustomPainter {
+  const _PreparationSafeZonePainter({
+    required this.color,
+    required this.strokeWidth,
+  });
 
-  final SetupReadinessViewData readiness;
+  final Color color;
+  final double strokeWidth;
 
   @override
-  Widget build(BuildContext context) {
-    final color = _readinessColor(readiness.visualState);
-    return Positioned(
-      left: 12,
-      right: 12,
-      bottom: 12,
-      child: Semantics(
-        liveRegion: true,
-        label: '${readiness.statusLabel}: ${readiness.message}',
-        child: AnimatedContainer(
-          key: const ValueKey<String>('preparation-readiness-banner'),
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.84),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.86), width: 2),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 18,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                _readinessIcon(readiness.visualState),
-                color: color,
-                size: 30,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  readiness.message,
-                  key: const ValueKey<String>('preparation-readiness-message'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    height: 1.22,
-                    fontWeight: FontWeight.w900,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 8)],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final cornerLength = (size.shortestSide * 0.12)
+        .clamp(18.0, 32.0)
+        .toDouble();
+    final path = Path()
+      ..moveTo(0, cornerLength)
+      ..lineTo(0, 0)
+      ..lineTo(cornerLength, 0)
+      ..moveTo(size.width - cornerLength, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, cornerLength)
+      ..moveTo(size.width, size.height - cornerLength)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width - cornerLength, size.height)
+      ..moveTo(cornerLength, size.height)
+      ..lineTo(0, size.height)
+      ..lineTo(0, size.height - cornerLength);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PreparationSafeZonePainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }
 
@@ -334,14 +312,6 @@ Color _readinessColor(SetupReadinessVisualState state) {
     SetupReadinessVisualState.checking => Colors.amberAccent,
     SetupReadinessVisualState.needsAdjustment => Colors.orangeAccent,
     SetupReadinessVisualState.ready => Colors.greenAccent,
-  };
-}
-
-IconData _readinessIcon(SetupReadinessVisualState state) {
-  return switch (state) {
-    SetupReadinessVisualState.checking => Icons.manage_search_rounded,
-    SetupReadinessVisualState.needsAdjustment => Icons.tune_rounded,
-    SetupReadinessVisualState.ready => Icons.check_circle_rounded,
   };
 }
 
