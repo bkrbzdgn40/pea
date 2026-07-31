@@ -322,6 +322,7 @@ void main() {
             closeTo(testCase.expectedTechniqueMetric, 0.001),
           );
           expect(engine.primaryMetrics.last, closeTo(170.0, 0.001));
+          expect(engine.observationTimes.last, clock.now());
           expect(
             evaluator.assessments.last.hasObservations,
             testCase.hasViolation,
@@ -2786,6 +2787,7 @@ class _CompletingRangeRepEngine extends RangeRepEngine {
   @override
   RangeRepEngineFrameResult updateDetectionFrame({
     required double primaryMetric,
+    DateTime? observedAt,
   }) {
     detectionUpdateCount++;
     repCount = completedRepCoreData.repIndex;
@@ -2833,6 +2835,7 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
   int detectionUpdateCount = 0;
   int typedUpdateCount = 0;
   final List<double> primaryMetrics = <double>[];
+  final List<DateTime> observationTimes = <DateTime>[];
 
   @override
   void update(AnalysisFrame frame) {
@@ -2842,9 +2845,11 @@ class _RecordingRangeRepEngine extends RangeRepEngine {
   @override
   RangeRepEngineFrameResult updateDetectionFrame({
     required double primaryMetric,
+    DateTime? observedAt,
   }) {
     detectionUpdateCount++;
     primaryMetrics.add(primaryMetric);
+    observationTimes.add(observedAt ?? DateTime.fromMillisecondsSinceEpoch(0));
     return RangeRepEngineFrameResult(
       wasArmedAtFrameStart: false,
       isArmedAfterUpdate: false,
@@ -2878,6 +2883,7 @@ class _ScriptedRangeRepEngine extends RangeRepEngine {
   @override
   RangeRepEngineFrameResult updateDetectionFrame({
     required double primaryMetric,
+    DateTime? observedAt,
   }) {
     detectionUpdateCount++;
     final result = _results.removeAt(0);

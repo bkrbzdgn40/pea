@@ -749,6 +749,87 @@ void main() {
       expect(completed.completedRep!.rom, 15.0);
     });
 
+    test('explicit observation time drives lifecycle timing', () {
+      final fixedProcessingClock = _Clock();
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 150,
+          peakThreshold: 95,
+          activeConfirmationDuration: Duration.zero,
+          peakConfirmationDuration: Duration.zero,
+          returnConfirmationDuration: Duration.zero,
+          initialNeutralConfirmationDuration: Duration.zero,
+          neutralConfirmationDuration: Duration.zero,
+        ),
+        now: fixedProcessingClock.now,
+      );
+      final base = DateTime.utc(2026, 7, 31, 8);
+
+      final acquired = engine.update(primaryMetric: 170, observedAt: base);
+      final started = engine.update(
+        primaryMetric: 140,
+        observedAt: base.add(const Duration(milliseconds: 200)),
+      );
+      final peaked = engine.update(
+        primaryMetric: 90,
+        observedAt: base.add(const Duration(milliseconds: 500)),
+      );
+      final returning = engine.update(
+        primaryMetric: 110,
+        observedAt: base.add(const Duration(milliseconds: 650)),
+      );
+      final completed = engine.update(
+        primaryMetric: 170,
+        observedAt: base.add(const Duration(milliseconds: 900)),
+      );
+
+      expect(acquired.confirmedTransition?.effectiveAt, base);
+      expect(
+        started.confirmedTransition?.effectiveAt,
+        base.add(const Duration(milliseconds: 200)),
+      );
+      expect(
+        peaked.confirmedTransition?.effectiveAt,
+        base.add(const Duration(milliseconds: 500)),
+      );
+      expect(
+        returning.confirmedTransition?.effectiveAt,
+        base.add(const Duration(milliseconds: 650)),
+      );
+      expect(
+        completed.confirmedTransition?.effectiveAt,
+        base.add(const Duration(milliseconds: 900)),
+      );
+      expect(completed.completedRep, isNotNull);
+      expect(engine.repCount, 1);
+    });
+
+    test('rejects a non-monotonic observation without mutating lifecycle', () {
+      final engine = GenericRepEngine(
+        config: const GenericRepEngineConfig(
+          neutralThreshold: 160,
+          activeThreshold: 150,
+          peakThreshold: 95,
+          initialNeutralConfirmationDuration: Duration.zero,
+        ),
+      );
+      final base = DateTime.utc(2026, 7, 31, 8);
+
+      final acquired = engine.update(primaryMetric: 170, observedAt: base);
+      final rejected = engine.update(
+        primaryMetric: 140,
+        observedAt: base.subtract(const Duration(milliseconds: 1)),
+      );
+
+      expect(acquired.observationAccepted, isTrue);
+      expect(rejected.observationAccepted, isFalse);
+      expect(rejected.observationIssue, 'nonMonotonicObservation');
+      expect(engine.nonMonotonicObservationCount, 1);
+      expect(engine.phase, GenericRepPhase.neutral);
+      expect(engine.repCount, 0);
+    });
+
     test(
       'reset clears repetition history and requires neutral acquisition again',
       () {

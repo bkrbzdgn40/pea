@@ -1,4 +1,5 @@
 import 'models/rep_score_breakdown.dart';
+import 'range_rep_timing_trace.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
 const String rangeRepAwaitNeutralPendingTransitionLabel = 'await neutral';
@@ -120,6 +121,9 @@ class RangeRepDiagnosticsSnapshot {
     this.peakPhaseAssessment = const RangeRepPhaseQualityAssessment(),
     this.ascendingPhaseAssessment = const RangeRepPhaseQualityAssessment(),
     this.phaseFeedbackCandidate,
+    this.activeTimingTrace,
+    this.lastEndedTimingTrace,
+    this.nonMonotonicObservationCount = 0,
   });
 
   final double currentRepWorstBackAngle;
@@ -138,6 +142,9 @@ class RangeRepDiagnosticsSnapshot {
   final RangeRepPhaseQualityAssessment peakPhaseAssessment;
   final RangeRepPhaseQualityAssessment ascendingPhaseAssessment;
   final String? phaseFeedbackCandidate;
+  final RangeRepTimingTraceSnapshot? activeTimingTrace;
+  final RangeRepTimingTraceSnapshot? lastEndedTimingTrace;
+  final int nonMonotonicObservationCount;
 }
 
 /// Optional diagnostics surface for range-rep style engines.
@@ -181,10 +188,11 @@ class VisibilityGapResumeResult {
 }
 
 abstract class RangeRepVisibilityGapControl {
-  void beginBriefVisibilityGap();
+  void beginBriefVisibilityGap({DateTime? observedAt});
 
   VisibilityGapResumeResult resumeAfterBriefVisibilityGap({
     required double primaryMetric,
+    DateTime? observedAt,
   });
 }
 

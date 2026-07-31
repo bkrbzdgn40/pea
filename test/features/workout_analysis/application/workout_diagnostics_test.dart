@@ -12,6 +12,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -43,7 +44,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 6);
+    expect(snapshot.schemaVersion, 7);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -91,11 +92,11 @@ void main() {
     });
   });
 
-  test('schema v6 identifies the exact exercise and contract context', () {
+  test('schema v7 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 6);
+    expect(snapshot.schemaVersion, 7);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -112,7 +113,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v6 identifies hold family and hollow-hold variation', () {
+  test('schema v7 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -361,7 +362,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 6);
+      expect(json['schema_version'], 7);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -374,6 +375,75 @@ void main() {
       expect(json['hold_current_signals'], isNull);
       expect(json['hold_target_signals'], isNull);
       expect(json['hold_signal_validity'], isNull);
+    },
+  );
+
+  test(
+    'range-rep timing trace serializes observation and confirmation facts',
+    () {
+      final firstObservedAt = startedAt.add(const Duration(milliseconds: 200));
+      final lastObservedAt = startedAt.add(const Duration(milliseconds: 820));
+      final trace = RangeRepTimingTraceSnapshot(
+        outcome: RangeRepTimingTraceOutcome.completed,
+        sampleCount: 7,
+        towardPeakSampleCount: 3,
+        peakSampleCount: 1,
+        returnSampleCount: 3,
+        directionChangeCount: 2,
+        intervalSampleCount: 6,
+        averageObservationIntervalMs: 103.3,
+        maxObservationIntervalMs: 120,
+        lastProcessingLagMs: 340,
+        maxProcessingLagMs: 680,
+        firstObservedAt: firstObservedAt,
+        lastObservedAt: lastObservedAt,
+        firstPrimaryMetric: 140,
+        lastPrimaryMetric: 170,
+        minPrimaryMetric: 90,
+        maxPrimaryMetric: 170,
+        hadVisibilityGap: true,
+        transitions: <RangeRepTimingTransitionTrace>[
+          RangeRepTimingTransitionTrace(
+            type: 'startTowardPeak',
+            effectiveAt: firstObservedAt,
+            confirmedAt: firstObservedAt.add(const Duration(milliseconds: 100)),
+          ),
+        ],
+      );
+      final subject = accumulator()
+        ..updateRangeRepState(
+          repCount: 1,
+          currentPhase: 'NEUTRAL',
+          signalRoles: RangeRepContracts.squat.signalRoles,
+          lastEndedTimingTrace: trace,
+          nonMonotonicObservationCount: 2,
+        );
+
+      final snapshot = subject.snapshot(now: startedAt);
+      final json = snapshot.toJson();
+      final serializedTrace =
+          json['range_rep_last_ended_timing_trace']! as Map<String, Object?>;
+
+      expect(snapshot.lastEndedRangeRepTimingTrace, same(trace));
+      expect(snapshot.activeRangeRepTimingTrace, isNull);
+      expect(snapshot.nonMonotonicRangeRepObservationCount, 2);
+      expect(serializedTrace['outcome'], 'completed');
+      expect(serializedTrace['sample_count'], 7);
+      expect(serializedTrace['average_observation_interval_ms'], 103.3);
+      expect(serializedTrace['max_processing_lag_ms'], 680);
+      expect(serializedTrace['had_visibility_gap'], isTrue);
+      expect(
+        (serializedTrace['transitions']! as List<Object?>).single,
+        <String, Object?>{
+          'type': 'startTowardPeak',
+          'effective_at': firstObservedAt.toIso8601String(),
+          'confirmed_at': firstObservedAt
+              .add(const Duration(milliseconds: 100))
+              .toIso8601String(),
+          'confirmation_lag_ms': 100,
+        },
+      );
+      expect(json['range_rep_non_monotonic_observation_count'], 2);
     },
   );
 
@@ -458,7 +528,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 6);
+    expect(json['schema_version'], 7);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -754,7 +824,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 6);
+    expect(json['schema_version'], 7);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');

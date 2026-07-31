@@ -148,11 +148,15 @@ class AlternatingRepEngine
   /// Once one side starts a repetition, only that side owns the active rep
   /// lifecycle until it completes or aborts. This prevents the opposite limb
   /// from stealing a rep midway through a movement.
+  ///
+  /// [observedAt] is the frame observation time. When omitted, direct callers
+  /// retain the legacy processing-clock behavior.
   AlternatingRepEngineFrameResult update({
     double? leftPrimaryMetric,
     double? rightPrimaryMetric,
+    DateTime? observedAt,
   }) {
-    _frameNow = _now();
+    _frameNow = observedAt ?? _now();
     final activeSideBeforeUpdate = activeSide;
 
     if (activeSide != null) {
@@ -165,10 +169,16 @@ class AlternatingRepEngine
 
     final leftResult = leftPrimaryMetric == null
         ? null
-        : _leftEngine.update(primaryMetric: leftPrimaryMetric);
+        : _leftEngine.update(
+            primaryMetric: leftPrimaryMetric,
+            observedAt: _frameNow,
+          );
     final rightResult = rightPrimaryMetric == null
         ? null
-        : _rightEngine.update(primaryMetric: rightPrimaryMetric);
+        : _rightEngine.update(
+            primaryMetric: rightPrimaryMetric,
+            observedAt: _frameNow,
+          );
 
     if (leftResult != null) {
       _leftTempoEngine.process(leftResult);
@@ -243,7 +253,9 @@ class AlternatingRepEngine
       );
     }
 
-    final result = _engineFor(side).update(primaryMetric: metric);
+    final result = _engineFor(
+      side,
+    ).update(primaryMetric: metric, observedAt: _frameNow);
     final completedTempo = _tempoEngineFor(side).process(result);
     if (result.repAborted) {
       activeSide = null;

@@ -394,6 +394,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       if (didBecomeStableTracking) {
         final gapResumeResult = _resumeBriefVisibilityGap(
           engineFrame.primaryMetric,
+          observedAt: now,
         );
         if (gapResumeResult.disposition ==
             VisibilityGapResumeDisposition.incompatible) {
@@ -448,6 +449,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
       return _processAcceptedFrame(
         metrics: effectiveMetrics,
+        now: now,
         frameAssessment: frameAssessment,
         preUpdateDiagnostics: preUpdateDiagnostics,
         visibilityAssessment: visibilityAssessment,
@@ -467,6 +469,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
     return _processAcceptedFrame(
       metrics: effectiveMetrics,
+      now: now,
       frameAssessment: frameAssessment,
       preUpdateDiagnostics: preUpdateDiagnostics,
       visibilityAssessment: visibilityAssessment,
@@ -541,7 +544,10 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
     var recordBriefOcclusion = false;
     if (visibilityAssessment.didStartInvalidRun) {
-      recordBriefOcclusion = _beginBriefVisibilityGap(preUpdateDiagnostics);
+      recordBriefOcclusion = _beginBriefVisibilityGap(
+        preUpdateDiagnostics,
+        observedAt: now,
+      );
     }
     _trackRepContext(
       diagnostics: preUpdateDiagnostics,
@@ -596,6 +602,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
   RangeRepCoordinatorFrameResult _processAcceptedFrame({
     required ExerciseMetrics metrics,
+    required DateTime now,
     required RangeRepFrameAssessment frameAssessment,
     required RangeRepDiagnosticsSnapshot preUpdateDiagnostics,
     required RangeRepVisibilityAssessment visibilityAssessment,
@@ -654,6 +661,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             .hasObservations;
     final engineResult = _engine.updateDetectionFrame(
       primaryMetric: engineFrame.primaryMetric,
+      observedAt: now,
     );
     final completedTechniqueData = _techniqueHistoryTracker.recordFrame(
       engineResult: engineResult,
@@ -1686,14 +1694,17 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
   }
 
-  bool _beginBriefVisibilityGap(RangeRepDiagnosticsSnapshot diagnostics) {
+  bool _beginBriefVisibilityGap(
+    RangeRepDiagnosticsSnapshot diagnostics, {
+    required DateTime observedAt,
+  }) {
     final shouldTrackBriefGap =
         _hasAcceptedPoseForAnalysis ||
         diagnostics.hasRepContext ||
         _selectedRangeRepSide != null;
     if (shouldTrackBriefGap) {
       _briefGapFrozenRangeRepSide = _selectedRangeRepSide;
-      _engine.beginBriefVisibilityGap();
+      _engine.beginBriefVisibilityGap(observedAt: observedAt);
     } else if (diagnostics.isAwaitingNeutralConfirmation) {
       _clearActiveRepContext(reason: 'invalid frame while awaiting neutral');
     }
@@ -1701,8 +1712,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     return shouldTrackBriefGap;
   }
 
-  VisibilityGapResumeResult _resumeBriefVisibilityGap(double primaryMetric) {
-    return _engine.resumeAfterBriefVisibilityGap(primaryMetric: primaryMetric);
+  VisibilityGapResumeResult _resumeBriefVisibilityGap(
+    double primaryMetric, {
+    required DateTime observedAt,
+  }) {
+    return _engine.resumeAfterBriefVisibilityGap(
+      primaryMetric: primaryMetric,
+      observedAt: observedAt,
+    );
   }
 
   void _resetSideSensitiveFilters() {
