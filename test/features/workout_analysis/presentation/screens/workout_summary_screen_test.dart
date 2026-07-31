@@ -20,6 +20,13 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import '../../../../support/presentation_test_support.dart';
 import '../../../../support/workout_statistics_test_support.dart';
 
+Finder _summaryMetricText(String text) {
+  return find.descendant(
+    of: find.byKey(const ValueKey<String>('workout-summary-metrics')),
+    matching: find.text(text),
+  );
+}
+
 void main() {
   testWidgets('renders summary values from the completed workout session', (
     WidgetTester tester,
@@ -42,13 +49,23 @@ void main() {
     await tester.pump();
 
     expect(find.text('Şınav özeti'), findsOneWidget);
-    expect(find.text('Toplam tekrar'), findsOneWidget);
-    expect(find.text('Ortalama form ve hareket aralığı skoru'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workout-summary-outcome-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('workout-summary-strength')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('workout-summary-focus')), findsOneWidget);
+    expect(_summaryMetricText('Toplam tekrar'), findsOneWidget);
+    expect(find.text('Ortalama form ve hareket aralığı skoru'), findsNothing);
 
-    await tester.scrollUntilVisible(find.text('1:05'), 200);
-
-    expect(find.text('90'), findsOneWidget);
-    expect(find.text('1:05'), findsOneWidget);
+    final primaryValue = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('workout-summary-primary-value')),
+    );
+    expect(primaryValue.data, '90');
+    expect(_summaryMetricText('1:05'), findsOneWidget);
   });
 
   testWidgets(
@@ -149,12 +166,10 @@ void main() {
     );
     await tester.pump();
 
-    await tester.scrollUntilVisible(find.text('Düşük Güven'), 200);
-
-    expect(find.text('Toplam tekrar'), findsOneWidget);
-    expect(find.text('Düşük Güven'), findsOneWidget);
-    expect(find.text('Geçersiz deneme'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(_summaryMetricText('Toplam tekrar'), findsOneWidget);
+    expect(_summaryMetricText('Düşük Güven'), findsOneWidget);
+    expect(_summaryMetricText('Geçersiz deneme'), findsOneWidget);
+    expect(_summaryMetricText('3'), findsOneWidget);
   });
 
   testWidgets('renders rich live metrics captured at session completion', (
@@ -202,16 +217,14 @@ void main() {
     );
     await tester.pump();
 
-    await tester.scrollUntilVisible(find.text('Asimetri skoru'), 200);
-
-    expect(find.text('Ortalama ROM'), findsOneWidget);
+    expect(_summaryMetricText('Ortalama ROM'), findsOneWidget);
     expect(find.text('Ortalama tempo'), findsNothing);
     expect(find.text('Tempo tutarlılığı'), findsNothing);
     expect(find.text('En hızlı tekrar'), findsNothing);
     expect(find.text('En yavaş tekrar'), findsNothing);
-    expect(find.text('Sol tekrar'), findsOneWidget);
-    expect(find.text('Sağ tekrar'), findsOneWidget);
-    expect(find.text('Asimetri skoru'), findsOneWidget);
+    expect(_summaryMetricText('Sol tekrar'), findsOneWidget);
+    expect(_summaryMetricText('Sağ tekrar'), findsOneWidget);
+    expect(_summaryMetricText('Asimetri skoru'), findsOneWidget);
   });
 
   testWidgets(
@@ -272,13 +285,77 @@ void main() {
       );
       await tester.pump();
 
-      await tester.scrollUntilVisible(find.text('Ortalama ROM'), 200);
-      expect(find.text('70.0°'), findsOneWidget);
+      expect(_summaryMetricText('Ortalama ROM'), findsOneWidget);
+      expect(_summaryMetricText('70.0°'), findsOneWidget);
       expect(find.text('1.3 sn'), findsNothing);
       expect(find.text('Ortalama tempo'), findsNothing);
       expect(find.text('Tempo tutarlılığı'), findsNothing);
     },
   );
+
+  testWidgets('uses a two-panel summary composition in landscape', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = buildWorkoutSession(
+      id: 'summary-landscape',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'squat',
+      totalReps: 10,
+      averageScore: 84,
+      bestScore: 92,
+      durationSec: 60,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('workout-summary-wide-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps portrait summary usable at 200 percent text scale', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = buildWorkoutSession(
+      id: 'summary-large-text',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'standing_hip_abduction',
+      totalReps: 8,
+      averageScore: 78,
+      bestScore: 86,
+      durationSec: 70,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(390, 844),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const WorkoutSummaryScreen(),
+      ),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('workout-summary-portrait-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('repeat action returns true to the live analysis flow', (
     WidgetTester tester,
@@ -318,7 +395,12 @@ void main() {
 
     await tester.tap(find.text('Open summary'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Aynı Hareketi Tekrarla'));
+    final retryAction = find.byKey(
+      const ValueKey<String>('workout-summary-retry-action'),
+    );
+    await tester.ensureVisible(retryAction);
+    await tester.pump();
+    await tester.tap(retryAction);
     await tester.pumpAndSettle();
 
     expect(retryResult, isTrue);
@@ -352,7 +434,7 @@ void main() {
     );
     await tester.pump();
 
-    final detailsButton = find.widgetWithText(TextButton, 'Detayı Gör');
+    final detailsButton = find.widgetWithText(OutlinedButton, 'Detayı Gör');
     await tester.ensureVisible(detailsButton);
     await tester.tap(detailsButton);
     await tester.pumpAndSettle();
@@ -396,6 +478,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Ana Sayfaya Dön'));
     await tester.tap(find.text('Ana Sayfaya Dön'));
     await tester.pumpAndSettle();
 

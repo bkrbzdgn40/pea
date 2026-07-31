@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
@@ -132,4 +133,149 @@ void main() {
       expect(find.text('Biseps Curl'), findsOneWidget);
     },
   );
+
+  testWidgets('filters history by exercise without mixing other sessions', (
+    WidgetTester tester,
+  ) async {
+    final squat = buildWorkoutSession(
+      id: 'session-squat',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 6, 10),
+      totalReps: 10,
+      averageScore: 85,
+      durationSec: 60,
+    );
+    final pushUp = buildWorkoutSession(
+      id: 'session-push-up',
+      ownerId: 'owner-1',
+      exerciseType: 'push_up',
+      startedAt: DateTime(2024, 1, 5, 10),
+      totalReps: 8,
+      averageScore: 82,
+      durationSec: 55,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const SessionHistoryScreen(),
+      overrides: [
+        authRepositoryProvider.overrideWithValue(
+          const TestAuthRepository(currentUserId: 'owner-1'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(sessions: [squat, pushUp]),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('session-history-card-session-squat')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('session-history-card-session-push-up')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('session-history-exercise-filter')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Squat').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('session-history-card-session-squat')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('session-history-card-session-push-up')),
+      findsNothing,
+    );
+    expect(find.text('1 oturum gösteriliyor'), findsOneWidget);
+  });
+
+  testWidgets('uses a landscape grid and shows score change', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final latest = buildWorkoutSession(
+      id: 'session-latest',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 6, 10),
+      totalReps: 10,
+      averageScore: 88,
+      durationSec: 60,
+    );
+    final previous = buildWorkoutSession(
+      id: 'session-previous',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 5, 10),
+      totalReps: 10,
+      averageScore: 83,
+      durationSec: 60,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const SessionHistoryScreen(),
+      overrides: [
+        authRepositoryProvider.overrideWithValue(
+          const TestAuthRepository(currentUserId: 'owner-1'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(sessions: [latest, previous]),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('session-history-grid')), findsOneWidget);
+    expect(find.text('Önceki oturuma göre +5'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('falls back to a list at large text scale', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = buildWorkoutSession(
+      id: 'session-large-text',
+      ownerId: 'owner-1',
+      exerciseType: 'standing_hip_abduction',
+      startedAt: DateTime(2024, 1, 6, 10),
+      totalReps: 10,
+      averageScore: 88,
+      durationSec: 60,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(844, 390),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const SessionHistoryScreen(),
+      ),
+      overrides: [
+        authRepositoryProvider.overrideWithValue(
+          const TestAuthRepository(currentUserId: 'owner-1'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(sessions: [session]),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('session-history-list')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

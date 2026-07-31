@@ -1666,7 +1666,12 @@ void main() {
 
       final firstSessionId = harness.sessionRepository.savedSessions.single.id;
 
-      await tester.tap(find.text('Aynı Hareketi Tekrarla'));
+      final retryAction = find.byKey(
+        const ValueKey<String>('workout-summary-retry-action'),
+      );
+      await tester.ensureVisible(retryAction);
+      await tester.pump();
+      await tester.tap(retryAction);
       await tester.pumpAndSettle();
 
       expect(harness.sessionRepository.savedSessions, hasLength(1));
