@@ -259,9 +259,14 @@ void main() {
     expect(cameraController.startImageStreamCallCount, 1);
   });
 
-  testWidgets('updates preview and readiness geometry in landscape', (
+  testWidgets('updates preview and readiness geometry with the viewport', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final cameraController = _FakeCameraController();
     addTearDown(cameraController.dispose);
     final landmarks = <PoseLandmark>[
@@ -299,19 +304,14 @@ void main() {
     expect(posePainter().absoluteImageSize, const Size(480, 640));
     expect(readinessImageWidth, 480);
     expect(readinessImageHeight, 640);
-    final cameraRight = tester
-        .getTopRight(
-          find.byKey(const ValueKey<String>('preparation-camera-stage')),
-        )
-        .dx;
-    final headerLeft = tester
-        .getTopLeft(
-          find.byKey(const ValueKey<String>('preparation-compact-header')),
-        )
-        .dx;
-    expect(cameraRight, lessThan(headerLeft));
 
     cameraController.setDeviceOrientation(DeviceOrientation.landscapeLeft);
+    await tester.pump();
+
+    expect(cameraAspectRatio().aspectRatio, closeTo(3 / 4, 1e-9));
+    expect(posePainter().absoluteImageSize, const Size(480, 640));
+
+    tester.view.physicalSize = const Size(844, 390);
     await tester.pump();
 
     expect(cameraAspectRatio().aspectRatio, closeTo(4 / 3, 1e-9));
