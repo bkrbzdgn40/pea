@@ -67,19 +67,8 @@ class WorkoutSessionMetricSnapshotBuilder {
       );
     }
 
-    final durations = acceptedReps
-        .map((rep) => rep.observedDuration)
-        .whereType<Duration>()
-        .toList(growable: false);
-    if (durations.isNotEmpty) {
-      final averageMillis =
-          durations.fold<int>(0, (sum, value) => sum + value.inMilliseconds) /
-          durations.length;
-      final averageDuration = Duration(milliseconds: averageMillis.round());
-      builder
-        ..set(ExerciseMetricRegistry.tempo, averageDuration)
-        ..set(ExerciseMetricRegistry.repDuration, averageDuration);
-    }
+    // P0.2 quarantine: persisted raw repetition timings remain available on
+    // WorkoutRep, but are not rebuilt as user-facing tempo metrics.
 
     return builder.build();
   }

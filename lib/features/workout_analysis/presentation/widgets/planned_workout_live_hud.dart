@@ -169,7 +169,9 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
       primaryValue: primaryValue,
       primaryIcon: isHoldAnalysis ? Icons.timer_outlined : Icons.repeat_rounded,
       secondaryLabel: _sentenceCaseMetricLabel(
-        isHoldAnalysis ? localizations.bestMetric : localizations.scoreMetric,
+        isHoldAnalysis
+            ? localizations.bestMetric
+            : localizations.formRangeScoreMetric,
       ),
       secondaryValue: secondaryValue,
       secondaryTone: secondaryTone,

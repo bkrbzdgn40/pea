@@ -66,6 +66,7 @@ class RepScoreBreakdown {
     this.phaseAdjustedScore,
     this.totalRepSeconds,
     this.totalRepTempoScore,
+    this.tempoIncludedInFinalScore = true,
   });
 
   final double minAngle;
@@ -86,8 +87,8 @@ class RepScoreBreakdown {
   /// yet provide enough information to derive ROM delta.
   final RangeRepRomRegion? romRegion;
 
-  /// Explainable R30 component view. The final score intentionally retains the
-  /// legacy calculation until a later product decision changes weighting.
+  /// Explainable R30 component view. Tempo can remain visible here while being
+  /// excluded from the final score when measurement confidence is limited.
   final RepScoreComponents? scoreComponents;
 
   /// R31 traceability: each applied penalty points at concrete evidence.
@@ -110,4 +111,8 @@ class RepScoreBreakdown {
   /// Tempo score derived from [totalRepSeconds] when total-duration scoring is
   /// enabled for the exercise.
   final double? totalRepTempoScore;
+
+  /// False when tempo remains diagnostic-only because the completed rep had a
+  /// timing or coverage confidence warning.
+  final bool tempoIncludedInFinalScore;
 }

@@ -181,8 +181,11 @@ class SymmetryEngine implements SymmetryMetricsSource {
             )
           : null,
       tempoSymmetryScore: tempoScore,
+      // P0.2 tempo quarantine: tempo symmetry remains diagnostic, but the
+      // user-facing overall symmetry score is based only on rep balance and
+      // range of motion until Tempo Measurement V2 is validated.
       overallSymmetryScore: hasBothSides
-          ? (repCountScore + romScore! + tempoScore!) / 3
+          ? (repCountScore + romScore!) / 2
           : null,
     );
   }
@@ -244,7 +247,9 @@ class SymmetryEngine implements SymmetryMetricsSource {
             .abs(),
       ),
       tempoSymmetryScore: tempoScore,
-      overallSymmetryScore: (romScore + tempoScore) / 2,
+      // P0.2 tempo quarantine: preserve the raw tempo comparison for
+      // diagnostics without letting it affect the pair-level overall score.
+      overallSymmetryScore: romScore,
     );
     _completedPairIndices.add(sideRepIndex);
     lastCompletedSymmetryPair = result;

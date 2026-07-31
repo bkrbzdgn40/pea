@@ -195,6 +195,32 @@ void main() {
           0,
         );
       });
+
+      test('uses ROM only when tempo is diagnostic-only', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 20,
+            weightedBaseScore: null,
+            hadFormViolation: false,
+            includeTempo: false,
+          ),
+          80,
+        );
+      });
+
+      test('still applies the form penalty when tempo is diagnostic-only', () {
+        expect(
+          scorer.calculateBaseScore(
+            romScore: 80,
+            tempoScore: 20,
+            weightedBaseScore: null,
+            hadFormViolation: true,
+            includeTempo: false,
+          ),
+          40,
+        );
+      });
     });
 
     group('calculatePhaseQualityPenalty', () {

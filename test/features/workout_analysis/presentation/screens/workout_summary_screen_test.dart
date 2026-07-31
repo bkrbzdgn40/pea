@@ -43,7 +43,7 @@ void main() {
 
     expect(find.text('Şınav özeti'), findsOneWidget);
     expect(find.text('Toplam tekrar'), findsOneWidget);
-    expect(find.text('Ortalama skor'), findsOneWidget);
+    expect(find.text('Ortalama form ve hareket aralığı skoru'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('1:05'), 200);
 
@@ -205,8 +205,10 @@ void main() {
     await tester.scrollUntilVisible(find.text('Asimetri skoru'), 200);
 
     expect(find.text('Ortalama ROM'), findsOneWidget);
-    expect(find.text('Ortalama tempo'), findsOneWidget);
-    expect(find.text('Tempo tutarlılığı'), findsOneWidget);
+    expect(find.text('Ortalama tempo'), findsNothing);
+    expect(find.text('Tempo tutarlılığı'), findsNothing);
+    expect(find.text('En hızlı tekrar'), findsNothing);
+    expect(find.text('En yavaş tekrar'), findsNothing);
     expect(find.text('Sol tekrar'), findsOneWidget);
     expect(find.text('Sağ tekrar'), findsOneWidget);
     expect(find.text('Asimetri skoru'), findsOneWidget);
@@ -270,10 +272,11 @@ void main() {
       );
       await tester.pump();
 
-      await tester.scrollUntilVisible(find.text('Ortalama tempo'), 200);
+      await tester.scrollUntilVisible(find.text('Ortalama ROM'), 200);
       expect(find.text('70.0°'), findsOneWidget);
-      expect(find.text('1.3 sn'), findsOneWidget);
-      expect(find.text('Tempo tutarlılığı'), findsOneWidget);
+      expect(find.text('1.3 sn'), findsNothing);
+      expect(find.text('Ortalama tempo'), findsNothing);
+      expect(find.text('Tempo tutarlılığı'), findsNothing);
     },
   );
 

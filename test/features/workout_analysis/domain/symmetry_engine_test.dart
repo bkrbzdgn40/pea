@@ -75,7 +75,7 @@ void main() {
       expect(summary.overallSymmetryScore, 100);
     });
 
-    test('normalizes pair-level ROM and tempo differences to 0-100 scores', () {
+    test('keeps tempo diagnostic but excludes it from pair overall score', () {
       final engine = SymmetryEngine();
 
       engine.record(
@@ -95,10 +95,10 @@ void main() {
       expect(pair.romSymmetryScore, 75);
       expect(pair.tempoDifference, const Duration(milliseconds: 200));
       expect(pair.tempoSymmetryScore, 80);
-      expect(pair.overallSymmetryScore, 77.5);
+      expect(pair.overallSymmetryScore, 75);
       expect(pair.romAsymmetryScore, 25);
       expect(pair.tempoAsymmetryScore, 20);
-      expect(pair.overallAsymmetryScore, 22.5);
+      expect(pair.overallAsymmetryScore, 25);
     });
 
     test('aggregates rep balance, average ROM, and average tempo', () {
@@ -138,11 +138,11 @@ void main() {
       expect(summary.rightAverageTempo, const Duration(milliseconds: 800));
       expect(summary.averageTempoDifference, const Duration(milliseconds: 300));
       expect(summary.tempoSymmetryScore, closeTo(72.7272, 0.001));
-      expect(summary.overallSymmetryScore, closeTo(70.5387, 0.001));
+      expect(summary.overallSymmetryScore, closeTo(69.4444, 0.001));
       expect(summary.repCountAsymmetryScore, 50);
       expect(summary.romAsymmetryScore, closeTo(11.1111, 0.001));
       expect(summary.tempoAsymmetryScore, closeTo(27.2727, 0.001));
-      expect(summary.overallAsymmetryScore, closeTo(29.4612, 0.001));
+      expect(summary.overallAsymmetryScore, closeTo(30.5555, 0.001));
     });
 
     test(

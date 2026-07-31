@@ -292,7 +292,7 @@ void main() {
       );
     });
 
-    test('preserves phase feedback precedence', () {
+    test('quarantines duration feedback while preserving form precedence', () {
       const duration = RangeRepPhaseQualityAssessment(
         status: RangeRepPhaseQualityStatus.flagged,
         issues: <RangeRepPhaseQualityIssue>[
@@ -315,7 +315,7 @@ void main() {
           peak: form,
           ascending: duration,
         ),
-        RangeRepFeedbackCode.controlDescent,
+        RangeRepFeedbackCode.stabilizeTransition,
       );
       expect(
         policy.feedbackCandidate(
@@ -323,7 +323,7 @@ void main() {
           peak: form,
           ascending: duration,
         ),
-        RangeRepFeedbackCode.controlAscent,
+        RangeRepFeedbackCode.stabilizeTransition,
       );
       expect(
         policy.feedbackCandidate(
@@ -340,6 +340,14 @@ void main() {
           ascending: observed,
         ),
         RangeRepFeedbackCode.maintainForm,
+      );
+      expect(
+        policy.feedbackCandidate(
+          descending: duration,
+          peak: observed,
+          ascending: duration,
+        ),
+        isNull,
       );
       expect(
         policy.feedbackCandidate(

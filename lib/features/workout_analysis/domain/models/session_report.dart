@@ -229,6 +229,9 @@ class SessionReport {
 
     for (final rep in reps) {
       for (final reason in rep.validationReasons) {
+        if (_isQuarantinedTempoReason(reason)) {
+          continue;
+        }
         final label = _issueLabel(reason);
         firstSeenOrder[label] ??= nextOrder++;
         counts[label] = (counts[label] ?? 0) + 1;
@@ -248,6 +251,16 @@ class SessionReport {
       });
 
     return Map<String, int>.fromEntries(sortedEntries);
+  }
+
+  static bool _isQuarantinedTempoReason(String reason) {
+    return reason ==
+            RangeRepValidationReason.excessiveDescentSpeed.debugLabel ||
+        reason == RangeRepValidationReason.excessiveDescentSpeed.name ||
+        reason == RangeRepValidationReason.excessiveAscentSpeed.debugLabel ||
+        reason == RangeRepValidationReason.excessiveAscentSpeed.name ||
+        reason == RangeRepValidationReason.excessiveRepSpeed.debugLabel ||
+        reason == RangeRepValidationReason.excessiveRepSpeed.name;
   }
 
   static List<WorkoutRep> _rankedReps(
@@ -333,14 +346,7 @@ class SessionReport {
     }
     if (averageScore > 0 && averageScore < 75) {
       recommendations.add(
-        'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.',
-      );
-    }
-    if (issueSet.contains(
-      _issueLabel(RangeRepValidationReason.excessiveRepSpeed.debugLabel),
-    )) {
-      recommendations.add(
-        'Toplam tekrar süresini biraz uzat ve yükselme-dönüş ritmini kontrollü tut.',
+        'Tekrarlar arasında hareket açıklığını, gövde kontrolünü ve ritmi daha tutarlı korumaya çalış.',
       );
     }
     if (formWarningCount > 0 ||
@@ -388,7 +394,7 @@ class SessionReport {
     }
     if (session.averageScore > 0 && session.averageScore < 75) {
       recommendations.add(
-        'Düşük ortalama skorda önce tempo ve tam tekrar kalitesini toparlamak faydalı olur.',
+        'Tekrarlar arasında hareket açıklığını, gövde kontrolünü ve ritmi daha tutarlı korumaya çalış.',
       );
     }
     if (recommendations.isEmpty) {
@@ -443,11 +449,11 @@ class SessionReport {
       case 'insufficient rom':
         return 'yetersiz hareket açıklığı';
       case 'excessive descent speed':
-        return 'iniş çok hızlı';
+        return 'hareketin ilk fazı referanstan hızlı göründü';
       case 'excessive ascent speed':
-        return 'çıkış çok hızlı';
+        return 'başlangıç pozisyonuna dönüş referanstan hızlı göründü';
       case 'excessive rep speed':
-        return 'toplam tekrar süresi çok kısa';
+        return 'toplam hareket referanstan hızlı göründü';
       case 'persistent form break':
         return 'kalıcı form bozulması';
       case 'coverage loss':

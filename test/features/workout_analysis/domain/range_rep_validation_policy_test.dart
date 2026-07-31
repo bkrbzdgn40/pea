@@ -135,6 +135,19 @@ void main() {
         );
       },
     );
+
+    test('quarantines tempo from every range-rep main score', () {
+      expect(
+        RangeRepValidationResult.valid().shouldIncludeTempoInMainScore,
+        isFalse,
+      );
+      expect(
+        RangeRepValidationResult.lowConfidence(const <RangeRepValidationReason>[
+          RangeRepValidationReason.persistentFormBreak,
+        ]).shouldIncludeTempoInMainScore,
+        isFalse,
+      );
+    });
   });
 }
 

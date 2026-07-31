@@ -58,7 +58,8 @@ void main() {
       expect(find.text('Tekrar Detayları'), findsOneWidget);
       expect(find.text('Deneme 1'), findsOneWidget);
       expect(find.text('Geçerli'), findsWidgets);
-      expect(find.text('450 ms / 550 ms'), findsOneWidget);
+      expect(find.text('450 ms / 550 ms'), findsNothing);
+      expect(find.text('Form ve Hareket Aralığı Skoru'), findsOneWidget);
       expect(find.text('Sol'), findsOneWidget);
     },
   );

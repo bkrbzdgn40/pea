@@ -651,12 +651,7 @@ void main() {
         );
         expect(metrics.phaseQualityPenalty, isNull);
         expect(metrics.phaseAdjustedScore, isNull);
-        final expectedUnpenalizedScore =
-            (metrics.lastRepRomScore +
-                metrics.lastRepDescentScore +
-                metrics.lastRepAscentScore) /
-            3;
-        expect(state.lastRepScore, closeTo(expectedUnpenalizedScore, 0.001));
+        expect(state.lastRepScore, closeTo(metrics.lastRepRomScore, 0.001));
         expect(diagnostics.analysisKind, 'rangeRep');
         expect(diagnostics.acceptedPoseFrameCount, greaterThan(0));
         expect(

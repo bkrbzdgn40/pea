@@ -238,7 +238,7 @@ class _SessionSummaryCard extends StatelessWidget {
       ),
       if (!report.isHoldSession && report.hasScoreData)
         MapEntry(
-          localizations.averageScore,
+          localizations.averageFormRangeScore,
           WorkoutPresentationFormatter.compactScore(report.averageScore),
         ),
     ];
@@ -509,8 +509,7 @@ class _RepTile extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     final detailMetrics = <MapEntry<String, String>>[
       MapEntry(localizations.status, _repStatusLabel(localizations, rep)),
-      MapEntry(localizations.score, _formatOptionalScore(rep.score)),
-      MapEntry(localizations.duration, _formatRepDuration(rep)),
+      MapEntry(localizations.formRangeScore, _formatOptionalScore(rep.score)),
       MapEntry(
         localizations.side,
         _formatSideLabel(localizations, rep.selectedSideLabel),
@@ -523,7 +522,6 @@ class _RepTile extends StatelessWidget {
         localizations.worstForm,
         _formatOptionalMetric(rep.worstFormMetric),
       ),
-      MapEntry(localizations.descentAscent, _formatRepTempo(rep)),
     ];
 
     return Container(
@@ -839,19 +837,19 @@ List<MapEntry<String, String>> _overviewMetrics({
     if (report.unknownReps > 0)
       MapEntry(localizations.uncertain, report.unknownReps.toString()),
     MapEntry(
-      localizations.averageScore,
+      localizations.averageFormRangeScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.averageScore)
           : '--',
     ),
     MapEntry(
-      localizations.bestScore,
+      localizations.bestFormRangeScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.bestScore)
           : '--',
     ),
     MapEntry(
-      localizations.lowestScore,
+      localizations.lowestFormRangeScore,
       report.hasScoreData
           ? WorkoutPresentationFormatter.compactScore(report.worstScore)
           : '--',
@@ -926,22 +924,6 @@ String _formatOptionalMetric(double? value) {
   return value.toStringAsFixed(1);
 }
 
-String _formatRepDuration(WorkoutRep rep) {
-  final duration = rep.observedDuration;
-  if (duration == null) {
-    return '--';
-  }
-
-  return WorkoutPresentationFormatter.duration(duration);
-}
-
-String _formatRepTempo(WorkoutRep rep) {
-  final descent = rep.descentMillis == null ? '--' : '${rep.descentMillis} ms';
-  final ascent = rep.ascentMillis == null ? '--' : '${rep.ascentMillis} ms';
-
-  return '$descent / $ascent';
-}
-
 String _formatSideLabel(AppLocalizations localizations, String? value) {
   return switch (value) {
     'left' => localizations.left,
@@ -956,14 +938,9 @@ String _formatIssueLabel(AppLocalizations localizations, String value) {
     case 'insufficient rom':
       return localizations.insufficientRangeOfMotion;
     case 'excessive descent speed':
-      return localizations.excessiveDescentSpeed;
     case 'excessive ascent speed':
-      return localizations.excessiveAscentSpeed;
     case 'excessive rep speed':
-      return localizations.pick(
-        tr: 'Toplam tekrar süresi çok kısa',
-        en: 'Total rep duration too short',
-      );
+      return localizations.tempoMeasurementUnavailable;
     case 'persistent form break':
       return localizations.persistentFormBreak;
     case 'coverage loss':

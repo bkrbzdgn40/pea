@@ -187,10 +187,6 @@ class ExerciseCatalog {
         ExerciseSessionSummaryField.validRepetitions,
         ExerciseSessionSummaryField.invalidRepetitions,
         ExerciseSessionSummaryField.averageScore,
-        ExerciseSessionSummaryField.averageTempo,
-        ExerciseSessionSummaryField.fastestRep,
-        ExerciseSessionSummaryField.slowestRep,
-        ExerciseSessionSummaryField.tempoConsistency,
         ExerciseSessionSummaryField.sessionDuration,
       };
   static const Set<ExerciseSessionSummaryField> _alternatingRepSummaryFields =

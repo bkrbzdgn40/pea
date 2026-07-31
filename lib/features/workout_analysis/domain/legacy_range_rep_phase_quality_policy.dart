@@ -53,20 +53,9 @@ class LegacyRangeRepPhaseQualityPolicy {
     required RangeRepPhaseQualityAssessment ascending,
   }) {
     final candidates = <FeedbackCandidate<RangeRepFeedbackCode>>[
-      if (descending.issues.contains(
-        RangeRepPhaseQualityIssue.durationTooShort,
-      ))
-        const FeedbackCandidate<RangeRepFeedbackCode>(
-          id: 'phase_control_descent',
-          value: RangeRepFeedbackCode.controlDescent,
-          priority: FeedbackPriority.corrective,
-        ),
-      if (ascending.issues.contains(RangeRepPhaseQualityIssue.durationTooShort))
-        const FeedbackCandidate<RangeRepFeedbackCode>(
-          id: 'phase_control_ascent',
-          value: RangeRepFeedbackCode.controlAscent,
-          priority: FeedbackPriority.corrective,
-        ),
+      // P0.2 tempo quarantine: durationTooShort remains in diagnostics, but it
+      // must not produce live visual or spoken coaching until the timing signal
+      // is rebuilt and validated. Form-derived feedback remains active.
       if (peak.issues.contains(RangeRepPhaseQualityIssue.formViolation))
         const FeedbackCandidate<RangeRepFeedbackCode>(
           id: 'phase_stabilize_transition',

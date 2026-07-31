@@ -276,7 +276,7 @@ void main() {
     });
 
     test(
-      'applies phase-aware penalty and feedback when descent quality is flagged',
+      'keeps phase duration diagnostic without publishing tempo coaching',
       () {
         final clock = _TestClock();
         final engine = RangeRepEngine(
@@ -303,11 +303,8 @@ void main() {
         );
         expect(breakdown.finalScore, breakdown.phaseAdjustedScore);
         expect(engine.lastRepScore, breakdown.finalScore);
-        expect(engine.feedbackCode, RangeRepFeedbackCode.controlDescent);
-        expect(
-          diagnostics.phaseFeedbackCandidate,
-          RangeRepFeedbackCode.controlDescent.code,
-        );
+        expect(engine.feedbackCode, RangeRepFeedbackCode.repCompleted);
+        expect(diagnostics.phaseFeedbackCandidate, isNull);
       },
     );
 

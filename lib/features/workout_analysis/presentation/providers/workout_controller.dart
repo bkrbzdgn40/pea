@@ -21,6 +21,7 @@ import '../../application/pose_quality_policy.dart';
 import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/range_rep_primary_metric_normalizer.dart';
+import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../application/workout_live_metrics.dart';
@@ -34,7 +35,6 @@ import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_analysis_engine.dart';
-import '../../domain/tempo_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
@@ -208,6 +208,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
   late FeedbackDeliveryPort _feedbackDelivery;
+  late RangeRepTempoVoiceConfirmationPolicy
+  _rangeRepTempoVoiceConfirmationPolicy;
 
   @override
   WorkoutState build() {
@@ -217,6 +219,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _clock = ref.watch(workoutClockProvider);
     _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
     _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy =
+        RangeRepTempoVoiceConfirmationPolicy();
     final framePosePipelineFactory = ref.watch(
       workoutFramePosePipelineFactoryProvider,
     );
@@ -855,8 +859,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final didShow = ref
         .read(liveRangeRepOutcomeProvider.notifier)
         .show(outcome);
-    if (!didShow ||
-        ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (!didShow) {
+      return;
+    }
+    if (ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+      _rangeRepTempoVoiceConfirmationPolicy.reset();
+      return;
+    }
+    if (!_rangeRepTempoVoiceConfirmationPolicy.shouldAnnounce(
+      status: status,
+      reasons: reasons,
+    )) {
       return;
     }
 
@@ -972,16 +985,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _liveMetricsTempo = null;
     _liveMetricsAsymmetryScore = null;
 
-    final rangeEngine = _rangeRepEngine;
-    final TempoMetricsSource? tempoSource = rangeEngine is TempoMetricsSource
-        ? rangeEngine as TempoMetricsSource
-        : null;
-    if (tempoSource != null) {
-      final tempoSummary = tempoSource.tempoSessionSummary;
-      if (tempoSummary.repCount > 0) {
-        _liveMetricsTempo = tempoSummary.averageRepDuration;
-      }
-    }
+    // P0.2 quarantine: raw tempo remains on the engine diagnostics surface,
+    // but it is intentionally not projected into user-facing live metrics.
 
     final alternating = _alternatingRepEngine;
     final asymmetryScore =
@@ -1047,34 +1052,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
     int? leftRepCount;
     int? rightRepCount;
-    double? tempoConsistencyScore;
-    Duration? fastestRepDuration;
-    Duration? slowestRepDuration;
-
     if (_engineKind == EngineKind.rangeRep) {
       sessionBuilder.set(
         ExerciseMetricRegistry.repetitionCount,
         state.repCount,
       );
 
-      final rangeEngine = _rangeRepEngine;
-      final TempoMetricsSource? tempoSource = rangeEngine is TempoMetricsSource
-          ? rangeEngine as TempoMetricsSource
-          : null;
-      if (tempoSource != null) {
-        final tempoSummary = tempoSource.tempoSessionSummary;
-        if (tempoSummary.repCount > 0) {
-          sessionBuilder
-            ..set(ExerciseMetricRegistry.tempo, tempoSummary.averageRepDuration)
-            ..set(
-              ExerciseMetricRegistry.repDuration,
-              tempoSummary.averageRepDuration,
-            );
-          tempoConsistencyScore = tempoSummary.consistencyScore;
-          fastestRepDuration = tempoSummary.fastestRepDuration;
-          slowestRepDuration = tempoSummary.slowestRepDuration;
-        }
-      }
+      // P0.2 quarantine: timing is still captured by the engine and persisted
+      // per repetition for developer diagnostics, but no tempo aggregate is
+      // exposed through the user-facing session snapshot.
 
       final alternating = _alternatingRepEngine;
       if (alternating != null) {
@@ -1123,9 +1109,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       sessionMetrics: sessionBuilder.build(),
       leftRepCount: leftRepCount,
       rightRepCount: rightRepCount,
-      tempoConsistencyScore: tempoConsistencyScore,
-      fastestRepDuration: fastestRepDuration,
-      slowestRepDuration: slowestRepDuration,
     );
   }
 
@@ -1388,10 +1371,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   void handleManualResume() {
     _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
     ref.read(liveTrackingControllerProvider.notifier).reset();
   }
 
   void handleLifecycleInterruption({String? reason}) {
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
     ref.read(liveRangeRepOutcomeProvider.notifier).dismiss();
     ref.read(liveTrackingControllerProvider.notifier).reset();
     if (_engineKind == EngineKind.rangeRep) {

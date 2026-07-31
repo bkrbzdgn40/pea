@@ -935,6 +935,8 @@ class AppLocalizations {
   String get interruptions => pick(tr: 'Kesinti', en: 'Breaks');
   String get reps => pick(tr: 'Tekrar', en: 'Reps');
   String get averageScoreShort => pick(tr: 'Ort. Skor', en: 'Avg. Score');
+  String get averageFormRangeScoreShort =>
+      pick(tr: 'Ort. Form/ROM', en: 'Avg. Form/ROM');
   String get bestShort => pick(tr: 'En İyi', en: 'Best');
   String get warnings => pick(tr: 'Uyarı', en: 'Warnings');
   String get sessionReport => pick(tr: 'Oturum Raporu', en: 'Session Report');
@@ -960,6 +962,10 @@ class AppLocalizations {
   String get analysis => pick(tr: 'Analiz', en: 'Analysis');
   String get totalReps => pick(tr: 'Toplam Tekrar', en: 'Total Reps');
   String get averageScore => pick(tr: 'Ortalama Skor', en: 'Average Score');
+  String get averageFormRangeScore => pick(
+    tr: 'Ortalama Form ve Hareket Aralığı Skoru',
+    en: 'Average Form and Range Score',
+  );
   String get scoreView => pick(tr: 'Skor Görünümü', en: 'Score View');
   String get holdSummary => pick(tr: 'Tutuş Özeti', en: 'Hold Summary');
   String get reportSummary => pick(tr: 'Rapor Özeti', en: 'Report Summary');
@@ -975,10 +981,16 @@ class AppLocalizations {
   );
   String get status => pick(tr: 'Durum', en: 'Status');
   String get score => pick(tr: 'Skor', en: 'Score');
+  String get formRangeScore =>
+      pick(tr: 'Form ve Hareket Aralığı Skoru', en: 'Form and Range Score');
   String get side => pick(tr: 'Taraf', en: 'Side');
   String get primaryMetric => pick(tr: 'Birincil Metrik', en: 'Primary Metric');
   String get worstForm => pick(tr: 'En Kötü Form', en: 'Worst Form');
   String get descentAscent => pick(tr: 'İniş / Çıkış', en: 'Descent / Ascent');
+  String get tempoMeasurementUnavailable => pick(
+    tr: 'Tempo ölçümü güvenilir biçimde değerlendirilemedi ve skora dahil edilmedi',
+    en: 'Tempo could not be evaluated reliably and was not included in the score',
+  );
   String repNumber(int index) => pick(tr: 'Tekrar $index', en: 'Rep $index');
   String attemptNumber(int index) =>
       pick(tr: 'Deneme $index', en: 'Attempt $index');
@@ -1008,7 +1020,15 @@ class AppLocalizations {
   String get incompletePhase =>
       pick(tr: 'Eksik faz tamamlanması', en: 'Incomplete phase');
   String get bestScore => pick(tr: 'En İyi Skor', en: 'Best Score');
+  String get bestFormRangeScore => pick(
+    tr: 'En İyi Form ve Hareket Aralığı Skoru',
+    en: 'Best Form and Range Score',
+  );
   String get lowestScore => pick(tr: 'En Düşük Skor', en: 'Lowest Score');
+  String get lowestFormRangeScore => pick(
+    tr: 'En Düşük Form ve Hareket Aralığı Skoru',
+    en: 'Lowest Form and Range Score',
+  );
   String get validReps => pick(tr: 'Geçerli', en: 'Valid');
   String get invalidReps => pick(tr: 'Geçersiz', en: 'Invalid');
   String get formWarnings => pick(tr: 'Form Uyarısı', en: 'Form Warnings');
@@ -1238,8 +1258,16 @@ class AppLocalizations {
       pick(tr: 'Toplam tekrar', en: 'Total reps');
   String get workoutSummaryAverageScore =>
       pick(tr: 'Ortalama skor', en: 'Average score');
+  String get workoutSummaryAverageFormRangeScore => pick(
+    tr: 'Ortalama form ve hareket aralığı skoru',
+    en: 'Average form and range score',
+  );
   String get workoutSummaryBestScore =>
       pick(tr: 'En iyi skor', en: 'Best score');
+  String get workoutSummaryBestFormRangeScore => pick(
+    tr: 'En iyi form ve hareket aralığı skoru',
+    en: 'Best form and range score',
+  );
   String get workoutSummaryValidReps =>
       pick(tr: 'Geçerli tekrar', en: 'Valid reps');
   String get workoutSummaryInvalidReps =>
@@ -1277,6 +1305,7 @@ class AppLocalizations {
   String get repMetric => pick(tr: 'TEKRAR', en: 'REPS');
   String get bestMetric => pick(tr: 'EN İYİ', en: 'BEST');
   String get scoreMetric => pick(tr: 'SKOR', en: 'SCORE');
+  String get formRangeScoreMetric => pick(tr: 'FORM/ROM', en: 'FORM/ROM');
   String get angleMetric => pick(tr: 'AÇI', en: 'ANGLE');
   String get tempoMetric => 'TEMPO';
   String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
@@ -1588,8 +1617,26 @@ class AppLocalizations {
     return switch (issue.toLowerCase()) {
       'yetersiz hareket açıklığı' ||
       'insufficient range of motion' => insufficientRangeOfMotion,
-      'iniş çok hızlı' || 'descent too fast' => excessiveDescentSpeed,
-      'çıkış çok hızlı' || 'ascent too fast' => excessiveAscentSpeed,
+      'iniş çok hızlı' ||
+      'descent too fast' ||
+      'hareketin ilk fazı referanstan hızlı göründü' ||
+      'the first movement phase appeared faster than the reference tempo' => pick(
+        tr: 'Hareketin ilk fazı referans tempodan hızlı göründü',
+        en: 'The first movement phase appeared faster than the reference tempo',
+      ),
+      'çıkış çok hızlı' ||
+      'ascent too fast' ||
+      'başlangıç pozisyonuna dönüş referanstan hızlı göründü' ||
+      'the return to the starting position appeared faster than the reference tempo' =>
+        pick(
+          tr: 'Başlangıç pozisyonuna dönüş referans tempodan hızlı göründü',
+          en: 'The return to the starting position appeared faster than the reference tempo',
+        ),
+      'toplam hareket referanstan hızlı göründü' ||
+      'the total movement appeared faster than the reference tempo' => pick(
+        tr: 'Toplam hareket referans tempodan hızlı göründü',
+        en: 'The total movement appeared faster than the reference tempo',
+      ),
       'kalıcı form bozulması' || 'persistent form break' => persistentFormBreak,
       'görünürlük kaybı' || 'visibility loss' => coverageLoss,
       'tekrar içinde taraf değişimi' ||
@@ -1610,10 +1657,15 @@ class AppLocalizations {
         tr: 'Tekrarları tam iniş ve tam çıkış döngüsüyle tamamlamaya odaklan.',
         en: 'Focus on completing each rep through a full descent and ascent cycle.',
       ),
-      'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.' =>
+      'Tekrarlar arasında hareket açıklığını, gövde kontrolünü ve ritmi daha tutarlı korumaya çalış.' =>
         pick(
-          tr: 'Skor dalgalanmasını azaltmak için tempoyu biraz yavaşlat ve ritmi sabitle.',
-          en: 'Slow the tempo slightly and keep a steady rhythm to reduce score variation.',
+          tr: 'Tekrarlar arasında hareket açıklığını, gövde kontrolünü ve ritmi daha tutarlı korumaya çalış.',
+          en: 'Keep range of motion, torso control, and rhythm more consistent across repetitions.',
+        ),
+      'Tempo ölçümü bazı tekrarlarda referans aralığın dışında göründü; kamerayı sabitleyip ritmi tutarlı koru.' =>
+        pick(
+          tr: 'Tempo ölçümü bazı tekrarlarda referans aralığın dışında göründü; kamerayı sabitleyip ritmi tutarlı koru.',
+          en: 'Tempo appeared outside the reference range on some reps; keep the camera stable and maintain a consistent rhythm.',
         ),
       'Form bozulmasını azaltmak için gövde hizasını ve diz kontrolünü daha sıkı koru.' =>
         pick(
@@ -1638,11 +1690,6 @@ class AppLocalizations {
         pick(
           tr: 'Form uyarıları görüldüğü için sonraki sette hareket çizgisini daha kontrollü koru.',
           en: 'Because form warnings were detected, keep the movement path more controlled in the next set.',
-        ),
-      'Düşük ortalama skorda önce tempo ve tam tekrar kalitesini toparlamak faydalı olur.' =>
-        pick(
-          tr: 'Düşük ortalama skorda önce tempo ve tam tekrar kalitesini toparlamak faydalı olur.',
-          en: 'With a low average score, focus first on tempo and complete rep quality.',
         ),
       'Bu rapor özet veriye dayanıyor; benzer bir sonraki sette tekrar detaylarını da incelemek faydalı olur.' =>
         pick(

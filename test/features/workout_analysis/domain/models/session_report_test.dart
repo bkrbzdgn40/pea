@@ -41,6 +41,32 @@ void main() {
       },
     );
 
+    test('does not infer that a low score means the user must slow down', () {
+      final session = WorkoutSession(
+        id: 'session_low_score',
+        ownerId: 'owner_1',
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        startedAt: DateTime.utc(2026, 1, 1, 12),
+        endedAt: DateTime.utc(2026, 1, 1, 12, 5),
+        durationSec: 300,
+        totalReps: 5,
+        averageScore: 60,
+        bestScore: 70,
+        worstScore: 50,
+        validReps: 5,
+        invalidReps: 0,
+        formWarningCount: 0,
+      );
+
+      final report = SessionReport.fromSession(session: session);
+      final recommendations = report.recommendations.join(' ');
+
+      expect(recommendations, contains('hareket açıklığını'));
+      expect(recommendations, contains('ritmi'));
+      expect(recommendations, isNot(contains('tempoyu biraz yavaşlat')));
+    });
+
     test(
       'derives range-rep rankings, issue aggregation, and recommendations',
       () {
@@ -208,5 +234,40 @@ void main() {
         expect(report.recommendations.join(' '), contains('vücut çizgisini'));
       },
     );
+  });
+
+  test('does not promote quarantined tempo reasons into top issues', () {
+    final session = WorkoutSession(
+      id: 'tempo-quarantine',
+      ownerId: 'owner',
+      exerciseType: 'crunch',
+      analysisKind: 'rangeRep',
+      startedAt: DateTime.utc(2030, 1, 1),
+      endedAt: DateTime.utc(2030, 1, 1, 0, 1),
+      durationSec: 60,
+      totalReps: 1,
+      averageScore: 99,
+      bestScore: 99,
+      worstScore: 99,
+      validReps: 0,
+      lowConfidenceReps: 1,
+      invalidReps: 0,
+      formWarningCount: 0,
+    );
+    const reps = <WorkoutRep>[
+      WorkoutRep(
+        repIndex: 1,
+        exerciseType: 'crunch',
+        analysisKind: 'rangeRep',
+        validationStatus: 'lowConfidence',
+        validationReasons: <String>['excessive ascent speed'],
+        score: 99,
+      ),
+    ];
+
+    final report = SessionReport.fromSession(session: session, reps: reps);
+
+    expect(report.topIssues, isEmpty);
+    expect(report.recommendations.join(' '), isNot(contains('Tempo')));
   });
 }

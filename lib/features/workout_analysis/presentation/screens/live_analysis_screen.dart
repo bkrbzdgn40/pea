@@ -1915,7 +1915,7 @@ class _SecondaryWorkoutMetricCard extends ConsumerWidget {
       key: const ValueKey<String>('live-secondary-metric-card'),
       label: isHoldAnalysis
           ? localizations.bestMetric
-          : localizations.scoreMetric,
+          : localizations.formRangeScoreMetric,
       value: value,
       valueStyle: TextStyle(
         color: isHoldAnalysis || hasRepScore

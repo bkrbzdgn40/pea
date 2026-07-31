@@ -25,6 +25,35 @@ enum RangeRepValidationReason {
 }
 
 extension RangeRepValidationReasonX on RangeRepValidationReason {
+  bool get isTempoMeasurementReason {
+    return switch (this) {
+      RangeRepValidationReason.excessiveDescentSpeed ||
+      RangeRepValidationReason.excessiveAscentSpeed ||
+      RangeRepValidationReason.excessiveRepSpeed => true,
+      _ => false,
+    };
+  }
+
+  bool get isMeasurementQualityReason {
+    return switch (this) {
+      RangeRepValidationReason.coverageLoss ||
+      RangeRepValidationReason.sideSwitchDuringRep => true,
+      _ => false,
+    };
+  }
+
+  bool get isTechniqueOutcomeReason {
+    return switch (this) {
+      RangeRepValidationReason.insufficientRom ||
+      RangeRepValidationReason.persistentFormBreak ||
+      RangeRepValidationReason.incompletePhase => true,
+      _ => false,
+    };
+  }
+
+  bool get excludesTempoFromMainScore =>
+      isTempoMeasurementReason || isMeasurementQualityReason;
+
   String get debugLabel {
     switch (this) {
       case RangeRepValidationReason.insufficientRom:
@@ -89,4 +118,10 @@ class RangeRepValidationResult {
   bool get countsTowardReps => status != RangeRepValidationStatus.invalid;
 
   bool get shouldPublishScore => countsTowardReps;
+
+  /// P0.2 tempo quarantine: raw timing remains available for diagnostics, but
+  /// the current range-rep timing pipeline is not reliable enough to affect a
+  /// user-facing score. Tempo can return here only after Tempo Measurement V2
+  /// has device-level accuracy and cycle-integrity coverage.
+  bool get shouldIncludeTempoInMainScore => false;
 }
