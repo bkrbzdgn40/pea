@@ -132,8 +132,12 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('preparation-readiness-banner')),
+      find.byKey(const ValueKey<String>('preparation-readiness-panel')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-banner')),
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('preparation-feedback-notice')),
@@ -153,24 +157,27 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-readiness-message')),
     );
     expect(readinessMessage.data, 'Kadraja geç ve vücudunu kameraya göster.');
-    expect(readinessMessage.style?.fontSize, 20);
-    expect(readinessMessage.style?.fontWeight, FontWeight.w900);
+    expect(readinessMessage.style?.fontSize, 16);
+    expect(readinessMessage.style?.fontWeight, FontWeight.w800);
 
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-action')),
       findsOneWidget,
     );
-    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
-    final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-gate')),
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate-active')),
+      findsOneWidget,
     );
-    expect(startButton.onPressed, isNotNull);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
+      findsNothing,
+    );
     expect(cameraController.startImageStreamCallCount, 1);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('preparation-guide-action')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
 
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
@@ -199,7 +206,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey<String>('preparation-guide-close')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
 
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
@@ -220,7 +227,7 @@ void main() {
       const ValueKey<String>('preparation-guide-action'),
     );
     await tester.tap(guideAction);
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
       findsOneWidget,
@@ -234,16 +241,16 @@ void main() {
     );
 
     await tester.tapAt(const Offset(20, 300));
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
       findsNothing,
     );
 
     await tester.tap(guideAction);
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
 
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
@@ -312,9 +319,48 @@ void main() {
     expect(readinessImageWidth, 640);
     expect(readinessImageHeight, 480);
     expect(
-      find.byKey(const ValueKey<String>('preparation-readiness-banner')),
+      find.byKey(const ValueKey<String>('preparation-readiness-panel')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('uses a side panel on compact landscape', (tester) async {
+    tester.view.physicalSize = const Size(568, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final cameraController = _FakeCameraController(
+      deviceOrientation: DeviceOrientation.landscapeLeft,
+    );
+    addTearDown(cameraController.dispose);
+
+    await _pumpSelectedExercise(
+      tester,
+      cameraController: cameraController,
+      textScaler: TextScaler.linear(2),
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('preparation-side-panel-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-landscape-toolbar')),
+      findsOneWidget,
+    );
+    final cameraRight = tester
+        .getTopRight(
+          find.byKey(const ValueKey<String>('preparation-camera-stage')),
+        )
+        .dx;
+    final panelLeft = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('preparation-readiness-panel')),
+        )
+        .dx;
+    expect(cameraRight, lessThan(panelLeft));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('supports portrait layout and text scale 2.0', (tester) async {
@@ -344,11 +390,26 @@ void main() {
         )
         .dy;
     expect(headerBottom, lessThan(cameraTop));
+    expect(
+      find.byKey(const ValueKey<String>('preparation-stacked-layout')),
+      findsOneWidget,
+    );
+    final cameraBottom = tester
+        .getBottomLeft(
+          find.byKey(const ValueKey<String>('preparation-camera-stage')),
+        )
+        .dy;
+    final readinessTop = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('preparation-readiness-panel')),
+        )
+        .dy;
+    expect(cameraBottom, lessThan(readinessTop));
 
     await tester.tap(
       find.byKey(const ValueKey<String>('preparation-guide-action')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPreparationGuideTransition(tester);
 
     expect(
       find.byKey(const ValueKey<String>('preparation-guide-overlay')),
@@ -388,14 +449,19 @@ void main() {
     expect(find.textContaining('FPS'), findsNothing);
     expect(find.textContaining('Tekrar:'), findsNothing);
     expect(find.textContaining('Süre:'), findsNothing);
-    expect(find.text('Hazırlığı Başlat'), findsOneWidget);
-    final startButton = tester.widget<ElevatedButton>(
-      find.byKey(const ValueKey<String>('preparation-start-gate')),
+    final referenceOpacity = tester.widget<AnimatedOpacity>(
+      find.byKey(const ValueKey<String>('preparation-start-pose-opacity')),
     );
-    expect(startButton.onPressed, isNotNull);
+    expect(referenceOpacity.opacity, 0.28);
+    expect(
+      find.byKey(const ValueKey<String>('preparation-start-gate-active')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('arms preparation without opening live analysis', (tester) async {
+  testWidgets('arms preparation automatically without opening live analysis', (
+    tester,
+  ) async {
     final cameraController = _FakeCameraController();
     addTearDown(cameraController.dispose);
 
@@ -420,17 +486,12 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('preparation-start-gate')),
-    );
-    await tester.pump();
-
     expect(
       find.byKey(const ValueKey<String>('preparation-start-gate-active')),
       findsOneWidget,
     );
     expect(
-      find.text('Kadraja geç. Hazır olduğunda analiz otomatik başlayacak.'),
+      find.byKey(const ValueKey<String>('preparation-readiness-panel')),
       findsOneWidget,
     );
     expect(find.byType(_PassiveAnalysisScreen), findsNothing);
@@ -448,6 +509,10 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-start-gate')),
       findsOneWidget,
     );
+    final restartButton = tester.widget<ElevatedButton>(
+      find.byKey(const ValueKey<String>('preparation-start-gate')),
+    );
+    expect(restartButton.onPressed, isNotNull);
   });
 
   testWidgets('shows a stable loading surface before camera initialization', (
@@ -582,6 +647,12 @@ void main() {
 
     expect(cameraController.stopImageStreamCallCount, 1);
   });
+}
+
+Future<void> _pumpPreparationGuideTransition(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.pump();
 }
 
 Future<void> _pumpSelectedExercise(
