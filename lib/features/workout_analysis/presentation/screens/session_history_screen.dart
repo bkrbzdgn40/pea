@@ -3,15 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
-
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
-import '../formatters/workout_presentation_formatter.dart';
 import '../providers/session_repository_provider.dart';
+import '../widgets/session_history_content.dart';
 import 'session_detail_screen.dart';
 
 enum _HistoryMessage { requiresAnalysis, loadFailed, loadMoreFailed }
@@ -26,6 +25,7 @@ class SessionHistoryScreen extends ConsumerStatefulWidget {
 
 class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   static const int _pageSize = 20;
+  static const String _allExercisesFilter = '__all_exercises__';
 
   final List<WorkoutSession> _sessions = [];
   bool _isInitialLoading = true;
@@ -37,6 +37,14 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   String? _loadedOwnerId;
   String? _loadingOwnerId;
   int _loadRequestId = 0;
+  String _selectedExerciseFilter = _allExercisesFilter;
+
+  String? get _selectedExerciseType =>
+      _selectedExerciseFilter == _allExercisesFilter
+      ? null
+      : _selectedExerciseFilter;
+
+  bool get _hasExerciseFilter => _selectedExerciseType != null;
 
   @override
   void initState() {
@@ -101,7 +109,11 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     try {
       final sessions = await ref
           .read(sessionRepositoryProvider)
-          .listSessions(ownerId: ownerId, limit: _pageSize);
+          .listSessions(
+            ownerId: ownerId,
+            limit: _pageSize,
+            exerciseType: _selectedExerciseType,
+          );
       if (!mounted || loadRequestId != _loadRequestId) return;
 
       _loadingOwnerId = null;
@@ -144,6 +156,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
           .listSessions(
             ownerId: ownerId,
             limit: _pageSize,
+            exerciseType: _selectedExerciseType,
             startAfter: _sessions.last,
           );
       if (!mounted) return;
@@ -163,17 +176,50 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
     }
   }
 
+  void _selectExerciseFilter(String value) {
+    if (value == _selectedExerciseFilter) return;
+    setState(() {
+      _selectedExerciseFilter = value;
+    });
+    unawaited(_loadInitialSessions());
+  }
+
+  void _clearExerciseFilter() {
+    _selectExerciseFilter(_allExercisesFilter);
+  }
+
+  Future<void> _openSession(WorkoutSession session) async {
+    final deleted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => SessionDetailScreen(session: session)),
+    );
+    if (deleted == true && mounted) {
+      setState(() {
+        _sessions.removeWhere((item) => item.id == session.id);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     return AppScaffoldShell(
       title: localizations.sessionHistory,
       currentPage: AppDestination.sessionHistory,
-      body: _buildBody(localizations),
+      padding: EdgeInsets.zero,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = AppLayout.of(context, constraints: constraints);
+          return Padding(
+            padding: layout.pagePadding,
+            child: _buildBody(localizations, layout),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildBody(AppLocalizations localizations) {
+  Widget _buildBody(AppLocalizations localizations, AppLayout layout) {
     if (_isInitialLoading) {
       return const AppLoadingView();
     }
@@ -192,43 +238,35 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       return AppEmptyView(
         centered: true,
         icon: Icons.history_rounded,
-        title: localizations.noSessionsYet,
-        message: _emptyMessage == null
+        title: _hasExerciseFilter
+            ? localizations.noMatchingSessions
+            : localizations.noSessionsYet,
+        message: _hasExerciseFilter
+            ? localizations.noMatchingSessionsDetail
+            : _emptyMessage == null
             ? localizations.savedWorkoutsAppearHere
             : _historyMessage(localizations, _emptyMessage!),
+        actionLabel: _hasExerciseFilter ? localizations.showAllExercises : null,
+        onAction: _hasExerciseFilter ? _clearExerciseFilter : null,
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SessionHistoryToolbar(
+          layout: layout,
+          sessionCount: _sessions.length,
+          selectedExerciseFilter: _selectedExerciseFilter,
+          allExercisesFilter: _allExercisesFilter,
+          onExerciseSelected: _selectExerciseFilter,
+        ),
+        SizedBox(height: layout.sectionGap),
         Expanded(
-          child: ListView.separated(
-            itemCount: _sessions.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final session = _sessions[index];
-              return InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () async {
-                  final deleted = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => SessionDetailScreen(session: session),
-                    ),
-                  );
-                  if (deleted == true && mounted) {
-                    setState(() {
-                      _sessions.removeWhere((item) => item.id == session.id);
-                    });
-                  }
-                },
-                child: _SessionCard(
-                  session: session,
-                  localizations: localizations,
-                ),
-              );
-            },
+          child: SessionHistoryCollection(
+            layout: layout,
+            sessions: _sessions,
+            onOpenSession: (session) => unawaited(_openSession(session)),
           ),
         ),
         if (_errorMessage != null) ...[
@@ -282,142 +320,4 @@ String _historyMessage(
     _HistoryMessage.loadFailed => localizations.historyLoadFailed,
     _HistoryMessage.loadMoreFailed => localizations.historyLoadMoreFailed,
   };
-}
-
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session, required this.localizations});
-
-  final WorkoutSession session;
-  final AppLocalizations localizations;
-
-  @override
-  Widget build(BuildContext context) {
-    final metrics = session.isHoldSession
-        ? <MapEntry<String, String>>[
-            MapEntry(
-              localizations.duration,
-              WorkoutPresentationFormatter.duration(session.duration),
-            ),
-            MapEntry(
-              localizations.totalHold,
-              WorkoutPresentationFormatter.holdDuration(
-                session.totalHoldSeconds,
-              ),
-            ),
-            MapEntry(
-              localizations.bestHold,
-              WorkoutPresentationFormatter.holdDuration(
-                session.bestHoldSeconds,
-              ),
-            ),
-            MapEntry(
-              localizations.interruptions,
-              session.formBreakCount.toString(),
-            ),
-          ]
-        : <MapEntry<String, String>>[
-            MapEntry(
-              localizations.duration,
-              WorkoutPresentationFormatter.duration(session.duration),
-            ),
-            MapEntry(localizations.reps, session.totalReps.toString()),
-            MapEntry(
-              localizations.averageFormRangeScoreShort,
-              WorkoutPresentationFormatter.roundedScore(session.averageScore),
-            ),
-            MapEntry(
-              localizations.bestShort,
-              WorkoutPresentationFormatter.roundedScore(session.bestScore),
-            ),
-            MapEntry(
-              localizations.warnings,
-              session.formWarningCount.toString(),
-            ),
-          ];
-
-    return AppSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.exerciseTitle(session.exerciseType),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                WorkoutPresentationFormatter.dateTime(session.startedAt),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.62),
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: metrics
-                .map(
-                  (entry) =>
-                      _SessionMetric(label: entry.key, value: entry.value),
-                )
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SessionMetric extends StatelessWidget {
-  const _SessionMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
