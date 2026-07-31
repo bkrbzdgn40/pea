@@ -21,8 +21,15 @@ void main() {
     expect(result.status, RangeRepValidationStatus.valid);
     expect(result.primaryReason, isNull);
     expect(result.tone, RangeRepOutcomeTone.positive);
+    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.accepted);
+    expect(
+      result.measurementConfidence,
+      RangeRepMeasurementConfidence.reliable,
+    );
     expect(result.title, 'Geçerli tekrar');
     expect(result.message, contains('Hareket aralığı'));
+    expect(result.message, contains('temel form koşulları'));
+    expect(result.message, isNot(contains('kontrol koşulları')));
   });
 
   test('prioritizes invalid range of motion over secondary speed reasons', () {
@@ -38,11 +45,12 @@ void main() {
 
     expect(result.primaryReason, RangeRepValidationReason.insufficientRom);
     expect(result.tone, RangeRepOutcomeTone.invalid);
+    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.rejected);
     expect(result.message, contains('Yeterli hareket aralığı'));
     expect(result.message, isNot(contains('hızlı')));
   });
 
-  test('uses the measured low-confidence reason in English', () {
+  test('uses exercise-specific phase semantics without claiming certainty', () {
     final result = mapRangeRepOutcomeToViewData(
       repIndex: 2,
       status: RangeRepValidationStatus.lowConfidence,
@@ -54,13 +62,35 @@ void main() {
 
     expect(result.primaryReason, RangeRepValidationReason.excessiveAscentSpeed);
     expect(result.tone, RangeRepOutcomeTone.caution);
-    expect(
-      result.message,
-      'The rep was completed, but the ascent was too fast.',
-    );
+    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.accepted);
+    expect(result.measurementConfidence, RangeRepMeasurementConfidence.limited);
+    expect(result.title, 'Rep counted');
+    expect(result.message, contains('could not be evaluated reliably'));
+    expect(result.message, contains('was not included in the score'));
+    expect(result.message, isNot(contains('faster')));
   });
 
-  test('explains total repetition speed with the calibrated floor', () {
+  test('keeps a form caution separate from measurement confidence', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 6,
+      status: RangeRepValidationStatus.lowConfidence,
+      reasons: const <RangeRepValidationReason>[
+        RangeRepValidationReason.persistentFormBreak,
+      ],
+      localizations: tr,
+    );
+
+    expect(result.title, 'Form uyarısı');
+    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.caution);
+    expect(
+      result.measurementConfidence,
+      RangeRepMeasurementConfidence.reliable,
+    );
+    expect(result.message, contains('form uyarısı'));
+    expect(result.message, isNot(contains('ölçüm güveni')));
+  });
+
+  test('explains total repetition speed without a hard-coded safety claim', () {
     final result = mapRangeRepOutcomeToViewData(
       repIndex: 5,
       status: RangeRepValidationStatus.lowConfidence,
@@ -71,7 +101,10 @@ void main() {
     );
 
     expect(result.primaryReason, RangeRepValidationReason.excessiveRepSpeed);
-    expect(result.message, contains('1,5 saniyenin altındaydı'));
+    expect(result.title, 'Tekrar sayıldı');
+    expect(result.message, contains('güvenilir biçimde değerlendirilemedi'));
+    expect(result.message, contains('skora dahil edilmedi'));
+    expect(result.message, isNot(contains('hızlı')));
   });
 
   test('falls back without exposing enum names', () {

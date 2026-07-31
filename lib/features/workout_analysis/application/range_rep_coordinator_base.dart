@@ -16,6 +16,7 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_engine_frame_result.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
+import '../domain/models/range_rep_validation_result.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/range_rep_analysis_engine.dart';
@@ -694,6 +695,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         _scoreCompletedRep(
           completedRepCoreData: completedRepCoreData,
           postUpdateDiagnostics: postUpdateDiagnostics,
+          validationResult: completedRepValidationResult!,
         );
         _lastAcceptedRepRom = _engine.lastRepRom;
       } else {
@@ -1173,6 +1175,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   void _scoreCompletedRep({
     required RangeRepCompletedRepCoreData completedRepCoreData,
     required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
+    required RangeRepValidationResult validationResult,
   }) {
     final startAngle = completedRepCoreData.startAngle;
     final primaryRom = completedRepCoreData.primaryRom;
@@ -1276,12 +1279,27 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
             ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
           );
+    final includeTempoInMainScore =
+        validationResult.shouldIncludeTempoInMainScore;
+    final effectiveWeightedBaseScore = includeTempoInMainScore
+        ? weightedBaseScore
+        : scoreWeights == null
+        ? null
+        : depthScore;
     final descendingPhaseFlagged =
         postUpdateDiagnostics.descendingPhaseAssessment.status ==
-        RangeRepPhaseQualityStatus.flagged;
+            RangeRepPhaseQualityStatus.flagged &&
+        (includeTempoInMainScore ||
+            postUpdateDiagnostics.descendingPhaseAssessment.issues.any(
+              (issue) => issue != RangeRepPhaseQualityIssue.durationTooShort,
+            ));
     final ascendingPhaseFlagged =
         postUpdateDiagnostics.ascendingPhaseAssessment.status ==
-        RangeRepPhaseQualityStatus.flagged;
+            RangeRepPhaseQualityStatus.flagged &&
+        (includeTempoInMainScore ||
+            postUpdateDiagnostics.ascendingPhaseAssessment.issues.any(
+              (issue) => issue != RangeRepPhaseQualityIssue.durationTooShort,
+            ));
     final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
       descendingPhaseFlagged: descendingPhaseFlagged,
       ascendingPhaseFlagged: ascendingPhaseFlagged,
@@ -1289,8 +1307,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final baseScore = _scorer.calculateBaseScore(
       romScore: romScore,
       tempoScore: tempoScore,
-      weightedBaseScore: weightedBaseScore,
+      weightedBaseScore: effectiveWeightedBaseScore,
       hadFormViolation: completedRepCoreData.hadFormViolation,
+      includeTempo: includeTempoInMainScore,
     );
     final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
       baseScore: baseScore,
@@ -1332,46 +1351,48 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         ),
       );
     }
-    if (totalRepTempoScore != null) {
-      if (totalRepTempoScore < 100.0) {
-        penaltyTraces.add(
-          RepScorePenaltyTrace(
-            component: RepScoreComponentKind.tempo,
-            code: 'total_rep_tempo_shortfall',
-            evidenceCode: 'total_rep_duration_observation',
-            penaltyPoints: 100.0 - totalRepTempoScore,
-            observedValue: totalRepSeconds,
-            referenceValue: minTotalRepSeconds,
-            observationUnit: 'seconds',
-          ),
-        );
-      }
-    } else {
-      if (descentScore < 100.0) {
-        penaltyTraces.add(
-          RepScorePenaltyTrace(
-            component: RepScoreComponentKind.tempo,
-            code: 'descent_tempo_deviation',
-            evidenceCode: 'eccentric_duration_observation',
-            penaltyPoints: 100.0 - descentScore,
-            observedValue: descentSeconds,
-            referenceValue: _config.idealDescentSeconds,
-            observationUnit: 'seconds',
-          ),
-        );
-      }
-      if (ascentScore < 100.0) {
-        penaltyTraces.add(
-          RepScorePenaltyTrace(
-            component: RepScoreComponentKind.tempo,
-            code: 'ascent_tempo_deviation',
-            evidenceCode: 'concentric_duration_observation',
-            penaltyPoints: 100.0 - ascentScore,
-            observedValue: ascentSeconds,
-            referenceValue: _config.idealAscentSeconds,
-            observationUnit: 'seconds',
-          ),
-        );
+    if (includeTempoInMainScore) {
+      if (totalRepTempoScore != null) {
+        if (totalRepTempoScore < 100.0) {
+          penaltyTraces.add(
+            RepScorePenaltyTrace(
+              component: RepScoreComponentKind.tempo,
+              code: 'total_rep_tempo_shortfall',
+              evidenceCode: 'total_rep_duration_observation',
+              penaltyPoints: 100.0 - totalRepTempoScore,
+              observedValue: totalRepSeconds,
+              referenceValue: minTotalRepSeconds,
+              observationUnit: 'seconds',
+            ),
+          );
+        }
+      } else {
+        if (descentScore < 100.0) {
+          penaltyTraces.add(
+            RepScorePenaltyTrace(
+              component: RepScoreComponentKind.tempo,
+              code: 'descent_tempo_deviation',
+              evidenceCode: 'eccentric_duration_observation',
+              penaltyPoints: 100.0 - descentScore,
+              observedValue: descentSeconds,
+              referenceValue: _config.idealDescentSeconds,
+              observationUnit: 'seconds',
+            ),
+          );
+        }
+        if (ascentScore < 100.0) {
+          penaltyTraces.add(
+            RepScorePenaltyTrace(
+              component: RepScoreComponentKind.tempo,
+              code: 'ascent_tempo_deviation',
+              evidenceCode: 'concentric_duration_observation',
+              penaltyPoints: 100.0 - ascentScore,
+              observedValue: ascentSeconds,
+              referenceValue: _config.idealAscentSeconds,
+              observationUnit: 'seconds',
+            ),
+          );
+        }
       }
     }
     if (completedRepCoreData.hadFormViolation) {
@@ -1438,11 +1459,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       descentControlScore: descentControlScore,
       ascentControlScore: ascentControlScore,
       consistencyScore: consistencyScore,
-      weightedBaseScore: weightedBaseScore,
+      weightedBaseScore: effectiveWeightedBaseScore,
       phaseQualityPenalty: phaseQualityPenalty,
       phaseAdjustedScore: phaseAdjustedScore,
       totalRepSeconds: totalRepSeconds,
       totalRepTempoScore: totalRepTempoScore,
+      tempoIncludedInFinalScore: includeTempoInMainScore,
     );
   }
 

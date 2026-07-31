@@ -111,14 +111,14 @@ class LegacyRangeRepScorer {
     required double tempoScore,
     required double? weightedBaseScore,
     required bool hadFormViolation,
+    bool includeTempo = true,
   }) {
-    final legacyBaseScore = hadFormViolation
-        ? (romScore + tempoScore) / 4
-        : (romScore + tempoScore) / 2;
+    final legacyBaseScore = includeTempo
+        ? (romScore + tempoScore) / 2
+        : romScore;
+    final selectedBaseScore = weightedBaseScore ?? legacyBaseScore;
 
-    return weightedBaseScore == null
-        ? legacyBaseScore
-        : (hadFormViolation ? weightedBaseScore / 2 : weightedBaseScore);
+    return hadFormViolation ? selectedBaseScore / 2 : selectedBaseScore;
   }
 
   double? calculatePhaseQualityPenalty({

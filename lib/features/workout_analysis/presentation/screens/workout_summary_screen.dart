@@ -277,11 +277,11 @@ List<MapEntry<String, String>> _summaryValues(
       session.totalReps.toString(),
     ),
     MapEntry(
-      localizations.workoutSummaryAverageScore,
+      localizations.workoutSummaryAverageFormRangeScore,
       WorkoutPresentationFormatter.roundedScore(session.averageScore),
     ),
     MapEntry(
-      localizations.workoutSummaryBestScore,
+      localizations.workoutSummaryBestFormRangeScore,
       WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
     if (hasValidationBreakdown || lowConfidenceReps > 0) ...[
@@ -307,49 +307,6 @@ List<MapEntry<String, String>> _summaryValues(
   if (averageRom != null) {
     values.add(
       MapEntry(localizations.averageRom, '${averageRom.toStringAsFixed(1)}°'),
-    );
-  }
-
-  final averageTempo = _resolvedMetricValue(
-    liveMetrics,
-    fallbackMetrics,
-    ExerciseMetricRegistry.tempo,
-  );
-  if (averageTempo != null) {
-    values.add(
-      MapEntry(
-        localizations.averageTempo,
-        _formatDuration(localizations, averageTempo),
-      ),
-    );
-  }
-
-  final fastest = liveMetrics?.fastestRepDuration;
-  final slowest = liveMetrics?.slowestRepDuration;
-  if (fastest != null) {
-    values.add(
-      MapEntry(
-        localizations.fastestRep,
-        _formatDuration(localizations, fastest),
-      ),
-    );
-  }
-  if (slowest != null) {
-    values.add(
-      MapEntry(
-        localizations.slowestRep,
-        _formatDuration(localizations, slowest),
-      ),
-    );
-  }
-
-  final tempoConsistency = liveMetrics?.tempoConsistencyScore;
-  if (tempoConsistency != null) {
-    values.add(
-      MapEntry(
-        localizations.tempoConsistency,
-        tempoConsistency.toStringAsFixed(0),
-      ),
     );
   }
 
@@ -404,12 +361,4 @@ T? _resolvedMetricValue<T extends Object>(
 ) {
   return liveMetrics?.sessionMetrics.valueFor(definition) ??
       fallbackMetrics.valueFor(definition);
-}
-
-String _formatDuration(AppLocalizations localizations, Duration duration) {
-  final milliseconds = duration.inMilliseconds;
-  if (milliseconds < 1000) {
-    return '$milliseconds ms';
-  }
-  return localizations.secondsValue(milliseconds / 1000);
 }

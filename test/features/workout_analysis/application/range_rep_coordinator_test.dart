@@ -151,7 +151,16 @@ void main() {
         'low confidence',
       );
       expect(completedResult.stateSnapshot.repCount, 1);
-      expect(completedResult.stateSnapshot.lastRepScore, greaterThan(0));
+      final calibrationMetrics =
+          completedResult.stateSnapshot.calibrationMetrics;
+      expect(
+        completedResult.stateSnapshot.lastRepScore,
+        closeTo(calibrationMetrics.lastRepRomScore, 0.001),
+      );
+      expect(
+        calibrationMetrics.lastRepDescentScore,
+        lessThan(calibrationMetrics.lastRepRomScore),
+      );
       expect(
         completedResult
             .stateSnapshot
@@ -767,7 +776,7 @@ void main() {
     );
 
     test(
-      'coordinator score and breakdown match legacy direct-engine compatibility',
+      'coordinator preserves legacy diagnostics while excluding uncertain tempo from the main score',
       () {
         final config = _squatConfig();
         final legacyClock = _TestClock();
@@ -815,7 +824,7 @@ void main() {
           angle: 170,
         );
 
-        _expectScoreParity(
+        _expectTempoSafeScoreProjection(
           result,
           completedRepCoreData: completedRepCoreData,
           expectedBreakdown: legacyBreakdown,
@@ -831,29 +840,32 @@ void main() {
       },
     );
 
-    test('preserves weighted scoring and missing-weight defaults', () {
-      final result = _scoreCompletedCoreData(
-        config: _squatConfig(
-          scoreWeights: const RangeRepScoreWeightsConfig(
-            descentControlWeight: 2.0,
-            ascentControlWeight: 3.0,
+    test(
+      'keeps weighted tempo diagnostics but scores ROM only during quarantine',
+      () {
+        final result = _scoreCompletedCoreData(
+          config: _squatConfig(
+            scoreWeights: const RangeRepScoreWeightsConfig(
+              descentControlWeight: 2.0,
+              ascentControlWeight: 3.0,
+            ),
           ),
-        ),
-        completedRepCoreData: _completedRepCoreData(
-          descentDuration: const Duration(milliseconds: 1500),
-        ),
-      );
+          completedRepCoreData: _completedRepCoreData(
+            descentDuration: const Duration(milliseconds: 1500),
+          ),
+        );
 
-      expect(
-        result.stateSnapshot.lastRepScore,
-        closeTo((80 + (100 * 2) + (90 * 3)) / 6, 0.001),
-      );
-      expect(
-        result.stateSnapshot.calibrationMetrics.lastRepDescentScore,
-        100.0,
-      );
-      expect(result.stateSnapshot.calibrationMetrics.lastRepAscentScore, 90.0);
-    });
+        expect(result.stateSnapshot.lastRepScore, closeTo(80.0, 0.001));
+        expect(
+          result.stateSnapshot.calibrationMetrics.lastRepDescentScore,
+          100.0,
+        );
+        expect(
+          result.stateSnapshot.calibrationMetrics.lastRepAscentScore,
+          90.0,
+        );
+      },
+    );
 
     test('preserves the completed-rep form penalty', () {
       final result = _scoreCompletedCoreData(
@@ -869,7 +881,7 @@ void main() {
         ),
       );
 
-      expect(result.stateSnapshot.lastRepScore, 42.5);
+      expect(result.stateSnapshot.lastRepScore, 40.0);
       expect(
         result.stateSnapshot.calibrationMetrics.lastRepHadFormViolation,
         isTrue,
@@ -880,7 +892,7 @@ void main() {
       );
     });
 
-    test('preserves phase-quality penalty and adjusted final score', () {
+    test('ignores duration-only phase penalty while tempo is quarantined', () {
       final result = _scoreCompletedCoreData(
         config: _squatConfig(
           phaseQuality: const RangeRepPhaseQualityConfig(
@@ -892,8 +904,14 @@ void main() {
       );
 
       expect(result.stateSnapshot.lastRepScore, 80.0);
-      expect(result.stateSnapshot.calibrationMetrics.phaseQualityPenalty, 5.0);
-      expect(result.stateSnapshot.calibrationMetrics.phaseAdjustedScore, 80.0);
+      expect(
+        result.stateSnapshot.calibrationMetrics.phaseQualityPenalty,
+        isNull,
+      );
+      expect(
+        result.stateSnapshot.calibrationMetrics.phaseAdjustedScore,
+        isNull,
+      );
     });
 
     test('non-completing frames do not publish engine compatibility score', () {
@@ -2653,7 +2671,7 @@ void _confirmLegacyTransition(
   engine.update(AnalysisFrame(primaryMetric: angle, formMetric: 60));
 }
 
-void _expectScoreParity(
+void _expectTempoSafeScoreProjection(
   RangeRepCoordinatorFrameResult result, {
   required RangeRepCompletedRepCoreData completedRepCoreData,
   required RepScoreBreakdown expectedBreakdown,
@@ -2662,7 +2680,7 @@ void _expectScoreParity(
 
   expect(
     result.stateSnapshot.lastRepScore,
-    closeTo(expectedBreakdown.finalScore, 0.001),
+    closeTo(expectedBreakdown.romScore, 0.001),
   );
   expect(
     result.stateSnapshot.lastRepRom,
@@ -2683,13 +2701,12 @@ void _expectScoreParity(
     closeTo(expectedBreakdown.worstBackAngle, 0.001),
   );
   expect(metrics.lastRepHadFormViolation, expectedBreakdown.hadFormViolation);
-  _expectNullableScore(
-    metrics.phaseQualityPenalty,
-    expectedBreakdown.phaseQualityPenalty,
-  );
-  _expectNullableScore(
-    metrics.phaseAdjustedScore,
-    expectedBreakdown.phaseAdjustedScore,
+  expect(metrics.phaseQualityPenalty, isNull);
+  expect(metrics.phaseAdjustedScore, isNull);
+  expect(metrics.lastRangeRepValidationStatus, 'low confidence');
+  expect(
+    metrics.lastRangeRepValidationReasons,
+    containsAll(<String>['excessive descent speed', 'excessive ascent speed']),
   );
   expect(metrics.lastRangeRepSummaryMinAngle, completedRepCoreData.minAngle);
   expect(
@@ -2700,15 +2717,6 @@ void _expectScoreParity(
     metrics.lastRangeRepSummaryAscentMillis,
     completedRepCoreData.ascentDuration.inMilliseconds,
   );
-}
-
-void _expectNullableScore(double? actual, double? expected) {
-  if (expected == null) {
-    expect(actual, isNull);
-    return;
-  }
-
-  expect(actual, closeTo(expected, 0.001));
 }
 
 RepScoreBreakdown _sentinelBreakdown() {

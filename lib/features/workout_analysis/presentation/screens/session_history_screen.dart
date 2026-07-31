@@ -322,7 +322,7 @@ class _SessionCard extends StatelessWidget {
             ),
             MapEntry(localizations.reps, session.totalReps.toString()),
             MapEntry(
-              localizations.averageScoreShort,
+              localizations.averageFormRangeScoreShort,
               WorkoutPresentationFormatter.roundedScore(session.averageScore),
             ),
             MapEntry(

@@ -109,7 +109,7 @@ void main() {
       }
     });
 
-    test('declares tempo capability and summary fields for rep exercises', () {
+    test('keeps tempo capability but quarantines tempo summary fields', () {
       for (final definition in catalog.definitions.where(
         (definition) =>
             definition.trackingType == ExerciseTrackingType.repetitions,
@@ -128,28 +128,28 @@ void main() {
           definition.includesSummaryField(
             ExerciseSessionSummaryField.averageTempo,
           ),
-          isTrue,
+          isFalse,
           reason: definition.id,
         );
         expect(
           definition.includesSummaryField(
             ExerciseSessionSummaryField.fastestRep,
           ),
-          isTrue,
+          isFalse,
           reason: definition.id,
         );
         expect(
           definition.includesSummaryField(
             ExerciseSessionSummaryField.slowestRep,
           ),
-          isTrue,
+          isFalse,
           reason: definition.id,
         );
         expect(
           definition.includesSummaryField(
             ExerciseSessionSummaryField.tempoConsistency,
           ),
-          isTrue,
+          isFalse,
           reason: definition.id,
         );
       }

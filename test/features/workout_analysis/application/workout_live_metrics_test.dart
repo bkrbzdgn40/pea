@@ -9,7 +9,7 @@ void main() {
     const builder = WorkoutSessionMetricSnapshotBuilder();
 
     test(
-      'builds repetition, average ROM, and tempo metrics from rep details',
+      'builds repetition and average ROM without exposing quarantined tempo',
       () {
         final session = WorkoutSession(
           id: 'session',
@@ -47,18 +47,12 @@ void main() {
         expect(snapshot.scope, ExerciseMetricScope.session);
         expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 2);
         expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 70);
-        expect(
-          snapshot.valueFor(ExerciseMetricRegistry.tempo),
-          const Duration(milliseconds: 1200),
-        );
-        expect(
-          snapshot.valueFor(ExerciseMetricRegistry.repDuration),
-          const Duration(milliseconds: 1200),
-        );
+        expect(snapshot.valueFor(ExerciseMetricRegistry.tempo), isNull);
+        expect(snapshot.valueFor(ExerciseMetricRegistry.repDuration), isNull);
       },
     );
 
-    test('excludes invalid attempts from ROM and tempo aggregates', () {
+    test('excludes invalid attempts from ROM and keeps timing quarantined', () {
       final session = WorkoutSession(
         id: 'session',
         ownerId: 'owner',
@@ -96,10 +90,8 @@ void main() {
 
       expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 1);
       expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 60);
-      expect(
-        snapshot.valueFor(ExerciseMetricRegistry.tempo),
-        const Duration(milliseconds: 1000),
-      );
+      expect(snapshot.valueFor(ExerciseMetricRegistry.tempo), isNull);
+      expect(snapshot.valueFor(ExerciseMetricRegistry.repDuration), isNull);
     });
 
     test('builds hold duration without inventing repetition metrics', () {
