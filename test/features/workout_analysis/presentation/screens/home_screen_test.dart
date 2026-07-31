@@ -9,7 +9,6 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
-import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/guide_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 
 import '../../../../support/presentation_test_support.dart';
@@ -149,42 +148,46 @@ void main() {
     expect(find.text('Skor Trendi'), findsNothing);
   });
 
-  testWidgets('keeps explicit guide navigation behavior on HomeScreen', (
-    WidgetTester tester,
-  ) async {
-    final observer = RecordingNavigatorObserver();
-
-    await pumpTestApp(
-      tester,
-      navigatorObservers: [observer],
-      home: const HomeScreen(),
-      overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
+  testWidgets(
+    'keeps drawer-owned destinations out of the Home action surface',
+    (WidgetTester tester) async {
+      await pumpTestApp(
+        tester,
+        home: const HomeScreen(),
+        overrides: [
+          homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+          goalsProvider.overrideWith(
+            (ref) => const GoalsState(
+              source: GoalsDataSource.real,
+              goals: <WorkoutGoal>[],
+            ),
           ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
+          achievementsProvider.overrideWith(
+            (ref) => const AchievementsState(
+              source: AchievementsDataSource.real,
+              achievements: <Achievement>[],
+            ),
           ),
-        ),
-      ],
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
+          selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
+        ],
+      );
+      await tester.pump();
 
-    final pushCountBeforeTap = observer.pushCount;
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
 
-    await tester.tap(find.text('Hareket Rehberi'));
-    await tester.pumpAndSettle();
-
-    expect(observer.pushCount, pushCountBeforeTap + 1);
-    expect(find.byType(GuideScreen), findsOneWidget);
-  });
+      expect(appBar.actions, isNull);
+      expect(find.text('Hareketi Değiştir'), findsNothing);
+      expect(find.byKey(const ValueKey('home-primary-action')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-planned-workout-action')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-assessment-action')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('preserves the 12px action icon surface radius on HomeScreen', (
     WidgetTester tester,
@@ -219,16 +222,145 @@ void main() {
 
         final decoration = widget.decoration;
         final constraints = widget.constraints;
-        return constraints?.minWidth == 38 &&
-            constraints?.maxWidth == 38 &&
-            constraints?.minHeight == 38 &&
-            constraints?.maxHeight == 38 &&
+        return constraints?.minWidth == 44 &&
+            constraints?.maxWidth == 44 &&
+            constraints?.minHeight == 44 &&
+            constraints?.maxHeight == 44 &&
             decoration is BoxDecoration &&
             decoration.borderRadius == BorderRadius.circular(AppRadii.small);
       }),
     );
 
     expect(playIconSurface, findsOneWidget);
+  });
+
+  testWidgets('uses a single-column task flow in portrait', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('home-portrait-layout')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-wide-layout')), findsNothing);
+
+    final taskTop = tester.getTopLeft(
+      find.byKey(const ValueKey('home-task-panel')),
+    );
+    final progressTop = tester.getTopLeft(
+      find.byKey(const ValueKey('home-progress-panel')),
+    );
+    expect(taskTop.dy, lessThan(progressTop.dy));
+  });
+
+  testWidgets('uses task and progress panels side by side in landscape', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('home-wide-layout')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-portrait-layout')), findsNothing);
+
+    final taskTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('home-task-panel')),
+    );
+    final progressTopLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('home-progress-panel')),
+    );
+    expect(taskTopLeft.dx, lessThan(progressTopLeft.dx));
+    expect((taskTopLeft.dy - progressTopLeft.dy).abs(), lessThan(1));
+  });
+
+  testWidgets('keeps compact portrait usable with 200 percent text scaling', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpTestApp(
+      tester,
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(320, 568),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const HomeScreen(),
+      ),
+      overrides: [
+        homeDashboardProvider.overrideWith(
+          (ref) =>
+              HomeDashboardData.fallback(source: HomeDashboardSource.empty),
+        ),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.empty,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('home-portrait-layout')), findsOneWidget);
+
+    final plannedTop = tester.getTopLeft(
+      find.byKey(const ValueKey('home-planned-workout-action')),
+    );
+    final assessmentTop = tester.getTopLeft(
+      find.byKey(const ValueKey('home-assessment-action')),
+    );
+    expect(plannedTop.dy, lessThan(assessmentTop.dy));
   });
 
   testWidgets('translates the primary Home surface to English', (
@@ -279,8 +411,8 @@ void main() {
     expect(find.text('Workout Analysis'), findsOneWidget);
     expect(find.text('Start Push-up analysis'), findsOneWidget);
     expect(find.text('Selected exercise: Push-up'), findsOneWidget);
-    expect(find.text('Exercise Guide'), findsOneWidget);
-    expect(find.text('Session History'), findsOneWidget);
+    expect(find.text('Exercise Guide'), findsNothing);
+    expect(find.text('Session History'), findsNothing);
     expect(find.text('Planned Workout'), findsOneWidget);
     expect(find.text('Assessment'), findsOneWidget);
     expect(find.text('Weekly Goal'), findsOneWidget);

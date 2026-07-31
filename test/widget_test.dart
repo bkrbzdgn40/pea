@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pose_estimation_app/app/app.dart';
@@ -20,6 +21,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('Antrenman Analizi'), findsOneWidget);
-    expect(find.text('AI Coach'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('home-primary-action')),
+      findsOneWidget,
+    );
+    expect(find.text('AI Coach'), findsNothing);
   });
 }
