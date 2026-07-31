@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/layout/camera_layout_spec.dart';
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../application/exercise_catalog.dart';
 import '../camera_image_stream_coordinator.dart';
@@ -59,6 +60,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   bool _holdsScreenAwake = false;
   CameraController? _observedCameraController;
   DeviceOrientation? _observedDeviceOrientation;
+  DeviceOrientation _displayDeviceOrientation = DeviceOrientation.portraitUp;
   Size? _observedPreviewSize;
   SetupReadinessRequest? _activeReadinessRequest;
   SetupReadinessRequest? _automaticallyArmedRequest;
@@ -81,6 +83,14 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         unawaited(_refreshPreparationScreenAwake());
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _displayDeviceOrientation = appDeviceOrientationFor(
+      MediaQuery.orientationOf(context),
+    );
   }
 
   @override
@@ -351,7 +361,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
               .processCameraImage(
                 image,
                 streamController.description.sensorOrientation,
-                deviceOrientation: cameraValue?.deviceOrientation,
+                deviceOrientation: _displayDeviceOrientation,
                 lensDirection: streamController.description.lensDirection,
               ),
         );
@@ -497,7 +507,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         : _safeCameraValue(cameraController);
     final cameraGeometry = const PreparationCameraGeometryResolver().resolve(
       previewSize: cameraValue?.previewSize,
-      deviceOrientation: cameraValue?.deviceOrientation,
+      deviceOrientation: _displayDeviceOrientation,
       viewportOrientation: viewportOrientation,
     );
     final isCameraReady =

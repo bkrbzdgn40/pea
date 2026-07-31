@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/layout/camera_layout_spec.dart';
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../application/engine_kind.dart';
 import '../../application/feedback_delivery_controller.dart';
@@ -79,6 +80,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _showCalibrationPanel = false;
   CameraController? _observedCameraController;
   DeviceOrientation? _observedDeviceOrientation;
+  DeviceOrientation _displayDeviceOrientation = DeviceOrientation.portraitUp;
   Size? _observedPreviewSize;
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
   late final ScreenAwakeController _screenAwakeController;
@@ -95,6 +97,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
   bool _planAdvanceFailed = false;
   int _lastHandledCompletedSetCount = 0;
   WorkoutState? _completedPlannedSetState;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _displayDeviceOrientation = appDeviceOrientationFor(
+      MediaQuery.orientationOf(context),
+    );
+  }
 
   @override
   void initState() {
@@ -929,7 +939,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 final cameraGeometry = const PreparationCameraGeometryResolver()
                     .resolve(
                       previewSize: controllerValue?.previewSize,
-                      deviceOrientation: controllerValue?.deviceOrientation,
+                      deviceOrientation: _displayDeviceOrientation,
                       viewportOrientation: viewportOrientation,
                     );
 
@@ -1241,7 +1251,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 image,
                 streamController.description.sensorOrientation,
                 cameraLensDirection: streamController.description.lensDirection,
-                deviceOrientation: cameraValue?.deviceOrientation,
+                deviceOrientation: _displayDeviceOrientation,
               );
           return;
         }
@@ -1252,7 +1262,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
               image,
               streamController.description.sensorOrientation,
               lensDirection: streamController.description.lensDirection,
-              deviceOrientation: cameraValue?.deviceOrientation,
+              deviceOrientation: _displayDeviceOrientation,
             );
       },
       onError: (_, _) => _markCameraRecoveringAfterFrame(),

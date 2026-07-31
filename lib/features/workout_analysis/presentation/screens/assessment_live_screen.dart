@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../domain/models/assessment_models.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../errors/workout_camera_error_presentation.dart';
+import '../models/preparation_camera_geometry.dart';
 import '../providers/assessment_live_controller.dart';
 import '../providers/camera_provider.dart';
 import '../providers/selected_assessment_provider.dart';
@@ -28,12 +31,21 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
   bool _isRecoveringCamera = false;
   bool _isAppResumed = true;
+  DeviceOrientation _displayDeviceOrientation = DeviceOrientation.portraitUp;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _imageStreamCoordinator = CameraImageStreamCoordinator();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _displayDeviceOrientation = appDeviceOrientationFor(
+      MediaQuery.orientationOf(context),
+    );
   }
 
   @override
@@ -92,8 +104,16 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
             return const Center(child: CircularProgressIndicator());
           }
           _ensureImageStream(controller);
-          final previewSize = controller.value.previewSize!;
-          final imageSize = Size(previewSize.height, previewSize.width);
+          final cameraGeometry = const PreparationCameraGeometryResolver()
+              .resolve(
+                previewSize: controller.value.previewSize,
+                deviceOrientation: _displayDeviceOrientation,
+                viewportOrientation: MediaQuery.orientationOf(context),
+              );
+          if (cameraGeometry == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final imageSize = cameraGeometry.imageSize;
           final isMirrored =
               controller.description.lensDirection == CameraLensDirection.front;
 
@@ -182,7 +202,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
               .processCameraImage(
                 image,
                 streamController.description.sensorOrientation,
-                deviceOrientation: streamController.value.deviceOrientation,
+                deviceOrientation: _displayDeviceOrientation,
                 lensDirection: streamController.description.lensDirection,
               ),
         );
