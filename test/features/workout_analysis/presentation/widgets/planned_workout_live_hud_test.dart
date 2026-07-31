@@ -52,10 +52,10 @@ void main() {
     expect(finishCount, 1);
   });
 
-  testWidgets('keeps compact landscape HUD usable at large text scale', (
+  testWidgets('keeps the planned side panel usable at large text scale', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(960, 420);
+    tester.view.physicalSize = const Size(280, 420);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -68,12 +68,17 @@ void main() {
           topInset: 0,
           compact: true,
           isFinishing: false,
+          sidePanel: true,
           onPause: () {},
           onFinish: () {},
         ),
       ),
     );
 
+    expect(
+      find.byKey(const ValueKey<String>('planned-workout-side-panel-scroll')),
+      findsOneWidget,
+    );
     expect(find.text('Plank'), findsOneWidget);
     expect(find.text('0:18 / 0:30'), findsNWidgets(2));
     expect(find.text('0:22'), findsOneWidget);
