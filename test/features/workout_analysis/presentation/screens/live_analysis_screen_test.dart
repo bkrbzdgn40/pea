@@ -476,13 +476,40 @@ void main() {
         const ValueKey<String>('live-feedback-message-card'),
       );
 
+      expect(
+        find.byKey(const ValueKey<String>('live-feedback-kind-coaching')),
+        findsOneWidget,
+      );
       expect(performanceHeader, findsOneWidget);
-      expect(tester.getSize(performanceHeader).height, 152);
+      expect(tester.getSize(performanceHeader).height, 104);
       expect(
         find.byKey(const ValueKey<String>('live-active-exercise-name')),
         findsOneWidget,
       );
       expect(find.text('Squat'), findsOneWidget);
+
+      final pauseButton = find.byKey(
+        const ValueKey<String>('live-pause-button'),
+      );
+      final exerciseTitle = find.byKey(
+        const ValueKey<String>('live-active-exercise-name'),
+      );
+      final finishButton = find.byKey(
+        const ValueKey<String>('live-finish-button'),
+      );
+      expect(
+        tester.getCenter(exerciseTitle).dx,
+        greaterThan(tester.getCenter(pauseButton).dx),
+      );
+      expect(
+        tester.getCenter(exerciseTitle).dx,
+        lessThan(tester.getCenter(finishButton).dx),
+      );
+      expect(
+        (tester.getCenter(exerciseTitle).dy - tester.getCenter(pauseButton).dy)
+            .abs(),
+        lessThan(8),
+      );
       expect(
         find.descendant(of: primaryMetric, matching: find.text('4')),
         findsOneWidget,
@@ -648,10 +675,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('uses compact non-overlapping overlays in landscape', (
+  testWidgets('uses a non-overlapping side panel in compact landscape', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(960, 420);
+    tester.view.physicalSize = const Size(568, 320);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -661,6 +688,7 @@ void main() {
       exerciseType: ExerciseType.plank,
       config: _plankConfig(),
       showFinishButton: true,
+      textScaler: const TextScaler.linear(2),
     );
     addTearDown(harness.dispose);
 
@@ -669,6 +697,10 @@ void main() {
     );
     await tester.pump();
 
+    final sidePanel = find.byKey(
+      const ValueKey<String>('live-analysis-side-panel'),
+    );
+    final cameraStage = find.byKey(const ValueKey<String>('live-camera-stage'));
     final performanceHeader = find.byKey(
       const ValueKey<String>('live-performance-header'),
     );
@@ -677,23 +709,55 @@ void main() {
     );
     final pauseButton = find.byKey(const ValueKey<String>('live-pause-button'));
 
+    expect(
+      find.byKey(const ValueKey<String>('live-side-panel-layout')),
+      findsOneWidget,
+    );
+    expect(sidePanel, findsOneWidget);
+    expect(cameraStage, findsOneWidget);
+    expect(
+      tester.getRect(cameraStage).right,
+      lessThanOrEqualTo(tester.getRect(sidePanel).left),
+    );
     expect(performanceHeader, findsOneWidget);
     expect(feedbackCard, findsOneWidget);
-    expect(tester.getSize(performanceHeader).height, 76);
+    expect(
+      find.byKey(const ValueKey<String>('live-hud-stacked-header')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-hud-stacked-metrics')),
+      findsOneWidget,
+    );
+    expect(tester.getSize(performanceHeader).height, greaterThan(160));
     expect(
       find.byKey(const ValueKey<String>('live-active-exercise-name')),
       findsOneWidget,
     );
     expect(find.text('Plank'), findsOneWidget);
     expect(
-      tester.getRect(performanceHeader).top,
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('live-primary-metric-card')),
+        matching: find.byIcon(Icons.timer_outlined),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(feedbackCard).top,
       greaterThan(tester.getRect(pauseButton).bottom),
     );
     expect(
-      tester.getRect(performanceHeader).bottom,
-      lessThan(tester.getRect(feedbackCard).top),
+      tester.getRect(feedbackCard).bottom,
+      lessThan(tester.getRect(performanceHeader).top),
     );
-    expect(tester.getSize(feedbackCard).width, lessThan(760));
+    expect(
+      find.byKey(const ValueKey<String>('live-feedback-side-panel-content')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(feedbackCard).width,
+      lessThanOrEqualTo(tester.getSize(sidePanel).width),
+    );
     final landscapeFeedbackText = find.descendant(
       of: feedbackCard,
       matching: find.byWidgetPredicate(
@@ -750,6 +814,10 @@ void main() {
 
     expect(find.text('Geçersiz tekrar'), findsOneWidget);
     expect(find.text('Yeterli hareket aralığı oluşmadı.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('live-feedback-kind-repOutcome')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('live-feedback-message-card')),
@@ -2174,6 +2242,7 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
   bool showFinishButton = false,
   bool pushFromLauncher = false,
   WorkoutPlan? workoutPlan,
+  TextScaler? textScaler,
 }) async {
   final detector = _QueuedPoseDetector();
   final clock = _FakeClock();
@@ -2214,6 +2283,12 @@ Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
       container: container,
       child: MaterialApp(
         locale: const Locale('tr'),
+        builder: textScaler == null
+            ? null
+            : (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child!,
+              ),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
           GlobalMaterialLocalizations.delegate,
