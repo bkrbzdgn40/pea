@@ -172,7 +172,7 @@ void main() {
           feedbackMessage: 'Kontrollu tekrar',
           validatedRepIndex: 3,
           validationStatus: 'low confidence',
-          validationReasons: const <String>['excessiveDescentSpeed'],
+          validationReasons: const <String>['coverageLoss'],
           minPrimaryMetric: 90,
           worstFormMetric: 160,
           descentMillis: 180,
@@ -252,7 +252,7 @@ void main() {
 
       expect(cautionRep.recordedAt, DateTime.utc(2030, 1, 1, 12, 0, 12));
       expect(cautionRep.validationStatus, 'lowConfidence');
-      expect(cautionRep.validationReasons, <String>['excessiveDescentSpeed']);
+      expect(cautionRep.validationReasons, <String>['coverageLoss']);
       expect(cautionRep.score, 60);
       expect(cautionRep.feedback, 'Kontrollu tekrar');
       expect(cautionRep.techniqueObservations, hasLength(1));

@@ -248,11 +248,15 @@ void main() {
         expect(result.stateSnapshot.currentPhase, 'NEUTRAL');
         expect(
           result.stateSnapshot.calibrationMetrics.lastRangeRepValidationStatus,
-          'low confidence',
+          'valid',
         );
         expect(
           result.stateSnapshot.calibrationMetrics.lastRangeRepValidationReasons,
-          <String>['excessive rep speed'],
+          isEmpty,
+        );
+        expect(
+          result.diagnosticsUpdate.completedRepTempoDiagnosticReasons,
+          <String>['excessiveRepSpeed'],
         );
       },
     );

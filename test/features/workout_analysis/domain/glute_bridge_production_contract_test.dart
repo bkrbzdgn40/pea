@@ -65,7 +65,7 @@ void main() {
       expect(engine.phaseLabel, 'NEUTRAL');
     });
 
-    test('uses a bridge-specific toward-peak tempo tolerance', () {
+    test('keeps bridge tempo findings diagnostic during quarantine', () {
       final validationConfig = definition.analysisRangeRepValidationConfig;
       final phaseQualityConfig = config.rangeRepPhaseQuality;
       final policy = RangeRepValidationPolicy(config: validationConfig);
@@ -90,9 +90,10 @@ void main() {
         normalTempo.reasons,
         isNot(contains(RangeRepValidationReason.excessiveDescentSpeed)),
       );
-      expect(abruptTempo.status, RangeRepValidationStatus.lowConfidence);
+      expect(abruptTempo.status, RangeRepValidationStatus.valid);
+      expect(abruptTempo.reasons, isEmpty);
       expect(
-        abruptTempo.reasons,
+        abruptTempo.tempoDiagnosticReasons,
         contains(RangeRepValidationReason.excessiveDescentSpeed),
       );
     });

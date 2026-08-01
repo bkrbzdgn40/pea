@@ -12,6 +12,7 @@ void main() {
 
       expect(result.status, RangeRepValidationStatus.valid);
       expect(result.reasons, isEmpty);
+      expect(result.tempoDiagnosticReasons, isEmpty);
       expect(result.countsTowardReps, isTrue);
       expect(result.shouldPublishScore, isTrue);
     });
@@ -23,6 +24,7 @@ void main() {
 
         expect(result.status, RangeRepValidationStatus.lowConfidence);
         expect(result.reasons, [RangeRepValidationReason.coverageLoss]);
+        expect(result.tempoDiagnosticReasons, isEmpty);
         expect(result.countsTowardReps, isTrue);
         expect(result.shouldPublishScore, isTrue);
       },
@@ -33,6 +35,7 @@ void main() {
 
       expect(result.status, RangeRepValidationStatus.lowConfidence);
       expect(result.reasons, [RangeRepValidationReason.persistentFormBreak]);
+      expect(result.tempoDiagnosticReasons, isEmpty);
       expect(result.countsTowardReps, isTrue);
       expect(result.shouldPublishScore, isTrue);
     });
@@ -46,6 +49,7 @@ void main() {
 
       expect(result.status, RangeRepValidationStatus.invalid);
       expect(result.reasons, [RangeRepValidationReason.persistentFormBreak]);
+      expect(result.tempoDiagnosticReasons, isEmpty);
       expect(result.countsTowardReps, isFalse);
       expect(result.shouldPublishScore, isFalse);
     });
@@ -65,9 +69,10 @@ void main() {
 
       expect(result.status, RangeRepValidationStatus.valid);
       expect(result.reasons, isEmpty);
+      expect(result.tempoDiagnosticReasons, isEmpty);
     });
 
-    test('flags a total repetition below 1.5 seconds', () {
+    test('quarantines a total repetition below 1.5 seconds', () {
       const totalTempoPolicy = RangeRepValidationPolicy(
         config: RangeRepValidationConfig(
           minDescentMillis: 0,
@@ -80,9 +85,79 @@ void main() {
         _summary(totalRepDuration: const Duration(milliseconds: 1499)),
       );
 
-      expect(result.status, RangeRepValidationStatus.lowConfidence);
-      expect(result.reasons, [RangeRepValidationReason.excessiveRepSpeed]);
+      expect(result.status, RangeRepValidationStatus.valid);
+      expect(result.reasons, isEmpty);
+      expect(result.tempoDiagnosticReasons, [
+        RangeRepValidationReason.excessiveRepSpeed,
+      ]);
       expect(result.countsTowardReps, isTrue);
+    });
+
+    test('quarantines short phase findings from the user outcome', () {
+      final result = policy.evaluate(
+        _summary(
+          descentDuration: const Duration(milliseconds: 249),
+          ascentDuration: const Duration(milliseconds: 199),
+        ),
+      );
+
+      expect(result.status, RangeRepValidationStatus.valid);
+      expect(result.reasons, isEmpty);
+      expect(result.tempoDiagnosticReasons, [
+        RangeRepValidationReason.excessiveDescentSpeed,
+        RangeRepValidationReason.excessiveAscentSpeed,
+      ]);
+    });
+
+    test('retains non-tempo caution while quarantining tempo findings', () {
+      final result = policy.evaluate(
+        _summary(
+          descentDuration: const Duration(milliseconds: 249),
+          hadCoverageDrop: true,
+        ),
+      );
+
+      expect(result.status, RangeRepValidationStatus.lowConfidence);
+      expect(result.reasons, [RangeRepValidationReason.coverageLoss]);
+      expect(result.tempoDiagnosticReasons, [
+        RangeRepValidationReason.excessiveDescentSpeed,
+      ]);
+    });
+
+    test(
+      'retains invalid technique outcome while quarantining tempo findings',
+      () {
+        final result = policy.evaluate(
+          _summary(
+            minAngle: 130,
+            ascentDuration: const Duration(milliseconds: 199),
+          ),
+        );
+
+        expect(result.status, RangeRepValidationStatus.invalid);
+        expect(result.reasons, [RangeRepValidationReason.insufficientRom]);
+        expect(result.tempoDiagnosticReasons, [
+          RangeRepValidationReason.excessiveAscentSpeed,
+        ]);
+      },
+    );
+
+    test('can expose tempo findings only when measurement mode is enabled', () {
+      const enabledPolicy = RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(
+          tempoMeasurementMode: RangeRepTempoMeasurementMode.enabled,
+        ),
+      );
+
+      final result = enabledPolicy.evaluate(
+        _summary(descentDuration: const Duration(milliseconds: 249)),
+      );
+
+      expect(result.status, RangeRepValidationStatus.lowConfidence);
+      expect(result.reasons, [RangeRepValidationReason.excessiveDescentSpeed]);
+      expect(result.tempoDiagnosticReasons, [
+        RangeRepValidationReason.excessiveDescentSpeed,
+      ]);
     });
 
     test('returns invalid when the phase sequence is incomplete', () {
@@ -108,7 +183,7 @@ void main() {
     });
 
     test(
-      'keeps invalid status when low-confidence reasons are also present',
+      'keeps invalid status when non-tempo low-confidence reasons are present',
       () {
         final result = policy.evaluate(
           _summary(

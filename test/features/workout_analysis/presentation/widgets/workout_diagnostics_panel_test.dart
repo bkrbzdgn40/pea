@@ -136,6 +136,34 @@ void main() {
     expect(find.text('2'), findsWidgets);
   });
 
+  testWidgets('tempo quarantine findings render separately from validation', (
+    tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(
+        lastRangeRepValidationStatus: 'valid',
+        lastRangeRepValidationReasons: const <String>[],
+        lastRangeRepTempoDiagnosticReasons: const <String>[
+          'excessiveAscentSpeed',
+        ],
+      ),
+      onReset: () {},
+    );
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Tempo diagnostic findings'),
+      300,
+      scrollable: scrollable,
+    );
+
+    expect(find.text('Last validation status'), findsOneWidget);
+    expect(find.text('Last validation reasons'), findsOneWidget);
+    expect(find.text('Tempo diagnostic findings'), findsOneWidget);
+    expect(find.text('excessiveAscentSpeed'), findsOneWidget);
+  });
+
   testWidgets('active camera-view contract renders in canonical order', (
     tester,
   ) async {
@@ -421,7 +449,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 7);
+    expect(decoded['schema_version'], 8);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -477,7 +505,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v7_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v8_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -622,7 +650,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 7,
+  int schemaVersion = 8,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -680,6 +708,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
   RangeRepTimingTraceSnapshot? activeTimingTrace,
   RangeRepTimingTraceSnapshot? lastEndedTimingTrace,
   int nonMonotonicObservationCount = 0,
+  String? lastRangeRepValidationStatus,
+  List<String> lastRangeRepValidationReasons = const <String>[],
+  List<String> lastRangeRepTempoDiagnosticReasons = const <String>[],
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -733,6 +764,9 @@ WorkoutDiagnosticsSnapshot _snapshot({
             activeTimingTrace: activeTimingTrace,
             lastEndedTimingTrace: lastEndedTimingTrace,
             nonMonotonicObservationCount: nonMonotonicObservationCount,
+            lastValidationStatus: lastRangeRepValidationStatus,
+            lastValidationReasons: lastRangeRepValidationReasons,
+            lastTempoDiagnosticReasons: lastRangeRepTempoDiagnosticReasons,
           )
         : null,
     holdDiagnostics: analysisKind == 'hold'

@@ -80,35 +80,55 @@ class RangeRepValidationResult {
   RangeRepValidationResult._({
     required this.status,
     required List<RangeRepValidationReason> reasons,
-  }) : reasons = List.unmodifiable(reasons);
+    required List<RangeRepValidationReason> tempoDiagnosticReasons,
+  }) : reasons = List.unmodifiable(reasons),
+       tempoDiagnosticReasons = List.unmodifiable(tempoDiagnosticReasons);
 
-  factory RangeRepValidationResult.valid() {
+  factory RangeRepValidationResult.valid({
+    List<RangeRepValidationReason> tempoDiagnosticReasons =
+        const <RangeRepValidationReason>[],
+  }) {
     return RangeRepValidationResult._(
       status: RangeRepValidationStatus.valid,
       reasons: const <RangeRepValidationReason>[],
+      tempoDiagnosticReasons: tempoDiagnosticReasons,
     );
   }
 
   factory RangeRepValidationResult.lowConfidence(
-    List<RangeRepValidationReason> reasons,
-  ) {
+    List<RangeRepValidationReason> reasons, {
+    List<RangeRepValidationReason> tempoDiagnosticReasons =
+        const <RangeRepValidationReason>[],
+  }) {
     return RangeRepValidationResult._(
       status: RangeRepValidationStatus.lowConfidence,
       reasons: reasons,
+      tempoDiagnosticReasons: tempoDiagnosticReasons,
     );
   }
 
   factory RangeRepValidationResult.invalid(
-    List<RangeRepValidationReason> reasons,
-  ) {
+    List<RangeRepValidationReason> reasons, {
+    List<RangeRepValidationReason> tempoDiagnosticReasons =
+        const <RangeRepValidationReason>[],
+  }) {
     return RangeRepValidationResult._(
       status: RangeRepValidationStatus.invalid,
       reasons: reasons,
+      tempoDiagnosticReasons: tempoDiagnosticReasons,
     );
   }
 
   final RangeRepValidationStatus status;
+
+  /// User-facing reasons that may affect validation status, accepted counters,
+  /// persistence, and presentation.
   final List<RangeRepValidationReason> reasons;
+
+  /// Raw tempo threshold findings retained for developer diagnostics while the
+  /// timing pipeline is quarantined. These findings must not be interpreted as
+  /// user validation reasons until Tempo Measurement V2 enables them.
+  final List<RangeRepValidationReason> tempoDiagnosticReasons;
 
   bool get isValid => status == RangeRepValidationStatus.valid;
 

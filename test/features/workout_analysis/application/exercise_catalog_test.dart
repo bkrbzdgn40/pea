@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/came
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
 
 void main() {
   const catalog = ExerciseCatalog();
@@ -122,6 +123,11 @@ void main() {
         expect(
           definition.declaresMetric(ExerciseMetricId.tempo),
           isTrue,
+          reason: definition.id,
+        );
+        expect(
+          definition.analysisRangeRepValidationConfig.tempoMeasurementMode,
+          RangeRepTempoMeasurementMode.quarantined,
           reason: definition.id,
         );
         expect(

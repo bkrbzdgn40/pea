@@ -35,10 +35,12 @@ class RangeRepWorkoutDiagnostics {
     this.validationCount = 0,
     this.validationStatusCounts = const <String, int>{},
     this.validationReasonCounts = const <String, int>{},
+    this.tempoDiagnosticReasonCounts = const <String, int>{},
     this.transitionCounts = const <String, int>{},
     this.lastConfirmedTransition,
     this.lastValidationStatus,
     this.lastValidationReasons = const <String>[],
+    this.lastTempoDiagnosticReasons = const <String>[],
     this.currentSelectedSide,
     this.lastCalibrationOffsetDegrees,
     this.signalRoles = const <RangeRepSignal, Set<AnalysisSignalRole>>{},
@@ -57,10 +59,12 @@ class RangeRepWorkoutDiagnostics {
   final int validationCount;
   final Map<String, int> validationStatusCounts;
   final Map<String, int> validationReasonCounts;
+  final Map<String, int> tempoDiagnosticReasonCounts;
   final Map<String, int> transitionCounts;
   final String? lastConfirmedTransition;
   final String? lastValidationStatus;
   final List<String> lastValidationReasons;
+  final List<String> lastTempoDiagnosticReasons;
   final String? currentSelectedSide;
   final double? lastCalibrationOffsetDegrees;
   final Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles;
@@ -79,10 +83,12 @@ class RangeRepWorkoutDiagnostics {
     int? validationCount,
     Object? validationStatusCounts = _unsetValue,
     Object? validationReasonCounts = _unsetValue,
+    Object? tempoDiagnosticReasonCounts = _unsetValue,
     Object? transitionCounts = _unsetValue,
     Object? lastConfirmedTransition = _unsetValue,
     Object? lastValidationStatus = _unsetValue,
     Object? lastValidationReasons = _unsetValue,
+    Object? lastTempoDiagnosticReasons = _unsetValue,
     Object? currentSelectedSide = _unsetValue,
     Object? lastCalibrationOffsetDegrees = _unsetValue,
     Object? signalRoles = _unsetValue,
@@ -112,6 +118,11 @@ class RangeRepWorkoutDiagnostics {
           : Map<String, int>.unmodifiable(
               validationReasonCounts as Map<String, int>,
             ),
+      tempoDiagnosticReasonCounts: tempoDiagnosticReasonCounts == _unsetValue
+          ? this.tempoDiagnosticReasonCounts
+          : Map<String, int>.unmodifiable(
+              tempoDiagnosticReasonCounts as Map<String, int>,
+            ),
       transitionCounts: transitionCounts == _unsetValue
           ? this.transitionCounts
           : Map<String, int>.unmodifiable(transitionCounts as Map<String, int>),
@@ -124,6 +135,11 @@ class RangeRepWorkoutDiagnostics {
       lastValidationReasons: lastValidationReasons == _unsetValue
           ? this.lastValidationReasons
           : List<String>.unmodifiable(lastValidationReasons as List<String>),
+      lastTempoDiagnosticReasons: lastTempoDiagnosticReasons == _unsetValue
+          ? this.lastTempoDiagnosticReasons
+          : List<String>.unmodifiable(
+              lastTempoDiagnosticReasons as List<String>,
+            ),
       currentSelectedSide: currentSelectedSide == _unsetValue
           ? this.currentSelectedSide
           : currentSelectedSide as String?,
@@ -360,6 +376,9 @@ class WorkoutDiagnosticsSnapshot {
   Map<String, int> get rangeRepValidationReasonCounts =>
       rangeRepDiagnostics?.validationReasonCounts ?? const <String, int>{};
 
+  Map<String, int> get rangeRepTempoDiagnosticReasonCounts =>
+      rangeRepDiagnostics?.tempoDiagnosticReasonCounts ?? const <String, int>{};
+
   String? get lastRangeRepConfirmedTransition =>
       rangeRepDiagnostics?.lastConfirmedTransition;
 
@@ -368,6 +387,9 @@ class WorkoutDiagnosticsSnapshot {
 
   List<String> get lastRangeRepValidationReasons =>
       rangeRepDiagnostics?.lastValidationReasons ?? const <String>[];
+
+  List<String> get lastRangeRepTempoDiagnosticReasons =>
+      rangeRepDiagnostics?.lastTempoDiagnosticReasons ?? const <String>[];
 
   String? get currentSelectedSide => rangeRepDiagnostics?.currentSelectedSide;
 
@@ -569,11 +591,19 @@ class WorkoutDiagnosticsSnapshot {
     'range_rep_validation_reason_counts': rangeRepValidationReasonCounts.isEmpty
         ? null
         : rangeRepValidationReasonCounts,
+    'range_rep_tempo_diagnostic_reason_counts':
+        rangeRepTempoDiagnosticReasonCounts.isEmpty
+        ? null
+        : rangeRepTempoDiagnosticReasonCounts,
     'last_range_rep_confirmed_transition': lastRangeRepConfirmedTransition,
     'last_range_rep_validation_status': lastRangeRepValidationStatus,
     'last_range_rep_validation_reasons': lastRangeRepValidationReasons.isEmpty
         ? null
         : lastRangeRepValidationReasons,
+    'last_range_rep_tempo_diagnostic_reasons':
+        lastRangeRepTempoDiagnosticReasons.isEmpty
+        ? null
+        : lastRangeRepTempoDiagnosticReasons,
     'current_selected_side': currentSelectedSide,
     'last_calibration_offset_degrees': lastCalibrationOffsetDegrees,
     'range_rep_active_timing_trace': activeRangeRepTimingTrace?.toJson(),
@@ -849,6 +879,7 @@ class WorkoutDiagnosticsAccumulator {
   void recordRangeRepValidation({
     required String statusCode,
     required List<String> reasonCodes,
+    List<String> tempoDiagnosticReasonCodes = const <String>[],
   }) {
     final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
     final statusCounts = Map<String, int>.from(previous.validationStatusCounts);
@@ -859,12 +890,25 @@ class WorkoutDiagnosticsAccumulator {
       reasonCounts.update(reasonCode, (count) => count + 1, ifAbsent: () => 1);
     }
 
+    final tempoDiagnosticReasonCounts = Map<String, int>.from(
+      previous.tempoDiagnosticReasonCounts,
+    );
+    for (final reasonCode in tempoDiagnosticReasonCodes) {
+      tempoDiagnosticReasonCounts.update(
+        reasonCode,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+
     _rangeRepDiagnostics = previous.copyWith(
       validationCount: previous.validationCount + 1,
       validationStatusCounts: statusCounts,
       validationReasonCounts: reasonCounts,
+      tempoDiagnosticReasonCounts: tempoDiagnosticReasonCounts,
       lastValidationStatus: statusCode,
       lastValidationReasons: reasonCodes,
+      lastTempoDiagnosticReasons: tempoDiagnosticReasonCodes,
     );
     _holdDiagnostics = null;
   }
@@ -1006,7 +1050,7 @@ class WorkoutDiagnosticsAccumulator {
     final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
     final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 7,
+      schemaVersion: 8,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
