@@ -6,6 +6,7 @@ import 'legacy_range_rep_scorer.dart';
 import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
+import 'models/range_rep_aborted_attempt_detection_data.dart';
 import 'models/range_rep_completed_cycle.dart';
 import 'models/range_rep_completed_rep_detection_data.dart';
 import 'models/range_rep_confirmed_transition.dart';
@@ -67,6 +68,7 @@ class _RangeRepLifecycleFacts {
   _RangeRepLifecycleFacts({
     required this.repStarted,
     required this.repAborted,
+    required this.abortedAttemptDetectionData,
     required this.completedRepDetectionData,
     required this.completedRepCoreData,
     required this.completedCycle,
@@ -80,6 +82,7 @@ class _RangeRepLifecycleFacts {
 
   final bool repStarted;
   final bool repAborted;
+  final RangeRepAbortedAttemptDetectionData? abortedAttemptDetectionData;
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
   final RangeRepCompletedCycle? completedCycle;
@@ -257,6 +260,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   Duration lastDescentTime = Duration.zero;
   Duration lastAscentTime = Duration.zero;
 
+  double? _currentRepStartAngle;
   double _currentRepMinAngle = 180.0;
   double _currentRepWorstBackAngle = 180.0;
   bool _currentRepHadFormViolation = false;
@@ -514,6 +518,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       isArmedAfterUpdate: _isArmed,
       repStarted: lifecycleFacts.repStarted,
       repAborted: lifecycleFacts.repAborted,
+      abortedAttemptDetectionData: lifecycleFacts.abortedAttemptDetectionData,
       completedRepDetectionData: lifecycleFacts.completedRepDetectionData,
       completedRepCoreData: lifecycleFacts.completedRepCoreData,
       completedCycle: lifecycleFacts.completedCycle,
@@ -553,6 +558,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       return _RangeRepLifecycleFacts(
         repStarted: false,
         repAborted: false,
+        abortedAttemptDetectionData: null,
         completedRepDetectionData: null,
         completedRepCoreData: null,
         completedCycle: null,
@@ -634,6 +640,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
     var repStarted = genericResult.repStarted;
     var repAborted = genericResult.repAborted;
+    RangeRepAbortedAttemptDetectionData? abortedAttemptDetectionData;
     RangeRepCompletedRepDetectionData? completedRepDetectionData;
     RangeRepCompletedRepCoreData? completedRepCoreData;
     RangeRepCompletedCycle? completedCycle;
@@ -714,6 +721,24 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         case GenericRepTransitionType.abortToNeutral:
           repStarted = false;
           repAborted = true;
+          final startAngle = _currentRepStartAngle;
+          final descentStartedAt = _descentStartTime;
+          final rawDescentDuration = descentStartedAt == null
+              ? Duration.zero
+              : transition.effectiveAt.difference(descentStartedAt);
+          abortedAttemptDetectionData = RangeRepAbortedAttemptDetectionData(
+            minAngle: _currentRepMinAngle,
+            descentDuration: rawDescentDuration.isNegative
+                ? Duration.zero
+                : rawDescentDuration,
+            startAngle: startAngle,
+            primaryRom: startAngle == null
+                ? null
+                : (startAngle - _currentRepMinAngle)
+                      .abs()
+                      .clamp(0.0, 180.0)
+                      .toDouble(),
+          );
           _resetDetectionRepMetrics();
           if (tracksCompatibilityTechnique) {
             _resetCompatibilityRepMetrics();
@@ -784,6 +809,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     return _RangeRepLifecycleFacts(
       repStarted: repStarted,
       repAborted: repAborted,
+      abortedAttemptDetectionData: abortedAttemptDetectionData,
       completedRepDetectionData: completedRepDetectionData,
       completedRepCoreData: completedRepCoreData,
       completedCycle: completedCycle,
@@ -1164,6 +1190,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _startDetectionRepMetrics(double primaryMetric) {
+    _currentRepStartAngle = primaryMetric;
     _currentRepMinAngle = primaryMetric;
   }
 
@@ -1200,6 +1227,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _resetDetectionRepMetrics() {
+    _currentRepStartAngle = null;
     _currentRepMinAngle = 180.0;
   }
 

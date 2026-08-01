@@ -12,17 +12,26 @@ enum RangeRepTempoMeasurementMode { quarantined, enabled }
 class RangeRepValidationConfig {
   const RangeRepValidationConfig({
     this.minAcceptableRomAngle = 110.0,
+    this.maxAcceptableMinAngle,
     this.minDescentMillis = 250,
     this.minAscentMillis = 200,
     this.minTotalRepMillis,
     this.allowLowConfidenceOnCoverageLoss = true,
     this.invalidateOnPersistentFormBreak = false,
     this.minAcceptableRomDelta,
+    this.invalidateAbortToNeutralAsInsufficientRom = false,
     this.tempoMeasurementMode = RangeRepTempoMeasurementMode.quarantined,
     this.tempoCoachingConfig = const RangeRepTempoCoachingConfig(),
   });
 
   final double minAcceptableRomAngle;
+
+  /// Optional absolute depth ceiling applied in addition to the ROM-delta
+  /// floor. This protects movements whose lifecycle peak threshold can be
+  /// crossed by a shallow or noisy frame while the total ROM delta still
+  /// appears large enough.
+  final double? maxAcceptableMinAngle;
+
   final int minDescentMillis;
   final int minAscentMillis;
 
@@ -41,9 +50,15 @@ class RangeRepValidationConfig {
   /// the primary movement metric is biomechanically trustworthy.
   final bool invalidateOnPersistentFormBreak;
 
-  /// Optional delta-based ROM floor. When present, validation uses
-  /// `startAngle - peakAngle` instead of an absolute minimum angle.
+  /// Optional delta-based ROM floor. When present, this replaces the legacy
+  /// [minAcceptableRomAngle] check. [maxAcceptableMinAngle] may still add an
+  /// independent absolute depth requirement.
   final double? minAcceptableRomDelta;
+
+  /// Records a controlled return to neutral before peak confirmation as one
+  /// rejected shallow attempt. Visibility interruption and hard resync do not
+  /// use the abort-to-neutral transition and therefore remain excluded.
+  final bool invalidateAbortToNeutralAsInsufficientRom;
 
   /// Raw tempo thresholds remain useful for diagnostics while quarantined, but
   /// they must not change rep validity, accepted counts, persistence, or UI.
@@ -60,6 +75,12 @@ class RangeRepValidationPolicy {
 
   final RangeRepValidationConfig config;
 
+  RangeRepValidationResult evaluateShallowAbort() {
+    return RangeRepValidationResult.invalid(const <RangeRepValidationReason>[
+      RangeRepValidationReason.insufficientRom,
+    ]);
+  }
+
   RangeRepValidationResult evaluate(RangeRepRepSummary summary) {
     final invalidReasons = <RangeRepValidationReason>[];
     final lowConfidenceReasons = <RangeRepValidationReason>[];
@@ -69,13 +90,23 @@ class RangeRepValidationPolicy {
       invalidReasons.add(RangeRepValidationReason.incompletePhase);
     }
 
+    var hasInsufficientRom = false;
     final minAcceptableRomDelta = config.minAcceptableRomDelta;
     if (minAcceptableRomDelta != null) {
       final primaryRom = summary.primaryRom;
-      if (primaryRom == null || primaryRom < minAcceptableRomDelta) {
-        invalidReasons.add(RangeRepValidationReason.insufficientRom);
-      }
+      hasInsufficientRom =
+          primaryRom == null || primaryRom < minAcceptableRomDelta;
     } else if (summary.minAngle > config.minAcceptableRomAngle) {
+      hasInsufficientRom = true;
+    }
+
+    final maxAcceptableMinAngle = config.maxAcceptableMinAngle;
+    if (maxAcceptableMinAngle != null &&
+        summary.minAngle > maxAcceptableMinAngle) {
+      hasInsufficientRom = true;
+    }
+
+    if (hasInsufficientRom) {
       invalidReasons.add(RangeRepValidationReason.insufficientRom);
     }
 

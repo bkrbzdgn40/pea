@@ -182,6 +182,27 @@ void main() {
       );
     });
 
+    test('can require absolute depth alongside a ROM-delta floor', () {
+      const depthGatedPolicy = RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(
+          minAcceptableRomDelta: 20,
+          maxAcceptableMinAngle: 110,
+        ),
+      );
+
+      final shallowResult = depthGatedPolicy.evaluate(
+        _summary(minAngle: 111, primaryRom: 49),
+      );
+      final boundaryResult = depthGatedPolicy.evaluate(
+        _summary(minAngle: 110, primaryRom: 50),
+      );
+
+      expect(shallowResult.status, RangeRepValidationStatus.invalid);
+      expect(shallowResult.reasons, [RangeRepValidationReason.insufficientRom]);
+      expect(shallowResult.countsTowardReps, isFalse);
+      expect(boundaryResult.status, RangeRepValidationStatus.valid);
+    });
+
     test(
       'keeps invalid status when non-tempo low-confidence reasons are present',
       () {
@@ -240,6 +261,7 @@ RangeRepRepSummary _summary({
   bool hadCoverageDrop = false,
   bool switchedSideDuringRep = false,
   bool completedPhaseSequence = true,
+  double? primaryRom,
 }) {
   return RangeRepRepSummary(
     repIndex: repIndex,
@@ -254,5 +276,6 @@ RangeRepRepSummary _summary({
     completedPhaseSequence: completedPhaseSequence,
     selectedSideLabel: 'left',
     analysisKindLabel: 'rangeRep',
+    primaryRom: primaryRom,
   );
 }
