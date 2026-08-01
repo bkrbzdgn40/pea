@@ -34,6 +34,7 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
   WorkoutEngine? _engine;
   ExerciseType? _lastForwardedExercise;
   int? _lastForwardedRepCount;
+  int? _lastForwardedValidatedAttemptIndex;
   Duration? _lastForwardedHoldDuration;
   ExerciseType? _selectedExerciseBeforePlan;
   bool _restoreSelectedExerciseOnReset = false;
@@ -80,7 +81,17 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
 
     final WorkoutEngineSnapshot next;
     if (workoutState.rangeRepAnalysis != null) {
-      final repCount = workoutState.repCount;
+      final event = workoutState.validatedRepEvent;
+      if (event != null) {
+        if (_lastForwardedValidatedAttemptIndex == event.attemptIndex) {
+          return snapshot;
+        }
+        _lastForwardedValidatedAttemptIndex = event.attemptIndex;
+        if (!event.countsTowardReps) {
+          return snapshot;
+        }
+      }
+      final repCount = event?.acceptedRepIndex ?? workoutState.repCount;
       if (_lastForwardedExercise == exercise &&
           _lastForwardedRepCount == repCount) {
         return snapshot;
@@ -162,12 +173,14 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     _lastForwardedHoldDuration = snapshot.targetHoldDuration == null
         ? null
         : Duration.zero;
+    _lastForwardedValidatedAttemptIndex = null;
   }
 
   void _clearObservationGate() {
     _lastForwardedExercise = null;
     _lastForwardedRepCount = null;
     _lastForwardedHoldDuration = null;
+    _lastForwardedValidatedAttemptIndex = null;
   }
 
   ExerciseType? get nextExerciseAfterCompletedSet {

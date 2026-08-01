@@ -7,6 +7,8 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 
@@ -661,6 +663,67 @@ void main() {
     expect(publications, isEmpty);
     expect(controller.currentStateSnapshot().isFinishing, isFalse);
   });
+  test(
+    'validated rep events drive persistence without duplicate collection',
+    () async {
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+      controller.startSession(exercise: ExerciseType.lunge);
+
+      final acceptedState = _rangeRepState(
+        repCount: 1,
+        lastRepScore: 88,
+        validatedRepIndex: 1,
+        validationStatus: 'valid',
+        validatedRepEvent: _validatedEvent(
+          attemptIndex: 1,
+          acceptedRepIndex: 1,
+          status: RangeRepValidationStatus.valid,
+          side: ValidatedRepSide.left,
+          finalScore: 88,
+        ),
+      );
+      controller.collect(acceptedState);
+      controller.collect(acceptedState);
+
+      final invalidState = _rangeRepState(
+        repCount: 1,
+        lastRepScore: 0,
+        validatedRepIndex: 2,
+        validationStatus: 'invalid',
+        validationReasons: const <String>['insufficientRom'],
+        validatedRepEvent: _validatedEvent(
+          attemptIndex: 2,
+          acceptedRepIndex: null,
+          status: RangeRepValidationStatus.invalid,
+          side: ValidatedRepSide.right,
+          finalScore: null,
+          reasons: const <RangeRepValidationReason>[
+            RangeRepValidationReason.insufficientRom,
+          ],
+        ),
+      );
+      controller.collect(invalidState);
+
+      final snapshot = controller.currentStateSnapshot();
+      expect(snapshot.completedWorkoutReps, hasLength(2));
+      expect(snapshot.completedWorkoutReps.first.selectedSide, 'left');
+      expect(snapshot.completedWorkoutReps.last.isValidatedAsInvalid, isTrue);
+
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(finalState: invalidState);
+      expect(result.isSuccess, isTrue);
+      expect(result.session!.totalReps, 1);
+      expect(result.session!.validReps, 1);
+      expect(result.session!.invalidReps, 1);
+    },
+  );
 }
 
 WorkoutState _rangeRepState({
@@ -685,6 +748,7 @@ WorkoutState _rangeRepState({
   double? coverageQuality,
   List<RangeRepTechniqueObservation> techniqueObservations =
       const <RangeRepTechniqueObservation>[],
+  ValidatedRepEvent? validatedRepEvent,
 }) {
   return WorkoutState.rangeRep(
     feedbackMessage: feedbackMessage,
@@ -693,6 +757,7 @@ WorkoutState _rangeRepState({
       isFormBad: isFormBad,
       lastRepScore: lastRepScore,
       techniqueObservations: techniqueObservations,
+      validatedRepEvent: validatedRepEvent,
       calibrationMetrics: WorkoutCalibrationMetrics.rangeRep(
         payload: RangeRepWorkoutCalibrationMetrics(
           hasLastRangeRepValidation: true,
@@ -715,6 +780,42 @@ WorkoutState _rangeRepState({
         ),
       ),
     ),
+  );
+}
+
+ValidatedRepEvent _validatedEvent({
+  required int attemptIndex,
+  required int? acceptedRepIndex,
+  required RangeRepValidationStatus status,
+  required ValidatedRepSide side,
+  required double? finalScore,
+  List<RangeRepValidationReason> reasons = const <RangeRepValidationReason>[],
+}) {
+  return ValidatedRepEvent(
+    attemptIndex: attemptIndex,
+    acceptedRepIndex: acceptedRepIndex,
+    exerciseType: ExerciseType.lunge.id,
+    analysisKind: EngineKind.rangeRep.name,
+    validationStatus: status,
+    validationReasons: reasons,
+    tempoDiagnosticReasons: const <RangeRepValidationReason>[],
+    countsTowardReps: status != RangeRepValidationStatus.invalid,
+    side: side,
+    minPrimaryMetric: 110,
+    primaryRom: 50,
+    worstFormMetric: 170,
+    descentDuration: const Duration(milliseconds: 700),
+    ascentDuration: const Duration(milliseconds: 700),
+    hadFormViolation: false,
+    hadCoverageDrop: false,
+    switchedSideDuringRep: false,
+    completedPhaseSequence: true,
+    measurementConfidence: 1,
+    coverageQuality: 1,
+    finalScore: finalScore,
+    tempoAssessment: null,
+    tempoIncludedInScore: false,
+    completedAt: DateTime.utc(2030, 1, 1, 12),
   );
 }
 

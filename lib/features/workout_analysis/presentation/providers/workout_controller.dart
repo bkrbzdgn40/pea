@@ -24,10 +24,10 @@ import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/range_rep_primary_metric_normalizer.dart';
 import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
+import '../../application/validated_rep_event_tracker.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../application/workout_live_metrics.dart';
-import '../../domain/alternating_rep_engine.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
@@ -36,6 +36,7 @@ import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_validation_result.dart';
+import '../../domain/models/validated_rep_event.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../domain/tempo_engine.dart';
@@ -199,7 +200,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       const ExerciseMetricsExtractor();
   final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
   RangeRepAnalysisEngine? _rangeRepEngine;
-  AlternatingRepEngine? _alternatingRepEngine;
+  ValidatedRepEventTracker? _validatedRepEventTracker;
   RangeRepCoordinator? _rangeRepCoordinator;
   RangeRepPrimaryMetricNormalizer? _primaryMetricNormalizer;
   HoldCoordinator? _holdCoordinator;
@@ -273,15 +274,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           now: _clock,
         );
         _rangeRepEngine = rangeRepEngine;
-        _alternatingRepEngine =
+        _validatedRepEventTracker =
             definition.usesAnalysisEngine(ExerciseAnalysisEngine.alternatingRep)
-            ? _engineFactory.createAlternatingRep(
-                config: _config,
-                rangeRepContract: rangeRepContract,
-                minimumRom:
-                    rangeRepValidationConfig.minAcceptableRomDelta ?? 0.0,
-                now: _clock,
-              )
+            ? ValidatedRepEventTracker()
             : null;
         _primaryMetricNormalizer = RangeRepPrimaryMetricNormalizer(
           config: _config,
@@ -305,7 +300,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           now: _clock,
         );
         _rangeRepEngine = null;
-        _alternatingRepEngine = null;
+        _validatedRepEventTracker = null;
         _rangeRepCoordinator = null;
         _primaryMetricNormalizer = null;
         _holdCoordinator = holdCoordinatorFactory(
@@ -754,11 +749,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
   }) {
-    _processAlternatingRepSidecar(
-      metrics: metrics,
-      observedAt: now,
-      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
-    );
     final result = _rangeRepCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
@@ -775,11 +765,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
     final hasCompletedRepOutcome =
         result.diagnosticsUpdate.completedRepValidationStatus != null;
+    final validatedRepEvent = result.validatedRepEvent?.copyWith(
+      exerciseType: _activeExercise.id,
+    );
+    _recordValidatedRepEvent(validatedRepEvent);
     _publishRangeRepState(
       result.stateSnapshot,
+      validatedRepEvent: validatedRepEvent,
       deliverFeedback: !hasCompletedRepOutcome,
     );
-    _publishRangeRepOutcomeIfAny(result);
+    _publishRangeRepOutcomeIfAny(result, validatedRepEvent: validatedRepEvent);
     _applyRangeRepDiagnosticsUpdate(result.diagnosticsUpdate);
     _updateDiagnosticsFromState();
   }
@@ -803,6 +798,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   void _publishRangeRepState(
     RangeRepCoordinatorStateSnapshot snapshot, {
+    ValidatedRepEvent? validatedRepEvent,
     bool deliverFeedback = true,
   }) {
     final feedbackCode = snapshot.feedbackDirective.feedbackCode;
@@ -821,6 +817,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         currentPhase: snapshot.currentPhase,
         calibrationMetrics: snapshot.calibrationMetrics,
         techniqueObservations: snapshot.techniqueObservations,
+        validatedRepEvent: validatedRepEvent,
       ),
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
@@ -838,39 +835,32 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  void _publishRangeRepOutcomeIfAny(RangeRepCoordinatorFrameResult result) {
-    final statusCode = result.diagnosticsUpdate.completedRepValidationStatus;
-    final repIndex =
-        result.stateSnapshot.calibrationMetrics.lastRangeRepValidatedRepIndex;
-    if (statusCode == null || repIndex == null) {
+  void _publishRangeRepOutcomeIfAny(
+    RangeRepCoordinatorFrameResult result, {
+    required ValidatedRepEvent? validatedRepEvent,
+  }) {
+    final event = validatedRepEvent;
+    if (event == null) {
       return;
     }
 
-    final status = _rangeRepValidationStatusFromName(statusCode);
-    if (status == null) {
-      return;
-    }
-
-    final reasons = result.diagnosticsUpdate.completedRepValidationReasons
-        .map(_rangeRepValidationReasonFromName)
-        .whereType<RangeRepValidationReason>()
-        .toList(growable: false);
-    final tempoAssessment =
-        result.diagnosticsUpdate.completedRepTempoAssessment;
-    if (status != RangeRepValidationStatus.invalid &&
+    final status = event.validationStatus;
+    final reasons = event.validationReasons;
+    final tempoAssessment = event.tempoAssessment;
+    if (event.countsTowardReps &&
         tempoAssessment?.isAvailable == true &&
-        _lastRecordedTempoRepIndex != repIndex) {
+        _lastRecordedTempoRepIndex != event.attemptIndex) {
       final measuredTempo = tempoAssessment!.measurement.measuredTempo;
       if (measuredTempo != null) {
         _eligibleTempoSessionAccumulator.record(measuredTempo);
-        _lastRecordedTempoRepIndex = repIndex;
+        _lastRecordedTempoRepIndex = event.attemptIndex;
         _liveMetricsTempo = measuredTempo.totalRepDuration;
         _refreshRangeRepSessionMetricDisplay();
         _publishRangeRepLiveMetricDisplay(result.stateSnapshot.repCount);
       }
     }
     final outcome = mapRangeRepOutcomeToViewData(
-      repIndex: repIndex,
+      repIndex: event.attemptIndex,
       status: status,
       reasons: reasons,
       localizations: ref.read(appLocalizationsProvider),
@@ -911,22 +901,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
-  RangeRepValidationStatus? _rangeRepValidationStatusFromName(String name) {
-    for (final status in RangeRepValidationStatus.values) {
-      if (status.name == name) {
-        return status;
-      }
+  void _recordValidatedRepEvent(ValidatedRepEvent? event) {
+    if (event == null) {
+      return;
     }
-    return null;
-  }
-
-  RangeRepValidationReason? _rangeRepValidationReasonFromName(String name) {
-    for (final reason in RangeRepValidationReason.values) {
-      if (reason.name == name) {
-        return reason;
-      }
+    final tracker = _validatedRepEventTracker;
+    if (tracker == null) {
+      return;
     }
-    return null;
+    tracker.record(event);
   }
 
   void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
@@ -966,32 +949,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  void _processAlternatingRepSidecar({
-    required ExerciseMetrics metrics,
-    required DateTime observedAt,
-    required bool isAcceptedPoseFrame,
-  }) {
-    final engine = _alternatingRepEngine;
-    if (engine == null) {
-      return;
-    }
-
-    if (!isAcceptedPoseFrame) {
-      engine.interrupt();
-      return;
-    }
-
-    final left = metrics.leftRangeRepMetrics;
-    final right = metrics.rightRangeRepMetrics;
-    engine.update(
-      leftPrimaryMetric: left.hasPrimaryAngle ? left.primaryAngle : null,
-      rightPrimaryMetric: right.hasPrimaryAngle ? right.primaryAngle : null,
-      observedAt: observedAt,
-    );
-  }
-
   void _publishRangeRepLiveMetricDisplay(int repCount) {
-    final alternatingRepCount = _alternatingRepEngine?.totalRepCount ?? 0;
+    final alternatingRepCount = _validatedRepEventTracker?.totalRepCount ?? 0;
     if (_liveMetricsRepCount != repCount ||
         _liveMetricsAlternatingRepCount != alternatingRepCount) {
       _liveMetricsRepCount = repCount;
@@ -1011,7 +970,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _refreshRangeRepSessionMetricDisplay() {
     _liveMetricsAsymmetryScore = null;
 
-    final alternating = _alternatingRepEngine;
+    final alternating = _validatedRepEventTracker;
     final asymmetryScore =
         alternating?.symmetrySessionSummary.overallAsymmetryScore;
     if (asymmetryScore != null && asymmetryScore.isFinite) {
@@ -1061,7 +1020,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     final leftMetrics = _lastExerciseMetrics.leftRangeRepMetrics;
     final rightMetrics = _lastExerciseMetrics.rightRangeRepMetrics;
-    if (_alternatingRepEngine != null &&
+    if (_validatedRepEventTracker != null &&
         leftMetrics.hasPrimaryAngle &&
         rightMetrics.hasPrimaryAngle) {
       frameBuilder.set(
@@ -1089,7 +1048,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         );
       }
 
-      final alternating = _alternatingRepEngine;
+      final alternating = _validatedRepEventTracker;
       if (alternating != null) {
         final symmetry = alternating.symmetrySessionSummary;
         leftRepCount = symmetry.leftRepCount;
@@ -1106,12 +1065,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           );
         }
 
-        final totalSideReps = symmetry.leftRepCount + symmetry.rightRepCount;
-        if (totalSideReps > 0) {
+        final totalRomSamples =
+            alternating.leftRomSampleCount + alternating.rightRomSampleCount;
+        if (totalRomSamples > 0) {
           final weightedRom =
-              ((symmetry.leftAverageRom ?? 0) * symmetry.leftRepCount +
-                  (symmetry.rightAverageRom ?? 0) * symmetry.rightRepCount) /
-              totalSideReps;
+              ((symmetry.leftAverageRom ?? 0) * alternating.leftRomSampleCount +
+                  (symmetry.rightAverageRom ?? 0) *
+                      alternating.rightRomSampleCount) /
+              totalRomSamples;
           sessionBuilder.set(ExerciseMetricRegistry.rangeOfMotion, weightedRom);
         }
       }
@@ -1428,7 +1389,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();
       _primaryMetricNormalizer?.reset();
-      _alternatingRepEngine?.interrupt();
       _publishRangeRepState(
         _rangeRepCoordinatorOrThrow().handleLifecycleInterruption(
           reason: reason ?? 'lifecycle interruption',

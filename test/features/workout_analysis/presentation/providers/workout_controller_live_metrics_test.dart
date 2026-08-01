@@ -63,7 +63,7 @@ void main() {
   );
 
   test(
-    'lunge runtime feeds alternating sidecar and publishes symmetry metrics',
+    'lunge runtime resolves 5+5 active sides and withholds an aborted attempt',
     () {
       var now = DateTime.utc(2030, 1, 1);
       final container = ProviderContainer(
@@ -99,30 +99,52 @@ void main() {
       }
 
       void completeRep({required bool leftSide}) {
-        for (final value in <double>[
-          165,
-          165,
-          140,
-          140,
-          110,
-          110,
-          130,
-          130,
-          165,
-          165,
-        ]) {
-          feed(left: leftSide ? value : null, right: leftSide ? null : value);
+        void feedPhase(double value, int frameCount) {
+          for (var index = 0; index < frameCount; index += 1) {
+            feed(left: leftSide ? value : 170, right: leftSide ? 170 : value);
+          }
         }
+
+        // Production range-rep analysis smooths the primary metric over five
+        // frames and confirms every lifecycle transition. Keep each phase long
+        // enough to complete the same validated path used on device.
+        feedPhase(165, 3);
+        feedPhase(140, 8);
+        feedPhase(90, 8);
+        feedPhase(110, 8);
+        feedPhase(170, 8);
       }
 
-      completeRep(leftSide: true);
-      completeRep(leftSide: false);
+      void abortRep({required bool leftSide}) {
+        void feedPhase(double value, int frameCount) {
+          for (var index = 0; index < frameCount; index += 1) {
+            feed(left: leftSide ? value : 170, right: leftSide ? 170 : value);
+          }
+        }
+
+        feedPhase(165, 3);
+        feedPhase(140, 8);
+        feedPhase(170, 8);
+      }
+
+      abortRep(leftSide: false);
+      for (var index = 0; index < 5; index += 1) {
+        completeRep(leftSide: true);
+      }
+      for (var index = 0; index < 5; index += 1) {
+        completeRep(leftSide: false);
+      }
 
       final metrics = controller.liveMetricsSnapshot();
       final display = container.read(workoutLiveMetricsProvider);
       expect(display.asymmetryScore, 0);
-      expect(metrics.leftRepCount, 1);
-      expect(metrics.rightRepCount, 1);
+      expect(metrics.leftRepCount, 5);
+      expect(metrics.rightRepCount, 5);
+      expect(container.read(workoutControllerProvider).repCount, 10);
+      expect(
+        metrics.leftRepCount! + metrics.rightRepCount!,
+        container.read(workoutControllerProvider).repCount,
+      );
       expect(
         metrics.sessionMetrics.valueFor(ExerciseMetricRegistry.symmetry),
         0,
