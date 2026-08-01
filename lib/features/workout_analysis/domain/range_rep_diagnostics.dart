@@ -1,4 +1,5 @@
 import 'models/rep_score_breakdown.dart';
+import 'models/tempo_measurement_assessment.dart';
 import 'range_rep_timing_trace.dart';
 
 const String rangeRepAwaitNeutralPhaseLabel = 'AWAITING_NEUTRAL';
@@ -123,6 +124,7 @@ class RangeRepDiagnosticsSnapshot {
     this.phaseFeedbackCandidate,
     this.activeTimingTrace,
     this.lastEndedTimingTrace,
+    this.lastTempoMeasurementAssessment,
     this.nonMonotonicObservationCount = 0,
   });
 
@@ -144,6 +146,7 @@ class RangeRepDiagnosticsSnapshot {
   final String? phaseFeedbackCandidate;
   final RangeRepTimingTraceSnapshot? activeTimingTrace;
   final RangeRepTimingTraceSnapshot? lastEndedTimingTrace;
+  final TempoMeasurementAssessment? lastTempoMeasurementAssessment;
   final int nonMonotonicObservationCount;
 }
 

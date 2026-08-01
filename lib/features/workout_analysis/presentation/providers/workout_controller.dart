@@ -1214,6 +1214,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             : null,
         activeTimingTrace: timingDiagnostics.activeTimingTrace,
         lastEndedTimingTrace: timingDiagnostics.lastEndedTimingTrace,
+        lastTempoMeasurementAssessment:
+            timingDiagnostics.lastTempoMeasurementAssessment,
         nonMonotonicObservationCount:
             timingDiagnostics.nonMonotonicObservationCount,
       );

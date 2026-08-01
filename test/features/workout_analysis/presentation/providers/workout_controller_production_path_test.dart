@@ -74,7 +74,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v7',
+      'v9',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -88,7 +88,7 @@ void main() {
         final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 8);
+        expect(snapshot.schemaVersion, 9);
         expect(snapshot.exerciseType, 'squat');
         expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
         expect(snapshot.contractProfile, 'rangeRep:squat');
@@ -104,7 +104,7 @@ void main() {
         expect(snapshot.poseQualitySampleCount, 2);
         expect(snapshot.minimumRequiredLikelihoodP50, 0.40);
         expect(snapshot.meanRequiredLikelihoodP50, 0.40);
-        expect(json['schema_version'], 8);
+        expect(json['schema_version'], 9);
         expect(json['exercise_type'], 'squat');
         expect(
           snapshot.cameraViewContract,

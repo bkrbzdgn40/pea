@@ -4,6 +4,7 @@ import 'range_rep_completed_cycle.dart';
 import 'range_rep_completed_rep_detection_data.dart';
 import 'range_rep_confirmed_transition.dart';
 import 'range_rep_contract.dart';
+import 'tempo_measurement_assessment.dart';
 
 class RangeRepEngineFrameResult {
   RangeRepEngineFrameResult({
@@ -13,13 +14,12 @@ class RangeRepEngineFrameResult {
     this.repAborted = false,
     RangeRepCompletedRepDetectionData? completedRepDetectionData,
     RangeRepCompletedRepCoreData? completedRepCoreData,
-    RangeRepCompletedCycle? completedCycle,
+    this.completedCycle,
     RangeRepConfirmedTransition? confirmedTransition,
     List<RangeRepConfirmedTransition>? confirmedTransitions,
     TempoRepResult? completedTempo,
     List<RangeRepPhase> observedRepPhases = const <RangeRepPhase>[],
-  }) : completedCycle = completedCycle,
-       completedRepDetectionData =
+  }) : completedRepDetectionData =
            completedRepDetectionData ?? completedCycle?.detectionData,
        completedRepCoreData =
            completedRepCoreData ?? completedCycle?.compatibilityCoreData,
@@ -46,6 +46,9 @@ class RangeRepEngineFrameResult {
 
   RangeRepConfirmedTransition? get confirmedTransition =>
       confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
+
+  TempoMeasurementAssessment? get tempoMeasurementAssessment =>
+      completedCycle?.tempoMeasurementAssessment;
 
   bool get didCompleteRep => completedRepDetectionData != null;
 }

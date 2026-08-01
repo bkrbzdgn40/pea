@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
 
@@ -1094,6 +1095,15 @@ void main() {
         );
         expect(completedCycle?.completedTempo, same(tempo));
         expect(completedCycle?.timingTrace, same(trace));
+        expect(
+          completedCycle?.tempoMeasurementAssessment.status,
+          TempoMeasurementStatus.eligible,
+        );
+        expect(completedCycle?.tempoMeasurementAssessment.issues, isEmpty);
+        expect(
+          engine.diagnosticsSnapshot.lastTempoMeasurementAssessment,
+          same(completedCycle?.tempoMeasurementAssessment),
+        );
         expect(
           completedCycle?.confirmedTransitions,
           completed.confirmedTransitions,

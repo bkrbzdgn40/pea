@@ -12,7 +12,9 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/tempo_engine.dart';
 
 void main() {
   final startedAt = DateTime.utc(2026, 7, 12, 10);
@@ -44,7 +46,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 8);
+    expect(snapshot.schemaVersion, 9);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -92,11 +94,11 @@ void main() {
     });
   });
 
-  test('schema v8 identifies the exact exercise and contract context', () {
+  test('schema v9 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 8);
+    expect(snapshot.schemaVersion, 9);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -113,7 +115,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v8 identifies hold family and hollow-hold variation', () {
+  test('schema v9 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -375,7 +377,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 8);
+      expect(json['schema_version'], 9);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -429,6 +431,23 @@ void main() {
           currentPhase: 'NEUTRAL',
           signalRoles: RangeRepContracts.squat.signalRoles,
           lastEndedTimingTrace: trace,
+          lastTempoMeasurementAssessment: TempoMeasurementAssessment(
+            status: TempoMeasurementStatus.unavailable,
+            issues: const <TempoMeasurementIssue>[
+              TempoMeasurementIssue.visibilityInterrupted,
+            ],
+            measuredTempo: const TempoRepResult(
+              repIndex: 1,
+              eccentricDuration: Duration(milliseconds: 300),
+              bottomPauseDuration: Duration(milliseconds: 100),
+              concentricDuration: Duration(milliseconds: 400),
+              topPauseDuration: Duration.zero,
+              totalRepDuration: Duration(milliseconds: 800),
+              towardPeakDuration: Duration(milliseconds: 300),
+              returnDuration: Duration(milliseconds: 400),
+            ),
+            trace: trace,
+          ),
           nonMonotonicObservationCount: 2,
         );
 
@@ -445,6 +464,12 @@ void main() {
       expect(serializedTrace['average_observation_interval_ms'], 103.3);
       expect(serializedTrace['max_processing_lag_ms'], 680);
       expect(serializedTrace['had_visibility_gap'], isTrue);
+      expect(serializedTrace['used_sparse_cycle_recovery'], isFalse);
+      final assessmentJson =
+          json['range_rep_last_tempo_measurement_assessment']!
+              as Map<String, Object?>;
+      expect(assessmentJson['status'], 'unavailable');
+      expect(assessmentJson['issues'], <String>['visibilityInterrupted']);
       expect(
         (serializedTrace['transitions']! as List<Object?>).single,
         <String, Object?>{
@@ -541,7 +566,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 8);
+    expect(json['schema_version'], 9);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -837,7 +862,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 8);
+    expect(json['schema_version'], 9);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');

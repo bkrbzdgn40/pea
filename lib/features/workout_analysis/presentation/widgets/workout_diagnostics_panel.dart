@@ -824,12 +824,31 @@ List<Widget> _buildRangeRepTimingTraceRows(
       value: trace.hadVisibilityGap ? 'yes' : 'no',
     ),
     _DiagnosticsRow(
+      label: 'Sparse recovery',
+      value: trace.usedSparseCycleRecovery ? 'yes' : 'no',
+    ),
+    _DiagnosticsRow(
       label: 'Non-monotonic observations',
       value: snapshot.nonMonotonicRangeRepObservationCount.toString(),
     ),
     _DiagnosticsRow(
       label: 'Invalid processing lags',
       value: trace.invalidProcessingLagCount.toString(),
+    ),
+    _DiagnosticsRow(
+      label: 'Tempo measurement status',
+      value: _formatOptionalText(
+        snapshot.lastTempoMeasurementAssessment?.status.name,
+      ),
+    ),
+    _DiagnosticsRow(
+      label: 'Tempo measurement issues',
+      value: _formatStringList(
+        snapshot.lastTempoMeasurementAssessment?.issues
+                .map((issue) => issue.name)
+                .toList(growable: false) ??
+            const <String>[],
+      ),
     ),
     _DiagnosticsRow(label: 'Transitions', value: transitionSummary),
   ];

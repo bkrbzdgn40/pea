@@ -57,6 +57,7 @@ class RangeRepTimingTraceSnapshot {
     this.minPrimaryMetric,
     this.maxPrimaryMetric,
     this.hadVisibilityGap = false,
+    this.usedSparseCycleRecovery = false,
     this.transitions = const <RangeRepTimingTransitionTrace>[],
   });
 
@@ -80,6 +81,7 @@ class RangeRepTimingTraceSnapshot {
   final double? minPrimaryMetric;
   final double? maxPrimaryMetric;
   final bool hadVisibilityGap;
+  final bool usedSparseCycleRecovery;
   final List<RangeRepTimingTransitionTrace> transitions;
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -103,6 +105,7 @@ class RangeRepTimingTraceSnapshot {
     'min_primary_metric': minPrimaryMetric,
     'max_primary_metric': maxPrimaryMetric,
     'had_visibility_gap': hadVisibilityGap,
+    'used_sparse_cycle_recovery': usedSparseCycleRecovery,
     'transitions': transitions
         .map((transition) => transition.toJson())
         .toList(growable: false),
