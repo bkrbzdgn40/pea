@@ -595,6 +595,7 @@ void main() {
         ],
       );
       expect(peak.repStarted, isTrue);
+      expect(peak.usedSparseCycleRecovery, isTrue);
       expect(engine.phase, GenericRepPhase.peak);
 
       clock.advance(const Duration(milliseconds: 250));
@@ -608,6 +609,7 @@ void main() {
         ],
       );
       expect(completed.completedRep, isNotNull);
+      expect(completed.usedSparseCycleRecovery, isTrue);
       expect(completed.completedRep!.startMetric, 165);
       expect(completed.completedRep!.peakMetric, 93);
       expect(completed.completedRep!.rom, 72);
@@ -633,6 +635,7 @@ void main() {
       final peak = engine.update(primaryMetric: 145);
 
       expect(peak.repStarted, isTrue);
+      expect(peak.usedSparseCycleRecovery, isTrue);
       expect(
         peak.confirmedTransition?.type,
         GenericRepTransitionType.reachPeak,
@@ -643,6 +646,7 @@ void main() {
       final completed = engine.update(primaryMetric: 10);
 
       expect(completed.completedRep, isNotNull);
+      expect(completed.usedSparseCycleRecovery, isTrue);
       expect(completed.completedRep!.startMetric, 10);
       expect(completed.completedRep!.peakMetric, 145);
       expect(completed.completedRep!.rom, 135);

@@ -14,11 +14,13 @@ import 'models/range_rep_engine_frame_result.dart';
 import 'models/range_rep_feedback_code.dart';
 import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
+import 'models/tempo_measurement_assessment.dart';
 import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
 import 'range_rep_timing_trace.dart';
 import 'range_rep_timing_trace_recorder.dart';
 import 'tempo_engine.dart';
+import 'tempo_measurement_eligibility_policy.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
@@ -270,6 +272,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
   final RangeRepTimingTraceRecorder _timingTraceRecorder =
       RangeRepTimingTraceRecorder();
+  final TempoMeasurementEligibilityPolicy _tempoMeasurementEligibilityPolicy;
+  TempoMeasurementAssessment? _lastTempoMeasurementAssessment;
   int _nonMonotonicObservationCount = 0;
 
   RangeRepEngine({
@@ -291,8 +295,13 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     Duration neutralConfirmationDuration = const Duration(milliseconds: 100),
     Duration neutralBaselineWindow = Duration.zero,
     double neutralBaselineThresholdMargin = 0.0,
+    TempoMeasurementEligibilityConfig tempoMeasurementEligibilityConfig =
+        const TempoMeasurementEligibilityConfig(),
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now {
+  }) : _now = now ?? DateTime.now,
+       _tempoMeasurementEligibilityPolicy = TempoMeasurementEligibilityPolicy(
+         config: tempoMeasurementEligibilityConfig,
+       ) {
     _genericRepEngine = GenericRepEngine(
       config: GenericRepEngineConfig(
         neutralThreshold: config.thresholdNeutral,
@@ -362,6 +371,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
       activeTimingTrace: _timingTraceRecorder.activeSnapshot,
       lastEndedTimingTrace: _timingTraceRecorder.lastEndedSnapshot,
+      lastTempoMeasurementAssessment: _lastTempoMeasurementAssessment,
       nonMonotonicObservationCount: _nonMonotonicObservationCount,
     );
   }
@@ -413,6 +423,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       )?.code,
       activeTimingTrace: _timingTraceRecorder.activeSnapshot,
       lastEndedTimingTrace: _timingTraceRecorder.lastEndedSnapshot,
+      lastTempoMeasurementAssessment: _lastTempoMeasurementAssessment,
       nonMonotonicObservationCount: _nonMonotonicObservationCount,
     );
   }
@@ -557,6 +568,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       _timingTraceRecorder.start();
     }
     if (_timingTraceRecorder.isActive) {
+      if (genericResult.usedSparseCycleRecovery) {
+        _timingTraceRecorder.markSparseCycleRecovery();
+      }
       _timingTraceRecorder
         ..record(
           phase: _timingTracePhaseFor(genericResult),
@@ -748,12 +762,16 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       final completedTimingTrace = _timingTraceRecorder.finish(
         RangeRepTimingTraceOutcome.completed,
       );
+      final tempoMeasurementAssessment = _tempoMeasurementEligibilityPolicy
+          .evaluate(trace: completedTimingTrace, measuredTempo: completedTempo);
+      _lastTempoMeasurementAssessment = tempoMeasurementAssessment;
       completedCycle = RangeRepCompletedCycle(
         genericCompletedRep: genericResult.completedRep!,
         detectionData: completedRepDetectionData,
         compatibilityCoreData: completedRepCoreData,
         completedTempo: completedTempo,
         timingTrace: completedTimingTrace,
+        tempoMeasurementAssessment: tempoMeasurementAssessment,
         phaseQualityTelemetry: tracksCompatibilityTechnique
             ? _lastCompletedPhaseQualityTelemetry
             : null,
@@ -1345,6 +1363,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     _briefVisibilityGapFrozenPhase = null;
     _briefVisibilityGapWasArmed = false;
     _lastCompletedPhaseQualityTelemetry = null;
+    _lastTempoMeasurementAssessment = null;
     _nonMonotonicObservationCount = 0;
     _timingTraceRecorder.reset();
     _disarm();

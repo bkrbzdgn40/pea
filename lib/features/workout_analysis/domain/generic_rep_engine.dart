@@ -149,6 +149,7 @@ class GenericRepEngineFrameResult {
     this.observedAt,
     this.observationAccepted = true,
     this.observationIssue,
+    this.usedSparseCycleRecovery = false,
   }) : confirmedTransitions = List<GenericRepConfirmedTransition>.unmodifiable(
          confirmedTransitions ??
              (confirmedTransition == null
@@ -173,6 +174,10 @@ class GenericRepEngineFrameResult {
 
   /// Machine-readable reason for a rejected observation.
   final String? observationIssue;
+
+  /// True when missing intermediate lifecycle samples were reconstructed from
+  /// the opt-in sparse-recovery contract.
+  final bool usedSparseCycleRecovery;
 
   GenericRepConfirmedTransition? get confirmedTransition =>
       confirmedTransitions.isEmpty ? null : confirmedTransitions.last;
@@ -333,6 +338,7 @@ class GenericRepEngine {
               ),
             ],
             repStarted: true,
+            usedSparseCycleRecovery: true,
           );
         }
 
@@ -470,6 +476,7 @@ class GenericRepEngine {
             ],
             repAborted: repAborted,
             completedRep: sparseCompletedRep,
+            usedSparseCycleRecovery: true,
           );
         }
         final returnConfirmedAt = _confirmTransition(

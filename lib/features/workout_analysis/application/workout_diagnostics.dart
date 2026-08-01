@@ -10,6 +10,7 @@ import '../domain/models/hold_side.dart';
 import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/models/tempo_measurement_assessment.dart';
 import '../domain/range_rep_timing_trace.dart';
 
 const String _defaultAppCommitSha = String.fromEnvironment(
@@ -46,6 +47,7 @@ class RangeRepWorkoutDiagnostics {
     this.signalRoles = const <RangeRepSignal, Set<AnalysisSignalRole>>{},
     this.activeTimingTrace,
     this.lastEndedTimingTrace,
+    this.lastTempoMeasurementAssessment,
     this.nonMonotonicObservationCount = 0,
   });
 
@@ -70,6 +72,7 @@ class RangeRepWorkoutDiagnostics {
   final Map<RangeRepSignal, Set<AnalysisSignalRole>> signalRoles;
   final RangeRepTimingTraceSnapshot? activeTimingTrace;
   final RangeRepTimingTraceSnapshot? lastEndedTimingTrace;
+  final TempoMeasurementAssessment? lastTempoMeasurementAssessment;
   final int nonMonotonicObservationCount;
 
   RangeRepWorkoutDiagnostics copyWith({
@@ -94,6 +97,7 @@ class RangeRepWorkoutDiagnostics {
     Object? signalRoles = _unsetValue,
     Object? activeTimingTrace = _unsetValue,
     Object? lastEndedTimingTrace = _unsetValue,
+    Object? lastTempoMeasurementAssessment = _unsetValue,
     int? nonMonotonicObservationCount,
   }) {
     return RangeRepWorkoutDiagnostics(
@@ -155,6 +159,10 @@ class RangeRepWorkoutDiagnostics {
       lastEndedTimingTrace: lastEndedTimingTrace == _unsetValue
           ? this.lastEndedTimingTrace
           : lastEndedTimingTrace as RangeRepTimingTraceSnapshot?,
+      lastTempoMeasurementAssessment:
+          lastTempoMeasurementAssessment == _unsetValue
+          ? this.lastTempoMeasurementAssessment
+          : lastTempoMeasurementAssessment as TempoMeasurementAssessment?,
       nonMonotonicObservationCount:
           nonMonotonicObservationCount ?? this.nonMonotonicObservationCount,
     );
@@ -402,6 +410,9 @@ class WorkoutDiagnosticsSnapshot {
   RangeRepTimingTraceSnapshot? get lastEndedRangeRepTimingTrace =>
       rangeRepDiagnostics?.lastEndedTimingTrace;
 
+  TempoMeasurementAssessment? get lastTempoMeasurementAssessment =>
+      rangeRepDiagnostics?.lastTempoMeasurementAssessment;
+
   int get nonMonotonicRangeRepObservationCount =>
       rangeRepDiagnostics?.nonMonotonicObservationCount ?? 0;
 
@@ -608,6 +619,8 @@ class WorkoutDiagnosticsSnapshot {
     'last_calibration_offset_degrees': lastCalibrationOffsetDegrees,
     'range_rep_active_timing_trace': activeRangeRepTimingTrace?.toJson(),
     'range_rep_last_ended_timing_trace': lastEndedRangeRepTimingTrace?.toJson(),
+    'range_rep_last_tempo_measurement_assessment':
+        lastTempoMeasurementAssessment?.toJson(),
     'range_rep_non_monotonic_observation_count':
         nonMonotonicRangeRepObservationCount,
     'current_camera_fps': currentCameraFps,
@@ -991,6 +1004,7 @@ class WorkoutDiagnosticsAccumulator {
     double? calibrationOffsetDegrees,
     RangeRepTimingTraceSnapshot? activeTimingTrace,
     RangeRepTimingTraceSnapshot? lastEndedTimingTrace,
+    TempoMeasurementAssessment? lastTempoMeasurementAssessment,
     int nonMonotonicObservationCount = 0,
   }) {
     final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
@@ -1001,6 +1015,7 @@ class WorkoutDiagnosticsAccumulator {
       signalRoles: signalRoles,
       activeTimingTrace: activeTimingTrace,
       lastEndedTimingTrace: lastEndedTimingTrace,
+      lastTempoMeasurementAssessment: lastTempoMeasurementAssessment,
       nonMonotonicObservationCount: nonMonotonicObservationCount,
     );
     _holdDiagnostics = null;
@@ -1050,7 +1065,7 @@ class WorkoutDiagnosticsAccumulator {
     final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
     final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 8,
+      schemaVersion: 9,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,

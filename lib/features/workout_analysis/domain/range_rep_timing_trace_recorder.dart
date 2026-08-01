@@ -29,6 +29,7 @@ class RangeRepTimingTraceRecorder {
   double? _maxPrimaryMetric;
   int _lastDirection = 0;
   bool _hadVisibilityGap = false;
+  bool _usedSparseCycleRecovery = false;
   final List<RangeRepTimingTransitionTrace> _transitions =
       <RangeRepTimingTransitionTrace>[];
   RangeRepTimingTraceSnapshot? _lastEndedSnapshot;
@@ -155,6 +156,12 @@ class RangeRepTimingTraceRecorder {
     }
   }
 
+  void markSparseCycleRecovery() {
+    if (_isActive) {
+      _usedSparseCycleRecovery = true;
+    }
+  }
+
   RangeRepTimingTraceSnapshot? finish(RangeRepTimingTraceOutcome outcome) {
     if (!_isActive) {
       return null;
@@ -197,6 +204,7 @@ class RangeRepTimingTraceRecorder {
       minPrimaryMetric: _minPrimaryMetric,
       maxPrimaryMetric: _maxPrimaryMetric,
       hadVisibilityGap: _hadVisibilityGap,
+      usedSparseCycleRecovery: _usedSparseCycleRecovery,
       transitions: List<RangeRepTimingTransitionTrace>.unmodifiable(
         _transitions,
       ),
@@ -225,6 +233,7 @@ class RangeRepTimingTraceRecorder {
     _maxPrimaryMetric = null;
     _lastDirection = 0;
     _hadVisibilityGap = false;
+    _usedSparseCycleRecovery = false;
     _transitions.clear();
   }
 }

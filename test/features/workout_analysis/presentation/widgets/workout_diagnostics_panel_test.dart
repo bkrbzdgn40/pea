@@ -13,7 +13,9 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/tempo_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/workout_diagnostics_panel.dart';
 
 const String _missingValue = '\u2014';
@@ -115,6 +117,23 @@ void main() {
       tester,
       snapshotReader: () => _snapshot(
         lastEndedTimingTrace: trace,
+        lastTempoMeasurementAssessment: TempoMeasurementAssessment(
+          status: TempoMeasurementStatus.unavailable,
+          issues: const <TempoMeasurementIssue>[
+            TempoMeasurementIssue.visibilityInterrupted,
+          ],
+          measuredTempo: const TempoRepResult(
+            repIndex: 1,
+            eccentricDuration: Duration(milliseconds: 300),
+            bottomPauseDuration: Duration(milliseconds: 100),
+            concentricDuration: Duration(milliseconds: 400),
+            topPauseDuration: Duration.zero,
+            totalRepDuration: Duration(milliseconds: 800),
+            towardPeakDuration: Duration(milliseconds: 300),
+            returnDuration: Duration(milliseconds: 400),
+          ),
+          trace: trace,
+        ),
         nonMonotonicObservationCount: 2,
       ),
       onReset: () {},
@@ -132,6 +151,10 @@ void main() {
     expect(find.text('3 / 1 / 3'), findsOneWidget);
     expect(find.text('103.3 ms'), findsOneWidget);
     expect(find.text('680 ms'), findsOneWidget);
+    expect(find.text('Sparse recovery'), findsOneWidget);
+    expect(find.text('Tempo measurement status'), findsOneWidget);
+    expect(find.text('unavailable'), findsOneWidget);
+    expect(find.text('visibilityInterrupted'), findsOneWidget);
     expect(find.text('startTowardPeak (+100ms)'), findsOneWidget);
     expect(find.text('2'), findsWidgets);
   });
@@ -449,7 +472,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 8);
+    expect(decoded['schema_version'], 9);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -505,7 +528,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v8_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v9_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -650,7 +673,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 8,
+  int schemaVersion = 9,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -707,6 +730,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
   CameraViewContract? cameraViewContract,
   RangeRepTimingTraceSnapshot? activeTimingTrace,
   RangeRepTimingTraceSnapshot? lastEndedTimingTrace,
+  TempoMeasurementAssessment? lastTempoMeasurementAssessment,
   int nonMonotonicObservationCount = 0,
   String? lastRangeRepValidationStatus,
   List<String> lastRangeRepValidationReasons = const <String>[],
@@ -763,6 +787,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
             signalRoles: rangeRepSignalRoles,
             activeTimingTrace: activeTimingTrace,
             lastEndedTimingTrace: lastEndedTimingTrace,
+            lastTempoMeasurementAssessment: lastTempoMeasurementAssessment,
             nonMonotonicObservationCount: nonMonotonicObservationCount,
             lastValidationStatus: lastRangeRepValidationStatus,
             lastValidationReasons: lastRangeRepValidationReasons,

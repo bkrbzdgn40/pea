@@ -41,6 +41,7 @@ void main() {
         ),
       ]);
       recorder.markVisibilityGap();
+      recorder.markSparseCycleRecovery();
 
       final completed = recorder.finish(RangeRepTimingTraceOutcome.completed);
 
@@ -57,6 +58,7 @@ void main() {
       expect(completed?.maxProcessingLagMs, 40);
       expect(completed?.directionChangeCount, 1);
       expect(completed?.hadVisibilityGap, isTrue);
+      expect(completed?.usedSparseCycleRecovery, isTrue);
       expect(completed?.transitions, hasLength(2));
       expect(
         () => completed?.transitions.add(
