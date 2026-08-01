@@ -671,10 +671,15 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       formMetric: engineFrame.formMetric,
       hasTechniqueViolation: hasTechniqueViolation,
     );
+    final completedCycle = engineResult.completedCycle;
     final completedRepCoreData = _buildCompletedRepCoreData(
-      detectionData: engineResult.completedRepDetectionData,
+      detectionData:
+          completedCycle?.detectionData ??
+          engineResult.completedRepDetectionData,
       techniqueData: completedTechniqueData,
-      totalRepDuration: engineResult.completedTempo?.totalRepDuration,
+      totalRepDuration:
+          completedCycle?.completedTempo?.totalRepDuration ??
+          engineResult.completedTempo?.totalRepDuration,
     );
     if (completedRepCoreData != null) {
       _lastCompletedRepCoreData = completedRepCoreData;
@@ -692,29 +697,10 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hasTechniqueViolation: hasTechniqueViolation,
     );
     final didCompleteRep = engineResult.didCompleteRep;
-    _outcomeTracker.activateCompletedRepOutcomeIfAny(
-      engineKind: EngineKind.rangeRep,
-      analysisKindLabel: EngineKind.rangeRep.name,
+    final completedRepValidationResult = _processCompletedRep(
       completedRepCoreData: completedRepCoreData,
+      postUpdateDiagnostics: postUpdateDiagnostics,
     );
-    final completedRepValidationResult = completedRepCoreData == null
-        ? null
-        : _outcomeTracker.lastRangeRepValidationResult;
-    if (completedRepCoreData != null) {
-      if (completedRepValidationResult?.shouldPublishScore ?? false) {
-        _scoreCompletedRep(
-          completedRepCoreData: completedRepCoreData,
-          postUpdateDiagnostics: postUpdateDiagnostics,
-          validationResult: completedRepValidationResult!,
-        );
-        _lastAcceptedRepRom = _engine.lastRepRom;
-      } else {
-        _lastRepScore = 0.0;
-        _lastAcceptedRepRom = 0.0;
-        _lastRepScoreBreakdown = null;
-      }
-      _refreshRepTelemetry();
-    }
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
@@ -1157,6 +1143,36 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       RangeRepFeedbackCode.stabilizeTransition ||
       RangeRepFeedbackCode.maintainForm => FeedbackPriority.corrective,
     };
+  }
+
+  RangeRepValidationResult? _processCompletedRep({
+    required RangeRepCompletedRepCoreData? completedRepCoreData,
+    required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
+  }) {
+    _outcomeTracker.activateCompletedRepOutcomeIfAny(
+      engineKind: EngineKind.rangeRep,
+      analysisKindLabel: EngineKind.rangeRep.name,
+      completedRepCoreData: completedRepCoreData,
+    );
+    if (completedRepCoreData == null) {
+      return null;
+    }
+
+    final validationResult = _outcomeTracker.lastRangeRepValidationResult;
+    if (validationResult?.shouldPublishScore ?? false) {
+      _scoreCompletedRep(
+        completedRepCoreData: completedRepCoreData,
+        postUpdateDiagnostics: postUpdateDiagnostics,
+        validationResult: validationResult!,
+      );
+      _lastAcceptedRepRom = _engine.lastRepRom;
+    } else {
+      _lastRepScore = 0.0;
+      _lastAcceptedRepRom = 0.0;
+      _lastRepScoreBreakdown = null;
+    }
+    _refreshRepTelemetry();
+    return validationResult;
   }
 
   RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({

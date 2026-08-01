@@ -1,5 +1,6 @@
 import '../range_rep_diagnostics.dart';
 import '../tempo_engine.dart';
+import 'range_rep_completed_cycle.dart';
 import 'range_rep_completed_rep_detection_data.dart';
 import 'range_rep_confirmed_transition.dart';
 import 'range_rep_contract.dart';
@@ -10,14 +11,22 @@ class RangeRepEngineFrameResult {
     required this.isArmedAfterUpdate,
     this.repStarted = false,
     this.repAborted = false,
-    this.completedRepDetectionData,
-    this.completedRepCoreData,
+    RangeRepCompletedRepDetectionData? completedRepDetectionData,
+    RangeRepCompletedRepCoreData? completedRepCoreData,
+    RangeRepCompletedCycle? completedCycle,
     RangeRepConfirmedTransition? confirmedTransition,
     List<RangeRepConfirmedTransition>? confirmedTransitions,
-    this.completedTempo,
+    TempoRepResult? completedTempo,
     List<RangeRepPhase> observedRepPhases = const <RangeRepPhase>[],
-  }) : confirmedTransitions = List<RangeRepConfirmedTransition>.unmodifiable(
+  }) : completedCycle = completedCycle,
+       completedRepDetectionData =
+           completedRepDetectionData ?? completedCycle?.detectionData,
+       completedRepCoreData =
+           completedRepCoreData ?? completedCycle?.compatibilityCoreData,
+       completedTempo = completedTempo ?? completedCycle?.completedTempo,
+       confirmedTransitions = List<RangeRepConfirmedTransition>.unmodifiable(
          confirmedTransitions ??
+             completedCycle?.confirmedTransitions ??
              (confirmedTransition == null
                  ? const <RangeRepConfirmedTransition>[]
                  : <RangeRepConfirmedTransition>[confirmedTransition]),
@@ -30,6 +39,7 @@ class RangeRepEngineFrameResult {
   final bool repAborted;
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
+  final RangeRepCompletedCycle? completedCycle;
   final List<RangeRepConfirmedTransition> confirmedTransitions;
   final TempoRepResult? completedTempo;
   final List<RangeRepPhase> observedRepPhases;
