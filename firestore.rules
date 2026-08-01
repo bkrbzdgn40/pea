@@ -50,6 +50,31 @@ service cloud.firestore {
       return value == null || value is bool;
     }
 
+    function isNullableList(value) {
+      return value == null || value is list;
+    }
+
+    function isNullableTempoMeasurementStatus(value) {
+      return value == null ||
+        value == 'eligible' ||
+        value == 'unavailable';
+    }
+
+    function isNullableTempoQuality(value) {
+      return value == null ||
+        value == 'unavailable' ||
+        value == 'target' ||
+        value == 'tooFast' ||
+        value == 'tooSlow';
+    }
+
+    function isNullableTempoSeverity(value) {
+      return value == null ||
+        value == 'none' ||
+        value == 'mild' ||
+        value == 'strong';
+    }
+
     function isNullableTimestamp(value) {
       return value == null || value is timestamp;
     }
@@ -179,6 +204,13 @@ service cloud.firestore {
         'primaryRom',
         'eccentricMillis',
         'concentricMillis',
+        'tempoMeasurementStatus',
+        'tempoMeasurementIssues',
+        'tempoQuality',
+        'tempoSeverity',
+        'tempoReasons',
+        'tempoIncludedInScore',
+        'tempoTotalMillis',
         'techniqueObservations',
         'coverageQuality',
         'feedback',
@@ -248,9 +280,27 @@ service cloud.firestore {
         isNullableNonNegativeInt(
           request.resource.data.get('concentricMillis', null),
         ) &&
-        (
-          request.resource.data.get('techniqueObservations', null) == null ||
-          request.resource.data.get('techniqueObservations', null) is list
+        isNullableTempoMeasurementStatus(
+          request.resource.data.get('tempoMeasurementStatus', null),
+        ) &&
+        isNullableList(
+          request.resource.data.get('tempoMeasurementIssues', null),
+        ) &&
+        isNullableTempoQuality(
+          request.resource.data.get('tempoQuality', null),
+        ) &&
+        isNullableTempoSeverity(
+          request.resource.data.get('tempoSeverity', null),
+        ) &&
+        isNullableList(request.resource.data.get('tempoReasons', null)) &&
+        isNullableBool(
+          request.resource.data.get('tempoIncludedInScore', null),
+        ) &&
+        isNullableNonNegativeInt(
+          request.resource.data.get('tempoTotalMillis', null),
+        ) &&
+        isNullableList(
+          request.resource.data.get('techniqueObservations', null),
         ) &&
         isNullableUnitInterval(
           request.resource.data.get('coverageQuality', null),

@@ -17,10 +17,12 @@ import '../domain/models/range_rep_engine_frame_result.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
 import '../domain/models/range_rep_validation_result.dart';
+import '../domain/models/rep_tempo_assessment.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_diagnostics.dart';
+import '../domain/range_rep_tempo_coaching_policy.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'analysis_frame_builder.dart';
 import 'calibration_snapshot_builder.dart';
@@ -88,6 +90,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
     this.completedRepValidationStatus,
     this.completedRepValidationReasons = const <String>[],
     this.completedRepTempoDiagnosticReasons = const <String>[],
+    this.completedRepTempoAssessment,
     this.recordAcceptedPoseFrame = false,
     this.recordPoseReacquisition = false,
     this.recordBriefOcclusion = false,
@@ -104,6 +107,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
   final String? completedRepValidationStatus;
   final List<String> completedRepValidationReasons;
   final List<String> completedRepTempoDiagnosticReasons;
+  final RepTempoAssessment? completedRepTempoAssessment;
   final bool recordAcceptedPoseFrame;
   final bool recordPoseReacquisition;
   final bool recordBriefOcclusion;
@@ -184,6 +188,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _config = config,
        _rangeRepContract = rangeRepContract,
        _rangeRepValidationConfig = rangeRepValidationConfig,
+       _tempoCoachingPolicy = RangeRepTempoCoachingPolicy(
+         config: rangeRepValidationConfig.tempoCoachingConfig,
+       ),
        _primaryMetricFilter = MovingAverageFilter(
          windowSize: rangeRepContract.primaryMetricSmoothingWindow,
        ),
@@ -233,6 +240,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
   final RangeRepValidationConfig _rangeRepValidationConfig;
+  final RangeRepTempoCoachingPolicy _tempoCoachingPolicy;
   final LegacyRangeRepScorer _scorer;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final LegacyRangeRepTechniqueHistoryTracker _techniqueHistoryTracker;
@@ -270,6 +278,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   double _lastAcceptedRepRom = 0.0;
   RepScoreBreakdown? _lastRepScoreBreakdown;
   RangeRepCompletedRepCoreData? _lastCompletedRepCoreData;
+  RepTempoAssessment? _lastRepTempoAssessment;
   bool _isFormBad = false;
   RangeRepFeedbackCode _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
   String _feedbackPhaseKey = 'awaitingNeutral';
@@ -672,6 +681,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hasTechniqueViolation: hasTechniqueViolation,
     );
     final completedCycle = engineResult.completedCycle;
+    final completedRepTempoAssessment = completedCycle == null
+        ? null
+        : _tempoCoachingPolicy.evaluate(
+            completedCycle.tempoMeasurementAssessment,
+          );
+    if (completedRepTempoAssessment != null) {
+      _lastRepTempoAssessment = completedRepTempoAssessment;
+    }
     final completedRepCoreData = _buildCompletedRepCoreData(
       detectionData:
           completedCycle?.detectionData ??
@@ -700,6 +717,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     final completedRepValidationResult = _processCompletedRep(
       completedRepCoreData: completedRepCoreData,
       postUpdateDiagnostics: postUpdateDiagnostics,
+      tempoAssessment: completedRepTempoAssessment,
     );
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
@@ -788,6 +806,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
                 .map((reason) => reason.name)
                 .toList(growable: false) ??
             const <String>[],
+        completedRepTempoAssessment: completedRepTempoAssessment,
         recordAcceptedPoseFrame: true,
         recordPoseReacquisition: didReacquire,
         recordBriefOcclusionRecovery: recordBriefOcclusionRecovery,
@@ -1148,6 +1167,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepValidationResult? _processCompletedRep({
     required RangeRepCompletedRepCoreData? completedRepCoreData,
     required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
+    required RepTempoAssessment? tempoAssessment,
   }) {
     _outcomeTracker.activateCompletedRepOutcomeIfAny(
       engineKind: EngineKind.rangeRep,
@@ -1164,6 +1184,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         completedRepCoreData: completedRepCoreData,
         postUpdateDiagnostics: postUpdateDiagnostics,
         validationResult: validationResult!,
+        tempoAssessment: tempoAssessment,
       );
       _lastAcceptedRepRom = _engine.lastRepRom;
     } else {
@@ -1207,6 +1228,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepCompletedRepCoreData completedRepCoreData,
     required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
     required RangeRepValidationResult validationResult,
+    required RepTempoAssessment? tempoAssessment,
   }) {
     final startAngle = completedRepCoreData.startAngle;
     final primaryRom = completedRepCoreData.primaryRom;
@@ -1293,8 +1315,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             idealSeconds: minTotalRepSeconds,
             tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
           );
-    final descentScore = totalRepTempoScore ?? phaseDescentScore;
-    final ascentScore = totalRepTempoScore ?? phaseAscentScore;
+    final useLegacyTotalRepTempoScore =
+        tempoAssessment?.coachingEnabled != true;
+    final descentScore = useLegacyTotalRepTempoScore
+        ? totalRepTempoScore ?? phaseDescentScore
+        : phaseDescentScore;
+    final ascentScore = useLegacyTotalRepTempoScore
+        ? totalRepTempoScore ?? phaseAscentScore
+        : phaseAscentScore;
     final tempoScore = (descentScore + ascentScore) / 2;
     final depthScore = romScore;
     final descentControlScore = descentScore;
@@ -1311,7 +1339,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
           );
     final includeTempoInMainScore =
-        validationResult.shouldIncludeTempoInMainScore;
+        (tempoAssessment?.shouldIncludeInScore ?? false) &&
+        validationResult.allowsTempoInMainScore;
     final effectiveWeightedBaseScore = includeTempoInMainScore
         ? weightedBaseScore
         : scoreWeights == null
@@ -1383,7 +1412,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       );
     }
     if (includeTempoInMainScore) {
-      if (totalRepTempoScore != null) {
+      if (totalRepTempoScore != null && useLegacyTotalRepTempoScore) {
         if (totalRepTempoScore < 100.0) {
           penaltyTraces.add(
             RepScorePenaltyTrace(
@@ -1639,6 +1668,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       lastBreakdown: _lastRepScoreBreakdown,
       lastValidationResult: _outcomeTracker.lastRangeRepValidationResult,
       lastSummaryCandidate: _outcomeTracker.lastRangeRepRepSummaryCandidate,
+      lastTempoAssessment: _lastRepTempoAssessment,
       lastRangeRepValidatedRepIndex:
           _outcomeTracker.lastRangeRepValidatedRepIndex,
       rangeRepValidatedCount: _outcomeTracker.rangeRepValidatedCount,

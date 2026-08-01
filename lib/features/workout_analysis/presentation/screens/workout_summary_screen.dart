@@ -200,6 +200,47 @@ List<MapEntry<String, String>> _summaryValues(
     );
   }
 
+  final averageTempo = _resolvedMetricValue(
+    liveMetrics,
+    fallbackMetrics,
+    ExerciseMetricRegistry.tempo,
+  );
+  if (averageTempo != null) {
+    values.add(
+      MapEntry(
+        localizations.averageTempo,
+        _formatRepDuration(localizations, averageTempo),
+      ),
+    );
+    final fastestRepDuration = liveMetrics?.fastestRepDuration;
+    if (fastestRepDuration != null) {
+      values.add(
+        MapEntry(
+          localizations.fastestRep,
+          _formatRepDuration(localizations, fastestRepDuration),
+        ),
+      );
+    }
+    final slowestRepDuration = liveMetrics?.slowestRepDuration;
+    if (slowestRepDuration != null) {
+      values.add(
+        MapEntry(
+          localizations.slowestRep,
+          _formatRepDuration(localizations, slowestRepDuration),
+        ),
+      );
+    }
+    final tempoConsistencyScore = liveMetrics?.tempoConsistencyScore;
+    if (tempoConsistencyScore != null) {
+      values.add(
+        MapEntry(
+          localizations.tempoConsistency,
+          tempoConsistencyScore.toStringAsFixed(0),
+        ),
+      );
+    }
+  }
+
   if (liveMetrics?.hasBilateralRepCounts ?? false) {
     values
       ..add(
@@ -251,4 +292,9 @@ T? _resolvedMetricValue<T extends Object>(
 ) {
   return liveMetrics?.sessionMetrics.valueFor(definition) ??
       fallbackMetrics.valueFor(definition);
+}
+
+String _formatRepDuration(AppLocalizations localizations, Duration duration) {
+  final seconds = (duration.inMilliseconds / 1000).toStringAsFixed(1);
+  return localizations.pick(tr: '$seconds sn', en: '$seconds s');
 }

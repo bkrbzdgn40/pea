@@ -1,4 +1,5 @@
 import 'models/range_rep_rep_summary.dart';
+import 'range_rep_tempo_coaching_policy.dart';
 import 'models/range_rep_validation_result.dart';
 
 /// Controls whether raw range-rep tempo observations may affect the user-facing
@@ -18,6 +19,7 @@ class RangeRepValidationConfig {
     this.invalidateOnPersistentFormBreak = false,
     this.minAcceptableRomDelta,
     this.tempoMeasurementMode = RangeRepTempoMeasurementMode.quarantined,
+    this.tempoCoachingConfig = const RangeRepTempoCoachingConfig(),
   });
 
   final double minAcceptableRomAngle;
@@ -46,6 +48,10 @@ class RangeRepValidationConfig {
   /// Raw tempo thresholds remain useful for diagnostics while quarantined, but
   /// they must not change rep validity, accepted counts, persistence, or UI.
   final RangeRepTempoMeasurementMode tempoMeasurementMode;
+
+  /// User-facing tempo coaching remains opt-in per exercise. Measurement
+  /// eligibility is evaluated independently before this config is used.
+  final RangeRepTempoCoachingConfig tempoCoachingConfig;
 }
 
 /// Standalone range-rep validator used by the runtime validation outcome flow.

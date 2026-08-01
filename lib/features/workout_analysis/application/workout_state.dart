@@ -10,6 +10,7 @@ import '../domain/models/hold_side.dart';
 import '../domain/models/hold_technique_assessment.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
+import '../domain/models/rep_tempo_assessment.dart';
 import 'engine_kind.dart';
 
 class RangeRepWorkoutCalibrationMetrics {
@@ -90,6 +91,8 @@ class RangeRepWorkoutCalibrationMetrics {
     this.lastRangeRepSummarySwitchedSideDuringRep = false,
     this.lastRangeRepSummaryCompletedPhaseSequence = false,
     this.lastRangeRepSummarySelectedSideLabel,
+    this.lastRepTempoAssessment,
+    this.lastRepTempoIncludedInScore = false,
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -190,6 +193,8 @@ class RangeRepWorkoutCalibrationMetrics {
   final bool lastRangeRepSummarySwitchedSideDuringRep;
   final bool lastRangeRepSummaryCompletedPhaseSequence;
   final String? lastRangeRepSummarySelectedSideLabel;
+  final RepTempoAssessment? lastRepTempoAssessment;
+  final bool lastRepTempoIncludedInScore;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
@@ -457,6 +462,10 @@ class WorkoutCalibrationMetrics {
       _rangeRep?.lastRangeRepSummaryCompletedPhaseSequence ?? false;
   String? get lastRangeRepSummarySelectedSideLabel =>
       _rangeRep?.lastRangeRepSummarySelectedSideLabel;
+  RepTempoAssessment? get lastRepTempoAssessment =>
+      _rangeRep?.lastRepTempoAssessment;
+  bool get lastRepTempoIncludedInScore =>
+      _rangeRep?.lastRepTempoIncludedInScore ?? false;
   bool get hasLastRepBreakdown => _rangeRep?.hasLastRepBreakdown ?? false;
   double get lastRepRomScore => _rangeRep?.lastRepRomScore ?? 0.0;
   double get lastRepDescentScore => _rangeRep?.lastRepDescentScore ?? 0.0;

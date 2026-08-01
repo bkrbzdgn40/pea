@@ -1,6 +1,7 @@
 import '../../../../app/localization/app_localizations.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/range_rep_validation_result.dart';
+import '../../domain/models/rep_tempo_assessment.dart';
 import '../models/range_rep_outcome_view_data.dart';
 
 RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
@@ -8,28 +9,45 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
   required RangeRepValidationStatus status,
   required List<RangeRepValidationReason> reasons,
   required AppLocalizations localizations,
+  ExerciseType? exerciseType,
+  RepTempoAssessment? tempoAssessment,
+  bool towardPeakIsEccentric = true,
 }) {
   final primaryReason = _selectPrimaryReason(reasons);
   final hasTechniqueCaution = reasons.any(
     (reason) => reason == RangeRepValidationReason.persistentFormBreak,
   );
   final hasLimitedMeasurementConfidence = reasons.any(
-    (reason) =>
-        reason.isTempoMeasurementReason || reason.isMeasurementQualityReason,
+    (reason) => reason.isMeasurementQualityReason,
   );
+  final tempoMeasurementUnavailable =
+      tempoAssessment?.coachingEnabled == true &&
+      !(tempoAssessment?.isAvailable ?? false);
 
   return switch (status) {
     RangeRepValidationStatus.valid => RangeRepOutcomeViewData(
       repIndex: repIndex,
       status: status,
       title: localizations.pick(tr: 'Geçerli tekrar', en: 'Valid rep'),
-      message: localizations.pick(
-        tr: 'Tekrar sayıldı. Hareket aralığı ve temel form koşulları karşılandı.',
-        en: 'Rep counted. Range of motion and basic form requirements were met.',
+      message: _validMessage(
+        localizations: localizations,
+        exerciseType: exerciseType,
+        tempoAssessment: tempoAssessment,
+        towardPeakIsEccentric: towardPeakIsEccentric,
       ),
-      tone: RangeRepOutcomeTone.positive,
+      tone:
+          tempoAssessment?.quality == RepTempoQuality.tooFast ||
+              tempoAssessment?.quality == RepTempoQuality.tooSlow
+          ? RangeRepOutcomeTone.caution
+          : RangeRepOutcomeTone.positive,
       techniqueOutcome: RangeRepTechniqueOutcome.accepted,
-      measurementConfidence: RangeRepMeasurementConfidence.reliable,
+      measurementConfidence:
+          hasLimitedMeasurementConfidence || tempoMeasurementUnavailable
+          ? RangeRepMeasurementConfidence.limited
+          : RangeRepMeasurementConfidence.reliable,
+      tempoQuality: tempoAssessment?.quality,
+      tempoSeverity: tempoAssessment?.severity,
+      tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
     ),
     RangeRepValidationStatus.lowConfidence => RangeRepOutcomeViewData(
       repIndex: repIndex,
@@ -46,6 +64,9 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
       measurementConfidence: hasLimitedMeasurementConfidence
           ? RangeRepMeasurementConfidence.limited
           : RangeRepMeasurementConfidence.reliable,
+      tempoQuality: tempoAssessment?.quality,
+      tempoSeverity: tempoAssessment?.severity,
+      tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
     ),
     RangeRepValidationStatus.invalid => RangeRepOutcomeViewData(
       repIndex: repIndex,
@@ -58,8 +79,95 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
       measurementConfidence: hasLimitedMeasurementConfidence
           ? RangeRepMeasurementConfidence.limited
           : RangeRepMeasurementConfidence.reliable,
+      tempoQuality: tempoAssessment?.quality,
+      tempoSeverity: tempoAssessment?.severity,
+      tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
     ),
   };
+}
+
+String _validMessage({
+  required AppLocalizations localizations,
+  required ExerciseType? exerciseType,
+  required RepTempoAssessment? tempoAssessment,
+  required bool towardPeakIsEccentric,
+}) {
+  final assessment = tempoAssessment;
+  if (assessment == null || !assessment.coachingEnabled) {
+    return localizations.pick(
+      tr: 'Tekrar sayıldı. Hareket aralığı ve temel form koşulları karşılandı.',
+      en: 'Rep counted. Range of motion and basic form requirements were met.',
+    );
+  }
+
+  return switch (assessment.quality) {
+    RepTempoQuality.target => localizations.pick(
+      tr: 'Tekrar sayıldı. Tempo hedef aralıkta.',
+      en: 'Rep counted. Tempo was within the target range.',
+    ),
+    RepTempoQuality.tooFast => _tempoExecutionMessage(
+      localizations: localizations,
+      exerciseType: exerciseType,
+      assessment: assessment,
+      tooFast: true,
+      towardPeakIsEccentric: towardPeakIsEccentric,
+    ),
+    RepTempoQuality.tooSlow => _tempoExecutionMessage(
+      localizations: localizations,
+      exerciseType: exerciseType,
+      assessment: assessment,
+      tooFast: false,
+      towardPeakIsEccentric: towardPeakIsEccentric,
+    ),
+    RepTempoQuality.unavailable => localizations.pick(
+      tr: 'Tekrar sayıldı. Tempo bu tekrar için değerlendirilemedi ve skora dahil edilmedi.',
+      en: 'Rep counted. Tempo could not be evaluated for this rep and was not included in the score.',
+    ),
+  };
+}
+
+String _tempoExecutionMessage({
+  required AppLocalizations localizations,
+  required ExerciseType? exerciseType,
+  required RepTempoAssessment assessment,
+  required bool tooFast,
+  required bool towardPeakIsEccentric,
+}) {
+  final primaryReason = assessment.reasons.isEmpty
+      ? null
+      : assessment.reasons.first;
+  final towardPeak = switch (primaryReason) {
+    RepTempoReason.eccentricTooFast ||
+    RepTempoReason.eccentricTooSlow => towardPeakIsEccentric,
+    RepTempoReason.concentricTooFast ||
+    RepTempoReason.concentricTooSlow => !towardPeakIsEccentric,
+    _ => null,
+  };
+  final phaseLabel = towardPeak == null
+      ? null
+      : rangeRepTempoPhaseLabel(
+          localizations,
+          exerciseType: exerciseType,
+          towardPeak: towardPeak,
+        );
+  if (phaseLabel == null) {
+    return localizations.pick(
+      tr: tooFast
+          ? 'Tekrar sayıldı. Hareket temposu hedef aralıktan daha hızlıydı.'
+          : 'Tekrar sayıldı. Hareket temposu hedef aralıktan daha yavaştı.',
+      en: tooFast
+          ? 'Rep counted. Movement tempo was faster than the target range.'
+          : 'Rep counted. Movement tempo was slower than the target range.',
+    );
+  }
+  return localizations.pick(
+    tr: tooFast
+        ? 'Tekrar sayıldı. $phaseLabel hedef aralıktan daha hızlıydı.'
+        : 'Tekrar sayıldı. $phaseLabel hedef aralıktan daha yavaştı.',
+    en: tooFast
+        ? 'Rep counted. $phaseLabel was faster than the target range.'
+        : 'Rep counted. $phaseLabel was slower than the target range.',
+  );
 }
 
 RangeRepValidationReason? _selectPrimaryReason(

@@ -3,6 +3,7 @@ import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
 import '../domain/models/range_rep_rep_summary.dart';
 import '../domain/models/range_rep_validation_result.dart';
+import '../domain/models/rep_tempo_assessment.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/range_rep_diagnostics.dart';
@@ -38,6 +39,8 @@ class RangeRepRepTelemetrySnapshot {
     this.lastRangeRepSummarySwitchedSideDuringRep = false,
     this.lastRangeRepSummaryCompletedPhaseSequence = false,
     this.lastRangeRepSummarySelectedSideLabel,
+    this.lastRepTempoAssessment,
+    this.lastRepTempoIncludedInScore = false,
     this.hasLastRepBreakdown = false,
     this.lastRepRomScore = 0.0,
     this.lastRepDescentScore = 0.0,
@@ -68,6 +71,8 @@ class RangeRepRepTelemetrySnapshot {
   final bool lastRangeRepSummarySwitchedSideDuringRep;
   final bool lastRangeRepSummaryCompletedPhaseSequence;
   final String? lastRangeRepSummarySelectedSideLabel;
+  final RepTempoAssessment? lastRepTempoAssessment;
+  final bool lastRepTempoIncludedInScore;
   final bool hasLastRepBreakdown;
   final double lastRepRomScore;
   final double lastRepDescentScore;
@@ -90,6 +95,7 @@ class WorkoutCalibrationMetricsBuilder {
     required RepScoreBreakdown? lastBreakdown,
     required RangeRepValidationResult? lastValidationResult,
     required RangeRepRepSummary? lastSummaryCandidate,
+    RepTempoAssessment? lastTempoAssessment,
     required String? rangeRepSideHysteresisStatus,
     required String? rangeRepSideConsistencyStatus,
     required CalibrationSnapshot? calibrationSnapshot,
@@ -146,6 +152,7 @@ class WorkoutCalibrationMetricsBuilder {
       lastBreakdown: lastBreakdown,
       lastValidationResult: lastValidationResult,
       lastSummaryCandidate: lastSummaryCandidate,
+      lastTempoAssessment: lastTempoAssessment,
       lastRangeRepValidatedRepIndex: lastRangeRepValidatedRepIndex,
       rangeRepValidatedCount: rangeRepValidatedCount,
       rangeRepLowConfidenceCount: rangeRepLowConfidenceCount,
@@ -219,6 +226,7 @@ class WorkoutCalibrationMetricsBuilder {
     required RepScoreBreakdown? lastBreakdown,
     required RangeRepValidationResult? lastValidationResult,
     required RangeRepRepSummary? lastSummaryCandidate,
+    RepTempoAssessment? lastTempoAssessment,
     required int? lastRangeRepValidatedRepIndex,
     required int rangeRepValidatedCount,
     required int rangeRepLowConfidenceCount,
@@ -258,6 +266,9 @@ class WorkoutCalibrationMetricsBuilder {
           lastSummaryCandidate?.completedPhaseSequence ?? false,
       lastRangeRepSummarySelectedSideLabel:
           lastSummaryCandidate?.selectedSideLabel,
+      lastRepTempoAssessment: lastTempoAssessment,
+      lastRepTempoIncludedInScore:
+          lastBreakdown?.tempoIncludedInFinalScore ?? false,
       hasLastRepBreakdown: lastBreakdown != null,
       lastRepRomScore: lastBreakdown?.romScore ?? 0,
       lastRepDescentScore: lastBreakdown?.descentScore ?? 0,
@@ -442,6 +453,8 @@ class WorkoutCalibrationMetricsBuilder {
             repTelemetry.lastRangeRepSummaryCompletedPhaseSequence,
         lastRangeRepSummarySelectedSideLabel:
             repTelemetry.lastRangeRepSummarySelectedSideLabel,
+        lastRepTempoAssessment: repTelemetry.lastRepTempoAssessment,
+        lastRepTempoIncludedInScore: repTelemetry.lastRepTempoIncludedInScore,
         hasLastRepBreakdown: repTelemetry.hasLastRepBreakdown,
         lastRepRomScore: repTelemetry.lastRepRomScore,
         lastRepDescentScore: repTelemetry.lastRepDescentScore,

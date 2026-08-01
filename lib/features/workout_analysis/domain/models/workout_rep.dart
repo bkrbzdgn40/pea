@@ -22,6 +22,13 @@ class WorkoutRep {
     this.primaryRom,
     this.eccentricMillis,
     this.concentricMillis,
+    this.tempoMeasurementStatus,
+    this.tempoMeasurementIssues = const <String>[],
+    this.tempoQuality,
+    this.tempoSeverity,
+    this.tempoReasons = const <String>[],
+    this.tempoIncludedInScore = false,
+    this.tempoTotalMillis,
     this.techniqueObservations = const <Map<String, Object?>>[],
     this.selectedSide,
     this.coverageQuality,
@@ -48,6 +55,13 @@ class WorkoutRep {
   final double? primaryRom;
   final int? eccentricMillis;
   final int? concentricMillis;
+  final String? tempoMeasurementStatus;
+  final List<String> tempoMeasurementIssues;
+  final String? tempoQuality;
+  final String? tempoSeverity;
+  final List<String> tempoReasons;
+  final bool tempoIncludedInScore;
+  final int? tempoTotalMillis;
   final List<Map<String, Object?>> techniqueObservations;
   final String? selectedSide;
   final double? coverageQuality;
@@ -59,12 +73,21 @@ class WorkoutRep {
 
   /// Observed rep duration derived from the phase timings currently retained.
   Duration? get observedDuration {
+    final explicitTempoTotalMillis = tempoTotalMillis;
+    if (explicitTempoTotalMillis != null) {
+      return Duration(milliseconds: explicitTempoTotalMillis);
+    }
     if (descentMillis == null && ascentMillis == null) {
       return null;
     }
 
     return Duration(milliseconds: (descentMillis ?? 0) + (ascentMillis ?? 0));
   }
+
+  bool get isTempoMeasurementEligible => tempoMeasurementStatus == 'eligible';
+
+  bool get hasTempoCoachingResult =>
+      tempoQuality != null && tempoQuality != 'unavailable';
 
   bool get isValidatedAsValid => validationStatus == 'valid';
 
@@ -112,6 +135,13 @@ class WorkoutRep {
       'primaryRom': primaryRom,
       'eccentricMillis': eccentricMillis,
       'concentricMillis': concentricMillis,
+      'tempoMeasurementStatus': tempoMeasurementStatus,
+      'tempoMeasurementIssues': tempoMeasurementIssues.toList(growable: false),
+      'tempoQuality': tempoQuality,
+      'tempoSeverity': tempoSeverity,
+      'tempoReasons': tempoReasons.toList(growable: false),
+      'tempoIncludedInScore': tempoIncludedInScore,
+      'tempoTotalMillis': tempoTotalMillis,
       'techniqueObservations': techniqueObservations
           .map((item) => Map<String, Object?>.from(item))
           .toList(growable: false),
@@ -157,6 +187,20 @@ class WorkoutRep {
       concentricMillis:
           _readNullableInt(map, 'concentricMillis') ??
           _readNullableInt(map, 'ascentMillis'),
+      tempoMeasurementStatus: _readNullableString(
+        map,
+        'tempoMeasurementStatus',
+      ),
+      tempoMeasurementIssues: _readStringList(map, 'tempoMeasurementIssues'),
+      tempoQuality: _readNullableString(map, 'tempoQuality'),
+      tempoSeverity: _readNullableString(map, 'tempoSeverity'),
+      tempoReasons: _readStringList(map, 'tempoReasons'),
+      tempoIncludedInScore: _readBoolOrDefault(
+        map,
+        'tempoIncludedInScore',
+        false,
+      ),
+      tempoTotalMillis: _readNullableInt(map, 'tempoTotalMillis'),
       techniqueObservations: _readMapList(map, 'techniqueObservations'),
       selectedSide:
           _readNullableString(map, 'selectedSide') ??

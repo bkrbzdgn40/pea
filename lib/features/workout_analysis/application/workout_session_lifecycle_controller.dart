@@ -431,6 +431,27 @@ class WorkoutSessionLifecycleController
       primaryRom: metrics.lastRangeRepSummaryPrimaryRom,
       eccentricMillis: eccentricMillis,
       concentricMillis: concentricMillis,
+      tempoMeasurementStatus:
+          metrics.lastRepTempoAssessment?.measurement.status.name,
+      tempoMeasurementIssues:
+          metrics.lastRepTempoAssessment?.measurement.issues
+              .map((issue) => issue.name)
+              .toList(growable: false) ??
+          const <String>[],
+      tempoQuality: metrics.lastRepTempoAssessment?.quality.name,
+      tempoSeverity: metrics.lastRepTempoAssessment?.severity.name,
+      tempoReasons:
+          metrics.lastRepTempoAssessment?.reasons
+              .map((reason) => reason.name)
+              .toList(growable: false) ??
+          const <String>[],
+      tempoIncludedInScore: metrics.lastRepTempoIncludedInScore,
+      tempoTotalMillis: metrics
+          .lastRepTempoAssessment
+          ?.measurement
+          .measuredTempo
+          ?.totalRepDuration
+          .inMilliseconds,
       techniqueObservations: rangeRepAnalysis.techniqueObservations
           .map((observation) => observation.toMap())
           .toList(growable: false),

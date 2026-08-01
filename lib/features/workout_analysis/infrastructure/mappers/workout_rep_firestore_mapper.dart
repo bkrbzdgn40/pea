@@ -52,6 +52,15 @@ class WorkoutRepFirestoreMapper {
       'primaryRom': rep.primaryRom,
       'eccentricMillis': rep.eccentricMillis ?? rep.descentMillis,
       'concentricMillis': rep.concentricMillis ?? rep.ascentMillis,
+      'tempoMeasurementStatus': rep.tempoMeasurementStatus,
+      'tempoMeasurementIssues': rep.tempoMeasurementIssues.toList(
+        growable: false,
+      ),
+      'tempoQuality': rep.tempoQuality,
+      'tempoSeverity': rep.tempoSeverity,
+      'tempoReasons': rep.tempoReasons.toList(growable: false),
+      'tempoIncludedInScore': rep.tempoIncludedInScore,
+      'tempoTotalMillis': rep.tempoTotalMillis,
       'techniqueObservations': rep.techniqueObservations
           .map((item) => Map<String, Object?>.from(item))
           .toList(growable: false),
@@ -98,6 +107,13 @@ class WorkoutRepFirestoreMapper {
       'primaryRom': data['primaryRom'],
       'eccentricMillis': data['eccentricMillis'],
       'concentricMillis': data['concentricMillis'],
+      'tempoMeasurementStatus': data['tempoMeasurementStatus'],
+      'tempoMeasurementIssues': data['tempoMeasurementIssues'],
+      'tempoQuality': data['tempoQuality'],
+      'tempoSeverity': data['tempoSeverity'],
+      'tempoReasons': data['tempoReasons'],
+      'tempoIncludedInScore': data['tempoIncludedInScore'],
+      'tempoTotalMillis': data['tempoTotalMillis'],
       'techniqueObservations': data['techniqueObservations'],
       'coverageQuality': data['coverageQuality'],
     });
