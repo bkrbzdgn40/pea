@@ -1080,8 +1080,24 @@ void main() {
 
         final trace = engine.diagnosticsSnapshot.lastEndedTimingTrace;
         final tempo = completed.completedTempo;
+        final completedCycle = completed.completedCycle;
 
         expect(completed.didCompleteRep, isTrue);
+        expect(completedCycle, isNotNull);
+        expect(
+          completedCycle?.detectionData,
+          same(completed.completedRepDetectionData),
+        );
+        expect(
+          completedCycle?.genericCompletedRep.repIndex,
+          completed.completedRepDetectionData?.repIndex,
+        );
+        expect(completedCycle?.completedTempo, same(tempo));
+        expect(completedCycle?.timingTrace, same(trace));
+        expect(
+          completedCycle?.confirmedTransitions,
+          completed.confirmedTransitions,
+        );
         expect(tempo, isNotNull);
         final completedTempo = tempo!;
         expect(completedTempo.towardPeakDuration.inMilliseconds, 200);
