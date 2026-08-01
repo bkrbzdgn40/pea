@@ -218,10 +218,13 @@ void main() {
     await tester.pump();
 
     expect(_summaryMetricText('Ortalama ROM'), findsOneWidget);
-    expect(find.text('Ortalama tempo'), findsNothing);
-    expect(find.text('Tempo tutarlılığı'), findsNothing);
-    expect(find.text('En hızlı tekrar'), findsNothing);
-    expect(find.text('En yavaş tekrar'), findsNothing);
+    expect(_summaryMetricText('Ortalama tempo'), findsOneWidget);
+    expect(_summaryMetricText('Tempo tutarlılığı'), findsOneWidget);
+    expect(_summaryMetricText('En hızlı tekrar'), findsOneWidget);
+    expect(_summaryMetricText('En yavaş tekrar'), findsOneWidget);
+    expect(_summaryMetricText('1.4 sn'), findsOneWidget);
+    expect(_summaryMetricText('1.2 sn'), findsOneWidget);
+    expect(_summaryMetricText('1.6 sn'), findsOneWidget);
     expect(_summaryMetricText('Sol tekrar'), findsOneWidget);
     expect(_summaryMetricText('Sağ tekrar'), findsOneWidget);
     expect(_summaryMetricText('Asimetri skoru'), findsOneWidget);

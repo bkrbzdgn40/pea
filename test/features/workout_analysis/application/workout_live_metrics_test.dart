@@ -8,51 +8,57 @@ void main() {
   group('WorkoutSessionMetricSnapshotBuilder', () {
     const builder = WorkoutSessionMetricSnapshotBuilder();
 
-    test(
-      'builds repetition and average ROM without exposing quarantined tempo',
-      () {
-        final session = WorkoutSession(
-          id: 'session',
-          ownerId: 'owner',
-          exerciseType: 'squat',
-          startedAt: DateTime.utc(2030, 1, 1),
-          endedAt: DateTime.utc(2030, 1, 1, 0, 1),
-          durationSec: 60,
-          totalReps: 2,
-          averageScore: 90,
-          bestScore: 95,
-          formWarningCount: 0,
-          reps: const <WorkoutRep>[
-            WorkoutRep(
-              repIndex: 1,
-              exerciseType: 'squat',
-              analysisKind: 'rangeRep',
-              primaryRom: 60,
-              descentMillis: 600,
-              ascentMillis: 400,
-            ),
-            WorkoutRep(
-              repIndex: 2,
-              exerciseType: 'squat',
-              analysisKind: 'rangeRep',
-              primaryRom: 80,
-              descentMillis: 800,
-              ascentMillis: 600,
-            ),
-          ],
-        );
+    test('builds repetition, average ROM and eligible average tempo', () {
+      final session = WorkoutSession(
+        id: 'session',
+        ownerId: 'owner',
+        exerciseType: 'squat',
+        startedAt: DateTime.utc(2030, 1, 1),
+        endedAt: DateTime.utc(2030, 1, 1, 0, 1),
+        durationSec: 60,
+        totalReps: 2,
+        averageScore: 90,
+        bestScore: 95,
+        formWarningCount: 0,
+        reps: const <WorkoutRep>[
+          WorkoutRep(
+            repIndex: 1,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            primaryRom: 60,
+            descentMillis: 600,
+            ascentMillis: 400,
+            tempoMeasurementStatus: 'eligible',
+            tempoQuality: 'target',
+            tempoTotalMillis: 1000,
+          ),
+          WorkoutRep(
+            repIndex: 2,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            primaryRom: 80,
+            descentMillis: 800,
+            ascentMillis: 600,
+            tempoMeasurementStatus: 'eligible',
+            tempoQuality: 'tooSlow',
+            tempoTotalMillis: 1400,
+          ),
+        ],
+      );
 
-        final snapshot = builder.build(session);
+      final snapshot = builder.build(session);
 
-        expect(snapshot.scope, ExerciseMetricScope.session);
-        expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 2);
-        expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 70);
-        expect(snapshot.valueFor(ExerciseMetricRegistry.tempo), isNull);
-        expect(snapshot.valueFor(ExerciseMetricRegistry.repDuration), isNull);
-      },
-    );
+      expect(snapshot.scope, ExerciseMetricScope.session);
+      expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 2);
+      expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 70);
+      expect(
+        snapshot.valueFor(ExerciseMetricRegistry.tempo),
+        const Duration(milliseconds: 1200),
+      );
+      expect(snapshot.valueFor(ExerciseMetricRegistry.repDuration), isNull);
+    });
 
-    test('excludes invalid attempts from ROM and keeps timing quarantined', () {
+    test('excludes invalid attempts from ROM and eligible tempo', () {
       final session = WorkoutSession(
         id: 'session',
         ownerId: 'owner',
@@ -73,6 +79,9 @@ void main() {
             primaryRom: 60,
             descentMillis: 600,
             ascentMillis: 400,
+            tempoMeasurementStatus: 'eligible',
+            tempoQuality: 'target',
+            tempoTotalMillis: 1000,
           ),
           WorkoutRep(
             repIndex: 2,
@@ -82,6 +91,9 @@ void main() {
             primaryRom: 10,
             descentMillis: 100,
             ascentMillis: 100,
+            tempoMeasurementStatus: 'eligible',
+            tempoQuality: 'tooFast',
+            tempoTotalMillis: 200,
           ),
         ],
       );
@@ -90,7 +102,10 @@ void main() {
 
       expect(snapshot.valueFor(ExerciseMetricRegistry.repetitionCount), 1);
       expect(snapshot.valueFor(ExerciseMetricRegistry.rangeOfMotion), 60);
-      expect(snapshot.valueFor(ExerciseMetricRegistry.tempo), isNull);
+      expect(
+        snapshot.valueFor(ExerciseMetricRegistry.tempo),
+        const Duration(milliseconds: 1000),
+      );
       expect(snapshot.valueFor(ExerciseMetricRegistry.repDuration), isNull);
     });
 

@@ -211,15 +211,18 @@ void main() {
       },
     );
 
-    test('quarantines tempo from every range-rep main score', () {
-      expect(
-        RangeRepValidationResult.valid().shouldIncludeTempoInMainScore,
-        isFalse,
-      );
+    test('lets validation permit only measurement-safe tempo scoring', () {
+      expect(RangeRepValidationResult.valid().allowsTempoInMainScore, isTrue);
       expect(
         RangeRepValidationResult.lowConfidence(const <RangeRepValidationReason>[
           RangeRepValidationReason.persistentFormBreak,
-        ]).shouldIncludeTempoInMainScore,
+        ]).allowsTempoInMainScore,
+        isTrue,
+      );
+      expect(
+        RangeRepValidationResult.lowConfidence(const <RangeRepValidationReason>[
+          RangeRepValidationReason.coverageLoss,
+        ]).allowsTempoInMainScore,
         isFalse,
       );
     });

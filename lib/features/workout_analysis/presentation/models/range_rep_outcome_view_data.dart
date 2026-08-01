@@ -1,4 +1,5 @@
 import '../../domain/models/range_rep_validation_result.dart';
+import '../../domain/models/rep_tempo_assessment.dart';
 
 enum RangeRepOutcomeTone { positive, caution, invalid }
 
@@ -16,6 +17,9 @@ class RangeRepOutcomeViewData {
     this.primaryReason,
     this.techniqueOutcome = RangeRepTechniqueOutcome.accepted,
     this.measurementConfidence = RangeRepMeasurementConfidence.reliable,
+    this.tempoQuality,
+    this.tempoSeverity,
+    this.tempoReasons = const <RepTempoReason>[],
   });
 
   final int repIndex;
@@ -26,10 +30,15 @@ class RangeRepOutcomeViewData {
   final RangeRepOutcomeTone tone;
   final RangeRepTechniqueOutcome techniqueOutcome;
   final RangeRepMeasurementConfidence measurementConfidence;
+  final RepTempoQuality? tempoQuality;
+  final RepTempoSeverity? tempoSeverity;
+  final List<RepTempoReason> tempoReasons;
 
   bool get hasLimitedMeasurementConfidence =>
       measurementConfidence == RangeRepMeasurementConfidence.limited;
 
   String get deliveryId =>
-      'range-rep-outcome:${status.name}:${primaryReason?.name ?? 'none'}';
+      'range-rep-outcome:${status.name}:${primaryReason?.name ?? 'none'}:'
+      '${tempoQuality?.name ?? 'no-tempo'}:'
+      '${tempoReasons.isEmpty ? 'none' : tempoReasons.first.name}';
 }

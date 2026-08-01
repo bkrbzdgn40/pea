@@ -38,6 +38,12 @@ void main() {
         primaryRom: 62.0,
         eccentricMillis: 800,
         concentricMillis: 700,
+        tempoMeasurementStatus: 'eligible',
+        tempoQuality: 'tooSlow',
+        tempoSeverity: 'mild',
+        tempoReasons: const <String>['totalTooSlow'],
+        tempoIncludedInScore: true,
+        tempoTotalMillis: 1500,
         techniqueObservations: const <Map<String, Object?>>[
           <String, Object?>{
             'type': 'torsoSwing',
@@ -70,6 +76,12 @@ void main() {
       expect(document['primaryRom'], 62.0);
       expect(document['eccentricMillis'], 800);
       expect(document['concentricMillis'], 700);
+      expect(document['tempoMeasurementStatus'], 'eligible');
+      expect(document['tempoQuality'], 'tooSlow');
+      expect(document['tempoSeverity'], 'mild');
+      expect(document['tempoReasons'], <String>['totalTooSlow']);
+      expect(document['tempoIncludedInScore'], isTrue);
+      expect(document['tempoTotalMillis'], 1500);
       expect(document['techniqueObservations'], hasLength(1));
       expect(document['coverageQuality'], 0.94);
       expect(document['feedback'], 'Daha derine in');
@@ -98,6 +110,13 @@ void main() {
         'primaryRom': 70.0,
         'eccentricMillis': 600,
         'concentricMillis': 500,
+        'tempoMeasurementStatus': 'eligible',
+        'tempoMeasurementIssues': const <String>[],
+        'tempoQuality': 'target',
+        'tempoSeverity': 'none',
+        'tempoReasons': const <String>[],
+        'tempoIncludedInScore': true,
+        'tempoTotalMillis': 1100,
         'techniqueObservations': const <Map<String, Object?>>[
           <String, Object?>{
             'type': 'torsoSwing',
@@ -124,6 +143,11 @@ void main() {
       expect(rep.primaryRom, 70.0);
       expect(rep.eccentricMillis, 600);
       expect(rep.concentricMillis, 500);
+      expect(rep.tempoMeasurementStatus, 'eligible');
+      expect(rep.tempoQuality, 'target');
+      expect(rep.tempoIncludedInScore, isTrue);
+      expect(rep.tempoTotalMillis, 1100);
+      expect(rep.observedDuration, const Duration(milliseconds: 1100));
       expect(rep.techniqueObservations, hasLength(1));
       expect(rep.coverageQuality, 0.9);
       expect(rep.recordedAt?.toUtc(), DateTime.utc(2026, 1, 1, 12, 0, 3));

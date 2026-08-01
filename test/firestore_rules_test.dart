@@ -171,6 +171,49 @@ void main() {
       );
     });
 
+    test('owner can create rep with tempo coaching fields', () async {
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'tempoMeasurementStatus': 'eligible',
+            'tempoMeasurementIssues': const <String>[],
+            'tempoQuality': 'tooFast',
+            'tempoSeverity': 'mild',
+            'tempoReasons': const <String>['eccentricTooFast'],
+            'tempoIncludedInScore': true,
+            'tempoTotalMillis': 1160,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(
+        response.statusCode,
+        inInclusiveRange(200, 299),
+        reason: response.body,
+      );
+    });
+
+    test('invalid tempo enum value is rejected', () async {
+      final data = _validRepData(
+        ownerId: ownerClient.uid!,
+        sessionId: 'session_a',
+        id: 'rep_0001',
+      )..['tempoQuality'] = 'warpSpeed';
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
     test('owner can read own rep', () async {
       await _createRep(ownerClient);
 

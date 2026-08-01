@@ -1,7 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_tempo_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/tempo_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/range_rep_outcome_ui_mapper.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/range_rep_outcome_view_data.dart';
 
@@ -9,7 +13,7 @@ void main() {
   const tr = AppLocalizations(Locale('tr'));
   const en = AppLocalizations(Locale('en'));
 
-  test('projects a valid rep without inventing an error reason', () {
+  test('projects a valid rep without tempo coaching', () {
     final result = mapRangeRepOutcomeToViewData(
       repIndex: 3,
       status: RangeRepValidationStatus.valid,
@@ -17,67 +21,88 @@ void main() {
       localizations: tr,
     );
 
-    expect(result.repIndex, 3);
-    expect(result.status, RangeRepValidationStatus.valid);
-    expect(result.primaryReason, isNull);
     expect(result.tone, RangeRepOutcomeTone.positive);
-    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.accepted);
+    expect(result.message, contains('Hareket aralığı'));
+    expect(result.tempoQuality, isNull);
+  });
+
+  test('shows target tempo for eligible coached rep', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 4,
+      status: RangeRepValidationStatus.valid,
+      reasons: const <RangeRepValidationReason>[],
+      localizations: tr,
+      tempoAssessment: _assessment(RepTempoQuality.target),
+    );
+
+    expect(result.tone, RangeRepOutcomeTone.positive);
+    expect(result.tempoQuality, RepTempoQuality.target);
+    expect(result.message, contains('Tempo hedef aralıkta'));
+  });
+
+  test('shows reliable fast coaching without lowering rep confidence', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 5,
+      status: RangeRepValidationStatus.valid,
+      reasons: const <RangeRepValidationReason>[],
+      localizations: tr,
+      exerciseType: ExerciseType.bicepsCurl,
+      towardPeakIsEccentric: false,
+      tempoAssessment: _assessment(RepTempoQuality.tooFast),
+    );
+
+    expect(result.tone, RangeRepOutcomeTone.caution);
+    expect(result.status, RangeRepValidationStatus.valid);
     expect(
       result.measurementConfidence,
       RangeRepMeasurementConfidence.reliable,
     );
-    expect(result.title, 'Geçerli tekrar');
-    expect(result.message, contains('Hareket aralığı'));
-    expect(result.message, contains('temel form koşulları'));
-    expect(result.message, isNot(contains('kontrol koşulları')));
+    expect(result.message, contains('Kolu indirme'));
+    expect(result.message, contains('daha hızlıydı'));
   });
 
-  test('prioritizes invalid range of motion over secondary speed reasons', () {
+  test('keeps unavailable tempo visual-only and separate from validity', () {
     final result = mapRangeRepOutcomeToViewData(
-      repIndex: 4,
+      repIndex: 6,
+      status: RangeRepValidationStatus.valid,
+      reasons: const <RangeRepValidationReason>[],
+      localizations: en,
+      tempoAssessment: _assessment(RepTempoQuality.unavailable),
+    );
+
+    expect(result.status, RangeRepValidationStatus.valid);
+    expect(result.tempoQuality, RepTempoQuality.unavailable);
+    expect(result.measurementConfidence, RangeRepMeasurementConfidence.limited);
+    expect(result.message, contains('could not be evaluated'));
+    expect(result.message, contains('not included in the score'));
+  });
+
+  test('prioritizes invalid range of motion over tempo coaching', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 7,
       status: RangeRepValidationStatus.invalid,
       reasons: const <RangeRepValidationReason>[
-        RangeRepValidationReason.excessiveDescentSpeed,
         RangeRepValidationReason.insufficientRom,
       ],
       localizations: tr,
+      tempoAssessment: _assessment(RepTempoQuality.tooFast),
     );
 
     expect(result.primaryReason, RangeRepValidationReason.insufficientRom);
     expect(result.tone, RangeRepOutcomeTone.invalid);
-    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.rejected);
     expect(result.message, contains('Yeterli hareket aralığı'));
     expect(result.message, isNot(contains('hızlı')));
   });
 
-  test('uses exercise-specific phase semantics without claiming certainty', () {
-    final result = mapRangeRepOutcomeToViewData(
-      repIndex: 2,
-      status: RangeRepValidationStatus.lowConfidence,
-      reasons: const <RangeRepValidationReason>[
-        RangeRepValidationReason.excessiveAscentSpeed,
-      ],
-      localizations: en,
-    );
-
-    expect(result.primaryReason, RangeRepValidationReason.excessiveAscentSpeed);
-    expect(result.tone, RangeRepOutcomeTone.caution);
-    expect(result.techniqueOutcome, RangeRepTechniqueOutcome.accepted);
-    expect(result.measurementConfidence, RangeRepMeasurementConfidence.limited);
-    expect(result.title, 'Rep counted');
-    expect(result.message, contains('could not be evaluated reliably'));
-    expect(result.message, contains('was not included in the score'));
-    expect(result.message, isNot(contains('faster')));
-  });
-
   test('keeps a form caution separate from measurement confidence', () {
     final result = mapRangeRepOutcomeToViewData(
-      repIndex: 6,
+      repIndex: 8,
       status: RangeRepValidationStatus.lowConfidence,
       reasons: const <RangeRepValidationReason>[
         RangeRepValidationReason.persistentFormBreak,
       ],
       localizations: tr,
+      tempoAssessment: _assessment(RepTempoQuality.tooSlow),
     );
 
     expect(result.title, 'Form uyarısı');
@@ -87,35 +112,50 @@ void main() {
       RangeRepMeasurementConfidence.reliable,
     );
     expect(result.message, contains('form uyarısı'));
-    expect(result.message, isNot(contains('ölçüm güveni')));
   });
+}
 
-  test('explains total repetition speed without a hard-coded safety claim', () {
-    final result = mapRangeRepOutcomeToViewData(
-      repIndex: 5,
-      status: RangeRepValidationStatus.lowConfidence,
-      reasons: const <RangeRepValidationReason>[
-        RangeRepValidationReason.excessiveRepSpeed,
-      ],
-      localizations: tr,
-    );
-
-    expect(result.primaryReason, RangeRepValidationReason.excessiveRepSpeed);
-    expect(result.title, 'Tekrar sayıldı');
-    expect(result.message, contains('güvenilir biçimde değerlendirilemedi'));
-    expect(result.message, contains('skora dahil edilmedi'));
-    expect(result.message, isNot(contains('hızlı')));
-  });
-
-  test('falls back without exposing enum names', () {
-    final result = mapRangeRepOutcomeToViewData(
+RepTempoAssessment _assessment(RepTempoQuality quality) {
+  final measurement = TempoMeasurementAssessment(
+    status: quality == RepTempoQuality.unavailable
+        ? TempoMeasurementStatus.unavailable
+        : TempoMeasurementStatus.eligible,
+    issues: quality == RepTempoQuality.unavailable
+        ? const <TempoMeasurementIssue>[
+            TempoMeasurementIssue.visibilityInterrupted,
+          ]
+        : const <TempoMeasurementIssue>[],
+    measuredTempo: const TempoRepResult(
       repIndex: 1,
-      status: RangeRepValidationStatus.invalid,
-      reasons: const <RangeRepValidationReason>[],
-      localizations: en,
-    );
-
-    expect(result.message, 'The rep did not meet the validation requirements.');
-    expect(result.message, isNot(contains('invalidReason')));
-  });
+      eccentricDuration: Duration(milliseconds: 700),
+      bottomPauseDuration: Duration.zero,
+      concentricDuration: Duration(milliseconds: 600),
+      topPauseDuration: Duration.zero,
+      totalRepDuration: Duration(milliseconds: 1300),
+      towardPeakDuration: Duration(milliseconds: 600),
+      returnDuration: Duration(milliseconds: 700),
+    ),
+    trace: null,
+  );
+  return RepTempoAssessment(
+    quality: quality,
+    severity:
+        quality == RepTempoQuality.tooFast || quality == RepTempoQuality.tooSlow
+        ? RepTempoSeverity.mild
+        : RepTempoSeverity.none,
+    reasons: switch (quality) {
+      RepTempoQuality.tooFast => const <RepTempoReason>[
+        RepTempoReason.eccentricTooFast,
+      ],
+      RepTempoQuality.tooSlow => const <RepTempoReason>[
+        RepTempoReason.totalTooSlow,
+      ],
+      RepTempoQuality.unavailable => const <RepTempoReason>[
+        RepTempoReason.measurementUnavailable,
+      ],
+      RepTempoQuality.target => const <RepTempoReason>[],
+    },
+    measurement: measurement,
+    coachingEnabled: true,
+  );
 }

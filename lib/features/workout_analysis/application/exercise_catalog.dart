@@ -3,6 +3,7 @@ import '../domain/models/exercise_setup_contract.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/range_rep_tempo_coaching_policy.dart';
 import '../domain/range_rep_validation_policy.dart';
 import 'engine_kind.dart';
 import 'exercise_definition.dart';
@@ -189,6 +190,14 @@ class ExerciseCatalog {
         ExerciseSessionSummaryField.averageScore,
         ExerciseSessionSummaryField.sessionDuration,
       };
+  static const Set<ExerciseSessionSummaryField> _rangeRepTempoSummaryFields =
+      <ExerciseSessionSummaryField>{
+        ..._rangeRepSummaryFields,
+        ExerciseSessionSummaryField.averageTempo,
+        ExerciseSessionSummaryField.fastestRep,
+        ExerciseSessionSummaryField.slowestRep,
+        ExerciseSessionSummaryField.tempoConsistency,
+      };
   static const Set<ExerciseSessionSummaryField> _alternatingRepSummaryFields =
       <ExerciseSessionSummaryField>{
         ..._rangeRepSummaryFields,
@@ -211,7 +220,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/squat.json',
         cameraViewContract: CameraViewContract(
@@ -233,6 +242,21 @@ class ExerciseCatalog {
           minDescentMillis: 300,
           minAscentMillis: 250,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinEccentricMillis: 350,
+            softMinEccentricMillis: 700,
+            softMaxEccentricMillis: 3000,
+            hardMaxEccentricMillis: 5000,
+            hardMinConcentricMillis: 300,
+            softMinConcentricMillis: 500,
+            softMaxConcentricMillis: 2500,
+            hardMaxConcentricMillis: 4000,
+            hardMinTotalMillis: 800,
+            softMinTotalMillis: 1400,
+            softMaxTotalMillis: 5500,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(
@@ -323,7 +347,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/push_up.json',
         cameraViewContract: CameraViewContract(
@@ -345,6 +369,21 @@ class ExerciseCatalog {
           minDescentMillis: 250,
           minAscentMillis: 250,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinEccentricMillis: 300,
+            softMinEccentricMillis: 600,
+            softMaxEccentricMillis: 3000,
+            hardMaxEccentricMillis: 5000,
+            hardMinConcentricMillis: 250,
+            softMinConcentricMillis: 500,
+            softMaxConcentricMillis: 2500,
+            hardMaxConcentricMillis: 4500,
+            hardMinTotalMillis: 700,
+            softMinTotalMillis: 1200,
+            softMaxTotalMillis: 5000,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(
@@ -385,7 +424,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepMovementOnlyFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/crunch.json',
         cameraViewContract: CameraViewContract(
@@ -407,6 +446,21 @@ class ExerciseCatalog {
           minDescentMillis: 250,
           minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinEccentricMillis: 250,
+            softMinEccentricMillis: 600,
+            softMaxEccentricMillis: 3000,
+            hardMaxEccentricMillis: 5000,
+            hardMinConcentricMillis: 250,
+            softMinConcentricMillis: 500,
+            softMaxConcentricMillis: 2500,
+            hardMaxConcentricMillis: 4000,
+            hardMinTotalMillis: 700,
+            softMinTotalMillis: 1200,
+            softMaxTotalMillis: 5000,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(
@@ -447,7 +501,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/biceps_curl.json',
         cameraViewContract: CameraViewContract(
@@ -469,6 +523,21 @@ class ExerciseCatalog {
           minDescentMillis: 250,
           minAscentMillis: 250,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinEccentricMillis: 250,
+            softMinEccentricMillis: 600,
+            softMaxEccentricMillis: 3000,
+            hardMaxEccentricMillis: 5000,
+            hardMinConcentricMillis: 200,
+            softMinConcentricMillis: 500,
+            softMaxConcentricMillis: 2500,
+            hardMaxConcentricMillis: 4000,
+            hardMinTotalMillis: 600,
+            softMinTotalMillis: 1200,
+            softMaxTotalMillis: 5000,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(
@@ -885,7 +954,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepMovementOnlyFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/glute_bridge.json',
         cameraViewContract: CameraViewContract(
@@ -907,6 +976,21 @@ class ExerciseCatalog {
           minDescentMillis: 180,
           minAscentMillis: 300,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinEccentricMillis: 250,
+            softMinEccentricMillis: 600,
+            softMaxEccentricMillis: 3000,
+            hardMaxEccentricMillis: 5000,
+            hardMinConcentricMillis: 250,
+            softMinConcentricMillis: 500,
+            softMaxConcentricMillis: 2500,
+            hardMaxConcentricMillis: 4000,
+            hardMinTotalMillis: 700,
+            softMinTotalMillis: 1200,
+            softMaxTotalMillis: 5000,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(
@@ -998,7 +1082,7 @@ class ExerciseCatalog {
         analysisEngines: _rangeRepAnalysisEngines,
         metricIds: _rangeRepMetricIds,
         feedbackRuleIds: _rangeRepFeedbackRuleIds,
-        sessionSummaryFields: _rangeRepSummaryFields,
+        sessionSummaryFields: _rangeRepTempoSummaryFields,
         engineKind: EngineKind.rangeRep,
         configAssetPath: 'assets/config/exercises/standing_hip_extension.json',
         cameraViewContract: CameraViewContract(
@@ -1023,6 +1107,13 @@ class ExerciseCatalog {
           // greater than the requested 1.5-second fast-rep boundary.
           minTotalRepMillis: 1501,
           allowLowConfidenceOnCoverageLoss: true,
+          tempoCoachingConfig: RangeRepTempoCoachingConfig(
+            enabled: true,
+            hardMinTotalMillis: 800,
+            softMinTotalMillis: 1500,
+            softMaxTotalMillis: 5000,
+            hardMaxTotalMillis: 8000,
+          ),
         ),
       ),
       ExerciseDefinition.supported(

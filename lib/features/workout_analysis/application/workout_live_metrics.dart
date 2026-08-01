@@ -67,8 +67,24 @@ class WorkoutSessionMetricSnapshotBuilder {
       );
     }
 
-    // P0.2 quarantine: persisted raw repetition timings remain available on
-    // WorkoutRep, but are not rebuilt as user-facing tempo metrics.
+    final tempoDurations = acceptedReps
+        .where(
+          (rep) => rep.isTempoMeasurementEligible && rep.hasTempoCoachingResult,
+        )
+        .map((rep) => rep.observedDuration)
+        .whereType<Duration>()
+        .where((duration) => duration.inMilliseconds > 0)
+        .toList(growable: false);
+    if (tempoDurations.isNotEmpty) {
+      final totalMillis = tempoDurations.fold<int>(
+        0,
+        (sum, duration) => sum + duration.inMilliseconds,
+      );
+      builder.set(
+        ExerciseMetricRegistry.tempo,
+        Duration(milliseconds: (totalMillis / tempoDurations.length).round()),
+      );
+    }
 
     return builder.build();
   }

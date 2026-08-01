@@ -139,9 +139,12 @@ class RangeRepValidationResult {
 
   bool get shouldPublishScore => countsTowardReps;
 
-  /// P0.2 tempo quarantine: raw timing remains available for diagnostics, but
-  /// the current range-rep timing pipeline is not reliable enough to affect a
-  /// user-facing score. Tempo can return here only after Tempo Measurement V2
-  /// has device-level accuracy and cycle-integrity coverage.
-  bool get shouldIncludeTempoInMainScore => false;
+  /// Whether the validation outcome permits an independently eligible tempo
+  /// measurement to contribute to the score. Measurement eligibility is owned
+  /// by Tempo Measurement V2 and must still be checked separately.
+  bool get allowsTempoInMainScore =>
+      !reasons.any((reason) => reason.excludesTempoFromMainScore);
+
+  @Deprecated('Use allowsTempoInMainScore with TempoMeasurementAssessment.')
+  bool get shouldIncludeTempoInMainScore => allowsTempoInMainScore;
 }

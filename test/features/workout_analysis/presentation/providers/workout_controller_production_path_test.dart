@@ -25,6 +25,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_tempo_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_analysis_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_validation_policy.dart';
@@ -1227,7 +1228,9 @@ void main() {
         expect(outcome, isNotNull);
         expect(outcome!.repIndex, 1);
         expect(outcome.title, 'Geçerli tekrar');
-        expect(outcome.message, contains('Hareket aralığı'));
+        expect(outcome.tempoQuality, RepTempoQuality.tooFast);
+        expect(outcome.message, contains('Tekrar sayıldı'));
+        expect(outcome.message, contains('daha hızlıydı'));
       },
     );
 

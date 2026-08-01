@@ -38,6 +38,7 @@ import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
+import '../../domain/tempo_engine.dart';
 import '../mappers/hold_feedback_ui_mapper.dart';
 import '../mappers/range_rep_feedback_ui_mapper.dart';
 import '../mappers/range_rep_outcome_ui_mapper.dart';
@@ -207,6 +208,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   int? _liveMetricsAlternatingRepCount;
   Duration? _liveMetricsTempo;
   int? _liveMetricsAsymmetryScore;
+  final TempoSessionAccumulator _eligibleTempoSessionAccumulator =
+      TempoSessionAccumulator();
+  int? _lastRecordedTempoRepIndex;
   late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   late WorkoutFramePosePipeline _framePosePipeline;
   late WorkoutDiagnosticsAccumulator _diagnostics;
@@ -223,7 +227,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
     _feedbackDelivery.reset();
     _rangeRepTempoVoiceConfirmationPolicy =
-        RangeRepTempoVoiceConfirmationPolicy();
+        RangeRepTempoVoiceConfirmationPolicy(tempoAnnouncementsEnabled: true);
+    _eligibleTempoSessionAccumulator.reset();
+    _lastRecordedTempoRepIndex = null;
     final framePosePipelineFactory = ref.watch(
       workoutFramePosePipelineFactoryProvider,
     );
@@ -849,11 +855,30 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         .map(_rangeRepValidationReasonFromName)
         .whereType<RangeRepValidationReason>()
         .toList(growable: false);
+    final tempoAssessment =
+        result.diagnosticsUpdate.completedRepTempoAssessment;
+    if (status != RangeRepValidationStatus.invalid &&
+        tempoAssessment?.isAvailable == true &&
+        _lastRecordedTempoRepIndex != repIndex) {
+      final measuredTempo = tempoAssessment!.measurement.measuredTempo;
+      if (measuredTempo != null) {
+        _eligibleTempoSessionAccumulator.record(measuredTempo);
+        _lastRecordedTempoRepIndex = repIndex;
+        _liveMetricsTempo = measuredTempo.totalRepDuration;
+        _refreshRangeRepSessionMetricDisplay();
+        _publishRangeRepLiveMetricDisplay(result.stateSnapshot.repCount);
+      }
+    }
     final outcome = mapRangeRepOutcomeToViewData(
       repIndex: repIndex,
       status: status,
       reasons: reasons,
       localizations: ref.read(appLocalizationsProvider),
+      exerciseType: _activeExercise,
+      tempoAssessment: tempoAssessment,
+      towardPeakIsEccentric:
+          _rangeRepContract?.towardPeakMuscleAction ==
+          RangeRepTowardPeakMuscleAction.eccentric,
     );
     final didShow = ref
         .read(liveRangeRepOutcomeProvider.notifier)
@@ -868,6 +893,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (!_rangeRepTempoVoiceConfirmationPolicy.shouldAnnounce(
       status: status,
       reasons: reasons,
+      tempoAssessment: tempoAssessment,
     )) {
       return;
     }
@@ -983,11 +1009,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _refreshRangeRepSessionMetricDisplay() {
-    _liveMetricsTempo = null;
     _liveMetricsAsymmetryScore = null;
-
-    // P0.2 quarantine: raw tempo remains on the engine diagnostics surface,
-    // but it is intentionally not projected into user-facing live metrics.
 
     final alternating = _alternatingRepEngine;
     final asymmetryScore =
@@ -1059,9 +1081,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         state.repCount,
       );
 
-      // P0.2 quarantine: timing is still captured by the engine and persisted
-      // per repetition for developer diagnostics, but no tempo aggregate is
-      // exposed through the user-facing session snapshot.
+      final tempoSummary = _eligibleTempoSessionAccumulator.summary;
+      if (tempoSummary.repCount > 0) {
+        sessionBuilder.set(
+          ExerciseMetricRegistry.tempo,
+          tempoSummary.averageRepDuration,
+        );
+      }
 
       final alternating = _alternatingRepEngine;
       if (alternating != null) {
@@ -1110,6 +1136,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       sessionMetrics: sessionBuilder.build(),
       leftRepCount: leftRepCount,
       rightRepCount: rightRepCount,
+      tempoConsistencyScore:
+          _eligibleTempoSessionAccumulator.summary.repCount > 0
+          ? _eligibleTempoSessionAccumulator.summary.consistencyScore
+          : null,
+      fastestRepDuration: _eligibleTempoSessionAccumulator.summary.repCount > 0
+          ? _eligibleTempoSessionAccumulator.summary.fastestRepDuration
+          : null,
+      slowestRepDuration: _eligibleTempoSessionAccumulator.summary.repCount > 0
+          ? _eligibleTempoSessionAccumulator.summary.slowestRepDuration
+          : null,
     );
   }
 

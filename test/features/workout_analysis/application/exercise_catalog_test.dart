@@ -110,7 +110,16 @@ void main() {
       }
     });
 
-    test('keeps tempo capability but quarantines tempo summary fields', () {
+    test('enables tempo coaching and summary only for the validated set', () {
+      const tempoEnabledIds = <String>{
+        'squat',
+        'push_up',
+        'crunch',
+        'biceps_curl',
+        'glute_bridge',
+        'standing_hip_extension',
+      };
+
       for (final definition in catalog.definitions.where(
         (definition) =>
             definition.trackingType == ExerciseTrackingType.repetitions,
@@ -130,34 +139,28 @@ void main() {
           RangeRepTempoMeasurementMode.quarantined,
           reason: definition.id,
         );
+
+        final shouldEnableTempo = tempoEnabledIds.contains(definition.id);
         expect(
-          definition.includesSummaryField(
-            ExerciseSessionSummaryField.averageTempo,
-          ),
-          isFalse,
+          definition
+              .analysisRangeRepValidationConfig
+              .tempoCoachingConfig
+              .enabled,
+          shouldEnableTempo,
           reason: definition.id,
         );
-        expect(
-          definition.includesSummaryField(
-            ExerciseSessionSummaryField.fastestRep,
-          ),
-          isFalse,
-          reason: definition.id,
-        );
-        expect(
-          definition.includesSummaryField(
-            ExerciseSessionSummaryField.slowestRep,
-          ),
-          isFalse,
-          reason: definition.id,
-        );
-        expect(
-          definition.includesSummaryField(
-            ExerciseSessionSummaryField.tempoConsistency,
-          ),
-          isFalse,
-          reason: definition.id,
-        );
+        for (final field in const <ExerciseSessionSummaryField>[
+          ExerciseSessionSummaryField.averageTempo,
+          ExerciseSessionSummaryField.fastestRep,
+          ExerciseSessionSummaryField.slowestRep,
+          ExerciseSessionSummaryField.tempoConsistency,
+        ]) {
+          expect(
+            definition.includesSummaryField(field),
+            shouldEnableTempo,
+            reason: '${definition.id}:${field.name}',
+          );
+        }
       }
     });
 

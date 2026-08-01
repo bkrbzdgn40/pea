@@ -1,12 +1,11 @@
 import '../domain/models/range_rep_validation_result.dart';
+import '../domain/models/rep_tempo_assessment.dart';
 
 /// Controls spoken feedback for completed range-rep outcomes.
 ///
-/// P0.2 keeps tempo announcements disabled by default while the timing signal
-/// is quarantined. The consecutive-repetition path remains available behind an
-/// explicit opt-in so Tempo Measurement V2 can reuse and revalidate it later.
-/// Measurement-quality cautions stay visual-only and technique feedback remains
-/// immediate.
+/// Technique feedback remains immediate. Reliable fast/slow coaching requires
+/// the same eligible result on consecutive repetitions. Unavailable timing is
+/// visual-only and never produces a spoken tempo claim.
 class RangeRepTempoVoiceConfirmationPolicy {
   RangeRepTempoVoiceConfirmationPolicy({
     this.requiredConsecutiveReps = 2,
@@ -30,6 +29,7 @@ class RangeRepTempoVoiceConfirmationPolicy {
   bool shouldAnnounce({
     required RangeRepValidationStatus status,
     required List<RangeRepValidationReason> reasons,
+    RepTempoAssessment? tempoAssessment,
   }) {
     if (reasons.any((reason) => reason.isTechniqueOutcomeReason)) {
       reset();
@@ -41,22 +41,29 @@ class RangeRepTempoVoiceConfirmationPolicy {
       return false;
     }
 
-    final tempoReasons =
-        reasons
-            .where((reason) => reason.isTempoMeasurementReason)
-            .map((reason) => reason.name)
-            .toList(growable: false)
-          ..sort();
-    if (tempoReasons.isNotEmpty && !tempoAnnouncementsEnabled) {
-      reset();
-      return false;
-    }
-    if (tempoReasons.isEmpty || status == RangeRepValidationStatus.valid) {
+    final assessment = tempoAssessment;
+    if (assessment == null || !assessment.coachingEnabled) {
       reset();
       return true;
     }
+    if (!assessment.isAvailable) {
+      reset();
+      return false;
+    }
+    if (assessment.quality == RepTempoQuality.target) {
+      reset();
+      return true;
+    }
+    if (!tempoAnnouncementsEnabled ||
+        status != RangeRepValidationStatus.valid) {
+      reset();
+      return false;
+    }
 
-    final signature = tempoReasons.join('|');
+    final reasonNames =
+        assessment.reasons.map((reason) => reason.name).toList(growable: false)
+          ..sort();
+    final signature = '${assessment.quality.name}:${reasonNames.join('|')}';
     if (_pendingTempoSignature == signature) {
       _pendingTempoCount += 1;
     } else {
