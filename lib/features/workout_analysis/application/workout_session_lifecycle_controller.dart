@@ -7,8 +7,10 @@ import 'hold_session_metrics_collector.dart';
 import 'workout_state.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
+import '../domain/models/range_rep_validation_result.dart';
 import '../domain/models/workout_rep.dart';
 import '../domain/models/workout_session.dart';
+import '../domain/models/validated_rep_event.dart';
 
 class WorkoutSessionLifecycleStateSnapshot {
   const WorkoutSessionLifecycleStateSnapshot({
@@ -200,21 +202,27 @@ class WorkoutSessionLifecycleController
   void collect(WorkoutState next) {
     final rangeRepAnalysis = next.rangeRepAnalysis;
     if (rangeRepAnalysis != null) {
-      final repDelta = next.repCount - _lastObservedRepCount;
-      final hasNewValidationOutcome = _recordValidationOutcomeIfNew(next);
-      if (hasNewValidationOutcome) {
-        final collectedRep = _collectCompletedWorkoutRep(
+      final validatedRepEvent = next.validatedRepEvent;
+      final WorkoutRep? collectedRep;
+      if (validatedRepEvent != null) {
+        collectedRep = _collectValidatedRepEvent(
+          event: validatedRepEvent,
           next: next,
-          repDelta: repDelta,
         );
-        final collectedScore = collectedRep?.score;
-        if (collectedScore != null) {
-          _repScoreSum += collectedScore;
-          _scoredRepCount += 1;
+      } else {
+        final repDelta = next.repCount - _lastObservedRepCount;
+        final hasNewValidationOutcome = _recordValidationOutcomeIfNew(next);
+        collectedRep = hasNewValidationOutcome
+            ? _collectCompletedWorkoutRep(next: next, repDelta: repDelta)
+            : null;
+      }
+      final collectedScore = collectedRep?.score;
+      if (collectedScore != null) {
+        _repScoreSum += collectedScore;
+        _scoredRepCount += 1;
 
-          if (collectedScore > _bestScore) {
-            _bestScore = collectedScore;
-          }
+        if (collectedScore > _bestScore) {
+          _bestScore = collectedScore;
         }
       }
 
@@ -227,6 +235,109 @@ class WorkoutSessionLifecycleController
 
     _lastObservedRepCount = rangeRepAnalysis?.repCount ?? 0;
     _previousFormBad = rangeRepAnalysis?.isFormBad ?? false;
+  }
+
+  WorkoutRep? _collectValidatedRepEvent({
+    required ValidatedRepEvent event,
+    required WorkoutState next,
+  }) {
+    if (_lastObservedValidationAttemptIndex == event.attemptIndex) {
+      return null;
+    }
+
+    switch (event.validationStatus) {
+      case RangeRepValidationStatus.valid:
+        _validOutcomeCount += 1;
+        break;
+      case RangeRepValidationStatus.lowConfidence:
+        _lowConfidenceOutcomeCount += 1;
+        break;
+      case RangeRepValidationStatus.invalid:
+        _invalidOutcomeCount += 1;
+        break;
+    }
+    _lastObservedValidationAttemptIndex = event.attemptIndex;
+
+    final alreadyCollected = _completedWorkoutReps.any(
+      (rep) => rep.repIndex == event.attemptIndex,
+    );
+    if (alreadyCollected) {
+      return null;
+    }
+
+    final activeSessionExercise = _activeSessionExercise;
+    if (activeSessionExercise == null) {
+      return null;
+    }
+    final towardPeakMuscleAction = _exerciseCatalog
+        .definitionFor(activeSessionExercise)
+        .analysisRangeRepContract
+        .towardPeakMuscleAction;
+    final towardPeakMillis = event.descentDuration?.inMilliseconds;
+    final returnToNeutralMillis = event.ascentDuration?.inMilliseconds;
+    final eccentricMillis =
+        towardPeakMuscleAction == RangeRepTowardPeakMuscleAction.eccentric
+        ? towardPeakMillis
+        : returnToNeutralMillis;
+    final concentricMillis =
+        towardPeakMuscleAction == RangeRepTowardPeakMuscleAction.concentric
+        ? towardPeakMillis
+        : returnToNeutralMillis;
+    final tempoAssessment = event.tempoAssessment;
+    final sideLabel = event.side?.name;
+    final candidate = WorkoutRep(
+      repIndex: event.attemptIndex,
+      exerciseType: event.exerciseType == 'unknown'
+          ? activeSessionExercise.id
+          : event.exerciseType,
+      analysisKind: event.analysisKind,
+      recordedAt: event.completedAt,
+      validationStatus: event.validationStatus.name,
+      validationReasons: event.validationReasons
+          .map((reason) => reason.name)
+          .toList(growable: false),
+      score: event.finalScore,
+      minPrimaryMetric: event.minPrimaryMetric,
+      worstFormMetric: event.worstFormMetric,
+      descentMillis: towardPeakMillis,
+      ascentMillis: returnToNeutralMillis,
+      confidence: event.measurementConfidence,
+      primaryRom: event.primaryRom,
+      eccentricMillis: eccentricMillis,
+      concentricMillis: concentricMillis,
+      tempoMeasurementStatus: tempoAssessment?.measurement.status.name,
+      tempoMeasurementIssues:
+          tempoAssessment?.measurement.issues
+              .map((issue) => issue.name)
+              .toList(growable: false) ??
+          const <String>[],
+      tempoQuality: tempoAssessment?.quality.name,
+      tempoSeverity: tempoAssessment?.severity.name,
+      tempoReasons:
+          tempoAssessment?.reasons
+              .map((reason) => reason.name)
+              .toList(growable: false) ??
+          const <String>[],
+      tempoIncludedInScore: event.tempoIncludedInScore,
+      tempoTotalMillis: tempoAssessment
+          ?.measurement
+          .measuredTempo
+          ?.totalRepDuration
+          .inMilliseconds,
+      techniqueObservations: next.rangeRepAnalysis!.techniqueObservations
+          .map((observation) => observation.toMap())
+          .toList(growable: false),
+      selectedSide: sideLabel,
+      selectedSideLabel: sideLabel,
+      coverageQuality: event.coverageQuality,
+      feedback: next.feedbackMessage,
+      hadFormViolation: event.hadFormViolation,
+      hadCoverageDrop: event.hadCoverageDrop,
+      switchedSideDuringRep: event.switchedSideDuringRep,
+      completedPhaseSequence: event.completedPhaseSequence,
+    );
+    _completedWorkoutReps.add(candidate);
+    return candidate;
   }
 
   bool _recordValidationOutcomeIfNew(WorkoutState next) {

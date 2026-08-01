@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
 
@@ -510,4 +512,93 @@ void main() {
 
     expect(container.read(workoutPlanSessionProvider).hasPlan, isFalse);
   });
+  test('validated events keep invalid attempts from advancing the plan', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(1),
+          ),
+        ],
+      ),
+    );
+
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(
+          repCount: 0,
+          validatedRepEvent: _validatedEvent(
+            attemptIndex: 1,
+            acceptedRepIndex: null,
+            status: RangeRepValidationStatus.invalid,
+          ),
+        ),
+      ),
+    );
+    expect(
+      container.read(workoutPlanSessionProvider).snapshot!.currentRepetitions,
+      0,
+    );
+
+    controller.observe(
+      exercise: ExerciseType.squat,
+      workoutState: WorkoutState.rangeRep(
+        analysis: RangeRepWorkoutAnalysisState(
+          repCount: 1,
+          validatedRepEvent: _validatedEvent(
+            attemptIndex: 2,
+            acceptedRepIndex: 1,
+            status: RangeRepValidationStatus.valid,
+          ),
+        ),
+      ),
+    );
+    expect(
+      container.read(workoutPlanSessionProvider).snapshot!.isSetCompleted,
+      isTrue,
+    );
+  });
+}
+
+ValidatedRepEvent _validatedEvent({
+  required int attemptIndex,
+  required int? acceptedRepIndex,
+  required RangeRepValidationStatus status,
+}) {
+  return ValidatedRepEvent(
+    attemptIndex: attemptIndex,
+    acceptedRepIndex: acceptedRepIndex,
+    exerciseType: ExerciseType.squat.id,
+    analysisKind: 'rangeRep',
+    validationStatus: status,
+    validationReasons: status == RangeRepValidationStatus.invalid
+        ? const <RangeRepValidationReason>[
+            RangeRepValidationReason.insufficientRom,
+          ]
+        : const <RangeRepValidationReason>[],
+    tempoDiagnosticReasons: const <RangeRepValidationReason>[],
+    countsTowardReps: status != RangeRepValidationStatus.invalid,
+    side: ValidatedRepSide.left,
+    minPrimaryMetric: 90,
+    primaryRom: 50,
+    worstFormMetric: 170,
+    descentDuration: const Duration(milliseconds: 700),
+    ascentDuration: const Duration(milliseconds: 700),
+    hadFormViolation: false,
+    hadCoverageDrop: false,
+    switchedSideDuringRep: false,
+    completedPhaseSequence: true,
+    measurementConfidence: 1,
+    coverageQuality: 1,
+    finalScore: status == RangeRepValidationStatus.invalid ? null : 90,
+    tempoAssessment: null,
+    tempoIncludedInScore: false,
+    completedAt: DateTime.utc(2030),
+  );
 }

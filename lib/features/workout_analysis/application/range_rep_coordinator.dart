@@ -197,6 +197,7 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
         techniqueObservations: techniqueObservations,
       ),
       diagnosticsUpdate: result.diagnosticsUpdate,
+      validatedRepEvent: result.validatedRepEvent,
       shouldResetPoseAcceptance: result.shouldResetPoseAcceptance,
       shouldRecordInvalidPoseAcceptance:
           result.shouldRecordInvalidPoseAcceptance,

@@ -161,6 +161,33 @@ void main() {
     });
   });
 
+  group('automatic side selection contracts', () {
+    test('stationary lunge resolves the active side for every cycle', () {
+      final contract = RangeRepContracts.stationaryLunge;
+
+      expect(contract.automaticSideSelectionEnabled, isTrue);
+      expect(contract.resetAutomaticSideSelectionAfterCycle, isTrue);
+    });
+
+    test('per-cycle reselection requires automatic side selection', () {
+      expect(
+        () => RangeRepContract(
+          supportedPhases: const <RangeRepPhase>{RangeRepPhase.descending},
+          supportedSignals: const <RangeRepSignal>{
+            RangeRepSignal.primaryMetric,
+          },
+          signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{
+            RangeRepSignal.primaryMetric: <AnalysisSignalRole>{
+              AnalysisSignalRole.detection,
+            },
+          },
+          resetAutomaticSideSelectionAfterCycle: true,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('predefined range-rep role classifications', () {
     test('Squat declares current roles for every supported signal', () {
       _expectExtendedRangeRepRoles(RangeRepContracts.squat);

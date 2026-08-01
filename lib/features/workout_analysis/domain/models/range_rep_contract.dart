@@ -91,6 +91,7 @@ class RangeRepContract {
         RangeRepFormThresholdCalibrationPolicy.enabled,
     this.sideMode = RangeRepSideMode.selectedSide,
     this.automaticSideSelectionEnabled = false,
+    this.resetAutomaticSideSelectionAfterCycle = false,
     this.bilateralFormPolicy = RangeRepBilateralFormPolicy.includeSync,
     this.bilateralPrimaryPolicy = RangeRepBilateralPrimaryPolicy.laggingSide,
     this.techniqueEvaluationPolicy = RangeRepTechniqueEvaluationPolicy.always,
@@ -132,6 +133,14 @@ class RangeRepContract {
         sideMode,
         'sideMode',
         'Automatic side selection requires selected-side analysis.',
+      );
+    }
+    if (resetAutomaticSideSelectionAfterCycle &&
+        !automaticSideSelectionEnabled) {
+      throw ArgumentError.value(
+        resetAutomaticSideSelectionAfterCycle,
+        'resetAutomaticSideSelectionAfterCycle',
+        'Per-cycle side reselection requires automatic side selection.',
       );
     }
 
@@ -230,6 +239,13 @@ class RangeRepContract {
   ///
   /// Keep this disabled for bilateral or effectively symmetric exercises.
   final bool automaticSideSelectionEnabled;
+
+  /// Clears a movement-confirmed side after each completed or aborted cycle so
+  /// alternating exercises can resolve the active limb again on the next rep.
+  ///
+  /// Keep this disabled for unilateral sets where the same side is expected to
+  /// remain active across repetitions.
+  final bool resetAutomaticSideSelectionAfterCycle;
 
   final RangeRepBilateralFormPolicy bilateralFormPolicy;
   final RangeRepBilateralPrimaryPolicy bilateralPrimaryPolicy;
@@ -880,6 +896,8 @@ abstract final class RangeRepContracts {
     },
     formThresholdCalibrationPolicy:
         RangeRepFormThresholdCalibrationPolicy.disabled,
+    automaticSideSelectionEnabled: true,
+    resetAutomaticSideSelectionAfterCycle: true,
   );
 
   static final RangeRepContract lateralRaise = RangeRepContract(

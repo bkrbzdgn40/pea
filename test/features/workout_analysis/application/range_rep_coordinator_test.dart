@@ -152,6 +152,14 @@ void main() {
         'valid',
       );
       expect(completedResult.stateSnapshot.repCount, 1);
+      expect(completedResult.validatedRepEvent, isNotNull);
+      expect(completedResult.validatedRepEvent!.attemptIndex, 1);
+      expect(completedResult.validatedRepEvent!.acceptedRepIndex, 1);
+      expect(completedResult.validatedRepEvent!.countsTowardReps, isTrue);
+      expect(
+        completedResult.validatedRepEvent!.validationStatus,
+        RangeRepValidationStatus.valid,
+      );
       final calibrationMetrics =
           completedResult.stateSnapshot.calibrationMetrics;
       expect(

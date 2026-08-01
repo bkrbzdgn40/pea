@@ -75,21 +75,21 @@ class RangeRepRepOutcomeTracker {
       return;
     }
 
-    if (_activeRangeRepSelectedSideLabel != null &&
-        _activeRangeRepSelectedSideLabel != selectedSideLabel) {
+    final lockedSideLabel = _activeRangeRepSelectedSideLabel;
+    if (lockedSideLabel == null) {
+      _activeRangeRepSelectedSideLabel = selectedSideLabel;
+    } else if (lockedSideLabel != selectedSideLabel) {
       _activeRangeRepSwitchedSideDuringRep = true;
     }
-
-    _activeRangeRepSelectedSideLabel = selectedSideLabel;
   }
 
-  void activateCompletedRepOutcomeIfAny({
+  RangeRepValidationOutcome? activateCompletedRepOutcomeIfAny({
     required EngineKind engineKind,
     required String analysisKindLabel,
     required RangeRepCompletedRepCoreData? completedRepCoreData,
   }) {
     if (engineKind != EngineKind.rangeRep || completedRepCoreData == null) {
-      return;
+      return null;
     }
 
     final summaryCandidate = RangeRepRepSummary(
@@ -114,8 +114,9 @@ class RangeRepRepOutcomeTracker {
       summary: summaryCandidate,
       result: _validationPolicy.evaluate(summaryCandidate),
     );
-    _activateRangeRepValidationOutcome(validationOutcome);
+    final didActivate = _activateRangeRepValidationOutcome(validationOutcome);
     resetRepContext();
+    return didActivate ? validationOutcome : null;
   }
 
   void resetRepContextIfCycleEnded({
@@ -147,9 +148,9 @@ class RangeRepRepOutcomeTracker {
     }
   }
 
-  void _activateRangeRepValidationOutcome(RangeRepValidationOutcome outcome) {
+  bool _activateRangeRepValidationOutcome(RangeRepValidationOutcome outcome) {
     if (_lastRangeRepValidatedRepIndex == outcome.repIndex) {
-      return;
+      return false;
     }
 
     _lastRangeRepRepSummaryCandidate = outcome.summary;
@@ -169,6 +170,7 @@ class RangeRepRepOutcomeTracker {
         _rangeRepInvalidCount += 1;
         break;
     }
+    return true;
   }
 
   bool _isRangeRepRepContextActive(RangeRepDiagnosticsSnapshot diagnostics) {

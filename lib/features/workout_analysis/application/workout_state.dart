@@ -11,6 +11,7 @@ import '../domain/models/hold_technique_assessment.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
 import '../domain/models/rep_tempo_assessment.dart';
+import '../domain/models/validated_rep_event.dart';
 import 'engine_kind.dart';
 
 class RangeRepWorkoutCalibrationMetrics {
@@ -516,6 +517,7 @@ abstract class WorkoutAnalysisStatePayload {
 }
 
 class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
+  static const Object _validatedRepEventUnset = Object();
   const RangeRepWorkoutAnalysisState({
     this.repCount = 0,
     this.isFormBad = false,
@@ -525,6 +527,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     this.currentPhase = 'NEUTRAL',
     this.calibrationMetrics = const WorkoutCalibrationMetrics.rangeRep(),
     this.techniqueObservations = const <RangeRepTechniqueObservation>[],
+    this.validatedRepEvent,
   });
 
   final int repCount;
@@ -539,6 +542,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   @override
   final WorkoutCalibrationMetrics calibrationMetrics;
   final List<RangeRepTechniqueObservation> techniqueObservations;
+  final ValidatedRepEvent? validatedRepEvent;
 
   @override
   EngineKind get analysisKind => EngineKind.rangeRep;
@@ -552,6 +556,7 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     String? currentPhase,
     WorkoutCalibrationMetrics? calibrationMetrics,
     List<RangeRepTechniqueObservation>? techniqueObservations,
+    Object? validatedRepEvent = _validatedRepEventUnset,
   }) {
     return RangeRepWorkoutAnalysisState(
       repCount: repCount ?? this.repCount,
@@ -563,6 +568,9 @@ class RangeRepWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
       calibrationMetrics: calibrationMetrics ?? this.calibrationMetrics,
       techniqueObservations:
           techniqueObservations ?? this.techniqueObservations,
+      validatedRepEvent: validatedRepEvent == _validatedRepEventUnset
+          ? this.validatedRepEvent
+          : validatedRepEvent as ValidatedRepEvent?,
     );
   }
 }
@@ -743,6 +751,8 @@ class WorkoutState {
       _rangeRepAnalysis ?? _holdAnalysis!;
 
   int get repCount => _rangeRepAnalysis?.repCount ?? 0;
+  ValidatedRepEvent? get validatedRepEvent =>
+      _rangeRepAnalysis?.validatedRepEvent;
   bool get isFormBad => _analysis.isFormBad;
   double get currentAngle => _analysis.currentAngle;
   double get lastRepScore => _rangeRepAnalysis?.lastRepScore ?? 0.0;

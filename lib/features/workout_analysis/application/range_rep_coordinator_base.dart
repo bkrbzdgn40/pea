@@ -20,6 +20,7 @@ import '../domain/models/range_rep_validation_result.dart';
 import '../domain/models/rep_tempo_assessment.dart';
 import '../domain/models/rep_score_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
+import '../domain/models/validated_rep_event.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_diagnostics.dart';
 import '../domain/range_rep_tempo_coaching_policy.dart';
@@ -120,12 +121,14 @@ class RangeRepCoordinatorFrameResult {
   const RangeRepCoordinatorFrameResult({
     required this.stateSnapshot,
     required this.diagnosticsUpdate,
+    this.validatedRepEvent,
     this.shouldResetPoseAcceptance = false,
     this.shouldRecordInvalidPoseAcceptance = false,
   });
 
   final RangeRepCoordinatorStateSnapshot stateSnapshot;
   final RangeRepCoordinatorDiagnosticsUpdate diagnosticsUpdate;
+  final ValidatedRepEvent? validatedRepEvent;
   final bool shouldResetPoseAcceptance;
   final bool shouldRecordInvalidPoseAcceptance;
 }
@@ -714,16 +717,18 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hasTechniqueViolation: hasTechniqueViolation,
     );
     final didCompleteRep = engineResult.didCompleteRep;
-    final completedRepValidationResult = _processCompletedRep(
+    final validatedRepEvent = _processCompletedRep(
       completedRepCoreData: completedRepCoreData,
       postUpdateDiagnostics: postUpdateDiagnostics,
       tempoAssessment: completedRepTempoAssessment,
+      completedAt: now,
     );
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
       didCompleteRep: didCompleteRep,
     );
+    _resetAutomaticSideSelectionIfCycleEnded(engineResult);
 
     final calibrationMetrics = _buildCalibrationMetrics(
       diagnostics: postUpdateDiagnostics,
@@ -795,14 +800,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         confirmedTransitionCodes: engineResult.confirmedTransitions
             .map((transition) => transition.type.name)
             .toList(growable: false),
-        completedRepValidationStatus: completedRepValidationResult?.status.name,
+        completedRepValidationStatus: validatedRepEvent?.validationStatus.name,
         completedRepValidationReasons:
-            completedRepValidationResult?.reasons
+            validatedRepEvent?.validationReasons
                 .map((reason) => reason.name)
                 .toList(growable: false) ??
             const <String>[],
         completedRepTempoDiagnosticReasons:
-            completedRepValidationResult?.tempoDiagnosticReasons
+            validatedRepEvent?.tempoDiagnosticReasons
                 .map((reason) => reason.name)
                 .toList(growable: false) ??
             const <String>[],
@@ -811,6 +816,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
         recordPoseReacquisition: didReacquire,
         recordBriefOcclusionRecovery: recordBriefOcclusionRecovery,
       ),
+      validatedRepEvent: validatedRepEvent,
     );
   }
 
@@ -1164,26 +1170,27 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     };
   }
 
-  RangeRepValidationResult? _processCompletedRep({
+  ValidatedRepEvent? _processCompletedRep({
     required RangeRepCompletedRepCoreData? completedRepCoreData,
     required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
     required RepTempoAssessment? tempoAssessment,
+    required DateTime completedAt,
   }) {
-    _outcomeTracker.activateCompletedRepOutcomeIfAny(
+    final validationOutcome = _outcomeTracker.activateCompletedRepOutcomeIfAny(
       engineKind: EngineKind.rangeRep,
       analysisKindLabel: EngineKind.rangeRep.name,
       completedRepCoreData: completedRepCoreData,
     );
-    if (completedRepCoreData == null) {
+    if (completedRepCoreData == null || validationOutcome == null) {
       return null;
     }
 
-    final validationResult = _outcomeTracker.lastRangeRepValidationResult;
-    if (validationResult?.shouldPublishScore ?? false) {
+    final validationResult = validationOutcome.result;
+    if (validationResult.shouldPublishScore) {
       _scoreCompletedRep(
         completedRepCoreData: completedRepCoreData,
         postUpdateDiagnostics: postUpdateDiagnostics,
-        validationResult: validationResult!,
+        validationResult: validationResult,
         tempoAssessment: tempoAssessment,
       );
       _lastAcceptedRepRom = _engine.lastRepRom;
@@ -1193,7 +1200,45 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       _lastRepScoreBreakdown = null;
     }
     _refreshRepTelemetry();
-    return validationResult;
+
+    final summary = validationOutcome.summary;
+    return ValidatedRepEvent(
+      attemptIndex: summary.repIndex,
+      acceptedRepIndex: validationResult.countsTowardReps
+          ? _outcomeTracker.rangeRepAcceptedCount
+          : null,
+      exerciseType: 'unknown',
+      analysisKind: EngineKind.rangeRep.name,
+      validationStatus: validationResult.status,
+      validationReasons: validationResult.reasons,
+      tempoDiagnosticReasons: validationResult.tempoDiagnosticReasons,
+      countsTowardReps: validationResult.countsTowardReps,
+      side: _validatedRepSideFromLabel(summary.selectedSideLabel),
+      minPrimaryMetric: summary.minAngle,
+      primaryRom: summary.primaryRom,
+      worstFormMetric: summary.worstFormMetric,
+      descentDuration: summary.descentDuration,
+      ascentDuration: summary.ascentDuration,
+      hadFormViolation: summary.hadFormViolation,
+      hadCoverageDrop: summary.hadCoverageDrop,
+      switchedSideDuringRep: summary.switchedSideDuringRep,
+      completedPhaseSequence: summary.completedPhaseSequence,
+      measurementConfidence: summary.confidence,
+      coverageQuality: summary.coverageQuality,
+      finalScore: validationResult.shouldPublishScore ? _lastRepScore : null,
+      tempoAssessment: tempoAssessment,
+      tempoIncludedInScore:
+          _lastRepScoreBreakdown?.tempoIncludedInFinalScore ?? false,
+      completedAt: completedAt,
+    );
+  }
+
+  ValidatedRepSide? _validatedRepSideFromLabel(String? label) {
+    return switch (label) {
+      'left' => ValidatedRepSide.left,
+      'right' => ValidatedRepSide.right,
+      _ => null,
+    };
   }
 
   RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({
@@ -1736,6 +1781,25 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       markCoverageDrop: markCoverageDrop,
       frameConfidence: frameConfidence,
     );
+  }
+
+  void _resetAutomaticSideSelectionIfCycleEnded(
+    RangeRepEngineFrameResult engineResult,
+  ) {
+    if (!_rangeRepContract.resetAutomaticSideSelectionAfterCycle) {
+      return;
+    }
+
+    final didEndCycle =
+        engineResult.didCompleteRep ||
+        engineResult.repAborted ||
+        engineResult.confirmedTransitions.any(
+          (transition) =>
+              transition.type == RangeRepConfirmedTransitionType.abortToNeutral,
+        );
+    if (didEndCycle) {
+      _movementSideSelector.reset();
+    }
   }
 
   void _clearActiveRepContext({String? reason}) {
