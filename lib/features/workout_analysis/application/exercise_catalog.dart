@@ -335,6 +335,8 @@ class ExerciseCatalog {
         rangeRepContract: RangeRepContracts.stationaryLunge,
         rangeRepValidationConfig: const RangeRepValidationConfig(
           minAcceptableRomDelta: 20.0,
+          maxAcceptableMinAngle: 110.0,
+          invalidateAbortToNeutralAsInsufficientRom: true,
           minDescentMillis: 300,
           minAscentMillis: 250,
           allowLowConfidenceOnCoverageLoss: true,

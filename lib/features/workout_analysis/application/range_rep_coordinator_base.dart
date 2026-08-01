@@ -717,12 +717,20 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hasTechniqueViolation: hasTechniqueViolation,
     );
     final didCompleteRep = engineResult.didCompleteRep;
-    final validatedRepEvent = _processCompletedRep(
+    final completedRepEvent = _processCompletedRep(
       completedRepCoreData: completedRepCoreData,
       postUpdateDiagnostics: postUpdateDiagnostics,
       tempoAssessment: completedRepTempoAssessment,
       completedAt: now,
     );
+    final validatedRepEvent =
+        completedRepEvent ??
+        _processShallowAbortedRep(
+          engineResult: engineResult,
+          currentFormMetric: engineFrame.formMetric,
+          hadFormViolation: hasTechniqueViolation,
+          completedAt: now,
+        );
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
@@ -1203,7 +1211,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
     final summary = validationOutcome.summary;
     return ValidatedRepEvent(
-      attemptIndex: summary.repIndex,
+      attemptIndex: validationOutcome.attemptIndex,
       acceptedRepIndex: validationResult.countsTowardReps
           ? _outcomeTracker.rangeRepAcceptedCount
           : null,
@@ -1229,6 +1237,64 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       tempoAssessment: tempoAssessment,
       tempoIncludedInScore:
           _lastRepScoreBreakdown?.tempoIncludedInFinalScore ?? false,
+      completedAt: completedAt,
+    );
+  }
+
+  ValidatedRepEvent? _processShallowAbortedRep({
+    required RangeRepEngineFrameResult engineResult,
+    required double currentFormMetric,
+    required bool hadFormViolation,
+    required DateTime completedAt,
+  }) {
+    if (!_rangeRepValidationConfig.invalidateAbortToNeutralAsInsufficientRom ||
+        engineResult.abortedAttemptDetectionData == null) {
+      return null;
+    }
+
+    final validationOutcome = _outcomeTracker
+        .activateShallowAbortedRepOutcomeIfAny(
+          engineKind: EngineKind.rangeRep,
+          analysisKindLabel: EngineKind.rangeRep.name,
+          abortedAttemptData: engineResult.abortedAttemptDetectionData,
+          worstFormMetric: currentFormMetric,
+          hadFormViolation: hadFormViolation,
+        );
+    if (validationOutcome == null) {
+      return null;
+    }
+
+    _lastRepScore = 0.0;
+    _lastAcceptedRepRom = 0.0;
+    _lastRepScoreBreakdown = null;
+    _lastRepTempoAssessment = null;
+    _refreshRepTelemetry();
+
+    final summary = validationOutcome.summary;
+    return ValidatedRepEvent(
+      attemptIndex: validationOutcome.attemptIndex,
+      acceptedRepIndex: null,
+      exerciseType: 'unknown',
+      analysisKind: EngineKind.rangeRep.name,
+      validationStatus: validationOutcome.status,
+      validationReasons: validationOutcome.reasons,
+      tempoDiagnosticReasons: const <RangeRepValidationReason>[],
+      countsTowardReps: false,
+      side: _validatedRepSideFromLabel(summary.selectedSideLabel),
+      minPrimaryMetric: summary.minAngle,
+      primaryRom: summary.primaryRom,
+      worstFormMetric: summary.worstFormMetric,
+      descentDuration: summary.descentDuration,
+      ascentDuration: summary.ascentDuration,
+      hadFormViolation: summary.hadFormViolation,
+      hadCoverageDrop: summary.hadCoverageDrop,
+      switchedSideDuringRep: summary.switchedSideDuringRep,
+      completedPhaseSequence: false,
+      measurementConfidence: summary.confidence,
+      coverageQuality: summary.coverageQuality,
+      finalScore: null,
+      tempoAssessment: null,
+      tempoIncludedInScore: false,
       completedAt: completedAt,
     );
   }

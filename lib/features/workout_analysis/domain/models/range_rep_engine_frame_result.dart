@@ -1,5 +1,6 @@
 import '../range_rep_diagnostics.dart';
 import '../tempo_engine.dart';
+import 'range_rep_aborted_attempt_detection_data.dart';
 import 'range_rep_completed_cycle.dart';
 import 'range_rep_completed_rep_detection_data.dart';
 import 'range_rep_confirmed_transition.dart';
@@ -12,6 +13,7 @@ class RangeRepEngineFrameResult {
     required this.isArmedAfterUpdate,
     this.repStarted = false,
     this.repAborted = false,
+    this.abortedAttemptDetectionData,
     RangeRepCompletedRepDetectionData? completedRepDetectionData,
     RangeRepCompletedRepCoreData? completedRepCoreData,
     this.completedCycle,
@@ -37,6 +39,7 @@ class RangeRepEngineFrameResult {
   final bool isArmedAfterUpdate;
   final bool repStarted;
   final bool repAborted;
+  final RangeRepAbortedAttemptDetectionData? abortedAttemptDetectionData;
   final RangeRepCompletedRepDetectionData? completedRepDetectionData;
   final RangeRepCompletedRepCoreData? completedRepCoreData;
   final RangeRepCompletedCycle? completedCycle;

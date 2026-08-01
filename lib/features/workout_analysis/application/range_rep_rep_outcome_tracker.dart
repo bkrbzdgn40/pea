@@ -1,3 +1,4 @@
+import '../domain/models/range_rep_aborted_attempt_detection_data.dart';
 import '../domain/models/range_rep_rep_summary.dart';
 import '../domain/models/range_rep_validation_outcome.dart';
 import '../domain/models/range_rep_validation_result.dart';
@@ -23,6 +24,8 @@ class RangeRepRepOutcomeTracker {
   RangeRepRepSummary? _lastRangeRepRepSummaryCandidate;
   RangeRepValidationResult? _lastRangeRepValidationResult;
   int? _lastRangeRepValidatedRepIndex;
+  int? _lastRangeRepCompletedEngineRepIndex;
+  int _rangeRepAttemptCount = 0;
   int _rangeRepAcceptedCount = 0;
   int _rangeRepValidatedCount = 0;
   int _rangeRepLowConfidenceCount = 0;
@@ -91,9 +94,13 @@ class RangeRepRepOutcomeTracker {
     if (engineKind != EngineKind.rangeRep || completedRepCoreData == null) {
       return null;
     }
+    if (_lastRangeRepCompletedEngineRepIndex == completedRepCoreData.repIndex) {
+      return null;
+    }
 
+    final attemptIndex = _rangeRepAttemptCount + 1;
     final summaryCandidate = RangeRepRepSummary(
-      repIndex: completedRepCoreData.repIndex,
+      repIndex: attemptIndex,
       minAngle: completedRepCoreData.minAngle,
       worstFormMetric: completedRepCoreData.worstFormMetric,
       descentDuration: completedRepCoreData.descentDuration,
@@ -111,8 +118,53 @@ class RangeRepRepOutcomeTracker {
       totalRepDuration: completedRepCoreData.totalRepDuration,
     );
     final validationOutcome = RangeRepValidationOutcome(
+      attemptIndex: attemptIndex,
       summary: summaryCandidate,
       result: _validationPolicy.evaluate(summaryCandidate),
+    );
+    final didActivate = _activateRangeRepValidationOutcome(validationOutcome);
+    if (didActivate) {
+      _lastRangeRepCompletedEngineRepIndex = completedRepCoreData.repIndex;
+    }
+    resetRepContext();
+    return didActivate ? validationOutcome : null;
+  }
+
+  RangeRepValidationOutcome? activateShallowAbortedRepOutcomeIfAny({
+    required EngineKind engineKind,
+    required String analysisKindLabel,
+    required RangeRepAbortedAttemptDetectionData? abortedAttemptData,
+    required double worstFormMetric,
+    required bool hadFormViolation,
+  }) {
+    if (engineKind != EngineKind.rangeRep ||
+        abortedAttemptData == null ||
+        !_validationPolicy.config.invalidateAbortToNeutralAsInsufficientRom) {
+      return null;
+    }
+
+    final attemptIndex = _rangeRepAttemptCount + 1;
+    final summaryCandidate = RangeRepRepSummary(
+      repIndex: attemptIndex,
+      minAngle: abortedAttemptData.minAngle,
+      worstFormMetric: worstFormMetric,
+      descentDuration: abortedAttemptData.descentDuration,
+      ascentDuration: Duration.zero,
+      hadFormViolation: hadFormViolation,
+      hadCoverageDrop: _activeRangeRepHadCoverageDrop,
+      switchedSideDuringRep: _activeRangeRepSwitchedSideDuringRep,
+      completedPhaseSequence: false,
+      selectedSideLabel: _activeRangeRepSelectedSideLabel,
+      analysisKindLabel: analysisKindLabel,
+      startAngle: abortedAttemptData.startAngle,
+      primaryRom: abortedAttemptData.primaryRom,
+      confidence: activeRepConfidence,
+      coverageQuality: activeRepCoverageQuality,
+    );
+    final validationOutcome = RangeRepValidationOutcome(
+      attemptIndex: attemptIndex,
+      summary: summaryCandidate,
+      result: _validationPolicy.evaluateShallowAbort(),
     );
     final didActivate = _activateRangeRepValidationOutcome(validationOutcome);
     resetRepContext();
@@ -149,13 +201,14 @@ class RangeRepRepOutcomeTracker {
   }
 
   bool _activateRangeRepValidationOutcome(RangeRepValidationOutcome outcome) {
-    if (_lastRangeRepValidatedRepIndex == outcome.repIndex) {
+    if (outcome.attemptIndex != _rangeRepAttemptCount + 1) {
       return false;
     }
 
+    _rangeRepAttemptCount = outcome.attemptIndex;
     _lastRangeRepRepSummaryCandidate = outcome.summary;
     _lastRangeRepValidationResult = outcome.result;
-    _lastRangeRepValidatedRepIndex = outcome.repIndex;
+    _lastRangeRepValidatedRepIndex = outcome.attemptIndex;
 
     switch (outcome.status) {
       case RangeRepValidationStatus.valid:

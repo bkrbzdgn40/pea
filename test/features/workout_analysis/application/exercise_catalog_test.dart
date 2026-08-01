@@ -504,6 +504,20 @@ void main() {
         definition.analysisRangeRepContract,
         same(RangeRepContracts.stationaryLunge),
       );
+      expect(
+        definition.analysisRangeRepValidationConfig.minAcceptableRomDelta,
+        20.0,
+      );
+      expect(
+        definition.analysisRangeRepValidationConfig.maxAcceptableMinAngle,
+        110.0,
+      );
+      expect(
+        definition
+            .analysisRangeRepValidationConfig
+            .invalidateAbortToNeutralAsInsufficientRom,
+        isTrue,
+      );
     });
 
     test('enables Good Morning as a selected-side hip-hinge range rep', () {
