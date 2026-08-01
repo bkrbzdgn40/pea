@@ -44,7 +44,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 7);
+    expect(snapshot.schemaVersion, 8);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -92,11 +92,11 @@ void main() {
     });
   });
 
-  test('schema v7 identifies the exact exercise and contract context', () {
+  test('schema v8 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 7);
+    expect(snapshot.schemaVersion, 8);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -113,7 +113,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v7 identifies hold family and hollow-hold variation', () {
+  test('schema v8 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -289,6 +289,7 @@ void main() {
       ..recordRangeRepValidation(
         statusCode: 'valid',
         reasonCodes: const <String>[],
+        tempoDiagnosticReasonCodes: const <String>['excessiveDescentSpeed'],
       );
 
     final snapshot = subject.snapshot(now: startedAt);
@@ -313,6 +314,18 @@ void main() {
     expect(snapshot.lastRangeRepConfirmedTransition, 'abortToNeutral');
     expect(snapshot.lastRangeRepValidationStatus, 'valid');
     expect(snapshot.lastRangeRepValidationReasons, isEmpty);
+    expect(snapshot.rangeRepTempoDiagnosticReasonCounts, <String, int>{
+      'excessiveDescentSpeed': 1,
+    });
+    expect(snapshot.lastRangeRepTempoDiagnosticReasons, <String>[
+      'excessiveDescentSpeed',
+    ]);
+    expect(json['range_rep_tempo_diagnostic_reason_counts'], <String, int>{
+      'excessiveDescentSpeed': 1,
+    });
+    expect(json['last_range_rep_tempo_diagnostic_reasons'], <String>[
+      'excessiveDescentSpeed',
+    ]);
     expect(json['range_rep_abort_count'], 1);
   });
 
@@ -362,7 +375,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 7);
+      expect(json['schema_version'], 8);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -528,7 +541,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 7);
+    expect(json['schema_version'], 8);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -824,7 +837,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 7);
+    expect(json['schema_version'], 8);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');

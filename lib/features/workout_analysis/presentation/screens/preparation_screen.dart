@@ -354,7 +354,6 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         if (!mounted) {
           return;
         }
-        final cameraValue = _safeCameraValue(streamController);
         unawaited(
           ref
               .read(preparationCameraControllerProvider.notifier)

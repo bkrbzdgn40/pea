@@ -1159,6 +1159,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       _diagnostics.recordRangeRepValidation(
         statusCode: validationStatus,
         reasonCodes: update.completedRepValidationReasons,
+        tempoDiagnosticReasonCodes: update.completedRepTempoDiagnosticReasons,
       );
     }
   }

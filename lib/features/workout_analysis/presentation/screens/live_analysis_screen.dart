@@ -1243,7 +1243,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
         if (!mounted || _isPlanTransitionLocked) {
           return;
         }
-        final cameraValue = _safeControllerValue(streamController);
         if (ref.read(livePauseControllerProvider).isActive) {
           ref
               .read(workoutControllerProvider.notifier)

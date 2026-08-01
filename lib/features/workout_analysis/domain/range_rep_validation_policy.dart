@@ -1,6 +1,13 @@
 import 'models/range_rep_rep_summary.dart';
 import 'models/range_rep_validation_result.dart';
 
+/// Controls whether raw range-rep tempo observations may affect the user-facing
+/// validation outcome.
+///
+/// [quarantined] is the production-safe default until Tempo Measurement V2 can
+/// prove that one completed cycle has enough timing integrity for coaching.
+enum RangeRepTempoMeasurementMode { quarantined, enabled }
+
 class RangeRepValidationConfig {
   const RangeRepValidationConfig({
     this.minAcceptableRomAngle = 110.0,
@@ -10,6 +17,7 @@ class RangeRepValidationConfig {
     this.allowLowConfidenceOnCoverageLoss = true,
     this.invalidateOnPersistentFormBreak = false,
     this.minAcceptableRomDelta,
+    this.tempoMeasurementMode = RangeRepTempoMeasurementMode.quarantined,
   });
 
   final double minAcceptableRomAngle;
@@ -34,6 +42,10 @@ class RangeRepValidationConfig {
   /// Optional delta-based ROM floor. When present, validation uses
   /// `startAngle - peakAngle` instead of an absolute minimum angle.
   final double? minAcceptableRomDelta;
+
+  /// Raw tempo thresholds remain useful for diagnostics while quarantined, but
+  /// they must not change rep validity, accepted counts, persistence, or UI.
+  final RangeRepTempoMeasurementMode tempoMeasurementMode;
 }
 
 /// Standalone range-rep validator used by the runtime validation outcome flow.
@@ -45,6 +57,7 @@ class RangeRepValidationPolicy {
   RangeRepValidationResult evaluate(RangeRepRepSummary summary) {
     final invalidReasons = <RangeRepValidationReason>[];
     final lowConfidenceReasons = <RangeRepValidationReason>[];
+    final tempoDiagnosticReasons = <RangeRepValidationReason>[];
 
     if (!summary.completedPhaseSequence) {
       invalidReasons.add(RangeRepValidationReason.incompletePhase);
@@ -74,11 +87,19 @@ class RangeRepValidationPolicy {
     }
 
     if (summary.descentDuration.inMilliseconds < config.minDescentMillis) {
-      lowConfidenceReasons.add(RangeRepValidationReason.excessiveDescentSpeed);
+      _recordTempoFinding(
+        RangeRepValidationReason.excessiveDescentSpeed,
+        lowConfidenceReasons: lowConfidenceReasons,
+        tempoDiagnosticReasons: tempoDiagnosticReasons,
+      );
     }
 
     if (summary.ascentDuration.inMilliseconds < config.minAscentMillis) {
-      lowConfidenceReasons.add(RangeRepValidationReason.excessiveAscentSpeed);
+      _recordTempoFinding(
+        RangeRepValidationReason.excessiveAscentSpeed,
+        lowConfidenceReasons: lowConfidenceReasons,
+        tempoDiagnosticReasons: tempoDiagnosticReasons,
+      );
     }
 
     final minTotalRepMillis = config.minTotalRepMillis;
@@ -86,7 +107,11 @@ class RangeRepValidationPolicy {
     if (minTotalRepMillis != null &&
         totalRepDuration != null &&
         totalRepDuration.inMilliseconds < minTotalRepMillis) {
-      lowConfidenceReasons.add(RangeRepValidationReason.excessiveRepSpeed);
+      _recordTempoFinding(
+        RangeRepValidationReason.excessiveRepSpeed,
+        lowConfidenceReasons: lowConfidenceReasons,
+        tempoDiagnosticReasons: tempoDiagnosticReasons,
+      );
     }
 
     if (summary.hadFormViolation) {
@@ -102,13 +127,29 @@ class RangeRepValidationPolicy {
       return RangeRepValidationResult.invalid(<RangeRepValidationReason>[
         ...invalidReasons,
         ...lowConfidenceReasons,
-      ]);
+      ], tempoDiagnosticReasons: tempoDiagnosticReasons);
     }
 
     if (lowConfidenceReasons.isNotEmpty) {
-      return RangeRepValidationResult.lowConfidence(lowConfidenceReasons);
+      return RangeRepValidationResult.lowConfidence(
+        lowConfidenceReasons,
+        tempoDiagnosticReasons: tempoDiagnosticReasons,
+      );
     }
 
-    return RangeRepValidationResult.valid();
+    return RangeRepValidationResult.valid(
+      tempoDiagnosticReasons: tempoDiagnosticReasons,
+    );
+  }
+
+  void _recordTempoFinding(
+    RangeRepValidationReason reason, {
+    required List<RangeRepValidationReason> lowConfidenceReasons,
+    required List<RangeRepValidationReason> tempoDiagnosticReasons,
+  }) {
+    tempoDiagnosticReasons.add(reason);
+    if (config.tempoMeasurementMode == RangeRepTempoMeasurementMode.enabled) {
+      lowConfidenceReasons.add(reason);
+    }
   }
 }

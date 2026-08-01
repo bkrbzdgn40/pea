@@ -88,7 +88,7 @@ void main() {
         final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 7);
+        expect(snapshot.schemaVersion, 8);
         expect(snapshot.exerciseType, 'squat');
         expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
         expect(snapshot.contractProfile, 'rangeRep:squat');
@@ -104,7 +104,7 @@ void main() {
         expect(snapshot.poseQualitySampleCount, 2);
         expect(snapshot.minimumRequiredLikelihoodP50, 0.40);
         expect(snapshot.meanRequiredLikelihoodP50, 0.40);
-        expect(json['schema_version'], 7);
+        expect(json['schema_version'], 8);
         expect(json['exercise_type'], 'squat');
         expect(
           snapshot.cameraViewContract,

@@ -22,7 +22,7 @@ void main() {
     expect(config.rangeRepPhaseQuality?.minAscendingMillis, 0);
   });
 
-  test('flags 1.5 seconds and accepts the first millisecond above it', () {
+  test('quarantines the 1.5 second boundary finding', () {
     final policy = RangeRepValidationPolicy(
       config: definition.analysisRangeRepValidationConfig,
     );
@@ -34,10 +34,14 @@ void main() {
       _summary(totalRepDuration: const Duration(milliseconds: 1501)),
     );
 
-    expect(boundary.status, RangeRepValidationStatus.lowConfidence);
-    expect(boundary.reasons, [RangeRepValidationReason.excessiveRepSpeed]);
+    expect(boundary.status, RangeRepValidationStatus.valid);
+    expect(boundary.reasons, isEmpty);
+    expect(boundary.tempoDiagnosticReasons, [
+      RangeRepValidationReason.excessiveRepSpeed,
+    ]);
     expect(controlled.status, RangeRepValidationStatus.valid);
     expect(controlled.reasons, isEmpty);
+    expect(controlled.tempoDiagnosticReasons, isEmpty);
   });
 
   test('does not emit legacy phase-speed reasons', () {
@@ -54,12 +58,13 @@ void main() {
     );
 
     expect(result.status, RangeRepValidationStatus.valid);
+    expect(result.reasons, isEmpty);
     expect(
-      result.reasons,
+      result.tempoDiagnosticReasons,
       isNot(contains(RangeRepValidationReason.excessiveDescentSpeed)),
     );
     expect(
-      result.reasons,
+      result.tempoDiagnosticReasons,
       isNot(contains(RangeRepValidationReason.excessiveAscentSpeed)),
     );
   });

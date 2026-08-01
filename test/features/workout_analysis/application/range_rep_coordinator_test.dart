@@ -16,6 +16,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_engine_frame_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_score_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_engine.dart';
@@ -124,7 +125,7 @@ void main() {
       expect(completedResult.stateSnapshot.lastRepRom, 0);
     });
 
-    test('counts low-confidence completions and keeps their score', () {
+    test('keeps tempo-only completions valid and diagnostic', () {
       final clock = _TestClock();
       final config = _squatConfig();
       final engine = const AnalysisEngineFactory().createRangeRep(
@@ -148,7 +149,7 @@ void main() {
             .stateSnapshot
             .calibrationMetrics
             .lastRangeRepValidationStatus,
-        'low confidence',
+        'valid',
       );
       expect(completedResult.stateSnapshot.repCount, 1);
       final calibrationMetrics =
@@ -166,7 +167,15 @@ void main() {
             .stateSnapshot
             .calibrationMetrics
             .rangeRepLowConfidenceCount,
-        1,
+        0,
+      );
+      expect(
+        completedResult.diagnosticsUpdate.completedRepValidationReasons,
+        isEmpty,
+      );
+      expect(
+        completedResult.diagnosticsUpdate.completedRepTempoDiagnosticReasons,
+        contains(RangeRepValidationReason.excessiveDescentSpeed.name),
       );
     });
 
@@ -2704,10 +2713,14 @@ void _expectTempoSafeScoreProjection(
   expect(metrics.lastRepHadFormViolation, expectedBreakdown.hadFormViolation);
   expect(metrics.phaseQualityPenalty, isNull);
   expect(metrics.phaseAdjustedScore, isNull);
-  expect(metrics.lastRangeRepValidationStatus, 'low confidence');
+  expect(metrics.lastRangeRepValidationStatus, 'valid');
+  expect(metrics.lastRangeRepValidationReasons, isEmpty);
   expect(
-    metrics.lastRangeRepValidationReasons,
-    containsAll(<String>['excessive descent speed', 'excessive ascent speed']),
+    result.diagnosticsUpdate.completedRepTempoDiagnosticReasons,
+    containsAll(<String>[
+      RangeRepValidationReason.excessiveDescentSpeed.name,
+      RangeRepValidationReason.excessiveAscentSpeed.name,
+    ]),
   );
   expect(metrics.lastRangeRepSummaryMinAngle, completedRepCoreData.minAngle);
   expect(

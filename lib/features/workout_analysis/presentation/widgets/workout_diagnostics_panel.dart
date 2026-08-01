@@ -411,6 +411,26 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                   suffix: '\u00b0',
                                 ),
                               ),
+                              if (snapshot.analysisKind == 'rangeRep') ...[
+                                _DiagnosticsRow(
+                                  label: 'Last validation status',
+                                  value: _formatOptionalText(
+                                    snapshot.lastRangeRepValidationStatus,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Last validation reasons',
+                                  value: _formatStringList(
+                                    snapshot.lastRangeRepValidationReasons,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Tempo diagnostic findings',
+                                  value: _formatStringList(
+                                    snapshot.lastRangeRepTempoDiagnosticReasons,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           if (hasHoldTypedState)
@@ -913,6 +933,9 @@ String _formatFileTimestamp(DateTime value) {
 
 String _formatOptionalText(String? value) =>
     value == null || value.isEmpty ? _missingDiagnosticsValue : value;
+
+String _formatStringList(List<String> values) =>
+    values.isEmpty ? _missingDiagnosticsValue : values.join(', ');
 
 String _formatHoldFeedbackCode(HoldFeedbackCode? code) =>
     code == null ? _missingDiagnosticsValue : code.code;
