@@ -13,12 +13,9 @@ import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metric_registry.dart';
 import '../../application/exercise_metrics.dart';
-import '../../application/exercise_metrics_extractor.dart';
 import '../../application/feedback_delivery_controller.dart';
 import '../../application/hold_coordinator.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
-import '../../application/pose_quality_policy.dart';
-import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/range_rep_primary_metric_normalizer.dart';
 import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
@@ -29,6 +26,7 @@ import '../../application/workout_analysis_runtime.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../application/workout_state_projector.dart';
 import '../../application/workout_live_metrics.dart';
+import '../../application/workout_frame_processor.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
@@ -162,6 +160,21 @@ final workoutAnalysisRuntimeFactoryProvider =
       return const WorkoutAnalysisRuntimeFactory();
     });
 
+final workoutFrameProcessorFactoryProvider =
+    Provider<WorkoutFrameProcessorFactory>((ref) {
+      return ({
+        required WorkoutAnalysisRuntime runtime,
+        required DateTime Function() clock,
+        required WorkoutFrameProcessorCallbacks callbacks,
+      }) {
+        return WorkoutFrameProcessor(
+          runtime: runtime,
+          clock: clock,
+          callbacks: callbacks,
+        );
+      };
+    });
+
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late DateTime _lastFpsCalculationTime;
@@ -176,14 +189,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   // current analysis build, not immutable lifetime state of the notifier.
   late WorkoutAnalysisRuntime _runtime;
   late DateTime Function() _clock;
-  final ExerciseMetricsExtractor _metricsExtractor =
-      const ExerciseMetricsExtractor();
-  final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
   final WorkoutStateProjector _stateProjector = const WorkoutStateProjector();
-  bool _hasTemporalCameraContext = false;
-  int? _temporalSensorOrientation;
-  CameraLensDirection? _temporalCameraLensDirection;
-  DeviceOrientation? _temporalDeviceOrientation;
+  late WorkoutFrameProcessor _frameProcessor;
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   int? _liveMetricsRepCount;
   int? _liveMetricsAlternatingRepCount;
@@ -198,11 +205,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
   EngineKind get _engineKind => _runtime.engineKind;
   ExerciseType get _activeExercise => _runtime.activeExercise;
-  ExerciseConfig get _config => _runtime.config;
   RangeRepContract? get _rangeRepContract => _runtime.rangeRepContract;
   HoldContract? get _holdContract => _runtime.holdContract;
-  PreparedExerciseAnalysisContext get _preparedAnalysisContext =>
-      _runtime.preparedAnalysisContext;
   RangeRepAnalysisEngine? get _rangeRepEngine => _runtime.rangeRepEngine;
   ValidatedRepEventTracker? get _validatedRepEventTracker =>
       _runtime.validatedRepEventTracker;
@@ -214,7 +218,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   HoldCoordinator? get _holdCoordinator => _runtime.holdCoordinator;
   PoseAcceptanceStabilizer get _poseAcceptanceStabilizer =>
       _runtime.poseAcceptanceStabilizer;
-  WorkoutFramePosePipeline get _framePosePipeline => _runtime.framePosePipeline;
   WorkoutDiagnosticsAccumulator get _diagnostics =>
       _runtime.diagnosticsReporter.accumulator;
 
@@ -250,11 +253,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _liveMetricsAlternatingRepCount = null;
     _liveMetricsTempo = null;
     _liveMetricsAsymmetryScore = null;
-    _hasTemporalCameraContext = false;
-    _temporalSensorOrientation = null;
-    _temporalCameraLensDirection = null;
-    _temporalDeviceOrientation = null;
-
     _runtime = runtimeFactory.create(
       activeExercise: activeExercise,
       config: config,
@@ -263,6 +261,19 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       rangeRepCoordinatorFactory: rangeRepCoordinatorFactory,
       holdCoordinatorFactory: holdCoordinatorFactory,
       diagnosticsEnabled: kDebugMode || kProfileMode,
+    );
+    final frameProcessorFactory = ref.watch(
+      workoutFrameProcessorFactoryProvider,
+    );
+    _frameProcessor = frameProcessorFactory(
+      runtime: _runtime,
+      clock: _clock,
+      callbacks: WorkoutFrameProcessorCallbacks(
+        onCameraFrameObserved: _recordCameraFrameObserved,
+        onAnalysisFrameObserved: _recordAnalysisFrameObserved,
+        onTrackingResult: _updateLiveTrackingFromPipelineResult,
+        onDetectedPoseFrame: _processDetectedPoseFrame,
+      ),
     );
     _lastFpsCalculationTime = _runtime.fpsWindowStartedAt;
     _cameraFrameCount = 0;
@@ -295,196 +306,74 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     CameraLensDirection? cameraLensDirection,
     DeviceOrientation? deviceOrientation,
   }) async {
-    final now = _clock();
-    _resetTemporalHistoryIfCameraContextChanged(
+    final outcome = await _frameProcessor.processCameraImage(
+      image: image,
       sensorOrientation: sensorOrientation,
       cameraLensDirection: cameraLensDirection,
       deviceOrientation: deviceOrientation,
+      readDetector: () => ref.read(poseDetectorProvider),
+      isPaused: () => ref.read(livePauseControllerProvider).isPaused,
     );
-    if (_isDiagnosticsEnabled) {
-      _diagnostics
-        ..recordCameraFrame()
-        ..updateCameraRuntimeContext(
-          sensorOrientationDegrees: sensorOrientation,
-          cameraLensDirection: cameraLensDirection?.name,
-          deviceOrientation: deviceOrientation?.name,
-        );
-    }
-    _cameraFrameCount++;
-    _updateFpsIfNeeded();
-
-    final schedulingDecision = _framePosePipeline.prepareCameraFrame(now: now);
-    if (schedulingDecision == FrameProcessingGateDecision.reentrantDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordReentrantDrop();
-      }
-      return;
-    }
-    if (schedulingDecision == FrameProcessingGateDecision.throttledDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordThrottledFrame();
-      }
-      return;
-    }
-
-    final processingStopwatch = Stopwatch()..start();
-    if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
-
-    try {
-      final detector = ref.read(poseDetectorProvider);
-      final assessPose = _poseQualityAssessor();
-      final result = await _framePosePipeline.processCameraFrame(
-        image: image,
-        sensorOrientation: sensorOrientation,
-        deviceOrientation: deviceOrientation,
-        lensDirection: cameraLensDirection,
-        detector: detector,
-        assessPose: assessPose,
+    if (_isDiagnosticsEnabled &&
+        outcome.status == WorkoutFrameProcessingStatus.analyzed) {
+      _diagnostics.updateLivePerformance(
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
       );
-      if (ref.read(livePauseControllerProvider).isPaused) {
-        return;
-      }
-      _consumeFramePosePipelineResult(
-        result,
-        frameCapturedAt: now,
-        processingStopwatch: processingStopwatch,
-      );
-      if (_isDiagnosticsEnabled &&
-          result.kind != FramePosePipelineResultKind.converterDrop) {
-        _diagnostics.updateLivePerformance(
-          cameraFps: _cameraFps,
-          analysisFps: _analysisFps,
-        );
-      }
-    } catch (e) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      debugPrint("ANALIZ HATASI: $e");
-    } finally {
-      _framePosePipeline.finishCameraFrame();
+    }
+    if (outcome.status == WorkoutFrameProcessingStatus.failed) {
+      debugPrint('ANALIZ HATASI: ${outcome.error}');
     }
   }
 
   @visibleForTesting
   Future<void> processInputImageForAnalysis(InputImage inputImage) async {
-    final now = _clock();
-    final processingStopwatch = Stopwatch()..start();
-    if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
-
-    try {
-      final detector = ref.read(poseDetectorProvider);
-      final assessPose = _poseQualityAssessor();
-      final result = await _framePosePipeline.processInputImage(
-        inputImage: inputImage,
-        detector: detector,
-        assessPose: assessPose,
+    final outcome = await _frameProcessor.processInputImage(
+      inputImage: inputImage,
+      readDetector: () => ref.read(poseDetectorProvider),
+      isPaused: () => ref.read(livePauseControllerProvider).isPaused,
+    );
+    if (_isDiagnosticsEnabled &&
+        (outcome.status == WorkoutFrameProcessingStatus.analyzed ||
+            outcome.status == WorkoutFrameProcessingStatus.converterDrop)) {
+      _diagnostics.updateLivePerformance(
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
       );
-      if (ref.read(livePauseControllerProvider).isPaused) {
-        return;
-      }
-      _consumeFramePosePipelineResult(
-        result,
-        frameCapturedAt: now,
-        processingStopwatch: processingStopwatch,
-      );
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.updateLivePerformance(
-          cameraFps: _cameraFps,
-          analysisFps: _analysisFps,
-        );
-      }
-    } catch (e) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      rethrow;
+    }
+    if (outcome.status == WorkoutFrameProcessingStatus.failed) {
+      Error.throwWithStackTrace(outcome.error!, outcome.stackTrace!);
     }
   }
 
-  void _resetTemporalHistoryIfCameraContextChanged({
-    required int sensorOrientation,
-    required CameraLensDirection? cameraLensDirection,
-    required DeviceOrientation? deviceOrientation,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return;
-    }
-
-    final contextChanged =
-        _hasTemporalCameraContext &&
-        (_temporalSensorOrientation != sensorOrientation ||
-            _temporalCameraLensDirection != cameraLensDirection ||
-            _temporalDeviceOrientation != deviceOrientation);
-    if (contextChanged) {
-      _rangeRepTemporalContinuityTracker?.reset();
-    }
-    _hasTemporalCameraContext = true;
-    _temporalSensorOrientation = sensorOrientation;
-    _temporalCameraLensDirection = cameraLensDirection;
-    _temporalDeviceOrientation = deviceOrientation;
+  void _recordCameraFrameObserved() {
+    _cameraFrameCount++;
+    _updateFpsIfNeeded();
   }
 
-  void _consumeFramePosePipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime frameCapturedAt,
-    required Stopwatch processingStopwatch,
-  }) {
-    final pipelineTimings = result.timings;
-    if (_isDiagnosticsEnabled && pipelineTimings != null) {
-      _diagnostics.recordFramePosePipelineDurations(
-        conversionDuration: pipelineTimings.conversionDuration,
-        poseDetectionDuration: pipelineTimings.poseDetectionDuration,
-        candidateEvaluationDuration:
-            pipelineTimings.candidateEvaluationDuration,
-        totalDuration: pipelineTimings.totalDuration,
-      );
-    }
-
-    if (result.kind == FramePosePipelineResultKind.converterDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordConverterDrop();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      return;
-    }
-
-    if (result.poseCount != null && _isDiagnosticsEnabled) {
-      _diagnostics.recordPoseCount(result.poseCount!);
-    }
+  void _recordAnalysisFrameObserved() {
     _analysisFrameCount++;
     _updateFpsIfNeeded();
+  }
 
-    _updatePoseDiagnosticsFromPipelineResult(result);
-    _updateLiveTrackingFromPipelineResult(result, now: frameCapturedAt);
-    if (result.invalidatesRangeRepTemporalHistory) {
-      _rangeRepTemporalContinuityTracker?.reset();
-    }
-    final detectedFrame = _detectedPoseFrameFromPipelineResult(
-      result,
-      observedAt: frameCapturedAt,
-    );
+  void _processDetectedPoseFrame(
+    WorkoutDetectedPoseFrame detectedFrame,
+    DateTime observedAt,
+  ) {
     _processExerciseMetrics(
       metrics: detectedFrame.metrics,
-      now: frameCapturedAt,
+      now: observedAt,
       frameKind: detectedFrame.kind,
       didBecomeStableTracking: detectedFrame.didBecomeStableTracking,
       qualityAcceptedRangeRepSides: detectedFrame.qualityAcceptedRangeRepSides,
       preferredRangeRepSide: detectedFrame.preferredRangeRepSide,
     );
-
-    if (_isDiagnosticsEnabled) {
-      _diagnostics.recordAnalysisCompleted();
-      _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-    }
   }
 
   void _updateLiveTrackingFromPipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime now,
-  }) {
+    FramePosePipelineResult result,
+    DateTime now,
+  ) {
     if (result.kind == FramePosePipelineResultKind.converterDrop) {
       return;
     }
@@ -513,128 +402,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       unawaited(_feedbackDelivery.stop());
     } else if (!previousState.isTracking && nextState.isTracking) {
       _feedbackDelivery.reset();
-    }
-  }
-
-  void _updatePoseDiagnosticsFromPipelineResult(
-    FramePosePipelineResult result,
-  ) {
-    if (!_isDiagnosticsEnabled) {
-      return;
-    }
-
-    final assessment = result.selectedAssessment;
-    if (assessment != null) {
-      _diagnostics.recordPoseQualitySample(
-        minimumRequiredLikelihood: assessment.minimumRequiredLikelihood,
-        meanRequiredLikelihood: assessment.meanRequiredLikelihood,
-        qualityScore: assessment.qualityScore,
-      );
-    }
-
-    switch (result.kind) {
-      case FramePosePipelineResultKind.noPose:
-        _diagnostics.updatePoseQualityStatus(status: 'no_pose');
-        return;
-      case FramePosePipelineResultKind.rejected:
-        final rejectionReason = result.selectedAssessment?.rejectionReason;
-        if (rejectionReason != null) {
-          _diagnostics.recordRejectedPose(
-            rejectionReasonCode: rejectionReason.code,
-          );
-          if (rejectionReason.isLowConfidence) {
-            _diagnostics.recordLowConfidencePose();
-          }
-          if (rejectionReason.isGeometryFailure) {
-            _diagnostics.recordInvalidPoseGeometry();
-          }
-          _diagnostics.updatePoseQualityStatus(
-            status: 'rejected',
-            lastRejectionReason: rejectionReason.code,
-          );
-        }
-        return;
-      case FramePosePipelineResultKind.pendingAcceptance:
-        _diagnostics.updatePoseQualityStatus(
-          status: 'accepted_pending_stabilization',
-        );
-        return;
-      case FramePosePipelineResultKind.accepted:
-        _diagnostics.updatePoseQualityStatus(status: 'accepted');
-        return;
-      case FramePosePipelineResultKind.converterDrop:
-        return;
-    }
-  }
-
-  _DetectedPoseFrame _detectedPoseFrameFromPipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime observedAt,
-  }) {
-    switch (result.kind) {
-      case FramePosePipelineResultKind.noPose:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.noPose,
-        );
-      case FramePosePipelineResultKind.rejected:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.rejected,
-        );
-      case FramePosePipelineResultKind.pendingAcceptance:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.pendingAcceptance,
-        );
-      case FramePosePipelineResultKind.accepted:
-        final selectedPose = result.selectedPose;
-        final selectedAssessment = result.selectedAssessment;
-        if (selectedPose == null || selectedAssessment == null) {
-          throw StateError(
-            'Accepted frame-pose pipeline result requires pose and assessment.',
-          );
-        }
-
-        final extractedMetrics = _metricsExtractor.extract(
-          selectedPose,
-          _config,
-          engineKind: _engineKind,
-          rangeRepContract: _rangeRepContract,
-          holdContract: _holdContract,
-          preparedContext: _preparedAnalysisContext,
-          poseQualityAssessment: selectedAssessment,
-          holdSide: _engineKind == EngineKind.hold
-              ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
-                  selectedAssessment,
-                )
-              : null,
-        );
-        final normalizedMetrics = _primaryMetricNormalizer?.normalize(
-          pose: selectedPose,
-          metrics: extractedMetrics,
-        );
-        final baseMetrics = normalizedMetrics ?? extractedMetrics;
-        final confidenceMetrics = _rangeRepTemporalContinuityTracker
-            ?.updateMetrics(
-              pose: selectedPose,
-              metrics: baseMetrics,
-              preparedContext: _preparedAnalysisContext,
-              observedAt: observedAt,
-            );
-
-        return _DetectedPoseFrame(
-          metrics: confidenceMetrics ?? baseMetrics,
-          kind: _PoseFrameKind.accepted,
-          didBecomeStableTracking: result.didBecomeStableTracking,
-          qualityAcceptedRangeRepSides:
-              selectedAssessment.acceptedRangeRepSides,
-          preferredRangeRepSide: selectedAssessment.preferredRangeRepSide,
-        );
-      case FramePosePipelineResultKind.converterDrop:
-        throw StateError(
-          'Converter-drop results must not be mapped to detected frames.',
-        );
     }
   }
 
@@ -673,7 +440,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processExerciseMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    _PoseFrameKind frameKind = _PoseFrameKind.accepted,
+    WorkoutPoseFrameKind frameKind = WorkoutPoseFrameKind.accepted,
     bool didBecomeStableTracking = false,
     Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     RangeRepSide? preferredRangeRepSide,
@@ -702,7 +469,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processRangeRepMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    required _PoseFrameKind frameKind,
+    required WorkoutPoseFrameKind frameKind,
     required bool didBecomeStableTracking,
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
@@ -710,7 +477,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final result = _rangeRepCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
-      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+      isAcceptedPoseFrame: frameKind == WorkoutPoseFrameKind.accepted,
       didBecomeStableTracking: didBecomeStableTracking,
       qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
       preferredRangeRepSide: preferredRangeRepSide,
@@ -744,13 +511,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processHoldMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    required _PoseFrameKind frameKind,
+    required WorkoutPoseFrameKind frameKind,
     required bool didBecomeStableTracking,
   }) {
     final result = _holdCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
-      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+      isAcceptedPoseFrame: frameKind == WorkoutPoseFrameKind.accepted,
       didBecomeStableTracking: didBecomeStableTracking,
     );
     _publishHoldState(result.stateSnapshot);
@@ -1106,18 +873,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return _runtime.requireHoldCoordinator();
   }
 
-  PoseQualityAssessor _poseQualityAssessor() {
-    final requiredHoldSide = _engineKind == EngineKind.hold
-        ? _holdCoordinatorOrThrow().requiredHoldSideForAssessment()
-        : null;
-    return (pose) => _poseQualityPolicy.assessPrepared(
-      pose: pose,
-      config: _config,
-      preparedContext: _preparedAnalysisContext,
-      requiredHoldSide: requiredHoldSide,
-    );
-  }
-
   String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
     return mapRangeRepFeedbackCodeToMessage(
       code,
@@ -1241,22 +996,4 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       localizations: ref.read(appLocalizationsProvider),
     );
   }
-}
-
-enum _PoseFrameKind { noPose, rejected, pendingAcceptance, accepted }
-
-class _DetectedPoseFrame {
-  const _DetectedPoseFrame({
-    required this.metrics,
-    required this.kind,
-    this.didBecomeStableTracking = false,
-    this.qualityAcceptedRangeRepSides,
-    this.preferredRangeRepSide,
-  });
-
-  final ExerciseMetrics metrics;
-  final _PoseFrameKind kind;
-  final bool didBecomeStableTracking;
-  final Set<RangeRepSide>? qualityAcceptedRangeRepSides;
-  final RangeRepSide? preferredRangeRepSide;
 }
