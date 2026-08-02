@@ -84,6 +84,46 @@ service cloud.firestore {
         (value is number && value >= 0 && value <= 1);
     }
 
+    function isMeasurementConfidenceIssueList(value) {
+      return value is list && value.hasOnly([
+        'missing_required_landmark',
+        'low_landmark_likelihood',
+        'low_mean_likelihood',
+        'missing_required_signal',
+        'non_finite_geometry',
+        'degenerate_geometry',
+        'temporal_history_unavailable',
+        'temporal_discontinuity',
+        'coverage_interruption',
+        'side_switch_during_rep',
+        'legacy_scalar_only',
+      ]);
+    }
+
+    function isMeasurementConfidenceBreakdown(value) {
+      let keys = value.keys();
+      return value is map &&
+        keys.hasOnly([
+          'landmarkLikelihood',
+          'signalAvailability',
+          'geometryPlausibility',
+          'temporalContinuity',
+          'combined',
+          'issues',
+        ]) &&
+        keys.size() == 6 &&
+        isNullableUnitInterval(value.get('landmarkLikelihood', null)) &&
+        isNullableUnitInterval(value.get('signalAvailability', null)) &&
+        isNullableUnitInterval(value.get('geometryPlausibility', null)) &&
+        isNullableUnitInterval(value.get('temporalContinuity', null)) &&
+        isNullableUnitInterval(value.get('combined', null)) &&
+        isMeasurementConfidenceIssueList(value.get('issues', null));
+    }
+
+    function isNullableMeasurementConfidenceBreakdown(value) {
+      return value == null || isMeasurementConfidenceBreakdown(value);
+    }
+
     function hasSessionFields() {
       return request.resource.data.keys().hasOnly([
         'id',
@@ -176,8 +216,8 @@ service cloud.firestore {
         hasValidSessionShape(userId, sessionId);
     }
 
-    function hasRepFields() {
-      return request.resource.data.keys().hasOnly([
+    function hasRepFields(data) {
+      return data.keys().hasOnly([
         'id',
         'ownerId',
         'sessionId',
@@ -200,6 +240,7 @@ service cloud.firestore {
         'switchedSideDuringRep',
         'completedPhaseSequence',
         'selectedSide',
+        'measurementConfidence',
         'confidence',
         'primaryRom',
         'eccentricMillis',
@@ -215,113 +256,65 @@ service cloud.firestore {
         'coverageQuality',
         'feedback',
         'createdAt',
-      ]) &&
-      request.resource.data.keys().hasAll([
-        'id',
-        'ownerId',
-        'sessionId',
-        'exerciseType',
-        'analysisKind',
-        'repIndex',
-        'isValid',
-        'createdAt',
       ]);
     }
 
-    function hasValidRepShape(userId, sessionId, repId) {
-      return request.resource.data.id is string &&
-        request.resource.data.id == repId &&
-        request.resource.data.ownerId is string &&
-        request.resource.data.ownerId == userId &&
-        request.resource.data.ownerId == request.auth.uid &&
-        request.resource.data.sessionId is string &&
-        request.resource.data.sessionId == sessionId &&
-        request.resource.data.exerciseType is string &&
-        request.resource.data.analysisKind is string &&
-        request.resource.data.repIndex is int &&
-        request.resource.data.repIndex >= 1 &&
-        request.resource.data.isValid is bool &&
-        request.resource.data.createdAt is timestamp &&
-        isNullableScore(request.resource.data.get('score', null)) &&
-        isNullableString(request.resource.data.get('validationStatus', null)) &&
-        isNullableString(request.resource.data.get('invalidReason', null)) &&
+    function hasValidRepShape(data, userId, sessionId, repId) {
+      let validationReasons = data.get('validationReasons', null);
+      let measurementConfidence = data.get('measurementConfidence', null);
+      let confidence = data.get('confidence', null);
+      return data.id == repId &&
+        data.ownerId == userId &&
+        data.sessionId == sessionId &&
+        data.exerciseType is string &&
+        data.analysisKind is string &&
+        data.repIndex is int &&
+        data.repIndex >= 1 &&
+        data.isValid is bool &&
+        data.createdAt is timestamp &&
+        isNullableScore(data.get('score', null)) &&
+        isNullableString(data.get('validationStatus', null)) &&
+        isNullableString(data.get('invalidReason', null)) &&
+        (validationReasons == null || validationReasons is list) &&
+        isNullableTimestamp(data.get('endedAt', null)) &&
+        isNullableNonNegativeNumber(data.get('durationSeconds', null)) &&
+        isNullableNumber(data.get('minPrimaryMetric', null)) &&
+        isNullableNumber(data.get('worstFormMetric', null)) &&
+        isNullableNonNegativeInt(data.get('descentMillis', null)) &&
+        isNullableNonNegativeInt(data.get('ascentMillis', null)) &&
+        isNullableBool(data.get('hadFormViolation', null)) &&
+        isNullableBool(data.get('hadCoverageDrop', null)) &&
+        isNullableBool(data.get('switchedSideDuringRep', null)) &&
+        isNullableBool(data.get('completedPhaseSequence', null)) &&
+        isNullableString(data.get('selectedSide', null)) &&
+        isNullableMeasurementConfidenceBreakdown(measurementConfidence) &&
+        isNullableUnitInterval(confidence) &&
         (
-          request.resource.data.get('validationReasons', null) == null ||
-          request.resource.data.get('validationReasons', null) is list
+          measurementConfidence == null ||
+          confidence == measurementConfidence.get('combined', null)
         ) &&
-        isNullableTimestamp(request.resource.data.get('endedAt', null)) &&
-        isNullableNonNegativeNumber(
-          request.resource.data.get('durationSeconds', null),
-        ) &&
-        isNullableNumber(request.resource.data.get('minPrimaryMetric', null)) &&
-        isNullableNumber(request.resource.data.get('worstFormMetric', null)) &&
-        isNullableNonNegativeInt(
-          request.resource.data.get('descentMillis', null),
-        ) &&
-        isNullableNonNegativeInt(
-          request.resource.data.get('ascentMillis', null),
-        ) &&
-        isNullableBool(request.resource.data.get('hadFormViolation', null)) &&
-        isNullableBool(request.resource.data.get('hadCoverageDrop', null)) &&
-        isNullableBool(
-          request.resource.data.get('switchedSideDuringRep', null),
-        ) &&
-        isNullableBool(
-          request.resource.data.get('completedPhaseSequence', null),
-        ) &&
-        isNullableString(request.resource.data.get('selectedSide', null)) &&
-        isNullableUnitInterval(request.resource.data.get('confidence', null)) &&
-        isNullableNonNegativeNumber(
-          request.resource.data.get('primaryRom', null),
-        ) &&
-        isNullableNonNegativeInt(
-          request.resource.data.get('eccentricMillis', null),
-        ) &&
-        isNullableNonNegativeInt(
-          request.resource.data.get('concentricMillis', null),
-        ) &&
+        isNullableNonNegativeNumber(data.get('primaryRom', null)) &&
+        isNullableNonNegativeInt(data.get('eccentricMillis', null)) &&
+        isNullableNonNegativeInt(data.get('concentricMillis', null)) &&
         isNullableTempoMeasurementStatus(
-          request.resource.data.get('tempoMeasurementStatus', null),
+          data.get('tempoMeasurementStatus', null),
         ) &&
-        isNullableList(
-          request.resource.data.get('tempoMeasurementIssues', null),
-        ) &&
-        isNullableTempoQuality(
-          request.resource.data.get('tempoQuality', null),
-        ) &&
-        isNullableTempoSeverity(
-          request.resource.data.get('tempoSeverity', null),
-        ) &&
-        isNullableList(request.resource.data.get('tempoReasons', null)) &&
-        isNullableBool(
-          request.resource.data.get('tempoIncludedInScore', null),
-        ) &&
-        isNullableNonNegativeInt(
-          request.resource.data.get('tempoTotalMillis', null),
-        ) &&
-        isNullableList(
-          request.resource.data.get('techniqueObservations', null),
-        ) &&
-        isNullableUnitInterval(
-          request.resource.data.get('coverageQuality', null),
-        ) &&
-        isNullableString(request.resource.data.get('feedback', null));
+        isNullableList(data.get('tempoMeasurementIssues', null)) &&
+        isNullableTempoQuality(data.get('tempoQuality', null)) &&
+        isNullableTempoSeverity(data.get('tempoSeverity', null)) &&
+        isNullableList(data.get('tempoReasons', null)) &&
+        isNullableBool(data.get('tempoIncludedInScore', null)) &&
+        isNullableNonNegativeInt(data.get('tempoTotalMillis', null)) &&
+        isNullableList(data.get('techniqueObservations', null)) &&
+        isNullableUnitInterval(data.get('coverageQuality', null)) &&
+        isNullableString(data.get('feedback', null));
     }
 
-    function isValidRepCreate(userId, sessionId, repId) {
+    function isValidRepWrite(userId, sessionId, repId) {
+      let data = request.resource.data;
       return isOwner(userId) &&
-        hasRepFields() &&
-        hasValidRepShape(userId, sessionId, repId);
-    }
-
-    function isValidRepUpdate(userId, sessionId, repId) {
-      return isOwner(userId) &&
-        resource.data.ownerId == request.auth.uid &&
-        request.resource.data.ownerId == resource.data.ownerId &&
-        request.resource.data.id == resource.data.id &&
-        request.resource.data.sessionId == resource.data.sessionId &&
-        hasRepFields() &&
-        hasValidRepShape(userId, sessionId, repId);
+        hasRepFields(data) &&
+        hasValidRepShape(data, userId, sessionId, repId);
     }
 
     match /users/{userId} {
@@ -336,8 +329,11 @@ service cloud.firestore {
 
         match /reps/{repId} {
           allow read: if isOwner(userId);
-          allow create: if isValidRepCreate(userId, sessionId, repId);
-          allow update: if isValidRepUpdate(userId, sessionId, repId);
+          allow create, update: if isValidRepWrite(
+            userId,
+            sessionId,
+            repId,
+          );
           allow delete: if isOwner(userId);
         }
       }

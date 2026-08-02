@@ -3,6 +3,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_signal_values.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import 'exercise_metric_registry.dart';
 
 enum RangeRepSide { left, right }
@@ -40,6 +41,7 @@ abstract class RangeRepAnalysisMetrics {
     required this.formMetric,
     required this.hasPrimaryAngle,
     required this.hasFormMetric,
+    this.measurementConfidence,
     this.formSignals,
   });
 
@@ -47,23 +49,44 @@ abstract class RangeRepAnalysisMetrics {
   final double formMetric;
   final bool hasPrimaryAngle;
   final bool hasFormMetric;
+  final MeasurementConfidenceBreakdown? measurementConfidence;
   final RangeRepFormSignals? formSignals;
 }
 
 class RangeRepSideMetrics extends RangeRepAnalysisMetrics {
-  const RangeRepSideMetrics({
+  static const Object _sideConfidenceUnset = Object();
+  static const Object _measurementConfidenceUnset = Object();
+
+  // ignore: use_super_parameters
+  RangeRepSideMetrics({
     required this.side,
-    required super.primaryAngle,
-    required super.formMetric,
-    required super.hasPrimaryAngle,
-    required super.hasFormMetric,
-    this.sideConfidence,
-    super.formSignals,
-  });
+    required double primaryAngle,
+    required double formMetric,
+    required bool hasPrimaryAngle,
+    required bool hasFormMetric,
+    double? sideConfidence,
+    MeasurementConfidenceBreakdown? measurementConfidence,
+    RangeRepFormSignals? formSignals,
+  }) : assert(
+         sideConfidence == null ||
+             measurementConfidence == null ||
+             sideConfidence == measurementConfidence.combined,
+       ),
+       super(
+         primaryAngle: primaryAngle,
+         formMetric: formMetric,
+         hasPrimaryAngle: hasPrimaryAngle,
+         hasFormMetric: hasFormMetric,
+         measurementConfidence:
+             measurementConfidence ??
+             (sideConfidence == null
+                 ? null
+                 : MeasurementConfidenceBreakdown.legacyScalar(sideConfidence)),
+         formSignals: formSignals,
+       );
 
   const RangeRepSideMetrics.unavailable(this.side)
-    : sideConfidence = null,
-      super(
+    : super(
         primaryAngle: 180.0,
         formMetric: 90.0,
         hasPrimaryAngle: false,
@@ -71,9 +94,41 @@ class RangeRepSideMetrics extends RangeRepAnalysisMetrics {
       );
 
   final RangeRepSide side;
-  final double? sideConfidence;
+
+  /// Temporary compatibility view. Confidence V2 owns the actual value.
+  double? get sideConfidence => measurementConfidence?.combined;
 
   int get coverageScore => (hasPrimaryAngle ? 1 : 0) + (hasFormMetric ? 1 : 0);
+
+  RangeRepSideMetrics copyWith({
+    double? primaryAngle,
+    double? formMetric,
+    bool? hasPrimaryAngle,
+    bool? hasFormMetric,
+    Object? sideConfidence = _sideConfidenceUnset,
+    Object? measurementConfidence = _measurementConfidenceUnset,
+    RangeRepFormSignals? formSignals,
+  }) {
+    final resolvedMeasurementConfidence =
+        measurementConfidence != _measurementConfidenceUnset
+        ? measurementConfidence as MeasurementConfidenceBreakdown?
+        : sideConfidence != _sideConfidenceUnset
+        ? (sideConfidence == null
+              ? null
+              : MeasurementConfidenceBreakdown.legacyScalar(
+                  sideConfidence as double,
+                ))
+        : this.measurementConfidence;
+    return RangeRepSideMetrics(
+      side: side,
+      primaryAngle: primaryAngle ?? this.primaryAngle,
+      formMetric: formMetric ?? this.formMetric,
+      hasPrimaryAngle: hasPrimaryAngle ?? this.hasPrimaryAngle,
+      hasFormMetric: hasFormMetric ?? this.hasFormMetric,
+      measurementConfidence: resolvedMeasurementConfidence,
+      formSignals: formSignals ?? this.formSignals,
+    );
+  }
 }
 
 class RangeRepBilateralMetrics extends RangeRepAnalysisMetrics {
@@ -87,6 +142,7 @@ class RangeRepBilateralMetrics extends RangeRepAnalysisMetrics {
     required this.leftFormScore,
     required this.rightFormScore,
     required this.syncScore,
+    super.measurementConfidence,
     super.formSignals,
   });
 

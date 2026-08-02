@@ -885,6 +885,20 @@ void main() {
       },
     );
 
+    test('keeps unknown measurement confidence unknown after scoring', () {
+      final result = _scoreCompletedCoreData(
+        config: _squatConfig(),
+        completedRepCoreData: _completedRepCoreData(),
+        includeConfidence: false,
+      );
+
+      expect(
+        result.stateSnapshot.calibrationMetrics.lastRangeRepSummaryConfidence,
+        isNull,
+      );
+      expect(result.validatedRepEvent?.measurementConfidence, isNull);
+    });
+
     test('preserves the completed-rep form penalty', () {
       final result = _scoreCompletedCoreData(
         config: _squatConfig(),
@@ -2096,9 +2110,14 @@ RangeRepCoordinatorFrameResult _processAcceptedFrame(
   _TestClock clock, {
   required double angle,
   double formMetric = 60.0,
+  double? sideConfidence = 1.0,
 }) {
   return coordinator.processFrame(
-    metrics: _leftRangeRepMetrics(angle: angle, formMetric: formMetric),
+    metrics: _leftRangeRepMetrics(
+      angle: angle,
+      formMetric: formMetric,
+      sideConfidence: sideConfidence,
+    ),
     now: clock.now(),
     isAcceptedPoseFrame: true,
     didBecomeStableTracking: false,
@@ -2335,6 +2354,7 @@ RangeRepCoordinatorFrameResult _completeAcceptedBicepsRep(
 ExerciseMetrics _leftRangeRepMetrics({
   required double angle,
   required double formMetric,
+  double? sideConfidence = 1.0,
 }) {
   return _sideFilteredMetrics(
     leftAngle: angle,
@@ -2342,6 +2362,7 @@ ExerciseMetrics _leftRangeRepMetrics({
     leftAvailable: true,
     rightAvailable: false,
     formMetric: formMetric,
+    sideConfidence: sideConfidence,
   );
 }
 
@@ -2453,6 +2474,7 @@ ExerciseMetrics _sideFilteredMetrics({
   required bool leftAvailable,
   required bool rightAvailable,
   double formMetric = 60.0,
+  double? sideConfidence = 1.0,
 }) {
   final leftMetrics = leftAvailable
       ? RangeRepSideMetrics(
@@ -2461,7 +2483,7 @@ ExerciseMetrics _sideFilteredMetrics({
           formMetric: formMetric,
           hasPrimaryAngle: true,
           hasFormMetric: true,
-          sideConfidence: 1.0,
+          sideConfidence: sideConfidence,
         )
       : const RangeRepSideMetrics.unavailable(RangeRepSide.left);
   final rightMetrics = rightAvailable
@@ -2471,7 +2493,7 @@ ExerciseMetrics _sideFilteredMetrics({
           formMetric: formMetric,
           hasPrimaryAngle: true,
           hasFormMetric: true,
-          sideConfidence: 1.0,
+          sideConfidence: sideConfidence,
         )
       : const RangeRepSideMetrics.unavailable(RangeRepSide.right);
 
@@ -2492,6 +2514,7 @@ RangeRepCoordinatorFrameResult _scoreCompletedCoreData({
   required RangeRepCompletedRepCoreData completedRepCoreData,
   RangeRepDiagnosticsSnapshot diagnosticsSnapshot =
       const RangeRepDiagnosticsSnapshot(),
+  bool includeConfidence = true,
 }) {
   final clock = _TestClock();
   final engine = _CompletingRangeRepEngine(
@@ -2513,7 +2536,12 @@ RangeRepCoordinatorFrameResult _scoreCompletedCoreData({
     techniqueHistoryTracker: techniqueHistoryTracker,
   );
 
-  return _processAcceptedFrame(coordinator, clock, angle: 170);
+  return _processAcceptedFrame(
+    coordinator,
+    clock,
+    angle: 170,
+    sideConfidence: includeConfidence ? 1.0 : null,
+  );
 }
 
 LegacyRangeRepTechniqueHistoryTracker _seedTechniqueHistoryForCompletion({

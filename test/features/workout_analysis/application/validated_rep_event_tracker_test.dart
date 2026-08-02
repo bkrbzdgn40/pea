@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/validated_rep_event_tracker.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/symmetry_engine.dart';
 
@@ -136,7 +137,7 @@ ValidatedRepEvent _event({
       RangeRepValidationReason.sideSwitchDuringRep,
     ),
     completedPhaseSequence: true,
-    measurementConfidence: 1,
+    measurementConfidence: const MeasurementConfidenceBreakdown.legacyScalar(1),
     coverageQuality: 1,
     finalScore: status == RangeRepValidationStatus.invalid ? null : 90,
     tempoAssessment: null,

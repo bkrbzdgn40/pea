@@ -83,7 +83,9 @@ void main() {
         );
 
         expect(first.kind, FramePosePipelineResultKind.pendingAcceptance);
+        expect(first.invalidatesRangeRepTemporalHistory, isTrue);
         expect(second.kind, FramePosePipelineResultKind.accepted);
+        expect(second.invalidatesRangeRepTemporalHistory, isFalse);
         expect(second.selectedPose, same(acceptedPose));
         expect(
           second.selectedAssessment?.acceptedRangeRepSides,
@@ -95,5 +97,26 @@ void main() {
         );
       },
     );
+
+    test('missing and rejected pose results invalidate temporal history', () {
+      expect(
+        const FramePosePipelineResult.converterDrop()
+            .invalidatesRangeRepTemporalHistory,
+        isFalse,
+      );
+      expect(
+        const FramePosePipelineResult.noPose(
+          poseCount: 0,
+        ).invalidatesRangeRepTemporalHistory,
+        isTrue,
+      );
+      expect(
+        const FramePosePipelineResult.rejected(
+          poseCount: 1,
+          selectedAssessment: null,
+        ).invalidatesRangeRepTemporalHistory,
+        isTrue,
+      );
+    });
   });
 }

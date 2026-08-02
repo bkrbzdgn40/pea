@@ -10,6 +10,7 @@ import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_completed_rep_detection_data.dart';
 import '../domain/models/range_rep_confirmed_transition.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -92,6 +93,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
     this.completedRepValidationReasons = const <String>[],
     this.completedRepTempoDiagnosticReasons = const <String>[],
     this.completedRepTempoAssessment,
+    this.completedRepMeasurementConfidence,
     this.recordAcceptedPoseFrame = false,
     this.recordPoseReacquisition = false,
     this.recordBriefOcclusion = false,
@@ -109,6 +111,7 @@ class RangeRepCoordinatorDiagnosticsUpdate {
   final List<String> completedRepValidationReasons;
   final List<String> completedRepTempoDiagnosticReasons;
   final RepTempoAssessment? completedRepTempoAssessment;
+  final MeasurementConfidenceBreakdown? completedRepMeasurementConfidence;
   final bool recordAcceptedPoseFrame;
   final bool recordPoseReacquisition;
   final bool recordBriefOcclusion;
@@ -630,10 +633,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     _trackRepContext(
       diagnostics: preUpdateDiagnostics,
       selectedSide: frameAssessment.selection.selectedSide,
-      frameConfidence: frameAssessment.selectedMetrics is RangeRepSideMetrics
-          ? (frameAssessment.selectedMetrics as RangeRepSideMetrics)
-                .sideConfidence
-          : null,
+      frameMeasurementConfidence:
+          frameAssessment.selectedMetrics?.measurementConfidence,
     );
     final analysisFrame = _buildAnalysisFrame(
       metrics: metrics,
@@ -820,6 +821,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
                 .toList(growable: false) ??
             const <String>[],
         completedRepTempoAssessment: completedRepTempoAssessment,
+        completedRepMeasurementConfidence:
+            validatedRepEvent?.measurementConfidence,
         recordAcceptedPoseFrame: true,
         recordPoseReacquisition: didReacquire,
         recordBriefOcclusionRecovery: recordBriefOcclusionRecovery,
@@ -1231,7 +1234,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hadCoverageDrop: summary.hadCoverageDrop,
       switchedSideDuringRep: summary.switchedSideDuringRep,
       completedPhaseSequence: summary.completedPhaseSequence,
-      measurementConfidence: summary.confidence,
+      measurementConfidence: summary.measurementConfidence,
       coverageQuality: summary.coverageQuality,
       finalScore: validationResult.shouldPublishScore ? _lastRepScore : null,
       tempoAssessment: tempoAssessment,
@@ -1290,7 +1293,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hadCoverageDrop: summary.hadCoverageDrop,
       switchedSideDuringRep: summary.switchedSideDuringRep,
       completedPhaseSequence: false,
-      measurementConfidence: summary.confidence,
+      measurementConfidence: summary.measurementConfidence,
       coverageQuality: summary.coverageQuality,
       finalScore: null,
       tempoAssessment: null,
@@ -1499,12 +1502,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       tempo: tempoScore,
       technique: completedRepCoreData.hadFormViolation ? 50.0 : 100.0,
       consistency: consistencyScore,
-      confidence:
-          ((_outcomeTracker.lastRangeRepRepSummaryCandidate?.confidence ??
-                      1.0) *
-                  100.0)
-              .clamp(0.0, 100.0)
-              .toDouble(),
+      confidence: _scoreConfidencePercent(
+        _outcomeTracker
+            .lastRangeRepRepSummaryCandidate
+            ?.measurementConfidence
+            ?.combined,
+      ),
     );
     final penaltyTraces = <RepScorePenaltyTrace>[];
     if (romScore < 100.0) {
@@ -1637,6 +1640,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       totalRepTempoScore: totalRepTempoScore,
       tempoIncludedInFinalScore: includeTempoInMainScore,
     );
+  }
+
+  double? _scoreConfidencePercent(double? combined) {
+    if (combined == null) {
+      return null;
+    }
+    return (combined * 100.0).clamp(0.0, 100.0).toDouble();
   }
 
   WorkoutCalibrationMetrics _buildCalibrationMetrics({
@@ -1838,14 +1848,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepDiagnosticsSnapshot diagnostics,
     required RangeRepSide? selectedSide,
     bool markCoverageDrop = false,
-    double? frameConfidence,
+    MeasurementConfidenceBreakdown? frameMeasurementConfidence,
   }) {
     _outcomeTracker.trackRepContext(
       engineKind: EngineKind.rangeRep,
       diagnostics: diagnostics,
       selectedSideLabel: _rangeRepSideLabel(selectedSide),
       markCoverageDrop: markCoverageDrop,
-      frameConfidence: frameConfidence,
+      frameMeasurementConfidence: frameMeasurementConfidence,
     );
   }
 

@@ -1,3 +1,5 @@
+import 'measurement_confidence_breakdown.dart';
+
 /// Persistable exercise-agnostic facts about one completed workout rep.
 class WorkoutRep {
   const WorkoutRep({
@@ -18,7 +20,8 @@ class WorkoutRep {
     this.switchedSideDuringRep = false,
     this.completedPhaseSequence = false,
     this.selectedSideLabel,
-    this.confidence,
+    this.measurementConfidence,
+    double? confidence,
     this.primaryRom,
     this.eccentricMillis,
     this.concentricMillis,
@@ -32,7 +35,8 @@ class WorkoutRep {
     this.techniqueObservations = const <Map<String, Object?>>[],
     this.selectedSide,
     this.coverageQuality,
-  });
+  }) : assert(measurementConfidence == null || confidence == null),
+       _legacyConfidence = confidence;
 
   final int repIndex;
   final String exerciseType;
@@ -51,7 +55,8 @@ class WorkoutRep {
   final bool switchedSideDuringRep;
   final bool completedPhaseSequence;
   final String? selectedSideLabel;
-  final double? confidence;
+  final MeasurementConfidenceBreakdown? measurementConfidence;
+  final double? _legacyConfidence;
   final double? primaryRom;
   final int? eccentricMillis;
   final int? concentricMillis;
@@ -65,6 +70,20 @@ class WorkoutRep {
   final List<Map<String, Object?>> techniqueObservations;
   final String? selectedSide;
   final double? coverageQuality;
+
+  double? get confidence =>
+      measurementConfidence?.combined ?? _legacyConfidence;
+
+  MeasurementConfidenceBreakdown? get effectiveMeasurementConfidence {
+    final native = measurementConfidence;
+    if (native != null) {
+      return native;
+    }
+    final legacy = _legacyConfidence;
+    return legacy == null
+        ? null
+        : MeasurementConfidenceBreakdown.legacyScalar(legacy);
+  }
 
   /// Stable Firestore document id for persisted reps.
   String get stableId {
@@ -131,6 +150,7 @@ class WorkoutRep {
       'switchedSideDuringRep': switchedSideDuringRep,
       'completedPhaseSequence': completedPhaseSequence,
       'selectedSideLabel': selectedSideLabel,
+      'measurementConfidence': measurementConfidence?.toMap(),
       'confidence': confidence,
       'primaryRom': primaryRom,
       'eccentricMillis': eccentricMillis,
@@ -151,6 +171,10 @@ class WorkoutRep {
   }
 
   factory WorkoutRep.fromMap(Map<String, Object?> map) {
+    final measurementConfidence = _readMeasurementConfidence(
+      map,
+      'measurementConfidence',
+    );
     return WorkoutRep(
       repIndex: _readRequiredInt(map, 'repIndex'),
       exerciseType: _readRequiredString(map, 'exerciseType'),
@@ -179,7 +203,10 @@ class WorkoutRep {
       selectedSideLabel:
           _readNullableString(map, 'selectedSideLabel') ??
           _readNullableString(map, 'selectedSide'),
-      confidence: _readNullableDouble(map, 'confidence'),
+      measurementConfidence: measurementConfidence,
+      confidence: measurementConfidence == null
+          ? _readNullableDouble(map, 'confidence')
+          : null,
       primaryRom: _readNullableDouble(map, 'primaryRom'),
       eccentricMillis:
           _readNullableInt(map, 'eccentricMillis') ??
@@ -208,6 +235,22 @@ class WorkoutRep {
       coverageQuality: _readNullableDouble(map, 'coverageQuality'),
     );
   }
+}
+
+MeasurementConfidenceBreakdown? _readMeasurementConfidence(
+  Map<String, Object?> map,
+  String key,
+) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is Map) {
+    return MeasurementConfidenceBreakdown.fromMap(
+      Map<String, Object?>.from(value.cast<String, Object?>()),
+    );
+  }
+  throw FormatException('Expected nullable map for "$key".');
 }
 
 String _readRequiredString(Map<String, Object?> map, String key) {

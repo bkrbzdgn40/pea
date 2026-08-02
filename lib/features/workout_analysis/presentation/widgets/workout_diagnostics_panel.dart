@@ -10,6 +10,7 @@ import '../../domain/models/camera_view_contract.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/hold_phase.dart';
+import '../../domain/models/measurement_confidence_breakdown.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../infrastructure/services/diagnostics_json_file_exporter.dart';
 
@@ -313,6 +314,44 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                   snapshot.currentSelectedSide,
                                 ),
                               ),
+                              if (snapshot.analysisKind == 'rangeRep') ...[
+                                _DiagnosticsRow(
+                                  label: 'Current left confidence',
+                                  value: _formatMeasurementConfidence(
+                                    snapshot.currentLeftMeasurementConfidence,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Current right confidence',
+                                  value: _formatMeasurementConfidence(
+                                    snapshot.currentRightMeasurementConfidence,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Last rep confidence',
+                                  value: _formatMeasurementConfidence(
+                                    snapshot.lastRepMeasurementConfidence,
+                                  ),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Known confidence reps',
+                                  value: snapshot
+                                      .measurementConfidenceKnownRepCount
+                                      .toString(),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Unknown confidence reps',
+                                  value: snapshot
+                                      .measurementConfidenceUnknownRepCount
+                                      .toString(),
+                                ),
+                                _DiagnosticsRow(
+                                  label: 'Confidence issues',
+                                  value: _formatCountMap(
+                                    snapshot.measurementConfidenceIssueCounts,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           _DiagnosticsSection(
@@ -948,6 +987,32 @@ String _formatFileTimestamp(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   return '${value.year}${twoDigits(value.month)}${twoDigits(value.day)}_'
       '${twoDigits(value.hour)}${twoDigits(value.minute)}${twoDigits(value.second)}';
+}
+
+String _formatMeasurementConfidence(MeasurementConfidenceBreakdown? breakdown) {
+  if (breakdown == null) {
+    return _missingDiagnosticsValue;
+  }
+
+  String component(double? value) =>
+      value == null ? _missingDiagnosticsValue : value.toStringAsFixed(3);
+  final issues = breakdown.issues.isEmpty
+      ? 'none'
+      : breakdown.issues.map((issue) => issue.code).join(',');
+  return 'combined=${component(breakdown.combined)} '
+      'landmark=${component(breakdown.landmarkLikelihood)} '
+      'signal=${component(breakdown.signalAvailability)} '
+      'geometry=${component(breakdown.geometryPlausibility)} '
+      'temporal=${component(breakdown.temporalContinuity)} '
+      'issues=$issues';
+}
+
+String _formatCountMap(Map<String, int> counts) {
+  if (counts.isEmpty) {
+    return _missingDiagnosticsValue;
+  }
+  final keys = counts.keys.toList()..sort();
+  return keys.map((key) => '$key=${counts[key]}').join(', ');
 }
 
 String _formatOptionalText(String? value) =>

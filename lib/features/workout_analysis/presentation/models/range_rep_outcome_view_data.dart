@@ -5,7 +5,7 @@ enum RangeRepOutcomeTone { positive, caution, invalid }
 
 enum RangeRepTechniqueOutcome { accepted, caution, rejected }
 
-enum RangeRepMeasurementConfidence { reliable, limited }
+enum RangeRepMeasurementConfidence { reliable, limited, unknown }
 
 class RangeRepOutcomeViewData {
   const RangeRepOutcomeViewData({
@@ -16,7 +16,8 @@ class RangeRepOutcomeViewData {
     required this.tone,
     this.primaryReason,
     this.techniqueOutcome = RangeRepTechniqueOutcome.accepted,
-    this.measurementConfidence = RangeRepMeasurementConfidence.reliable,
+    this.measurementConfidence = RangeRepMeasurementConfidence.unknown,
+    this.measurementConfidenceScore,
     this.tempoQuality,
     this.tempoSeverity,
     this.tempoReasons = const <RepTempoReason>[],
@@ -30,12 +31,16 @@ class RangeRepOutcomeViewData {
   final RangeRepOutcomeTone tone;
   final RangeRepTechniqueOutcome techniqueOutcome;
   final RangeRepMeasurementConfidence measurementConfidence;
+  final double? measurementConfidenceScore;
   final RepTempoQuality? tempoQuality;
   final RepTempoSeverity? tempoSeverity;
   final List<RepTempoReason> tempoReasons;
 
   bool get hasLimitedMeasurementConfidence =>
       measurementConfidence == RangeRepMeasurementConfidence.limited;
+
+  bool get hasUnknownMeasurementConfidence =>
+      measurementConfidence == RangeRepMeasurementConfidence.unknown;
 
   String get deliveryId =>
       'range-rep-outcome:${status.name}:${primaryReason?.name ?? 'none'}:'

@@ -85,8 +85,8 @@ class RangeRepSideStabilizer {
     final coverageAdvantage =
         alternateMetrics.coverageScore - currentMetrics.coverageScore;
     final confidenceAdvantage =
-        (alternateMetrics.sideConfidence ?? 0.0) -
-        (currentMetrics.sideConfidence ?? 0.0);
+        (alternateMetrics.measurementConfidence?.combined ?? 0.0) -
+        (currentMetrics.measurementConfidence?.combined ?? 0.0);
     final currentSideUnusable =
         currentMetrics.coverageScore == 0 && alternateMetrics.coverageScore > 0;
     final clearCoverageWin = coverageAdvantage >= 2;
@@ -156,8 +156,8 @@ class RangeRepSideStabilizer {
     final coverageAdvantage =
         alternateMetrics.coverageScore - anchoredMetrics.coverageScore;
     final confidenceAdvantage =
-        (alternateMetrics.sideConfidence ?? 0.0) -
-        (anchoredMetrics.sideConfidence ?? 0.0);
+        (alternateMetrics.measurementConfidence?.combined ?? 0.0) -
+        (anchoredMetrics.measurementConfidence?.combined ?? 0.0);
     final anchoredSideClearlyUnusable =
         anchoredMetrics.coverageScore == 0 &&
         alternateMetrics.coverageScore > 0;

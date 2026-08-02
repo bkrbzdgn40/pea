@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
@@ -24,7 +25,7 @@ void main() {
       final repository = TestSessionRepository(
         sessionById: {'session-1': session},
         repsBySessionId: {
-          'session-1': const [
+          'session-1': [
             WorkoutRep(
               repIndex: 1,
               exerciseType: 'push_up',
@@ -38,6 +39,14 @@ void main() {
               ascentMillis: 550,
               feedback: 'Daha kontrollu cikis',
               selectedSideLabel: 'left',
+              measurementConfidence: MeasurementConfidenceBreakdown(
+                landmarkLikelihood: 0.99,
+                signalAvailability: 1,
+                geometryPlausibility: 1,
+                temporalContinuity: 0.78,
+                combined: 0.956,
+                issues: const <MeasurementConfidenceIssue>[],
+              ),
             ),
           ],
         },
@@ -61,6 +70,8 @@ void main() {
       expect(find.text('450 ms / 550 ms'), findsNothing);
       expect(find.text('Form ve Hareket Aralığı Skoru'), findsOneWidget);
       expect(find.text('Sol'), findsOneWidget);
+      expect(find.text('Ölçüm güveni'), findsWidgets);
+      expect(find.text('%96'), findsWidgets);
     },
   );
 

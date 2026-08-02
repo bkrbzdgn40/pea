@@ -5,11 +5,14 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/pose_quality_policy.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/analysis_signal_role.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
@@ -47,6 +50,7 @@ void main() {
         metrics.leftRangeRepMetrics.formSignals?.lockoutMetric,
         closeTo(90.0, 0.001),
       );
+      expect(metrics.leftRangeRepMetrics.measurementConfidence, isNull);
     });
 
     test(
@@ -231,28 +235,136 @@ void main() {
       },
     );
 
-    test('side confidence drops when required core landmarks are missing', () {
+    test(
+      'pose and signal seeds merge without inventing temporal confidence',
+      () {
+        final config = _loadConfig('assets/config/exercises/squat.json');
+        final pose = _rangeRepPose();
+        final assessment = PoseQualityAssessment(
+          isAccepted: true,
+          minimumRequiredLikelihood: 0.72,
+          meanRequiredLikelihood: 0.90,
+          requiredLandmarkCount: 4,
+          acceptedLandmarkCount: 4,
+          qualityScore: 1.0,
+          acceptedRangeRepSides: const <RangeRepSide>{
+            RangeRepSide.left,
+            RangeRepSide.right,
+          },
+          rangeRepMeasurementConfidenceSeeds:
+              <RangeRepSide, MeasurementConfidenceBreakdown>{
+                RangeRepSide.left: MeasurementConfidenceBreakdown(
+                  landmarkLikelihood: 0.72,
+                  signalAvailability: null,
+                  geometryPlausibility: 1.0,
+                  temporalContinuity: null,
+                  combined: null,
+                  issues: const <MeasurementConfidenceIssue>[],
+                ),
+                RangeRepSide.right: MeasurementConfidenceBreakdown(
+                  landmarkLikelihood: 0.95,
+                  signalAvailability: null,
+                  geometryPlausibility: 1.0,
+                  temporalContinuity: null,
+                  combined: null,
+                  issues: const <MeasurementConfidenceIssue>[],
+                ),
+              },
+          preferredRangeRepSide: RangeRepSide.right,
+        );
+        final metrics = extractor.extract(
+          pose,
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+          poseQualityAssessment: assessment,
+        );
+
+        final leftConfidence =
+            metrics.leftRangeRepMetrics.measurementConfidence;
+        final rightConfidence =
+            metrics.rightRangeRepMetrics.measurementConfidence;
+        expect(leftConfidence, isNotNull);
+        expect(rightConfidence, isNotNull);
+        expect(leftConfidence!.landmarkLikelihood, closeTo(0.72, 1e-12));
+        expect(rightConfidence!.landmarkLikelihood, closeTo(0.95, 1e-12));
+        expect(leftConfidence.signalAvailability, 1.0);
+        expect(leftConfidence.geometryPlausibility, 1.0);
+        expect(leftConfidence.temporalContinuity, isNull);
+        expect(leftConfidence.combined, isNull);
+        expect(leftConfidence.issues, isEmpty);
+      },
+    );
+
+    test('missing required signal adds a typed confidence issue', () {
       final config = _loadConfig('assets/config/exercises/squat.json');
-      final fullMetrics = extractor.extract(
-        _rangeRepPose(),
-        config,
-        engineKind: EngineKind.rangeRep,
-        rangeRepContract: RangeRepContracts.squat,
+      final pose = _rangeRepPose(includeLeftKnee: false);
+      final assessment = PoseQualityAssessment(
+        isAccepted: true,
+        minimumRequiredLikelihood: 0.95,
+        meanRequiredLikelihood: 0.95,
+        requiredLandmarkCount: 3,
+        acceptedLandmarkCount: 3,
+        qualityScore: 1.0,
+        acceptedRangeRepSides: const <RangeRepSide>{RangeRepSide.left},
+        rangeRepMeasurementConfidenceSeeds:
+            <RangeRepSide, MeasurementConfidenceBreakdown>{
+              RangeRepSide.left: MeasurementConfidenceBreakdown(
+                landmarkLikelihood: 0.95,
+                signalAvailability: null,
+                geometryPlausibility: 1.0,
+                temporalContinuity: null,
+                combined: null,
+                issues: const <MeasurementConfidenceIssue>[],
+              ),
+            },
+        preferredRangeRepSide: RangeRepSide.left,
       );
-      final missingMetrics = extractor.extract(
-        _rangeRepPose(includeLeftKnee: false),
+      final metrics = extractor.extract(
+        pose,
         config,
         engineKind: EngineKind.rangeRep,
         rangeRepContract: RangeRepContracts.squat,
+        poseQualityAssessment: assessment,
       );
 
+      final confidence = metrics.leftRangeRepMetrics.measurementConfidence;
+      expect(confidence, isNotNull);
+      expect(confidence!.signalAvailability, closeTo(1.0 / 6.0, 1e-12));
       expect(
-        fullMetrics.leftRangeRepMetrics.sideConfidence,
-        greaterThan(missingMetrics.leftRangeRepMetrics.sideConfidence!),
+        confidence.issues,
+        contains(MeasurementConfidenceIssue.missingRequiredSignal),
       );
-      expect(missingMetrics.leftRangeRepMetrics.hasPrimaryAngle, isFalse);
-      expect(missingMetrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+      expect(confidence.combined, isNull);
     });
+
+    test(
+      'missing required core landmarks degrades metric coverage without inventing confidence',
+      () {
+        final config = _loadConfig('assets/config/exercises/squat.json');
+        final fullMetrics = extractor.extract(
+          _rangeRepPose(),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+        );
+        final missingMetrics = extractor.extract(
+          _rangeRepPose(includeLeftKnee: false),
+          config,
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+        );
+
+        expect(
+          fullMetrics.leftRangeRepMetrics.coverageScore,
+          greaterThan(missingMetrics.leftRangeRepMetrics.coverageScore),
+        );
+        expect(fullMetrics.leftRangeRepMetrics.sideConfidence, isNull);
+        expect(missingMetrics.leftRangeRepMetrics.sideConfidence, isNull);
+        expect(missingMetrics.leftRangeRepMetrics.hasPrimaryAngle, isFalse);
+        expect(missingMetrics.leftRangeRepMetrics.hasFormMetric, isFalse);
+      },
+    );
 
     test(
       'a test-only future template config works with a different primary joint triple',
@@ -373,9 +485,11 @@ void main() {
         isNull,
       );
       expect(
-        fullMetrics.leftRangeRepMetrics.sideConfidence,
-        greaterThan(missingMetrics.leftRangeRepMetrics.sideConfidence!),
+        fullMetrics.leftRangeRepMetrics.coverageScore,
+        greaterThan(missingMetrics.leftRangeRepMetrics.coverageScore),
       );
+      expect(fullMetrics.leftRangeRepMetrics.sideConfidence, isNull);
+      expect(missingMetrics.leftRangeRepMetrics.sideConfidence, isNull);
     });
 
     test('push-up missing ankle degrades posture signals without crashing', () {

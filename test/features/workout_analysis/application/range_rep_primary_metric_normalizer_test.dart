@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/exerci
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metrics_extractor.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_primary_metric_normalizer.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
@@ -32,6 +33,48 @@ void main() {
     final normalized = normalizer.normalize(pose: pose, metrics: metrics);
 
     expect(normalized, same(metrics));
+  });
+
+  test('Sit-up normalization preserves measurement confidence seed', () {
+    final confidence = MeasurementConfidenceBreakdown(
+      landmarkLikelihood: 0.90,
+      signalAvailability: 1.0,
+      geometryPlausibility: 1.0,
+      temporalContinuity: null,
+      combined: null,
+      issues: const <MeasurementConfidenceIssue>[],
+    );
+    final pose = buildSitUpPose(primaryAngle: 125);
+    final metrics = ExerciseMetrics(
+      primaryAngle: 125,
+      formMetric: 90,
+      hasPrimaryAngle: true,
+      hasFormMetric: true,
+      hasPose: true,
+      landmarks: pose.landmarks.values.toList(),
+      leftRangeRepMetrics: RangeRepSideMetrics(
+        side: RangeRepSide.left,
+        primaryAngle: 125,
+        formMetric: 90,
+        hasPrimaryAngle: true,
+        hasFormMetric: true,
+        measurementConfidence: confidence,
+      ),
+      rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
+        RangeRepSide.right,
+      ),
+    );
+    final normalizer = RangeRepPrimaryMetricNormalizer(
+      config: sitUpConfig,
+      rangeRepContract: RangeRepContracts.sitUp,
+    );
+
+    final normalized = normalizer.normalize(pose: pose, metrics: metrics);
+
+    expect(
+      normalized.leftRangeRepMetrics.measurementConfidence,
+      same(confidence),
+    );
   });
 
   test(

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/infrastructure/mappers/workout_rep_firestore_mapper.dart';
@@ -34,7 +35,16 @@ void main() {
         ascentMillis: 700,
         feedback: 'Daha derine in',
         selectedSideLabel: 'left',
-        confidence: 0.91,
+        measurementConfidence: MeasurementConfidenceBreakdown(
+          landmarkLikelihood: 0.98,
+          signalAvailability: 0.96,
+          geometryPlausibility: 1.0,
+          temporalContinuity: 0.84,
+          combined: 0.91,
+          issues: const <MeasurementConfidenceIssue>[
+            MeasurementConfidenceIssue.temporalDiscontinuity,
+          ],
+        ),
         primaryRom: 62.0,
         eccentricMillis: 800,
         concentricMillis: 700,
@@ -73,6 +83,14 @@ void main() {
       expect(document['worstFormMetric'], 53.0);
       expect(document['selectedSide'], 'left');
       expect(document['confidence'], 0.91);
+      expect(document['measurementConfidence'], <String, Object?>{
+        'landmarkLikelihood': 0.98,
+        'signalAvailability': 0.96,
+        'geometryPlausibility': 1.0,
+        'temporalContinuity': 0.84,
+        'combined': 0.91,
+        'issues': <String>['temporal_discontinuity'],
+      });
       expect(document['primaryRom'], 62.0);
       expect(document['eccentricMillis'], 800);
       expect(document['concentricMillis'], 700);
@@ -106,6 +124,14 @@ void main() {
         'ascentMillis': 500,
         'feedback': 'Guzel kontrol',
         'selectedSide': 'right',
+        'measurementConfidence': <String, Object?>{
+          'landmarkLikelihood': 0.96,
+          'signalAvailability': 1.0,
+          'geometryPlausibility': 1.0,
+          'temporalContinuity': 0.72,
+          'combined': 0.88,
+          'issues': const <String>['temporal_discontinuity'],
+        },
         'confidence': 0.88,
         'primaryRom': 70.0,
         'eccentricMillis': 600,
@@ -140,6 +166,16 @@ void main() {
       expect(rep.selectedSideLabel, 'right');
       expect(rep.selectedSide, 'right');
       expect(rep.confidence, 0.88);
+      expect(rep.measurementConfidence?.landmarkLikelihood, 0.96);
+      expect(rep.measurementConfidence?.signalAvailability, 1.0);
+      expect(rep.measurementConfidence?.geometryPlausibility, 1.0);
+      expect(rep.measurementConfidence?.temporalContinuity, 0.72);
+      expect(
+        rep.measurementConfidence?.issues,
+        const <MeasurementConfidenceIssue>[
+          MeasurementConfidenceIssue.temporalDiscontinuity,
+        ],
+      );
       expect(rep.primaryRom, 70.0);
       expect(rep.eccentricMillis, 600);
       expect(rep.concentricMillis, 500);
@@ -151,6 +187,49 @@ void main() {
       expect(rep.techniqueObservations, hasLength(1));
       expect(rep.coverageQuality, 0.9);
       expect(rep.recordedAt?.toUtc(), DateTime.utc(2026, 1, 1, 12, 0, 3));
+    });
+
+    test('opens legacy scalar-only confidence with a typed fallback', () {
+      final rep = mapper.fromDocument(<String, dynamic>{
+        'exerciseType': 'squat',
+        'analysisKind': 'rangeRep',
+        'repIndex': 4,
+        'isValid': true,
+        'confidence': 0.73,
+        'createdAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 0, 8)),
+      });
+
+      expect(rep.measurementConfidence, isNull);
+      expect(rep.confidence, 0.73);
+      expect(rep.effectiveMeasurementConfidence?.combined, 0.73);
+      expect(
+        rep.effectiveMeasurementConfidence?.issues,
+        const <MeasurementConfidenceIssue>[
+          MeasurementConfidenceIssue.legacyScalarOnly,
+        ],
+      );
+    });
+
+    test('native breakdown remains the source of truth over legacy scalar', () {
+      final rep = mapper.fromDocument(<String, dynamic>{
+        'exerciseType': 'squat',
+        'analysisKind': 'rangeRep',
+        'repIndex': 5,
+        'isValid': true,
+        'measurementConfidence': <String, Object?>{
+          'landmarkLikelihood': 0.9,
+          'signalAvailability': 0.8,
+          'geometryPlausibility': 1.0,
+          'temporalContinuity': 0.7,
+          'combined': 0.81,
+          'issues': const <String>[],
+        },
+        'confidence': 0.99,
+        'createdAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12, 0, 9)),
+      });
+
+      expect(rep.confidence, 0.81);
+      expect(rep.measurementConfidence?.combined, 0.81);
     });
 
     test(

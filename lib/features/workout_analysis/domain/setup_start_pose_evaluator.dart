@@ -16,6 +16,7 @@ class SetupStartPoseThresholds {
     required this.bentJointMaximumAngleDegrees,
     required this.armsDownMinimumDropToTorsoRatio,
     required this.splitStanceMinimumSeparationToTorsoRatio,
+    required this.footAnchorMaximumAnkleDeviationToTorsoRatio,
     required this.feetTogetherMaximumSeparationToTorsoRatio,
     required this.supportMaximumHorizontalOffsetToTorsoRatio,
     required this.hollowCompressionMaximumAngleDegrees,
@@ -39,6 +40,7 @@ class SetupStartPoseThresholds {
        assert(bentJointMaximumAngleDegrees < 180),
        assert(armsDownMinimumDropToTorsoRatio >= 0),
        assert(splitStanceMinimumSeparationToTorsoRatio > 0),
+       assert(footAnchorMaximumAnkleDeviationToTorsoRatio > 0),
        assert(feetTogetherMaximumSeparationToTorsoRatio > 0),
        assert(supportMaximumHorizontalOffsetToTorsoRatio > 0),
        assert(hollowCompressionMaximumAngleDegrees > 90),
@@ -58,6 +60,7 @@ class SetupStartPoseThresholds {
     bentJointMaximumAngleDegrees: 140,
     armsDownMinimumDropToTorsoRatio: 0.12,
     splitStanceMinimumSeparationToTorsoRatio: 0.42,
+    footAnchorMaximumAnkleDeviationToTorsoRatio: 0.6,
     feetTogetherMaximumSeparationToTorsoRatio: 0.48,
     supportMaximumHorizontalOffsetToTorsoRatio: 0.7,
     hollowCompressionMaximumAngleDegrees: 172,
@@ -77,6 +80,7 @@ class SetupStartPoseThresholds {
   final double bentJointMaximumAngleDegrees;
   final double armsDownMinimumDropToTorsoRatio;
   final double splitStanceMinimumSeparationToTorsoRatio;
+  final double footAnchorMaximumAnkleDeviationToTorsoRatio;
   final double feetTogetherMaximumSeparationToTorsoRatio;
   final double supportMaximumHorizontalOffsetToTorsoRatio;
   final double hollowCompressionMaximumAngleDegrees;
@@ -558,9 +562,13 @@ class SetupStartPoseEvaluator {
 
   SetupStartPoseCheckResult _splitStance(SetupStartPose pose) {
     final torsoLength = _torsoLength(pose);
-    final left = _footAnchor(pose, left: true);
-    final right = _footAnchor(pose, left: false);
-    if (torsoLength == null || left == null || right == null) {
+    if (torsoLength == null) {
+      return _unavailable(SetupStartPoseCheck.splitStance);
+    }
+
+    final left = _footAnchor(pose, left: true, torsoLength: torsoLength);
+    final right = _footAnchor(pose, left: false, torsoLength: torsoLength);
+    if (left == null || right == null) {
       return _unavailable(SetupStartPoseCheck.splitStance);
     }
     final ratio = _distance(left, right) / torsoLength;
@@ -572,26 +580,39 @@ class SetupStartPoseEvaluator {
     );
   }
 
-  SetupStartPosePoint? _footAnchor(SetupStartPose pose, {required bool left}) {
+  SetupStartPosePoint? _footAnchor(
+    SetupStartPose pose, {
+    required bool left,
+    required double torsoLength,
+  }) {
     final ankle = _point(
       pose,
       left ? SetupStartPoseJoint.leftAnkle : SetupStartPoseJoint.rightAnkle,
     );
-    if (ankle != null) {
+    final heel = _point(
+      pose,
+      left ? SetupStartPoseJoint.leftHeel : SetupStartPoseJoint.rightHeel,
+    );
+    final footIndex = _point(
+      pose,
+      left
+          ? SetupStartPoseJoint.leftFootIndex
+          : SetupStartPoseJoint.rightFootIndex,
+    );
+    final fallbackAnchor = _midpointOrSingle(heel, footIndex);
+    if (ankle == null) {
+      return fallbackAnchor;
+    }
+    if (heel == null || footIndex == null) {
       return ankle;
     }
-    return _midpointOrSingle(
-      _point(
-        pose,
-        left ? SetupStartPoseJoint.leftHeel : SetupStartPoseJoint.rightHeel,
-      ),
-      _point(
-        pose,
-        left
-            ? SetupStartPoseJoint.leftFootIndex
-            : SetupStartPoseJoint.rightFootIndex,
-      ),
-    );
+
+    final footSurfaceAnchor = _midpointOrSingle(heel, footIndex)!;
+    final maximumAnkleDeviation =
+        torsoLength * thresholds.footAnchorMaximumAnkleDeviationToTorsoRatio;
+    return _distance(ankle, footSurfaceAnchor) > maximumAnkleDeviation
+        ? footSurfaceAnchor
+        : ankle;
   }
 
   SetupStartPoseCheckResult _feetTogether(SetupStartPose pose) {

@@ -141,6 +141,64 @@ void main() {
 
       expect(response.statusCode, 403, reason: response.body);
     });
+
+    test(
+      'production-shaped session and reps succeed as separate writes',
+      () async {
+        const sessionId = 'session_production_shape';
+        final ownerId = ownerClient.uid!;
+        final writes = <({String path, Map<String, Object?> data})>[
+          (
+            path: _repPath(ownerId, sessionId, 'rep_0001'),
+            data: _productionRepData(
+              ownerId: ownerId,
+              sessionId: sessionId,
+              id: 'rep_0001',
+              repIndex: 1,
+              score: 76.93333333333334,
+              durationSeconds: 5.945,
+              descentMillis: 793,
+              ascentMillis: 3753,
+              tempoQuality: 'tooSlow',
+              tempoReasons: const <String>['concentricTooSlow', 'totalTooSlow'],
+              confidence: 0.9847243962512868,
+            ),
+          ),
+          (
+            path: _repPath(ownerId, sessionId, 'rep_0002'),
+            data: _productionRepData(
+              ownerId: ownerId,
+              sessionId: sessionId,
+              id: 'rep_0002',
+              repIndex: 2,
+              score: 90.8,
+              durationSeconds: 2.7,
+              descentMillis: 610,
+              ascentMillis: 510,
+              tempoQuality: 'tooFast',
+              tempoReasons: const <String>['eccentricTooFast'],
+              confidence: 0.9831849188658616,
+            ),
+          ),
+          (
+            path: _sessionPath(ownerId, sessionId),
+            data: _productionSessionData(ownerId: ownerId, id: sessionId),
+          ),
+        ];
+
+        for (final write in writes) {
+          final response = await ownerClient.setDocument(
+            write.path,
+            write.data,
+          );
+          expect(
+            response.statusCode,
+            inInclusiveRange(200, 299),
+            reason: '${write.path}: ${response.body}',
+          );
+        }
+      },
+    );
   });
 
   group('Firestore rep security rules', skip: _emulatorSkipReason, () {
@@ -197,6 +255,144 @@ void main() {
         inInclusiveRange(200, 299),
         reason: response.body,
       );
+    });
+
+    test(
+      'owner can create rep with measurement confidence breakdown',
+      () async {
+        final data =
+            _validRepData(
+              ownerId: ownerClient.uid!,
+              sessionId: 'session_a',
+              id: 'rep_0001',
+            )..addAll(<String, Object?>{
+              'measurementConfidence': _validMeasurementConfidenceData(),
+              'confidence': 0.89,
+            });
+
+        final response = await ownerClient.setDocument(
+          _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+          data,
+        );
+
+        expect(
+          response.statusCode,
+          inInclusiveRange(200, 299),
+          reason: response.body,
+        );
+      },
+    );
+
+    test('unknown measurement confidence remains writable', () async {
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'measurementConfidence': <String, Object?>{
+              'landmarkLikelihood': 0.99,
+              'signalAvailability': 1.0,
+              'geometryPlausibility': 1.0,
+              'temporalContinuity': null,
+              'combined': null,
+              'issues': const <String>['temporal_history_unavailable'],
+            },
+            'confidence': null,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(
+        response.statusCode,
+        inInclusiveRange(200, 299),
+        reason: response.body,
+      );
+    });
+
+    test('measurement confidence scalar mismatch is rejected', () async {
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'measurementConfidence': _validMeasurementConfidenceData(),
+            'confidence': 0.5,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('out-of-range measurement confidence component is rejected', () async {
+      final breakdown = _validMeasurementConfidenceData()
+        ..['temporalContinuity'] = 1.2;
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'measurementConfidence': breakdown,
+            'confidence': 0.89,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('unknown measurement confidence field is rejected', () async {
+      final breakdown = _validMeasurementConfidenceData()
+        ..['unexpected'] = true;
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'measurementConfidence': breakdown,
+            'confidence': 0.89,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('unknown measurement confidence issue is rejected', () async {
+      final breakdown = _validMeasurementConfidenceData()
+        ..['issues'] = const <String>['made_up_issue'];
+      final data =
+          _validRepData(
+            ownerId: ownerClient.uid!,
+            sessionId: 'session_a',
+            id: 'rep_0001',
+          )..addAll(<String, Object?>{
+            'measurementConfidence': breakdown,
+            'confidence': 0.89,
+          });
+
+      final response = await ownerClient.setDocument(
+        _repPath(ownerClient.uid!, 'session_a', 'rep_0001'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
     });
 
     test('invalid tempo enum value is rejected', () async {
@@ -442,6 +638,132 @@ Map<String, Object?> _validSessionData({
   };
 }
 
+Map<String, Object?> _productionSessionData({
+  required String ownerId,
+  required String id,
+}) {
+  final startedAt = DateTime.utc(2026, 8, 2, 11, 16, 16, 688, 252);
+  final endedAt = DateTime.utc(2026, 8, 2, 11, 16, 34, 899, 764);
+  final createdAt = DateTime.utc(2026, 8, 2, 11, 16, 34, 909, 724);
+
+  return <String, Object?>{
+    'id': id,
+    'ownerId': ownerId,
+    'exerciseType': 'squat',
+    'analysisKind': 'rangeRep',
+    'startedAt': startedAt,
+    'endedAt': endedAt,
+    'durationSeconds': 18,
+    'totalReps': 2,
+    'validReps': 2,
+    'lowConfidenceReps': 0,
+    'invalidReps': 0,
+    'averageScore': 83.86666666666667,
+    'bestScore': 90.8,
+    'worstScore': 76.93333333333334,
+    'formWarningCount': 0,
+    'holdDurationSeconds': 0.0,
+    'bestHoldSeconds': 0.0,
+    'holdFormBreakCount': 0,
+    'createdAt': createdAt,
+    'updatedAt': createdAt,
+  };
+}
+
+Map<String, Object?> _productionRepData({
+  required String ownerId,
+  required String sessionId,
+  required String id,
+  required int repIndex,
+  required double score,
+  required double durationSeconds,
+  required int descentMillis,
+  required int ascentMillis,
+  required String tempoQuality,
+  required List<String> tempoReasons,
+  required double confidence,
+}) {
+  final endedAt = DateTime.utc(2026, 8, 2, 11, 16, 26 + repIndex * 4);
+
+  return <String, Object?>{
+    'id': id,
+    'ownerId': ownerId,
+    'sessionId': sessionId,
+    'exerciseType': 'squat',
+    'analysisKind': 'rangeRep',
+    'repIndex': repIndex,
+    'score': score,
+    'isValid': true,
+    'validationStatus': 'valid',
+    'invalidReason': null,
+    'validationReasons': const <String>[],
+    'endedAt': endedAt,
+    'durationSeconds': durationSeconds,
+    'minPrimaryMetric': 56.296195603296475,
+    'worstFormMetric': 65.87748853136596,
+    'descentMillis': descentMillis,
+    'ascentMillis': ascentMillis,
+    'hadFormViolation': false,
+    'hadCoverageDrop': false,
+    'switchedSideDuringRep': false,
+    'completedPhaseSequence': true,
+    'selectedSide': 'left',
+    'measurementConfidence': <String, Object?>{
+      'landmarkLikelihood': 0.9953839961363344,
+      'signalAvailability': 1.0,
+      'geometryPlausibility': 1.0,
+      'temporalContinuity': 0.9165476994411055,
+      'combined': confidence,
+      'issues': const <String>[],
+    },
+    'confidence': confidence,
+    'primaryRom': 85.68277770450246,
+    'eccentricMillis': descentMillis,
+    'concentricMillis': ascentMillis,
+    'tempoMeasurementStatus': 'eligible',
+    'tempoMeasurementIssues': const <String>[],
+    'tempoQuality': tempoQuality,
+    'tempoSeverity': 'mild',
+    'tempoReasons': tempoReasons,
+    'tempoIncludedInScore': true,
+    'tempoTotalMillis': (durationSeconds * 1000).round(),
+    'techniqueObservations': const <Map<String, Object?>>[
+      <String, Object?>{
+        'code': 'squat_torso_drift_observed',
+        'type': 'torsoDrift',
+        'severity': 'info',
+        'phase': 'peak',
+        'referencePhase': 'descending',
+        'measuredValue': 18.0,
+        'referenceValue': 14.0,
+      },
+      <String, Object?>{
+        'code': 'squat_torso_drift_observed',
+        'type': 'torsoDrift',
+        'severity': 'info',
+        'phase': 'ascending',
+        'referencePhase': 'peak',
+        'measuredValue': 1.0,
+        'referenceValue': 18.0,
+      },
+    ],
+    'coverageQuality': 1.0,
+    'feedback': 'Rep completed!',
+    'createdAt': endedAt,
+  };
+}
+
+Map<String, Object?> _validMeasurementConfidenceData() {
+  return <String, Object?>{
+    'landmarkLikelihood': 0.98,
+    'signalAvailability': 1.0,
+    'geometryPlausibility': 1.0,
+    'temporalContinuity': 0.76,
+    'combined': 0.89,
+    'issues': const <String>['temporal_discontinuity'],
+  };
+}
+
 Map<String, Object?> _validRepData({
   required String ownerId,
   required String sessionId,
@@ -575,6 +897,19 @@ Map<String, Object?> _encodeValue(Object? value) {
   }
   if (value is DateTime) {
     return <String, Object?>{'timestampValue': value.toUtc().toIso8601String()};
+  }
+  if (value is Map) {
+    final fields = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throw UnsupportedError('Unsupported Firestore map key: $key');
+      }
+      fields[key] = entry.value;
+    }
+    return <String, Object?>{
+      'mapValue': <String, Object?>{'fields': _encodeFields(fields)},
+    };
   }
   if (value is List) {
     return <String, Object?>{

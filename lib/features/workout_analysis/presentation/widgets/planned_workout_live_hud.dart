@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../../application/engine_kind.dart';
+import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../models/live_tracking_state.dart';
 import '../models/range_rep_outcome_view_data.dart';
 import '../providers/live_range_rep_outcome_controller.dart';
@@ -33,6 +34,7 @@ class PlannedWorkoutLiveHudData {
     this.sideLabel,
     this.feedbackTitle,
     this.feedbackMessage,
+    this.feedbackMeasurementConfidenceLabel,
     this.feedbackTone = PlannedWorkoutHudTone.positive,
     this.feedbackIcon = Icons.check_rounded,
   });
@@ -50,6 +52,7 @@ class PlannedWorkoutLiveHudData {
   final String? sideLabel;
   final String? feedbackTitle;
   final String? feedbackMessage;
+  final String? feedbackMeasurementConfidenceLabel;
   final PlannedWorkoutHudTone feedbackTone;
   final IconData feedbackIcon;
 
@@ -194,6 +197,7 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
       sideLabel: sideLabel,
       feedbackTitle: feedback?.title,
       feedbackMessage: feedback?.message,
+      feedbackMeasurementConfidenceLabel: feedback?.measurementConfidenceLabel,
       feedbackTone: feedback?.tone ?? PlannedWorkoutHudTone.positive,
       feedbackIcon: feedback?.icon ?? Icons.check_rounded,
     );
@@ -1112,6 +1116,24 @@ class _PlannedWorkoutFeedbackCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (data.feedbackMeasurementConfidenceLabel !=
+                    null) ...<Widget>[
+                  SizedBox(height: compact ? 3 : 5),
+                  Text(
+                    data.feedbackMeasurementConfidenceLabel!,
+                    key: const ValueKey<String>(
+                      'planned-workout-measurement-confidence',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: compact ? 10 : 11,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1123,12 +1145,14 @@ class _PlannedWorkoutFeedbackCard extends StatelessWidget {
 
 class _PlannedFeedbackPresentation {
   const _PlannedFeedbackPresentation({
+    required this.measurementConfidenceLabel,
     required this.title,
     required this.message,
     required this.tone,
     required this.icon,
   });
 
+  final String? measurementConfidenceLabel;
   final String title;
   final String message;
   final PlannedWorkoutHudTone tone;
@@ -1145,18 +1169,33 @@ _PlannedFeedbackPresentation _plannedFeedbackPresentation({
   if (repOutcome != null) {
     return switch (repOutcome.tone) {
       RangeRepOutcomeTone.positive => _PlannedFeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         tone: PlannedWorkoutHudTone.positive,
         icon: Icons.check_rounded,
       ),
       RangeRepOutcomeTone.caution => _PlannedFeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         tone: PlannedWorkoutHudTone.caution,
         icon: Icons.info_rounded,
       ),
       RangeRepOutcomeTone.invalid => _PlannedFeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         tone: PlannedWorkoutHudTone.invalid,
@@ -1166,6 +1205,7 @@ _PlannedFeedbackPresentation _plannedFeedbackPresentation({
   }
 
   return _PlannedFeedbackPresentation(
+    measurementConfidenceLabel: null,
     title: localizations.workoutPhaseLabel(currentPhase),
     message: message,
     tone: isFormBad

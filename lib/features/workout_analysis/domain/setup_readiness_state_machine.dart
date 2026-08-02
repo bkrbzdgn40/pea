@@ -204,7 +204,8 @@ class SetupReadinessStateMachine {
   bool _isTransientLoss(SetupReadinessPhase phase) {
     return phase == SetupReadinessPhase.initializing ||
         phase == SetupReadinessPhase.noPerson ||
-        phase == SetupReadinessPhase.incompleteCoverage;
+        phase == SetupReadinessPhase.incompleteCoverage ||
+        phase == SetupReadinessPhase.startPoseMissing;
   }
 
   SetupReadinessSnapshot _commit(SetupReadinessPhase next, DateTime now) {

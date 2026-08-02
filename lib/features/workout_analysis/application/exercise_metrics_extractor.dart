@@ -4,16 +4,19 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../core/utils/angle_calculator.dart';
 import '../../../core/utils/image_plane_geometry.dart';
+import '../domain/measurement_confidence_policy.dart';
 import '../domain/models/analysis_signal_role.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_signal_values.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
 import 'exercise_metrics.dart';
 import 'pose_landmark_mirror.dart';
+import 'pose_quality_policy.dart' show PoseQualityAssessment;
 import 'prepared_exercise_analysis_context.dart';
 
 /// Converts a detected pose into the measurement signals the current engine uses.
@@ -21,14 +24,16 @@ class ExerciseMetricsExtractor {
   const ExerciseMetricsExtractor({
     ExerciseLandmarkRequirements requirements =
         const ExerciseLandmarkRequirements(),
-  }) : _requirements = requirements;
+    MeasurementConfidencePolicy measurementConfidencePolicy =
+        const MeasurementConfidencePolicy(),
+  }) : _measurementConfidencePolicy = measurementConfidencePolicy;
 
   static final RangeRepContract _emptyRangeRepContract = RangeRepContract(
     supportedPhases: const <RangeRepPhase>{},
     supportedSignals: const <RangeRepSignal>{},
     signalRoles: const <RangeRepSignal, Set<AnalysisSignalRole>>{},
   );
-  final ExerciseLandmarkRequirements _requirements;
+  final MeasurementConfidencePolicy _measurementConfidencePolicy;
 
   ExerciseMetrics extract(
     Pose pose,
@@ -38,6 +43,7 @@ class ExerciseMetricsExtractor {
     HoldContract? holdContract,
     HoldSide? holdSide,
     PreparedExerciseAnalysisContext? preparedContext,
+    PoseQualityAssessment? poseQualityAssessment,
   }) {
     switch (engineKind) {
       case EngineKind.rangeRep:
@@ -45,7 +51,7 @@ class ExerciseMetricsExtractor {
           pose,
           config,
           rangeRepContract: rangeRepContract ?? RangeRepContracts.squat,
-          preparedContext: preparedContext,
+          poseQualityAssessment: poseQualityAssessment,
         );
       case EngineKind.hold:
         return _extractHoldMetrics(
@@ -70,21 +76,21 @@ class ExerciseMetricsExtractor {
     Pose pose,
     ExerciseConfig config, {
     required RangeRepContract rangeRepContract,
-    PreparedExerciseAnalysisContext? preparedContext,
+    PoseQualityAssessment? poseQualityAssessment,
   }) {
     final leftRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.left,
       rangeRepContract: rangeRepContract,
-      preparedContext: preparedContext,
+      poseQualityAssessment: poseQualityAssessment,
     );
     final rightRangeRepMetrics = _extractRangeRepSideMetrics(
       pose,
       config,
       RangeRepSide.right,
       rangeRepContract: rangeRepContract,
-      preparedContext: preparedContext,
+      poseQualityAssessment: poseQualityAssessment,
     );
     final bilateralRangeRepMetrics =
         rangeRepContract.sideMode == RangeRepSideMode.bilateral
@@ -196,7 +202,7 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config,
     RangeRepSide side, {
     required RangeRepContract rangeRepContract,
-    PreparedExerciseAnalysisContext? preparedContext,
+    PoseQualityAssessment? poseQualityAssessment,
   }) {
     final primaryMetric = _tryCalculatePrimaryMetric(
       pose,
@@ -210,15 +216,6 @@ class ExerciseMetricsExtractor {
       side: side,
       primaryMetric: primaryMetric,
     );
-    final sideConfidence = _calculateRangeRepSideConfidence(
-      pose,
-      config,
-      rangeRepContract: rangeRepContract,
-      side: side,
-      hasPrimaryAngle: primaryMetric != null,
-      hasFormMetric: formMetric != null,
-      preparedContext: preparedContext,
-    );
     final formSignals = _extractRangeRepFormSignals(
       pose,
       config,
@@ -227,6 +224,14 @@ class ExerciseMetricsExtractor {
       primaryAngle: primaryMetric,
       formMetric: formMetric,
     );
+    final measurementConfidence = _buildMeasurementConfidenceSeed(
+      rangeRepContract: rangeRepContract,
+      side: side,
+      primaryMetric: primaryMetric,
+      formMetric: formMetric,
+      formSignals: formSignals,
+      poseQualityAssessment: poseQualityAssessment,
+    );
 
     return RangeRepSideMetrics(
       side: side,
@@ -234,7 +239,7 @@ class ExerciseMetricsExtractor {
       formMetric: formMetric ?? 90.0,
       hasPrimaryAngle: primaryMetric != null,
       hasFormMetric: formMetric != null,
-      sideConfidence: sideConfidence,
+      measurementConfidence: measurementConfidence,
       formSignals: formSignals,
     );
   }
@@ -289,6 +294,10 @@ class ExerciseMetricsExtractor {
       leftFormScore: leftFormScore,
       rightFormScore: rightFormScore,
       syncScore: syncScore,
+      measurementConfidence: _combineBilateralMeasurementConfidence(
+        leftMetrics.measurementConfidence,
+        rightMetrics.measurementConfidence,
+      ),
       formSignals: bilateralPrimaryAngle != null || bilateralFormMetric != null
           ? RangeRepFormSignals(
               torsoAngle: bilateralFormMetric,
@@ -298,49 +307,107 @@ class ExerciseMetricsExtractor {
     );
   }
 
-  double _calculateRangeRepSideConfidence(
-    Pose pose,
-    ExerciseConfig config, {
+  MeasurementConfidenceBreakdown? _buildMeasurementConfidenceSeed({
     required RangeRepContract rangeRepContract,
     required RangeRepSide side,
-    required bool hasPrimaryAngle,
-    required bool hasFormMetric,
-    PreparedExerciseAnalysisContext? preparedContext,
+    required double? primaryMetric,
+    required double? formMetric,
+    required RangeRepFormSignals? formSignals,
+    required PoseQualityAssessment? poseQualityAssessment,
   }) {
-    final requiresPrimaryMetric = rangeRepContract.requiresPoseAcceptanceSignal(
-      RangeRepSignal.primaryMetric,
+    final poseSeed = poseQualityAssessment?.rangeRepMeasurementConfidenceFor(
+      side,
     );
-    final requiresFormMetric = rangeRepContract.requiresPoseAcceptanceSignal(
-      RangeRepSignal.formMetric,
-    );
-    final requirementSet =
-        preparedContext?.rangeRepPoseAcceptanceFor(side) ??
-        _requirements.resolve(
-          config: config,
-          engineKind: EngineKind.rangeRep,
-          rangeRepContract: rangeRepContract,
-          rangeRepSignalSet: RangeRepSignalSet.poseAcceptanceRequired,
-          side: side,
-        );
-    final requiredLandmarks = requirementSet.requiredLandmarks;
-    final observedLandmarks = requiredLandmarks
-        .where((landmarkType) => pose.landmarks[landmarkType] != null)
-        .length;
-    final landmarkCompleteness = requiredLandmarks.isEmpty
-        ? 0.0
-        : observedLandmarks / requiredLandmarks.length;
-    final requiredSignalCount =
-        (requiresPrimaryMetric ? 1 : 0) + (requiresFormMetric ? 1 : 0);
-    final availableSignalCount =
-        ((requiresPrimaryMetric && hasPrimaryAngle) ? 1 : 0) +
-        ((requiresFormMetric && hasFormMetric) ? 1 : 0);
-    final signalAvailability = requiredSignalCount == 0
-        ? 0.0
-        : availableSignalCount / requiredSignalCount;
+    if (poseSeed == null) {
+      return null;
+    }
 
-    return ((landmarkCompleteness + signalAvailability) / 2.0)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final requiredSignals = rangeRepContract.poseAcceptanceRequiredSignals;
+    final availableSignalCount = requiredSignals
+        .where(
+          (signal) => _hasRangeRepSignalValue(
+            signal,
+            primaryMetric: primaryMetric,
+            formMetric: formMetric,
+            formSignals: formSignals,
+          ),
+        )
+        .length;
+    final signalAvailability = requiredSignals.isEmpty
+        ? null
+        : availableSignalCount / requiredSignals.length;
+    final issues = <MeasurementConfidenceIssue>[
+      ...poseSeed.issues,
+      if (requiredSignals.isNotEmpty &&
+          availableSignalCount < requiredSignals.length)
+        MeasurementConfidenceIssue.missingRequiredSignal,
+    ];
+
+    return _measurementConfidencePolicy.evaluate(
+      landmarkLikelihood: poseSeed.landmarkLikelihood,
+      signalAvailability: signalAvailability,
+      geometryPlausibility: poseSeed.geometryPlausibility,
+      temporalContinuity: null,
+      issues: issues,
+    );
+  }
+
+  bool _hasRangeRepSignalValue(
+    RangeRepSignal signal, {
+    required double? primaryMetric,
+    required double? formMetric,
+    required RangeRepFormSignals? formSignals,
+  }) {
+    return switch (signal) {
+      RangeRepSignal.primaryMetric => primaryMetric != null,
+      RangeRepSignal.formMetric => formMetric != null,
+      RangeRepSignal.postureAngle => formSignals?.torsoAngle != null,
+      RangeRepSignal.depthMetric => formSignals?.depthMetric != null,
+      RangeRepSignal.alignmentMetric => formSignals?.alignmentMetric != null,
+      RangeRepSignal.stabilityMetric => formSignals?.stabilityMetric != null,
+      RangeRepSignal.endRangeMetric => formSignals?.lockoutMetric != null,
+      RangeRepSignal.bottomControlMetric =>
+        formSignals?.bottomControlMetric != null,
+    };
+  }
+
+  MeasurementConfidenceBreakdown? _combineBilateralMeasurementConfidence(
+    MeasurementConfidenceBreakdown? left,
+    MeasurementConfidenceBreakdown? right,
+  ) {
+    if (left == null || right == null) {
+      return null;
+    }
+
+    double? conservative(double? leftValue, double? rightValue) {
+      if (leftValue == null || rightValue == null) {
+        return null;
+      }
+      return math.min(leftValue, rightValue);
+    }
+
+    return _measurementConfidencePolicy.evaluate(
+      landmarkLikelihood: conservative(
+        left.landmarkLikelihood,
+        right.landmarkLikelihood,
+      ),
+      signalAvailability: conservative(
+        left.signalAvailability,
+        right.signalAvailability,
+      ),
+      geometryPlausibility: conservative(
+        left.geometryPlausibility,
+        right.geometryPlausibility,
+      ),
+      temporalContinuity: conservative(
+        left.temporalContinuity,
+        right.temporalContinuity,
+      ),
+      issues: <MeasurementConfidenceIssue>{
+        ...left.issues,
+        ...right.issues,
+      }.toList(growable: false),
+    );
   }
 
   RangeRepFormSignals? _extractRangeRepFormSignals(

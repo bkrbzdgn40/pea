@@ -1,3 +1,4 @@
+import 'measurement_confidence_breakdown.dart';
 import 'range_rep_validation_result.dart';
 import 'rep_tempo_assessment.dart';
 
@@ -56,7 +57,9 @@ class ValidatedRepEvent {
   final bool hadCoverageDrop;
   final bool switchedSideDuringRep;
   final bool completedPhaseSequence;
-  final double? measurementConfidence;
+  final MeasurementConfidenceBreakdown? measurementConfidence;
+
+  double? get measurementConfidenceCombined => measurementConfidence?.combined;
   final double? coverageQuality;
   final double? finalScore;
   final RepTempoAssessment? tempoAssessment;

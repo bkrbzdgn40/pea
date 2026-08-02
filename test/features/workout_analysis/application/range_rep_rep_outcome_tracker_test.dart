@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/range_rep_rep_outcome_tracker.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/measurement_confidence_policy.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_aborted_attempt_detection_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_diagnostics.dart';
@@ -48,6 +50,10 @@ void main() {
     expect(outcome, isNotNull);
     expect(outcome!.summary.selectedSideLabel, 'left');
     expect(outcome.summary.switchedSideDuringRep, isTrue);
+    expect(
+      outcome.summary.measurementConfidence?.issues,
+      contains(MeasurementConfidenceIssue.sideSwitchDuringRep),
+    );
   });
 
   test(
@@ -131,5 +137,153 @@ void main() {
         isNull,
       );
     },
+  );
+
+  test('aggregates confidence components and de-duplicates issues', () {
+    final tracker = RangeRepRepOutcomeTracker(
+      validationPolicy: const RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(),
+      ),
+    );
+    const activeDiagnostics = RangeRepDiagnosticsSnapshot(
+      hasActiveRepPhase: true,
+    );
+
+    tracker.trackRepContext(
+      engineKind: EngineKind.rangeRep,
+      diagnostics: activeDiagnostics,
+      selectedSideLabel: 'left',
+      frameMeasurementConfidence: _breakdown(
+        landmarkLikelihood: 0.8,
+        signalAvailability: 1.0,
+        geometryPlausibility: 1.0,
+        temporalContinuity: 0.9,
+        issues: const <MeasurementConfidenceIssue>[
+          MeasurementConfidenceIssue.lowMeanLikelihood,
+        ],
+      ),
+    );
+    tracker.trackRepContext(
+      engineKind: EngineKind.rangeRep,
+      diagnostics: activeDiagnostics,
+      selectedSideLabel: 'left',
+      frameMeasurementConfidence: _breakdown(
+        landmarkLikelihood: 0.6,
+        signalAvailability: 0.8,
+        geometryPlausibility: 1.0,
+        temporalContinuity: 0.7,
+        issues: const <MeasurementConfidenceIssue>[
+          MeasurementConfidenceIssue.lowMeanLikelihood,
+        ],
+      ),
+    );
+
+    final confidence = tracker.activeRepMeasurementConfidence!;
+    final expected = const MeasurementConfidencePolicy().evaluate(
+      landmarkLikelihood: 0.7,
+      signalAvailability: 0.9,
+      geometryPlausibility: 1.0,
+      temporalContinuity: 0.8,
+      issues: const <MeasurementConfidenceIssue>[
+        MeasurementConfidenceIssue.lowMeanLikelihood,
+      ],
+    );
+
+    expect(confidence.landmarkLikelihood, closeTo(0.7, 1e-12));
+    expect(confidence.signalAvailability, closeTo(0.9, 1e-12));
+    expect(confidence.geometryPlausibility, 1.0);
+    expect(confidence.temporalContinuity, closeTo(0.8, 1e-12));
+    expect(confidence.combined, closeTo(expected.combined!, 1e-12));
+    expect(
+      confidence.issues
+          .where(
+            (issue) => issue == MeasurementConfidenceIssue.lowMeanLikelihood,
+          )
+          .length,
+      1,
+    );
+  });
+
+  test('coverage drop caps signal availability and adds a typed issue', () {
+    final tracker = RangeRepRepOutcomeTracker(
+      validationPolicy: const RangeRepValidationPolicy(
+        config: RangeRepValidationConfig(),
+      ),
+    );
+    const activeDiagnostics = RangeRepDiagnosticsSnapshot(
+      hasActiveRepPhase: true,
+    );
+
+    tracker.trackRepContext(
+      engineKind: EngineKind.rangeRep,
+      diagnostics: activeDiagnostics,
+      selectedSideLabel: 'left',
+      frameMeasurementConfidence: _breakdown(),
+    );
+    tracker.trackRepContext(
+      engineKind: EngineKind.rangeRep,
+      diagnostics: activeDiagnostics,
+      selectedSideLabel: 'left',
+      markCoverageDrop: true,
+    );
+
+    final confidence = tracker.activeRepMeasurementConfidence!;
+    expect(confidence.signalAvailability, 0.5);
+    expect(
+      confidence.issues,
+      contains(MeasurementConfidenceIssue.coverageInterruption),
+    );
+  });
+
+  test(
+    'side switch invalidates temporal continuity without losing technique data',
+    () {
+      final tracker = RangeRepRepOutcomeTracker(
+        validationPolicy: const RangeRepValidationPolicy(
+          config: RangeRepValidationConfig(),
+        ),
+      );
+      const activeDiagnostics = RangeRepDiagnosticsSnapshot(
+        hasActiveRepPhase: true,
+      );
+
+      tracker.trackRepContext(
+        engineKind: EngineKind.rangeRep,
+        diagnostics: activeDiagnostics,
+        selectedSideLabel: 'left',
+        frameMeasurementConfidence: _breakdown(),
+      );
+      tracker.trackRepContext(
+        engineKind: EngineKind.rangeRep,
+        diagnostics: activeDiagnostics,
+        selectedSideLabel: 'right',
+        frameMeasurementConfidence: _breakdown(),
+      );
+
+      final confidence = tracker.activeRepMeasurementConfidence!;
+      expect(confidence.temporalContinuity, 0.0);
+      expect(confidence.combined, 0.0);
+      expect(
+        confidence.issues,
+        contains(MeasurementConfidenceIssue.sideSwitchDuringRep),
+      );
+    },
+  );
+}
+
+MeasurementConfidenceBreakdown _breakdown({
+  double landmarkLikelihood = 1.0,
+  double signalAvailability = 1.0,
+  double geometryPlausibility = 1.0,
+  double temporalContinuity = 1.0,
+  List<MeasurementConfidenceIssue> issues =
+      const <MeasurementConfidenceIssue>[],
+}) {
+  return const MeasurementConfidencePolicy().evaluate(
+    landmarkLikelihood: landmarkLikelihood,
+    signalAvailability: signalAvailability,
+    geometryPlausibility: geometryPlausibility,
+    temporalContinuity: temporalContinuity,
+    issues: issues,
   );
 }

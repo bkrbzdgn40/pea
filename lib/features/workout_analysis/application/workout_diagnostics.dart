@@ -9,6 +9,7 @@ import '../domain/models/hold_phase.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/tempo_measurement_assessment.dart';
 import '../domain/range_rep_timing_trace.dart';
@@ -49,6 +50,12 @@ class RangeRepWorkoutDiagnostics {
     this.lastEndedTimingTrace,
     this.lastTempoMeasurementAssessment,
     this.nonMonotonicObservationCount = 0,
+    this.currentLeftMeasurementConfidence,
+    this.currentRightMeasurementConfidence,
+    this.lastRepMeasurementConfidence,
+    this.measurementConfidenceKnownRepCount = 0,
+    this.measurementConfidenceUnknownRepCount = 0,
+    this.measurementConfidenceIssueCounts = const <String, int>{},
   });
 
   final int? repCount;
@@ -74,6 +81,12 @@ class RangeRepWorkoutDiagnostics {
   final RangeRepTimingTraceSnapshot? lastEndedTimingTrace;
   final TempoMeasurementAssessment? lastTempoMeasurementAssessment;
   final int nonMonotonicObservationCount;
+  final MeasurementConfidenceBreakdown? currentLeftMeasurementConfidence;
+  final MeasurementConfidenceBreakdown? currentRightMeasurementConfidence;
+  final MeasurementConfidenceBreakdown? lastRepMeasurementConfidence;
+  final int measurementConfidenceKnownRepCount;
+  final int measurementConfidenceUnknownRepCount;
+  final Map<String, int> measurementConfidenceIssueCounts;
 
   RangeRepWorkoutDiagnostics copyWith({
     Object? repCount = _unsetValue,
@@ -99,6 +112,12 @@ class RangeRepWorkoutDiagnostics {
     Object? lastEndedTimingTrace = _unsetValue,
     Object? lastTempoMeasurementAssessment = _unsetValue,
     int? nonMonotonicObservationCount,
+    Object? currentLeftMeasurementConfidence = _unsetValue,
+    Object? currentRightMeasurementConfidence = _unsetValue,
+    Object? lastRepMeasurementConfidence = _unsetValue,
+    int? measurementConfidenceKnownRepCount,
+    int? measurementConfidenceUnknownRepCount,
+    Object? measurementConfidenceIssueCounts = _unsetValue,
   }) {
     return RangeRepWorkoutDiagnostics(
       repCount: repCount == _unsetValue ? this.repCount : repCount as int?,
@@ -165,6 +184,30 @@ class RangeRepWorkoutDiagnostics {
           : lastTempoMeasurementAssessment as TempoMeasurementAssessment?,
       nonMonotonicObservationCount:
           nonMonotonicObservationCount ?? this.nonMonotonicObservationCount,
+      currentLeftMeasurementConfidence:
+          currentLeftMeasurementConfidence == _unsetValue
+          ? this.currentLeftMeasurementConfidence
+          : currentLeftMeasurementConfidence as MeasurementConfidenceBreakdown?,
+      currentRightMeasurementConfidence:
+          currentRightMeasurementConfidence == _unsetValue
+          ? this.currentRightMeasurementConfidence
+          : currentRightMeasurementConfidence
+                as MeasurementConfidenceBreakdown?,
+      lastRepMeasurementConfidence: lastRepMeasurementConfidence == _unsetValue
+          ? this.lastRepMeasurementConfidence
+          : lastRepMeasurementConfidence as MeasurementConfidenceBreakdown?,
+      measurementConfidenceKnownRepCount:
+          measurementConfidenceKnownRepCount ??
+          this.measurementConfidenceKnownRepCount,
+      measurementConfidenceUnknownRepCount:
+          measurementConfidenceUnknownRepCount ??
+          this.measurementConfidenceUnknownRepCount,
+      measurementConfidenceIssueCounts:
+          measurementConfidenceIssueCounts == _unsetValue
+          ? this.measurementConfidenceIssueCounts
+          : Map<String, int>.unmodifiable(
+              measurementConfidenceIssueCounts as Map<String, int>,
+            ),
     );
   }
 }
@@ -416,6 +459,31 @@ class WorkoutDiagnosticsSnapshot {
   int get nonMonotonicRangeRepObservationCount =>
       rangeRepDiagnostics?.nonMonotonicObservationCount ?? 0;
 
+  MeasurementConfidenceBreakdown? get currentLeftMeasurementConfidence =>
+      rangeRepDiagnostics?.currentLeftMeasurementConfidence;
+
+  MeasurementConfidenceBreakdown? get currentRightMeasurementConfidence =>
+      rangeRepDiagnostics?.currentRightMeasurementConfidence;
+
+  MeasurementConfidenceBreakdown? get lastRepMeasurementConfidence =>
+      rangeRepDiagnostics?.lastRepMeasurementConfidence;
+
+  int get measurementConfidenceKnownRepCount =>
+      rangeRepDiagnostics?.measurementConfidenceKnownRepCount ?? 0;
+
+  int get measurementConfidenceUnknownRepCount =>
+      rangeRepDiagnostics?.measurementConfidenceUnknownRepCount ?? 0;
+
+  Map<String, int> get measurementConfidenceIssueCounts =>
+      rangeRepDiagnostics?.measurementConfidenceIssueCounts ??
+      const <String, int>{};
+
+  double? get leftRangeRepSideConfidence =>
+      currentLeftMeasurementConfidence?.combined;
+
+  double? get rightRangeRepSideConfidence =>
+      currentRightMeasurementConfidence?.combined;
+
   int? get repCount {
     if (rangeRepDiagnostics != null) {
       return rangeRepDiagnostics!.repCount;
@@ -623,6 +691,25 @@ class WorkoutDiagnosticsSnapshot {
         lastTempoMeasurementAssessment?.toJson(),
     'range_rep_non_monotonic_observation_count':
         nonMonotonicRangeRepObservationCount,
+    'current_left_measurement_confidence': _serializeMeasurementConfidence(
+      currentLeftMeasurementConfidence,
+    ),
+    'current_right_measurement_confidence': _serializeMeasurementConfidence(
+      currentRightMeasurementConfidence,
+    ),
+    'last_rep_measurement_confidence': _serializeMeasurementConfidence(
+      lastRepMeasurementConfidence,
+    ),
+    'measurement_confidence_known_rep_count':
+        measurementConfidenceKnownRepCount,
+    'measurement_confidence_unknown_rep_count':
+        measurementConfidenceUnknownRepCount,
+    'measurement_confidence_issue_counts':
+        measurementConfidenceIssueCounts.isEmpty
+        ? null
+        : measurementConfidenceIssueCounts,
+    'left_range_rep_side_confidence': leftRangeRepSideConfidence,
+    'right_range_rep_side_confidence': rightRangeRepSideConfidence,
     'current_camera_fps': currentCameraFps,
     'current_analysis_fps': currentAnalysisFps,
     'fps_sample_count': fpsSampleCount,
@@ -893,6 +980,7 @@ class WorkoutDiagnosticsAccumulator {
     required String statusCode,
     required List<String> reasonCodes,
     List<String> tempoDiagnosticReasonCodes = const <String>[],
+    MeasurementConfidenceBreakdown? measurementConfidence,
   }) {
     final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
     final statusCounts = Map<String, int>.from(previous.validationStatusCounts);
@@ -914,6 +1002,20 @@ class WorkoutDiagnosticsAccumulator {
       );
     }
 
+    final confidenceIssueCounts = Map<String, int>.from(
+      previous.measurementConfidenceIssueCounts,
+    );
+    for (final issue
+        in measurementConfidence?.issues ??
+            const <MeasurementConfidenceIssue>[]) {
+      confidenceIssueCounts.update(
+        issue.code,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+
+    final hasKnownConfidence = measurementConfidence?.combined != null;
     _rangeRepDiagnostics = previous.copyWith(
       validationCount: previous.validationCount + 1,
       validationStatusCounts: statusCounts,
@@ -922,6 +1024,14 @@ class WorkoutDiagnosticsAccumulator {
       lastValidationStatus: statusCode,
       lastValidationReasons: reasonCodes,
       lastTempoDiagnosticReasons: tempoDiagnosticReasonCodes,
+      lastRepMeasurementConfidence: measurementConfidence,
+      measurementConfidenceKnownRepCount:
+          previous.measurementConfidenceKnownRepCount +
+          (hasKnownConfidence ? 1 : 0),
+      measurementConfidenceUnknownRepCount:
+          previous.measurementConfidenceUnknownRepCount +
+          (hasKnownConfidence ? 0 : 1),
+      measurementConfidenceIssueCounts: confidenceIssueCounts,
     );
     _holdDiagnostics = null;
   }
@@ -1006,6 +1116,8 @@ class WorkoutDiagnosticsAccumulator {
     RangeRepTimingTraceSnapshot? lastEndedTimingTrace,
     TempoMeasurementAssessment? lastTempoMeasurementAssessment,
     int nonMonotonicObservationCount = 0,
+    MeasurementConfidenceBreakdown? currentLeftMeasurementConfidence,
+    MeasurementConfidenceBreakdown? currentRightMeasurementConfidence,
   }) {
     final previous = _rangeRepDiagnostics ?? const RangeRepWorkoutDiagnostics();
     _rangeRepDiagnostics = previous.copyWith(
@@ -1017,6 +1129,8 @@ class WorkoutDiagnosticsAccumulator {
       lastEndedTimingTrace: lastEndedTimingTrace,
       lastTempoMeasurementAssessment: lastTempoMeasurementAssessment,
       nonMonotonicObservationCount: nonMonotonicObservationCount,
+      currentLeftMeasurementConfidence: currentLeftMeasurementConfidence,
+      currentRightMeasurementConfidence: currentRightMeasurementConfidence,
     );
     _holdDiagnostics = null;
   }
@@ -1065,7 +1179,7 @@ class WorkoutDiagnosticsAccumulator {
     final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
     final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 9,
+      schemaVersion: 10,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -1234,6 +1348,25 @@ class WorkoutDiagnosticsAccumulator {
     }
     samples.add(value);
   }
+}
+
+Map<String, Object?>? _serializeMeasurementConfidence(
+  MeasurementConfidenceBreakdown? breakdown,
+) {
+  if (breakdown == null) {
+    return null;
+  }
+
+  return <String, Object?>{
+    'landmark_likelihood': breakdown.landmarkLikelihood,
+    'signal_availability': breakdown.signalAvailability,
+    'geometry_plausibility': breakdown.geometryPlausibility,
+    'temporal_continuity': breakdown.temporalContinuity,
+    'combined': breakdown.combined,
+    'issues': breakdown.issues
+        .map((issue) => issue.code)
+        .toList(growable: false),
+  };
 }
 
 Map<String, String>? _serializeCameraViewContract(

@@ -124,7 +124,7 @@ class RangeRepPrimaryMetricNormalizer {
       formMetric: metrics.formMetric,
       hasPrimaryAngle: metrics.hasPrimaryAngle,
       hasFormMetric: metrics.hasFormMetric,
-      sideConfidence: metrics.sideConfidence,
+      measurementConfidence: metrics.measurementConfidence,
       formSignals: _replacePrimaryDerivedDepthMetric(
         metrics.formSignals,
         primaryMetric,

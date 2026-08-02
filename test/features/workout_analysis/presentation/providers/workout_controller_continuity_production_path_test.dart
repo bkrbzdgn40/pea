@@ -121,6 +121,81 @@ void main() {
       );
     });
 
+    test(
+      'range-rep temporal confidence becomes known and resets after pose loss',
+      () async {
+        final detector = _QueuedPoseDetector();
+        final clock = _FakeClock();
+        late _SpyRangeRepCoordinator spyCoordinator;
+        final harness = _createHarness(
+          exerciseType: ExerciseType.squat,
+          config: buildSquatConfig(),
+          detector: detector,
+          clock: clock,
+          extraOverrides: <Override>[
+            rangeRepCoordinatorFactoryProvider.overrideWithValue(({
+              required RangeRepAnalysisEngine engine,
+              required ExerciseConfig config,
+              required RangeRepContract rangeRepContract,
+              required RangeRepValidationConfig rangeRepValidationConfig,
+            }) {
+              spyCoordinator = _SpyRangeRepCoordinator(
+                inner: DefaultRangeRepCoordinator(
+                  engine: engine,
+                  config: config,
+                  rangeRepContract: rangeRepContract,
+                  rangeRepValidationConfig: rangeRepValidationConfig,
+                ),
+              );
+              return spyCoordinator;
+            }),
+          ],
+        );
+        addTearDown(harness.dispose);
+        final pose = buildSquatPose(angle: 170);
+
+        await _analyzeFrame(harness.controller, detector, <Pose>[pose]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(harness.controller, detector, <Pose>[pose]);
+
+        expect(
+          spyCoordinator
+              .lastMetrics
+              ?.leftRangeRepMetrics
+              .measurementConfidence
+              ?.temporalContinuity,
+          isNull,
+        );
+
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(harness.controller, detector, <Pose>[pose]);
+        expect(
+          spyCoordinator
+              .lastMetrics
+              ?.leftRangeRepMetrics
+              .measurementConfidence
+              ?.temporalContinuity,
+          greaterThan(0.95),
+        );
+
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(harness.controller, detector, const <Pose>[]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(harness.controller, detector, <Pose>[pose]);
+        clock.advance(const Duration(milliseconds: 100));
+        await _analyzeFrame(harness.controller, detector, <Pose>[pose]);
+
+        expect(
+          spyCoordinator
+              .lastMetrics
+              ?.leftRangeRepMetrics
+              .measurementConfidence
+              ?.temporalContinuity,
+          isNull,
+        );
+      },
+    );
+
     test('range-rep lifecycle interruption delegates to the coordinator and '
         'forces fresh neutral reacquisition', () async {
       final detector = _QueuedPoseDetector();
@@ -526,6 +601,7 @@ class _SpyRangeRepCoordinator implements RangeRepCoordinator {
 
   int processFrameCallCount = 0;
   int handleLifecycleInterruptionCallCount = 0;
+  ExerciseMetrics? lastMetrics;
   RangeRepCoordinatorFrameResult? lastProcessFrameResult;
 
   @override
@@ -551,6 +627,7 @@ class _SpyRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepSide? preferredRangeRepSide,
   }) {
     processFrameCallCount += 1;
+    lastMetrics = metrics;
     lastProcessFrameResult = inner.processFrame(
       metrics: metrics,
       now: now,

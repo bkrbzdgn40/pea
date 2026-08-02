@@ -10,6 +10,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/pose_q
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 
 import '../../../support/workout_analysis_test_support.dart';
@@ -33,6 +34,86 @@ void main() {
         containsAll(<RangeRepSide>[RangeRepSide.left, RangeRepSide.right]),
       );
     });
+
+    test(
+      'accepted range-rep side exposes conservative pose confidence seed',
+      () {
+        final assessment = policy.assess(
+          pose: _squatPose(leftHipLikelihood: 0.51, includeRightSide: false),
+          config: _legacySquatConfig(),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+        );
+
+        final seed = assessment.rangeRepMeasurementConfidenceFor(
+          RangeRepSide.left,
+        );
+        expect(assessment.isAccepted, isTrue);
+        expect(seed, isNotNull);
+        expect(seed!.landmarkLikelihood, closeTo(0.51, 1e-12));
+        expect(seed.geometryPlausibility, 1.0);
+        expect(seed.signalAvailability, isNull);
+        expect(seed.temporalContinuity, isNull);
+        expect(seed.combined, isNull);
+        expect(seed.issues, isEmpty);
+      },
+    );
+
+    test(
+      'degenerate range-rep geometry emits zero plausibility and typed issue',
+      () {
+        const requirementSet = ExerciseLandmarkRequirementSet(
+          requiredLandmarks: <PoseLandmarkType>{
+            PoseLandmarkType.leftShoulder,
+            PoseLandmarkType.leftHip,
+            PoseLandmarkType.leftKnee,
+          },
+          requiredAngleTriplets: <PoseAngleTriplet>[
+            PoseAngleTriplet(
+              first: PoseLandmarkType.leftShoulder,
+              middle: PoseLandmarkType.leftHip,
+              last: PoseLandmarkType.leftKnee,
+            ),
+          ],
+          requiredSegments: <PoseLandmarkSegment>[],
+        );
+        final assessment = policy.assessRequirementSet(
+          pose: Pose(
+            landmarks: <PoseLandmarkType, PoseLandmark>{
+              PoseLandmarkType.leftShoulder: _landmark(
+                PoseLandmarkType.leftShoulder,
+                0,
+                0,
+              ),
+              PoseLandmarkType.leftHip: _landmark(
+                PoseLandmarkType.leftHip,
+                0,
+                0,
+              ),
+              PoseLandmarkType.leftKnee: _landmark(
+                PoseLandmarkType.leftKnee,
+                0,
+                2,
+              ),
+            },
+          ),
+          requirementSet: requirementSet,
+          side: RangeRepSide.left,
+        );
+
+        final seed = assessment.rangeRepMeasurementConfidenceFor(
+          RangeRepSide.left,
+        );
+        expect(assessment.isAccepted, isFalse);
+        expect(seed, isNotNull);
+        expect(seed!.geometryPlausibility, 0.0);
+        expect(
+          seed.issues,
+          contains(MeasurementConfidenceIssue.degenerateGeometry),
+        );
+        expect(seed.combined, isNull);
+      },
+    );
 
     test('quality statistics preserve likelihood aggregation semantics', () {
       const requirementSet = ExerciseLandmarkRequirementSet(
@@ -201,6 +282,15 @@ void main() {
         assessment.rejectionReason,
         PoseRejectionReason.lowLandmarkLikelihood,
       );
+      final seed = assessment.rangeRepMeasurementConfidenceFor(
+        RangeRepSide.left,
+      );
+      expect(seed?.landmarkLikelihood, closeTo(0.49, 1e-12));
+      expect(seed?.geometryPlausibility, 1.0);
+      expect(
+        seed?.issues,
+        contains(MeasurementConfidenceIssue.lowLandmarkLikelihood),
+      );
     });
 
     test('mean below 0.65 is rejected', () {
@@ -320,6 +410,22 @@ void main() {
         RangeRepSide.right,
       });
       expect(assessment.preferredRangeRepSide, RangeRepSide.right);
+      expect(
+        assessment.rangeRepMeasurementConfidenceSeeds.keys,
+        unorderedEquals(<RangeRepSide>[RangeRepSide.left, RangeRepSide.right]),
+      );
+      expect(
+        assessment
+            .rangeRepMeasurementConfidenceFor(RangeRepSide.left)
+            ?.landmarkLikelihood,
+        closeTo(0.70, 1e-12),
+      );
+      expect(
+        assessment
+            .rangeRepMeasurementConfidenceFor(RangeRepSide.right)
+            ?.landmarkLikelihood,
+        closeTo(0.80, 1e-12),
+      );
     });
 
     test('push-up required landmark set is accepted', () {
@@ -435,6 +541,13 @@ void main() {
           RangeRepSide.right,
         });
         expect(assessment.preferredRangeRepSide, isNull);
+        expect(
+          assessment.rangeRepMeasurementConfidenceSeeds.keys,
+          unorderedEquals(<RangeRepSide>[
+            RangeRepSide.left,
+            RangeRepSide.right,
+          ]),
+        );
       },
     );
 

@@ -15,7 +15,7 @@ class RepScoreComponents {
   final double tempo;
   final double technique;
   final double consistency;
-  final double confidence;
+  final double? confidence;
 }
 
 class RepScorePenaltyTrace {

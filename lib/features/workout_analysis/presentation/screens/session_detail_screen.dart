@@ -10,6 +10,7 @@ import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
 import '../providers/session_repository_provider.dart';
@@ -511,6 +512,13 @@ class _RepTile extends StatelessWidget {
       MapEntry(localizations.status, _repStatusLabel(localizations, rep)),
       MapEntry(localizations.formRangeScore, _formatOptionalScore(rep.score)),
       MapEntry(
+        localizations.measurementConfidence,
+        MeasurementConfidencePresentationFormatter.percentage(
+          localizations,
+          rep.effectiveMeasurementConfidence?.combined,
+        ),
+      ),
+      MapEntry(
         localizations.side,
         _formatSideLabel(localizations, rep.selectedSideLabel),
       ),
@@ -836,6 +844,15 @@ List<MapEntry<String, String>> _overviewMetrics({
     MapEntry(localizations.invalid, report.invalidReps.toString()),
     if (report.unknownReps > 0)
       MapEntry(localizations.uncertain, report.unknownReps.toString()),
+    MapEntry(
+      localizations.averageMeasurementConfidence,
+      MeasurementConfidencePresentationFormatter.percentage(
+        localizations,
+        MeasurementConfidencePresentationFormatter.averageKnown(
+          session.reps ?? const [],
+        ),
+      ),
+    ),
     MapEntry(
       localizations.averageFormRangeScore,
       report.hasScoreData

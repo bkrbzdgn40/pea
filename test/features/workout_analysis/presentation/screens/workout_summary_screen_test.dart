@@ -172,6 +172,56 @@ void main() {
     expect(_summaryMetricText('3'), findsOneWidget);
   });
 
+  testWidgets('averages only known measurement confidence values', (
+    WidgetTester tester,
+  ) async {
+    final startedAt = DateTime(2024, 1, 5, 9, 30);
+    final session = WorkoutSession(
+      id: 'summary-confidence',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      analysisKind: 'rangeRep',
+      startedAt: startedAt,
+      endedAt: startedAt.add(const Duration(seconds: 30)),
+      durationSec: 30,
+      totalReps: 3,
+      averageScore: 90,
+      bestScore: 94,
+      worstScore: 86,
+      validReps: 3,
+      formWarningCount: 0,
+      reps: const <WorkoutRep>[
+        WorkoutRep(
+          repIndex: 1,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          confidence: 0.9,
+        ),
+        WorkoutRep(
+          repIndex: 2,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          confidence: 0.7,
+        ),
+        WorkoutRep(
+          repIndex: 3,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+        ),
+      ],
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    expect(_summaryMetricText('Ortalama ölçüm güveni'), findsOneWidget);
+    expect(_summaryMetricText('%80'), findsOneWidget);
+  });
+
   testWidgets('renders rich live metrics captured at session completion', (
     WidgetTester tester,
   ) async {

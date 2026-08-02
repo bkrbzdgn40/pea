@@ -8,6 +8,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
@@ -687,6 +688,16 @@ void main() {
           status: RangeRepValidationStatus.valid,
           side: ValidatedRepSide.left,
           finalScore: 88,
+          measurementConfidence: MeasurementConfidenceBreakdown(
+            landmarkLikelihood: 0.98,
+            signalAvailability: 1.0,
+            geometryPlausibility: 1.0,
+            temporalContinuity: 0.8,
+            combined: 0.92,
+            issues: const <MeasurementConfidenceIssue>[
+              MeasurementConfidenceIssue.temporalDiscontinuity,
+            ],
+          ),
         ),
       );
       controller.collect(acceptedState);
@@ -714,6 +725,16 @@ void main() {
       final snapshot = controller.currentStateSnapshot();
       expect(snapshot.completedWorkoutReps, hasLength(2));
       expect(snapshot.completedWorkoutReps.first.selectedSide, 'left');
+      expect(
+        snapshot.completedWorkoutReps.first.measurementConfidence?.combined,
+        0.92,
+      );
+      expect(
+        snapshot.completedWorkoutReps.first.measurementConfidence?.issues,
+        const <MeasurementConfidenceIssue>[
+          MeasurementConfidenceIssue.temporalDiscontinuity,
+        ],
+      );
       expect(snapshot.completedWorkoutReps.last.isValidatedAsInvalid, isTrue);
 
       expect(controller.beginFinish(), isTrue);
@@ -790,6 +811,7 @@ ValidatedRepEvent _validatedEvent({
   required ValidatedRepSide side,
   required double? finalScore,
   List<RangeRepValidationReason> reasons = const <RangeRepValidationReason>[],
+  MeasurementConfidenceBreakdown? measurementConfidence,
 }) {
   return ValidatedRepEvent(
     attemptIndex: attemptIndex,
@@ -810,7 +832,9 @@ ValidatedRepEvent _validatedEvent({
     hadCoverageDrop: false,
     switchedSideDuringRep: false,
     completedPhaseSequence: true,
-    measurementConfidence: 1,
+    measurementConfidence:
+        measurementConfidence ??
+        const MeasurementConfidenceBreakdown.legacyScalar(1),
     coverageQuality: 1,
     finalScore: finalScore,
     tempoAssessment: null,

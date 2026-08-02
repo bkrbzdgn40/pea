@@ -1003,6 +1003,19 @@ class AppLocalizations {
   String get side => pick(tr: 'Taraf', en: 'Side');
   String get primaryMetric => pick(tr: 'Birincil Metrik', en: 'Primary Metric');
   String get worstForm => pick(tr: 'En Kötü Form', en: 'Worst Form');
+  String get measurementConfidence =>
+      pick(tr: 'Ölçüm güveni', en: 'Measurement confidence');
+  String get averageMeasurementConfidence =>
+      pick(tr: 'Ortalama ölçüm güveni', en: 'Average measurement confidence');
+  String get measurementConfidenceReliable =>
+      pick(tr: 'Güvenilir', en: 'Reliable');
+  String get measurementConfidenceLimited => pick(tr: 'Sınırlı', en: 'Limited');
+  String get measurementConfidenceUnknown =>
+      pick(tr: 'Belirsiz', en: 'Unknown');
+  String measurementConfidenceValue(String value, String status) => pick(
+    tr: 'Ölçüm güveni: $value · $status',
+    en: 'Measurement confidence: $value · $status',
+  );
   String get descentAscent => pick(tr: 'İniş / Çıkış', en: 'Descent / Ascent');
   String get tempoMeasurementUnavailable => pick(
     tr: 'Tempo ölçümü güvenilir biçimde değerlendirilemedi ve skora dahil edilmedi',

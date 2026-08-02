@@ -40,6 +40,7 @@ void main() {
     expect(find.text('1 / 5 tekrar'), findsOneWidget);
     expect(find.text('İyi tekrar'), findsOneWidget);
     expect(find.text('Hareket aralığı yeterli.'), findsOneWidget);
+    expect(find.text('Ölçüm güveni: %96 · Güvenilir'), findsOneWidget);
     expect(find.text('Sağ bacak takip ediliyor'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -187,6 +188,7 @@ PlannedWorkoutLiveHudData _repHudData() {
     sideLabel: 'Sağ bacak takip ediliyor',
     feedbackTitle: 'İyi tekrar',
     feedbackMessage: 'Hareket aralığı yeterli.',
+    feedbackMeasurementConfidenceLabel: 'Ölçüm güveni: %96 · Güvenilir',
     feedbackTone: PlannedWorkoutHudTone.positive,
     feedbackIcon: Icons.check_rounded,
   );
