@@ -1,10 +1,12 @@
-# Triggered after workflow registration.
 name: Apply reorder hotfix
 
 on:
   push:
     branches:
       - fix/reorderable-list-callback-runner
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -16,8 +18,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
       - name: Patch reorder callback and tests
         shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -106,4 +111,4 @@ jobs:
           git add test/features/workout_analysis/presentation/screens/workout_plan_setup_screen_test.dart
           git add .github/workflows/apply-reorder-hotfix.yml
           git commit -m "fix: migrate workout plan reorder callback"
-          git push
+          git push origin HEAD:"$TARGET_BRANCH"
