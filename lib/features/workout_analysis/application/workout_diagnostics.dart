@@ -13,6 +13,7 @@ import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/tempo_measurement_assessment.dart';
 import '../domain/range_rep_timing_trace.dart';
+import 'rolling_sample_buffer.dart';
 
 const String _defaultAppCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
@@ -252,6 +253,62 @@ class HoldWorkoutDiagnostics {
   final Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles;
 }
 
+/// Deterministic nearest-rank summary for one duration sample stream.
+class WorkoutDurationSampleSummary {
+  const WorkoutDurationSampleSummary({
+    required this.sampleCount,
+    required this.p50Ms,
+    required this.p95Ms,
+    required this.maxMs,
+  });
+
+  const WorkoutDurationSampleSummary.empty()
+    : sampleCount = 0,
+      p50Ms = null,
+      p95Ms = null,
+      maxMs = null;
+
+  final int sampleCount;
+  final double? p50Ms;
+  final double? p95Ms;
+  final double? maxMs;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'sample_count': sampleCount,
+    'p50': p50Ms,
+    'p95': p95Ms,
+    'max': maxMs,
+  };
+}
+
+/// Debug/profile timing baseline for the frame-to-pose pipeline.
+class WorkoutFramePosePipelineTimingSnapshot {
+  const WorkoutFramePosePipelineTimingSnapshot({
+    required this.conversion,
+    required this.poseDetection,
+    required this.candidateEvaluation,
+    required this.total,
+  });
+
+  const WorkoutFramePosePipelineTimingSnapshot.empty()
+    : conversion = const WorkoutDurationSampleSummary.empty(),
+      poseDetection = const WorkoutDurationSampleSummary.empty(),
+      candidateEvaluation = const WorkoutDurationSampleSummary.empty(),
+      total = const WorkoutDurationSampleSummary.empty();
+
+  final WorkoutDurationSampleSummary conversion;
+  final WorkoutDurationSampleSummary poseDetection;
+  final WorkoutDurationSampleSummary candidateEvaluation;
+  final WorkoutDurationSampleSummary total;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'conversion': conversion.toJson(),
+    'pose_detection': poseDetection.toJson(),
+    'candidate_evaluation': candidateEvaluation.toJson(),
+    'total': total.toJson(),
+  };
+}
+
 const Object _unsetValue = Object();
 
 /// Immutable, privacy-minimized diagnostics for one analysis session.
@@ -288,6 +345,7 @@ class WorkoutDiagnosticsSnapshot {
     required this.multiPoseFrameCount,
     required this.maxPoseCount,
     required this.analysisExceptionCount,
+    required this.analysisTimeoutCount,
     required this.resyncCount,
     this.poseReacquisitionCount = 0,
     this.briefOcclusionCount = 0,
@@ -325,6 +383,7 @@ class WorkoutDiagnosticsSnapshot {
     required this.frameProcessingMsP50,
     required this.frameProcessingMsP95,
     required this.frameProcessingMsMax,
+    required this.framePosePipelineTimings,
   });
 
   final int schemaVersion;
@@ -358,6 +417,7 @@ class WorkoutDiagnosticsSnapshot {
   final int multiPoseFrameCount;
   final int maxPoseCount;
   final int analysisExceptionCount;
+  final int analysisTimeoutCount;
   final int resyncCount;
   final int poseReacquisitionCount;
   final int briefOcclusionCount;
@@ -395,6 +455,7 @@ class WorkoutDiagnosticsSnapshot {
   final int? frameProcessingMsP50;
   final int? frameProcessingMsP95;
   final int? frameProcessingMsMax;
+  final WorkoutFramePosePipelineTimingSnapshot framePosePipelineTimings;
 
   Map<RangeRepSignal, Set<AnalysisSignalRole>> get rangeRepSignalRoles =>
       rangeRepDiagnostics?.signalRoles ??
@@ -614,6 +675,7 @@ class WorkoutDiagnosticsSnapshot {
     'multi_pose_frame_count': multiPoseFrameCount,
     'max_pose_count': maxPoseCount,
     'analysis_exception_count': analysisExceptionCount,
+    'analysis_timeout_count': analysisTimeoutCount,
     'resync_count': resyncCount,
     'pose_reacquisition_count': poseReacquisitionCount,
     'brief_occlusion_count': briefOcclusionCount,
@@ -720,6 +782,7 @@ class WorkoutDiagnosticsSnapshot {
     'frame_processing_ms_p50': frameProcessingMsP50,
     'frame_processing_ms_p95': frameProcessingMsP95,
     'frame_processing_ms_max': frameProcessingMsMax,
+    'frame_pose_pipeline_ms': framePosePipelineTimings.toJson(),
     'rep_count': repCount,
     'current_hold_seconds': currentHoldSeconds,
     'best_hold_seconds': bestHoldSeconds,
@@ -799,12 +862,26 @@ class WorkoutDiagnosticsAccumulator {
   final CameraViewContract _cameraViewContract;
   late DateTime _sessionStartedAt;
   late String _analysisKind;
-  final List<int> _processingDurationMs = <int>[];
-  final List<double> _minimumRequiredLikelihoodSamples = <double>[];
-  final List<double> _meanRequiredLikelihoodSamples = <double>[];
-  final List<double> _poseQualityScoreSamples = <double>[];
-  final List<double> _cameraFpsSamples = <double>[];
-  final List<double> _analysisFpsSamples = <double>[];
+  final RollingSampleBuffer<int> _processingDurationMs =
+      RollingSampleBuffer<int>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _frameConversionDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _poseDetectionDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _candidateEvaluationDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _framePosePipelineTotalDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _minimumRequiredLikelihoodSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _meanRequiredLikelihoodSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _poseQualityScoreSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _cameraFpsSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _analysisFpsSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
   final Map<String, int> _poseRejectionReasonCounts = <String, int>{};
 
   int _cameraFrameCount = 0;
@@ -823,6 +900,7 @@ class WorkoutDiagnosticsAccumulator {
   int _multiPoseFrameCount = 0;
   int _maxPoseCount = 0;
   int _analysisExceptionCount = 0;
+  int _analysisTimeoutCount = 0;
   int _resyncCount = 0;
   int _poseReacquisitionCount = 0;
   int _briefOcclusionCount = 0;
@@ -851,6 +929,7 @@ class WorkoutDiagnosticsAccumulator {
   void recordReentrantDrop() => _reentrantDropCount++;
   void recordConverterDrop() => _converterDropCount++;
   void recordAnalysisException() => _analysisExceptionCount++;
+  void recordAnalysisTimeout() => _analysisTimeoutCount++;
   void recordResync({bool hadActiveRepContext = false}) {
     _resyncCount++;
     if (!hadActiveRepContext) {
@@ -1071,10 +1150,35 @@ class WorkoutDiagnosticsAccumulator {
     if (duration.isNegative) {
       throw ArgumentError.value(duration, 'duration', 'Must not be negative');
     }
-    if (_processingDurationMs.length == maxProcessingDurationSamples) {
-      _processingDurationMs.removeAt(0);
-    }
     _processingDurationMs.add(duration.inMilliseconds);
+  }
+
+  void recordFramePosePipelineDurations({
+    Duration? conversionDuration,
+    Duration? poseDetectionDuration,
+    Duration? candidateEvaluationDuration,
+    required Duration totalDuration,
+  }) {
+    _appendDurationSample(
+      _frameConversionDurationMs,
+      conversionDuration,
+      parameterName: 'conversionDuration',
+    );
+    _appendDurationSample(
+      _poseDetectionDurationMs,
+      poseDetectionDuration,
+      parameterName: 'poseDetectionDuration',
+    );
+    _appendDurationSample(
+      _candidateEvaluationDurationMs,
+      candidateEvaluationDuration,
+      parameterName: 'candidateEvaluationDuration',
+    );
+    _appendDurationSample(
+      _framePosePipelineTotalDurationMs,
+      totalDuration,
+      parameterName: 'totalDuration',
+    );
   }
 
   void updateLivePerformance({
@@ -1170,16 +1274,23 @@ class WorkoutDiagnosticsAccumulator {
   }
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
-    final sortedDurations = _processingDurationMs.toList()..sort();
-    final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples.toList()
-      ..sort();
-    final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.toList()
-      ..sort();
-    final sortedQualityScores = _poseQualityScoreSamples.toList()..sort();
-    final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
-    final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
+    final sortedDurations = _processingDurationMs.sortedValues();
+    final sortedFrameConversionDurations = _frameConversionDurationMs
+        .sortedValues();
+    final sortedPoseDetectionDurations = _poseDetectionDurationMs
+        .sortedValues();
+    final sortedCandidateEvaluationDurations = _candidateEvaluationDurationMs
+        .sortedValues();
+    final sortedFramePosePipelineTotalDurations =
+        _framePosePipelineTotalDurationMs.sortedValues();
+    final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples
+        .sortedValues();
+    final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.sortedValues();
+    final sortedQualityScores = _poseQualityScoreSamples.sortedValues();
+    final sortedCameraFpsSamples = _cameraFpsSamples.sortedValues();
+    final sortedAnalysisFpsSamples = _analysisFpsSamples.sortedValues();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 10,
+      schemaVersion: 12,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -1210,6 +1321,7 @@ class WorkoutDiagnosticsAccumulator {
       multiPoseFrameCount: _multiPoseFrameCount,
       maxPoseCount: _maxPoseCount,
       analysisExceptionCount: _analysisExceptionCount,
+      analysisTimeoutCount: _analysisTimeoutCount,
       resyncCount: _resyncCount,
       poseReacquisitionCount: _poseReacquisitionCount,
       briefOcclusionCount: _briefOcclusionCount,
@@ -1263,6 +1375,14 @@ class WorkoutDiagnosticsAccumulator {
       frameProcessingMsMax: sortedDurations.isEmpty
           ? null
           : sortedDurations.last,
+      framePosePipelineTimings: WorkoutFramePosePipelineTimingSnapshot(
+        conversion: _durationSummary(sortedFrameConversionDurations),
+        poseDetection: _durationSummary(sortedPoseDetectionDurations),
+        candidateEvaluation: _durationSummary(
+          sortedCandidateEvaluationDurations,
+        ),
+        total: _durationSummary(sortedFramePosePipelineTotalDurations),
+      ),
     );
   }
 
@@ -1270,6 +1390,10 @@ class WorkoutDiagnosticsAccumulator {
     _sessionStartedAt = now;
     _analysisKind = analysisKind;
     _processingDurationMs.clear();
+    _frameConversionDurationMs.clear();
+    _poseDetectionDurationMs.clear();
+    _candidateEvaluationDurationMs.clear();
+    _framePosePipelineTotalDurationMs.clear();
     _minimumRequiredLikelihoodSamples.clear();
     _meanRequiredLikelihoodSamples.clear();
     _poseQualityScoreSamples.clear();
@@ -1292,6 +1416,7 @@ class WorkoutDiagnosticsAccumulator {
     _multiPoseFrameCount = 0;
     _maxPoseCount = 0;
     _analysisExceptionCount = 0;
+    _analysisTimeoutCount = 0;
     _resyncCount = 0;
     _poseReacquisitionCount = 0;
     _briefOcclusionCount = 0;
@@ -1314,6 +1439,33 @@ class WorkoutDiagnosticsAccumulator {
     _holdDiagnostics = null;
   }
 
+  WorkoutDurationSampleSummary _durationSummary(List<double> sortedValues) {
+    return WorkoutDurationSampleSummary(
+      sampleCount: sortedValues.length,
+      p50Ms: _nearestRankDouble(sortedValues, 0.50),
+      p95Ms: _nearestRankDouble(sortedValues, 0.95),
+      maxMs: sortedValues.isEmpty ? null : sortedValues.last,
+    );
+  }
+
+  void _appendDurationSample(
+    RollingSampleBuffer<double> samples,
+    Duration? duration, {
+    required String parameterName,
+  }) {
+    if (duration == null) {
+      return;
+    }
+    if (duration.isNegative) {
+      throw ArgumentError.value(
+        duration,
+        parameterName,
+        'Must not be negative',
+      );
+    }
+    samples.add(duration.inMicroseconds / 1000.0);
+  }
+
   int? _nearestRank(List<int> sortedValues, double percentile) {
     if (sortedValues.isEmpty) return null;
     final rank = (percentile * sortedValues.length).ceil().clamp(
@@ -1332,20 +1484,17 @@ class WorkoutDiagnosticsAccumulator {
     return sortedValues[rank - 1];
   }
 
-  void _appendFiniteSample(List<double> samples, double? value) {
+  void _appendFiniteSample(RollingSampleBuffer<double> samples, double? value) {
     if (value == null || !value.isFinite) {
       return;
-    }
-    if (samples.length == maxProcessingDurationSamples) {
-      samples.removeAt(0);
     }
     samples.add(value);
   }
 
-  void _appendFiniteNonNegativeSample(List<double> samples, double value) {
-    if (samples.length == maxProcessingDurationSamples) {
-      samples.removeAt(0);
-    }
+  void _appendFiniteNonNegativeSample(
+    RollingSampleBuffer<double> samples,
+    double value,
+  ) {
     samples.add(value);
   }
 }

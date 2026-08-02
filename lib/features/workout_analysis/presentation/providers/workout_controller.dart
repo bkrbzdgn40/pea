@@ -8,32 +8,30 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../../../core/utils/monotonic_datetime_clock.dart';
 
-import '../../application/analysis_engine_factory.dart';
 import '../../application/common_frame_pose_pipeline.dart';
 import '../../application/engine_kind.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metric_registry.dart';
 import '../../application/exercise_metrics.dart';
-import '../../application/exercise_metrics_extractor.dart';
-import '../../application/exercise_definition_metadata.dart';
 import '../../application/feedback_delivery_controller.dart';
 import '../../application/hold_coordinator.dart';
 import '../../application/pose_acceptance_stabilizer.dart';
-import '../../application/pose_quality_policy.dart';
-import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/range_rep_primary_metric_normalizer.dart';
 import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
 import '../../application/range_rep_temporal_continuity_tracker.dart';
 import '../../application/validated_rep_event_tracker.dart';
 import '../../application/workout_state.dart';
+import '../../application/workout_analysis_failure_policy.dart';
+import '../../application/workout_analysis_runtime.dart';
 import '../../application/workout_diagnostics.dart';
+import '../../application/workout_state_projector.dart';
 import '../../application/workout_live_metrics.dart';
+import '../../application/workout_frame_processor.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/hold_contract.dart';
-import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_validation_result.dart';
@@ -41,9 +39,8 @@ import '../../domain/models/validated_rep_event.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../domain/tempo_engine.dart';
-import '../mappers/hold_feedback_ui_mapper.dart';
-import '../mappers/range_rep_feedback_ui_mapper.dart';
 import '../mappers/range_rep_outcome_ui_mapper.dart';
+import '../mappers/workout_feedback_resolver.dart';
 import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'live_pause_controller.dart';
@@ -53,6 +50,7 @@ import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
 import 'pose_provider.dart';
 import 'settings_provider.dart';
+import 'workout_analysis_health_controller.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
@@ -107,11 +105,6 @@ final workoutClockProvider = Provider<DateTime Function()>((ref) {
   return clock.now;
 });
 
-typedef WorkoutFramePosePipelineFactory =
-    WorkoutFramePosePipeline Function({
-      required PoseAcceptanceStabilizer poseAcceptanceStabilizer,
-    });
-
 final workoutFramePosePipelineFactoryProvider =
     Provider<WorkoutFramePosePipelineFactory>((ref) {
       final activeExercise = ref.watch(activeAnalysisExerciseProvider);
@@ -125,16 +118,9 @@ final workoutFramePosePipelineFactoryProvider =
         return WorkoutFramePosePipeline(
           poseAcceptanceStabilizer: poseAcceptanceStabilizer,
           analysisFrameInterval: analysisFrameInterval,
+          collectStageTimings: kDebugMode || kProfileMode,
         );
       };
-    });
-
-typedef RangeRepCoordinatorFactory =
-    RangeRepCoordinator Function({
-      required RangeRepAnalysisEngine engine,
-      required ExerciseConfig config,
-      required RangeRepContract rangeRepContract,
-      required RangeRepValidationConfig rangeRepValidationConfig,
     });
 
 final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
@@ -155,13 +141,6 @@ final rangeRepCoordinatorFactoryProvider = Provider<RangeRepCoordinatorFactory>(
   },
 );
 
-typedef HoldCoordinatorFactory =
-    HoldCoordinator Function({
-      required HoldAnalysisEngine engine,
-      required ExerciseConfig config,
-      required HoldContract holdContract,
-    });
-
 final holdCoordinatorFactoryProvider = Provider<HoldCoordinatorFactory>((ref) {
   return ({
     required HoldAnalysisEngine engine,
@@ -176,6 +155,32 @@ final holdCoordinatorFactoryProvider = Provider<HoldCoordinatorFactory>((ref) {
   };
 });
 
+final workoutAnalysisRuntimeFactoryProvider =
+    Provider<WorkoutAnalysisRuntimeFactory>((ref) {
+      return const WorkoutAnalysisRuntimeFactory();
+    });
+
+final workoutPoseDetectionTimeoutProvider = Provider<Duration>(
+  (ref) => defaultWorkoutPoseDetectionTimeout,
+);
+
+final workoutFrameProcessorFactoryProvider =
+    Provider<WorkoutFrameProcessorFactory>((ref) {
+      return ({
+        required WorkoutAnalysisRuntime runtime,
+        required DateTime Function() clock,
+        required WorkoutFrameProcessorCallbacks callbacks,
+        required Duration poseDetectionTimeout,
+      }) {
+        return WorkoutFrameProcessor(
+          runtime: runtime,
+          clock: clock,
+          callbacks: callbacks,
+          poseDetectionTimeout: poseDetectionTimeout,
+        );
+      };
+    });
+
 /// Coordinates frame conversion, pose detection, smoothing, and rep state.
 class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late DateTime _lastFpsCalculationTime;
@@ -188,28 +193,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   // dependencies change (for example when a planned workout advances from a
   // rep exercise to a hold exercise). These values therefore describe the
   // current analysis build, not immutable lifetime state of the notifier.
-  late EngineKind _engineKind;
-  late ExerciseType _activeExercise;
+  late WorkoutAnalysisRuntime _runtime;
   late DateTime Function() _clock;
-  late ExerciseConfig _config;
-  late RangeRepContract? _rangeRepContract;
-  late HoldContract? _holdContract;
-  late PreparedExerciseAnalysisContext _preparedAnalysisContext;
-  final AnalysisEngineFactory _engineFactory = const AnalysisEngineFactory();
-  final ExerciseCatalog _exerciseCatalog = const ExerciseCatalog();
-  final ExerciseMetricsExtractor _metricsExtractor =
-      const ExerciseMetricsExtractor();
-  final PoseQualityPolicy _poseQualityPolicy = const PoseQualityPolicy();
-  RangeRepAnalysisEngine? _rangeRepEngine;
-  ValidatedRepEventTracker? _validatedRepEventTracker;
-  RangeRepCoordinator? _rangeRepCoordinator;
-  RangeRepPrimaryMetricNormalizer? _primaryMetricNormalizer;
-  RangeRepTemporalContinuityTracker? _rangeRepTemporalContinuityTracker;
-  bool _hasTemporalCameraContext = false;
-  int? _temporalSensorOrientation;
-  CameraLensDirection? _temporalCameraLensDirection;
-  DeviceOrientation? _temporalDeviceOrientation;
-  HoldCoordinator? _holdCoordinator;
+  final WorkoutStateProjector _stateProjector = const WorkoutStateProjector();
+  final WorkoutFeedbackResolver _feedbackResolver = WorkoutFeedbackResolver();
+  late WorkoutFrameProcessor _frameProcessor;
+  final WorkoutAnalysisFailurePolicy _analysisFailurePolicy =
+      WorkoutAnalysisFailurePolicy();
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   int? _liveMetricsRepCount;
   int? _liveMetricsAlternatingRepCount;
@@ -218,21 +208,37 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   final TempoSessionAccumulator _eligibleTempoSessionAccumulator =
       TempoSessionAccumulator();
   int? _lastRecordedTempoRepIndex;
-  late PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
-  late WorkoutFramePosePipeline _framePosePipeline;
-  late WorkoutDiagnosticsAccumulator _diagnostics;
   late FeedbackDeliveryPort _feedbackDelivery;
   late RangeRepTempoVoiceConfirmationPolicy
   _rangeRepTempoVoiceConfirmationPolicy;
+
+  EngineKind get _engineKind => _runtime.engineKind;
+  ExerciseType get _activeExercise => _runtime.activeExercise;
+  RangeRepContract? get _rangeRepContract => _runtime.rangeRepContract;
+  HoldContract? get _holdContract => _runtime.holdContract;
+  RangeRepAnalysisEngine? get _rangeRepEngine => _runtime.rangeRepEngine;
+  ValidatedRepEventTracker? get _validatedRepEventTracker =>
+      _runtime.validatedRepEventTracker;
+  RangeRepPrimaryMetricNormalizer? get _primaryMetricNormalizer =>
+      _runtime.primaryMetricNormalizer;
+  RangeRepTemporalContinuityTracker? get _rangeRepTemporalContinuityTracker =>
+      _runtime.rangeRepTemporalContinuityTracker;
+  HoldCoordinator? get _holdCoordinator => _runtime.holdCoordinator;
+  PoseAcceptanceStabilizer get _poseAcceptanceStabilizer =>
+      _runtime.poseAcceptanceStabilizer;
+  WorkoutDiagnosticsAccumulator get _diagnostics =>
+      _runtime.diagnosticsReporter.accumulator;
 
   @override
   WorkoutState build() {
     // Rebuilding analysis dependencies starts a fresh analysis engine/filter
     // state. Riverpod can rerun build() on this same Notifier instance.
     ref.watch(poseDetectorProvider);
+    ref.watch(workoutAnalysisHealthControllerProvider.notifier);
     _clock = ref.watch(workoutClockProvider);
     _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
     _feedbackDelivery.reset();
+    _analysisFailurePolicy.reset();
     _rangeRepTempoVoiceConfirmationPolicy =
         RangeRepTempoVoiceConfirmationPolicy(tempoAnnouncementsEnabled: true);
     _eligibleTempoSessionAccumulator.reset();
@@ -249,153 +255,56 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (activeExercise == null) {
       throw StateError('No active analysis exercise selected.');
     }
-    _activeExercise = activeExercise;
+    final config = ref.watch(exerciseConfigProvider).requireValue;
+    final runtimeFactory = ref.watch(workoutAnalysisRuntimeFactoryProvider);
 
-    final definition = _exerciseCatalog.definitionFor(activeExercise);
-    _engineKind = definition.analysisEngineKind;
-    _rangeRepContract = _engineKind == EngineKind.rangeRep
-        ? definition.analysisRangeRepContract
-        : null;
-    _holdContract = _engineKind == EngineKind.hold
-        ? definition.analysisHoldContract
-        : null;
-    _config = ref.watch(exerciseConfigProvider).requireValue;
     _lastExerciseMetrics = const ExerciseMetrics.noPose();
     _liveMetricsRepCount = null;
     _liveMetricsAlternatingRepCount = null;
     _liveMetricsTempo = null;
     _liveMetricsAsymmetryScore = null;
-    _hasTemporalCameraContext = false;
-    _temporalSensorOrientation = null;
-    _temporalCameraLensDirection = null;
-    _temporalDeviceOrientation = null;
-    switch (_engineKind) {
-      case EngineKind.rangeRep:
-        final rangeRepContract =
-            _rangeRepContract ??
-            (throw StateError(
-              'Range-rep analysis requires a RangeRepContract.',
-            ));
-        final rangeRepValidationConfig =
-            definition.analysisRangeRepValidationConfig;
-        final rangeRepEngine = _engineFactory.createRangeRep(
-          config: _config,
-          rangeRepContract: rangeRepContract,
-          now: _clock,
-        );
-        _rangeRepEngine = rangeRepEngine;
-        _validatedRepEventTracker =
-            definition.usesAnalysisEngine(ExerciseAnalysisEngine.alternatingRep)
-            ? ValidatedRepEventTracker()
-            : null;
-        _primaryMetricNormalizer = RangeRepPrimaryMetricNormalizer(
-          config: _config,
-          rangeRepContract: rangeRepContract,
-        );
-        _rangeRepTemporalContinuityTracker =
-            RangeRepTemporalContinuityTracker();
-        _rangeRepCoordinator = rangeRepCoordinatorFactory(
-          engine: rangeRepEngine,
-          config: _config,
-          rangeRepContract: rangeRepContract,
-          rangeRepValidationConfig: rangeRepValidationConfig,
-        );
-        _holdCoordinator = null;
-        break;
-      case EngineKind.hold:
-        final holdContract =
-            _holdContract ??
-            (throw StateError('Hold analysis requires a HoldContract.'));
-        final holdEngine = _engineFactory.createHold(
-          config: _config,
-          holdContract: holdContract,
-          now: _clock,
-        );
-        _rangeRepEngine = null;
-        _validatedRepEventTracker = null;
-        _rangeRepCoordinator = null;
-        _primaryMetricNormalizer = null;
-        _rangeRepTemporalContinuityTracker = null;
-        _holdCoordinator = holdCoordinatorFactory(
-          engine: holdEngine,
-          config: _config,
-          holdContract: holdContract,
-        );
-        break;
-      case EngineKind.alternatingRep:
-        _engineFactory.create(
-          engineKind: _engineKind,
-          config: _config,
-          rangeRepContract: _rangeRepContract,
-          holdContract: _holdContract,
-          now: _clock,
-        );
-        throw StateError('Unreachable alternatingRep analysis wiring path.');
-    }
-
-    _preparedAnalysisContext = PreparedExerciseAnalysisContext.resolve(
-      config: _config,
-      engineKind: _engineKind,
-      rangeRepContract: _rangeRepContract,
-      holdContract: _holdContract,
+    _runtime = runtimeFactory.create(
+      activeExercise: activeExercise,
+      config: config,
+      clock: _clock,
+      framePosePipelineFactory: framePosePipelineFactory,
+      rangeRepCoordinatorFactory: rangeRepCoordinatorFactory,
+      holdCoordinatorFactory: holdCoordinatorFactory,
+      diagnosticsEnabled: kDebugMode || kProfileMode,
     );
-
-    _lastFpsCalculationTime = _clock();
+    final frameProcessorFactory = ref.watch(
+      workoutFrameProcessorFactoryProvider,
+    );
+    _frameProcessor = frameProcessorFactory(
+      runtime: _runtime,
+      clock: _clock,
+      poseDetectionTimeout: ref.watch(workoutPoseDetectionTimeoutProvider),
+      callbacks: WorkoutFrameProcessorCallbacks(
+        onCameraFrameObserved: _recordCameraFrameObserved,
+        onAnalysisFrameObserved: _recordAnalysisFrameObserved,
+        onTrackingResult: _updateLiveTrackingFromPipelineResult,
+        onDetectedPoseFrame: _processDetectedPoseFrame,
+      ),
+    );
+    _lastFpsCalculationTime = _runtime.fpsWindowStartedAt;
     _cameraFrameCount = 0;
     _analysisFrameCount = 0;
     _cameraFps = 0.0;
     _analysisFps = 0.0;
-    _poseAcceptanceStabilizer = PoseAcceptanceStabilizer();
-    _framePosePipeline = framePosePipelineFactory(
-      poseAcceptanceStabilizer: _poseAcceptanceStabilizer,
-    );
-    _diagnostics = WorkoutDiagnosticsAccumulator(
-      sessionStartedAt: _clock(),
-      analysisKind: _engineKind.name,
-      exerciseType: _activeExercise.id,
-      configAssetPath: definition.analysisConfigAssetPath,
-      cameraViewContract: definition.analysisCameraViewContract,
-      rangeRepContract: _rangeRepContract,
-      holdContract: _holdContract,
-    );
+
     final initialHoldSnapshot = _engineKind == EngineKind.hold
         ? _holdCoordinatorOrThrow().currentStateSnapshot()
         : null;
-
     final initialState = _engineKind == EngineKind.hold
-        ? WorkoutState.hold(
-            feedbackMessage: _resolveHoldFeedbackMessage(initialHoldSnapshot!),
-            analysis: HoldWorkoutAnalysisState(
-              isFormBad: initialHoldSnapshot.isFormBad,
-              currentAngle: initialHoldSnapshot.currentAngle,
-              currentHoldSeconds: initialHoldSnapshot.currentHoldSeconds,
-              bestHoldSeconds: initialHoldSnapshot.bestHoldSeconds,
-              selectedHoldSide: initialHoldSnapshot.selectedHoldSide,
-              holdFeedbackCode: initialHoldSnapshot.holdFeedbackCode,
-              holdEnginePhase: initialHoldSnapshot.holdEnginePhase,
-              isHolding: initialHoldSnapshot.isHolding,
-              isHoldVisibilitySuspended:
-                  initialHoldSnapshot.isHoldVisibilitySuspended,
-              hadHoldFormBreak: initialHoldSnapshot.hadHoldFormBreak,
-              currentPhase: initialHoldSnapshot.currentPhase,
-              calibrationMetrics: initialHoldSnapshot.calibrationMetrics,
-              holdTechniqueAssessment:
-                  initialHoldSnapshot.holdTechniqueAssessment,
-              plankHipDeviation: initialHoldSnapshot.plankHipDeviation,
-              plankShoulderElbowOffset:
-                  initialHoldSnapshot.plankShoulderElbowOffset,
-              hollowShoulderElevation:
-                  initialHoldSnapshot.hollowShoulderElevation,
-              hollowHeelElevation: initialHoldSnapshot.hollowHeelElevation,
-            ),
+        ? _stateProjector.initialHold(
+            snapshot: initialHoldSnapshot!,
+            feedbackMessage: _resolveHoldFeedback(initialHoldSnapshot).message,
           )
-        : WorkoutState.rangeRep(
-            feedbackMessage: _mapRangeRepFeedbackCodeToMessage(
+        : _stateProjector.initialRangeRep(
+            feedbackMessage: _resolveRangeRepFeedback(
               RangeRepFeedbackCode.awaitNeutral,
-            ),
-            analysis: RangeRepWorkoutAnalysisState(
-              currentPhase: _rangeRepEngineOrThrow().phaseLabel,
-            ),
+            ).message,
+            currentPhase: _rangeRepEngineOrThrow().phaseLabel,
           );
     _updateDiagnosticsFromPublishedState(initialState);
     return initialState;
@@ -408,185 +317,181 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     CameraLensDirection? cameraLensDirection,
     DeviceOrientation? deviceOrientation,
   }) async {
-    final now = _clock();
-    _resetTemporalHistoryIfCameraContextChanged(
+    if (_analysisFailurePolicy.isBlocked) {
+      return;
+    }
+
+    final outcome = await _frameProcessor.processCameraImage(
+      image: image,
       sensorOrientation: sensorOrientation,
       cameraLensDirection: cameraLensDirection,
       deviceOrientation: deviceOrientation,
+      readDetector: () => ref.read(poseDetectorProvider),
+      isPaused: () => ref.read(livePauseControllerProvider).isPaused,
     );
-    if (_isDiagnosticsEnabled) {
-      _diagnostics
-        ..recordCameraFrame()
-        ..updateCameraRuntimeContext(
-          sensorOrientationDegrees: sensorOrientation,
-          cameraLensDirection: cameraLensDirection?.name,
-          deviceOrientation: deviceOrientation?.name,
-        );
-    }
-    _cameraFrameCount++;
-    _updateFpsIfNeeded();
-
-    final schedulingDecision = _framePosePipeline.prepareCameraFrame(now: now);
-    if (schedulingDecision == FrameProcessingGateDecision.reentrantDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordReentrantDrop();
-      }
-      return;
-    }
-    if (schedulingDecision == FrameProcessingGateDecision.throttledDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordThrottledFrame();
-      }
-      return;
-    }
-
-    final processingStopwatch = Stopwatch()..start();
-    if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
-
-    try {
-      final detector = ref.read(poseDetectorProvider);
-      final assessPose = _poseQualityAssessor();
-      final result = await _framePosePipeline.processCameraFrame(
-        image: image,
-        sensorOrientation: sensorOrientation,
-        deviceOrientation: deviceOrientation,
-        lensDirection: cameraLensDirection,
-        detector: detector,
-        assessPose: assessPose,
+    if (_isDiagnosticsEnabled &&
+        outcome.status == WorkoutFrameProcessingStatus.analyzed) {
+      _diagnostics.updateLivePerformance(
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
       );
-      if (ref.read(livePauseControllerProvider).isPaused) {
-        return;
-      }
-      _consumeFramePosePipelineResult(
-        result,
-        frameCapturedAt: now,
-        processingStopwatch: processingStopwatch,
-      );
-      if (_isDiagnosticsEnabled &&
-          result.kind != FramePosePipelineResultKind.converterDrop) {
-        _diagnostics.updateLivePerformance(
-          cameraFps: _cameraFps,
-          analysisFps: _analysisFps,
-        );
-      }
-    } catch (e) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      debugPrint("ANALIZ HATASI: $e");
-    } finally {
-      _framePosePipeline.finishCameraFrame();
     }
+    _handleFrameProcessingOutcome(outcome);
   }
 
   @visibleForTesting
   Future<void> processInputImageForAnalysis(InputImage inputImage) async {
-    final now = _clock();
-    final processingStopwatch = Stopwatch()..start();
-    if (_isDiagnosticsEnabled) _diagnostics.recordAnalysisAttempt();
+    if (_analysisFailurePolicy.isBlocked) {
+      throw StateError('Workout analysis is blocked until retryAnalysis().');
+    }
 
-    try {
-      final detector = ref.read(poseDetectorProvider);
-      final assessPose = _poseQualityAssessor();
-      final result = await _framePosePipeline.processInputImage(
-        inputImage: inputImage,
-        detector: detector,
-        assessPose: assessPose,
+    final outcome = await _frameProcessor.processInputImage(
+      inputImage: inputImage,
+      readDetector: () => ref.read(poseDetectorProvider),
+      isPaused: () => ref.read(livePauseControllerProvider).isPaused,
+    );
+    if (_isDiagnosticsEnabled &&
+        (outcome.status == WorkoutFrameProcessingStatus.analyzed ||
+            outcome.status == WorkoutFrameProcessingStatus.converterDrop)) {
+      _diagnostics.updateLivePerformance(
+        cameraFps: _cameraFps,
+        analysisFps: _analysisFps,
       );
-      if (ref.read(livePauseControllerProvider).isPaused) {
+    }
+    _handleFrameProcessingOutcome(outcome);
+    if (outcome.status == WorkoutFrameProcessingStatus.failed ||
+        outcome.status == WorkoutFrameProcessingStatus.timedOut) {
+      Error.throwWithStackTrace(outcome.error!, outcome.stackTrace!);
+    }
+  }
+
+  void _handleFrameProcessingOutcome(WorkoutFrameProcessingOutcome outcome) {
+    switch (outcome.status) {
+      case WorkoutFrameProcessingStatus.analyzed:
+        final didRecover = _analysisFailurePolicy.recordSuccess();
+        if (didRecover) {
+          ref
+              .read(workoutAnalysisHealthControllerProvider.notifier)
+              .markHealthy();
+          _feedbackDelivery.reset();
+        }
         return;
-      }
-      _consumeFramePosePipelineResult(
-        result,
-        frameCapturedAt: now,
-        processingStopwatch: processingStopwatch,
-      );
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.updateLivePerformance(
+      case WorkoutFrameProcessingStatus.failed:
+        _handleAnalysisFailure(
+          WorkoutAnalysisFailureKind.processingException,
+          error: outcome.error,
+        );
+        return;
+      case WorkoutFrameProcessingStatus.timedOut:
+        _handleAnalysisFailure(
+          WorkoutAnalysisFailureKind.poseDetectionTimeout,
+          error: outcome.error,
+        );
+        return;
+      case WorkoutFrameProcessingStatus.blocked:
+      case WorkoutFrameProcessingStatus.reentrantDrop:
+      case WorkoutFrameProcessingStatus.throttledDrop:
+      case WorkoutFrameProcessingStatus.paused:
+      case WorkoutFrameProcessingStatus.converterDrop:
+        return;
+    }
+  }
+
+  void _handleAnalysisFailure(
+    WorkoutAnalysisFailureKind kind, {
+    Object? error,
+  }) {
+    final decision = _analysisFailurePolicy.recordFailure(kind);
+    debugPrint('ANALIZ HATASI (${kind.name}): $error');
+    ref
+        .read(workoutAnalysisHealthControllerProvider.notifier)
+        .publish(decision);
+    unawaited(_feedbackDelivery.stop());
+    _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
+    ref.read(liveRangeRepOutcomeProvider.notifier).dismiss();
+    ref.read(liveTrackingControllerProvider.notifier).reset();
+    _lastExerciseMetrics = const ExerciseMetrics.noPose();
+    _liveMetricsRepCount = null;
+    _liveMetricsAlternatingRepCount = null;
+    _liveMetricsTempo = null;
+    _liveMetricsAsymmetryScore = null;
+    _interruptAnalysisForFailure(kind);
+    ref.read(workoutLiveMetricsProvider.notifier).reset();
+  }
+
+  void _interruptAnalysisForFailure(WorkoutAnalysisFailureKind kind) {
+    _frameProcessor.resetTemporalState();
+    final reason = 'analysis ${kind.name}';
+    if (_engineKind == EngineKind.rangeRep) {
+      final snapshot = _rangeRepCoordinatorOrThrow()
+          .handleLifecycleInterruption(reason: reason);
+      state = _stateProjector
+          .rangeRep(
+            snapshot: snapshot,
+            feedbackMessage: '',
+            cameraFps: _cameraFps,
+            analysisFps: _analysisFps,
+          )
+          .copyWith(landmarks: null, feedbackMessage: '');
+      _updateDiagnosticsFromState();
+      return;
+    }
+
+    final snapshot = _holdCoordinatorOrThrow().handleLifecycleInterruption(
+      reason: reason,
+    );
+    state = _stateProjector
+        .hold(
+          snapshot: snapshot,
+          feedbackMessage: '',
           cameraFps: _cameraFps,
           analysisFps: _analysisFps,
-        );
-      }
-    } catch (e) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordAnalysisException();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      rethrow;
-    }
+        )
+        .copyWith(landmarks: null, feedbackMessage: '');
+    _updateDiagnosticsFromState();
   }
 
-  void _resetTemporalHistoryIfCameraContextChanged({
-    required int sensorOrientation,
-    required CameraLensDirection? cameraLensDirection,
-    required DeviceOrientation? deviceOrientation,
-  }) {
-    if (_engineKind != EngineKind.rangeRep) {
-      return;
-    }
-
-    final contextChanged =
-        _hasTemporalCameraContext &&
-        (_temporalSensorOrientation != sensorOrientation ||
-            _temporalCameraLensDirection != cameraLensDirection ||
-            _temporalDeviceOrientation != deviceOrientation);
-    if (contextChanged) {
-      _rangeRepTemporalContinuityTracker?.reset();
-    }
-    _hasTemporalCameraContext = true;
-    _temporalSensorOrientation = sensorOrientation;
-    _temporalCameraLensDirection = cameraLensDirection;
-    _temporalDeviceOrientation = deviceOrientation;
+  void retryAnalysis() {
+    _analysisFailurePolicy.reset();
+    _frameProcessor.resetAfterFailure();
+    _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
+    ref.read(workoutAnalysisHealthControllerProvider.notifier).reset();
+    ref.read(liveRangeRepOutcomeProvider.notifier).reset();
+    ref.read(liveTrackingControllerProvider.notifier).reset();
+    ref.read(workoutLiveMetricsProvider.notifier).reset();
+    ref.invalidate(poseDetectorProvider);
   }
 
-  void _consumeFramePosePipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime frameCapturedAt,
-    required Stopwatch processingStopwatch,
-  }) {
-    if (result.kind == FramePosePipelineResultKind.converterDrop) {
-      if (_isDiagnosticsEnabled) {
-        _diagnostics.recordConverterDrop();
-        _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-      }
-      return;
-    }
+  void _recordCameraFrameObserved() {
+    _cameraFrameCount++;
+    _updateFpsIfNeeded();
+  }
 
-    if (result.poseCount != null && _isDiagnosticsEnabled) {
-      _diagnostics.recordPoseCount(result.poseCount!);
-    }
+  void _recordAnalysisFrameObserved() {
     _analysisFrameCount++;
     _updateFpsIfNeeded();
+  }
 
-    _updatePoseDiagnosticsFromPipelineResult(result);
-    _updateLiveTrackingFromPipelineResult(result, now: frameCapturedAt);
-    if (result.invalidatesRangeRepTemporalHistory) {
-      _rangeRepTemporalContinuityTracker?.reset();
-    }
-    final detectedFrame = _detectedPoseFrameFromPipelineResult(
-      result,
-      observedAt: frameCapturedAt,
-    );
+  void _processDetectedPoseFrame(
+    WorkoutDetectedPoseFrame detectedFrame,
+    DateTime observedAt,
+  ) {
     _processExerciseMetrics(
       metrics: detectedFrame.metrics,
-      now: frameCapturedAt,
+      now: observedAt,
       frameKind: detectedFrame.kind,
       didBecomeStableTracking: detectedFrame.didBecomeStableTracking,
       qualityAcceptedRangeRepSides: detectedFrame.qualityAcceptedRangeRepSides,
       preferredRangeRepSide: detectedFrame.preferredRangeRepSide,
     );
-
-    if (_isDiagnosticsEnabled) {
-      _diagnostics.recordAnalysisCompleted();
-      _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
-    }
   }
 
   void _updateLiveTrackingFromPipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime now,
-  }) {
+    FramePosePipelineResult result,
+    DateTime now,
+  ) {
     if (result.kind == FramePosePipelineResultKind.converterDrop) {
       return;
     }
@@ -618,136 +523,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
-  void _updatePoseDiagnosticsFromPipelineResult(
-    FramePosePipelineResult result,
-  ) {
-    if (!_isDiagnosticsEnabled) {
-      return;
-    }
-
-    final assessment = result.selectedAssessment;
-    if (assessment != null) {
-      _diagnostics.recordPoseQualitySample(
-        minimumRequiredLikelihood: assessment.minimumRequiredLikelihood,
-        meanRequiredLikelihood: assessment.meanRequiredLikelihood,
-        qualityScore: assessment.qualityScore,
-      );
-    }
-
-    switch (result.kind) {
-      case FramePosePipelineResultKind.noPose:
-        _diagnostics.updatePoseQualityStatus(status: 'no_pose');
-        return;
-      case FramePosePipelineResultKind.rejected:
-        final rejectionReason = result.selectedAssessment?.rejectionReason;
-        if (rejectionReason != null) {
-          _diagnostics.recordRejectedPose(
-            rejectionReasonCode: rejectionReason.code,
-          );
-          if (rejectionReason.isLowConfidence) {
-            _diagnostics.recordLowConfidencePose();
-          }
-          if (rejectionReason.isGeometryFailure) {
-            _diagnostics.recordInvalidPoseGeometry();
-          }
-          _diagnostics.updatePoseQualityStatus(
-            status: 'rejected',
-            lastRejectionReason: rejectionReason.code,
-          );
-        }
-        return;
-      case FramePosePipelineResultKind.pendingAcceptance:
-        _diagnostics.updatePoseQualityStatus(
-          status: 'accepted_pending_stabilization',
-        );
-        return;
-      case FramePosePipelineResultKind.accepted:
-        _diagnostics.updatePoseQualityStatus(status: 'accepted');
-        return;
-      case FramePosePipelineResultKind.converterDrop:
-        return;
-    }
-  }
-
-  _DetectedPoseFrame _detectedPoseFrameFromPipelineResult(
-    FramePosePipelineResult result, {
-    required DateTime observedAt,
-  }) {
-    switch (result.kind) {
-      case FramePosePipelineResultKind.noPose:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.noPose,
-        );
-      case FramePosePipelineResultKind.rejected:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.rejected,
-        );
-      case FramePosePipelineResultKind.pendingAcceptance:
-        return const _DetectedPoseFrame(
-          metrics: ExerciseMetrics.noPose(),
-          kind: _PoseFrameKind.pendingAcceptance,
-        );
-      case FramePosePipelineResultKind.accepted:
-        final selectedPose = result.selectedPose;
-        final selectedAssessment = result.selectedAssessment;
-        if (selectedPose == null || selectedAssessment == null) {
-          throw StateError(
-            'Accepted frame-pose pipeline result requires pose and assessment.',
-          );
-        }
-
-        final extractedMetrics = _metricsExtractor.extract(
-          selectedPose,
-          _config,
-          engineKind: _engineKind,
-          rangeRepContract: _rangeRepContract,
-          holdContract: _holdContract,
-          preparedContext: _preparedAnalysisContext,
-          poseQualityAssessment: selectedAssessment,
-          holdSide: _engineKind == EngineKind.hold
-              ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
-                  selectedAssessment,
-                )
-              : null,
-        );
-        final normalizedMetrics = _primaryMetricNormalizer?.normalize(
-          pose: selectedPose,
-          metrics: extractedMetrics,
-        );
-        final baseMetrics = normalizedMetrics ?? extractedMetrics;
-        final confidenceMetrics = _rangeRepTemporalContinuityTracker
-            ?.updateMetrics(
-              pose: selectedPose,
-              metrics: baseMetrics,
-              preparedContext: _preparedAnalysisContext,
-              observedAt: observedAt,
-            );
-
-        return _DetectedPoseFrame(
-          metrics: confidenceMetrics ?? baseMetrics,
-          kind: _PoseFrameKind.accepted,
-          didBecomeStableTracking: result.didBecomeStableTracking,
-          qualityAcceptedRangeRepSides:
-              selectedAssessment.acceptedRangeRepSides,
-          preferredRangeRepSide: selectedAssessment.preferredRangeRepSide,
-        );
-      case FramePosePipelineResultKind.converterDrop:
-        throw StateError(
-          'Converter-drop results must not be mapped to detected frames.',
-        );
-    }
-  }
-
-  bool get _isDiagnosticsEnabled => kDebugMode || kProfileMode;
+  bool get _isDiagnosticsEnabled => _runtime.diagnosticsReporter.enabled;
 
   WorkoutDiagnosticsSnapshot diagnosticsSnapshot({DateTime? now}) {
-    return _diagnostics.snapshot(now: now ?? _clock());
+    return _runtime.diagnosticsReporter.snapshot(now: now ?? _clock());
   }
 
   void resetDiagnostics({DateTime? now}) {
-    _diagnostics.reset(now: now ?? _clock(), analysisKind: _engineKind.name);
+    _runtime.diagnosticsReporter.reset(
+      now: now ?? _clock(),
+      analysisKind: _engineKind.name,
+    );
     if (_isDiagnosticsEnabled) {
       if (_engineKind == EngineKind.rangeRep) {
         final rangeRepDiagnosticsState = _rangeRepCoordinatorOrThrow()
@@ -772,7 +558,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processExerciseMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    _PoseFrameKind frameKind = _PoseFrameKind.accepted,
+    WorkoutPoseFrameKind frameKind = WorkoutPoseFrameKind.accepted,
     bool didBecomeStableTracking = false,
     Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     RangeRepSide? preferredRangeRepSide,
@@ -801,7 +587,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processRangeRepMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    required _PoseFrameKind frameKind,
+    required WorkoutPoseFrameKind frameKind,
     required bool didBecomeStableTracking,
     required Set<RangeRepSide>? qualityAcceptedRangeRepSides,
     required RangeRepSide? preferredRangeRepSide,
@@ -809,7 +595,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final result = _rangeRepCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
-      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+      isAcceptedPoseFrame: frameKind == WorkoutPoseFrameKind.accepted,
       didBecomeStableTracking: didBecomeStableTracking,
       qualityAcceptedRangeRepSides: qualityAcceptedRangeRepSides,
       preferredRangeRepSide: preferredRangeRepSide,
@@ -843,13 +629,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _processHoldMetrics({
     required ExerciseMetrics metrics,
     required DateTime now,
-    required _PoseFrameKind frameKind,
+    required WorkoutPoseFrameKind frameKind,
     required bool didBecomeStableTracking,
   }) {
     final result = _holdCoordinatorOrThrow().processFrame(
       metrics: metrics,
       now: now,
-      isAcceptedPoseFrame: frameKind == _PoseFrameKind.accepted,
+      isAcceptedPoseFrame: frameKind == WorkoutPoseFrameKind.accepted,
       didBecomeStableTracking: didBecomeStableTracking,
     );
     _publishHoldState(result.stateSnapshot);
@@ -863,36 +649,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     bool deliverFeedback = true,
   }) {
     final feedbackCode = snapshot.feedbackDirective.feedbackCode;
-    final feedbackMessage = _mapRangeRepFeedbackCodeToMessage(feedbackCode);
-    state = WorkoutState.rangeRep(
-      landmarks: snapshot.landmarks,
-      feedbackMessage: feedbackMessage,
+    final resolvedFeedback = _resolveRangeRepFeedback(feedbackCode);
+    state = _stateProjector.rangeRep(
+      snapshot: snapshot,
+      feedbackMessage: resolvedFeedback.message,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
-      analysis: RangeRepWorkoutAnalysisState(
-        repCount: snapshot.repCount,
-        isFormBad: snapshot.isFormBad,
-        currentAngle: snapshot.currentAngle,
-        lastRepScore: snapshot.lastRepScore,
-        lastRepRom: snapshot.lastRepRom,
-        currentPhase: snapshot.currentPhase,
-        calibrationMetrics: snapshot.calibrationMetrics,
-        techniqueObservations: snapshot.techniqueObservations,
-        validatedRepEvent: validatedRepEvent,
-      ),
+      validatedRepEvent: validatedRepEvent,
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
-    if (deliverFeedback &&
-        !ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
-      unawaited(
-        _feedbackDelivery.deliver(
-          FeedbackDeliveryCue(
-            id: 'range:${feedbackCode.code}',
-            message: feedbackMessage,
-            kind: _deliveryKindForRangeRepFeedback(feedbackCode),
-          ),
-        ),
-      );
+    if (deliverFeedback && !_suppressesExerciseFeedback) {
+      unawaited(_feedbackDelivery.deliver(resolvedFeedback.cue));
     }
   }
 
@@ -938,7 +705,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (!didShow) {
       return;
     }
-    if (ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (_suppressesExerciseFeedback) {
       _rangeRepTempoVoiceConfirmationPolicy.reset();
       return;
     }
@@ -963,6 +730,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
+  bool get _suppressesExerciseFeedback {
+    return ref
+            .read(liveTrackingControllerProvider)
+            .suppressesExerciseFeedback ||
+        !ref.read(workoutAnalysisHealthControllerProvider).isHealthy;
+  }
+
   void _recordValidatedRepEvent(ValidatedRepEvent? event) {
     if (event == null) {
       return;
@@ -974,40 +748,20 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     tracker.record(event);
   }
 
-  void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
-    final feedbackMessage = _resolveHoldFeedbackMessage(snapshot);
-    state = WorkoutState.hold(
-      landmarks: snapshot.landmarks,
-      feedbackMessage: feedbackMessage,
+  void _publishHoldState(
+    HoldCoordinatorStateSnapshot snapshot, {
+    bool deliverFeedback = true,
+  }) {
+    final resolvedFeedback = _resolveHoldFeedback(snapshot);
+    state = _stateProjector.hold(
+      snapshot: snapshot,
+      feedbackMessage: resolvedFeedback.message,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
-      analysis: HoldWorkoutAnalysisState(
-        isFormBad: snapshot.isFormBad,
-        currentAngle: snapshot.currentAngle,
-        currentHoldSeconds: snapshot.currentHoldSeconds,
-        bestHoldSeconds: snapshot.bestHoldSeconds,
-        selectedHoldSide: snapshot.selectedHoldSide,
-        holdFeedbackCode: snapshot.holdFeedbackCode,
-        holdEnginePhase: snapshot.holdEnginePhase,
-        isHolding: snapshot.isHolding,
-        isHoldVisibilitySuspended: snapshot.isHoldVisibilitySuspended,
-        hadHoldFormBreak: snapshot.hadHoldFormBreak,
-        currentPhase: snapshot.currentPhase,
-        calibrationMetrics: snapshot.calibrationMetrics,
-        holdTechniqueAssessment: snapshot.holdTechniqueAssessment,
-        plankHipDeviation: snapshot.plankHipDeviation,
-        plankShoulderElbowOffset: snapshot.plankShoulderElbowOffset,
-        hollowShoulderElevation: snapshot.hollowShoulderElevation,
-        hollowHeelElevation: snapshot.hollowHeelElevation,
-      ),
     );
     _publishHoldLiveMetricDisplay();
-    if (!ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
-      unawaited(
-        _feedbackDelivery.deliver(
-          _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
-        ),
-      );
+    if (deliverFeedback && !_suppressesExerciseFeedback) {
+      unawaited(_feedbackDelivery.deliver(resolvedFeedback.cue));
     }
   }
 
@@ -1175,78 +929,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _applyRangeRepDiagnosticsUpdate(
     RangeRepCoordinatorDiagnosticsUpdate update,
   ) {
-    if (!_isDiagnosticsEnabled) {
-      return;
-    }
-
-    if (update.recordBriefOcclusion) {
-      _diagnostics.recordBriefOcclusion();
-    }
-    if (update.recordBriefOcclusionRecovery) {
-      _diagnostics.recordBriefOcclusionRecovery();
-    }
-    if (update.recordBriefOcclusionAbort) {
-      _diagnostics.recordBriefOcclusionAbort();
-    }
-    if (update.recordResync) {
-      _diagnostics.recordResync(
-        hadActiveRepContext: update.hasActiveRepContext,
-      );
-    }
-    if (update.recordPoseReacquisition) {
-      _diagnostics.recordPoseReacquisition();
-    }
-    if (update.recordAcceptedPoseFrame) {
-      _diagnostics.recordAcceptedPoseFrame();
-    }
-    _diagnostics.updateVisibilityStatus(update.visibilityStatus);
-    _diagnostics.recordSelectedSide(
-      selectedSide: update.selectedSideLabel,
-      hasActiveRepContext: update.hasActiveRepContext,
-    );
-    final transitionCodes = update.confirmedTransitionCodes.isNotEmpty
-        ? update.confirmedTransitionCodes
-        : <String>[
-            if (update.confirmedTransitionCode != null)
-              update.confirmedTransitionCode!,
-          ];
-    for (final transitionCode in transitionCodes) {
-      _diagnostics.recordRangeRepTransition(transitionCode);
-    }
-    final validationStatus = update.completedRepValidationStatus;
-    if (validationStatus != null) {
-      _diagnostics.recordRangeRepValidation(
-        statusCode: validationStatus,
-        reasonCodes: update.completedRepValidationReasons,
-        tempoDiagnosticReasonCodes: update.completedRepTempoDiagnosticReasons,
-        measurementConfidence: update.completedRepMeasurementConfidence,
-      );
-    }
+    _runtime.diagnosticsReporter.applyRangeRepCoordinatorUpdate(update);
   }
 
   void _applyHoldDiagnosticsUpdate(HoldCoordinatorDiagnosticsUpdate update) {
-    if (!_isDiagnosticsEnabled) {
-      return;
-    }
-
-    if (update.recordHoldVisibilitySuspend) {
-      _diagnostics.recordHoldVisibilitySuspend();
-    }
-    if (update.recordHoldVisibilityRecovery) {
-      _diagnostics.recordHoldVisibilityRecovery(
-        update.holdVisibilityGapDuration,
-      );
-    }
-    if (update.recordHoldVisibilityAbort) {
-      _diagnostics.recordHoldVisibilityAbort(update.holdVisibilityGapDuration);
-    }
-    if (update.recordPoseReacquisition) {
-      _diagnostics.recordPoseReacquisition();
-    }
-    if (update.recordAcceptedPoseFrame) {
-      _diagnostics.recordAcceptedPoseFrame();
-    }
-    _diagnostics.updateVisibilityStatus(update.visibilityStatus);
+    _runtime.diagnosticsReporter.applyHoldCoordinatorUpdate(update);
   }
 
   void _updateDiagnosticsFromState() {
@@ -1254,52 +941,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   void _updateDiagnosticsFromPublishedState(WorkoutState publishedState) {
-    if (!_isDiagnosticsEnabled) return;
-    _diagnostics.updateLivePerformance(
+    _runtime.diagnosticsReporter.updateFromPublishedState(
+      publishedState: publishedState,
+      engineKind: _engineKind,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
-    );
-    if (_engineKind == EngineKind.rangeRep) {
-      final timingDiagnostics =
-          _rangeRepEngineOrThrow().detectionDiagnosticsSnapshot;
-      _diagnostics.updateRangeRepState(
-        repCount: publishedState.repCount,
-        currentPhase: publishedState.currentPhase,
-        signalRoles: _rangeRepContract!.signalRoles,
-        calibrationOffsetDegrees:
-            publishedState.calibrationMetrics.calibrationThresholdOffsetApplied
-            ? publishedState
-                  .calibrationMetrics
-                  .calibrationThresholdOffsetCandidate
-            : null,
-        activeTimingTrace: timingDiagnostics.activeTimingTrace,
-        lastEndedTimingTrace: timingDiagnostics.lastEndedTimingTrace,
-        lastTempoMeasurementAssessment:
-            timingDiagnostics.lastTempoMeasurementAssessment,
-        nonMonotonicObservationCount:
-            timingDiagnostics.nonMonotonicObservationCount,
-        currentLeftMeasurementConfidence:
-            _lastExerciseMetrics.leftRangeRepMetrics.measurementConfidence,
-        currentRightMeasurementConfidence:
-            _lastExerciseMetrics.rightRangeRepMetrics.measurementConfidence,
-      );
-      return;
-    }
-
-    _diagnostics.updateHoldState(
-      currentHoldSeconds: publishedState.currentHoldSeconds.round(),
-      bestHoldSeconds: publishedState.bestHoldSeconds.round(),
-      currentPhase: publishedState.currentPhase,
-      isHolding: publishedState.isHolding,
-      signalRoles: _holdContract!.signalRoles,
-      presentedHoldFeedbackCode: publishedState.holdFeedbackCode,
-      holdDiagnostics: _holdCoordinatorOrThrow().diagnosticsSnapshot(),
-      currentHoldSide: publishedState.selectedHoldSide,
-      currentSignalValues:
-          publishedState.calibrationMetrics.currentHoldSignalValues,
-      targetSignalValues:
-          publishedState.calibrationMetrics.targetHoldSignalValues,
-      signalValidity: publishedState.calibrationMetrics.holdSignalValidity,
+      lastExerciseMetrics: _lastExerciseMetrics,
+      rangeRepEngine: _rangeRepEngine,
+      rangeRepContract: _rangeRepContract,
+      holdCoordinator: _holdCoordinator,
+      holdContract: _holdContract,
     );
   }
 
@@ -1326,116 +977,32 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   RangeRepCoordinator _rangeRepCoordinatorOrThrow() {
-    final coordinator = _rangeRepCoordinator;
-    if (coordinator == null) {
-      throw StateError(
-        'RangeRepCoordinator is only available during range-rep analysis.',
-      );
-    }
-
-    return coordinator;
+    return _runtime.requireRangeRepCoordinator();
   }
 
   RangeRepAnalysisEngine _rangeRepEngineOrThrow() {
-    final engine = _rangeRepEngine;
-    if (engine == null) {
-      throw StateError(
-        'RangeRepAnalysisEngine is only available during range-rep analysis.',
-      );
-    }
-
-    return engine;
+    return _runtime.requireRangeRepEngine();
   }
 
   HoldCoordinator _holdCoordinatorOrThrow() {
-    final coordinator = _holdCoordinator;
-    if (coordinator == null) {
-      throw StateError(
-        'HoldCoordinator is only available during hold analysis.',
-      );
-    }
-
-    return coordinator;
+    return _runtime.requireHoldCoordinator();
   }
 
-  PoseQualityAssessor _poseQualityAssessor() {
-    final requiredHoldSide = _engineKind == EngineKind.hold
-        ? _holdCoordinatorOrThrow().requiredHoldSideForAssessment()
-        : null;
-    return (pose) => _poseQualityPolicy.assessPrepared(
-      pose: pose,
-      config: _config,
-      preparedContext: _preparedAnalysisContext,
-      requiredHoldSide: requiredHoldSide,
-    );
-  }
-
-  String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
-    return mapRangeRepFeedbackCodeToMessage(
-      code,
+  ResolvedWorkoutFeedback _resolveRangeRepFeedback(RangeRepFeedbackCode code) {
+    return _feedbackResolver.resolveRangeRep(
+      code: code,
       localizations: ref.read(appLocalizationsProvider),
       exerciseType: _activeExercise,
     );
   }
 
-  FeedbackDeliveryKind _deliveryKindForRangeRepFeedback(
-    RangeRepFeedbackCode code,
+  ResolvedWorkoutFeedback _resolveHoldFeedback(
+    HoldCoordinatorStateSnapshot snapshot,
   ) {
-    return switch (code) {
-      RangeRepFeedbackCode.waitForBody ||
-      RangeRepFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
-      RangeRepFeedbackCode.awaitNeutral ||
-      RangeRepFeedbackCode.ready => FeedbackDeliveryKind.status,
-      RangeRepFeedbackCode.descend ||
-      RangeRepFeedbackCode.ascend ||
-      RangeRepFeedbackCode.repCompleted ||
-      RangeRepFeedbackCode.repIncomplete => FeedbackDeliveryKind.movement,
-      RangeRepFeedbackCode.legacyFormThresholdViolation ||
-      RangeRepFeedbackCode.controlDescent ||
-      RangeRepFeedbackCode.controlAscent ||
-      RangeRepFeedbackCode.stabilizeTransition ||
-      RangeRepFeedbackCode.maintainForm => FeedbackDeliveryKind.corrective,
-    };
-  }
-
-  FeedbackDeliveryCue _holdFeedbackDeliveryCue(
-    HoldCoordinatorStateSnapshot snapshot, {
-    required String feedbackMessage,
-  }) {
-    final feedbackCode = snapshot.holdFeedbackCode;
-    if (feedbackCode == null) {
-      return FeedbackDeliveryCue(
-        id: 'hold:fallback:$feedbackMessage',
-        message: feedbackMessage,
-        kind: FeedbackDeliveryKind.status,
-      );
-    }
-
-    return FeedbackDeliveryCue(
-      id: 'hold:${feedbackCode.code}',
-      message: feedbackMessage,
-      kind: _deliveryKindForHoldFeedback(feedbackCode),
+    return _feedbackResolver.resolveHold(
+      code: snapshot.holdFeedbackCode,
+      localizations: ref.read(appLocalizationsProvider),
     );
-  }
-
-  FeedbackDeliveryKind _deliveryKindForHoldFeedback(HoldFeedbackCode code) {
-    return switch (code) {
-      HoldFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
-      HoldFeedbackCode.preparePosition ||
-      HoldFeedbackCode.holdPosition => FeedbackDeliveryKind.status,
-      HoldFeedbackCode.alignHips ||
-      HoldFeedbackCode.liftHips ||
-      HoldFeedbackCode.adjustElbowSupport ||
-      HoldFeedbackCode.placeSupportElbowUnderShoulder ||
-      HoldFeedbackCode.useForearmSupport ||
-      HoldFeedbackCode.extendLegs ||
-      HoldFeedbackCode.increaseHollowCompression ||
-      HoldFeedbackCode.extendArmsOverhead ||
-      HoldFeedbackCode.straightenKnees ||
-      HoldFeedbackCode.adjustWallSitDepth ||
-      HoldFeedbackCode.alignWallSitTorso ||
-      HoldFeedbackCode.correctForm => FeedbackDeliveryKind.corrective,
-    };
   }
 
   void handleManualPause() {
@@ -1478,37 +1045,4 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
     _updateDiagnosticsFromState();
   }
-
-  String _resolveHoldFeedbackMessage(HoldCoordinatorStateSnapshot snapshot) {
-    final feedbackCode = snapshot.holdFeedbackCode;
-    if (feedbackCode != null) {
-      return mapHoldFeedbackCodeToMessage(
-        feedbackCode,
-        localizations: ref.read(appLocalizationsProvider),
-      );
-    }
-
-    return mapHoldFeedbackCodeToMessage(
-      HoldFeedbackCode.preparePosition,
-      localizations: ref.read(appLocalizationsProvider),
-    );
-  }
-}
-
-enum _PoseFrameKind { noPose, rejected, pendingAcceptance, accepted }
-
-class _DetectedPoseFrame {
-  const _DetectedPoseFrame({
-    required this.metrics,
-    required this.kind,
-    this.didBecomeStableTracking = false,
-    this.qualityAcceptedRangeRepSides,
-    this.preferredRangeRepSide,
-  });
-
-  final ExerciseMetrics metrics;
-  final _PoseFrameKind kind;
-  final bool didBecomeStableTracking;
-  final Set<RangeRepSide>? qualityAcceptedRangeRepSides;
-  final RangeRepSide? preferredRangeRepSide;
 }

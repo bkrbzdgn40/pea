@@ -84,7 +84,9 @@ void main() {
 
         expect(first.kind, FramePosePipelineResultKind.pendingAcceptance);
         expect(first.invalidatesRangeRepTemporalHistory, isTrue);
+        expect(first.timings, isNull);
         expect(second.kind, FramePosePipelineResultKind.accepted);
+        expect(second.timings, isNull);
         expect(second.invalidatesRangeRepTemporalHistory, isFalse);
         expect(second.selectedPose, same(acceptedPose));
         expect(
@@ -97,6 +99,31 @@ void main() {
         );
       },
     );
+
+    test('profiled input-image processing exposes stage timings', () async {
+      final pipeline = WorkoutFramePosePipeline(collectStageTimings: true);
+      final detector = TestQueuedPoseDetector()
+        ..enqueue(<Pose>[buildSquatPose(angle: 170)]);
+      final poseQualityPolicy = const PoseQualityPolicy();
+
+      final result = await pipeline.processInputImage(
+        inputImage: dummyInputImage(),
+        detector: detector,
+        assessPose: (pose) => poseQualityPolicy.assess(
+          pose: pose,
+          config: buildSquatConfig(),
+          engineKind: EngineKind.rangeRep,
+          rangeRepContract: RangeRepContracts.squat,
+        ),
+      );
+
+      final timings = result.timings;
+      expect(timings, isNotNull);
+      expect(timings!.conversionDuration, isNull);
+      expect(timings.poseDetectionDuration, isNotNull);
+      expect(timings.candidateEvaluationDuration, isNotNull);
+      expect(timings.totalDuration.isNegative, isFalse);
+    });
 
     test('missing and rejected pose results invalidate temporal history', () {
       expect(

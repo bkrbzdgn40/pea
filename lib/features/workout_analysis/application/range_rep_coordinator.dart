@@ -11,12 +11,15 @@ import '../domain/range_rep_validation_policy.dart';
 import 'analysis_frame_builder.dart';
 import 'calibration_snapshot_builder.dart';
 import 'exercise_metrics.dart';
+import 'range_rep_attempt_processor.dart';
 import 'range_rep_blocked_state_builder.dart';
+import 'range_rep_calibration_projector.dart';
 import 'range_rep_coordinator_base.dart' as base;
 import 'range_rep_exercise_analysis_extension.dart';
 import 'range_rep_exercise_analysis_extension_factory.dart';
 import 'range_rep_frame_policy.dart';
 import 'range_rep_rep_outcome_tracker.dart';
+import 'range_rep_rep_scoring_service.dart';
 import 'range_rep_side_policy.dart';
 import 'range_rep_side_stabilizer.dart';
 import 'range_rep_threshold_bookkeeper.dart';
@@ -42,6 +45,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
     RangeRepExerciseAnalysisExtensionFactory exerciseAnalysisExtensionFactory =
         const RangeRepExerciseAnalysisExtensionFactory(),
     LegacyRangeRepScorer scorer = const LegacyRangeRepScorer(),
+    RangeRepRepScoringService? repScoringService,
+    RangeRepAttemptProcessor? attemptProcessor,
+    RangeRepCalibrationProjector? calibrationProjector,
     LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
         const LegacyRangeRepTechniqueEvaluator(),
     LegacyRangeRepTechniqueHistoryTracker? techniqueHistoryTracker,
@@ -73,6 +79,9 @@ class DefaultRangeRepCoordinator extends base.DefaultRangeRepCoordinator {
          rangeRepContract: rangeRepContract,
          rangeRepValidationConfig: rangeRepValidationConfig,
          scorer: scorer,
+         repScoringService: repScoringService,
+         attemptProcessor: attemptProcessor,
+         calibrationProjector: calibrationProjector,
          techniqueEvaluator: techniqueEvaluator,
          techniqueHistoryTracker: techniqueHistoryTracker,
          analysisFrameBuilder: analysisFrameBuilder,

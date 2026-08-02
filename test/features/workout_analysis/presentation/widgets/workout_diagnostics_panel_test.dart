@@ -64,6 +64,23 @@ void main() {
     expect(find.text('5 sn'), findsOneWidget);
   });
 
+  testWidgets('pose detection timeout sayacini gosterir', (tester) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(analysisTimeoutCount: 2),
+      onReset: () {},
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Pose detection timeouts'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Pose detection timeouts'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+  });
+
   testWidgets('active range-rep signal roles render in canonical order', (
     tester,
   ) async {
@@ -449,7 +466,7 @@ void main() {
       expect(find.text('rangeRep'), findsOneWidget);
       activeSnapshot = _snapshot(analysisKind: 'hold');
 
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 2));
 
       expect(find.text('hold'), findsOneWidget);
     },
@@ -515,7 +532,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 10);
+    expect(decoded['schema_version'], 12);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -571,7 +588,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v10_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v12_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -643,7 +660,7 @@ void main() {
 
     expect(readCount, 1);
 
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 2));
     expect(readCount, 2);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -716,7 +733,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 10,
+  int schemaVersion = 12,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -731,6 +748,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
   int multiPoseFrameCount = 1,
   int maxPoseCount = 2,
   int analysisExceptionCount = 0,
+  int analysisTimeoutCount = 0,
   int resyncCount = 1,
   int sideSwitchCount = 2,
   int activeRepSideSwitchCount = 1,
@@ -818,6 +836,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
     multiPoseFrameCount: multiPoseFrameCount,
     maxPoseCount: maxPoseCount,
     analysisExceptionCount: analysisExceptionCount,
+    analysisTimeoutCount: analysisTimeoutCount,
     resyncCount: resyncCount,
     holdVisibilitySuspendCount: holdVisibilitySuspendCount,
     holdVisibilityRecoveryCount: holdVisibilityRecoveryCount,
@@ -881,5 +900,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
     frameProcessingMsP50: frameProcessingMsP50,
     frameProcessingMsP95: frameProcessingMsP95,
     frameProcessingMsMax: frameProcessingMsMax,
+    framePosePipelineTimings:
+        const WorkoutFramePosePipelineTimingSnapshot.empty(),
   );
 }

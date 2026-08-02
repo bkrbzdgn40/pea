@@ -1,0 +1,674 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_developer_ui_config.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
+
+import 'live_analysis_debug_panel.dart';
+import 'live_analysis_feedback.dart';
+import 'live_analysis_formatters.dart';
+import 'live_analysis_theme.dart';
+import 'live_analysis_top_bar.dart';
+
+class LiveAnalysisSidePanel extends ConsumerWidget {
+  const LiveAnalysisSidePanel({
+    super.key,
+    required this.isFinishing,
+    required this.onPause,
+    required this.onFinish,
+    required this.onToggleCalibration,
+    required this.showNonFinalSet,
+    required this.onAdvance,
+  });
+
+  final bool isFinishing;
+  final VoidCallback onPause;
+  final VoidCallback onFinish;
+  final VoidCallback? onToggleCalibration;
+  final bool showNonFinalSet;
+  final VoidCallback onAdvance;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final hasCanonicalMetrics =
+        workoutDeveloperUiEnabled &&
+        (liveMetrics.angleDegrees != null ||
+            liveMetrics.tempo != null ||
+            liveMetrics.stabilityScore != null ||
+            liveMetrics.asymmetryScore != null);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final useStackedLayout = constraints.maxWidth < 320 || textScale >= 1.5;
+
+        return ColoredBox(
+          key: const ValueKey<String>('live-analysis-side-panel'),
+          color: const Color(0xF0161B20),
+          child: SafeArea(
+            left: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _LiveSidePanelToolbar(
+                    stacked: useStackedLayout,
+                    pauseLabel: localizations.pauseWorkout,
+                    finishLabel: localizations.finish,
+                    isFinishing: isFinishing,
+                    onPause: onPause,
+                    onFinish: onFinish,
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      key: const ValueKey<String>('live-side-panel-scroll'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const WorkoutFeedbackStatus(
+                            compact: true,
+                            sidePanel: true,
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            key: const ValueKey<String>(
+                              'live-performance-header',
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            onLongPress: onToggleCalibration,
+                            child: useStackedLayout
+                                ? const Column(
+                                    key: ValueKey<String>(
+                                      'live-hud-stacked-metrics',
+                                    ),
+                                    children: <Widget>[
+                                      SizedBox(
+                                        height: 86,
+                                        child: _PrimaryWorkoutMetricCard(
+                                          compact: true,
+                                        ),
+                                      ),
+                                      SizedBox(height: 8),
+                                      SizedBox(
+                                        height: 86,
+                                        child: _SecondaryWorkoutMetricCard(
+                                          compact: true,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const SizedBox(
+                                    height: 78,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: <Widget>[
+                                        Expanded(
+                                          flex: 3,
+                                          child: _PrimaryWorkoutMetricCard(
+                                            compact: true,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 2,
+                                          child: _SecondaryWorkoutMetricCard(
+                                            compact: true,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                          if (hasCanonicalMetrics) ...<Widget>[
+                            const SizedBox(height: 8),
+                            LiveCanonicalMetricsBar(
+                              metrics: liveMetrics,
+                              compact: true,
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          WorkoutSetCompletedSection(
+                            compact: true,
+                            showNonFinal: showNonFinalSet,
+                            onAdvance: onAdvance,
+                          ),
+                          const SizedBox(height: 6),
+                          const RangeRepSideTrackingIndicator(compact: true),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LiveSidePanelToolbar extends StatelessWidget {
+  const _LiveSidePanelToolbar({
+    required this.stacked,
+    required this.pauseLabel,
+    required this.finishLabel,
+    required this.isFinishing,
+    required this.onPause,
+    required this.onFinish,
+  });
+
+  final bool stacked;
+  final String pauseLabel;
+  final String finishLabel;
+  final bool isFinishing;
+  final VoidCallback onPause;
+  final VoidCallback onFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    if (stacked) {
+      return Column(
+        key: const ValueKey<String>('live-hud-stacked-header'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const SizedBox(
+            height: 42,
+            child: ActiveExerciseTitle(compact: true, maxLines: 2),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: LiveHudActionButton(
+                  key: const ValueKey<String>('live-pause-button'),
+                  compact: true,
+                  label: pauseLabel,
+                  icon: Icons.pause_rounded,
+                  accentColor: liveHudAccent,
+                  onPressed: onPause,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LiveHudActionButton(
+                  key: const ValueKey<String>('live-finish-button'),
+                  compact: true,
+                  label: finishLabel,
+                  icon: Icons.stop_rounded,
+                  accentColor: Colors.white70,
+                  onPressed: isFinishing ? null : onFinish,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            flex: 4,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: LiveHudActionButton(
+                key: const ValueKey<String>('live-pause-button'),
+                compact: true,
+                label: pauseLabel,
+                icon: Icons.pause_rounded,
+                accentColor: liveHudAccent,
+                onPressed: onPause,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: 40,
+              child: ActiveExerciseTitle(compact: true),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            flex: 5,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: LiveHudActionButton(
+                key: const ValueKey<String>('live-finish-button'),
+                compact: true,
+                label: finishLabel,
+                icon: Icons.stop_rounded,
+                accentColor: Colors.white70,
+                onPressed: isFinishing ? null : onFinish,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
+  const LandscapeWorkoutMetricsOverlay({
+    super.key,
+    required this.topInset,
+    required this.onToggleCalibration,
+  });
+
+  final double topInset;
+  final VoidCallback? onToggleCalibration;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final hasCanonicalMetrics =
+        workoutDeveloperUiEnabled &&
+        (liveMetrics.angleDegrees != null ||
+            liveMetrics.tempo != null ||
+            liveMetrics.stabilityScore != null ||
+            liveMetrics.asymmetryScore != null);
+
+    return Positioned(
+      top: topInset + 58,
+      left: 14,
+      right: 14,
+      child: GestureDetector(
+        key: const ValueKey<String>('live-performance-header'),
+        behavior: HitTestBehavior.opaque,
+        onLongPress: onToggleCalibration,
+        child: SizedBox(
+          height: 72,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Expanded(
+                flex: 3,
+                child: _PrimaryWorkoutMetricCard(compact: true),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                flex: 2,
+                child: _SecondaryWorkoutMetricCard(compact: true),
+              ),
+              if (hasCanonicalMetrics) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
+                  child: LiveCanonicalMetricsBar(
+                    metrics: liveMetrics,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PrimaryWorkoutMetricsOverlay extends StatelessWidget {
+  const PrimaryWorkoutMetricsOverlay({
+    super.key,
+    required this.topInset,
+    required this.onToggleCalibration,
+  });
+
+  final double topInset;
+  final VoidCallback? onToggleCalibration;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: topInset + 82,
+      left: 16,
+      right: 16,
+      child: GestureDetector(
+        key: const ValueKey<String>('live-performance-header'),
+        behavior: HitTestBehavior.opaque,
+        onLongPress: onToggleCalibration,
+        child: const SizedBox(
+          height: 104,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
+              SizedBox(width: 10),
+              Expanded(flex: 2, child: _SecondaryWorkoutMetricCard()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryWorkoutMetricCard extends ConsumerWidget {
+  const _PrimaryWorkoutMetricCard({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metric = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          repCount: state.repCount,
+          holdSeconds: displayWholeSeconds(state.currentHoldSeconds),
+        ),
+      ),
+    );
+    final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
+    final localizations = AppLocalizations.of(context);
+    final value = isHoldAnalysis
+        ? formatHoldSeconds(metric.holdSeconds)
+        : metric.repCount.toString();
+
+    return _LiveMetricSurface(
+      key: const ValueKey<String>('live-primary-metric-card'),
+      label: isHoldAnalysis
+          ? localizations.holdMetric
+          : localizations.repMetric,
+      value: value,
+      valueStyle: TextStyle(
+        color: Colors.white,
+        fontSize: compact ? 34 : 52,
+        height: 0.96,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -1.5,
+      ),
+      icon: isHoldAnalysis ? Icons.timer_outlined : Icons.repeat_rounded,
+      accentColor: liveHudAccent,
+      emphasize: true,
+      compact: compact,
+    );
+  }
+}
+
+class _SecondaryWorkoutMetricCard extends ConsumerWidget {
+  const _SecondaryWorkoutMetricCard({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metric = ref.watch(
+      workoutControllerProvider.select(
+        (state) => (
+          analysisKind: state.analysisKind,
+          repCount: state.repCount,
+          bestHoldSeconds: displayWholeSeconds(state.bestHoldSeconds),
+          lastRepScore: displayScore(state.lastRepScore),
+          lastValidationStatus:
+              state.calibrationMetrics.lastRangeRepValidationStatus,
+        ),
+      ),
+    );
+    final isHoldAnalysis = metric.analysisKind == EngineKind.hold;
+    final localizations = AppLocalizations.of(context);
+    final isInvalidLastAttempt = metric.lastValidationStatus == 'invalid';
+    final isLowConfidenceLastRep =
+        metric.lastValidationStatus == 'low confidence' ||
+        metric.lastValidationStatus == 'lowConfidence';
+    final hasRepScore = metric.repCount > 0 && !isInvalidLastAttempt;
+    final String value;
+    if (isHoldAnalysis) {
+      value = formatHoldSeconds(metric.bestHoldSeconds);
+    } else if (hasRepScore) {
+      value = metric.lastRepScore.toString();
+    } else {
+      value = '—';
+    }
+
+    return _LiveMetricSurface(
+      key: const ValueKey<String>('live-secondary-metric-card'),
+      label: isHoldAnalysis
+          ? localizations.bestMetric
+          : localizations.formRangeScoreMetric,
+      value: value,
+      valueStyle: TextStyle(
+        color: isHoldAnalysis || hasRepScore
+            ? isLowConfidenceLastRep
+                  ? Colors.amberAccent
+                  : liveHudAccent
+            : Colors.white54,
+        fontSize: compact ? 24 : 31,
+        height: 1,
+        fontWeight: FontWeight.w800,
+      ),
+      icon: Icons.star_rounded,
+      accentColor: isHoldAnalysis || hasRepScore
+          ? isLowConfidenceLastRep
+                ? Colors.amberAccent
+                : liveHudAccent
+          : Colors.white38,
+      compact: compact,
+    );
+  }
+}
+
+class _LiveMetricSurface extends StatelessWidget {
+  const _LiveMetricSurface({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.valueStyle,
+    required this.icon,
+    required this.accentColor,
+    this.emphasize = false,
+    this.compact = false,
+  });
+
+  final String label;
+  final String value;
+  final TextStyle valueStyle;
+  final IconData icon;
+  final Color accentColor;
+  final bool emphasize;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$label $value',
+      excludeSemantics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: compact ? 8 : 12,
+        ),
+        decoration: liveHudSurfaceDecoration(
+          accentColor: accentColor,
+          strong: emphasize,
+          radius: compact ? 18 : 25,
+          surfaceColor: emphasize
+              ? liveHudMetricSurfaceStrong
+              : liveHudMetricSurface,
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: compact ? 28 : 36,
+              height: compact ? 28 : 36,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: accentColor.withValues(alpha: emphasize ? 0.65 : 0.42),
+                ),
+              ),
+              child: Icon(icon, color: accentColor, size: compact ? 16 : 21),
+            ),
+            SizedBox(width: compact ? 7 : 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.bottomLeft,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.92,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                          child: Text(
+                            value,
+                            key: ValueKey<String>(value),
+                            maxLines: 1,
+                            style: valueStyle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sentenceCaseLiveMetricLabel(label),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: accentColor == Colors.white38
+                          ? Colors.white38
+                          : Colors.white70,
+                      fontSize: compact ? 12 : 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CanonicalMetricsOverlay extends ConsumerWidget {
+  const CanonicalMetricsOverlay({super.key, required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    return Positioned(
+      top: topInset + 190,
+      left: 20,
+      right: 20,
+      child: LiveCanonicalMetricsBar(metrics: liveMetrics),
+    );
+  }
+}
+
+class CalibrationPanelOverlay extends ConsumerWidget {
+  const CalibrationPanelOverlay({
+    super.key,
+    required this.topInset,
+    required this.compact,
+    required this.onClose,
+  });
+
+  final double topInset;
+  final bool compact;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final workoutState = ref.watch(workoutControllerProvider);
+    final hasPlan = ref.watch(
+      workoutPlanSessionProvider.select((state) => state.hasPlan),
+    );
+
+    return Positioned(
+      top: topInset + (compact ? (hasPlan ? 192 : 140) : (hasPlan ? 366 : 294)),
+      bottom: compact ? 88 : null,
+      left: compact ? 14 : 20,
+      right: compact ? 14 : 20,
+      child: CalibrationDebugPanel(
+        workoutState: workoutState,
+        onClose: onClose,
+      ),
+    );
+  }
+}
+
+class PlannedResumeCountdownOverlay extends StatelessWidget {
+  const PlannedResumeCountdownOverlay({super.key, required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.62),
+        child: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  localizations.nextSetStarting,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Semantics(
+                  liveRegion: true,
+                  label: '$value',
+                  child: Text(
+                    '$value',
+                    key: ValueKey<String>('planned-resume-countdown-$value'),
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 104,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

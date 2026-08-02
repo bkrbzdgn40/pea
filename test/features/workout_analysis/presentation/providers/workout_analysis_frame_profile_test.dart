@@ -22,6 +22,7 @@ void main() {
     );
 
     expect(pipeline.analysisFrameInterval, const Duration(milliseconds: 50));
+    expect(pipeline.collectStageTimings, isTrue);
   });
 
   test('ordinary exercises keep the shared 100 ms analysis interval', () {
@@ -38,5 +39,6 @@ void main() {
     );
 
     expect(pipeline.analysisFrameInterval, const Duration(milliseconds: 100));
+    expect(pipeline.collectStageTimings, isTrue);
   });
 }

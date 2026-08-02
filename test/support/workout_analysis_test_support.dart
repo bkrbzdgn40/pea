@@ -354,6 +354,58 @@ Pose buildBicepsCurlPose({
   return Pose(landmarks: landmarks);
 }
 
+Pose buildPushUpPose({
+  required double elbowAngle,
+  double defaultLikelihood = 0.95,
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final radians = elbowAngle * (math.pi / 180.0);
+  const shoulder = math.Point<double>(0, 2);
+  const elbow = math.Point<double>(1, 2);
+  final wrist = math.Point<double>(
+    elbow.x - math.cos(radians),
+    elbow.y - math.sin(radians),
+  );
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+    landmarks[type] = buildLandmark(type, x, y, likelihood: defaultLikelihood);
+  }
+
+  addLandmark(PoseLandmarkType.leftShoulder, shoulder.x, shoulder.y);
+  addLandmark(PoseLandmarkType.leftElbow, elbow.x, elbow.y);
+  addLandmark(PoseLandmarkType.leftWrist, wrist.x, wrist.y);
+  addLandmark(PoseLandmarkType.leftHip, 2, 2);
+  addLandmark(PoseLandmarkType.leftAnkle, 4, 2);
+
+  return Pose(landmarks: landmarks);
+}
+
+Pose buildWallSitPose({
+  double defaultLikelihood = 0.95,
+  Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
+}) {
+  final landmarks = <PoseLandmarkType, PoseLandmark>{};
+
+  void addLandmark(PoseLandmarkType type, double x, double y) {
+    if (missingLandmarks.contains(type)) {
+      return;
+    }
+    landmarks[type] = buildLandmark(type, x, y, likelihood: defaultLikelihood);
+  }
+
+  addLandmark(PoseLandmarkType.leftEar, -2, 0);
+  addLandmark(PoseLandmarkType.leftShoulder, -1, 0);
+  addLandmark(PoseLandmarkType.leftHip, 0, 0);
+  addLandmark(PoseLandmarkType.leftKnee, 0, 1);
+  addLandmark(PoseLandmarkType.leftAnkle, 1, 1);
+
+  return Pose(landmarks: landmarks);
+}
+
 Pose buildPlankPose({
   double defaultLikelihood = 0.95,
   Set<PoseLandmarkType> missingLandmarks = const <PoseLandmarkType>{},
