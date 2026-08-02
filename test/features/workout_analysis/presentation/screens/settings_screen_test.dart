@@ -93,8 +93,9 @@ void main() {
     final action = find.byKey(
       const ValueKey<String>('settings-delete-all-history'),
     );
-    await tester.scrollUntilVisible(action, 240);
-    await tester.tap(action);
+    await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
+    await tester.tap(action.hitTestable());
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('confirm-delete-all-history')),
