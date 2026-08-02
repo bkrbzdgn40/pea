@@ -75,7 +75,7 @@ void main() {
 
     test(
       'rejected poses do not reach the engine and diagnostics stay in schema '
-      'v9',
+      'v10',
       () async {
         await _analyzeFrame(controller, detector, <Pose>[
           _squatPose(angle: 170, defaultLikelihood: 0.40),
@@ -89,7 +89,7 @@ void main() {
         final json = snapshot.toJson();
 
         expect(state.repCount, 0);
-        expect(snapshot.schemaVersion, 9);
+        expect(snapshot.schemaVersion, 10);
         expect(snapshot.exerciseType, 'squat');
         expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
         expect(snapshot.contractProfile, 'rangeRep:squat');
@@ -105,7 +105,7 @@ void main() {
         expect(snapshot.poseQualitySampleCount, 2);
         expect(snapshot.minimumRequiredLikelihoodP50, 0.40);
         expect(snapshot.meanRequiredLikelihoodP50, 0.40);
-        expect(json['schema_version'], 9);
+        expect(json['schema_version'], 10);
         expect(json['exercise_type'], 'squat');
         expect(
           snapshot.cameraViewContract,
@@ -160,6 +160,20 @@ void main() {
         expect(snapshot.rejectedPoseFrameCount, 0);
         expect(snapshot.acceptedPoseFrameCount, 1);
         expect(snapshot.currentPoseQualityStatus, 'accepted');
+        expect(snapshot.currentLeftMeasurementConfidence, isNotNull);
+        expect(snapshot.currentRightMeasurementConfidence, isNotNull);
+        expect(
+          snapshot.leftRangeRepSideConfidence,
+          snapshot.currentLeftMeasurementConfidence?.combined,
+        );
+        expect(
+          snapshot.rightRangeRepSideConfidence,
+          snapshot.currentRightMeasurementConfidence?.combined,
+        );
+        expect(
+          snapshot.toJson()['current_left_measurement_confidence'],
+          isA<Map<String, Object?>>(),
+        );
         expect(state.currentAngle, closeTo(170.0, 0.001));
       },
     );

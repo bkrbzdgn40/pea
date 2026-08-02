@@ -22,6 +22,7 @@ import '../camera_image_stream_coordinator.dart';
 import '../errors/workout_camera_error_presentation.dart';
 import '../models/live_pause_state.dart';
 import '../models/preparation_camera_geometry.dart';
+import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../models/range_rep_outcome_view_data.dart';
 import '../models/live_tracking_state.dart';
 import '../models/setup_readiness_view_data.dart';
@@ -2814,7 +2815,12 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
     return Semantics(
       container: true,
       liveRegion: true,
-      label: '${presentation.title}. ${presentation.message}',
+      label: <String>[
+        presentation.title,
+        presentation.message,
+        if (presentation.measurementConfidenceLabel != null)
+          presentation.measurementConfidenceLabel!,
+      ].join('. '),
       excludeSemantics: true,
       child: AnimatedContainer(
         key: const ValueKey<String>('live-feedback-message-card'),
@@ -2893,6 +2899,22 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (presentation.measurementConfidenceLabel !=
+                      null) ...<Widget>[
+                    const SizedBox(height: 7),
+                    Text(
+                      presentation.measurementConfidenceLabel!,
+                      key: const ValueKey<String>(
+                        'live-measurement-confidence',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        height: 1.15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ],
               )
             : Row(
@@ -2956,6 +2978,24 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (presentation.measurementConfidenceLabel !=
+                            null) ...<Widget>[
+                          SizedBox(height: compact ? 3 : 5),
+                          Text(
+                            presentation.measurementConfidenceLabel!,
+                            key: const ValueKey<String>(
+                              'live-measurement-confidence',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: compact ? 10 : 12,
+                              height: 1.1,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -3000,6 +3040,11 @@ _FeedbackPresentation _feedbackPresentation({
   if (repOutcome != null) {
     return switch (repOutcome.tone) {
       RangeRepOutcomeTone.positive => _FeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         accentColor: _liveHudAccent,
@@ -3007,6 +3052,11 @@ _FeedbackPresentation _feedbackPresentation({
         kind: _WorkoutFeedbackKind.repOutcome,
       ),
       RangeRepOutcomeTone.caution => _FeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         accentColor: Colors.amberAccent,
@@ -3014,6 +3064,11 @@ _FeedbackPresentation _feedbackPresentation({
         kind: _WorkoutFeedbackKind.repOutcome,
       ),
       RangeRepOutcomeTone.invalid => _FeedbackPresentation(
+        measurementConfidenceLabel:
+            MeasurementConfidencePresentationFormatter.liveLabel(
+              localizations,
+              repOutcome.measurementConfidenceScore,
+            ),
         title: repOutcome.title,
         message: repOutcome.message,
         accentColor: Colors.orangeAccent,
@@ -3024,6 +3079,7 @@ _FeedbackPresentation _feedbackPresentation({
   }
 
   return _FeedbackPresentation(
+    measurementConfidenceLabel: null,
     title: localizations.workoutPhaseLabel(feedback.currentPhase),
     message: feedback.message,
     accentColor: feedback.isFormBad ? Colors.amberAccent : _liveHudAccent,
@@ -3034,6 +3090,7 @@ _FeedbackPresentation _feedbackPresentation({
 
 class _FeedbackPresentation {
   const _FeedbackPresentation({
+    required this.measurementConfidenceLabel,
     required this.title,
     required this.message,
     required this.accentColor,
@@ -3041,6 +3098,7 @@ class _FeedbackPresentation {
     required this.kind,
   });
 
+  final String? measurementConfidenceLabel;
   final String title;
   final String message;
   final Color accentColor;

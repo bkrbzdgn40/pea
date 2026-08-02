@@ -254,6 +254,46 @@ void main() {
       },
     );
 
+    test('ignores a split-stance ankle outlier when foot points agree', () {
+      final assessment = evaluator.evaluate(
+        contract: _contractFor(ExerciseType.lunge),
+        pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+          SetupStartPoseJoint.leftShoulder: _point(0.5, 0.2),
+          SetupStartPoseJoint.leftHip: _point(0.5, 0.45),
+          SetupStartPoseJoint.leftAnkle: _point(0.70, 0.85),
+          SetupStartPoseJoint.leftHeel: _point(0.25, 0.85),
+          SetupStartPoseJoint.leftFootIndex: _point(0.20, 0.86),
+          SetupStartPoseJoint.rightAnkle: _point(0.75, 0.85),
+        }),
+      );
+
+      expect(assessment.status, SetupStartPoseStatus.matched);
+      expect(
+        assessment.passedChecks,
+        contains(SetupStartPoseCheck.splitStance),
+      );
+    });
+
+    test('ignores the mirrored split-stance ankle outlier', () {
+      final assessment = evaluator.evaluate(
+        contract: _contractFor(ExerciseType.lunge),
+        pose: _pose(<SetupStartPoseJoint, SetupStartPosePoint>{
+          SetupStartPoseJoint.leftShoulder: _point(0.5, 0.2),
+          SetupStartPoseJoint.leftHip: _point(0.5, 0.45),
+          SetupStartPoseJoint.leftAnkle: _point(0.25, 0.85),
+          SetupStartPoseJoint.rightAnkle: _point(0.30, 0.85),
+          SetupStartPoseJoint.rightHeel: _point(0.75, 0.85),
+          SetupStartPoseJoint.rightFootIndex: _point(0.80, 0.86),
+        }),
+      );
+
+      expect(assessment.status, SetupStartPoseStatus.matched);
+      expect(
+        assessment.passedChecks,
+        contains(SetupStartPoseCheck.splitStance),
+      );
+    });
+
     test('matches bent-knee leg raise when the camera-near knee is bent', () {
       final assessment = evaluator.evaluate(
         contract: _contractFor(ExerciseType.bentKneeLegRaise),

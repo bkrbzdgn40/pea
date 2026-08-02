@@ -332,7 +332,7 @@ ValidatedRepEvent _event({
     hadCoverageDrop: summary.hadCoverageDrop,
     switchedSideDuringRep: summary.switchedSideDuringRep,
     completedPhaseSequence: summary.completedPhaseSequence,
-    measurementConfidence: summary.confidence,
+    measurementConfidence: summary.measurementConfidence,
     coverageQuality: summary.coverageQuality,
     finalScore: validation.shouldPublishScore ? 90 : null,
     tempoAssessment: null,

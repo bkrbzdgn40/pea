@@ -71,6 +71,21 @@ class FramePosePipelineResult {
   final bool didBecomeStableTracking;
 
   bool get ranPoseDetection => poseCount != null;
+
+  /// Whether this result breaks frame-to-frame range-rep continuity.
+  ///
+  /// Converter drops do not contain pose evidence and accepted frames continue
+  /// history. Missing, rejected, and stabilization-pending pose results require
+  /// the next accepted frame to start a fresh temporal history.
+  bool get invalidatesRangeRepTemporalHistory {
+    return switch (kind) {
+      FramePosePipelineResultKind.noPose ||
+      FramePosePipelineResultKind.rejected ||
+      FramePosePipelineResultKind.pendingAcceptance => true,
+      FramePosePipelineResultKind.converterDrop ||
+      FramePosePipelineResultKind.accepted => false,
+    };
+  }
 }
 
 /// Owns the family-independent camera-frame and pose candidate processing flow.

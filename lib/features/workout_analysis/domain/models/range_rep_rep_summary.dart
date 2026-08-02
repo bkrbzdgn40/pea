@@ -1,6 +1,8 @@
+import 'measurement_confidence_breakdown.dart';
+
 /// Lean rep-level input for future range-rep validation policies.
 class RangeRepRepSummary {
-  const RangeRepRepSummary({
+  RangeRepRepSummary({
     required this.repIndex,
     required this.minAngle,
     required this.worstFormMetric,
@@ -14,10 +16,20 @@ class RangeRepRepSummary {
     this.analysisKindLabel,
     this.startAngle,
     this.primaryRom,
-    this.confidence,
+    MeasurementConfidenceBreakdown? measurementConfidence,
+    double? confidence,
     this.coverageQuality,
     this.totalRepDuration,
-  });
+  }) : assert(
+         confidence == null ||
+             measurementConfidence == null ||
+             confidence == measurementConfidence.combined,
+       ),
+       measurementConfidence =
+           measurementConfidence ??
+           (confidence == null
+               ? null
+               : MeasurementConfidenceBreakdown.legacyScalar(confidence));
 
   final int repIndex;
   final double minAngle;
@@ -33,6 +45,9 @@ class RangeRepRepSummary {
   final String? analysisKindLabel;
   final double? startAngle;
   final double? primaryRom;
-  final double? confidence;
+  final MeasurementConfidenceBreakdown? measurementConfidence;
   final double? coverageQuality;
+
+  /// Temporary compatibility view. The breakdown remains the only source.
+  double? get confidence => measurementConfidence?.combined;
 }

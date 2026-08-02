@@ -110,6 +110,40 @@ void main() {
     expect(controller.state.countdownValue, 2);
   });
 
+  test('pauses countdown for a transient start-pose mismatch', () async {
+    var now = startedAt;
+    final controller = PreparationStartGateController(
+      thresholds: PreparationStartGateThresholds(
+        manualOverrideDelay: const Duration(seconds: 10),
+        countdownStepDuration: const Duration(milliseconds: 250),
+      ),
+      clock: () => now,
+      initialReadiness: _snapshot(SetupReadinessPhase.ready, now),
+    );
+    addTearDown(controller.dispose);
+
+    controller.arm();
+    now = now.add(const Duration(milliseconds: 70));
+    controller.updateReadiness(
+      _snapshot(
+        SetupReadinessPhase.temporarilyLost,
+        now,
+        rawPhase: SetupReadinessPhase.startPoseMissing,
+      ),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(controller.state.countdownValue, 3);
+
+    now = now.add(const Duration(milliseconds: 250));
+    controller.updateReadiness(_snapshot(SetupReadinessPhase.ready, now));
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(controller.state.countdownValue, 3);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(controller.state.countdownValue, 2);
+  });
+
   test(
     'cancels a paused countdown after readiness loss becomes conclusive',
     () async {
@@ -241,15 +275,16 @@ void main() {
 
 SetupReadinessSnapshot _snapshot(
   SetupReadinessPhase phase,
-  DateTime timestamp,
-) {
+  DateTime timestamp, {
+  SetupReadinessPhase? rawPhase,
+}) {
   return SetupReadinessSnapshot(
     phase: phase,
     evidence: const SetupReadinessEvidence(),
     enteredAt: timestamp,
     updatedAt: timestamp,
     diagnostics: SetupReadinessDiagnosticsSnapshot(
-      rawPhase: phase,
+      rawPhase: rawPhase ?? phase,
       framingStatus: null,
       cameraViewStatus: null,
       startPoseStatus: null,

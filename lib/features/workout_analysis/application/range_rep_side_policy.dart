@@ -11,6 +11,8 @@ enum RangeRepSideSelectionReason {
   switchedToMovingSide,
   keptMovingSide,
   selectedPreferredQuality,
+  selectedHigherMeasurementConfidence,
+  switchedToHigherMeasurementConfidence,
   selectedLeftTie,
   keptPreviousSideWithoutCoverage,
   noAvailableSide,
@@ -62,6 +64,10 @@ class RangeRepSideSelection {
         return 'kept moving side';
       case RangeRepSideSelectionReason.selectedPreferredQuality:
         return 'selected preferred quality';
+      case RangeRepSideSelectionReason.selectedHigherMeasurementConfidence:
+        return 'selected higher measurement confidence';
+      case RangeRepSideSelectionReason.switchedToHigherMeasurementConfidence:
+        return 'switched to higher measurement confidence';
       case RangeRepSideSelectionReason.selectedLeftTie:
         return 'selected left tie';
       case RangeRepSideSelectionReason.keptPreviousSideWithoutCoverage:
@@ -73,7 +79,11 @@ class RangeRepSideSelection {
 }
 
 class RangeRepSidePolicy {
-  const RangeRepSidePolicy();
+  const RangeRepSidePolicy({this.confidencePreferenceMargin = 0.05})
+    : assert(confidencePreferenceMargin >= 0.0),
+      assert(confidencePreferenceMargin <= 1.0);
+
+  final double confidencePreferenceMargin;
 
   RangeRepSideSelection select({
     required ExerciseMetrics metrics,
@@ -130,6 +140,21 @@ class RangeRepSidePolicy {
           leftMetrics: leftMetrics,
           rightMetrics: rightMetrics,
           reason: RangeRepSideSelectionReason.switchedToHigherCoverage,
+        );
+      }
+
+      if (alternateMetrics.coverageScore == previousMetrics.coverageScore &&
+          alternateMetrics.coverageScore > 0 &&
+          _hasMeaningfulConfidenceAdvantage(
+            alternateMetrics,
+            previousMetrics,
+          )) {
+        return RangeRepSideSelection(
+          selectedSide: alternateMetrics.side,
+          leftMetrics: leftMetrics,
+          rightMetrics: rightMetrics,
+          reason:
+              RangeRepSideSelectionReason.switchedToHigherMeasurementConfidence,
         );
       }
 
@@ -201,6 +226,23 @@ class RangeRepSidePolicy {
       );
     }
 
+    if (_hasMeaningfulConfidenceAdvantage(rightMetrics, leftMetrics)) {
+      return RangeRepSideSelection(
+        selectedSide: RangeRepSide.right,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.selectedHigherMeasurementConfidence,
+      );
+    }
+    if (_hasMeaningfulConfidenceAdvantage(leftMetrics, rightMetrics)) {
+      return RangeRepSideSelection(
+        selectedSide: RangeRepSide.left,
+        leftMetrics: leftMetrics,
+        rightMetrics: rightMetrics,
+        reason: RangeRepSideSelectionReason.selectedHigherMeasurementConfidence,
+      );
+    }
+
     if (preferredSide != null) {
       final preferredMetrics = preferredSide == RangeRepSide.left
           ? leftMetrics
@@ -221,5 +263,21 @@ class RangeRepSidePolicy {
       rightMetrics: rightMetrics,
       reason: RangeRepSideSelectionReason.selectedLeftTie,
     );
+  }
+
+  bool _hasMeaningfulConfidenceAdvantage(
+    RangeRepSideMetrics candidate,
+    RangeRepSideMetrics reference,
+  ) {
+    final candidateConfidence = candidate.measurementConfidence?.combined;
+    final referenceConfidence = reference.measurementConfidence?.combined;
+    if (candidateConfidence == null) {
+      return false;
+    }
+    if (referenceConfidence == null) {
+      return true;
+    }
+    return candidateConfidence - referenceConfidence >=
+        confidencePreferenceMargin;
   }
 }

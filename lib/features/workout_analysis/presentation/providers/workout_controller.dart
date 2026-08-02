@@ -24,6 +24,7 @@ import '../../application/prepared_exercise_analysis_context.dart';
 import '../../application/range_rep_coordinator.dart';
 import '../../application/range_rep_primary_metric_normalizer.dart';
 import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
+import '../../application/range_rep_temporal_continuity_tracker.dart';
 import '../../application/validated_rep_event_tracker.dart';
 import '../../application/workout_state.dart';
 import '../../application/workout_diagnostics.dart';
@@ -203,6 +204,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   ValidatedRepEventTracker? _validatedRepEventTracker;
   RangeRepCoordinator? _rangeRepCoordinator;
   RangeRepPrimaryMetricNormalizer? _primaryMetricNormalizer;
+  RangeRepTemporalContinuityTracker? _rangeRepTemporalContinuityTracker;
+  bool _hasTemporalCameraContext = false;
+  int? _temporalSensorOrientation;
+  CameraLensDirection? _temporalCameraLensDirection;
+  DeviceOrientation? _temporalDeviceOrientation;
   HoldCoordinator? _holdCoordinator;
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   int? _liveMetricsRepCount;
@@ -259,6 +265,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _liveMetricsAlternatingRepCount = null;
     _liveMetricsTempo = null;
     _liveMetricsAsymmetryScore = null;
+    _hasTemporalCameraContext = false;
+    _temporalSensorOrientation = null;
+    _temporalCameraLensDirection = null;
+    _temporalDeviceOrientation = null;
     switch (_engineKind) {
       case EngineKind.rangeRep:
         final rangeRepContract =
@@ -282,6 +292,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           config: _config,
           rangeRepContract: rangeRepContract,
         );
+        _rangeRepTemporalContinuityTracker =
+            RangeRepTemporalContinuityTracker();
         _rangeRepCoordinator = rangeRepCoordinatorFactory(
           engine: rangeRepEngine,
           config: _config,
@@ -303,6 +315,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         _validatedRepEventTracker = null;
         _rangeRepCoordinator = null;
         _primaryMetricNormalizer = null;
+        _rangeRepTemporalContinuityTracker = null;
         _holdCoordinator = holdCoordinatorFactory(
           engine: holdEngine,
           config: _config,
@@ -396,6 +409,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     DeviceOrientation? deviceOrientation,
   }) async {
     final now = _clock();
+    _resetTemporalHistoryIfCameraContextChanged(
+      sensorOrientation: sensorOrientation,
+      cameraLensDirection: cameraLensDirection,
+      deviceOrientation: deviceOrientation,
+    );
     if (_isDiagnosticsEnabled) {
       _diagnostics
         ..recordCameraFrame()
@@ -499,6 +517,29 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
   }
 
+  void _resetTemporalHistoryIfCameraContextChanged({
+    required int sensorOrientation,
+    required CameraLensDirection? cameraLensDirection,
+    required DeviceOrientation? deviceOrientation,
+  }) {
+    if (_engineKind != EngineKind.rangeRep) {
+      return;
+    }
+
+    final contextChanged =
+        _hasTemporalCameraContext &&
+        (_temporalSensorOrientation != sensorOrientation ||
+            _temporalCameraLensDirection != cameraLensDirection ||
+            _temporalDeviceOrientation != deviceOrientation);
+    if (contextChanged) {
+      _rangeRepTemporalContinuityTracker?.reset();
+    }
+    _hasTemporalCameraContext = true;
+    _temporalSensorOrientation = sensorOrientation;
+    _temporalCameraLensDirection = cameraLensDirection;
+    _temporalDeviceOrientation = deviceOrientation;
+  }
+
   void _consumeFramePosePipelineResult(
     FramePosePipelineResult result, {
     required DateTime frameCapturedAt,
@@ -520,7 +561,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
 
     _updatePoseDiagnosticsFromPipelineResult(result);
     _updateLiveTrackingFromPipelineResult(result, now: frameCapturedAt);
-    final detectedFrame = _detectedPoseFrameFromPipelineResult(result);
+    if (result.invalidatesRangeRepTemporalHistory) {
+      _rangeRepTemporalContinuityTracker?.reset();
+    }
+    final detectedFrame = _detectedPoseFrameFromPipelineResult(
+      result,
+      observedAt: frameCapturedAt,
+    );
     _processExerciseMetrics(
       metrics: detectedFrame.metrics,
       now: frameCapturedAt,
@@ -623,8 +670,9 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   }
 
   _DetectedPoseFrame _detectedPoseFrameFromPipelineResult(
-    FramePosePipelineResult result,
-  ) {
+    FramePosePipelineResult result, {
+    required DateTime observedAt,
+  }) {
     switch (result.kind) {
       case FramePosePipelineResultKind.noPose:
         return const _DetectedPoseFrame(
@@ -657,6 +705,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           rangeRepContract: _rangeRepContract,
           holdContract: _holdContract,
           preparedContext: _preparedAnalysisContext,
+          poseQualityAssessment: selectedAssessment,
           holdSide: _engineKind == EngineKind.hold
               ? _holdCoordinatorOrThrow().selectHoldSideForAcceptedPose(
                   selectedAssessment,
@@ -667,9 +716,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
           pose: selectedPose,
           metrics: extractedMetrics,
         );
+        final baseMetrics = normalizedMetrics ?? extractedMetrics;
+        final confidenceMetrics = _rangeRepTemporalContinuityTracker
+            ?.updateMetrics(
+              pose: selectedPose,
+              metrics: baseMetrics,
+              preparedContext: _preparedAnalysisContext,
+              observedAt: observedAt,
+            );
 
         return _DetectedPoseFrame(
-          metrics: normalizedMetrics ?? extractedMetrics,
+          metrics: confidenceMetrics ?? baseMetrics,
           kind: _PoseFrameKind.accepted,
           didBecomeStableTracking: result.didBecomeStableTracking,
           qualityAcceptedRangeRepSides:
@@ -762,6 +819,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     }
     if (result.shouldResetPoseAcceptance) {
       _poseAcceptanceStabilizer.reset();
+      _rangeRepTemporalContinuityTracker?.reset();
+    }
+    if (result.diagnosticsUpdate.visibilityStatus == 'hard_resync') {
+      _rangeRepTemporalContinuityTracker?.reset();
     }
     final hasCompletedRepOutcome =
         result.diagnosticsUpdate.completedRepValidationStatus != null;
@@ -866,6 +927,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       localizations: ref.read(appLocalizationsProvider),
       exerciseType: _activeExercise,
       tempoAssessment: tempoAssessment,
+      measurementConfidence: event.measurementConfidence,
       towardPeakIsEccentric:
           _rangeRepContract?.towardPeakMuscleAction ==
           RangeRepTowardPeakMuscleAction.eccentric,
@@ -1157,6 +1219,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         statusCode: validationStatus,
         reasonCodes: update.completedRepValidationReasons,
         tempoDiagnosticReasonCodes: update.completedRepTempoDiagnosticReasons,
+        measurementConfidence: update.completedRepMeasurementConfidence,
       );
     }
   }
@@ -1215,6 +1278,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
             timingDiagnostics.lastTempoMeasurementAssessment,
         nonMonotonicObservationCount:
             timingDiagnostics.nonMonotonicObservationCount,
+        currentLeftMeasurementConfidence:
+            _lastExerciseMetrics.leftRangeRepMetrics.measurementConfidence,
+        currentRightMeasurementConfidence:
+            _lastExerciseMetrics.rightRangeRepMetrics.measurementConfidence,
       );
       return;
     }
@@ -1389,6 +1456,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (_engineKind == EngineKind.rangeRep) {
       _poseAcceptanceStabilizer.reset();
       _primaryMetricNormalizer?.reset();
+      _rangeRepTemporalContinuityTracker?.reset();
       _publishRangeRepState(
         _rangeRepCoordinatorOrThrow().handleLifecycleInterruption(
           reason: reason ?? 'lifecycle interruption',

@@ -4,6 +4,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
@@ -594,7 +595,7 @@ ValidatedRepEvent _validatedEvent({
     hadCoverageDrop: false,
     switchedSideDuringRep: false,
     completedPhaseSequence: true,
-    measurementConfidence: 1,
+    measurementConfidence: const MeasurementConfidenceBreakdown.legacyScalar(1),
     coverageQuality: 1,
     finalScore: status == RangeRepValidationStatus.invalid ? null : 90,
     tempoAssessment: null,

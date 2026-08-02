@@ -39,6 +39,50 @@ void main() {
     expect(ready.diagnostics.stabilityProgress, 1);
   });
 
+  test('treats a brief start-pose mismatch as temporary loss', () {
+    final machine = SetupReadinessStateMachine(thresholds: thresholds);
+    machine.reset(now: startedAt);
+    machine.update(evidence: _validEvidence(), now: startedAt);
+    machine.update(
+      evidence: _validEvidence(),
+      now: startedAt.add(const Duration(seconds: 1)),
+    );
+
+    final lost = machine.update(
+      evidence: _evidence(startPoseStatus: SetupStartPoseStatus.notMatched),
+      now: startedAt.add(const Duration(milliseconds: 1100)),
+    );
+    final recovered = machine.update(
+      evidence: _validEvidence(),
+      now: startedAt.add(const Duration(milliseconds: 1350)),
+    );
+
+    expect(lost.phase, SetupReadinessPhase.temporarilyLost);
+    expect(lost.diagnostics.rawPhase, SetupReadinessPhase.startPoseMissing);
+    expect(recovered.phase, SetupReadinessPhase.ready);
+  });
+
+  test('surfaces a sustained start-pose mismatch after grace expires', () {
+    final machine = SetupReadinessStateMachine(thresholds: thresholds);
+    machine.reset(now: startedAt);
+    machine.update(evidence: _validEvidence(), now: startedAt);
+    machine.update(
+      evidence: _validEvidence(),
+      now: startedAt.add(const Duration(seconds: 1)),
+    );
+    machine.update(
+      evidence: _evidence(startPoseStatus: SetupStartPoseStatus.notMatched),
+      now: startedAt.add(const Duration(milliseconds: 1100)),
+    );
+
+    final expired = machine.tick(
+      now: startedAt.add(const Duration(milliseconds: 1500)),
+    );
+
+    expect(expired.phase, SetupReadinessPhase.startPoseMissing);
+    expect(expired.isReady, isFalse);
+  });
+
   test('restores ready after a brief landmark loss', () {
     final machine = SetupReadinessStateMachine(thresholds: thresholds);
     machine.reset(now: startedAt);

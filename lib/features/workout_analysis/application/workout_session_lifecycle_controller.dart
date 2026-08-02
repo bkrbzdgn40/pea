@@ -301,7 +301,7 @@ class WorkoutSessionLifecycleController
       worstFormMetric: event.worstFormMetric,
       descentMillis: towardPeakMillis,
       ascentMillis: returnToNeutralMillis,
-      confidence: event.measurementConfidence,
+      measurementConfidence: event.measurementConfidence,
       primaryRom: event.primaryRom,
       eccentricMillis: eccentricMillis,
       concentricMillis: concentricMillis,

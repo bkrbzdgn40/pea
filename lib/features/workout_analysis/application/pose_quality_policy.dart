@@ -5,6 +5,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/hold_side.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_contract.dart';
 import 'engine_kind.dart';
 import 'exercise_landmark_requirements.dart';
@@ -57,12 +58,19 @@ class PoseQualityAssessment {
     required this.qualityScore,
     this.rejectionReason,
     Set<RangeRepSide> acceptedRangeRepSides = const <RangeRepSide>{},
+    Map<RangeRepSide, MeasurementConfidenceBreakdown>
+        rangeRepMeasurementConfidenceSeeds =
+        const <RangeRepSide, MeasurementConfidenceBreakdown>{},
     this.preferredRangeRepSide,
     Set<HoldSide> acceptedHoldSides = const <HoldSide>{},
     this.preferredHoldSide,
   }) : acceptedRangeRepSides = Set<RangeRepSide>.unmodifiable(
          acceptedRangeRepSides,
        ),
+       rangeRepMeasurementConfidenceSeeds =
+           Map<RangeRepSide, MeasurementConfidenceBreakdown>.unmodifiable(
+             rangeRepMeasurementConfidenceSeeds,
+           ),
        acceptedHoldSides = Set<HoldSide>.unmodifiable(acceptedHoldSides);
 
   final bool isAccepted;
@@ -72,12 +80,20 @@ class PoseQualityAssessment {
   final int requiredLandmarkCount;
   final int acceptedLandmarkCount;
   final Set<RangeRepSide> acceptedRangeRepSides;
+  final Map<RangeRepSide, MeasurementConfidenceBreakdown>
+  rangeRepMeasurementConfidenceSeeds;
   final RangeRepSide? preferredRangeRepSide;
   final Set<HoldSide> acceptedHoldSides;
   final HoldSide? preferredHoldSide;
   final double qualityScore;
 
   RangeRepSide? get acceptedSide => preferredRangeRepSide;
+
+  MeasurementConfidenceBreakdown? rangeRepMeasurementConfidenceFor(
+    RangeRepSide side,
+  ) {
+    return rangeRepMeasurementConfidenceSeeds[side];
+  }
 
   PoseQualityAssessment rejectedWith({
     required PoseRejectionReason rejectionReason,
@@ -93,6 +109,7 @@ class PoseQualityAssessment {
       requiredLandmarkCount: requiredLandmarkCount,
       acceptedLandmarkCount: acceptedLandmarkCount,
       acceptedRangeRepSides: acceptedRangeRepSides,
+      rangeRepMeasurementConfidenceSeeds: rangeRepMeasurementConfidenceSeeds,
       preferredRangeRepSide: preferredRangeRepSide,
       acceptedHoldSides: acceptedHoldSides,
       preferredHoldSide: preferredHoldSide,
@@ -250,6 +267,13 @@ class PoseQualityPolicy {
       requirementSet: requirementSet,
     );
 
+    final bilateralSeed = _measurementConfidenceSeed(
+      isAccepted: bilateralAssessment.isAccepted,
+      rejectionReason: bilateralAssessment.rejectionReason,
+      minimumRequiredLikelihood: bilateralAssessment.minimumRequiredLikelihood,
+      requiredLandmarkCount: bilateralAssessment.requiredLandmarkCount,
+    );
+
     return PoseQualityAssessment(
       isAccepted: bilateralAssessment.isAccepted,
       rejectionReason: bilateralAssessment.rejectionReason,
@@ -261,6 +285,11 @@ class PoseQualityPolicy {
       acceptedRangeRepSides: bilateralAssessment.isAccepted
           ? const <RangeRepSide>{RangeRepSide.left, RangeRepSide.right}
           : const <RangeRepSide>{},
+      rangeRepMeasurementConfidenceSeeds:
+          <RangeRepSide, MeasurementConfidenceBreakdown>{
+            RangeRepSide.left: bilateralSeed,
+            RangeRepSide.right: bilateralSeed,
+          },
     );
   }
 
@@ -294,6 +323,11 @@ class PoseQualityPolicy {
         acceptedLandmarkCount: preferredAssessment.acceptedLandmarkCount,
         qualityScore: preferredAssessment.qualityScore,
         acceptedRangeRepSides: acceptedSides,
+        rangeRepMeasurementConfidenceSeeds:
+            <RangeRepSide, MeasurementConfidenceBreakdown>{
+              ...leftAssessment.rangeRepMeasurementConfidenceSeeds,
+              ...rightAssessment.rangeRepMeasurementConfidenceSeeds,
+            },
         preferredRangeRepSide: preferredAssessment.acceptedSide,
       );
     }
@@ -308,6 +342,11 @@ class PoseQualityPolicy {
       requiredLandmarkCount: bestRejectedAssessment.requiredLandmarkCount,
       acceptedLandmarkCount: bestRejectedAssessment.acceptedLandmarkCount,
       qualityScore: bestRejectedAssessment.qualityScore,
+      rangeRepMeasurementConfidenceSeeds:
+          <RangeRepSide, MeasurementConfidenceBreakdown>{
+            ...leftAssessment.rangeRepMeasurementConfidenceSeeds,
+            ...rightAssessment.rangeRepMeasurementConfidenceSeeds,
+          },
       preferredRangeRepSide: bestRejectedAssessment.acceptedSide,
     );
   }
@@ -495,6 +534,11 @@ class PoseQualityPolicy {
         acceptedRangeRepSides: side == null
             ? const <RangeRepSide>{}
             : <RangeRepSide>{side},
+        rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+          side: side,
+          isAccepted: true,
+          requiredLandmarkCount: 0,
+        ),
         preferredRangeRepSide: side,
         acceptedHoldSides: holdSide == null
             ? const <HoldSide>{}
@@ -521,6 +565,12 @@ class PoseQualityPolicy {
           requiredLandmarkCount: requiredLandmarkCount,
           acceptedLandmarkCount: observedLandmarkCount,
           acceptedRangeRepSides: const <RangeRepSide>{},
+          rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+            side: side,
+            isAccepted: false,
+            rejectionReason: PoseRejectionReason.missingRequiredLandmark,
+            requiredLandmarkCount: requiredLandmarkCount,
+          ),
           preferredRangeRepSide: side,
           acceptedHoldSides: const <HoldSide>{},
           preferredHoldSide: holdSide,
@@ -554,6 +604,13 @@ class PoseQualityPolicy {
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: 0,
         acceptedRangeRepSides: const <RangeRepSide>{},
+        rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+          side: side,
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.nonFiniteCoordinate,
+          minimumRequiredLikelihood: nonFiniteLandmark.likelihood,
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
         preferredRangeRepSide: side,
         acceptedHoldSides: const <HoldSide>{},
         preferredHoldSide: holdSide,
@@ -573,6 +630,13 @@ class PoseQualityPolicy {
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: requiredLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
+        rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+          side: side,
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.degenerateGeometry,
+          minimumRequiredLikelihood: minimumLikelihood,
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
         preferredRangeRepSide: side,
         acceptedHoldSides: const <HoldSide>{},
         preferredHoldSide: holdSide,
@@ -592,6 +656,13 @@ class PoseQualityPolicy {
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: acceptedLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
+        rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+          side: side,
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.lowLandmarkLikelihood,
+          minimumRequiredLikelihood: minimumLikelihood,
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
         preferredRangeRepSide: side,
         acceptedHoldSides: const <HoldSide>{},
         preferredHoldSide: holdSide,
@@ -613,6 +684,13 @@ class PoseQualityPolicy {
         requiredLandmarkCount: requiredLandmarkCount,
         acceptedLandmarkCount: acceptedLandmarkCount,
         acceptedRangeRepSides: const <RangeRepSide>{},
+        rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+          side: side,
+          isAccepted: false,
+          rejectionReason: PoseRejectionReason.lowMeanLikelihood,
+          minimumRequiredLikelihood: minimumLikelihood,
+          requiredLandmarkCount: requiredLandmarkCount,
+        ),
         preferredRangeRepSide: side,
         acceptedHoldSides: const <HoldSide>{},
         preferredHoldSide: holdSide,
@@ -634,6 +712,12 @@ class PoseQualityPolicy {
       acceptedRangeRepSides: side == null
           ? const <RangeRepSide>{}
           : <RangeRepSide>{side},
+      rangeRepMeasurementConfidenceSeeds: _measurementConfidenceSeedsFor(
+        side: side,
+        isAccepted: true,
+        minimumRequiredLikelihood: minimumLikelihood,
+        requiredLandmarkCount: requiredLandmarkCount,
+      ),
       preferredRangeRepSide: side,
       acceptedHoldSides: holdSide == null
           ? const <HoldSide>{}
@@ -645,6 +729,67 @@ class PoseQualityPolicy {
         minimumLikelihood: minimumLikelihood,
         meanLikelihood: meanLikelihood,
       ),
+    );
+  }
+
+  Map<RangeRepSide, MeasurementConfidenceBreakdown>
+  _measurementConfidenceSeedsFor({
+    required RangeRepSide? side,
+    required bool isAccepted,
+    required int requiredLandmarkCount,
+    PoseRejectionReason? rejectionReason,
+    double? minimumRequiredLikelihood,
+  }) {
+    if (side == null) {
+      return const <RangeRepSide, MeasurementConfidenceBreakdown>{};
+    }
+    return <RangeRepSide, MeasurementConfidenceBreakdown>{
+      side: _measurementConfidenceSeed(
+        isAccepted: isAccepted,
+        rejectionReason: rejectionReason,
+        minimumRequiredLikelihood: minimumRequiredLikelihood,
+        requiredLandmarkCount: requiredLandmarkCount,
+      ),
+    };
+  }
+
+  MeasurementConfidenceBreakdown _measurementConfidenceSeed({
+    required bool isAccepted,
+    required int requiredLandmarkCount,
+    PoseRejectionReason? rejectionReason,
+    double? minimumRequiredLikelihood,
+  }) {
+    final issues = <MeasurementConfidenceIssue>[
+      if (rejectionReason == PoseRejectionReason.missingRequiredLandmark)
+        MeasurementConfidenceIssue.missingRequiredLandmark,
+      if (rejectionReason == PoseRejectionReason.lowLandmarkLikelihood)
+        MeasurementConfidenceIssue.lowLandmarkLikelihood,
+      if (rejectionReason == PoseRejectionReason.lowMeanLikelihood)
+        MeasurementConfidenceIssue.lowMeanLikelihood,
+      if (rejectionReason == PoseRejectionReason.nonFiniteCoordinate)
+        MeasurementConfidenceIssue.nonFiniteGeometry,
+      if (rejectionReason == PoseRejectionReason.degenerateGeometry)
+        MeasurementConfidenceIssue.degenerateGeometry,
+    ];
+
+    double? geometryPlausibility;
+    if (rejectionReason == PoseRejectionReason.nonFiniteCoordinate ||
+        rejectionReason == PoseRejectionReason.degenerateGeometry) {
+      geometryPlausibility = 0.0;
+    } else if (requiredLandmarkCount > 0 &&
+        (isAccepted ||
+            rejectionReason == PoseRejectionReason.lowLandmarkLikelihood ||
+            rejectionReason == PoseRejectionReason.lowMeanLikelihood)) {
+      geometryPlausibility = 1.0;
+    }
+
+    return MeasurementConfidenceBreakdown(
+      landmarkLikelihood: minimumRequiredLikelihood,
+      signalAvailability: null,
+      geometryPlausibility: geometryPlausibility,
+      temporalContinuity: null,
+      combined: null,
+      issues: issues,
     );
   }
 

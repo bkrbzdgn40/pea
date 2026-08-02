@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/rep_tempo_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
@@ -19,6 +20,7 @@ void main() {
       status: RangeRepValidationStatus.valid,
       reasons: const <RangeRepValidationReason>[],
       localizations: tr,
+      measurementConfidence: _confidence(0.95),
     );
 
     expect(result.tone, RangeRepOutcomeTone.positive);
@@ -33,6 +35,7 @@ void main() {
       reasons: const <RangeRepValidationReason>[],
       localizations: tr,
       tempoAssessment: _assessment(RepTempoQuality.target),
+      measurementConfidence: _confidence(0.94),
     );
 
     expect(result.tone, RangeRepOutcomeTone.positive);
@@ -49,6 +52,7 @@ void main() {
       exerciseType: ExerciseType.bicepsCurl,
       towardPeakIsEccentric: false,
       tempoAssessment: _assessment(RepTempoQuality.tooFast),
+      measurementConfidence: _confidence(0.92),
     );
 
     expect(result.tone, RangeRepOutcomeTone.caution);
@@ -68,11 +72,15 @@ void main() {
       reasons: const <RangeRepValidationReason>[],
       localizations: en,
       tempoAssessment: _assessment(RepTempoQuality.unavailable),
+      measurementConfidence: _confidence(0.91),
     );
 
     expect(result.status, RangeRepValidationStatus.valid);
     expect(result.tempoQuality, RepTempoQuality.unavailable);
-    expect(result.measurementConfidence, RangeRepMeasurementConfidence.limited);
+    expect(
+      result.measurementConfidence,
+      RangeRepMeasurementConfidence.reliable,
+    );
     expect(result.message, contains('could not be evaluated'));
     expect(result.message, contains('not included in the score'));
   });
@@ -86,10 +94,12 @@ void main() {
       ],
       localizations: tr,
       tempoAssessment: _assessment(RepTempoQuality.tooFast),
+      measurementConfidence: _confidence(0.72),
     );
 
     expect(result.primaryReason, RangeRepValidationReason.insufficientRom);
     expect(result.tone, RangeRepOutcomeTone.invalid);
+    expect(result.measurementConfidence, RangeRepMeasurementConfidence.limited);
     expect(result.message, contains('Yeterli hareket aralığı'));
     expect(result.message, isNot(contains('hızlı')));
   });
@@ -103,6 +113,7 @@ void main() {
       ],
       localizations: tr,
       tempoAssessment: _assessment(RepTempoQuality.tooSlow),
+      measurementConfidence: _confidence(0.93),
     );
 
     expect(result.title, 'Form uyarısı');
@@ -112,6 +123,33 @@ void main() {
       RangeRepMeasurementConfidence.reliable,
     );
     expect(result.message, contains('form uyarısı'));
+  });
+
+  test('treats the 0.80 confidence boundary as reliable', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 9,
+      status: RangeRepValidationStatus.valid,
+      reasons: const <RangeRepValidationReason>[],
+      localizations: tr,
+      measurementConfidence: _confidence(0.80),
+    );
+
+    expect(
+      result.measurementConfidence,
+      RangeRepMeasurementConfidence.reliable,
+    );
+  });
+
+  test('keeps missing measurement confidence explicitly unknown', () {
+    final result = mapRangeRepOutcomeToViewData(
+      repIndex: 9,
+      status: RangeRepValidationStatus.valid,
+      reasons: const <RangeRepValidationReason>[],
+      localizations: tr,
+    );
+
+    expect(result.measurementConfidence, RangeRepMeasurementConfidence.unknown);
+    expect(result.measurementConfidenceScore, isNull);
   });
 }
 
@@ -157,5 +195,16 @@ RepTempoAssessment _assessment(RepTempoQuality quality) {
     },
     measurement: measurement,
     coachingEnabled: true,
+  );
+}
+
+MeasurementConfidenceBreakdown _confidence(double combined) {
+  return MeasurementConfidenceBreakdown(
+    landmarkLikelihood: combined,
+    signalAvailability: combined,
+    geometryPlausibility: combined,
+    temporalContinuity: combined,
+    combined: combined,
+    issues: const <MeasurementConfidenceIssue>[],
   );
 }

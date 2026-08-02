@@ -59,7 +59,7 @@ void main() {
             RangeRepValidationReason.persistentFormBreak,
           ],
         ),
-        lastSummaryCandidate: const RangeRepRepSummary(
+        lastSummaryCandidate: RangeRepRepSummary(
           repIndex: 1,
           minAngle: 88,
           worstFormMetric: 150,

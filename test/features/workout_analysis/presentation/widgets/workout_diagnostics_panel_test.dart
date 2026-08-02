@@ -12,6 +12,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
@@ -454,6 +455,48 @@ void main() {
     },
   );
 
+  testWidgets('confidence v2 rows render known and null values safely', (
+    tester,
+  ) async {
+    final known = MeasurementConfidenceBreakdown(
+      landmarkLikelihood: 0.9,
+      signalAvailability: 0.8,
+      geometryPlausibility: 1.0,
+      temporalContinuity: 0.7,
+      combined: 0.84,
+      issues: const <MeasurementConfidenceIssue>[
+        MeasurementConfidenceIssue.temporalDiscontinuity,
+      ],
+    );
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(
+        currentLeftMeasurementConfidence: known,
+        currentRightMeasurementConfidence: null,
+        lastRepMeasurementConfidence: known,
+        measurementConfidenceKnownRepCount: 1,
+        measurementConfidenceUnknownRepCount: 1,
+        measurementConfidenceIssueCounts: const <String, int>{
+          'temporal_discontinuity': 1,
+        },
+      ),
+      onReset: () {},
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Current left confidence'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Current left confidence'), findsOneWidget);
+    expect(find.text('Current right confidence'), findsOneWidget);
+    expect(find.text('Last rep confidence'), findsOneWidget);
+    expect(find.textContaining('combined=0.840'), findsWidgets);
+    expect(find.text('temporal_discontinuity=1'), findsOneWidget);
+    expect(find.text(_missingValue), findsWidgets);
+  });
+
   testWidgets('JSON kopyalama callbackine gecerli JSON gonderir', (
     tester,
   ) async {
@@ -472,7 +515,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 9);
+    expect(decoded['schema_version'], 10);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -528,7 +571,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v9_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v10_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -673,7 +716,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 9,
+  int schemaVersion = 10,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -735,6 +778,12 @@ WorkoutDiagnosticsSnapshot _snapshot({
   String? lastRangeRepValidationStatus,
   List<String> lastRangeRepValidationReasons = const <String>[],
   List<String> lastRangeRepTempoDiagnosticReasons = const <String>[],
+  MeasurementConfidenceBreakdown? currentLeftMeasurementConfidence,
+  MeasurementConfidenceBreakdown? currentRightMeasurementConfidence,
+  MeasurementConfidenceBreakdown? lastRepMeasurementConfidence,
+  int measurementConfidenceKnownRepCount = 0,
+  int measurementConfidenceUnknownRepCount = 0,
+  Map<String, int> measurementConfidenceIssueCounts = const <String, int>{},
 }) {
   final sessionStartedAt = DateTime.utc(2030, 1, 1, 0, 0, 0);
   final snapshotCreatedAt = sessionStartedAt.add(
@@ -792,6 +841,15 @@ WorkoutDiagnosticsSnapshot _snapshot({
             lastValidationStatus: lastRangeRepValidationStatus,
             lastValidationReasons: lastRangeRepValidationReasons,
             lastTempoDiagnosticReasons: lastRangeRepTempoDiagnosticReasons,
+            currentLeftMeasurementConfidence: currentLeftMeasurementConfidence,
+            currentRightMeasurementConfidence:
+                currentRightMeasurementConfidence,
+            lastRepMeasurementConfidence: lastRepMeasurementConfidence,
+            measurementConfidenceKnownRepCount:
+                measurementConfidenceKnownRepCount,
+            measurementConfidenceUnknownRepCount:
+                measurementConfidenceUnknownRepCount,
+            measurementConfidenceIssueCounts: measurementConfidenceIssueCounts,
           )
         : null,
     holdDiagnostics: analysisKind == 'hold'

@@ -11,6 +11,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_validity.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_signal_values.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_contract.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/tempo_measurement_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/range_rep_timing_trace.dart';
@@ -46,7 +47,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 9);
+    expect(snapshot.schemaVersion, 10);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -56,6 +57,12 @@ void main() {
     expect(snapshot.analysisFpsP50, isNull);
     expect(snapshot.analysisFpsP95, isNull);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.currentLeftMeasurementConfidence, isNull);
+    expect(snapshot.currentRightMeasurementConfidence, isNull);
+    expect(snapshot.lastRepMeasurementConfidence, isNull);
+    expect(snapshot.measurementConfidenceKnownRepCount, 0);
+    expect(snapshot.measurementConfidenceUnknownRepCount, 0);
+    expect(snapshot.measurementConfidenceIssueCounts, isEmpty);
     expect(snapshot.rangeRepDiagnostics, isNull);
     expect(snapshot.holdDiagnostics, isNull);
     expect(snapshot.repCount, isNull);
@@ -70,6 +77,86 @@ void main() {
     expect(snapshot.holdTargetSignalValues.asMap(), isEmpty);
     expect(snapshot.holdSignalValidity.asMap(), isEmpty);
     expect(snapshot.cameraViewContract, same(sideViewContract));
+  });
+
+  test('confidence v2 diagnostics serialize current and last breakdowns', () {
+    final left = MeasurementConfidenceBreakdown(
+      landmarkLikelihood: 0.91,
+      signalAvailability: 0.75,
+      geometryPlausibility: 1.0,
+      temporalContinuity: null,
+      combined: null,
+      issues: const <MeasurementConfidenceIssue>[
+        MeasurementConfidenceIssue.temporalHistoryUnavailable,
+      ],
+    );
+    final right = MeasurementConfidenceBreakdown(
+      landmarkLikelihood: 0.98,
+      signalAvailability: 1.0,
+      geometryPlausibility: 1.0,
+      temporalContinuity: 0.94,
+      combined: 0.975,
+      issues: const <MeasurementConfidenceIssue>[],
+    );
+    final subject = accumulator()
+      ..updateRangeRepState(
+        repCount: 0,
+        currentPhase: 'WAITING',
+        signalRoles: RangeRepContracts.squat.signalRoles,
+        currentLeftMeasurementConfidence: left,
+        currentRightMeasurementConfidence: right,
+      )
+      ..recordRangeRepValidation(
+        statusCode: 'valid',
+        reasonCodes: const <String>[],
+        measurementConfidence: right,
+      )
+      ..recordRangeRepValidation(
+        statusCode: 'invalid',
+        reasonCodes: const <String>['coverageLoss'],
+        measurementConfidence: left,
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final json = snapshot.toJson();
+    expect(snapshot.currentLeftMeasurementConfidence, same(left));
+    expect(snapshot.currentRightMeasurementConfidence, same(right));
+    expect(snapshot.lastRepMeasurementConfidence, same(left));
+    expect(snapshot.measurementConfidenceKnownRepCount, 1);
+    expect(snapshot.measurementConfidenceUnknownRepCount, 1);
+    expect(snapshot.measurementConfidenceIssueCounts, <String, int>{
+      'temporal_history_unavailable': 1,
+    });
+    expect(snapshot.leftRangeRepSideConfidence, isNull);
+    expect(snapshot.rightRangeRepSideConfidence, right.combined);
+
+    expect(json['current_left_measurement_confidence'], <String, Object?>{
+      'landmark_likelihood': 0.91,
+      'signal_availability': 0.75,
+      'geometry_plausibility': 1.0,
+      'temporal_continuity': null,
+      'combined': null,
+      'issues': <String>['temporal_history_unavailable'],
+    });
+    expect(json['current_right_measurement_confidence'], <String, Object?>{
+      'landmark_likelihood': 0.98,
+      'signal_availability': 1.0,
+      'geometry_plausibility': 1.0,
+      'temporal_continuity': 0.94,
+      'combined': 0.975,
+      'issues': <String>[],
+    });
+    expect(
+      json['last_rep_measurement_confidence'],
+      json['current_left_measurement_confidence'],
+    );
+    expect(json['measurement_confidence_known_rep_count'], 1);
+    expect(json['measurement_confidence_unknown_rep_count'], 1);
+    expect(json['measurement_confidence_issue_counts'], <String, int>{
+      'temporal_history_unavailable': 1,
+    });
+    expect(json['left_range_rep_side_confidence'], isNull);
+    expect(json['right_range_rep_side_confidence'], right.combined);
   });
 
   test('camera-view metadata serializes in enum order per active contract', () {
@@ -94,11 +181,11 @@ void main() {
     });
   });
 
-  test('schema v9 identifies the exact exercise and contract context', () {
+  test('schema v10 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 9);
+    expect(snapshot.schemaVersion, 10);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -115,7 +202,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v9 identifies hold family and hollow-hold variation', () {
+  test('schema v10 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -377,7 +464,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 9);
+      expect(json['schema_version'], 10);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -566,7 +653,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 9);
+    expect(json['schema_version'], 10);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -862,7 +949,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 9);
+    expect(json['schema_version'], 10);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');
@@ -880,6 +967,14 @@ void main() {
     });
     expect(json['side_switch_count'], 0);
     expect(json['active_rep_side_switch_count'], 0);
+    expect(json['current_left_measurement_confidence'], isNull);
+    expect(json['current_right_measurement_confidence'], isNull);
+    expect(json['last_rep_measurement_confidence'], isNull);
+    expect(json['measurement_confidence_known_rep_count'], 0);
+    expect(json['measurement_confidence_unknown_rep_count'], 0);
+    expect(json['measurement_confidence_issue_counts'], isNull);
+    expect(json['left_range_rep_side_confidence'], isNull);
+    expect(json['right_range_rep_side_confidence'], isNull);
     expect(json['fps_sample_count'], 0);
     expect(json['camera_fps_p50'], isNull);
     expect(json['camera_fps_p95'], isNull);

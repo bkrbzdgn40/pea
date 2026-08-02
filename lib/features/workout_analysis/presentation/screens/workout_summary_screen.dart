@@ -8,6 +8,7 @@ import '../../application/exercise_metric_registry.dart';
 import '../../application/workout_live_metrics.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/completed_session_provider.dart';
@@ -187,6 +188,15 @@ List<MapEntry<String, String>> _summaryValues(
       ),
     ],
     MapEntry(localizations.formWarning, session.formWarningCount.toString()),
+    MapEntry(
+      localizations.averageMeasurementConfidence,
+      MeasurementConfidencePresentationFormatter.percentage(
+        localizations,
+        MeasurementConfidencePresentationFormatter.averageKnown(
+          session.reps ?? const [],
+        ),
+      ),
+    ),
   ];
 
   final averageRom = _resolvedMetricValue(

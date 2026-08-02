@@ -1,7 +1,9 @@
 import '../../../../app/localization/app_localizations.dart';
 import '../../domain/models/exercise_type.dart';
+import '../../domain/models/measurement_confidence_breakdown.dart';
 import '../../domain/models/range_rep_validation_result.dart';
 import '../../domain/models/rep_tempo_assessment.dart';
+import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../models/range_rep_outcome_view_data.dart';
 
 RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
@@ -11,18 +13,18 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
   required AppLocalizations localizations,
   ExerciseType? exerciseType,
   RepTempoAssessment? tempoAssessment,
+  MeasurementConfidenceBreakdown? measurementConfidence,
   bool towardPeakIsEccentric = true,
 }) {
   final primaryReason = _selectPrimaryReason(reasons);
   final hasTechniqueCaution = reasons.any(
     (reason) => reason == RangeRepValidationReason.persistentFormBreak,
   );
-  final hasLimitedMeasurementConfidence = reasons.any(
-    (reason) => reason.isMeasurementQualityReason,
-  );
-  final tempoMeasurementUnavailable =
-      tempoAssessment?.coachingEnabled == true &&
-      !(tempoAssessment?.isAvailable ?? false);
+  final measurementConfidenceScore = measurementConfidence?.combined;
+  final measurementConfidencePresentation =
+      MeasurementConfidencePresentationFormatter.classify(
+        measurementConfidenceScore,
+      );
 
   return switch (status) {
     RangeRepValidationStatus.valid => RangeRepOutcomeViewData(
@@ -41,10 +43,8 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
           ? RangeRepOutcomeTone.caution
           : RangeRepOutcomeTone.positive,
       techniqueOutcome: RangeRepTechniqueOutcome.accepted,
-      measurementConfidence:
-          hasLimitedMeasurementConfidence || tempoMeasurementUnavailable
-          ? RangeRepMeasurementConfidence.limited
-          : RangeRepMeasurementConfidence.reliable,
+      measurementConfidence: measurementConfidencePresentation,
+      measurementConfidenceScore: measurementConfidenceScore,
       tempoQuality: tempoAssessment?.quality,
       tempoSeverity: tempoAssessment?.severity,
       tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
@@ -61,9 +61,8 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
       techniqueOutcome: hasTechniqueCaution
           ? RangeRepTechniqueOutcome.caution
           : RangeRepTechniqueOutcome.accepted,
-      measurementConfidence: hasLimitedMeasurementConfidence
-          ? RangeRepMeasurementConfidence.limited
-          : RangeRepMeasurementConfidence.reliable,
+      measurementConfidence: measurementConfidencePresentation,
+      measurementConfidenceScore: measurementConfidenceScore,
       tempoQuality: tempoAssessment?.quality,
       tempoSeverity: tempoAssessment?.severity,
       tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
@@ -76,9 +75,8 @@ RangeRepOutcomeViewData mapRangeRepOutcomeToViewData({
       message: _invalidMessage(primaryReason, localizations),
       tone: RangeRepOutcomeTone.invalid,
       techniqueOutcome: RangeRepTechniqueOutcome.rejected,
-      measurementConfidence: hasLimitedMeasurementConfidence
-          ? RangeRepMeasurementConfidence.limited
-          : RangeRepMeasurementConfidence.reliable,
+      measurementConfidence: measurementConfidencePresentation,
+      measurementConfidenceScore: measurementConfidenceScore,
       tempoQuality: tempoAssessment?.quality,
       tempoSeverity: tempoAssessment?.severity,
       tempoReasons: tempoAssessment?.reasons ?? const <RepTempoReason>[],
