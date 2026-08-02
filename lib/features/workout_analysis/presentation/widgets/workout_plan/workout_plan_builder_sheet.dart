@@ -271,6 +271,7 @@ class _WorkoutPlanBuilderSheetState
             )
           : null,
       itemCount: _entries.length,
+      // ignore: deprecated_member_use
       onReorder: _reorder,
       proxyDecorator: (child, index, animation) =>
           Material(color: Colors.transparent, elevation: 8, child: child),
