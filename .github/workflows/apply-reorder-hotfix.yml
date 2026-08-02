@@ -1,0 +1,108 @@
+name: Apply reorder hotfix
+
+on:
+  push:
+    branches:
+      - fix/reorderable-list-callback-runner
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch reorder callback and tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          production = Path('lib/features/workout_analysis/presentation/widgets/workout_plan/workout_plan_builder_sheet.dart')
+          test_file = Path('test/features/workout_analysis/presentation/screens/workout_plan_setup_screen_test.dart')
+
+          source = production.read_text(encoding='utf-8')
+          old_callback = '      onReorder: _reorder,\n'
+          new_callback = '      onReorderItem: _reorder,\n'
+          if source.count(old_callback) != 1:
+              raise SystemExit('Expected exactly one deprecated onReorder callback.')
+          source = source.replace(old_callback, new_callback, 1)
+
+          old_reorder = '''  void _reorder(int oldIndex, int newIndex) {
+            setState(() {
+              if (newIndex > oldIndex) {
+                newIndex -= 1;
+              }
+              final entry = _entries.removeAt(oldIndex);
+              _entries.insert(newIndex, entry);
+            });
+          }
+          '''
+          new_reorder = '''  void _reorder(int oldIndex, int newIndex) {
+            setState(() {
+              final entry = _entries.removeAt(oldIndex);
+              _entries.insert(newIndex, entry);
+            });
+          }
+          '''
+          if source.count(old_reorder) != 1:
+              raise SystemExit('Expected exactly one legacy reorder implementation.')
+          production.write_text(source.replace(old_reorder, new_reorder, 1), encoding='utf-8')
+
+          tests = test_file.read_text(encoding='utf-8')
+          old_test_call = '    reorderable.onReorder(1, 0);\n'
+          if tests.count(old_test_call) != 1:
+              raise SystemExit('Expected exactly one deprecated test callback invocation.')
+          tests = tests.replace(
+              old_test_call,
+              '    reorderable.onReorderItem!(1, 0);\n',
+              1,
+          )
+
+          insertion_point = "  testWidgets('selects a saved plan before opening its summary and editor', (\n"
+          downward_test = '''  testWidgets('reorders entries downward using the adjusted item index', (
+            WidgetTester tester,
+          ) async {
+            _useTallPhoneViewport(tester);
+            final repository = _MemoryWorkoutPlanRepository();
+            await pumpTestApp(
+              tester,
+              home: const WorkoutPlanSetupScreen(),
+              overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+            );
+            await tester.pumpAndSettle();
+            await _openNewPlanBuilder(tester);
+
+            await _addExercise(tester, ExerciseType.squat);
+            await _addExercise(tester, ExerciseType.plank);
+            await _addExercise(tester, ExerciseType.bicepsCurl);
+
+            final reorderable = tester.widget<ReorderableListView>(
+              find.byKey(const ValueKey<String>('workout-plan-entry-list')),
+            );
+            reorderable.onReorderItem!(0, 2);
+            await tester.pump();
+
+            expect(find.text('1. Plank'), findsOneWidget);
+            expect(find.text('2. Biseps Curl'), findsOneWidget);
+            expect(find.text('3. Squat'), findsOneWidget);
+          });
+
+          '''
+          if tests.count(insertion_point) != 1:
+              raise SystemExit('Could not find the test insertion point.')
+          tests = tests.replace(insertion_point, downward_test + insertion_point, 1)
+          test_file.write_text(tests, encoding='utf-8')
+          PY
+
+          rm .github/workflows/apply-reorder-hotfix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/workout_analysis/presentation/widgets/workout_plan/workout_plan_builder_sheet.dart
+          git add test/features/workout_analysis/presentation/screens/workout_plan_setup_screen_test.dart
+          git add .github/workflows/apply-reorder-hotfix.yml
+          git commit -m "fix: migrate workout plan reorder callback"
+          git push
