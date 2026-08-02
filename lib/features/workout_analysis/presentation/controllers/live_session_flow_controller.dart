@@ -54,7 +54,6 @@ class LiveSessionFlowController {
   bool _isExitDialogVisible = false;
   bool _allowRoutePop = false;
 
-
   Widget buildExitGuard(Widget child) {
     return PopScope<Object?>(
       canPop: _allowRoutePop,
@@ -189,9 +188,7 @@ class LiveSessionFlowController {
     }
     final navigator = Navigator.of(_context());
     if (navigator.canPop()) {
-      navigator.pop(
-        _resolveExitDisposition(shouldLeavePreparation),
-      );
+      navigator.pop(_resolveExitDisposition(shouldLeavePreparation));
     }
   }
 
@@ -234,7 +231,8 @@ class LiveSessionFlowController {
     if (_ref.read(workoutPlanSessionProvider).hasPlan) {
       _ref.read(workoutPlanSessionProvider.notifier).reset();
     }
-    _ref.read(completedSessionMetricsProvider.notifier).state = completedMetrics;
+    _ref.read(completedSessionMetricsProvider.notifier).state =
+        completedMetrics;
 
     await _setScreenAwake(false);
     if (!_isMounted()) {
@@ -265,9 +263,7 @@ class LiveSessionFlowController {
     _cameraSession.ensureLatestStream();
   }
 
-  Future<bool> finishPlannedExerciseSession(
-    WorkoutState workoutState,
-  ) async {
+  Future<bool> finishPlannedExerciseSession(WorkoutState workoutState) async {
     _ref.read(livePauseControllerProvider.notifier).cancelResume();
     final sessionLifecycle = _sessionLifecycle();
     if (sessionLifecycle == null || !sessionLifecycle.beginFinish()) {
@@ -285,9 +281,7 @@ class LiveSessionFlowController {
 
     switch (result.failure) {
       case FinishWorkoutSessionFailure.missingOwner:
-        _showSnackBar(
-          AppLocalizations.of(_context()).plannedStepMissingUser,
-        );
+        _showSnackBar(AppLocalizations.of(_context()).plannedStepMissingUser);
         return false;
       case FinishWorkoutSessionFailure.missingExercise:
         _showSnackBar(
@@ -295,9 +289,7 @@ class LiveSessionFlowController {
         );
         return false;
       case FinishWorkoutSessionFailure.persistenceFailure:
-        _showSnackBar(
-          AppLocalizations.of(_context()).plannedStepSaveFailed,
-        );
+        _showSnackBar(AppLocalizations.of(_context()).plannedStepSaveFailed);
         return false;
       case FinishWorkoutSessionFailure.alreadyFinishing:
       case FinishWorkoutSessionFailure.alreadySaved:
@@ -329,8 +321,8 @@ class LiveSessionFlowController {
     if (!_isMounted()) {
       return;
     }
-    ScaffoldMessenger.of(_context()).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      _context(),
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

@@ -372,19 +372,10 @@ Pose buildPushUpPose({
     if (missingLandmarks.contains(type)) {
       return;
     }
-    landmarks[type] = buildLandmark(
-      type,
-      x,
-      y,
-      likelihood: defaultLikelihood,
-    );
+    landmarks[type] = buildLandmark(type, x, y, likelihood: defaultLikelihood);
   }
 
-  addLandmark(
-    PoseLandmarkType.leftShoulder,
-    shoulder.x,
-    shoulder.y,
-  );
+  addLandmark(PoseLandmarkType.leftShoulder, shoulder.x, shoulder.y);
   addLandmark(PoseLandmarkType.leftElbow, elbow.x, elbow.y);
   addLandmark(PoseLandmarkType.leftWrist, wrist.x, wrist.y);
   addLandmark(PoseLandmarkType.leftHip, 2, 2);
@@ -403,12 +394,7 @@ Pose buildWallSitPose({
     if (missingLandmarks.contains(type)) {
       return;
     }
-    landmarks[type] = buildLandmark(
-      type,
-      x,
-      y,
-      likelihood: defaultLikelihood,
-    );
+    landmarks[type] = buildLandmark(type, x, y, likelihood: defaultLikelihood);
   }
 
   addLandmark(PoseLandmarkType.leftEar, -2, 0);

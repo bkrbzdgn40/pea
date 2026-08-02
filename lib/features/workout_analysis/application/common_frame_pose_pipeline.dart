@@ -133,12 +133,11 @@ class FramePosePipelineResult {
         poseCount: poseCount!,
         timings: timings,
       ),
-      FramePosePipelineResultKind.rejected =>
-        FramePosePipelineResult.rejected(
-          poseCount: poseCount!,
-          selectedAssessment: selectedAssessment,
-          timings: timings,
-        ),
+      FramePosePipelineResultKind.rejected => FramePosePipelineResult.rejected(
+        poseCount: poseCount!,
+        selectedAssessment: selectedAssessment,
+        timings: timings,
+      ),
       FramePosePipelineResultKind.pendingAcceptance =>
         FramePosePipelineResult.pendingAcceptance(
           poseCount: poseCount!,

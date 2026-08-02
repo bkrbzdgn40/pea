@@ -262,10 +262,10 @@ class WorkoutDurationSampleSummary {
   });
 
   const WorkoutDurationSampleSummary.empty()
-      : sampleCount = 0,
-        p50Ms = null,
-        p95Ms = null,
-        maxMs = null;
+    : sampleCount = 0,
+      p50Ms = null,
+      p95Ms = null,
+      maxMs = null;
 
   final int sampleCount;
   final double? p50Ms;
@@ -290,10 +290,10 @@ class WorkoutFramePosePipelineTimingSnapshot {
   });
 
   const WorkoutFramePosePipelineTimingSnapshot.empty()
-      : conversion = const WorkoutDurationSampleSummary.empty(),
-        poseDetection = const WorkoutDurationSampleSummary.empty(),
-        candidateEvaluation = const WorkoutDurationSampleSummary.empty(),
-        total = const WorkoutDurationSampleSummary.empty();
+    : conversion = const WorkoutDurationSampleSummary.empty(),
+      poseDetection = const WorkoutDurationSampleSummary.empty(),
+      candidateEvaluation = const WorkoutDurationSampleSummary.empty(),
+      total = const WorkoutDurationSampleSummary.empty();
 
   final WorkoutDurationSampleSummary conversion;
   final WorkoutDurationSampleSummary poseDetection;
@@ -1262,10 +1262,10 @@ class WorkoutDiagnosticsAccumulator {
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
-    final sortedFrameConversionDurations =
-        _frameConversionDurationMs.toList()..sort();
-    final sortedPoseDetectionDurations =
-        _poseDetectionDurationMs.toList()..sort();
+    final sortedFrameConversionDurations = _frameConversionDurationMs.toList()
+      ..sort();
+    final sortedPoseDetectionDurations = _poseDetectionDurationMs.toList()
+      ..sort();
     final sortedCandidateEvaluationDurations =
         _candidateEvaluationDurationMs.toList()..sort();
     final sortedFramePosePipelineTotalDurations =
@@ -1425,9 +1425,7 @@ class WorkoutDiagnosticsAccumulator {
     _holdDiagnostics = null;
   }
 
-  WorkoutDurationSampleSummary _durationSummary(
-    List<double> sortedValues,
-  ) {
+  WorkoutDurationSampleSummary _durationSummary(List<double> sortedValues) {
     return WorkoutDurationSampleSummary(
       sampleCount: sortedValues.length,
       p50Ms: _nearestRankDouble(sortedValues, 0.50),

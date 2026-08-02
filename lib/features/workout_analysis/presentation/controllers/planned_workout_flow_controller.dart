@@ -169,9 +169,7 @@ class PlannedWorkoutFlowController {
     _resumeCountdownValue = 3;
     _notifyStateChanged();
     _announceResumeCountdown(3);
-    _resumeCountdownTimer = Timer.periodic(const Duration(seconds: 1), (
-      timer,
-    ) {
+    _resumeCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!_isMounted() || !_isTransitionLocked) {
         timer.cancel();
         return;

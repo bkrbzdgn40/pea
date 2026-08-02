@@ -823,8 +823,8 @@ void main() {
 
     final snapshot = subject.snapshot(now: startedAt);
     final timings = snapshot.framePosePipelineTimings;
-    final json = snapshot.toJson()['frame_pose_pipeline_ms']!
-        as Map<String, Object?>;
+    final json =
+        snapshot.toJson()['frame_pose_pipeline_ms']! as Map<String, Object?>;
 
     expect(timings.conversion.sampleCount, 2);
     expect(timings.conversion.p50Ms, 2.5);

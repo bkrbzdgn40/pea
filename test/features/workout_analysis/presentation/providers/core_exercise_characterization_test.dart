@@ -107,17 +107,20 @@ void main() {
       );
     });
 
-    test('wall sit freezes stable hold timing and feedback semantics', () async {
-      final harness = await _createHarness(ExerciseType.wallSit);
-      addTearDown(harness.dispose);
+    test(
+      'wall sit freezes stable hold timing and feedback semantics',
+      () async {
+        final harness = await _createHarness(ExerciseType.wallSit);
+        addTearDown(harness.dispose);
 
-      await _establishHold(harness, buildWallSitPose());
+        await _establishHold(harness, buildWallSitPose());
 
-      _expectHoldCharacterization(
-        harness,
-        expectedExercise: ExerciseType.wallSit,
-      );
-    });
+        _expectHoldCharacterization(
+          harness,
+          expectedExercise: ExerciseType.wallSit,
+        );
+      },
+    );
   });
 }
 
@@ -244,54 +247,54 @@ void _expectValidRangeRepCharacterization(
   final diagnostics = harness.controller.diagnosticsSnapshot();
   final timingTrace = diagnostics.lastEndedRangeRepTimingTrace;
 
-  expect(<String, Object?>{
-    'exercise': diagnostics.exerciseType,
-    'analysis_kind': state.analysisKind.name,
-    'phase': state.currentPhase,
-    'rep_count': state.repCount,
-    'validation_status':
-        state.calibrationMetrics.lastRangeRepValidationStatus,
-    'validation_reasons':
-        state.calibrationMetrics.lastRangeRepValidationReasons,
-    'validated_count': state.calibrationMetrics.rangeRepValidatedCount,
-    'low_confidence_count':
-        state.calibrationMetrics.rangeRepLowConfidenceCount,
-    'invalid_count': state.calibrationMetrics.rangeRepInvalidCount,
-    'completed_phase_sequence':
-        state.calibrationMetrics.lastRangeRepSummaryCompletedPhaseSequence,
-    'selected_side': state.calibrationMetrics.selectedRangeRepSide,
-    'timing_outcome': timingTrace?.outcome.name,
-    'timing_transitions': timingTrace?.transitions
-        .map((transition) => transition.type)
-        .toList(growable: false),
-  }, <String, Object?>{
-    'exercise': expectedExercise.id,
-    'analysis_kind': 'rangeRep',
-    'phase': 'NEUTRAL',
-    'rep_count': 1,
-    'validation_status': 'valid',
-    'validation_reasons': const <String>[],
-    'validated_count': 1,
-    'low_confidence_count': 0,
-    'invalid_count': 0,
-    'completed_phase_sequence': true,
-    'selected_side': expectedSelectedSide,
-    'timing_outcome': RangeRepTimingTraceOutcome.completed.name,
-    'timing_transitions': const <String>[
-      'startTowardPeak',
-      'reachPeak',
-      'startReturning',
-      'completeRep',
-    ],
-  });
+  expect(
+    <String, Object?>{
+      'exercise': diagnostics.exerciseType,
+      'analysis_kind': state.analysisKind.name,
+      'phase': state.currentPhase,
+      'rep_count': state.repCount,
+      'validation_status':
+          state.calibrationMetrics.lastRangeRepValidationStatus,
+      'validation_reasons':
+          state.calibrationMetrics.lastRangeRepValidationReasons,
+      'validated_count': state.calibrationMetrics.rangeRepValidatedCount,
+      'low_confidence_count':
+          state.calibrationMetrics.rangeRepLowConfidenceCount,
+      'invalid_count': state.calibrationMetrics.rangeRepInvalidCount,
+      'completed_phase_sequence':
+          state.calibrationMetrics.lastRangeRepSummaryCompletedPhaseSequence,
+      'selected_side': state.calibrationMetrics.selectedRangeRepSide,
+      'timing_outcome': timingTrace?.outcome.name,
+      'timing_transitions': timingTrace?.transitions
+          .map((transition) => transition.type)
+          .toList(growable: false),
+    },
+    <String, Object?>{
+      'exercise': expectedExercise.id,
+      'analysis_kind': 'rangeRep',
+      'phase': 'NEUTRAL',
+      'rep_count': 1,
+      'validation_status': 'valid',
+      'validation_reasons': const <String>[],
+      'validated_count': 1,
+      'low_confidence_count': 0,
+      'invalid_count': 0,
+      'completed_phase_sequence': true,
+      'selected_side': expectedSelectedSide,
+      'timing_outcome': RangeRepTimingTraceOutcome.completed.name,
+      'timing_transitions': const <String>[
+        'startTowardPeak',
+        'reachPeak',
+        'startReturning',
+        'completeRep',
+      ],
+    },
+  );
   expect(state.validatedRepEvent, isNotNull);
   expect(state.validatedRepEvent!.countsTowardReps, isTrue);
   expect(state.lastRepScore, inInclusiveRange(0.0, 100.0));
   expect(state.lastRepScore.isFinite, isTrue);
-  expect(
-    diagnostics.framePosePipelineTimings.conversion.sampleCount,
-    0,
-  );
+  expect(diagnostics.framePosePipelineTimings.conversion.sampleCount, 0);
   expect(
     diagnostics.framePosePipelineTimings.poseDetection.sampleCount,
     greaterThan(0),
@@ -313,31 +316,34 @@ void _expectHoldCharacterization(
   final state = harness.state;
   final diagnostics = harness.controller.diagnosticsSnapshot();
 
-  expect(<String, Object?>{
-    'exercise': diagnostics.exerciseType,
-    'analysis_kind': state.analysisKind.name,
-    'phase': state.currentPhase,
-    'is_holding': state.isHolding,
-    'current_hold_seconds': state.currentHoldSeconds,
-    'best_hold_seconds': state.bestHoldSeconds,
-    'feedback_code': state.holdFeedbackCode?.code,
-    'engine_phase': state.holdEnginePhase?.code,
-    'selected_side': state.selectedHoldSide?.name,
-    'diagnostics_phase': diagnostics.currentPhase,
-    'diagnostics_is_holding': diagnostics.isHolding,
-  }, <String, Object?>{
-    'exercise': expectedExercise.id,
-    'analysis_kind': 'hold',
-    'phase': 'HOLDING',
-    'is_holding': true,
-    'current_hold_seconds': 3.0,
-    'best_hold_seconds': 3.0,
-    'feedback_code': HoldFeedbackCode.holdPosition.code,
-    'engine_phase': HoldPhase.holding.code,
-    'selected_side': 'left',
-    'diagnostics_phase': 'HOLDING',
-    'diagnostics_is_holding': true,
-  });
+  expect(
+    <String, Object?>{
+      'exercise': diagnostics.exerciseType,
+      'analysis_kind': state.analysisKind.name,
+      'phase': state.currentPhase,
+      'is_holding': state.isHolding,
+      'current_hold_seconds': state.currentHoldSeconds,
+      'best_hold_seconds': state.bestHoldSeconds,
+      'feedback_code': state.holdFeedbackCode?.code,
+      'engine_phase': state.holdEnginePhase?.code,
+      'selected_side': state.selectedHoldSide?.name,
+      'diagnostics_phase': diagnostics.currentPhase,
+      'diagnostics_is_holding': diagnostics.isHolding,
+    },
+    <String, Object?>{
+      'exercise': expectedExercise.id,
+      'analysis_kind': 'hold',
+      'phase': 'HOLDING',
+      'is_holding': true,
+      'current_hold_seconds': 3.0,
+      'best_hold_seconds': 3.0,
+      'feedback_code': HoldFeedbackCode.holdPosition.code,
+      'engine_phase': HoldPhase.holding.code,
+      'selected_side': 'left',
+      'diagnostics_phase': 'HOLDING',
+      'diagnostics_is_holding': true,
+    },
+  );
   expect(diagnostics.framePosePipelineTimings.poseDetection.sampleCount, 3);
   expect(diagnostics.framePosePipelineTimings.total.sampleCount, 3);
 }

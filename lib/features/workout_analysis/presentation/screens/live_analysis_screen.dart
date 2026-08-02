@@ -153,15 +153,14 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     if (ref.read(exerciseConfigProvider).hasValue) {
       _attachWorkoutStateSubscription();
     }
-    _exerciseConfigSubscription = ref
-        .listenManual<AsyncValue<ExerciseConfig>>(exerciseConfigProvider, (
-          _,
-          next,
-        ) {
-          if (next.hasValue) {
-            _attachWorkoutStateSubscription();
-          }
-        });
+    _exerciseConfigSubscription = ref.listenManual<AsyncValue<ExerciseConfig>>(
+      exerciseConfigProvider,
+      (_, next) {
+        if (next.hasValue) {
+          _attachWorkoutStateSubscription();
+        }
+      },
+    );
     _livePauseSubscription = ref.listenManual<LivePauseState>(
       livePauseControllerProvider,
       (previous, next) {
@@ -374,15 +373,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 // Riverpod can keep the previous controller during refresh;
                 // hide the preview while recovery is active so a disposing
                 // controller is not used.
-                if (_cameraSessionController.isRecovering || cameraState.isLoading) {
+                if (_cameraSessionController.isRecovering ||
+                    cameraState.isLoading) {
                   return const CameraRecoveryView();
                 }
 
-                final controllerValue = _cameraSessionController.safeControllerValue(controller);
+                final controllerValue = _cameraSessionController
+                    .safeControllerValue(controller);
                 final cameraGeometry = const PreparationCameraGeometryResolver()
                     .resolve(
                       previewSize: controllerValue?.previewSize,
-                      deviceOrientation: _cameraSessionController.displayDeviceOrientation,
+                      deviceOrientation:
+                          _cameraSessionController.displayDeviceOrientation,
                       viewportOrientation: viewportOrientation,
                     );
 
@@ -496,22 +498,30 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                                     isFinishing: sessionLifecycle.isFinishing,
                                     onPause: () =>
                                         _pauseAnalysis(readinessRequest),
-                                    onFinish: () =>
-                                        unawaited(_sessionFlowController.requestSessionExit()),
+                                    onFinish: () => unawaited(
+                                      _sessionFlowController
+                                          .requestSessionExit(),
+                                    ),
                                   )
                                 : LiveAnalysisSidePanel(
                                     isFinishing: sessionLifecycle.isFinishing,
                                     onPause: () =>
                                         _pauseAnalysis(readinessRequest),
-                                    onFinish: () =>
-                                        unawaited(_sessionFlowController.requestSessionExit()),
+                                    onFinish: () => unawaited(
+                                      _sessionFlowController
+                                          .requestSessionExit(),
+                                    ),
                                     onToggleCalibration:
                                         workoutDeveloperUiEnabled
                                         ? toggleCalibration
                                         : null,
-                                    showNonFinalSet: _plannedWorkoutFlowController.advanceFailed,
-                                    onAdvance: () =>
-                                        unawaited(_plannedWorkoutFlowController.retryAdvance()),
+                                    showNonFinalSet:
+                                        _plannedWorkoutFlowController
+                                            .advanceFailed,
+                                    onAdvance: () => unawaited(
+                                      _plannedWorkoutFlowController
+                                          .retryAdvance(),
+                                    ),
                                   ),
                           ),
                         ],
@@ -523,13 +533,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           right: panelWidth + 12,
                           child: WorkoutSetCompletedSection(
                             compact: true,
-                            showNonFinal: _plannedWorkoutFlowController.advanceFailed,
-                            onAdvance: () => unawaited(_plannedWorkoutFlowController.retryAdvance()),
+                            showNonFinal:
+                                _plannedWorkoutFlowController.advanceFailed,
+                            onAdvance: () => unawaited(
+                              _plannedWorkoutFlowController.retryAdvance(),
+                            ),
                           ),
                         ),
-                      if (_plannedWorkoutFlowController.resumeCountdownValue != null)
+                      if (_plannedWorkoutFlowController.resumeCountdownValue !=
+                          null)
                         PlannedResumeCountdownOverlay(
-                          value: _plannedWorkoutFlowController.resumeCountdownValue!,
+                          value: _plannedWorkoutFlowController
+                              .resumeCountdownValue!,
                         ),
                     ],
                   );
@@ -547,14 +562,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                             workoutDeveloperUiEnabled,
                         isFinishing: sessionLifecycle.isFinishing,
                         onPause: () => _pauseAnalysis(readinessRequest),
-                        onFinish: () => unawaited(_sessionFlowController.requestSessionExit()),
+                        onFinish: () => unawaited(
+                          _sessionFlowController.requestSessionExit(),
+                        ),
                       )
                     else if (!hasWorkoutPlan || pauseState.isPaused)
                       FinishSessionButton(
                         topInset: topInset,
                         compact: layout.isLandscape,
                         isFinishing: sessionLifecycle.isFinishing,
-                        onFinish: () => unawaited(_sessionFlowController.requestSessionExit()),
+                        onFinish: () => unawaited(
+                          _sessionFlowController.requestSessionExit(),
+                        ),
                       ),
                     if (pauseState.isActive && hasWorkoutPlan)
                       Positioned.fill(
@@ -565,7 +584,9 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           reserveLeadingDeveloperControl:
                               workoutDeveloperUiEnabled,
                           onPause: () => _pauseAnalysis(readinessRequest),
-                          onFinish: () => unawaited(_sessionFlowController.requestSessionExit()),
+                          onFinish: () => unawaited(
+                            _sessionFlowController.requestSessionExit(),
+                          ),
                         ),
                       ),
                     if (pauseState.isActive && !hasWorkoutPlan)
@@ -598,9 +619,11 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                             children: <Widget>[
                               WorkoutSetCompletedSection(
                                 compact: layout.isLandscape,
-                                showNonFinal: _plannedWorkoutFlowController.advanceFailed,
-                                onAdvance: () =>
-                                    unawaited(_plannedWorkoutFlowController.retryAdvance()),
+                                showNonFinal:
+                                    _plannedWorkoutFlowController.advanceFailed,
+                                onAdvance: () => unawaited(
+                                  _plannedWorkoutFlowController.retryAdvance(),
+                                ),
                               ),
                               RangeRepSideTrackingIndicator(
                                 compact: layout.isLandscape,
@@ -619,13 +642,18 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         right: layout.isLandscape ? 12 : 20,
                         child: WorkoutSetCompletedSection(
                           compact: layout.isLandscape,
-                          showNonFinal: _plannedWorkoutFlowController.advanceFailed,
-                          onAdvance: () => unawaited(_plannedWorkoutFlowController.retryAdvance()),
+                          showNonFinal:
+                              _plannedWorkoutFlowController.advanceFailed,
+                          onAdvance: () => unawaited(
+                            _plannedWorkoutFlowController.retryAdvance(),
+                          ),
                         ),
                       ),
-                    if (_plannedWorkoutFlowController.resumeCountdownValue != null)
+                    if (_plannedWorkoutFlowController.resumeCountdownValue !=
+                        null)
                       PlannedResumeCountdownOverlay(
-                        value: _plannedWorkoutFlowController.resumeCountdownValue!,
+                        value:
+                            _plannedWorkoutFlowController.resumeCountdownValue!,
                       ),
                   ],
                 );
@@ -650,7 +678,8 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                 return LiveCameraFailureView(
                   message: failure.message,
                   actionLabel: failure.actionLabel,
-                  onRetry: () => unawaited(_cameraSessionController.recoverIfAllowed()),
+                  onRetry: () =>
+                      unawaited(_cameraSessionController.recoverIfAllowed()),
                 );
               },
             );
