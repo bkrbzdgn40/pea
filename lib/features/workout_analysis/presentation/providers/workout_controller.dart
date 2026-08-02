@@ -32,7 +32,6 @@ import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/hold_contract.dart';
-import '../../domain/models/hold_feedback_code.dart';
 import '../../domain/models/range_rep_contract.dart';
 import '../../domain/models/range_rep_feedback_code.dart';
 import '../../domain/models/range_rep_validation_result.dart';
@@ -40,9 +39,8 @@ import '../../domain/models/validated_rep_event.dart';
 import '../../domain/range_rep_analysis_engine.dart';
 import '../../domain/range_rep_validation_policy.dart';
 import '../../domain/tempo_engine.dart';
-import '../mappers/hold_feedback_ui_mapper.dart';
-import '../mappers/range_rep_feedback_ui_mapper.dart';
 import '../mappers/range_rep_outcome_ui_mapper.dart';
+import '../mappers/workout_feedback_resolver.dart';
 import '../models/workout_live_metric_display_state.dart';
 import 'active_analysis_exercise_provider.dart';
 import 'live_pause_controller.dart';
@@ -198,6 +196,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late WorkoutAnalysisRuntime _runtime;
   late DateTime Function() _clock;
   final WorkoutStateProjector _stateProjector = const WorkoutStateProjector();
+  final WorkoutFeedbackResolver _feedbackResolver = WorkoutFeedbackResolver();
   late WorkoutFrameProcessor _frameProcessor;
   final WorkoutAnalysisFailurePolicy _analysisFailurePolicy =
       WorkoutAnalysisFailurePolicy();
@@ -299,12 +298,12 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     final initialState = _engineKind == EngineKind.hold
         ? _stateProjector.initialHold(
             snapshot: initialHoldSnapshot!,
-            feedbackMessage: _resolveHoldFeedbackMessage(initialHoldSnapshot),
+            feedbackMessage: _resolveHoldFeedback(initialHoldSnapshot).message,
           )
         : _stateProjector.initialRangeRep(
-            feedbackMessage: _mapRangeRepFeedbackCodeToMessage(
+            feedbackMessage: _resolveRangeRepFeedback(
               RangeRepFeedbackCode.awaitNeutral,
-            ),
+            ).message,
             currentPhase: _rangeRepEngineOrThrow().phaseLabel,
           );
     _updateDiagnosticsFromPublishedState(initialState);
@@ -650,25 +649,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     bool deliverFeedback = true,
   }) {
     final feedbackCode = snapshot.feedbackDirective.feedbackCode;
-    final feedbackMessage = _mapRangeRepFeedbackCodeToMessage(feedbackCode);
+    final resolvedFeedback = _resolveRangeRepFeedback(feedbackCode);
     state = _stateProjector.rangeRep(
       snapshot: snapshot,
-      feedbackMessage: feedbackMessage,
+      feedbackMessage: resolvedFeedback.message,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
       validatedRepEvent: validatedRepEvent,
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
     if (deliverFeedback && !_suppressesExerciseFeedback) {
-      unawaited(
-        _feedbackDelivery.deliver(
-          FeedbackDeliveryCue(
-            id: 'range:${feedbackCode.code}',
-            message: feedbackMessage,
-            kind: _deliveryKindForRangeRepFeedback(feedbackCode),
-          ),
-        ),
-      );
+      unawaited(_feedbackDelivery.deliver(resolvedFeedback.cue));
     }
   }
 
@@ -761,20 +752,16 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     HoldCoordinatorStateSnapshot snapshot, {
     bool deliverFeedback = true,
   }) {
-    final feedbackMessage = _resolveHoldFeedbackMessage(snapshot);
+    final resolvedFeedback = _resolveHoldFeedback(snapshot);
     state = _stateProjector.hold(
       snapshot: snapshot,
-      feedbackMessage: feedbackMessage,
+      feedbackMessage: resolvedFeedback.message,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
     );
     _publishHoldLiveMetricDisplay();
     if (deliverFeedback && !_suppressesExerciseFeedback) {
-      unawaited(
-        _feedbackDelivery.deliver(
-          _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),
-        ),
-      );
+      unawaited(_feedbackDelivery.deliver(resolvedFeedback.cue));
     }
   }
 
@@ -1001,72 +988,21 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     return _runtime.requireHoldCoordinator();
   }
 
-  String _mapRangeRepFeedbackCodeToMessage(RangeRepFeedbackCode code) {
-    return mapRangeRepFeedbackCodeToMessage(
-      code,
+  ResolvedWorkoutFeedback _resolveRangeRepFeedback(RangeRepFeedbackCode code) {
+    return _feedbackResolver.resolveRangeRep(
+      code: code,
       localizations: ref.read(appLocalizationsProvider),
       exerciseType: _activeExercise,
     );
   }
 
-  FeedbackDeliveryKind _deliveryKindForRangeRepFeedback(
-    RangeRepFeedbackCode code,
+  ResolvedWorkoutFeedback _resolveHoldFeedback(
+    HoldCoordinatorStateSnapshot snapshot,
   ) {
-    return switch (code) {
-      RangeRepFeedbackCode.waitForBody ||
-      RangeRepFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
-      RangeRepFeedbackCode.awaitNeutral ||
-      RangeRepFeedbackCode.ready => FeedbackDeliveryKind.status,
-      RangeRepFeedbackCode.descend ||
-      RangeRepFeedbackCode.ascend ||
-      RangeRepFeedbackCode.repCompleted ||
-      RangeRepFeedbackCode.repIncomplete => FeedbackDeliveryKind.movement,
-      RangeRepFeedbackCode.legacyFormThresholdViolation ||
-      RangeRepFeedbackCode.controlDescent ||
-      RangeRepFeedbackCode.controlAscent ||
-      RangeRepFeedbackCode.stabilizeTransition ||
-      RangeRepFeedbackCode.maintainForm => FeedbackDeliveryKind.corrective,
-    };
-  }
-
-  FeedbackDeliveryCue _holdFeedbackDeliveryCue(
-    HoldCoordinatorStateSnapshot snapshot, {
-    required String feedbackMessage,
-  }) {
-    final feedbackCode = snapshot.holdFeedbackCode;
-    if (feedbackCode == null) {
-      return FeedbackDeliveryCue(
-        id: 'hold:fallback:$feedbackMessage',
-        message: feedbackMessage,
-        kind: FeedbackDeliveryKind.status,
-      );
-    }
-
-    return FeedbackDeliveryCue(
-      id: 'hold:${feedbackCode.code}',
-      message: feedbackMessage,
-      kind: _deliveryKindForHoldFeedback(feedbackCode),
+    return _feedbackResolver.resolveHold(
+      code: snapshot.holdFeedbackCode,
+      localizations: ref.read(appLocalizationsProvider),
     );
-  }
-
-  FeedbackDeliveryKind _deliveryKindForHoldFeedback(HoldFeedbackCode code) {
-    return switch (code) {
-      HoldFeedbackCode.bodyNotVisible => FeedbackDeliveryKind.blocking,
-      HoldFeedbackCode.preparePosition ||
-      HoldFeedbackCode.holdPosition => FeedbackDeliveryKind.status,
-      HoldFeedbackCode.alignHips ||
-      HoldFeedbackCode.liftHips ||
-      HoldFeedbackCode.adjustElbowSupport ||
-      HoldFeedbackCode.placeSupportElbowUnderShoulder ||
-      HoldFeedbackCode.useForearmSupport ||
-      HoldFeedbackCode.extendLegs ||
-      HoldFeedbackCode.increaseHollowCompression ||
-      HoldFeedbackCode.extendArmsOverhead ||
-      HoldFeedbackCode.straightenKnees ||
-      HoldFeedbackCode.adjustWallSitDepth ||
-      HoldFeedbackCode.alignWallSitTorso ||
-      HoldFeedbackCode.correctForm => FeedbackDeliveryKind.corrective,
-    };
   }
 
   void handleManualPause() {
@@ -1108,20 +1044,5 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       ),
     );
     _updateDiagnosticsFromState();
-  }
-
-  String _resolveHoldFeedbackMessage(HoldCoordinatorStateSnapshot snapshot) {
-    final feedbackCode = snapshot.holdFeedbackCode;
-    if (feedbackCode != null) {
-      return mapHoldFeedbackCodeToMessage(
-        feedbackCode,
-        localizations: ref.read(appLocalizationsProvider),
-      );
-    }
-
-    return mapHoldFeedbackCodeToMessage(
-      HoldFeedbackCode.preparePosition,
-      localizations: ref.read(appLocalizationsProvider),
-    );
   }
 }

@@ -29,7 +29,7 @@ class WorkoutDiagnosticsPanel extends StatefulWidget {
     required this.onReset,
     this.copyText,
     this.exportJsonFile,
-    this.refreshInterval = const Duration(milliseconds: 500),
+    this.refreshInterval = const Duration(seconds: 2),
     super.key,
   });
 

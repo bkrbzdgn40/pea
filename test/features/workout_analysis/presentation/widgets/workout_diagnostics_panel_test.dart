@@ -466,7 +466,7 @@ void main() {
       expect(find.text('rangeRep'), findsOneWidget);
       activeSnapshot = _snapshot(analysisKind: 'hold');
 
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 2));
 
       expect(find.text('hold'), findsOneWidget);
     },
@@ -660,7 +660,7 @@ void main() {
 
     expect(readCount, 1);
 
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 2));
     expect(readCount, 2);
 
     await tester.pumpWidget(const SizedBox.shrink());

@@ -13,6 +13,7 @@ import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/tempo_measurement_assessment.dart';
 import '../domain/range_rep_timing_trace.dart';
+import 'rolling_sample_buffer.dart';
 
 const String _defaultAppCommitSha = String.fromEnvironment(
   'PEA_COMMIT_SHA',
@@ -861,16 +862,26 @@ class WorkoutDiagnosticsAccumulator {
   final CameraViewContract _cameraViewContract;
   late DateTime _sessionStartedAt;
   late String _analysisKind;
-  final List<int> _processingDurationMs = <int>[];
-  final List<double> _frameConversionDurationMs = <double>[];
-  final List<double> _poseDetectionDurationMs = <double>[];
-  final List<double> _candidateEvaluationDurationMs = <double>[];
-  final List<double> _framePosePipelineTotalDurationMs = <double>[];
-  final List<double> _minimumRequiredLikelihoodSamples = <double>[];
-  final List<double> _meanRequiredLikelihoodSamples = <double>[];
-  final List<double> _poseQualityScoreSamples = <double>[];
-  final List<double> _cameraFpsSamples = <double>[];
-  final List<double> _analysisFpsSamples = <double>[];
+  final RollingSampleBuffer<int> _processingDurationMs =
+      RollingSampleBuffer<int>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _frameConversionDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _poseDetectionDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _candidateEvaluationDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _framePosePipelineTotalDurationMs =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _minimumRequiredLikelihoodSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _meanRequiredLikelihoodSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _poseQualityScoreSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _cameraFpsSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
+  final RollingSampleBuffer<double> _analysisFpsSamples =
+      RollingSampleBuffer<double>(capacity: maxProcessingDurationSamples);
   final Map<String, int> _poseRejectionReasonCounts = <String, int>{};
 
   int _cameraFrameCount = 0;
@@ -1139,9 +1150,6 @@ class WorkoutDiagnosticsAccumulator {
     if (duration.isNegative) {
       throw ArgumentError.value(duration, 'duration', 'Must not be negative');
     }
-    if (_processingDurationMs.length == maxProcessingDurationSamples) {
-      _processingDurationMs.removeAt(0);
-    }
     _processingDurationMs.add(duration.inMilliseconds);
   }
 
@@ -1266,22 +1274,21 @@ class WorkoutDiagnosticsAccumulator {
   }
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
-    final sortedDurations = _processingDurationMs.toList()..sort();
-    final sortedFrameConversionDurations = _frameConversionDurationMs.toList()
-      ..sort();
-    final sortedPoseDetectionDurations = _poseDetectionDurationMs.toList()
-      ..sort();
-    final sortedCandidateEvaluationDurations =
-        _candidateEvaluationDurationMs.toList()..sort();
+    final sortedDurations = _processingDurationMs.sortedValues();
+    final sortedFrameConversionDurations = _frameConversionDurationMs
+        .sortedValues();
+    final sortedPoseDetectionDurations = _poseDetectionDurationMs
+        .sortedValues();
+    final sortedCandidateEvaluationDurations = _candidateEvaluationDurationMs
+        .sortedValues();
     final sortedFramePosePipelineTotalDurations =
-        _framePosePipelineTotalDurationMs.toList()..sort();
-    final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples.toList()
-      ..sort();
-    final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.toList()
-      ..sort();
-    final sortedQualityScores = _poseQualityScoreSamples.toList()..sort();
-    final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
-    final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
+        _framePosePipelineTotalDurationMs.sortedValues();
+    final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples
+        .sortedValues();
+    final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.sortedValues();
+    final sortedQualityScores = _poseQualityScoreSamples.sortedValues();
+    final sortedCameraFpsSamples = _cameraFpsSamples.sortedValues();
+    final sortedAnalysisFpsSamples = _analysisFpsSamples.sortedValues();
     return WorkoutDiagnosticsSnapshot(
       schemaVersion: 12,
       appCommitSha: _appCommitSha,
@@ -1442,7 +1449,7 @@ class WorkoutDiagnosticsAccumulator {
   }
 
   void _appendDurationSample(
-    List<double> samples,
+    RollingSampleBuffer<double> samples,
     Duration? duration, {
     required String parameterName,
   }) {
@@ -1455,9 +1462,6 @@ class WorkoutDiagnosticsAccumulator {
         parameterName,
         'Must not be negative',
       );
-    }
-    if (samples.length == maxProcessingDurationSamples) {
-      samples.removeAt(0);
     }
     samples.add(duration.inMicroseconds / 1000.0);
   }
@@ -1480,20 +1484,17 @@ class WorkoutDiagnosticsAccumulator {
     return sortedValues[rank - 1];
   }
 
-  void _appendFiniteSample(List<double> samples, double? value) {
+  void _appendFiniteSample(RollingSampleBuffer<double> samples, double? value) {
     if (value == null || !value.isFinite) {
       return;
-    }
-    if (samples.length == maxProcessingDurationSamples) {
-      samples.removeAt(0);
     }
     samples.add(value);
   }
 
-  void _appendFiniteNonNegativeSample(List<double> samples, double value) {
-    if (samples.length == maxProcessingDurationSamples) {
-      samples.removeAt(0);
-    }
+  void _appendFiniteNonNegativeSample(
+    RollingSampleBuffer<double> samples,
+    double value,
+  ) {
     samples.add(value);
   }
 }
