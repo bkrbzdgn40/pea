@@ -22,6 +22,7 @@ import '../../application/range_rep_tempo_voice_confirmation_policy.dart';
 import '../../application/range_rep_temporal_continuity_tracker.dart';
 import '../../application/validated_rep_event_tracker.dart';
 import '../../application/workout_state.dart';
+import '../../application/workout_analysis_failure_policy.dart';
 import '../../application/workout_analysis_runtime.dart';
 import '../../application/workout_diagnostics.dart';
 import '../../application/workout_state_projector.dart';
@@ -51,6 +52,7 @@ import 'exercise_config_provider.dart';
 import 'feedback_delivery_provider.dart';
 import 'pose_provider.dart';
 import 'settings_provider.dart';
+import 'workout_analysis_health_controller.dart';
 
 /// Exposes the live workout state produced from camera frames and pose results.
 final workoutControllerProvider =
@@ -160,17 +162,23 @@ final workoutAnalysisRuntimeFactoryProvider =
       return const WorkoutAnalysisRuntimeFactory();
     });
 
+final workoutPoseDetectionTimeoutProvider = Provider<Duration>(
+  (ref) => defaultWorkoutPoseDetectionTimeout,
+);
+
 final workoutFrameProcessorFactoryProvider =
     Provider<WorkoutFrameProcessorFactory>((ref) {
       return ({
         required WorkoutAnalysisRuntime runtime,
         required DateTime Function() clock,
         required WorkoutFrameProcessorCallbacks callbacks,
+        required Duration poseDetectionTimeout,
       }) {
         return WorkoutFrameProcessor(
           runtime: runtime,
           clock: clock,
           callbacks: callbacks,
+          poseDetectionTimeout: poseDetectionTimeout,
         );
       };
     });
@@ -191,6 +199,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   late DateTime Function() _clock;
   final WorkoutStateProjector _stateProjector = const WorkoutStateProjector();
   late WorkoutFrameProcessor _frameProcessor;
+  final WorkoutAnalysisFailurePolicy _analysisFailurePolicy =
+      WorkoutAnalysisFailurePolicy();
   ExerciseMetrics _lastExerciseMetrics = const ExerciseMetrics.noPose();
   int? _liveMetricsRepCount;
   int? _liveMetricsAlternatingRepCount;
@@ -210,7 +220,6 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   RangeRepAnalysisEngine? get _rangeRepEngine => _runtime.rangeRepEngine;
   ValidatedRepEventTracker? get _validatedRepEventTracker =>
       _runtime.validatedRepEventTracker;
-  RangeRepCoordinator? get _rangeRepCoordinator => _runtime.rangeRepCoordinator;
   RangeRepPrimaryMetricNormalizer? get _primaryMetricNormalizer =>
       _runtime.primaryMetricNormalizer;
   RangeRepTemporalContinuityTracker? get _rangeRepTemporalContinuityTracker =>
@@ -226,9 +235,11 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     // Rebuilding analysis dependencies starts a fresh analysis engine/filter
     // state. Riverpod can rerun build() on this same Notifier instance.
     ref.watch(poseDetectorProvider);
+    ref.watch(workoutAnalysisHealthControllerProvider.notifier);
     _clock = ref.watch(workoutClockProvider);
     _feedbackDelivery = ref.watch(feedbackDeliveryProvider);
     _feedbackDelivery.reset();
+    _analysisFailurePolicy.reset();
     _rangeRepTempoVoiceConfirmationPolicy =
         RangeRepTempoVoiceConfirmationPolicy(tempoAnnouncementsEnabled: true);
     _eligibleTempoSessionAccumulator.reset();
@@ -268,6 +279,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     _frameProcessor = frameProcessorFactory(
       runtime: _runtime,
       clock: _clock,
+      poseDetectionTimeout: ref.watch(workoutPoseDetectionTimeoutProvider),
       callbacks: WorkoutFrameProcessorCallbacks(
         onCameraFrameObserved: _recordCameraFrameObserved,
         onAnalysisFrameObserved: _recordAnalysisFrameObserved,
@@ -306,6 +318,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     CameraLensDirection? cameraLensDirection,
     DeviceOrientation? deviceOrientation,
   }) async {
+    if (_analysisFailurePolicy.isBlocked) {
+      return;
+    }
+
     final outcome = await _frameProcessor.processCameraImage(
       image: image,
       sensorOrientation: sensorOrientation,
@@ -321,13 +337,15 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         analysisFps: _analysisFps,
       );
     }
-    if (outcome.status == WorkoutFrameProcessingStatus.failed) {
-      debugPrint('ANALIZ HATASI: ${outcome.error}');
-    }
+    _handleFrameProcessingOutcome(outcome);
   }
 
   @visibleForTesting
   Future<void> processInputImageForAnalysis(InputImage inputImage) async {
+    if (_analysisFailurePolicy.isBlocked) {
+      throw StateError('Workout analysis is blocked until retryAnalysis().');
+    }
+
     final outcome = await _frameProcessor.processInputImage(
       inputImage: inputImage,
       readDetector: () => ref.read(poseDetectorProvider),
@@ -341,9 +359,110 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
         analysisFps: _analysisFps,
       );
     }
-    if (outcome.status == WorkoutFrameProcessingStatus.failed) {
+    _handleFrameProcessingOutcome(outcome);
+    if (outcome.status == WorkoutFrameProcessingStatus.failed ||
+        outcome.status == WorkoutFrameProcessingStatus.timedOut) {
       Error.throwWithStackTrace(outcome.error!, outcome.stackTrace!);
     }
+  }
+
+  void _handleFrameProcessingOutcome(WorkoutFrameProcessingOutcome outcome) {
+    switch (outcome.status) {
+      case WorkoutFrameProcessingStatus.analyzed:
+        final didRecover = _analysisFailurePolicy.recordSuccess();
+        if (didRecover) {
+          ref
+              .read(workoutAnalysisHealthControllerProvider.notifier)
+              .markHealthy();
+          _feedbackDelivery.reset();
+        }
+        return;
+      case WorkoutFrameProcessingStatus.failed:
+        _handleAnalysisFailure(
+          WorkoutAnalysisFailureKind.processingException,
+          error: outcome.error,
+        );
+        return;
+      case WorkoutFrameProcessingStatus.timedOut:
+        _handleAnalysisFailure(
+          WorkoutAnalysisFailureKind.poseDetectionTimeout,
+          error: outcome.error,
+        );
+        return;
+      case WorkoutFrameProcessingStatus.blocked:
+      case WorkoutFrameProcessingStatus.reentrantDrop:
+      case WorkoutFrameProcessingStatus.throttledDrop:
+      case WorkoutFrameProcessingStatus.paused:
+      case WorkoutFrameProcessingStatus.converterDrop:
+        return;
+    }
+  }
+
+  void _handleAnalysisFailure(
+    WorkoutAnalysisFailureKind kind, {
+    Object? error,
+  }) {
+    final decision = _analysisFailurePolicy.recordFailure(kind);
+    debugPrint('ANALIZ HATASI (${kind.name}): $error');
+    ref
+        .read(workoutAnalysisHealthControllerProvider.notifier)
+        .publish(decision);
+    unawaited(_feedbackDelivery.stop());
+    _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
+    ref.read(liveRangeRepOutcomeProvider.notifier).dismiss();
+    ref.read(liveTrackingControllerProvider.notifier).reset();
+    _lastExerciseMetrics = const ExerciseMetrics.noPose();
+    _liveMetricsRepCount = null;
+    _liveMetricsAlternatingRepCount = null;
+    _liveMetricsTempo = null;
+    _liveMetricsAsymmetryScore = null;
+    _interruptAnalysisForFailure(kind);
+    ref.read(workoutLiveMetricsProvider.notifier).reset();
+  }
+
+  void _interruptAnalysisForFailure(WorkoutAnalysisFailureKind kind) {
+    _frameProcessor.resetTemporalState();
+    final reason = 'analysis ${kind.name}';
+    if (_engineKind == EngineKind.rangeRep) {
+      final snapshot = _rangeRepCoordinatorOrThrow()
+          .handleLifecycleInterruption(reason: reason);
+      state = _stateProjector
+          .rangeRep(
+            snapshot: snapshot,
+            feedbackMessage: '',
+            cameraFps: _cameraFps,
+            analysisFps: _analysisFps,
+          )
+          .copyWith(landmarks: null, feedbackMessage: '');
+      _updateDiagnosticsFromState();
+      return;
+    }
+
+    final snapshot = _holdCoordinatorOrThrow().handleLifecycleInterruption(
+      reason: reason,
+    );
+    state = _stateProjector
+        .hold(
+          snapshot: snapshot,
+          feedbackMessage: '',
+          cameraFps: _cameraFps,
+          analysisFps: _analysisFps,
+        )
+        .copyWith(landmarks: null, feedbackMessage: '');
+    _updateDiagnosticsFromState();
+  }
+
+  void retryAnalysis() {
+    _analysisFailurePolicy.reset();
+    _frameProcessor.resetAfterFailure();
+    _feedbackDelivery.reset();
+    _rangeRepTempoVoiceConfirmationPolicy.reset();
+    ref.read(workoutAnalysisHealthControllerProvider.notifier).reset();
+    ref.read(liveRangeRepOutcomeProvider.notifier).reset();
+    ref.read(liveTrackingControllerProvider.notifier).reset();
+    ref.read(workoutLiveMetricsProvider.notifier).reset();
+    ref.invalidate(poseDetectorProvider);
   }
 
   void _recordCameraFrameObserved() {
@@ -540,8 +659,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       validatedRepEvent: validatedRepEvent,
     );
     _publishRangeRepLiveMetricDisplay(snapshot.repCount);
-    if (deliverFeedback &&
-        !ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (deliverFeedback && !_suppressesExerciseFeedback) {
       unawaited(
         _feedbackDelivery.deliver(
           FeedbackDeliveryCue(
@@ -596,7 +714,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     if (!didShow) {
       return;
     }
-    if (ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (_suppressesExerciseFeedback) {
       _rangeRepTempoVoiceConfirmationPolicy.reset();
       return;
     }
@@ -621,6 +739,13 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     );
   }
 
+  bool get _suppressesExerciseFeedback {
+    return ref
+            .read(liveTrackingControllerProvider)
+            .suppressesExerciseFeedback ||
+        !ref.read(workoutAnalysisHealthControllerProvider).isHealthy;
+  }
+
   void _recordValidatedRepEvent(ValidatedRepEvent? event) {
     if (event == null) {
       return;
@@ -632,7 +757,10 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     tracker.record(event);
   }
 
-  void _publishHoldState(HoldCoordinatorStateSnapshot snapshot) {
+  void _publishHoldState(
+    HoldCoordinatorStateSnapshot snapshot, {
+    bool deliverFeedback = true,
+  }) {
     final feedbackMessage = _resolveHoldFeedbackMessage(snapshot);
     state = _stateProjector.hold(
       snapshot: snapshot,
@@ -641,7 +769,7 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       analysisFps: _analysisFps,
     );
     _publishHoldLiveMetricDisplay();
-    if (!ref.read(liveTrackingControllerProvider).suppressesExerciseFeedback) {
+    if (deliverFeedback && !_suppressesExerciseFeedback) {
       unawaited(
         _feedbackDelivery.deliver(
           _holdFeedbackDeliveryCue(snapshot, feedbackMessage: feedbackMessage),

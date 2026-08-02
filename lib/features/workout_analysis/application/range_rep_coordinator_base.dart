@@ -7,7 +7,6 @@ import '../domain/legacy_range_rep_technique_evaluator.dart';
 import '../domain/legacy_range_rep_technique_history_tracker.dart';
 import '../domain/models/analysis_frame.dart';
 import '../domain/models/analysis_signal_role.dart';
-import '../domain/models/calibration_snapshot.dart';
 import '../domain/models/exercise_config.dart';
 import '../domain/models/hold_contract.dart';
 import '../domain/models/measurement_confidence_breakdown.dart';
@@ -17,10 +16,8 @@ import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_engine_frame_result.dart';
 import '../domain/models/range_rep_feedback_code.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
-import '../domain/models/range_rep_validation_result.dart';
 import '../domain/models/rep_tempo_assessment.dart';
 import '../domain/models/rep_score_breakdown.dart';
-import '../domain/models/session_calibration_baseline.dart';
 import '../domain/models/validated_rep_event.dart';
 import '../domain/range_rep_analysis_engine.dart';
 import '../domain/range_rep_diagnostics.dart';
@@ -30,11 +27,14 @@ import 'analysis_frame_builder.dart';
 import 'calibration_snapshot_builder.dart';
 import 'engine_kind.dart';
 import 'exercise_metrics.dart';
+import 'range_rep_attempt_processor.dart';
 import 'range_rep_blocked_state_builder.dart';
+import 'range_rep_calibration_projector.dart';
 import 'range_rep_feedback_lifecycle.dart';
 import 'range_rep_frame_policy.dart';
 import 'range_rep_movement_side_selector.dart';
 import 'range_rep_rep_outcome_tracker.dart';
+import 'range_rep_rep_scoring_service.dart';
 import 'range_rep_side_policy.dart';
 import 'range_rep_side_stabilizer.dart';
 import 'range_rep_threshold_bookkeeper.dart';
@@ -170,6 +170,9 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     required RangeRepContract rangeRepContract,
     required RangeRepValidationConfig rangeRepValidationConfig,
     LegacyRangeRepScorer scorer = const LegacyRangeRepScorer(),
+    RangeRepRepScoringService? repScoringService,
+    RangeRepAttemptProcessor? attemptProcessor,
+    RangeRepCalibrationProjector? calibrationProjector,
     LegacyRangeRepTechniqueEvaluator techniqueEvaluator =
         const LegacyRangeRepTechniqueEvaluator(),
     LegacyRangeRepTechniqueHistoryTracker? techniqueHistoryTracker,
@@ -206,7 +209,12 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _bodyLineFilter = MovingAverageFilter(windowSize: 5),
        _armSupportFilter = MovingAverageFilter(windowSize: 5),
        _legFilter = MovingAverageFilter(windowSize: 5),
-       _scorer = scorer,
+       _attemptProcessor =
+           attemptProcessor ??
+           RangeRepAttemptProcessor(
+             scoringService:
+                 repScoringService ?? RangeRepRepScoringService(scorer: scorer),
+           ),
        _techniqueEvaluator = techniqueEvaluator,
        _techniqueHistoryTracker =
            techniqueHistoryTracker ??
@@ -215,8 +223,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
            ),
        _analysisFrameBuilder = analysisFrameBuilder,
        _blockedStateBuilder = blockedStateBuilder,
-       _calibrationSnapshotBuilder = calibrationSnapshotBuilder,
        _calibrationMetricsBuilder = calibrationMetricsBuilder,
+       _calibrationProjector =
+           calibrationProjector ??
+           RangeRepCalibrationProjector(
+             snapshotBuilder: calibrationSnapshotBuilder,
+             metricsBuilder: calibrationMetricsBuilder,
+             baselineAccumulator: sessionCalibrationBaselineAccumulator,
+           ),
        _framePolicy = framePolicy,
        _sidePolicy = sidePolicy,
        _movementSideSelector =
@@ -237,25 +251,22 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
              validationPolicy: RangeRepValidationPolicy(
                config: rangeRepValidationConfig,
              ),
-           ),
-       _sessionCalibrationBaselineAccumulator =
-           sessionCalibrationBaselineAccumulator ??
-           SessionCalibrationBaselineAccumulator();
+           );
 
   final RangeRepAnalysisEngine _engine;
   final ExerciseConfig _config;
   final RangeRepContract _rangeRepContract;
   final RangeRepValidationConfig _rangeRepValidationConfig;
   final RangeRepTempoCoachingPolicy _tempoCoachingPolicy;
-  final LegacyRangeRepScorer _scorer;
+  final RangeRepAttemptProcessor _attemptProcessor;
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator;
   final LegacyRangeRepTechniqueHistoryTracker _techniqueHistoryTracker;
   final FeedbackArbitrationEngine _feedbackArbitrationEngine =
       const FeedbackArbitrationEngine();
   final WorkoutAnalysisFrameBuilder _analysisFrameBuilder;
   final RangeRepBlockedStateBuilder _blockedStateBuilder;
-  final CalibrationSnapshotBuilder _calibrationSnapshotBuilder;
   final WorkoutCalibrationMetricsBuilder _calibrationMetricsBuilder;
+  final RangeRepCalibrationProjector _calibrationProjector;
   final RangeRepFramePolicy _framePolicy;
   final RangeRepFeedbackLifecycle _feedbackLifecycle =
       RangeRepFeedbackLifecycle();
@@ -265,8 +276,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   final RangeRepVisibilityPolicy _visibilityPolicy;
   final RangeRepThresholdBookkeeper _thresholdBookkeeper;
   final RangeRepRepOutcomeTracker _outcomeTracker;
-  final SessionCalibrationBaselineAccumulator
-  _sessionCalibrationBaselineAccumulator;
   final MovingAverageFilter _primaryMetricFilter;
   final MovingAverageFilter _formMetricFilter;
   final MovingAverageFilter _bodyLineFilter;
@@ -276,8 +285,6 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepSide? _selectedRangeRepSide;
   RangeRepSide? _briefGapFrozenRangeRepSide;
   bool _hasAcceptedPoseForAnalysis = false;
-  CalibrationSnapshot? _lastCalibrationSnapshot;
-  SessionCalibrationBaseline? _sessionCalibrationBaseline;
   List<PoseLandmark>? _lastPublishedLandmarks;
   double _lastPublishedCurrentAngle = 0.0;
   double _lastRepScore = 0.0;
@@ -394,7 +401,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       );
       final formThresholdResolution = _thresholdBookkeeper.resolve(
         baseThreshold: _config.formThreshold,
-        sessionCalibrationBaseline: _sessionCalibrationBaseline,
+        sessionCalibrationBaseline:
+            _calibrationProjector.sessionCalibrationBaseline,
         selectedRangeRepSide: _rangeRepSideLabel(
           frameAssessment.selection.selectedSide,
         ),
@@ -649,7 +657,8 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
     final formThresholdResolution = _thresholdBookkeeper.resolve(
       baseThreshold: _config.formThreshold,
-      sessionCalibrationBaseline: _sessionCalibrationBaseline,
+      sessionCalibrationBaseline:
+          _calibrationProjector.sessionCalibrationBaseline,
       selectedRangeRepSide: selectedSideLabel,
     );
     final engineFrame = _applyFormThresholdResolution(
@@ -718,20 +727,37 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       hasTechniqueViolation: hasTechniqueViolation,
     );
     final didCompleteRep = engineResult.didCompleteRep;
-    final completedRepEvent = _processCompletedRep(
+    final completedAttemptResult = _attemptProcessor.processCompleted(
+      outcomeTracker: _outcomeTracker,
       completedRepCoreData: completedRepCoreData,
       postUpdateDiagnostics: postUpdateDiagnostics,
       tempoAssessment: completedRepTempoAssessment,
       completedAt: now,
+      engineLastRepRom: _engine.lastRepRom,
+      config: _config,
+      rangeRepContract: _rangeRepContract,
+      rangeRepValidationConfig: _rangeRepValidationConfig,
     );
+    if (completedAttemptResult != null) {
+      _applyAttemptProcessingResult(completedAttemptResult);
+    }
+    final abortedAttemptResult = completedAttemptResult == null
+        ? _attemptProcessor.processShallowAbort(
+            outcomeTracker: _outcomeTracker,
+            invalidateAbortToNeutralAsInsufficientRom: _rangeRepValidationConfig
+                .invalidateAbortToNeutralAsInsufficientRom,
+            abortedAttemptData: engineResult.abortedAttemptDetectionData,
+            currentFormMetric: engineFrame.formMetric,
+            hadFormViolation: hasTechniqueViolation,
+            completedAt: now,
+          )
+        : null;
+    if (abortedAttemptResult != null) {
+      _applyAttemptProcessingResult(abortedAttemptResult);
+    }
     final validatedRepEvent =
-        completedRepEvent ??
-        _processShallowAbortedRep(
-          engineResult: engineResult,
-          currentFormMetric: engineFrame.formMetric,
-          hadFormViolation: hasTechniqueViolation,
-          completedAt: now,
-        );
+        completedAttemptResult?.validatedRepEvent ??
+        abortedAttemptResult?.validatedRepEvent;
     _outcomeTracker.resetRepContextIfCycleEnded(
       previousDiagnostics: preUpdateDiagnostics,
       currentDiagnostics: postUpdateDiagnostics,
@@ -739,7 +765,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
     _resetAutomaticSideSelectionIfCycleEnded(engineResult);
 
-    final calibrationMetrics = _buildCalibrationMetrics(
+    final calibrationMetrics = _projectCalibrationMetrics(
       diagnostics: postUpdateDiagnostics,
       currentFormMetric: engineFrame.formMetric,
       currentPrimaryMetric: engineFrame.primaryMetric,
@@ -1181,133 +1207,14 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     };
   }
 
-  ValidatedRepEvent? _processCompletedRep({
-    required RangeRepCompletedRepCoreData? completedRepCoreData,
-    required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
-    required RepTempoAssessment? tempoAssessment,
-    required DateTime completedAt,
-  }) {
-    final validationOutcome = _outcomeTracker.activateCompletedRepOutcomeIfAny(
-      engineKind: EngineKind.rangeRep,
-      analysisKindLabel: EngineKind.rangeRep.name,
-      completedRepCoreData: completedRepCoreData,
-    );
-    if (completedRepCoreData == null || validationOutcome == null) {
-      return null;
-    }
-
-    final validationResult = validationOutcome.result;
-    if (validationResult.shouldPublishScore) {
-      _scoreCompletedRep(
-        completedRepCoreData: completedRepCoreData,
-        postUpdateDiagnostics: postUpdateDiagnostics,
-        validationResult: validationResult,
-        tempoAssessment: tempoAssessment,
-      );
-      _lastAcceptedRepRom = _engine.lastRepRom;
-    } else {
-      _lastRepScore = 0.0;
-      _lastAcceptedRepRom = 0.0;
-      _lastRepScoreBreakdown = null;
+  void _applyAttemptProcessingResult(RangeRepAttemptProcessingResult result) {
+    _lastRepScore = result.lastRepScore;
+    _lastAcceptedRepRom = result.lastAcceptedRepRom;
+    _lastRepScoreBreakdown = result.lastRepScoreBreakdown;
+    if (result.shouldClearTempoAssessment) {
+      _lastRepTempoAssessment = null;
     }
     _refreshRepTelemetry();
-
-    final summary = validationOutcome.summary;
-    return ValidatedRepEvent(
-      attemptIndex: validationOutcome.attemptIndex,
-      acceptedRepIndex: validationResult.countsTowardReps
-          ? _outcomeTracker.rangeRepAcceptedCount
-          : null,
-      exerciseType: 'unknown',
-      analysisKind: EngineKind.rangeRep.name,
-      validationStatus: validationResult.status,
-      validationReasons: validationResult.reasons,
-      tempoDiagnosticReasons: validationResult.tempoDiagnosticReasons,
-      countsTowardReps: validationResult.countsTowardReps,
-      side: _validatedRepSideFromLabel(summary.selectedSideLabel),
-      minPrimaryMetric: summary.minAngle,
-      primaryRom: summary.primaryRom,
-      worstFormMetric: summary.worstFormMetric,
-      descentDuration: summary.descentDuration,
-      ascentDuration: summary.ascentDuration,
-      hadFormViolation: summary.hadFormViolation,
-      hadCoverageDrop: summary.hadCoverageDrop,
-      switchedSideDuringRep: summary.switchedSideDuringRep,
-      completedPhaseSequence: summary.completedPhaseSequence,
-      measurementConfidence: summary.measurementConfidence,
-      coverageQuality: summary.coverageQuality,
-      finalScore: validationResult.shouldPublishScore ? _lastRepScore : null,
-      tempoAssessment: tempoAssessment,
-      tempoIncludedInScore:
-          _lastRepScoreBreakdown?.tempoIncludedInFinalScore ?? false,
-      completedAt: completedAt,
-    );
-  }
-
-  ValidatedRepEvent? _processShallowAbortedRep({
-    required RangeRepEngineFrameResult engineResult,
-    required double currentFormMetric,
-    required bool hadFormViolation,
-    required DateTime completedAt,
-  }) {
-    if (!_rangeRepValidationConfig.invalidateAbortToNeutralAsInsufficientRom ||
-        engineResult.abortedAttemptDetectionData == null) {
-      return null;
-    }
-
-    final validationOutcome = _outcomeTracker
-        .activateShallowAbortedRepOutcomeIfAny(
-          engineKind: EngineKind.rangeRep,
-          analysisKindLabel: EngineKind.rangeRep.name,
-          abortedAttemptData: engineResult.abortedAttemptDetectionData,
-          worstFormMetric: currentFormMetric,
-          hadFormViolation: hadFormViolation,
-        );
-    if (validationOutcome == null) {
-      return null;
-    }
-
-    _lastRepScore = 0.0;
-    _lastAcceptedRepRom = 0.0;
-    _lastRepScoreBreakdown = null;
-    _lastRepTempoAssessment = null;
-    _refreshRepTelemetry();
-
-    final summary = validationOutcome.summary;
-    return ValidatedRepEvent(
-      attemptIndex: validationOutcome.attemptIndex,
-      acceptedRepIndex: null,
-      exerciseType: 'unknown',
-      analysisKind: EngineKind.rangeRep.name,
-      validationStatus: validationOutcome.status,
-      validationReasons: validationOutcome.reasons,
-      tempoDiagnosticReasons: const <RangeRepValidationReason>[],
-      countsTowardReps: false,
-      side: _validatedRepSideFromLabel(summary.selectedSideLabel),
-      minPrimaryMetric: summary.minAngle,
-      primaryRom: summary.primaryRom,
-      worstFormMetric: summary.worstFormMetric,
-      descentDuration: summary.descentDuration,
-      ascentDuration: summary.ascentDuration,
-      hadFormViolation: summary.hadFormViolation,
-      hadCoverageDrop: summary.hadCoverageDrop,
-      switchedSideDuringRep: summary.switchedSideDuringRep,
-      completedPhaseSequence: false,
-      measurementConfidence: summary.measurementConfidence,
-      coverageQuality: summary.coverageQuality,
-      finalScore: null,
-      tempoAssessment: null,
-      tempoIncludedInScore: false,
-      completedAt: completedAt,
-    );
-  }
-
-  ValidatedRepSide? _validatedRepSideFromLabel(String? label) {
-    return switch (label) {
-      'left' => ValidatedRepSide.left,
-      'right' => ValidatedRepSide.right,
-      _ => null,
-    };
   }
 
   RangeRepCompletedRepCoreData? _buildCompletedRepCoreData({
@@ -1338,318 +1245,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
   }
 
-  void _scoreCompletedRep({
-    required RangeRepCompletedRepCoreData completedRepCoreData,
-    required RangeRepDiagnosticsSnapshot postUpdateDiagnostics,
-    required RangeRepValidationResult validationResult,
-    required RepTempoAssessment? tempoAssessment,
-  }) {
-    final startAngle = completedRepCoreData.startAngle;
-    final primaryRom = completedRepCoreData.primaryRom;
-    final configuredMinimumRomDelta =
-        _rangeRepValidationConfig.minAcceptableRomDelta;
-    final minimumAcceptableRom = startAngle == null
-        ? null
-        : configuredMinimumRomDelta ??
-              switch (_rangeRepContract.primaryMetricDirection) {
-                RangeRepPrimaryMetricDirection.decreasingToPeak =>
-                  (startAngle - _rangeRepValidationConfig.minAcceptableRomAngle)
-                      .clamp(0.0, 180.0)
-                      .toDouble(),
-                RangeRepPrimaryMetricDirection.increasingToPeak => null,
-              };
-    final targetRom = startAngle == null
-        ? null
-        : switch (_rangeRepContract.primaryMetricDirection) {
-            RangeRepPrimaryMetricDirection.decreasingToPeak =>
-              (startAngle - _config.targetMinAngle)
-                  .clamp(0.0, 180.0)
-                  .toDouble(),
-            RangeRepPrimaryMetricDirection.increasingToPeak =>
-              ((_config.targetMaxAngle ?? _config.thresholdPeak) - startAngle)
-                  .clamp(0.0, 180.0)
-                  .toDouble(),
-          };
-    final romResult =
-        primaryRom == null || minimumAcceptableRom == null || targetRom == null
-        ? null
-        : _scorer.calculateSaturatingRomScore(
-            achievedRom: primaryRom,
-            minimumAcceptableRom: minimumAcceptableRom,
-            targetRom: targetRom,
-          );
-    final romScore =
-        romResult?.score ??
-        switch (_rangeRepContract.primaryMetricDirection) {
-          RangeRepPrimaryMetricDirection.decreasingToPeak =>
-            _scorer.calculateRomScore(
-              minAngle: completedRepCoreData.minAngle,
-              targetMinAngle: _config.targetMinAngle,
-            ),
-          RangeRepPrimaryMetricDirection.increasingToPeak =>
-            primaryRom == null || targetRom == null
-                ? 0.0
-                : _scorer
-                      .calculateSaturatingRomScore(
-                        achievedRom: primaryRom,
-                        minimumAcceptableRom: 0.0,
-                        targetRom: targetRom,
-                      )
-                      .score,
-        };
-    final descentSeconds =
-        completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
-    final phaseDescentScore = _scorer.calculateTempoScore(
-      actualSeconds: descentSeconds,
-      idealSeconds: _config.idealDescentSeconds,
-      tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
-    );
-    final ascentSeconds =
-        completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
-    final phaseAscentScore = _scorer.calculateTempoScore(
-      actualSeconds: ascentSeconds,
-      idealSeconds: _config.idealAscentSeconds,
-      tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
-    );
-    final totalRepDuration = completedRepCoreData.totalRepDuration;
-    final totalRepSeconds = totalRepDuration == null
-        ? null
-        : totalRepDuration.inMilliseconds / 1000.0;
-    final minTotalRepMillis = _rangeRepValidationConfig.minTotalRepMillis;
-    final minTotalRepSeconds = minTotalRepMillis == null
-        ? null
-        : minTotalRepMillis / 1000.0;
-    final totalRepTempoScore =
-        totalRepSeconds == null || minTotalRepSeconds == null
-        ? null
-        : totalRepSeconds >= minTotalRepSeconds
-        ? 100.0
-        : _scorer.calculateTempoScore(
-            actualSeconds: totalRepSeconds,
-            idealSeconds: minTotalRepSeconds,
-            tempoPenaltyPerSecond: _config.tempoPenaltyPerSecond,
-          );
-    final useLegacyTotalRepTempoScore =
-        tempoAssessment?.coachingEnabled != true;
-    final descentScore = useLegacyTotalRepTempoScore
-        ? totalRepTempoScore ?? phaseDescentScore
-        : phaseDescentScore;
-    final ascentScore = useLegacyTotalRepTempoScore
-        ? totalRepTempoScore ?? phaseAscentScore
-        : phaseAscentScore;
-    final tempoScore = (descentScore + ascentScore) / 2;
-    final depthScore = romScore;
-    final descentControlScore = descentScore;
-    final ascentControlScore = ascentScore;
-    final scoreWeights = _config.rangeRepScoreWeights;
-    final weightedBaseScore = scoreWeights == null
-        ? null
-        : _scorer.calculateWeightedBaseScore(
-            depthScore: depthScore,
-            descentControlScore: descentControlScore,
-            ascentControlScore: ascentControlScore,
-            depthWeight: scoreWeights.depthWeight ?? 1.0,
-            descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
-            ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
-          );
-    final includeTempoInMainScore =
-        (tempoAssessment?.shouldIncludeInScore ?? false) &&
-        validationResult.allowsTempoInMainScore;
-    final effectiveWeightedBaseScore = includeTempoInMainScore
-        ? weightedBaseScore
-        : scoreWeights == null
-        ? null
-        : depthScore;
-    final descendingPhaseFlagged =
-        postUpdateDiagnostics.descendingPhaseAssessment.status ==
-            RangeRepPhaseQualityStatus.flagged &&
-        (includeTempoInMainScore ||
-            postUpdateDiagnostics.descendingPhaseAssessment.issues.any(
-              (issue) => issue != RangeRepPhaseQualityIssue.durationTooShort,
-            ));
-    final ascendingPhaseFlagged =
-        postUpdateDiagnostics.ascendingPhaseAssessment.status ==
-            RangeRepPhaseQualityStatus.flagged &&
-        (includeTempoInMainScore ||
-            postUpdateDiagnostics.ascendingPhaseAssessment.issues.any(
-              (issue) => issue != RangeRepPhaseQualityIssue.durationTooShort,
-            ));
-    final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
-      descendingPhaseFlagged: descendingPhaseFlagged,
-      ascendingPhaseFlagged: ascendingPhaseFlagged,
-    );
-    final baseScore = _scorer.calculateBaseScore(
-      romScore: romScore,
-      tempoScore: tempoScore,
-      weightedBaseScore: effectiveWeightedBaseScore,
-      hadFormViolation: completedRepCoreData.hadFormViolation,
-      includeTempo: includeTempoInMainScore,
-    );
-    final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
-      baseScore: baseScore,
-      phaseQualityPenalty: phaseQualityPenalty,
-    );
-    final finalScore = _scorer.calculateFinalScore(
-      baseScore: baseScore,
-      phaseAdjustedScore: phaseAdjustedScore,
-    );
-
-    final consistencyScore = (100.0 - (phaseQualityPenalty ?? 0.0))
-        .clamp(0.0, 100.0)
-        .toDouble();
-    final scoreComponents = RepScoreComponents(
-      rom: romScore,
-      tempo: tempoScore,
-      technique: completedRepCoreData.hadFormViolation ? 50.0 : 100.0,
-      consistency: consistencyScore,
-      confidence: _scoreConfidencePercent(
-        _outcomeTracker
-            .lastRangeRepRepSummaryCandidate
-            ?.measurementConfidence
-            ?.combined,
-      ),
-    );
-    final penaltyTraces = <RepScorePenaltyTrace>[];
-    if (romScore < 100.0) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.rom,
-          code: 'rom_target_shortfall',
-          evidenceCode: primaryRom == null
-              ? 'minimum_primary_angle_observation'
-              : 'primary_rom_observation',
-          penaltyPoints: 100.0 - romScore,
-          observedValue: primaryRom ?? completedRepCoreData.minAngle,
-          referenceValue: targetRom ?? _config.targetMinAngle,
-          observationUnit: 'degrees',
-        ),
-      );
-    }
-    if (includeTempoInMainScore) {
-      if (totalRepTempoScore != null && useLegacyTotalRepTempoScore) {
-        if (totalRepTempoScore < 100.0) {
-          penaltyTraces.add(
-            RepScorePenaltyTrace(
-              component: RepScoreComponentKind.tempo,
-              code: 'total_rep_tempo_shortfall',
-              evidenceCode: 'total_rep_duration_observation',
-              penaltyPoints: 100.0 - totalRepTempoScore,
-              observedValue: totalRepSeconds,
-              referenceValue: minTotalRepSeconds,
-              observationUnit: 'seconds',
-            ),
-          );
-        }
-      } else {
-        if (descentScore < 100.0) {
-          penaltyTraces.add(
-            RepScorePenaltyTrace(
-              component: RepScoreComponentKind.tempo,
-              code: 'descent_tempo_deviation',
-              evidenceCode: 'eccentric_duration_observation',
-              penaltyPoints: 100.0 - descentScore,
-              observedValue: descentSeconds,
-              referenceValue: _config.idealDescentSeconds,
-              observationUnit: 'seconds',
-            ),
-          );
-        }
-        if (ascentScore < 100.0) {
-          penaltyTraces.add(
-            RepScorePenaltyTrace(
-              component: RepScoreComponentKind.tempo,
-              code: 'ascent_tempo_deviation',
-              evidenceCode: 'concentric_duration_observation',
-              penaltyPoints: 100.0 - ascentScore,
-              observedValue: ascentSeconds,
-              referenceValue: _config.idealAscentSeconds,
-              observationUnit: 'seconds',
-            ),
-          );
-        }
-      }
-    }
-    if (completedRepCoreData.hadFormViolation) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.technique,
-          code: 'legacy_form_penalty',
-          evidenceCode: 'legacy_form_threshold_violation',
-          penaltyPoints: 50.0,
-          observedValue: completedRepCoreData.worstFormMetric,
-          referenceValue: _config.formThreshold,
-          observationUnit: 'degrees',
-        ),
-      );
-    }
-    if (descendingPhaseFlagged) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.consistency,
-          code: 'descending_phase_quality_penalty',
-          evidenceCode:
-              postUpdateDiagnostics.descendingPhaseAssessment.issues.isEmpty
-              ? 'descending_phase_quality_flagged'
-              : postUpdateDiagnostics.descendingPhaseAssessment.issues
-                    .map((issue) => issue.name)
-                    .join(','),
-          penaltyPoints: 5.0,
-        ),
-      );
-    }
-    if (ascendingPhaseFlagged) {
-      penaltyTraces.add(
-        RepScorePenaltyTrace(
-          component: RepScoreComponentKind.consistency,
-          code: 'ascending_phase_quality_penalty',
-          evidenceCode:
-              postUpdateDiagnostics.ascendingPhaseAssessment.issues.isEmpty
-              ? 'ascending_phase_quality_flagged'
-              : postUpdateDiagnostics.ascendingPhaseAssessment.issues
-                    .map((issue) => issue.name)
-                    .join(','),
-          penaltyPoints: 5.0,
-        ),
-      );
-    }
-
-    _lastRepScore = finalScore;
-    _lastRepScoreBreakdown = RepScoreBreakdown(
-      minAngle: completedRepCoreData.minAngle,
-      primaryRom: primaryRom,
-      romRegion: romResult?.region,
-      romScore: romScore,
-      descentSeconds: descentSeconds,
-      descentScore: descentScore,
-      ascentSeconds: ascentSeconds,
-      ascentScore: ascentScore,
-      worstBackAngle: completedRepCoreData.worstFormMetric,
-      hadFormViolation: completedRepCoreData.hadFormViolation,
-      runtimeBaseScore: baseScore,
-      finalScore: finalScore,
-      scoreComponents: scoreComponents,
-      penaltyTraces: List<RepScorePenaltyTrace>.unmodifiable(penaltyTraces),
-      depthScore: depthScore,
-      descentControlScore: descentControlScore,
-      ascentControlScore: ascentControlScore,
-      consistencyScore: consistencyScore,
-      weightedBaseScore: effectiveWeightedBaseScore,
-      phaseQualityPenalty: phaseQualityPenalty,
-      phaseAdjustedScore: phaseAdjustedScore,
-      totalRepSeconds: totalRepSeconds,
-      totalRepTempoScore: totalRepTempoScore,
-      tempoIncludedInFinalScore: includeTempoInMainScore,
-    );
-  }
-
-  double? _scoreConfidencePercent(double? combined) {
-    if (combined == null) {
-      return null;
-    }
-    return (combined * 100.0).clamp(0.0, 100.0).toDouble();
-  }
-
-  WorkoutCalibrationMetrics _buildCalibrationMetrics({
+  WorkoutCalibrationMetrics _projectCalibrationMetrics({
     required RangeRepDiagnosticsSnapshot diagnostics,
     required double currentFormMetric,
     required double thresholdValue,
@@ -1689,98 +1285,74 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     bool hasArmSupportAngle = false,
     bool hasLegExtensionAngle = false,
   }) {
-    final calibrationSnapshotCandidate = _calibrationSnapshotBuilder
-        .buildCandidate(
-          engineKind: EngineKind.rangeRep,
-          diagnostics: diagnostics,
-          currentPrimaryMetric: currentPrimaryMetric,
-          currentFormMetric: currentFormMetric,
-          hasPrimaryAngle: hasPrimaryAngle,
-          hasFormMetric: hasFormMetric,
-          isRangeRepFrameValid: isRangeRepFrameValid,
-          selectedRangeRepSide: selectedRangeRepSide,
-          currentTorsoAngle: currentTorsoAngle,
-          currentDepthMetric: currentDepthMetric,
-          currentAlignmentMetric: currentAlignmentMetric,
-          currentStabilityMetric: currentStabilityMetric,
-          currentLockoutMetric: currentLockoutMetric,
-          currentBottomControlMetric: currentBottomControlMetric,
-        );
-
-    if (calibrationSnapshotCandidate != null) {
-      _lastCalibrationSnapshot = calibrationSnapshotCandidate;
-      if (_sessionCalibrationBaselineAccumulator.addIfAccepted(
-        calibrationSnapshotCandidate,
-      )) {
-        _sessionCalibrationBaseline =
-            _sessionCalibrationBaselineAccumulator.baseline;
-      }
-    }
-
-    return _calibrationMetricsBuilder.buildRangeRepRuntime(
-      currentFormMetric: currentFormMetric,
-      thresholdValue: thresholdValue,
-      diagnostics: diagnostics,
-      repTelemetry: _lastRepTelemetry,
-      rangeRepSideHysteresisStatus: _sideStabilizer.hysteresisStatus,
-      rangeRepSideConsistencyStatus: _sideStabilizer.consistencyStatus,
-      calibrationSnapshot: _lastCalibrationSnapshot,
-      calibrationThresholdDecisionCount: _thresholdBookkeeper.decisionCount,
-      calibrationThresholdAppliedCount: _thresholdBookkeeper.appliedCount,
-      calibrationThresholdNoBaselineCount: _thresholdBookkeeper.noBaselineCount,
-      calibrationThresholdInsufficientSamplesCount:
-          _thresholdBookkeeper.insufficientSamplesCount,
-      calibrationThresholdMissingFormBaselineCount:
-          _thresholdBookkeeper.missingFormBaselineCount,
-      calibrationThresholdSideMismatchCount:
-          _thresholdBookkeeper.sideMismatchCount,
-      calibrationThresholdOffsetTooSmallCount:
-          _thresholdBookkeeper.offsetTooSmallCount,
-      sessionCalibrationBaselineCandidate: _sessionCalibrationBaseline,
-      baseFormThreshold: baseFormThreshold,
-      effectiveFormThreshold: effectiveFormThreshold,
-      calibrationThresholdOffsetCandidate: calibrationThresholdOffsetCandidate,
-      calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
-      calibrationThresholdOffsetFallbackReason:
-          calibrationThresholdOffsetFallbackReason,
-      calibrationThresholdOffsetSampleCount:
-          calibrationThresholdOffsetSampleCount,
-      calibrationThresholdOffsetBaselineSideLabel:
-          calibrationThresholdOffsetBaselineSideLabel,
-      isRangeRepFrameValid: isRangeRepFrameValid,
-      hasPrimaryAngle: hasPrimaryAngle,
-      hasFormMetric: hasFormMetric,
-      rangeRepInvalidReason: rangeRepInvalidReason,
-      selectedRangeRepSide: selectedRangeRepSide,
-      rangeRepSideSelectionReason: rangeRepSideSelectionReason,
-      rangeRepAutomaticSideSelectionEnabled:
-          _rangeRepContract.automaticSideSelectionEnabled,
-      rangeRepMovementSelectedSide:
-          selectedRangeRepSide ==
-              _rangeRepSideLabel(_movementSideSelector.confirmedSide)
-          ? selectedRangeRepSide
-          : null,
-      leftRangeRepCoverage: leftRangeRepCoverage,
-      rightRangeRepCoverage: rightRangeRepCoverage,
-      leftRangeRepSideConfidence: leftRangeRepSideConfidence,
-      rightRangeRepSideConfidence: rightRangeRepSideConfidence,
-      rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
-      rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
-      rangeRepResyncTriggered: rangeRepResyncTriggered,
-      rangeRepResyncReason: rangeRepResyncReason,
-      rangeRepVisibilityStatus: rangeRepVisibilityStatus,
-      currentBodyLineAngle: currentBodyLineAngle,
-      currentArmSupportAngle: currentArmSupportAngle,
-      currentLegExtensionAngle: currentLegExtensionAngle,
-      currentTorsoAngle: currentTorsoAngle,
-      currentDepthMetric: currentDepthMetric,
-      currentAlignmentMetric: currentAlignmentMetric,
-      currentStabilityMetric: currentStabilityMetric,
-      currentLockoutMetric: currentLockoutMetric,
-      currentBottomControlMetric: currentBottomControlMetric,
-      hasBodyLineAngle: hasBodyLineAngle,
-      hasArmSupportAngle: hasArmSupportAngle,
-      hasLegExtensionAngle: hasLegExtensionAngle,
+    final movementSelectedSide =
+        selectedRangeRepSide ==
+            _rangeRepSideLabel(_movementSideSelector.confirmedSide)
+        ? selectedRangeRepSide
+        : null;
+    return _calibrationProjector.project(
+      RangeRepCalibrationProjectionRequest(
+        diagnostics: diagnostics,
+        repTelemetry: _lastRepTelemetry,
+        currentFormMetric: currentFormMetric,
+        thresholdValue: thresholdValue,
+        currentPrimaryMetric: currentPrimaryMetric,
+        rangeRepSideHysteresisStatus: _sideStabilizer.hysteresisStatus,
+        rangeRepSideConsistencyStatus: _sideStabilizer.consistencyStatus,
+        calibrationThresholdDecisionCount: _thresholdBookkeeper.decisionCount,
+        calibrationThresholdAppliedCount: _thresholdBookkeeper.appliedCount,
+        calibrationThresholdNoBaselineCount:
+            _thresholdBookkeeper.noBaselineCount,
+        calibrationThresholdInsufficientSamplesCount:
+            _thresholdBookkeeper.insufficientSamplesCount,
+        calibrationThresholdMissingFormBaselineCount:
+            _thresholdBookkeeper.missingFormBaselineCount,
+        calibrationThresholdSideMismatchCount:
+            _thresholdBookkeeper.sideMismatchCount,
+        calibrationThresholdOffsetTooSmallCount:
+            _thresholdBookkeeper.offsetTooSmallCount,
+        baseFormThreshold: baseFormThreshold,
+        effectiveFormThreshold: effectiveFormThreshold,
+        calibrationThresholdOffsetCandidate:
+            calibrationThresholdOffsetCandidate,
+        calibrationThresholdOffsetApplied: calibrationThresholdOffsetApplied,
+        calibrationThresholdOffsetFallbackReason:
+            calibrationThresholdOffsetFallbackReason,
+        calibrationThresholdOffsetSampleCount:
+            calibrationThresholdOffsetSampleCount,
+        calibrationThresholdOffsetBaselineSideLabel:
+            calibrationThresholdOffsetBaselineSideLabel,
+        isRangeRepFrameValid: isRangeRepFrameValid,
+        hasPrimaryAngle: hasPrimaryAngle,
+        hasFormMetric: hasFormMetric,
+        rangeRepInvalidReason: rangeRepInvalidReason,
+        selectedRangeRepSide: selectedRangeRepSide,
+        rangeRepSideSelectionReason: rangeRepSideSelectionReason,
+        rangeRepAutomaticSideSelectionEnabled:
+            _rangeRepContract.automaticSideSelectionEnabled,
+        rangeRepMovementSelectedSide: movementSelectedSide,
+        leftRangeRepCoverage: leftRangeRepCoverage,
+        rightRangeRepCoverage: rightRangeRepCoverage,
+        leftRangeRepSideConfidence: leftRangeRepSideConfidence,
+        rightRangeRepSideConfidence: rightRangeRepSideConfidence,
+        rangeRepInvalidFrameStreak: rangeRepInvalidFrameStreak,
+        rangeRepInvalidDurationMs: rangeRepInvalidDurationMs,
+        rangeRepResyncTriggered: rangeRepResyncTriggered,
+        rangeRepResyncReason: rangeRepResyncReason,
+        rangeRepVisibilityStatus: rangeRepVisibilityStatus,
+        currentBodyLineAngle: currentBodyLineAngle,
+        currentArmSupportAngle: currentArmSupportAngle,
+        currentLegExtensionAngle: currentLegExtensionAngle,
+        currentTorsoAngle: currentTorsoAngle,
+        currentDepthMetric: currentDepthMetric,
+        currentAlignmentMetric: currentAlignmentMetric,
+        currentStabilityMetric: currentStabilityMetric,
+        currentLockoutMetric: currentLockoutMetric,
+        currentBottomControlMetric: currentBottomControlMetric,
+        hasBodyLineAngle: hasBodyLineAngle,
+        hasArmSupportAngle: hasArmSupportAngle,
+        hasLegExtensionAngle: hasLegExtensionAngle,
+      ),
     );
   }
 
@@ -1960,10 +1532,11 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
     );
     final formThresholdResolution = _thresholdBookkeeper.resolve(
       baseThreshold: _config.formThreshold,
-      sessionCalibrationBaseline: _sessionCalibrationBaseline,
+      sessionCalibrationBaseline:
+          _calibrationProjector.sessionCalibrationBaseline,
       selectedRangeRepSide: preview.selectedRangeRepSide,
     );
-    final calibrationMetrics = _buildCalibrationMetrics(
+    final calibrationMetrics = _projectCalibrationMetrics(
       diagnostics: _rangeRepDiagnosticsSnapshot(),
       currentFormMetric: preview.previewBackAngle,
       currentPrimaryMetric: preview.previewAngle,

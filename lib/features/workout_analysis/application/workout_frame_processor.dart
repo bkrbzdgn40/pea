@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
@@ -10,11 +12,14 @@ import 'pose_quality_policy.dart';
 import 'workout_analysis_runtime.dart';
 import 'workout_diagnostics.dart';
 
+const Duration defaultWorkoutPoseDetectionTimeout = Duration(seconds: 4);
+
 typedef WorkoutFrameProcessorFactory =
     WorkoutFrameProcessor Function({
       required WorkoutAnalysisRuntime runtime,
       required DateTime Function() clock,
       required WorkoutFrameProcessorCallbacks callbacks,
+      required Duration poseDetectionTimeout,
     });
 
 typedef WorkoutPoseDetectorReader = PoseDetector Function();
@@ -58,10 +63,21 @@ class WorkoutFrameProcessorCallbacks {
 enum WorkoutFrameProcessingStatus {
   reentrantDrop,
   throttledDrop,
+  blocked,
   paused,
   converterDrop,
   analyzed,
+  timedOut,
   failed,
+}
+
+class WorkoutPoseDetectionTimeoutException implements Exception {
+  const WorkoutPoseDetectionTimeoutException(this.timeout);
+
+  final Duration timeout;
+
+  @override
+  String toString() => 'Pose detection exceeded ${timeout.inMilliseconds} ms.';
 }
 
 class WorkoutFrameProcessingOutcome {
@@ -77,6 +93,9 @@ class WorkoutFrameProcessingOutcome {
   const WorkoutFrameProcessingOutcome.throttledDrop()
     : this._(status: WorkoutFrameProcessingStatus.throttledDrop);
 
+  const WorkoutFrameProcessingOutcome.blocked()
+    : this._(status: WorkoutFrameProcessingStatus.blocked);
+
   const WorkoutFrameProcessingOutcome.paused()
     : this._(status: WorkoutFrameProcessingStatus.paused);
 
@@ -85,6 +104,15 @@ class WorkoutFrameProcessingOutcome {
 
   const WorkoutFrameProcessingOutcome.analyzed()
     : this._(status: WorkoutFrameProcessingStatus.analyzed);
+
+  const WorkoutFrameProcessingOutcome.timedOut({
+    required Object error,
+    required StackTrace stackTrace,
+  }) : this._(
+         status: WorkoutFrameProcessingStatus.timedOut,
+         error: error,
+         stackTrace: stackTrace,
+       );
 
   const WorkoutFrameProcessingOutcome.failed({
     required Object error,
@@ -113,18 +141,30 @@ class WorkoutFrameProcessor {
     ExerciseMetricsExtractor metricsExtractor =
         const ExerciseMetricsExtractor(),
     PoseQualityPolicy poseQualityPolicy = const PoseQualityPolicy(),
+    Duration poseDetectionTimeout = defaultWorkoutPoseDetectionTimeout,
   }) : _runtime = runtime,
        _clock = clock,
        _callbacks = callbacks,
        _metricsExtractor = metricsExtractor,
-       _poseQualityPolicy = poseQualityPolicy;
+       _poseQualityPolicy = poseQualityPolicy,
+       _poseDetectionTimeout = poseDetectionTimeout {
+    if (poseDetectionTimeout <= Duration.zero) {
+      throw ArgumentError.value(
+        poseDetectionTimeout,
+        'poseDetectionTimeout',
+        'Must be greater than zero.',
+      );
+    }
+  }
 
   final WorkoutAnalysisRuntime _runtime;
   final DateTime Function() _clock;
   final WorkoutFrameProcessorCallbacks _callbacks;
   final ExerciseMetricsExtractor _metricsExtractor;
   final PoseQualityPolicy _poseQualityPolicy;
+  final Duration _poseDetectionTimeout;
 
+  bool _isSuspendedAfterTimeout = false;
   bool _hasTemporalCameraContext = false;
   int? _temporalSensorOrientation;
   CameraLensDirection? _temporalCameraLensDirection;
@@ -134,6 +174,19 @@ class WorkoutFrameProcessor {
   WorkoutDiagnosticsAccumulator get _diagnostics =>
       _runtime.diagnosticsReporter.accumulator;
   bool get _diagnosticsEnabled => _runtime.diagnosticsReporter.enabled;
+  bool get isSuspendedAfterTimeout => _isSuspendedAfterTimeout;
+
+  void resetTemporalState() {
+    _hasTemporalCameraContext = false;
+    _runtime.poseAcceptanceStabilizer.reset();
+    _runtime.primaryMetricNormalizer?.reset();
+    _runtime.rangeRepTemporalContinuityTracker?.reset();
+  }
+
+  void resetAfterFailure() {
+    _isSuspendedAfterTimeout = false;
+    resetTemporalState();
+  }
 
   Future<WorkoutFrameProcessingOutcome> processCameraImage({
     required CameraImage image,
@@ -143,6 +196,10 @@ class WorkoutFrameProcessor {
     required WorkoutPoseDetectorReader readDetector,
     required WorkoutPauseStateReader isPaused,
   }) async {
+    if (_isSuspendedAfterTimeout) {
+      return const WorkoutFrameProcessingOutcome.blocked();
+    }
+
     final now = _clock();
     _resetTemporalHistoryIfCameraContextChanged(
       sensorOrientation: sensorOrientation,
@@ -185,7 +242,10 @@ class WorkoutFrameProcessor {
         sensorOrientation: sensorOrientation,
         deviceOrientation: deviceOrientation,
         lensDirection: cameraLensDirection,
-        detector: readDetector(),
+        detector: _PoseDetectorWithTimeout(
+          delegate: readDetector(),
+          timeout: _poseDetectionTimeout,
+        ),
         assessPose: _poseQualityAssessor(),
       );
       if (isPaused()) {
@@ -200,6 +260,16 @@ class WorkoutFrameProcessor {
       if (_diagnosticsEnabled) {
         _diagnostics.recordAnalysisException();
         _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
+      }
+      if (error is WorkoutPoseDetectionTimeoutException) {
+        if (_diagnosticsEnabled) {
+          _diagnostics.recordAnalysisTimeout();
+        }
+        _isSuspendedAfterTimeout = true;
+        return WorkoutFrameProcessingOutcome.timedOut(
+          error: error,
+          stackTrace: stackTrace,
+        );
       }
       return WorkoutFrameProcessingOutcome.failed(
         error: error,
@@ -215,6 +285,10 @@ class WorkoutFrameProcessor {
     required WorkoutPoseDetectorReader readDetector,
     required WorkoutPauseStateReader isPaused,
   }) async {
+    if (_isSuspendedAfterTimeout) {
+      return const WorkoutFrameProcessingOutcome.blocked();
+    }
+
     final now = _clock();
     final processingStopwatch = Stopwatch()..start();
     if (_diagnosticsEnabled) {
@@ -224,7 +298,10 @@ class WorkoutFrameProcessor {
     try {
       final result = await _pipeline.processInputImage(
         inputImage: inputImage,
-        detector: readDetector(),
+        detector: _PoseDetectorWithTimeout(
+          delegate: readDetector(),
+          timeout: _poseDetectionTimeout,
+        ),
         assessPose: _poseQualityAssessor(),
       );
       if (isPaused()) {
@@ -239,6 +316,16 @@ class WorkoutFrameProcessor {
       if (_diagnosticsEnabled) {
         _diagnostics.recordAnalysisException();
         _diagnostics.recordProcessingDuration(processingStopwatch.elapsed);
+      }
+      if (error is WorkoutPoseDetectionTimeoutException) {
+        if (_diagnosticsEnabled) {
+          _diagnostics.recordAnalysisTimeout();
+        }
+        _isSuspendedAfterTimeout = true;
+        return WorkoutFrameProcessingOutcome.timedOut(
+          error: error,
+          stackTrace: stackTrace,
+        );
       }
       return WorkoutFrameProcessingOutcome.failed(
         error: error,
@@ -450,4 +537,30 @@ class WorkoutFrameProcessor {
       requiredHoldSide: requiredHoldSide,
     );
   }
+}
+
+class _PoseDetectorWithTimeout implements PoseDetector {
+  const _PoseDetectorWithTimeout({
+    required PoseDetector delegate,
+    required Duration timeout,
+  }) : _delegate = delegate,
+       _timeout = timeout;
+
+  final PoseDetector _delegate;
+  final Duration _timeout;
+
+  @override
+  Future<List<Pose>> processImage(InputImage inputImage) async {
+    try {
+      return await _delegate.processImage(inputImage).timeout(_timeout);
+    } on TimeoutException {
+      throw WorkoutPoseDetectionTimeoutException(_timeout);
+    }
+  }
+
+  @override
+  Future<void> close() => _delegate.close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

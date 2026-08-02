@@ -344,6 +344,7 @@ class WorkoutDiagnosticsSnapshot {
     required this.multiPoseFrameCount,
     required this.maxPoseCount,
     required this.analysisExceptionCount,
+    required this.analysisTimeoutCount,
     required this.resyncCount,
     this.poseReacquisitionCount = 0,
     this.briefOcclusionCount = 0,
@@ -415,6 +416,7 @@ class WorkoutDiagnosticsSnapshot {
   final int multiPoseFrameCount;
   final int maxPoseCount;
   final int analysisExceptionCount;
+  final int analysisTimeoutCount;
   final int resyncCount;
   final int poseReacquisitionCount;
   final int briefOcclusionCount;
@@ -672,6 +674,7 @@ class WorkoutDiagnosticsSnapshot {
     'multi_pose_frame_count': multiPoseFrameCount,
     'max_pose_count': maxPoseCount,
     'analysis_exception_count': analysisExceptionCount,
+    'analysis_timeout_count': analysisTimeoutCount,
     'resync_count': resyncCount,
     'pose_reacquisition_count': poseReacquisitionCount,
     'brief_occlusion_count': briefOcclusionCount,
@@ -886,6 +889,7 @@ class WorkoutDiagnosticsAccumulator {
   int _multiPoseFrameCount = 0;
   int _maxPoseCount = 0;
   int _analysisExceptionCount = 0;
+  int _analysisTimeoutCount = 0;
   int _resyncCount = 0;
   int _poseReacquisitionCount = 0;
   int _briefOcclusionCount = 0;
@@ -914,6 +918,7 @@ class WorkoutDiagnosticsAccumulator {
   void recordReentrantDrop() => _reentrantDropCount++;
   void recordConverterDrop() => _converterDropCount++;
   void recordAnalysisException() => _analysisExceptionCount++;
+  void recordAnalysisTimeout() => _analysisTimeoutCount++;
   void recordResync({bool hadActiveRepContext = false}) {
     _resyncCount++;
     if (!hadActiveRepContext) {
@@ -1278,7 +1283,7 @@ class WorkoutDiagnosticsAccumulator {
     final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
     final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 11,
+      schemaVersion: 12,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -1309,6 +1314,7 @@ class WorkoutDiagnosticsAccumulator {
       multiPoseFrameCount: _multiPoseFrameCount,
       maxPoseCount: _maxPoseCount,
       analysisExceptionCount: _analysisExceptionCount,
+      analysisTimeoutCount: _analysisTimeoutCount,
       resyncCount: _resyncCount,
       poseReacquisitionCount: _poseReacquisitionCount,
       briefOcclusionCount: _briefOcclusionCount,
@@ -1403,6 +1409,7 @@ class WorkoutDiagnosticsAccumulator {
     _multiPoseFrameCount = 0;
     _maxPoseCount = 0;
     _analysisExceptionCount = 0;
+    _analysisTimeoutCount = 0;
     _resyncCount = 0;
     _poseReacquisitionCount = 0;
     _briefOcclusionCount = 0;

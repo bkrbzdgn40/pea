@@ -814,6 +814,22 @@ class AppLocalizations {
     tr: 'Egzersiz ayarları hazır olmadan canlı analiz başlatılamaz.',
     en: 'Live analysis cannot start until the exercise configuration is ready.',
   );
+  String get analysisRecoveringTitle =>
+      pick(tr: 'Analiz yeniden hazırlanıyor', en: 'Recovering analysis');
+  String get analysisRecoveringMessage => pick(
+    tr: 'Geçici bir işleme hatası oluştu. Güvenli sonuç alınana kadar hareket değerlendirmesi durduruldu.',
+    en: 'A temporary processing error occurred. Exercise evaluation is paused until a reliable result is available.',
+  );
+  String get analysisInterruptedTitle =>
+      pick(tr: 'Analiz durduruldu', en: 'Analysis stopped');
+  String get analysisTimeoutMessage => pick(
+    tr: 'Poz algılama işlemi yanıt vermedi. Eski geri bildirimler temizlendi; analizi güvenli biçimde yeniden başlat.',
+    en: 'Pose detection stopped responding. Stale feedback was cleared; restart the analysis safely.',
+  );
+  String get analysisRepeatedFailureMessage => pick(
+    tr: 'Analiz art arda hata verdi. Yanlış yönlendirmeyi önlemek için değerlendirme durduruldu.',
+    en: 'Analysis failed repeatedly. Evaluation was stopped to prevent unreliable guidance.',
+  );
 
   // Assessment surfaces
   String get assessmentMode =>

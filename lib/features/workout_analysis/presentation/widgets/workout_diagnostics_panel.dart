@@ -236,6 +236,10 @@ class _WorkoutDiagnosticsPanelState extends State<WorkoutDiagnosticsPanel> {
                                     .toString(),
                               ),
                               _DiagnosticsRow(
+                                label: 'Pose detection timeouts',
+                                value: snapshot.analysisTimeoutCount.toString(),
+                              ),
+                              _DiagnosticsRow(
                                 label: 'Resync count',
                                 value: snapshot.resyncCount.toString(),
                               ),

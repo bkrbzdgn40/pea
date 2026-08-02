@@ -47,10 +47,11 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 11);
+    expect(snapshot.schemaVersion, 12);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
+    expect(snapshot.analysisTimeoutCount, 0);
     expect(snapshot.fpsSampleCount, 0);
     expect(snapshot.cameraFpsP50, isNull);
     expect(snapshot.cameraFpsP95, isNull);
@@ -84,6 +85,17 @@ void main() {
     expect(snapshot.holdTargetSignalValues.asMap(), isEmpty);
     expect(snapshot.holdSignalValidity.asMap(), isEmpty);
     expect(snapshot.cameraViewContract, same(sideViewContract));
+  });
+
+  test('analysis timeout count is exported separately from exceptions', () {
+    final subject = accumulator()
+      ..recordAnalysisException()
+      ..recordAnalysisTimeout();
+
+    final snapshot = subject.snapshot(now: startedAt);
+    expect(snapshot.analysisExceptionCount, 1);
+    expect(snapshot.analysisTimeoutCount, 1);
+    expect(snapshot.toJson()['analysis_timeout_count'], 1);
   });
 
   test('confidence v2 diagnostics serialize current and last breakdowns', () {
@@ -188,11 +200,11 @@ void main() {
     });
   });
 
-  test('schema v11 identifies the exact exercise and contract context', () {
+  test('schema v12 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 11);
+    expect(snapshot.schemaVersion, 12);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -209,7 +221,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v11 identifies hold family and hollow-hold variation', () {
+  test('schema v12 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -471,7 +483,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 11);
+      expect(json['schema_version'], 12);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -660,7 +672,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 11);
+    expect(json['schema_version'], 12);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -935,6 +947,8 @@ void main() {
     final resetAt = startedAt.add(const Duration(minutes: 1));
     final subject = accumulator()
       ..recordCameraFrame()
+      ..recordAnalysisException()
+      ..recordAnalysisTimeout()
       ..recordPoseCount(3)
       ..recordRejectedPose(rejectionReasonCode: 'low_landmark_likelihood')
       ..recordPoseQualitySample(
@@ -983,6 +997,8 @@ void main() {
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(snapshot.elapsedMs, 1000);
     expect(snapshot.cameraFrameCount, 0);
+    expect(snapshot.analysisExceptionCount, 0);
+    expect(snapshot.analysisTimeoutCount, 0);
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
     expect(snapshot.framePosePipelineTimings.total.sampleCount, 0);
@@ -1014,7 +1030,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 11);
+    expect(json['schema_version'], 12);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');

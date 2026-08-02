@@ -64,6 +64,23 @@ void main() {
     expect(find.text('5 sn'), findsOneWidget);
   });
 
+  testWidgets('pose detection timeout sayacini gosterir', (tester) async {
+    await _pumpPanel(
+      tester,
+      snapshotReader: () => _snapshot(analysisTimeoutCount: 2),
+      onReset: () {},
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Pose detection timeouts'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Pose detection timeouts'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+  });
+
   testWidgets('active range-rep signal roles render in canonical order', (
     tester,
   ) async {
@@ -515,7 +532,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 11);
+    expect(decoded['schema_version'], 12);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -571,7 +588,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v11_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v12_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -716,7 +733,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 11,
+  int schemaVersion = 12,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -731,6 +748,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
   int multiPoseFrameCount = 1,
   int maxPoseCount = 2,
   int analysisExceptionCount = 0,
+  int analysisTimeoutCount = 0,
   int resyncCount = 1,
   int sideSwitchCount = 2,
   int activeRepSideSwitchCount = 1,
@@ -818,6 +836,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
     multiPoseFrameCount: multiPoseFrameCount,
     maxPoseCount: maxPoseCount,
     analysisExceptionCount: analysisExceptionCount,
+    analysisTimeoutCount: analysisTimeoutCount,
     resyncCount: resyncCount,
     holdVisibilitySuspendCount: holdVisibilitySuspendCount,
     holdVisibilityRecoveryCount: holdVisibilityRecoveryCount,

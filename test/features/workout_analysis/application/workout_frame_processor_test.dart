@@ -119,6 +119,56 @@ void main() {
     },
   );
 
+  test('camera timeout releases the frame gate for a safe retry', () async {
+    final clock = TestFakeClock();
+    final pipeline = _DetectorCallingFramePosePipeline();
+    final runtime = _buildRuntime(
+      clock: clock,
+      pipeline: pipeline,
+      diagnosticsEnabled: true,
+    );
+    final pendingPoses = Completer<List<Pose>>();
+    final processor = WorkoutFrameProcessor(
+      runtime: runtime,
+      clock: clock.now,
+      poseDetectionTimeout: const Duration(milliseconds: 10),
+      callbacks: WorkoutFrameProcessorCallbacks(
+        onCameraFrameObserved: () {},
+        onAnalysisFrameObserved: () {},
+        onTrackingResult: (result, observedAt) {},
+        onDetectedPoseFrame: (frame, observedAt) {},
+      ),
+    );
+
+    final timedOut = await processor.processCameraImage(
+      image: _FakeCameraImage(),
+      sensorOrientation: 90,
+      cameraLensDirection: CameraLensDirection.back,
+      deviceOrientation: DeviceOrientation.portraitUp,
+      readDetector: () => _PendingPoseDetector(pendingPoses.future),
+      isPaused: () => false,
+    );
+
+    expect(timedOut.status, WorkoutFrameProcessingStatus.timedOut);
+    expect(pipeline.finishCallCount, 1);
+
+    processor.resetAfterFailure();
+    clock.advance(const Duration(milliseconds: 100));
+    final recoveryDetector = TestQueuedPoseDetector()..enqueue(const <Pose>[]);
+    final recovered = await processor.processCameraImage(
+      image: _FakeCameraImage(),
+      sensorOrientation: 90,
+      cameraLensDirection: CameraLensDirection.back,
+      deviceOrientation: DeviceOrientation.portraitUp,
+      readDetector: () => recoveryDetector,
+      isPaused: () => false,
+    );
+
+    expect(recovered.status, WorkoutFrameProcessingStatus.analyzed);
+    expect(pipeline.finishCallCount, 2);
+    pendingPoses.complete(const <Pose>[]);
+  });
+
   test(
     'accepted direct input is converted to an exercise-neutral detected frame',
     () async {
@@ -190,6 +240,129 @@ void main() {
   );
 
   test(
+    'pose timeout suspends processing and late detector results stay stale',
+    () async {
+      final clock = TestFakeClock();
+      final pendingPoses = Completer<List<Pose>>();
+      final pendingDetector = _PendingPoseDetector(pendingPoses.future);
+      final runtime = _buildRuntime(clock: clock, diagnosticsEnabled: true);
+      final detectedKinds = <WorkoutPoseFrameKind>[];
+      var detectorReads = 0;
+      final processor = WorkoutFrameProcessor(
+        runtime: runtime,
+        clock: clock.now,
+        poseDetectionTimeout: const Duration(milliseconds: 10),
+        callbacks: WorkoutFrameProcessorCallbacks(
+          onCameraFrameObserved: () {},
+          onAnalysisFrameObserved: () {},
+          onTrackingResult: (result, observedAt) {},
+          onDetectedPoseFrame: (frame, observedAt) {
+            detectedKinds.add(frame.kind);
+          },
+        ),
+      );
+
+      final timedOut = await processor.processInputImage(
+        inputImage: dummyInputImage(),
+        readDetector: () {
+          detectorReads++;
+          return pendingDetector;
+        },
+        isPaused: () => false,
+      );
+      final blocked = await processor.processInputImage(
+        inputImage: dummyInputImage(),
+        readDetector: () {
+          detectorReads++;
+          return pendingDetector;
+        },
+        isPaused: () => false,
+      );
+
+      expect(timedOut.status, WorkoutFrameProcessingStatus.timedOut);
+      expect(timedOut.error, isA<WorkoutPoseDetectionTimeoutException>());
+      expect(processor.isSuspendedAfterTimeout, isTrue);
+      expect(blocked.status, WorkoutFrameProcessingStatus.blocked);
+      expect(detectorReads, 1);
+
+      processor.resetAfterFailure();
+      expect(processor.isSuspendedAfterTimeout, isFalse);
+      pendingPoses.complete(<Pose>[buildSquatPose(angle: 170)]);
+      await Future<void>.delayed(Duration.zero);
+
+      final recoveryDetector = TestQueuedPoseDetector()
+        ..enqueue(<Pose>[buildSquatPose(angle: 170)])
+        ..enqueue(<Pose>[buildSquatPose(angle: 170)]);
+      final firstRecovery = await processor.processInputImage(
+        inputImage: dummyInputImage(),
+        readDetector: () => recoveryDetector,
+        isPaused: () => false,
+      );
+      final secondRecovery = await processor.processInputImage(
+        inputImage: dummyInputImage(),
+        readDetector: () => recoveryDetector,
+        isPaused: () => false,
+      );
+
+      expect(firstRecovery.status, WorkoutFrameProcessingStatus.analyzed);
+      expect(secondRecovery.status, WorkoutFrameProcessingStatus.analyzed);
+      expect(detectedKinds, <WorkoutPoseFrameKind>[
+        WorkoutPoseFrameKind.pendingAcceptance,
+        WorkoutPoseFrameKind.accepted,
+      ]);
+
+      final snapshot = runtime.diagnosticsReporter.snapshot(now: clock.now());
+      expect(snapshot.analysisAttemptCount, 3);
+      expect(snapshot.analysisCompletedCount, 2);
+      expect(snapshot.analysisExceptionCount, 1);
+      expect(snapshot.analysisTimeoutCount, 1);
+    },
+  );
+
+  test(
+    'non-detector timeout exceptions stay ordinary processing failures',
+    () async {
+      final clock = TestFakeClock();
+      final pipeline = _ControlledFramePosePipeline(
+        cameraResult: Future<FramePosePipelineResult>.value(
+          const FramePosePipelineResult.noPose(poseCount: 0),
+        ),
+        inputError: TimeoutException('metric extraction timeout'),
+      );
+      final runtime = _buildRuntime(
+        clock: clock,
+        pipeline: pipeline,
+        diagnosticsEnabled: true,
+      );
+      final processor = WorkoutFrameProcessor(
+        runtime: runtime,
+        clock: clock.now,
+        poseDetectionTimeout: const Duration(milliseconds: 10),
+        callbacks: WorkoutFrameProcessorCallbacks(
+          onCameraFrameObserved: () {},
+          onAnalysisFrameObserved: () {},
+          onTrackingResult: (result, observedAt) {},
+          onDetectedPoseFrame: (frame, observedAt) {},
+        ),
+      );
+
+      final outcome = await processor.processInputImage(
+        inputImage: dummyInputImage(),
+        readDetector: TestQueuedPoseDetector.new,
+        isPaused: () => false,
+      );
+
+      expect(outcome.status, WorkoutFrameProcessingStatus.failed);
+      expect(outcome.error, isA<TimeoutException>());
+      expect(processor.isSuspendedAfterTimeout, isFalse);
+
+      final snapshot = runtime.diagnosticsReporter.snapshot(now: clock.now());
+      expect(snapshot.analysisExceptionCount, 1);
+      expect(snapshot.analysisTimeoutCount, 0);
+    },
+  );
+
+  test(
     'pipeline failures are returned with their stack and recorded once',
     () async {
       final clock = TestFakeClock();
@@ -232,7 +405,7 @@ void main() {
 
 WorkoutAnalysisRuntime _buildRuntime({
   required TestFakeClock clock,
-  required WorkoutFramePosePipeline pipeline,
+  WorkoutFramePosePipeline? pipeline,
   required bool diagnosticsEnabled,
 }) {
   return const WorkoutAnalysisRuntimeFactory().create(
@@ -241,7 +414,10 @@ WorkoutAnalysisRuntime _buildRuntime({
     clock: clock.now,
     framePosePipelineFactory:
         ({required PoseAcceptanceStabilizer poseAcceptanceStabilizer}) {
-          return pipeline;
+          return pipeline ??
+              WorkoutFramePosePipeline(
+                poseAcceptanceStabilizer: poseAcceptanceStabilizer,
+              );
         },
     rangeRepCoordinatorFactory:
         ({
@@ -271,6 +447,29 @@ WorkoutAnalysisRuntime _buildRuntime({
         },
     diagnosticsEnabled: diagnosticsEnabled,
   );
+}
+
+class _DetectorCallingFramePosePipeline extends WorkoutFramePosePipeline {
+  int finishCallCount = 0;
+
+  @override
+  Future<FramePosePipelineResult> processCameraFrame({
+    required CameraImage image,
+    required int sensorOrientation,
+    required DeviceOrientation? deviceOrientation,
+    required CameraLensDirection? lensDirection,
+    required PoseDetector detector,
+    required PoseQualityAssessor assessPose,
+  }) async {
+    final poses = await detector.processImage(dummyInputImage());
+    return FramePosePipelineResult.noPose(poseCount: poses.length);
+  }
+
+  @override
+  void finishCameraFrame() {
+    finishCallCount++;
+    super.finishCameraFrame();
+  }
 }
 
 class _ControlledFramePosePipeline extends WorkoutFramePosePipeline {
@@ -324,6 +523,21 @@ class _ControlledFramePosePipeline extends WorkoutFramePosePipeline {
     finishCallCount++;
     super.finishCameraFrame();
   }
+}
+
+class _PendingPoseDetector implements PoseDetector {
+  _PendingPoseDetector(this._result);
+
+  final Future<List<Pose>> _result;
+
+  @override
+  Future<List<Pose>> processImage(InputImage inputImage) => _result;
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeCameraImage implements CameraImage {
