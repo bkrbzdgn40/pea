@@ -83,7 +83,8 @@ void main() {
     final reorderable = tester.widget<ReorderableListView>(
       find.byKey(const ValueKey<String>('workout-plan-entry-list')),
     );
-    reorderable.onReorder(1, 0);
+    final reorder = (reorderable as dynamic).onReorder as ReorderCallback;
+    reorder(1, 0);
     await tester.pump();
 
     expect(find.text('1. Plank'), findsOneWidget);
@@ -99,6 +100,35 @@ void main() {
     expect(find.text('2'), findsAtLeastNWidgets(1));
     expect(find.text('35 sn'), findsOneWidget);
     expect(find.text('30 sn'), findsOneWidget);
+  });
+
+  testWidgets('reorders entries downward using the adjusted item index', (
+    WidgetTester tester,
+  ) async {
+    _useTallPhoneViewport(tester);
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
+
+    await _addExercise(tester, ExerciseType.squat);
+    await _addExercise(tester, ExerciseType.plank);
+    await _addExercise(tester, ExerciseType.bicepsCurl);
+
+    final reorderable = tester.widget<ReorderableListView>(
+      find.byKey(const ValueKey<String>('workout-plan-entry-list')),
+    );
+    final reorder = (reorderable as dynamic).onReorder as ReorderCallback;
+    reorder(0, 3);
+    await tester.pump();
+
+    expect(find.text('1. Plank'), findsOneWidget);
+    expect(find.text('2. Biseps Curl'), findsOneWidget);
+    expect(find.text('3. Squat'), findsOneWidget);
   });
 
   testWidgets('selects a saved plan before opening its summary and editor', (
