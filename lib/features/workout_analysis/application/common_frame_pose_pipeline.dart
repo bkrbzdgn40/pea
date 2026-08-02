@@ -18,6 +18,25 @@ enum FramePosePipelineResultKind {
 
 typedef PoseQualityAssessor = PoseQualityAssessment Function(Pose pose);
 
+/// Debug/profile-only timing data for one frame-pose pipeline execution.
+///
+/// A null stage means that stage did not run. Camera conversion is absent when
+/// [WorkoutFramePosePipeline.processInputImage] is used directly, while pose
+/// detection and candidate evaluation are absent for converter drops.
+class FramePosePipelineTimings {
+  const FramePosePipelineTimings({
+    this.conversionDuration,
+    this.poseDetectionDuration,
+    this.candidateEvaluationDuration,
+    required this.totalDuration,
+  });
+
+  final Duration? conversionDuration;
+  final Duration? poseDetectionDuration;
+  final Duration? candidateEvaluationDuration;
+  final Duration totalDuration;
+}
+
 class FramePosePipelineResult {
   const FramePosePipelineResult._({
     required this.kind,
@@ -25,30 +44,46 @@ class FramePosePipelineResult {
     this.selectedPose,
     this.selectedAssessment,
     this.didBecomeStableTracking = false,
+    this.timings,
   });
 
-  const FramePosePipelineResult.converterDrop()
-    : this._(kind: FramePosePipelineResultKind.converterDrop, poseCount: null);
+  const FramePosePipelineResult.converterDrop({
+    FramePosePipelineTimings? timings,
+  }) : this._(
+         kind: FramePosePipelineResultKind.converterDrop,
+         poseCount: null,
+         timings: timings,
+       );
 
-  const FramePosePipelineResult.noPose({required int poseCount})
-    : this._(kind: FramePosePipelineResultKind.noPose, poseCount: poseCount);
+  const FramePosePipelineResult.noPose({
+    required int poseCount,
+    FramePosePipelineTimings? timings,
+  }) : this._(
+         kind: FramePosePipelineResultKind.noPose,
+         poseCount: poseCount,
+         timings: timings,
+       );
 
   const FramePosePipelineResult.rejected({
     required int poseCount,
     required PoseQualityAssessment? selectedAssessment,
+    FramePosePipelineTimings? timings,
   }) : this._(
          kind: FramePosePipelineResultKind.rejected,
          poseCount: poseCount,
          selectedAssessment: selectedAssessment,
+         timings: timings,
        );
 
   const FramePosePipelineResult.pendingAcceptance({
     required int poseCount,
     required PoseQualityAssessment selectedAssessment,
+    FramePosePipelineTimings? timings,
   }) : this._(
          kind: FramePosePipelineResultKind.pendingAcceptance,
          poseCount: poseCount,
          selectedAssessment: selectedAssessment,
+         timings: timings,
        );
 
   const FramePosePipelineResult.accepted({
@@ -56,12 +91,14 @@ class FramePosePipelineResult {
     required Pose selectedPose,
     required PoseQualityAssessment selectedAssessment,
     required bool didBecomeStableTracking,
+    FramePosePipelineTimings? timings,
   }) : this._(
          kind: FramePosePipelineResultKind.accepted,
          poseCount: poseCount,
          selectedPose: selectedPose,
          selectedAssessment: selectedAssessment,
          didBecomeStableTracking: didBecomeStableTracking,
+         timings: timings,
        );
 
   final FramePosePipelineResultKind kind;
@@ -69,6 +106,7 @@ class FramePosePipelineResult {
   final Pose? selectedPose;
   final PoseQualityAssessment? selectedAssessment;
   final bool didBecomeStableTracking;
+  final FramePosePipelineTimings? timings;
 
   bool get ranPoseDetection => poseCount != null;
 
@@ -86,6 +124,36 @@ class FramePosePipelineResult {
       FramePosePipelineResultKind.accepted => false,
     };
   }
+
+  FramePosePipelineResult withTimings(FramePosePipelineTimings timings) {
+    return switch (kind) {
+      FramePosePipelineResultKind.converterDrop =>
+        FramePosePipelineResult.converterDrop(timings: timings),
+      FramePosePipelineResultKind.noPose => FramePosePipelineResult.noPose(
+        poseCount: poseCount!,
+        timings: timings,
+      ),
+      FramePosePipelineResultKind.rejected =>
+        FramePosePipelineResult.rejected(
+          poseCount: poseCount!,
+          selectedAssessment: selectedAssessment,
+          timings: timings,
+        ),
+      FramePosePipelineResultKind.pendingAcceptance =>
+        FramePosePipelineResult.pendingAcceptance(
+          poseCount: poseCount!,
+          selectedAssessment: selectedAssessment!,
+          timings: timings,
+        ),
+      FramePosePipelineResultKind.accepted => FramePosePipelineResult.accepted(
+        poseCount: poseCount!,
+        selectedPose: selectedPose!,
+        selectedAssessment: selectedAssessment!,
+        didBecomeStableTracking: didBecomeStableTracking,
+        timings: timings,
+      ),
+    };
+  }
 }
 
 /// Owns the family-independent camera-frame and pose candidate processing flow.
@@ -94,6 +162,7 @@ class WorkoutFramePosePipeline {
     InputImageConverter inputImageConverter = const InputImageConverter(),
     PoseAcceptanceStabilizer? poseAcceptanceStabilizer,
     this.analysisFrameInterval = const Duration(milliseconds: 100),
+    this.collectStageTimings = false,
   }) : _inputImageConverter = inputImageConverter,
        _poseAcceptanceStabilizer =
            poseAcceptanceStabilizer ?? PoseAcceptanceStabilizer();
@@ -101,6 +170,12 @@ class WorkoutFramePosePipeline {
   final InputImageConverter _inputImageConverter;
   final PoseAcceptanceStabilizer _poseAcceptanceStabilizer;
   final Duration analysisFrameInterval;
+
+  /// Enables low-overhead Stopwatch profiling in debug/profile builds.
+  ///
+  /// Production wiring keeps this disabled in release mode so measurement does
+  /// not become part of the user-facing hot path.
+  final bool collectStageTimings;
 
   bool _isProcessing = false;
   DateTime? _lastAnalysisStartedAt;
@@ -132,20 +207,50 @@ class WorkoutFramePosePipeline {
     required PoseDetector detector,
     required PoseQualityAssessor assessPose,
   }) async {
+    if (!collectStageTimings) {
+      final inputImage = _inputImageConverter.convert(
+        image,
+        sensorOrientation: sensorOrientation,
+        deviceOrientation: deviceOrientation,
+        lensDirection: lensDirection,
+      );
+      if (inputImage == null) {
+        return const FramePosePipelineResult.converterDrop();
+      }
+
+      return processInputImage(
+        inputImage: inputImage,
+        detector: detector,
+        assessPose: assessPose,
+      );
+    }
+
+    final totalStopwatch = Stopwatch()..start();
+    final conversionStopwatch = Stopwatch()..start();
     final inputImage = _inputImageConverter.convert(
       image,
       sensorOrientation: sensorOrientation,
       deviceOrientation: deviceOrientation,
       lensDirection: lensDirection,
     );
+    conversionStopwatch.stop();
+
     if (inputImage == null) {
-      return const FramePosePipelineResult.converterDrop();
+      totalStopwatch.stop();
+      return FramePosePipelineResult.converterDrop(
+        timings: FramePosePipelineTimings(
+          conversionDuration: conversionStopwatch.elapsed,
+          totalDuration: totalStopwatch.elapsed,
+        ),
+      );
     }
 
-    return processInputImage(
+    return _processInputImageProfiled(
       inputImage: inputImage,
       detector: detector,
       assessPose: assessPose,
+      conversionDuration: conversionStopwatch.elapsed,
+      totalStopwatch: totalStopwatch,
     );
   }
 
@@ -154,8 +259,56 @@ class WorkoutFramePosePipeline {
     required PoseDetector detector,
     required PoseQualityAssessor assessPose,
   }) async {
+    if (!collectStageTimings) {
+      return _processInputImageUnprofiled(
+        inputImage: inputImage,
+        detector: detector,
+        assessPose: assessPose,
+      );
+    }
+
+    return _processInputImageProfiled(
+      inputImage: inputImage,
+      detector: detector,
+      assessPose: assessPose,
+      conversionDuration: null,
+      totalStopwatch: Stopwatch()..start(),
+    );
+  }
+
+  Future<FramePosePipelineResult> _processInputImageUnprofiled({
+    required InputImage inputImage,
+    required PoseDetector detector,
+    required PoseQualityAssessor assessPose,
+  }) async {
     final poses = await detector.processImage(inputImage);
     return _evaluateDetectedPoses(poses, assessPose: assessPose);
+  }
+
+  Future<FramePosePipelineResult> _processInputImageProfiled({
+    required InputImage inputImage,
+    required PoseDetector detector,
+    required PoseQualityAssessor assessPose,
+    required Duration? conversionDuration,
+    required Stopwatch totalStopwatch,
+  }) async {
+    final detectionStopwatch = Stopwatch()..start();
+    final poses = await detector.processImage(inputImage);
+    detectionStopwatch.stop();
+
+    final evaluationStopwatch = Stopwatch()..start();
+    final result = _evaluateDetectedPoses(poses, assessPose: assessPose);
+    evaluationStopwatch.stop();
+    totalStopwatch.stop();
+
+    return result.withTimings(
+      FramePosePipelineTimings(
+        conversionDuration: conversionDuration,
+        poseDetectionDuration: detectionStopwatch.elapsed,
+        candidateEvaluationDuration: evaluationStopwatch.elapsed,
+        totalDuration: totalStopwatch.elapsed,
+      ),
+    );
   }
 
   FramePosePipelineResult _evaluateDetectedPoses(

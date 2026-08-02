@@ -125,6 +125,7 @@ final workoutFramePosePipelineFactoryProvider =
         return WorkoutFramePosePipeline(
           poseAcceptanceStabilizer: poseAcceptanceStabilizer,
           analysisFrameInterval: analysisFrameInterval,
+          collectStageTimings: kDebugMode || kProfileMode,
         );
       };
     });
@@ -545,6 +546,17 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
     required DateTime frameCapturedAt,
     required Stopwatch processingStopwatch,
   }) {
+    final pipelineTimings = result.timings;
+    if (_isDiagnosticsEnabled && pipelineTimings != null) {
+      _diagnostics.recordFramePosePipelineDurations(
+        conversionDuration: pipelineTimings.conversionDuration,
+        poseDetectionDuration: pipelineTimings.poseDetectionDuration,
+        candidateEvaluationDuration:
+            pipelineTimings.candidateEvaluationDuration,
+        totalDuration: pipelineTimings.totalDuration,
+      );
+    }
+
     if (result.kind == FramePosePipelineResultKind.converterDrop) {
       if (_isDiagnosticsEnabled) {
         _diagnostics.recordConverterDrop();

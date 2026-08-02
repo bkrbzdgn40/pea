@@ -515,7 +515,7 @@ void main() {
 
     final decoded = jsonDecode(copiedText!) as Map<String, dynamic>;
     expect(decoded['analysis_kind'], 'rangeRep');
-    expect(decoded['schema_version'], 10);
+    expect(decoded['schema_version'], 11);
     expect(decoded.containsKey('presented_hold_feedback_code'), isTrue);
     expect(find.text(_copySuccessText), findsOneWidget);
   });
@@ -571,7 +571,7 @@ void main() {
       final expected =
           jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, dynamic>;
       expect(actual, expected);
-      expect(exportedFileName, 'diagnostics_v10_squat_20300101_000004.json');
+      expect(exportedFileName, 'diagnostics_v11_squat_20300101_000004.json');
       expect(exportedShareOrigin, isNotNull);
     },
   );
@@ -716,7 +716,7 @@ Future<void> _pumpPanel(
 }
 
 WorkoutDiagnosticsSnapshot _snapshot({
-  int schemaVersion = 10,
+  int schemaVersion = 11,
   String appCommitSha = 'commit-123',
   String buildMode = 'debug',
   String analysisKind = 'rangeRep',
@@ -881,5 +881,7 @@ WorkoutDiagnosticsSnapshot _snapshot({
     frameProcessingMsP50: frameProcessingMsP50,
     frameProcessingMsP95: frameProcessingMsP95,
     frameProcessingMsMax: frameProcessingMsMax,
+    framePosePipelineTimings:
+        const WorkoutFramePosePipelineTimingSnapshot.empty(),
   );
 }

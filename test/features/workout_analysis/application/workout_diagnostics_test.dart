@@ -47,7 +47,7 @@ void main() {
 
   test('initial snapshot is typed and empty', () {
     final snapshot = accumulator().snapshot(now: startedAt);
-    expect(snapshot.schemaVersion, 10);
+    expect(snapshot.schemaVersion, 11);
     expect(snapshot.analysisKind, 'rangeRep');
     expect(snapshot.elapsedMs, 0);
     expect(snapshot.cameraFrameCount, 0);
@@ -57,6 +57,13 @@ void main() {
     expect(snapshot.analysisFpsP50, isNull);
     expect(snapshot.analysisFpsP95, isNull);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.framePosePipelineTimings.conversion.sampleCount, 0);
+    expect(snapshot.framePosePipelineTimings.poseDetection.sampleCount, 0);
+    expect(
+      snapshot.framePosePipelineTimings.candidateEvaluation.sampleCount,
+      0,
+    );
+    expect(snapshot.framePosePipelineTimings.total.sampleCount, 0);
     expect(snapshot.currentLeftMeasurementConfidence, isNull);
     expect(snapshot.currentRightMeasurementConfidence, isNull);
     expect(snapshot.lastRepMeasurementConfidence, isNull);
@@ -181,11 +188,11 @@ void main() {
     });
   });
 
-  test('schema v10 identifies the exact exercise and contract context', () {
+  test('schema v11 identifies the exact exercise and contract context', () {
     final snapshot = accumulator().snapshot(now: startedAt);
     final json = snapshot.toJson();
 
-    expect(snapshot.schemaVersion, 10);
+    expect(snapshot.schemaVersion, 11);
     expect(snapshot.exerciseType, 'squat');
     expect(snapshot.configAssetPath, 'assets/config/exercises/squat.json');
     expect(
@@ -202,7 +209,7 @@ void main() {
     expect(json['contract_profile'], 'rangeRep:squat');
   });
 
-  test('schema v10 identifies hold family and hollow-hold variation', () {
+  test('schema v11 identifies hold family and hollow-hold variation', () {
     final subject = WorkoutDiagnosticsAccumulator(
       sessionStartedAt: startedAt,
       analysisKind: 'hold',
@@ -464,7 +471,7 @@ void main() {
       expect(snapshot.isHolding, isFalse);
       expect(snapshot.lastCalibrationOffsetDegrees, 2.5);
       final json = snapshot.toJson();
-      expect(json['schema_version'], 10);
+      expect(json['schema_version'], 11);
       expect(json['rep_count'], 3);
       expect(json['current_hold_seconds'], 0);
       expect(json['best_hold_seconds'], 0);
@@ -653,7 +660,7 @@ void main() {
       HoldSignal.extension: true,
     });
     final json = snapshot.toJson();
-    expect(json['schema_version'], 10);
+    expect(json['schema_version'], 11);
     expect(json['rep_count'], 0);
     expect(json['current_hold_seconds'], 4);
     expect(json['best_hold_seconds'], 7);
@@ -794,6 +801,56 @@ void main() {
     );
   });
 
+  test('frame-pose pipeline stages keep independent duration baselines', () {
+    final subject = accumulator()
+      ..recordFramePosePipelineDurations(
+        conversionDuration: const Duration(microseconds: 2500),
+        poseDetectionDuration: const Duration(milliseconds: 8),
+        candidateEvaluationDuration: const Duration(milliseconds: 3),
+        totalDuration: const Duration(milliseconds: 15),
+      )
+      ..recordFramePosePipelineDurations(
+        conversionDuration: const Duration(milliseconds: 4),
+        poseDetectionDuration: const Duration(milliseconds: 12),
+        candidateEvaluationDuration: const Duration(milliseconds: 5),
+        totalDuration: const Duration(milliseconds: 24),
+      )
+      ..recordFramePosePipelineDurations(
+        poseDetectionDuration: const Duration(milliseconds: 10),
+        candidateEvaluationDuration: const Duration(milliseconds: 4),
+        totalDuration: const Duration(milliseconds: 16),
+      );
+
+    final snapshot = subject.snapshot(now: startedAt);
+    final timings = snapshot.framePosePipelineTimings;
+    final json = snapshot.toJson()['frame_pose_pipeline_ms']!
+        as Map<String, Object?>;
+
+    expect(timings.conversion.sampleCount, 2);
+    expect(timings.conversion.p50Ms, 2.5);
+    expect(timings.conversion.p95Ms, 4);
+    expect(timings.conversion.maxMs, 4);
+    expect(timings.poseDetection.sampleCount, 3);
+    expect(timings.poseDetection.p50Ms, 10);
+    expect(timings.poseDetection.p95Ms, 12);
+    expect(timings.candidateEvaluation.p50Ms, 4);
+    expect(timings.total.p50Ms, 16);
+    expect(timings.total.p95Ms, 24);
+    expect(timings.total.maxMs, 24);
+    expect(json['pose_detection'], <String, Object?>{
+      'sample_count': 3,
+      'p50': 10.0,
+      'p95': 12.0,
+      'max': 12.0,
+    });
+    expect(
+      () => subject.recordFramePosePipelineDurations(
+        totalDuration: const Duration(milliseconds: -1),
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('range-rep roles serialize by enum order without frame values', () {
     final subject = accumulator()
       ..updateRangeRepState(
@@ -891,6 +948,12 @@ void main() {
         deviceOrientation: 'portraitUp',
       )
       ..recordProcessingDuration(const Duration(milliseconds: 20))
+      ..recordFramePosePipelineDurations(
+        conversionDuration: const Duration(milliseconds: 2),
+        poseDetectionDuration: const Duration(milliseconds: 8),
+        candidateEvaluationDuration: const Duration(milliseconds: 3),
+        totalDuration: const Duration(milliseconds: 15),
+      )
       ..recordLivePerformanceSample(cameraFps: 30, analysisFps: 7)
       ..recordHoldVisibilitySuspend()
       ..recordHoldVisibilityRecovery(const Duration(milliseconds: 500))
@@ -922,6 +985,8 @@ void main() {
     expect(snapshot.cameraFrameCount, 0);
     expect(snapshot.multiPoseFrameCount, 0);
     expect(snapshot.frameProcessingMsP50, isNull);
+    expect(snapshot.framePosePipelineTimings.total.sampleCount, 0);
+    expect(snapshot.framePosePipelineTimings.total.p50Ms, isNull);
     expect(snapshot.fpsSampleCount, 0);
     expect(snapshot.cameraFpsP50, isNull);
     expect(snapshot.cameraFpsP95, isNull);
@@ -949,7 +1014,7 @@ void main() {
 
   test('toJson is snake_case and preserves the existing key contract', () {
     final json = accumulator().snapshot(now: startedAt).toJson();
-    expect(json['schema_version'], 10);
+    expect(json['schema_version'], 11);
     expect(json['app_commit_sha'], 'abc123');
     expect(json['build_mode'], 'debug');
     expect(json['exercise_type'], 'squat');
@@ -980,6 +1045,32 @@ void main() {
     expect(json['camera_fps_p95'], isNull);
     expect(json['analysis_fps_p50'], isNull);
     expect(json['analysis_fps_p95'], isNull);
+    expect(json['frame_pose_pipeline_ms'], <String, Object?>{
+      'conversion': <String, Object?>{
+        'sample_count': 0,
+        'p50': null,
+        'p95': null,
+        'max': null,
+      },
+      'pose_detection': <String, Object?>{
+        'sample_count': 0,
+        'p50': null,
+        'p95': null,
+        'max': null,
+      },
+      'candidate_evaluation': <String, Object?>{
+        'sample_count': 0,
+        'p50': null,
+        'p95': null,
+        'max': null,
+      },
+      'total': <String, Object?>{
+        'sample_count': 0,
+        'p50': null,
+        'p95': null,
+        'max': null,
+      },
+    });
     expect(json['rep_count'], isNull);
     expect(json['current_hold_seconds'], isNull);
     expect(json['best_hold_seconds'], isNull);

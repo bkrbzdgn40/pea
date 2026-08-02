@@ -252,6 +252,62 @@ class HoldWorkoutDiagnostics {
   final Map<HoldSignal, Set<AnalysisSignalRole>> signalRoles;
 }
 
+/// Deterministic nearest-rank summary for one duration sample stream.
+class WorkoutDurationSampleSummary {
+  const WorkoutDurationSampleSummary({
+    required this.sampleCount,
+    required this.p50Ms,
+    required this.p95Ms,
+    required this.maxMs,
+  });
+
+  const WorkoutDurationSampleSummary.empty()
+      : sampleCount = 0,
+        p50Ms = null,
+        p95Ms = null,
+        maxMs = null;
+
+  final int sampleCount;
+  final double? p50Ms;
+  final double? p95Ms;
+  final double? maxMs;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'sample_count': sampleCount,
+    'p50': p50Ms,
+    'p95': p95Ms,
+    'max': maxMs,
+  };
+}
+
+/// Debug/profile timing baseline for the frame-to-pose pipeline.
+class WorkoutFramePosePipelineTimingSnapshot {
+  const WorkoutFramePosePipelineTimingSnapshot({
+    required this.conversion,
+    required this.poseDetection,
+    required this.candidateEvaluation,
+    required this.total,
+  });
+
+  const WorkoutFramePosePipelineTimingSnapshot.empty()
+      : conversion = const WorkoutDurationSampleSummary.empty(),
+        poseDetection = const WorkoutDurationSampleSummary.empty(),
+        candidateEvaluation = const WorkoutDurationSampleSummary.empty(),
+        total = const WorkoutDurationSampleSummary.empty();
+
+  final WorkoutDurationSampleSummary conversion;
+  final WorkoutDurationSampleSummary poseDetection;
+  final WorkoutDurationSampleSummary candidateEvaluation;
+  final WorkoutDurationSampleSummary total;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'conversion': conversion.toJson(),
+    'pose_detection': poseDetection.toJson(),
+    'candidate_evaluation': candidateEvaluation.toJson(),
+    'total': total.toJson(),
+  };
+}
+
 const Object _unsetValue = Object();
 
 /// Immutable, privacy-minimized diagnostics for one analysis session.
@@ -325,6 +381,7 @@ class WorkoutDiagnosticsSnapshot {
     required this.frameProcessingMsP50,
     required this.frameProcessingMsP95,
     required this.frameProcessingMsMax,
+    required this.framePosePipelineTimings,
   });
 
   final int schemaVersion;
@@ -395,6 +452,7 @@ class WorkoutDiagnosticsSnapshot {
   final int? frameProcessingMsP50;
   final int? frameProcessingMsP95;
   final int? frameProcessingMsMax;
+  final WorkoutFramePosePipelineTimingSnapshot framePosePipelineTimings;
 
   Map<RangeRepSignal, Set<AnalysisSignalRole>> get rangeRepSignalRoles =>
       rangeRepDiagnostics?.signalRoles ??
@@ -720,6 +778,7 @@ class WorkoutDiagnosticsSnapshot {
     'frame_processing_ms_p50': frameProcessingMsP50,
     'frame_processing_ms_p95': frameProcessingMsP95,
     'frame_processing_ms_max': frameProcessingMsMax,
+    'frame_pose_pipeline_ms': framePosePipelineTimings.toJson(),
     'rep_count': repCount,
     'current_hold_seconds': currentHoldSeconds,
     'best_hold_seconds': bestHoldSeconds,
@@ -800,6 +859,10 @@ class WorkoutDiagnosticsAccumulator {
   late DateTime _sessionStartedAt;
   late String _analysisKind;
   final List<int> _processingDurationMs = <int>[];
+  final List<double> _frameConversionDurationMs = <double>[];
+  final List<double> _poseDetectionDurationMs = <double>[];
+  final List<double> _candidateEvaluationDurationMs = <double>[];
+  final List<double> _framePosePipelineTotalDurationMs = <double>[];
   final List<double> _minimumRequiredLikelihoodSamples = <double>[];
   final List<double> _meanRequiredLikelihoodSamples = <double>[];
   final List<double> _poseQualityScoreSamples = <double>[];
@@ -1077,6 +1140,34 @@ class WorkoutDiagnosticsAccumulator {
     _processingDurationMs.add(duration.inMilliseconds);
   }
 
+  void recordFramePosePipelineDurations({
+    Duration? conversionDuration,
+    Duration? poseDetectionDuration,
+    Duration? candidateEvaluationDuration,
+    required Duration totalDuration,
+  }) {
+    _appendDurationSample(
+      _frameConversionDurationMs,
+      conversionDuration,
+      parameterName: 'conversionDuration',
+    );
+    _appendDurationSample(
+      _poseDetectionDurationMs,
+      poseDetectionDuration,
+      parameterName: 'poseDetectionDuration',
+    );
+    _appendDurationSample(
+      _candidateEvaluationDurationMs,
+      candidateEvaluationDuration,
+      parameterName: 'candidateEvaluationDuration',
+    );
+    _appendDurationSample(
+      _framePosePipelineTotalDurationMs,
+      totalDuration,
+      parameterName: 'totalDuration',
+    );
+  }
+
   void updateLivePerformance({
     required double cameraFps,
     required double analysisFps,
@@ -1171,6 +1262,14 @@ class WorkoutDiagnosticsAccumulator {
 
   WorkoutDiagnosticsSnapshot snapshot({required DateTime now}) {
     final sortedDurations = _processingDurationMs.toList()..sort();
+    final sortedFrameConversionDurations =
+        _frameConversionDurationMs.toList()..sort();
+    final sortedPoseDetectionDurations =
+        _poseDetectionDurationMs.toList()..sort();
+    final sortedCandidateEvaluationDurations =
+        _candidateEvaluationDurationMs.toList()..sort();
+    final sortedFramePosePipelineTotalDurations =
+        _framePosePipelineTotalDurationMs.toList()..sort();
     final sortedMinimumLikelihoods = _minimumRequiredLikelihoodSamples.toList()
       ..sort();
     final sortedMeanLikelihoods = _meanRequiredLikelihoodSamples.toList()
@@ -1179,7 +1278,7 @@ class WorkoutDiagnosticsAccumulator {
     final sortedCameraFpsSamples = _cameraFpsSamples.toList()..sort();
     final sortedAnalysisFpsSamples = _analysisFpsSamples.toList()..sort();
     return WorkoutDiagnosticsSnapshot(
-      schemaVersion: 10,
+      schemaVersion: 11,
       appCommitSha: _appCommitSha,
       buildMode: _buildMode,
       analysisKind: _analysisKind,
@@ -1263,6 +1362,14 @@ class WorkoutDiagnosticsAccumulator {
       frameProcessingMsMax: sortedDurations.isEmpty
           ? null
           : sortedDurations.last,
+      framePosePipelineTimings: WorkoutFramePosePipelineTimingSnapshot(
+        conversion: _durationSummary(sortedFrameConversionDurations),
+        poseDetection: _durationSummary(sortedPoseDetectionDurations),
+        candidateEvaluation: _durationSummary(
+          sortedCandidateEvaluationDurations,
+        ),
+        total: _durationSummary(sortedFramePosePipelineTotalDurations),
+      ),
     );
   }
 
@@ -1270,6 +1377,10 @@ class WorkoutDiagnosticsAccumulator {
     _sessionStartedAt = now;
     _analysisKind = analysisKind;
     _processingDurationMs.clear();
+    _frameConversionDurationMs.clear();
+    _poseDetectionDurationMs.clear();
+    _candidateEvaluationDurationMs.clear();
+    _framePosePipelineTotalDurationMs.clear();
     _minimumRequiredLikelihoodSamples.clear();
     _meanRequiredLikelihoodSamples.clear();
     _poseQualityScoreSamples.clear();
@@ -1312,6 +1423,38 @@ class WorkoutDiagnosticsAccumulator {
     _currentAnalysisFps = null;
     _rangeRepDiagnostics = null;
     _holdDiagnostics = null;
+  }
+
+  WorkoutDurationSampleSummary _durationSummary(
+    List<double> sortedValues,
+  ) {
+    return WorkoutDurationSampleSummary(
+      sampleCount: sortedValues.length,
+      p50Ms: _nearestRankDouble(sortedValues, 0.50),
+      p95Ms: _nearestRankDouble(sortedValues, 0.95),
+      maxMs: sortedValues.isEmpty ? null : sortedValues.last,
+    );
+  }
+
+  void _appendDurationSample(
+    List<double> samples,
+    Duration? duration, {
+    required String parameterName,
+  }) {
+    if (duration == null) {
+      return;
+    }
+    if (duration.isNegative) {
+      throw ArgumentError.value(
+        duration,
+        parameterName,
+        'Must not be negative',
+      );
+    }
+    if (samples.length == maxProcessingDurationSamples) {
+      samples.removeAt(0);
+    }
+    samples.add(duration.inMicroseconds / 1000.0);
   }
 
   int? _nearestRank(List<int> sortedValues, double percentile) {

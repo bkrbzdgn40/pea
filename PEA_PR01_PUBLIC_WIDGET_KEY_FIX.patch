@@ -1,0 +1,240 @@
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_debug_panel.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_debug_panel.dart
+index e899d1c..3939e91 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_debug_panel.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_debug_panel.dart
+@@ -6,7 +6,11 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
+ import 'package:pose_estimation_app/features/workout_analysis/presentation/models/workout_live_metric_display_state.dart';
+ 
+ class LiveCanonicalMetricsBar extends StatelessWidget {
+-  const LiveCanonicalMetricsBar({required this.metrics, this.compact = false});
++  const LiveCanonicalMetricsBar({
++    super.key,
++    required this.metrics,
++    this.compact = false,
++  });
+ 
+   final WorkoutLiveMetricDisplayState metrics;
+   final bool compact;
+@@ -117,6 +121,7 @@ String _formatMetricDuration(
+ 
+ class CalibrationDebugPanel extends StatelessWidget {
+   const CalibrationDebugPanel({
++    super.key,
+     required this.workoutState,
+     required this.onClose,
+   });
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_error_views.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_error_views.dart
+index b48107c..915148a 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_error_views.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_error_views.dart
+@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
+ import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+ 
+ class ExerciseConfigLoadingView extends StatelessWidget {
+-  const ExerciseConfigLoadingView();
++  const ExerciseConfigLoadingView({super.key});
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -24,7 +24,7 @@ class ExerciseConfigLoadingView extends StatelessWidget {
+ }
+ 
+ class ExerciseConfigErrorView extends StatelessWidget {
+-  const ExerciseConfigErrorView({required this.onRetry});
++  const ExerciseConfigErrorView({super.key, required this.onRetry});
+ 
+   final VoidCallback onRetry;
+ 
+@@ -75,7 +75,7 @@ class ExerciseConfigErrorView extends StatelessWidget {
+ }
+ 
+ class CameraRecoveryView extends StatelessWidget {
+-  const CameraRecoveryView();
++  const CameraRecoveryView({super.key});
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -100,6 +100,7 @@ class CameraRecoveryView extends StatelessWidget {
+ 
+ class LiveCameraFailureView extends StatelessWidget {
+   const LiveCameraFailureView({
++    super.key,
+     required this.message,
+     required this.actionLabel,
+     required this.onRetry,
+@@ -143,7 +144,7 @@ class LiveCameraFailureView extends StatelessWidget {
+ }
+ 
+ class CameraPermissionFallback extends StatelessWidget {
+-  const CameraPermissionFallback({required this.onPressed});
++  const CameraPermissionFallback({super.key, required this.onPressed});
+ 
+   final VoidCallback onPressed;
+ 
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_feedback.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_feedback.dart
+index 239208a..7ae9504 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_feedback.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_feedback.dart
+@@ -15,6 +15,7 @@ import 'live_analysis_theme.dart';
+ 
+ class WorkoutSetCompletedSection extends ConsumerWidget {
+   const WorkoutSetCompletedSection({
++    super.key,
+     required this.compact,
+     required this.showNonFinal,
+     required this.onAdvance,
+@@ -59,7 +60,7 @@ class WorkoutSetCompletedSection extends ConsumerWidget {
+ }
+ 
+ class RangeRepSideTrackingIndicator extends ConsumerWidget {
+-  const RangeRepSideTrackingIndicator({required this.compact});
++  const RangeRepSideTrackingIndicator({super.key, required this.compact});
+ 
+   final bool compact;
+ 
+@@ -155,7 +156,11 @@ class RangeRepSideTrackingIndicator extends ConsumerWidget {
+ enum _WorkoutFeedbackKind { coaching, repOutcome }
+ 
+ class WorkoutFeedbackStatus extends StatelessWidget {
+-  const WorkoutFeedbackStatus({required this.compact, this.sidePanel = false});
++  const WorkoutFeedbackStatus({
++    super.key,
++    required this.compact,
++    this.sidePanel = false,
++  });
+ 
+   final bool compact;
+   final bool sidePanel;
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pause_overlay.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pause_overlay.dart
+index 679f97e..0806e0a 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pause_overlay.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pause_overlay.dart
+@@ -12,7 +12,11 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
+ import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/pose_painter.dart';
+ 
+ class PausedPoseOverlay extends ConsumerWidget {
+-  const PausedPoseOverlay({required this.imageSize, required this.isMirrored});
++  const PausedPoseOverlay({
++    super.key,
++    required this.imageSize,
++    required this.isMirrored,
++  });
+ 
+   final Size imageSize;
+   final bool isMirrored;
+@@ -39,6 +43,7 @@ class PausedPoseOverlay extends ConsumerWidget {
+ 
+ class LivePauseOverlay extends ConsumerWidget {
+   const LivePauseOverlay({
++    super.key,
+     required this.readinessRequest,
+     required this.onResume,
+     required this.onCancelResume,
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pose_overlays.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pose_overlays.dart
+index 1988948..33ceee4 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pose_overlays.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_pose_overlays.dart
+@@ -9,6 +9,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/widge
+ 
+ class WorkoutPoseOverlay extends ConsumerWidget {
+   const WorkoutPoseOverlay({
++    super.key,
+     required this.imageSize,
+     required this.isMirrored,
+     required this.showDebugLandmarks,
+@@ -49,7 +50,7 @@ class WorkoutPoseOverlay extends ConsumerWidget {
+ }
+ 
+ class LiveTrackingRecoveryOverlay extends ConsumerWidget {
+-  const LiveTrackingRecoveryOverlay();
++  const LiveTrackingRecoveryOverlay({super.key});
+ 
+   @override
+   Widget build(BuildContext context, WidgetRef ref) {
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_side_panel.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_side_panel.dart
+index 2e379a7..5332c0a 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_side_panel.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_side_panel.dart
+@@ -15,6 +15,7 @@ import 'live_analysis_top_bar.dart';
+ 
+ class LiveAnalysisSidePanel extends ConsumerWidget {
+   const LiveAnalysisSidePanel({
++    super.key,
+     required this.isFinishing,
+     required this.onPause,
+     required this.onFinish,
+@@ -263,6 +264,7 @@ class _LiveSidePanelToolbar extends StatelessWidget {
+ 
+ class LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
+   const LandscapeWorkoutMetricsOverlay({
++    super.key,
+     required this.topInset,
+     required this.onToggleCalibration,
+   });
+@@ -322,6 +324,7 @@ class LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
+ 
+ class PrimaryWorkoutMetricsOverlay extends StatelessWidget {
+   const PrimaryWorkoutMetricsOverlay({
++    super.key,
+     required this.topInset,
+     required this.onToggleCalibration,
+   });
+@@ -576,7 +579,7 @@ class _LiveMetricSurface extends StatelessWidget {
+ }
+ 
+ class CanonicalMetricsOverlay extends ConsumerWidget {
+-  const CanonicalMetricsOverlay({required this.topInset});
++  const CanonicalMetricsOverlay({super.key, required this.topInset});
+ 
+   final double topInset;
+ 
+@@ -594,6 +597,7 @@ class CanonicalMetricsOverlay extends ConsumerWidget {
+ 
+ class CalibrationPanelOverlay extends ConsumerWidget {
+   const CalibrationPanelOverlay({
++    super.key,
+     required this.topInset,
+     required this.compact,
+     required this.onClose,
+@@ -624,7 +628,7 @@ class CalibrationPanelOverlay extends ConsumerWidget {
+ }
+ 
+ class PlannedResumeCountdownOverlay extends StatelessWidget {
+-  const PlannedResumeCountdownOverlay({required this.value});
++  const PlannedResumeCountdownOverlay({super.key, required this.value});
+ 
+   final int value;
+ 
+diff --git a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_top_bar.dart b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_top_bar.dart
+index 1834a6c..5aa3187 100644
+--- a/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_top_bar.dart
++++ b/lib/features/workout_analysis/presentation/widgets/live_analysis/live_analysis_top_bar.dart
+@@ -9,6 +9,7 @@ import 'live_analysis_theme.dart';
+ 
+ class LiveWorkoutTopBarOverlay extends StatelessWidget {
+   const LiveWorkoutTopBarOverlay({
++    super.key,
+     required this.topInset,
+     required this.compact,
+     required this.reserveLeadingDeveloperControl,
+@@ -107,6 +108,7 @@ class _LiveWorkoutTopBar extends StatelessWidget {
+ 
+ class FinishSessionButton extends ConsumerWidget {
+   const FinishSessionButton({
++    super.key,
+     required this.topInset,
+     required this.compact,
+     required this.isFinishing,
+@@ -241,7 +243,11 @@ class LiveHudActionButton extends StatelessWidget {
+ 
+ 
+ class ActiveExerciseTitle extends ConsumerWidget {
+-  const ActiveExerciseTitle({this.compact = false, this.maxLines = 1});
++  const ActiveExerciseTitle({
++    super.key,
++    this.compact = false,
++    this.maxLines = 1,
++  });
+ 
+   final bool compact;
+   final int maxLines;
