@@ -1,8 +1,5 @@
-import 'analysis_visibility_gap_window.dart';
 import 'feedback_arbitration_engine.dart';
 import 'generic_rep_engine.dart';
-import 'legacy_range_rep_phase_quality_policy.dart';
-import 'legacy_range_rep_scorer.dart';
 import 'legacy_range_rep_technique_evaluator.dart';
 import 'models/exercise_config.dart';
 import 'models/analysis_frame.dart';
@@ -15,13 +12,14 @@ import 'models/range_rep_engine_frame_result.dart';
 import 'models/range_rep_feedback_code.dart';
 import 'models/range_rep_technique_assessment.dart';
 import 'models/rep_score_breakdown.dart';
-import 'models/tempo_measurement_assessment.dart';
 import 'range_rep_analysis_engine.dart';
 import 'range_rep_diagnostics.dart';
-import 'range_rep_timing_trace.dart';
-import 'range_rep_timing_trace_recorder.dart';
-import 'tempo_engine.dart';
+import 'range_rep_legacy_score_tracker.dart';
+import 'range_rep_phase_quality_tracker.dart';
+import 'range_rep_timing_lifecycle.dart';
+import 'range_rep_visibility_lifecycle.dart';
 import 'tempo_measurement_eligibility_policy.dart';
+import 'tempo_engine.dart';
 
 enum MovementPhase { neutral, descending, peak, ascending }
 
@@ -117,117 +115,13 @@ class RepResult {
   });
 }
 
-class _MutableRangeRepPhaseQuality {
-  DateTime? _startedAt;
-  int _completedDurationMs = 0;
-  double? _minPrimaryMetric;
-  double? _maxPrimaryMetric;
-  double? _worstFormMetric;
-  bool _hadFormViolation = false;
-  bool _hasData = false;
-
-  void start({
-    required DateTime startedAt,
-    required double primaryMetric,
-    required double formMetric,
-    required bool hadFormViolation,
-  }) {
-    reset();
-    _startedAt = startedAt;
-    record(
-      primaryMetric: primaryMetric,
-      formMetric: formMetric,
-      hadFormViolation: hadFormViolation,
-    );
-  }
-
-  void record({
-    required double primaryMetric,
-    required double formMetric,
-    required bool hadFormViolation,
-  }) {
-    _hasData = true;
-    _minPrimaryMetric = _minPrimaryMetric == null
-        ? primaryMetric
-        : (primaryMetric < _minPrimaryMetric!
-              ? primaryMetric
-              : _minPrimaryMetric);
-    _maxPrimaryMetric = _maxPrimaryMetric == null
-        ? primaryMetric
-        : (primaryMetric > _maxPrimaryMetric!
-              ? primaryMetric
-              : _maxPrimaryMetric);
-    _worstFormMetric = _worstFormMetric == null
-        ? formMetric
-        : (formMetric < _worstFormMetric! ? formMetric : _worstFormMetric);
-    if (hadFormViolation) {
-      _hadFormViolation = true;
-    }
-  }
-
-  void complete(DateTime endedAt) {
-    if (_startedAt == null) {
-      return;
-    }
-
-    final durationMs = endedAt.difference(_startedAt!).inMilliseconds;
-    _completedDurationMs = durationMs < 0 ? 0 : durationMs;
-  }
-
-  void shiftStartedAt(Duration delta) {
-    if (_startedAt == null || delta == Duration.zero) {
-      return;
-    }
-    _startedAt = _startedAt!.add(delta);
-  }
-
-  RangeRepPhaseQualitySnapshot snapshot({
-    required DateTime now,
-    required bool isActive,
-  }) {
-    if (!_hasData) {
-      return const RangeRepPhaseQualitySnapshot();
-    }
-
-    var durationMs = _completedDurationMs;
-    if (isActive && _startedAt != null) {
-      durationMs = now.difference(_startedAt!).inMilliseconds;
-      if (durationMs < 0) {
-        durationMs = 0;
-      }
-    }
-
-    return RangeRepPhaseQualitySnapshot(
-      hasData: true,
-      durationMs: durationMs,
-      minPrimaryMetric: _minPrimaryMetric,
-      maxPrimaryMetric: _maxPrimaryMetric,
-      worstFormMetric: _worstFormMetric,
-      hadFormViolation: _hadFormViolation,
-    );
-  }
-
-  void reset() {
-    _startedAt = null;
-    _completedDurationMs = 0;
-    _minPrimaryMetric = null;
-    _maxPrimaryMetric = null;
-    _worstFormMetric = null;
-    _hadFormViolation = false;
-    _hasData = false;
-  }
-}
-
 /// Current range-rep engine backing the workout analysis flow.
 class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   final ExerciseConfig config;
   final RangeRepPrimaryMetricDirection primaryMetricDirection;
   final DateTime Function() _now;
-  final LegacyRangeRepScorer _scorer = const LegacyRangeRepScorer();
   final LegacyRangeRepTechniqueEvaluator _techniqueEvaluator =
       const LegacyRangeRepTechniqueEvaluator();
-  final LegacyRangeRepPhaseQualityPolicy _phaseQualityPolicy =
-      const LegacyRangeRepPhaseQualityPolicy();
   final FeedbackArbitrationEngine _feedbackArbitrationEngine =
       const FeedbackArbitrationEngine();
 
@@ -240,8 +134,19 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   // Compatibility ROM value for the most recently completed repetition.
   double _lastRepRom = 180.0;
-  double lastRepScore = 0.0;
-  RepScoreBreakdown? lastRepScoreBreakdown;
+  double get lastRepScore => _legacyScoreTracker.lastRepScore;
+
+  set lastRepScore(double value) {
+    _legacyScoreTracker.lastRepScore = value;
+  }
+
+  RepScoreBreakdown? get lastRepScoreBreakdown =>
+      _legacyScoreTracker.lastRepScoreBreakdown;
+
+  set lastRepScoreBreakdown(RepScoreBreakdown? value) {
+    _legacyScoreTracker.lastRepScoreBreakdown = value;
+  }
+
   RangeRepCompletedRepCoreData? lastCompletedRepCoreData;
   RangeRepCompletedRepCoreData? _pendingCompletedRepCoreData;
   late String feedback;
@@ -250,12 +155,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   DateTime? _descentStartTime;
   DateTime? _peakStartTime;
   DateTime? _ascentStartTime;
-  final AnalysisVisibilityGapWindow _briefVisibilityGapWindow =
-      AnalysisVisibilityGapWindow(
-        graceDuration: rangeRepVisibilityGapGraceDuration,
-      );
-  MovementPhase? _briefVisibilityGapFrozenPhase;
-  bool _briefVisibilityGapWasArmed = false;
+  late final RangeRepVisibilityLifecycle _visibilityLifecycle;
 
   Duration lastDescentTime = Duration.zero;
   Duration lastAscentTime = Duration.zero;
@@ -267,18 +167,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   late final GenericRepEngine _genericRepEngine;
   late final TempoEngine _tempoEngine;
   String? _lastConfirmedTransitionLabel;
-  final _MutableRangeRepPhaseQuality _descendingPhaseQuality =
-      _MutableRangeRepPhaseQuality();
-  final _MutableRangeRepPhaseQuality _peakPhaseQuality =
-      _MutableRangeRepPhaseQuality();
-  final _MutableRangeRepPhaseQuality _ascendingPhaseQuality =
-      _MutableRangeRepPhaseQuality();
-  RangeRepPhaseQualityTelemetry? _lastCompletedPhaseQualityTelemetry;
-  final RangeRepTimingTraceRecorder _timingTraceRecorder =
-      RangeRepTimingTraceRecorder();
-  final TempoMeasurementEligibilityPolicy _tempoMeasurementEligibilityPolicy;
-  TempoMeasurementAssessment? _lastTempoMeasurementAssessment;
-  int _nonMonotonicObservationCount = 0;
+  late final RangeRepLegacyScoreTracker _legacyScoreTracker;
+  late final RangeRepPhaseQualityTracker _phaseQualityTracker;
+  late final RangeRepTimingLifecycle _timingLifecycle;
 
   RangeRepEngine({
     required this.config,
@@ -302,10 +193,19 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     TempoMeasurementEligibilityConfig tempoMeasurementEligibilityConfig =
         const TempoMeasurementEligibilityConfig(),
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now,
-       _tempoMeasurementEligibilityPolicy = TempoMeasurementEligibilityPolicy(
-         config: tempoMeasurementEligibilityConfig,
-       ) {
+  }) : _now = now ?? DateTime.now {
+    _legacyScoreTracker = RangeRepLegacyScoreTracker(
+      config: config,
+      primaryMetricDirection: primaryMetricDirection,
+    );
+    _phaseQualityTracker = RangeRepPhaseQualityTracker(config: config);
+    _timingLifecycle = RangeRepTimingLifecycle(
+      eligibilityConfig: tempoMeasurementEligibilityConfig,
+    );
+    _visibilityLifecycle = RangeRepVisibilityLifecycle(
+      graceDuration: rangeRepVisibilityGapGraceDuration,
+      now: _now,
+    );
     _genericRepEngine = GenericRepEngine(
       config: GenericRepEngineConfig(
         neutralThreshold: config.thresholdNeutral,
@@ -373,10 +273,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       pendingTransitionLabel:
           _genericRepEngine.pendingTransition?.legacyDebugLabel,
       lastConfirmedTransitionLabel: _lastConfirmedTransitionLabel,
-      activeTimingTrace: _timingTraceRecorder.activeSnapshot,
-      lastEndedTimingTrace: _timingTraceRecorder.lastEndedSnapshot,
-      lastTempoMeasurementAssessment: _lastTempoMeasurementAssessment,
-      nonMonotonicObservationCount: _nonMonotonicObservationCount,
+      activeTimingTrace: _timingLifecycle.activeSnapshot,
+      lastEndedTimingTrace: _timingLifecycle.lastEndedSnapshot,
+      lastTempoMeasurementAssessment: _timingLifecycle.lastAssessment,
+      nonMonotonicObservationCount:
+          _timingLifecycle.nonMonotonicObservationCount,
     );
   }
 
@@ -385,7 +286,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     final phaseQualityTelemetry =
         state == MovementPhase.neutral &&
             _genericRepEngine.pendingTransition == null
-        ? (_lastCompletedPhaseQualityTelemetry ?? _phaseQualityTelemetry(now))
+        ? (_phaseQualityTracker.lastCompletedTelemetry ??
+              _phaseQualityTelemetry(now))
         : _phaseQualityTelemetry(now);
     final descendingPhaseAssessment = _assessPhaseQuality(
       phase: MovementPhase.descending,
@@ -425,10 +327,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         peakPhaseAssessment: peakPhaseAssessment,
         ascendingPhaseAssessment: ascendingPhaseAssessment,
       )?.code,
-      activeTimingTrace: _timingTraceRecorder.activeSnapshot,
-      lastEndedTimingTrace: _timingTraceRecorder.lastEndedSnapshot,
-      lastTempoMeasurementAssessment: _lastTempoMeasurementAssessment,
-      nonMonotonicObservationCount: _nonMonotonicObservationCount,
+      activeTimingTrace: _timingLifecycle.activeSnapshot,
+      lastEndedTimingTrace: _timingLifecycle.lastEndedSnapshot,
+      lastTempoMeasurementAssessment: _timingLifecycle.lastAssessment,
+      nonMonotonicObservationCount:
+          _timingLifecycle.nonMonotonicObservationCount,
     );
   }
 
@@ -553,8 +456,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
       observedAt: observedAt,
     );
     if (!genericResult.observationAccepted) {
-      _nonMonotonicObservationCount++;
-      _timingTraceRecorder.recordRejectedObservation();
+      _timingLifecycle.recordRejectedObservation();
       return _RangeRepLifecycleFacts(
         repStarted: false,
         repAborted: false,
@@ -570,22 +472,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     final genericTransitions = genericResult.confirmedTransitions;
     final stateBefore = _movementPhaseFor(genericResult.phaseBeforeUpdate);
 
-    if (genericResult.repStarted) {
-      _timingTraceRecorder.start();
-    }
-    if (_timingTraceRecorder.isActive) {
-      if (genericResult.usedSparseCycleRecovery) {
-        _timingTraceRecorder.markSparseCycleRecovery();
-      }
-      _timingTraceRecorder
-        ..record(
-          phase: _timingTracePhaseFor(genericResult),
-          primaryMetric: angle,
-          observedAt: observedAt,
-          processedAt: processedAt,
-        )
-        ..addTransitions(genericTransitions);
-    }
+    _timingLifecycle.recordAcceptedFrame(
+      result: genericResult,
+      primaryMetric: angle,
+      observedAt: observedAt,
+      processedAt: processedAt,
+    );
 
     _isArmed = genericResult.isArmedAfterUpdate;
     state = _movementPhaseFor(genericResult.phaseAfterUpdate);
@@ -784,12 +676,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     }
 
     if (completedRepDetectionData != null) {
-      final completedTimingTrace = _timingTraceRecorder.finish(
-        RangeRepTimingTraceOutcome.completed,
-      );
-      final tempoMeasurementAssessment = _tempoMeasurementEligibilityPolicy
-          .evaluate(trace: completedTimingTrace, measuredTempo: completedTempo);
-      _lastTempoMeasurementAssessment = tempoMeasurementAssessment;
+      final timingCompletion = _timingLifecycle.finishCompleted(completedTempo);
+      final completedTimingTrace = timingCompletion.trace;
+      final tempoMeasurementAssessment = timingCompletion.assessment;
       completedCycle = RangeRepCompletedCycle(
         genericCompletedRep: genericResult.completedRep!,
         detectionData: completedRepDetectionData,
@@ -798,12 +687,12 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         timingTrace: completedTimingTrace,
         tempoMeasurementAssessment: tempoMeasurementAssessment,
         phaseQualityTelemetry: tracksCompatibilityTechnique
-            ? _lastCompletedPhaseQualityTelemetry
+            ? _phaseQualityTracker.lastCompletedTelemetry
             : null,
         confirmedTransitions: confirmedTransitions,
       );
     } else if (repAborted) {
-      _timingTraceRecorder.finish(RangeRepTimingTraceOutcome.aborted);
+      _timingLifecycle.finishAborted();
     }
 
     return _RangeRepLifecycleFacts(
@@ -819,27 +708,21 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     );
   }
 
-  GenericRepPhase _timingTracePhaseFor(GenericRepEngineFrameResult result) {
-    final transitionTypes = result.confirmedTransitions
-        .map((transition) => transition.type)
-        .toSet();
-    if (transitionTypes.contains(GenericRepTransitionType.startReturning) ||
-        transitionTypes.contains(GenericRepTransitionType.completeRep)) {
-      return GenericRepPhase.returning;
-    }
-    if (result.repStarted ||
-        transitionTypes.contains(GenericRepTransitionType.reachPeak)) {
-      return GenericRepPhase.towardPeak;
-    }
-    return result.phaseBeforeUpdate;
-  }
-
   MovementPhase _movementPhaseFor(GenericRepPhase phase) {
     return switch (phase) {
       GenericRepPhase.neutral => MovementPhase.neutral,
       GenericRepPhase.towardPeak => MovementPhase.descending,
       GenericRepPhase.peak => MovementPhase.peak,
       GenericRepPhase.returning => MovementPhase.ascending,
+    };
+  }
+
+  RangeRepPhase? _rangeRepPhaseForMovement(MovementPhase phase) {
+    return switch (phase) {
+      MovementPhase.neutral => null,
+      MovementPhase.descending => RangeRepPhase.descending,
+      MovementPhase.peak => RangeRepPhase.peak,
+      MovementPhase.ascending => RangeRepPhase.ascending,
     };
   }
 
@@ -926,132 +809,24 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required RangeRepPhaseQualityAssessment descendingPhaseAssessment,
     required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
   }) {
-    final romScore = switch (primaryMetricDirection) {
-      RangeRepPrimaryMetricDirection.decreasingToPeak =>
-        _scorer.calculateRomScore(
-          minAngle: completedRepCoreData.minAngle,
-          targetMinAngle: config.targetMinAngle,
-        ),
-      RangeRepPrimaryMetricDirection.increasingToPeak =>
-        _scorer
-            .calculateSaturatingRomScore(
-              achievedRom: completedRepCoreData.primaryRom ?? 0.0,
-              minimumAcceptableRom: 0.0,
-              targetRom:
-                  ((config.targetMaxAngle ?? config.thresholdPeak) -
-                          (completedRepCoreData.startAngle ??
-                              config.thresholdNeutral))
-                      .clamp(0.0, 180.0)
-                      .toDouble(),
-            )
-            .score,
-    };
-    final descentSeconds =
-        completedRepCoreData.descentDuration.inMilliseconds / 1000.0;
-    final descentScore = _scorer.calculateTempoScore(
-      actualSeconds: descentSeconds,
-      idealSeconds: config.idealDescentSeconds,
-      tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
-    );
-    final ascentSeconds =
-        completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
-    final ascentScore = _scorer.calculateTempoScore(
-      actualSeconds: ascentSeconds,
-      idealSeconds: config.idealAscentSeconds,
-      tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
-    );
-    final tempoScore = (descentScore + ascentScore) / 2;
-    final depthScore = romScore;
-    final descentControlScore = descentScore;
-    final ascentControlScore = ascentScore;
-    final scoreWeights = config.rangeRepScoreWeights;
-    final weightedBaseScore = scoreWeights == null
-        ? null
-        : _scorer.calculateWeightedBaseScore(
-            depthScore: depthScore,
-            descentControlScore: descentControlScore,
-            ascentControlScore: ascentControlScore,
-            depthWeight: scoreWeights.depthWeight ?? 1.0,
-            descentControlWeight: scoreWeights.descentControlWeight ?? 1.0,
-            ascentControlWeight: scoreWeights.ascentControlWeight ?? 1.0,
-          );
-    final phaseQualityPenalty = _scorer.calculatePhaseQualityPenalty(
-      descendingPhaseFlagged:
-          descendingPhaseAssessment.status ==
-          RangeRepPhaseQualityStatus.flagged,
-      ascendingPhaseFlagged:
-          ascendingPhaseAssessment.status == RangeRepPhaseQualityStatus.flagged,
-    );
-    final baseScore = _scorer.calculateBaseScore(
-      romScore: romScore,
-      tempoScore: tempoScore,
-      weightedBaseScore: weightedBaseScore,
-      hadFormViolation: completedRepCoreData.hadFormViolation,
-    );
-    final phaseAdjustedScore = _scorer.calculatePhaseAdjustedScore(
-      baseScore: baseScore,
-      phaseQualityPenalty: phaseQualityPenalty,
-    );
-    final finalScore = _scorer.calculateFinalScore(
-      baseScore: baseScore,
-      phaseAdjustedScore: phaseAdjustedScore,
-    );
-
-    lastRepScore = finalScore;
-    lastRepScoreBreakdown = RepScoreBreakdown(
-      minAngle: completedRepCoreData.minAngle,
-      romScore: romScore,
-      descentSeconds: descentSeconds,
-      descentScore: descentScore,
-      ascentSeconds: ascentSeconds,
-      ascentScore: ascentScore,
-      worstBackAngle: completedRepCoreData.worstFormMetric,
-      hadFormViolation: completedRepCoreData.hadFormViolation,
-      runtimeBaseScore: baseScore,
-      finalScore: finalScore,
-      depthScore: depthScore,
-      descentControlScore: descentControlScore,
-      ascentControlScore: ascentControlScore,
-      weightedBaseScore: weightedBaseScore,
-      phaseQualityPenalty: phaseQualityPenalty,
-      phaseAdjustedScore: phaseAdjustedScore,
+    _legacyScoreTracker.calculate(
+      completedRepCoreData: completedRepCoreData,
+      descendingPhaseAssessment: descendingPhaseAssessment,
+      ascendingPhaseAssessment: ascendingPhaseAssessment,
     );
   }
 
   RangeRepPhaseQualityTelemetry _phaseQualityTelemetry(DateTime now) {
-    return RangeRepPhaseQualityTelemetry(
-      descendingPhaseQuality: _descendingPhaseQuality.snapshot(
-        now: now,
-        isActive: state == MovementPhase.descending,
-      ),
-      peakPhaseQuality: _peakPhaseQuality.snapshot(
-        now: now,
-        isActive: state == MovementPhase.peak,
-      ),
-      ascendingPhaseQuality: _ascendingPhaseQuality.snapshot(
-        now: now,
-        isActive: state == MovementPhase.ascending,
-      ),
+    return _phaseQualityTracker.telemetry(
+      now: now,
+      activePhase: _rangeRepPhaseForMovement(state),
     );
   }
 
   RangeRepPhaseQualityTelemetry _completedPhaseQualityTelemetry(
     DateTime capturedAt,
   ) {
-    return RangeRepPhaseQualityTelemetry(
-      descendingPhaseQuality: _descendingPhaseQuality.snapshot(
-        now: capturedAt,
-        isActive: false,
-      ),
-      peakPhaseQuality: _peakPhaseQuality.snapshot(
-        now: capturedAt,
-        isActive: false,
-      ),
-      ascendingPhaseQuality: _ascendingPhaseQuality.snapshot(
-        now: capturedAt,
-        isActive: false,
-      ),
-    );
+    return _phaseQualityTracker.completedTelemetry(capturedAt);
   }
 
   RangeRepPhaseQualityAssessment _assessPhaseQuality({
@@ -1059,21 +834,10 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required RangeRepPhaseQualitySnapshot phaseQuality,
     required bool isActivePhase,
   }) {
-    final rangeRepPhase = switch (phase) {
-      MovementPhase.descending => RangeRepPhase.descending,
-      MovementPhase.peak => RangeRepPhase.peak,
-      MovementPhase.ascending => RangeRepPhase.ascending,
-      MovementPhase.neutral => throw ArgumentError.value(
-        phase,
-        'phase',
-        'Neutral has no phase-quality assessment.',
-      ),
-    };
-    return _phaseQualityPolicy.assess(
-      phase: rangeRepPhase,
+    return _phaseQualityTracker.assess(
+      phase: _rangeRepPhaseForMovement(phase)!,
       phaseQuality: phaseQuality,
       isActivePhase: isActivePhase,
-      config: config.rangeRepPhaseQuality,
     );
   }
 
@@ -1082,7 +846,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required RangeRepPhaseQualityAssessment peakPhaseAssessment,
     required RangeRepPhaseQualityAssessment ascendingPhaseAssessment,
   }) {
-    return _phaseQualityPolicy.feedbackCandidate(
+    return _phaseQualityTracker.feedbackCandidate(
       descending: descendingPhaseAssessment,
       peak: peakPhaseAssessment,
       ascending: ascendingPhaseAssessment,
@@ -1126,9 +890,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
   }
 
   void _captureLastCompletedPhaseQualityTelemetry(DateTime capturedAt) {
-    _lastCompletedPhaseQualityTelemetry = _completedPhaseQualityTelemetry(
-      capturedAt,
-    );
+    _phaseQualityTracker.captureCompleted(capturedAt);
   }
 
   void _beginPhaseTelemetry({
@@ -1138,7 +900,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required double formMetric,
     required bool hasTechniqueViolation,
   }) {
-    _phaseQualityFor(phase).start(
+    _phaseQualityTracker.start(
+      phase: _rangeRepPhaseForMovement(phase)!,
       startedAt: phaseStartedAt,
       primaryMetric: primaryMetric,
       formMetric: formMetric,
@@ -1152,7 +915,8 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required double formMetric,
     required bool hasTechniqueViolation,
   }) {
-    _phaseQualityFor(phase).record(
+    _phaseQualityTracker.record(
+      phase: _rangeRepPhaseForMovement(phase)!,
       primaryMetric: primaryMetric,
       formMetric: formMetric,
       hadFormViolation: hasTechniqueViolation,
@@ -1163,30 +927,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required MovementPhase phase,
     required DateTime phaseEndedAt,
   }) {
-    _phaseQualityFor(phase).complete(phaseEndedAt);
-  }
-
-  _MutableRangeRepPhaseQuality _phaseQualityFor(MovementPhase phase) {
-    switch (phase) {
-      case MovementPhase.neutral:
-        throw ArgumentError.value(
-          phase,
-          'phase',
-          'Neutral has no phase telemetry.',
-        );
-      case MovementPhase.descending:
-        return _descendingPhaseQuality;
-      case MovementPhase.peak:
-        return _peakPhaseQuality;
-      case MovementPhase.ascending:
-        return _ascendingPhaseQuality;
-    }
+    _phaseQualityTracker.complete(
+      phase: _rangeRepPhaseForMovement(phase)!,
+      endedAt: phaseEndedAt,
+    );
   }
 
   void _resetPhaseQualityTelemetry() {
-    _descendingPhaseQuality.reset();
-    _peakPhaseQuality.reset();
-    _ascendingPhaseQuality.reset();
+    _phaseQualityTracker.reset();
   }
 
   void _startDetectionRepMetrics(double primaryMetric) {
@@ -1313,15 +1061,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
 
   @override
   void beginBriefVisibilityGap({DateTime? observedAt}) {
-    if (_briefVisibilityGapWindow.isActive) {
-      return;
-    }
-
-    _timingTraceRecorder.markVisibilityGap();
-    _briefVisibilityGapWindow.begin(observedAt ?? _now());
-    _briefVisibilityGapFrozenPhase = state;
-    _briefVisibilityGapWasArmed = _isArmed;
-    _genericRepEngine.cancelPendingTransition();
+    _visibilityLifecycle.begin(
+      engine: _genericRepEngine,
+      observedAt: observedAt,
+      onGapStarted: _timingLifecycle.markVisibilityGap,
+    );
   }
 
   @override
@@ -1329,36 +1073,11 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     required double primaryMetric,
     DateTime? observedAt,
   }) {
-    if (!_briefVisibilityGapWindow.isActive) {
-      return const VisibilityGapResumeResult(
-        disposition: VisibilityGapResumeDisposition.noGap,
-      );
-    }
-
-    final frozenPhase = _briefVisibilityGapFrozenPhase ?? state;
-    final isCompatible = _isFrameCompatibleWithFrozenPhase(
-      primaryMetric,
-      frozenPhase: frozenPhase,
-      wasArmed: _briefVisibilityGapWasArmed,
-    );
-    if (!isCompatible) {
-      _clearBriefVisibilityGap();
-      return const VisibilityGapResumeResult(
-        disposition: VisibilityGapResumeDisposition.incompatible,
-        reason: 'phase incompatible recovery',
-      );
-    }
-
-    final gapDuration = _briefVisibilityGapWindow.consume(
-      observedAt ?? _now(),
-    )!;
-    _shiftActivePhaseTiming(gapDuration);
-    _briefVisibilityGapFrozenPhase = null;
-    _briefVisibilityGapWasArmed = false;
-
-    return VisibilityGapResumeResult(
-      disposition: VisibilityGapResumeDisposition.compatible,
-      appliedGapDuration: gapDuration,
+    return _visibilityLifecycle.resume(
+      engine: _genericRepEngine,
+      primaryMetric: primaryMetric,
+      observedAt: observedAt,
+      onCompatibleGap: _shiftActivePhaseTiming,
     );
   }
 
@@ -1377,8 +1096,7 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     _genericRepEngine.reset();
     _tempoEngine.reset();
     repCount = _genericRepEngine.repCount;
-    lastRepScore = 0;
-    lastRepScoreBreakdown = null;
+    _legacyScoreTracker.reset();
     lastCompletedRepCoreData = null;
     _pendingCompletedRepCoreData = null;
     _lastRepRom = 180;
@@ -1387,18 +1105,14 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
-    _briefVisibilityGapWindow.reset();
-    _briefVisibilityGapFrozenPhase = null;
-    _briefVisibilityGapWasArmed = false;
-    _lastCompletedPhaseQualityTelemetry = null;
-    _lastTempoMeasurementAssessment = null;
-    _nonMonotonicObservationCount = 0;
-    _timingTraceRecorder.reset();
+    _visibilityLifecycle.reset();
+    _phaseQualityTracker.resetAll();
+    _timingLifecycle.reset();
     _disarm();
   }
 
   void _disarm() {
-    _timingTraceRecorder.finish(RangeRepTimingTraceOutcome.interrupted);
+    _timingLifecycle.finishInterrupted();
     _peakEntryAllowed = true;
     _genericRepEngine.clearActiveRepContext();
     _tempoEngine.interrupt();
@@ -1410,33 +1124,9 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
     _descentStartTime = null;
     _peakStartTime = null;
     _ascentStartTime = null;
-    _clearBriefVisibilityGap();
+    _visibilityLifecycle.reset();
     _lastConfirmedTransitionLabel = null;
     _resetCurrentRepMetrics();
-  }
-
-  void _clearBriefVisibilityGap() {
-    _briefVisibilityGapWindow.reset();
-    _briefVisibilityGapFrozenPhase = null;
-    _briefVisibilityGapWasArmed = false;
-  }
-
-  bool _isFrameCompatibleWithFrozenPhase(
-    double primaryMetric, {
-    required MovementPhase frozenPhase,
-    required bool wasArmed,
-  }) {
-    final genericPhase = switch (frozenPhase) {
-      MovementPhase.neutral => GenericRepPhase.neutral,
-      MovementPhase.descending => GenericRepPhase.towardPeak,
-      MovementPhase.peak => GenericRepPhase.peak,
-      MovementPhase.ascending => GenericRepPhase.returning,
-    };
-    return _genericRepEngine.isMetricCompatibleWithPhase(
-      primaryMetric,
-      frozenPhase: genericPhase,
-      wasArmed: wasArmed,
-    );
   }
 
   void _shiftActivePhaseTiming(Duration gapDuration) {
@@ -1453,19 +1143,28 @@ class RangeRepEngine implements RangeRepAnalysisEngine, TempoMetricsSource {
         if (_descentStartTime != null) {
           _descentStartTime = _descentStartTime!.add(gapDuration);
         }
-        _descendingPhaseQuality.shiftStartedAt(gapDuration);
+        _phaseQualityTracker.shiftStartedAt(
+          phase: RangeRepPhase.descending,
+          delta: gapDuration,
+        );
         break;
       case MovementPhase.peak:
         if (_peakStartTime != null) {
           _peakStartTime = _peakStartTime!.add(gapDuration);
         }
-        _peakPhaseQuality.shiftStartedAt(gapDuration);
+        _phaseQualityTracker.shiftStartedAt(
+          phase: RangeRepPhase.peak,
+          delta: gapDuration,
+        );
         break;
       case MovementPhase.ascending:
         if (_ascentStartTime != null) {
           _ascentStartTime = _ascentStartTime!.add(gapDuration);
         }
-        _ascendingPhaseQuality.shiftStartedAt(gapDuration);
+        _phaseQualityTracker.shiftStartedAt(
+          phase: RangeRepPhase.ascending,
+          delta: gapDuration,
+        );
         break;
     }
   }
