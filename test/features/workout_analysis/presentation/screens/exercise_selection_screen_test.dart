@@ -511,6 +511,45 @@ void main() {
     );
   });
 
+  testWidgets('builds offscreen catalog cards lazily', (tester) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+    );
+    await tester.pumpAndSettle();
+
+    final lastCard = _exerciseCard('y_raise');
+    expect(lastCard, findsNothing);
+
+    await _scrollExerciseIntoView(tester, lastCard);
+
+    expect(lastCard, findsOneWidget);
+  });
+
+  testWidgets('debounces localized catalog search updates', (tester) async {
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('exercise-search-field')),
+      'shoulder press',
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(_exerciseCard('squat'), findsOneWidget);
+    expect(_exerciseCard('shoulder_press'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(_exerciseCard('squat'), findsNothing);
+    expect(_exerciseCard('shoulder_press'), findsOneWidget);
+  });
+
   testWidgets('keeps discovery cards compact and reachable on phones', (
     tester,
   ) async {

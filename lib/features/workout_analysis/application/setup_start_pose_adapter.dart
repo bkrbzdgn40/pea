@@ -48,12 +48,28 @@ class SetupStartPoseAdapter {
     required double imageHeight,
     bool mirrorHorizontally = false,
   }) {
+    return fromLandmarksByType(
+      landmarksByType: <PoseLandmarkType, PoseLandmark>{
+        for (final landmark in landmarks) landmark.type: landmark,
+      },
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      mirrorHorizontally: mirrorHorizontally,
+    );
+  }
+
+  SetupStartPose fromLandmarksByType({
+    required Map<PoseLandmarkType, PoseLandmark> landmarksByType,
+    required double imageWidth,
+    required double imageHeight,
+    bool mirrorHorizontally = false,
+  }) {
     _validateImageDimension(imageWidth, 'imageWidth');
     _validateImageDimension(imageHeight, 'imageHeight');
     final sharedScale = math.max(imageWidth, imageHeight);
     final points = <SetupStartPoseJoint, SetupStartPosePoint>{};
 
-    for (final landmark in landmarks) {
+    for (final landmark in landmarksByType.values) {
       final joint = _jointByLandmark[landmark.type];
       if (joint == null) {
         continue;

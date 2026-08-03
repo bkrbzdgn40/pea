@@ -69,11 +69,24 @@ class SetupFramingPoseAdapter {
     required double imageHeight,
     bool mirrorHorizontally = false,
   }) {
+    return fromLandmarksByType(
+      landmarksByType: <PoseLandmarkType, PoseLandmark>{
+        for (final landmark in landmarks) landmark.type: landmark,
+      },
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      mirrorHorizontally: mirrorHorizontally,
+    );
+  }
+
+  SetupFramingPose fromLandmarksByType({
+    required Map<PoseLandmarkType, PoseLandmark> landmarksByType,
+    required double imageWidth,
+    required double imageHeight,
+    bool mirrorHorizontally = false,
+  }) {
     _validateImageDimension(imageWidth, 'imageWidth');
     _validateImageDimension(imageHeight, 'imageHeight');
-    final landmarksByType = <PoseLandmarkType, PoseLandmark>{
-      for (final landmark in landmarks) landmark.type: landmark,
-    };
 
     final landmarksByRegion =
         <SetupBodyRegion, List<NormalizedSetupLandmark>>{};

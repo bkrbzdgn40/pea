@@ -1016,6 +1016,162 @@ void main() {
     );
 
     test(
+      'lifecycle neutral reacquisition keeps feedback stable across intermittent invalid frames',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 140,
+          expectedPhase: 'DESCENDING',
+        );
+
+        final interrupted = coordinator.handleLifecycleInterruption(
+          reason: 'paused',
+        );
+        expect(
+          interrupted.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.awaitNeutral,
+        );
+
+        clock.advance(const Duration(milliseconds: 120));
+        final firstInvalid = coordinator.processFrame(
+          metrics: const ExerciseMetrics.noPose(),
+          now: clock.now(),
+          isAcceptedPoseFrame: false,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: null,
+          preferredRangeRepSide: null,
+        );
+        expect(
+          firstInvalid.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.awaitNeutral,
+        );
+        expect(
+          firstInvalid.stateSnapshot.currentPhase,
+          rangeRepAwaitNeutralPhaseLabel,
+        );
+
+        clock.advance(const Duration(milliseconds: 120));
+        final nonNeutral = _processAcceptedFrame(coordinator, clock, angle: 90);
+        expect(
+          nonNeutral.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.awaitNeutral,
+        );
+        expect(
+          nonNeutral.stateSnapshot.currentPhase,
+          rangeRepAwaitNeutralPhaseLabel,
+        );
+
+        clock.advance(const Duration(milliseconds: 120));
+        final secondInvalid = coordinator.processFrame(
+          metrics: const ExerciseMetrics.noPose(),
+          now: clock.now(),
+          isAcceptedPoseFrame: false,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: null,
+          preferredRangeRepSide: null,
+        );
+        expect(
+          secondInvalid.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.awaitNeutral,
+        );
+        expect(
+          secondInvalid.stateSnapshot.currentPhase,
+          rangeRepAwaitNeutralPhaseLabel,
+        );
+
+        clock.advance(const Duration(milliseconds: 120));
+        final neutral = _driveUntilPhase(
+          coordinator,
+          clock,
+          angle: 170,
+          expectedPhase: 'NEUTRAL',
+          spacing: const Duration(milliseconds: 120),
+        );
+        expect(
+          neutral.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.ready,
+        );
+
+        clock.advance(const Duration(milliseconds: 120));
+        final visibilityLossAfterNeutral = coordinator.processFrame(
+          metrics: const ExerciseMetrics.noPose(),
+          now: clock.now(),
+          isAcceptedPoseFrame: false,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: null,
+          preferredRangeRepSide: null,
+        );
+        expect(
+          visibilityLossAfterNeutral
+              .stateSnapshot
+              .feedbackDirective
+              .feedbackCode,
+          RangeRepFeedbackCode.bodyNotVisible,
+        );
+      },
+    );
+
+    test(
+      'lifecycle neutral reacquisition still reports sustained visibility loss',
+      () {
+        final clock = _TestClock();
+        final coordinator = _buildCoordinator(clock);
+
+        _pumpAcceptedFrames(
+          coordinator,
+          clock,
+          angle: 170,
+          count: 3,
+          spacing: const Duration(milliseconds: 120),
+        );
+        coordinator.handleLifecycleInterruption(reason: 'paused');
+
+        final firstInvalid = coordinator.processFrame(
+          metrics: const ExerciseMetrics.noPose(),
+          now: clock.now(),
+          isAcceptedPoseFrame: false,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: null,
+          preferredRangeRepSide: null,
+        );
+        expect(
+          firstInvalid.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.awaitNeutral,
+        );
+
+        clock.advance(rangeRepVisibilityGapGraceDuration);
+        final sustainedInvalid = coordinator.processFrame(
+          metrics: const ExerciseMetrics.noPose(),
+          now: clock.now(),
+          isAcceptedPoseFrame: false,
+          didBecomeStableTracking: false,
+          qualityAcceptedRangeRepSides: null,
+          preferredRangeRepSide: null,
+        );
+        expect(
+          sustainedInvalid.stateSnapshot.feedbackDirective.feedbackCode,
+          RangeRepFeedbackCode.bodyNotVisible,
+        );
+        expect(sustainedInvalid.stateSnapshot.currentPhase, 'WAITING');
+        expect(
+          sustainedInvalid.diagnosticsUpdate.visibilityStatus,
+          'hard_resync',
+        );
+      },
+    );
+
+    test(
       'lifecycle interruption preserves completed rep facts while clearing only the active context',
       () {
         final clock = _TestClock();

@@ -31,51 +31,72 @@ class LiveCameraStageEffects extends ConsumerWidget {
       repOutcome: repOutcome,
     );
 
-    return RepaintBoundary(
-      child: IgnorePointer(
-        child: Stack(
-          key: const ValueKey<String>('live-camera-stage-effects'),
-          fit: StackFit.expand,
-          children: <Widget>[
-            const _LiveCameraVignette(),
-            AnimatedPadding(
-              duration: AppMotion.resolveDuration(
-                context,
-                AppMotionDurations.standard,
-              ),
-              curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
-              padding: EdgeInsets.all(compact ? 7 : 10),
-              child: AnimatedContainer(
-                key: const ValueKey<String>('live-camera-analysis-frame'),
-                duration: AppMotion.resolveDuration(
-                  context,
-                  AppMotionDurations.standard,
-                ),
-                curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(compact ? 20 : 30),
-                  border: Border.all(
-                    color: frameColor.withValues(
-                      alpha: repOutcome == null ? 0.28 : 0.72,
-                    ),
-                    width: repOutcome == null ? 1 : 1.6,
-                  ),
-                  boxShadow: <BoxShadow>[
-                    if (repOutcome != null)
-                      BoxShadow(
-                        color: frameColor.withValues(alpha: 0.20),
-                        blurRadius: compact ? 20 : 30,
-                        spreadRadius: -4,
-                      ),
-                  ],
-                ),
-              ),
+    return IgnorePointer(
+      child: Stack(
+        key: const ValueKey<String>('live-camera-stage-effects'),
+        fit: StackFit.expand,
+        children: <Widget>[
+          const RepaintBoundary(
+            key: ValueKey<String>('live-camera-vignette-layer'),
+            child: _LiveCameraVignette(),
+          ),
+          RepaintBoundary(
+            key: const ValueKey<String>('live-camera-analysis-frame-layer'),
+            child: _LiveCameraAnalysisFrame(
+              compact: compact,
+              color: frameColor,
+              emphasize: repOutcome != null,
             ),
-            if (repOutcome != null)
-              _LiveRepOutcomePulse(
+          ),
+          if (repOutcome != null)
+            RepaintBoundary(
+              key: const ValueKey<String>('live-rep-outcome-pulse-layer'),
+              child: _LiveRepOutcomePulse(
                 key: ValueKey<int>(repOutcome.repIndex),
                 color: frameColor,
                 compact: compact,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveCameraAnalysisFrame extends StatelessWidget {
+  const _LiveCameraAnalysisFrame({
+    required this.compact,
+    required this.color,
+    required this.emphasize,
+  });
+
+  final bool compact;
+  final Color color;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(compact ? 7 : 10),
+      child: AnimatedContainer(
+        key: const ValueKey<String>('live-camera-analysis-frame'),
+        duration: AppMotion.resolveDuration(
+          context,
+          AppMotionDurations.standard,
+        ),
+        curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(compact ? 20 : 30),
+          border: Border.all(
+            color: color.withValues(alpha: emphasize ? 0.72 : 0.28),
+            width: emphasize ? 1.6 : 1,
+          ),
+          boxShadow: <BoxShadow>[
+            if (emphasize)
+              BoxShadow(
+                color: color.withValues(alpha: 0.20),
+                blurRadius: compact ? 20 : 30,
+                spreadRadius: -4,
               ),
           ],
         ),
@@ -146,25 +167,28 @@ class _LiveRepOutcomePulse extends StatelessWidget {
         AppMotionDurations.celebration,
       ),
       curve: AppMotion.resolveCurve(context, Curves.easeOutCubic),
-      builder: (context, progress, child) {
-        final remaining = 1 - progress;
-        return Padding(
-          padding: EdgeInsets.all((compact ? 5 : 7) + (progress * 8)),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(compact ? 22 : 32),
-              border: Border.all(
-                color: color.withValues(alpha: remaining * 0.82),
-                width: 1.5 + (remaining * 1.5),
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 5 : 7),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(compact ? 22 : 32),
+            border: Border.all(color: color.withValues(alpha: 0.82), width: 3),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: color.withValues(alpha: 0.30),
+                blurRadius: compact ? 34 : 46,
+                spreadRadius: 2,
               ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: color.withValues(alpha: remaining * 0.30),
-                  blurRadius: 18 + (remaining * 28),
-                  spreadRadius: remaining * 2,
-                ),
-              ],
-            ),
+            ],
+          ),
+        ),
+      ),
+      builder: (context, progress, child) {
+        return Opacity(
+          opacity: 1 - progress,
+          child: Transform.scale(
+            scale: 1 - (progress * (compact ? 0.035 : 0.025)),
+            child: child,
           ),
         );
       },

@@ -285,6 +285,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepSide? _selectedRangeRepSide;
   RangeRepSide? _briefGapFrozenRangeRepSide;
   bool _hasAcceptedPoseForAnalysis = false;
+  bool _isLifecycleNeutralReacquisitionPending = false;
   List<PoseLandmark>? _lastPublishedLandmarks;
   double _lastPublishedCurrentAngle = 0.0;
   double _lastRepScore = 0.0;
@@ -367,13 +368,23 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
             reason: recoveryVisibilityAssessment.resyncReason,
             resetVisibilityPolicy: false,
           );
+          if (_isLifecycleNeutralReacquisitionPending) {
+            _setCurrentFeedback(
+              RangeRepFeedbackCode.bodyNotVisible,
+              phaseKey: 'lifecycle_visibility_blocked',
+            );
+          }
+          final feedbackDirective = _coordinatorFeedbackDirective();
           return RangeRepCoordinatorFrameResult(
             stateSnapshot: _buildBlockedStateSnapshot(
               metrics: effectiveMetrics,
               frameAssessment: frameAssessment,
               freezeSmoothedPreview: true,
-              feedbackDirective: _coordinatorFeedbackDirective(),
-              currentPhase: _engine.phaseLabel,
+              feedbackDirective: feedbackDirective,
+              currentPhase: _phaseForLifecycleReacquisition(
+                feedbackDirective: feedbackDirective,
+                fallback: _engine.phaseLabel,
+              ),
               visibilityAssessment: recoveryVisibilityAssessment,
               selectedSideLabel: selectedSideLabel,
             ),
@@ -526,10 +537,13 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   RangeRepCoordinatorStateSnapshot handleLifecycleInterruption({
     String? reason,
   }) {
+    final shouldStabilizeNeutralReacquisition = _hasAcceptedPoseForAnalysis;
     _resetVisibilityResyncState(
       reason: reason ?? 'lifecycle interruption',
       resetVisibilityPolicy: true,
     );
+    _isLifecycleNeutralReacquisitionPending =
+        shouldStabilizeNeutralReacquisition;
     return _rememberStateSnapshot(
       landmarks: _lastPublishedLandmarks,
       repCount: _outcomeTracker.rangeRepAcceptedCount,
@@ -582,13 +596,23 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
 
     if (visibilityAssessment.shouldResync) {
       _resetVisibilityResyncState(reason: visibilityAssessment.resyncReason);
+      if (_isLifecycleNeutralReacquisitionPending) {
+        _setCurrentFeedback(
+          RangeRepFeedbackCode.bodyNotVisible,
+          phaseKey: 'lifecycle_visibility_blocked',
+        );
+      }
+      final feedbackDirective = _coordinatorFeedbackDirective();
       return RangeRepCoordinatorFrameResult(
         stateSnapshot: _buildBlockedStateSnapshot(
           metrics: metrics,
           frameAssessment: frameAssessment,
           freezeSmoothedPreview: true,
-          feedbackDirective: _coordinatorFeedbackDirective(),
-          currentPhase: _engine.phaseLabel,
+          feedbackDirective: feedbackDirective,
+          currentPhase: _phaseForLifecycleReacquisition(
+            feedbackDirective: feedbackDirective,
+            fallback: _engine.phaseLabel,
+          ),
           visibilityAssessment: visibilityAssessment,
           selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
         ),
@@ -603,15 +627,21 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       );
     }
 
+    final blockedFeedback = _isLifecycleNeutralReacquisitionPending
+        ? _coordinatorFeedbackDirective()
+        : const RangeRepFeedbackDirective.code(
+            RangeRepFeedbackCode.bodyNotVisible,
+          );
     return RangeRepCoordinatorFrameResult(
       stateSnapshot: _buildBlockedStateSnapshot(
         metrics: metrics,
         frameAssessment: frameAssessment,
         freezeSmoothedPreview: true,
-        feedbackDirective: const RangeRepFeedbackDirective.code(
-          RangeRepFeedbackCode.bodyNotVisible,
+        feedbackDirective: blockedFeedback,
+        currentPhase: _phaseForLifecycleReacquisition(
+          feedbackDirective: blockedFeedback,
+          fallback: 'WAITING',
         ),
-        currentPhase: 'WAITING',
         visibilityAssessment: visibilityAssessment,
         selectedSideLabel: _currentSelectedSideLabelForDiagnostics(),
       ),
@@ -726,6 +756,10 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
       engineResult: engineResult,
       hasTechniqueViolation: hasTechniqueViolation,
     );
+    if (_isLifecycleNeutralReacquisitionPending &&
+        engineResult.isArmedAfterUpdate) {
+      _isLifecycleNeutralReacquisitionPending = false;
+    }
     final didCompleteRep = engineResult.didCompleteRep;
     final completedAttemptResult = _attemptProcessor.processCompleted(
       outcomeTracker: _outcomeTracker,
@@ -1453,10 +1487,36 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
   void _clearActiveRepContext({String? reason}) {
     _engine.clearActiveRepContext(reason: reason);
     _techniqueHistoryTracker.clearActiveRepContext();
+    _setCurrentFeedback(
+      RangeRepFeedbackCode.awaitNeutral,
+      phaseKey: 'awaitingNeutral',
+    );
+  }
+
+  String _phaseForLifecycleReacquisition({
+    required RangeRepFeedbackDirective feedbackDirective,
+    required String fallback,
+  }) {
+    if (!_isLifecycleNeutralReacquisitionPending) {
+      return fallback;
+    }
+
+    return switch (feedbackDirective.feedbackCode) {
+      RangeRepFeedbackCode.awaitNeutral => rangeRepAwaitNeutralPhaseLabel,
+      RangeRepFeedbackCode.waitForBody ||
+      RangeRepFeedbackCode.bodyNotVisible => 'WAITING',
+      _ => fallback,
+    };
+  }
+
+  void _setCurrentFeedback(
+    RangeRepFeedbackCode code, {
+    required String phaseKey,
+  }) {
     _feedbackLifecycle.reset();
-    _feedbackPhaseKey = 'awaitingNeutral';
+    _feedbackPhaseKey = phaseKey;
     _isFormBad = false;
-    _currentFeedbackCode = RangeRepFeedbackCode.awaitNeutral;
+    _currentFeedbackCode = code;
   }
 
   bool _beginBriefVisibilityGap(

@@ -8,6 +8,7 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/setu
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_start_pose.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/pose_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_readiness_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 
 import '../../../../support/workout_analysis_test_support.dart';
@@ -81,6 +82,88 @@ void main() {
     );
     expect(analysisDetector.processImageCallCount, 0);
   });
+
+  test(
+    'shares one synchronized assessment across readiness projections',
+    () async {
+      final detector = TestQueuedPoseDetector();
+      detector.enqueue(<Pose>[
+        _pose(<PoseLandmark>[
+          buildLandmark(PoseLandmarkType.nose, 50, 20),
+          buildLandmark(PoseLandmarkType.leftShoulder, 45, 45),
+          buildLandmark(PoseLandmarkType.rightShoulder, 55, 45),
+          buildLandmark(PoseLandmarkType.leftHip, 47, 90),
+          buildLandmark(PoseLandmarkType.rightHip, 53, 90),
+          buildLandmark(PoseLandmarkType.leftKnee, 48, 130),
+          buildLandmark(PoseLandmarkType.leftAnkle, 49, 170),
+          buildLandmark(PoseLandmarkType.leftFootIndex, 50, 180),
+        ]),
+      ]);
+
+      final container = ProviderContainer(
+        overrides: <Override>[
+          preparationPoseDetectorProvider.overrideWith((ref) => detector),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(selectedExerciseProvider.notifier).state =
+          ExerciseType.squat;
+      final cameraSubscription = container.listen<PreparationCameraState>(
+        preparationCameraControllerProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(cameraSubscription.close);
+      final request = (
+        imageWidth: 100.0,
+        imageHeight: 200.0,
+        mirrorHorizontally: false,
+      );
+      final frameSubscription = container.listen(
+        preparationFrameAssessmentProvider(request),
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(frameSubscription.close);
+      final evidenceSubscription = container.listen(
+        preparationReadinessEvidenceProvider(request),
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(evidenceSubscription.close);
+
+      await container
+          .read(preparationCameraControllerProvider.notifier)
+          .processInputImageForPreview(dummyInputImage());
+
+      final frameAssessment = frameSubscription.read()!;
+      final evidence = evidenceSubscription.read();
+      expect(
+        evidence.framingAssessment,
+        same(frameAssessment.framingAssessment),
+      );
+      expect(
+        evidence.cameraViewAssessment,
+        same(frameAssessment.cameraViewAssessment),
+      );
+      expect(
+        evidence.startPoseAssessment,
+        same(frameAssessment.startPoseAssessment),
+      );
+      expect(
+        container.read(preparationFramingAssessmentProvider(request)),
+        same(frameAssessment.framingAssessment),
+      );
+      expect(
+        container.read(preparationCameraViewAssessmentProvider(request)),
+        same(frameAssessment.cameraViewAssessment),
+      );
+      expect(
+        container.read(preparationStartPoseAssessmentProvider(request)),
+        same(frameAssessment.startPoseAssessment),
+      );
+    },
+  );
 
   test('publishes exercise-aware framing as shadow diagnostics', () async {
     final detector = TestQueuedPoseDetector();

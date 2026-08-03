@@ -492,6 +492,18 @@ void main() {
         find.byKey(const ValueKey<String>('live-camera-analysis-frame')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey<String>('live-camera-vignette-layer')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-camera-analysis-frame-layer')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-rep-outcome-pulse-layer')),
+        findsNothing,
+      );
       expect(performanceHeader, findsOneWidget);
       expect(tester.getSize(performanceHeader).height, 104);
       expect(
@@ -837,8 +849,18 @@ void main() {
       ),
       findsOneWidget,
     );
+    final pulse = find.byKey(const ValueKey<String>('live-rep-outcome-pulse'));
+    expect(pulse, findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('live-rep-outcome-pulse')),
+      find.byKey(const ValueKey<String>('live-rep-outcome-pulse-layer')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pulse, matching: find.byType(Opacity)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pulse, matching: find.byType(Transform)),
       findsOneWidget,
     );
 
@@ -847,6 +869,10 @@ void main() {
     expect(find.text('Geçersiz tekrar'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('live-rep-outcome-pulse')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-rep-outcome-pulse-layer')),
       findsNothing,
     );
   });

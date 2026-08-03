@@ -19,17 +19,10 @@ final preparationReadinessThresholdsProvider =
 /// Synchronized raw evidence consumed by the stable readiness controller.
 final preparationReadinessEvidenceProvider = Provider.autoDispose
     .family<SetupReadinessEvidence, SetupReadinessRequest>((ref, request) {
-      return SetupReadinessEvidence(
-        framingAssessment: ref.watch(
-          preparationFramingAssessmentProvider(request),
-        ),
-        cameraViewAssessment: ref.watch(
-          preparationCameraViewAssessmentProvider(request),
-        ),
-        startPoseAssessment: ref.watch(
-          preparationStartPoseAssessmentProvider(request),
-        ),
-      );
+      return ref
+              .watch(preparationFrameAssessmentProvider(request))
+              ?.readinessEvidence ??
+          const SetupReadinessEvidence();
     });
 
 /// Stable preparation state shared by the camera overlay and readiness card.

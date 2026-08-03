@@ -28,12 +28,25 @@ class SetupCameraViewPoseAdapter {
     required double imageHeight,
     bool mirrorHorizontally = false,
   }) {
+    return fromLandmarksByType(
+      landmarksByType: <PoseLandmarkType, PoseLandmark>{
+        for (final landmark in landmarks) landmark.type: landmark,
+      },
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      mirrorHorizontally: mirrorHorizontally,
+    );
+  }
+
+  SetupCameraViewPose fromLandmarksByType({
+    required Map<PoseLandmarkType, PoseLandmark> landmarksByType,
+    required double imageWidth,
+    required double imageHeight,
+    bool mirrorHorizontally = false,
+  }) {
     _validateImageDimension(imageWidth, 'imageWidth');
     _validateImageDimension(imageHeight, 'imageHeight');
     final scale = math.max(imageWidth, imageHeight);
-    final landmarksByType = <PoseLandmarkType, PoseLandmark>{
-      for (final landmark in landmarks) landmark.type: landmark,
-    };
 
     SetupCameraViewPoint? point(PoseLandmarkType type) {
       final landmark = landmarksByType[type];

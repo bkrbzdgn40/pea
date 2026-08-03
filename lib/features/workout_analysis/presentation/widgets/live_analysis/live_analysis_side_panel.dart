@@ -36,9 +36,11 @@ class LiveAnalysisSidePanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
-    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final liveMetrics = workoutDeveloperUiEnabled
+        ? ref.watch(workoutLiveMetricsProvider)
+        : null;
     final hasCanonicalMetrics =
-        workoutDeveloperUiEnabled &&
+        liveMetrics != null &&
         (liveMetrics.angleDegrees != null ||
             liveMetrics.tempo != null ||
             liveMetrics.stabilityScore != null ||
@@ -291,9 +293,11 @@ class LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final liveMetrics = ref.watch(workoutLiveMetricsProvider);
+    final liveMetrics = workoutDeveloperUiEnabled
+        ? ref.watch(workoutLiveMetricsProvider)
+        : null;
     final hasCanonicalMetrics =
-        workoutDeveloperUiEnabled &&
+        liveMetrics != null &&
         (liveMetrics.angleDegrees != null ||
             liveMetrics.tempo != null ||
             liveMetrics.stabilityScore != null ||

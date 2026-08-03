@@ -4,16 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
-import '../../application/exercise_catalog.dart';
-import '../../application/setup_camera_view_pose_adapter.dart';
-import '../../application/setup_framing_pose_adapter.dart';
-import '../../application/setup_start_pose_adapter.dart';
+import '../../application/preparation_frame_assessment_evaluator.dart';
 import '../../domain/models/setup_camera_view_orientation.dart';
 import '../../domain/models/setup_framing_geometry.dart';
 import '../../domain/models/setup_start_pose.dart';
-import '../../domain/setup_camera_view_orientation_evaluator.dart';
-import '../../domain/setup_framing_geometry_evaluator.dart';
-import '../../domain/setup_start_pose_evaluator.dart';
 import '../../infrastructure/converters/input_image_converter.dart';
 import 'active_analysis_exercise_provider.dart';
 
@@ -26,121 +20,71 @@ class PreparationCameraState {
   bool get hasPose => landmarks.isNotEmpty;
 }
 
-typedef PreparationFramingRequest = ({
+typedef PreparationFrameAssessmentRequest = ({
   double imageWidth,
   double imageHeight,
   bool mirrorHorizontally,
 });
 
-typedef PreparationCameraViewRequest = ({
-  double imageWidth,
-  double imageHeight,
-  bool mirrorHorizontally,
-});
+typedef PreparationFramingRequest = PreparationFrameAssessmentRequest;
+typedef PreparationCameraViewRequest = PreparationFrameAssessmentRequest;
+typedef PreparationStartPoseRequest = PreparationFrameAssessmentRequest;
 
-typedef PreparationStartPoseRequest = ({
-  double imageWidth,
-  double imageHeight,
-  bool mirrorHorizontally,
-});
+/// All exercise-aware diagnostics derived from the current preparation frame.
+///
+/// This is the only provider that adapts the landmark collection and resolves
+/// exercise metadata. Compatibility providers below project individual fields
+/// without repeating the preparation calculation pipeline.
+final preparationFrameAssessmentProvider = Provider.autoDispose
+    .family<PreparationFrameAssessment?, PreparationFrameAssessmentRequest>((
+      ref,
+      request,
+    ) {
+      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
+      if (activeExercise == null) {
+        return null;
+      }
+
+      final landmarks = ref.watch(
+        preparationCameraControllerProvider.select((state) => state.landmarks),
+      );
+      return const PreparationFrameAssessmentEvaluator().evaluate(
+        exerciseType: activeExercise,
+        landmarks: landmarks,
+        imageWidth: request.imageWidth,
+        imageHeight: request.imageHeight,
+        mirrorHorizontally: request.mirrorHorizontally,
+      );
+    });
 
 /// Exercise-aware start-pose diagnostics for the current preparation frame.
-///
-/// R11 combines this result with framing and camera-view evidence inside the
-/// stable readiness state machine. R12 consumes that stable state through the
-/// one-tap preparation start gate.
 final preparationStartPoseAssessmentProvider = Provider.autoDispose
     .family<SetupStartPoseAssessment?, PreparationStartPoseRequest>((
       ref,
       request,
     ) {
-      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
-      if (activeExercise == null) {
-        return null;
-      }
-
-      final landmarks = ref.watch(
-        preparationCameraControllerProvider.select((state) => state.landmarks),
-      );
-      final pose = const SetupStartPoseAdapter().fromLandmarks(
-        landmarks: landmarks,
-        imageWidth: request.imageWidth,
-        imageHeight: request.imageHeight,
-        mirrorHorizontally: request.mirrorHorizontally,
-      );
-      final definition = const ExerciseCatalog().definitionFor(activeExercise);
-      final contract = const SetupStartPoseContractResolver().resolve(
-        exerciseType: activeExercise,
-        setupContract: definition.analysisSetupContract,
-      );
-
-      return const SetupStartPoseEvaluator().evaluate(
-        contract: contract,
-        pose: pose,
-      );
+      return ref
+          .watch(preparationFrameAssessmentProvider(request))
+          ?.startPoseAssessment;
     });
 
 /// Front/side advisory for the current preparation preview.
-///
-/// R11 feeds this diagnostic into stable readiness. R12 uses the stable
-/// result to approve or defer the transition to live analysis.
 final preparationCameraViewAssessmentProvider = Provider.autoDispose
     .family<SetupCameraViewAssessment?, PreparationCameraViewRequest>((
       ref,
       request,
     ) {
-      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
-      if (activeExercise == null) {
-        return null;
-      }
-
-      final landmarks = ref.watch(
-        preparationCameraControllerProvider.select((state) => state.landmarks),
-      );
-      final pose = const SetupCameraViewPoseAdapter().fromLandmarks(
-        landmarks: landmarks,
-        imageWidth: request.imageWidth,
-        imageHeight: request.imageHeight,
-        mirrorHorizontally: request.mirrorHorizontally,
-      );
-      final cameraViewContract = const ExerciseCatalog()
-          .definitionFor(activeExercise)
-          .analysisCameraViewContract;
-
-      return const SetupCameraViewOrientationEvaluator().evaluate(
-        cameraViewContract: cameraViewContract,
-        pose: pose,
-      );
+      return ref
+          .watch(preparationFrameAssessmentProvider(request))
+          ?.cameraViewAssessment;
     });
 
 /// Framing diagnostics for the current preparation preview.
-///
-/// R11 feeds this assessment into stable readiness without changing start
-/// behavior.
 final preparationFramingAssessmentProvider = Provider.autoDispose
     .family<SetupFramingAssessment?, PreparationFramingRequest>((ref, request) {
-      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
-      if (activeExercise == null) {
-        return null;
-      }
-
-      final landmarks = ref.watch(
-        preparationCameraControllerProvider.select((state) => state.landmarks),
-      );
-      final pose = const SetupFramingPoseAdapter().fromLandmarks(
-        landmarks: landmarks,
-        imageWidth: request.imageWidth,
-        imageHeight: request.imageHeight,
-        mirrorHorizontally: request.mirrorHorizontally,
-      );
-      final setupContract = const ExerciseCatalog()
-          .definitionFor(activeExercise)
-          .analysisSetupContract;
-
-      return const SetupFramingGeometryEvaluator().evaluate(
-        setupContract: setupContract,
-        pose: pose,
-      );
+      return ref
+          .watch(preparationFrameAssessmentProvider(request))
+          ?.framingAssessment;
     });
 
 /// Owns the ML Kit detector used only by the preparation preview.

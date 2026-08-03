@@ -34,14 +34,19 @@ class _ExerciseSelectionScreenState
     extends ConsumerState<ExerciseSelectionScreen> {
   static const _catalog = ExerciseCatalog();
   static const _guideCatalog = ExerciseGuideCatalog();
+  static const _searchDebounceDuration = Duration(milliseconds: 80);
 
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  List<_ExerciseCatalogEntry>? _catalogEntries;
+  bool? _catalogEntriesAreTurkish;
   ExerciseBodyRegion? _selectedRegion;
   String _query = '';
   bool _isCategoryExpanded = false;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -49,7 +54,7 @@ class _ExerciseSelectionScreenState
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final definitions = _filteredDefinitions(localizations);
+    final entries = _filteredEntries(localizations);
     final recentExercises =
         ref.watch(recentExercisesProvider).valueOrNull ??
         const <ExerciseType>[];
@@ -64,135 +69,171 @@ class _ExerciseSelectionScreenState
       title: localizations.selectExercise,
       currentPage: AppDestination.exerciseSelection,
       padding: EdgeInsets.zero,
-      body: ListView(
+      body: CustomScrollView(
         key: const PageStorageKey<String>('exercise-selection-results'),
-        padding: EdgeInsets.zero,
-        children: [
-          _ExerciseDiscoveryHeader(
-            searchController: _searchController,
-            selectedRegion: _selectedRegion,
-            isCategoryExpanded: _isCategoryExpanded,
-            analysisReadyCount: analysisReadyCount,
-            guideCount: _catalog.definitions.length,
-            onQueryChanged: (query) {
-              setState(() => _query = query.trim().toLowerCase());
-            },
-            onClearSearch: _clearSearch,
-            onToggleCategory: () {
-              setState(() => _isCategoryExpanded = !_isCategoryExpanded);
-            },
-            onRegionSelected: (region) {
-              setState(() {
-                _selectedRegion = region;
-                _isCategoryExpanded = false;
-              });
-            },
+        slivers: <Widget>[
+          SliverToBoxAdapter(
+            child: _ExerciseDiscoveryHeader(
+              searchController: _searchController,
+              selectedRegion: _selectedRegion,
+              isCategoryExpanded: _isCategoryExpanded,
+              analysisReadyCount: analysisReadyCount,
+              guideCount: _catalog.definitions.length,
+              onQueryChanged: _scheduleQueryUpdate,
+              onClearSearch: _clearSearch,
+              onToggleCategory: () {
+                setState(() => _isCategoryExpanded = !_isCategoryExpanded);
+              },
+              onRegionSelected: (region) {
+                setState(() {
+                  _selectedRegion = region;
+                  _isCategoryExpanded = false;
+                });
+              },
+            ),
           ),
-          Padding(
-            padding: resultsPadding,
-            child: definitions.isEmpty
-                ? _EmptyExerciseResults(onClear: _clearDiscoveryFilters)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (showRecent) ...[
-                        _SectionHeader(
-                          title: localizations.recentExercises,
-                          count: recentExercises.length,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        SizedBox(
-                          height: 78,
-                          child: ListView.separated(
-                            key: const ValueKey<String>(
-                              'recent-exercises-list',
-                            ),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: recentExercises.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: AppSpacing.xs),
-                            itemBuilder: (context, index) {
-                              final definition = _catalog.definitionFor(
-                                recentExercises[index],
-                              );
-                              return _RecentExerciseCard(
-                                definition: definition,
-                                onTap: () => _handleExerciseTap(definition),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                      ],
-                      _SectionHeader(
-                        title: _resultSectionTitle(localizations),
-                        count: definitions.length,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      for (
-                        var index = 0;
-                        index < definitions.length;
-                        index++
-                      ) ...[
-                        _buildExerciseCard(definitions[index]),
-                        if (index != definitions.length - 1)
-                          const SizedBox(height: AppSpacing.xs),
-                      ],
-                    ],
+          if (entries.isEmpty)
+            SliverPadding(
+              padding: resultsPadding,
+              sliver: SliverToBoxAdapter(
+                child: _EmptyExerciseResults(onClear: _clearDiscoveryFilters),
+              ),
+            )
+          else ...<Widget>[
+            if (showRecent) ...<Widget>[
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  resultsPadding.left,
+                  resultsPadding.top,
+                  resultsPadding.right,
+                  0,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: _SectionHeader(
+                    title: localizations.recentExercises,
+                    count: recentExercises.length,
                   ),
-          ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xs)),
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  left: resultsPadding.left,
+                  right: resultsPadding.right,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 78,
+                    child: ListView.separated(
+                      key: const ValueKey<String>('recent-exercises-list'),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: recentExercises.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: AppSpacing.xs),
+                      itemBuilder: (context, index) {
+                        final definition = _catalog.definitionFor(
+                          recentExercises[index],
+                        );
+                        return _RecentExerciseCard(
+                          definition: definition,
+                          onTap: () => _handleExerciseTap(definition),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+            ],
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                resultsPadding.left,
+                showRecent ? 0 : resultsPadding.top,
+                resultsPadding.right,
+                0,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _SectionHeader(
+                  title: _resultSectionTitle(localizations),
+                  count: entries.length,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                resultsPadding.left,
+                AppSpacing.xs,
+                resultsPadding.right,
+                resultsPadding.bottom,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  if (index.isOdd) {
+                    return const SizedBox(height: AppSpacing.xs);
+                  }
+                  return _buildExerciseCard(entries[index ~/ 2]);
+                }, childCount: entries.length * 2 - 1),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  List<ExerciseDefinition> _filteredDefinitions(
-    AppLocalizations localizations,
-  ) {
-    return _catalog.definitions
-        .where((definition) {
+  List<_ExerciseCatalogEntry> _filteredEntries(AppLocalizations localizations) {
+    return _entriesFor(localizations)
+        .where((entry) {
           final matchesRegion =
               _selectedRegion == null ||
-              definition.type.bodyRegion == _selectedRegion;
+              entry.definition.type.bodyRegion == _selectedRegion;
           if (!matchesRegion) {
             return false;
           }
+          return _query.isEmpty || entry.searchableText.contains(_query);
+        })
+        .toList(growable: false);
+  }
 
-          if (_query.isEmpty) {
-            return true;
-          }
+  List<_ExerciseCatalogEntry> _entriesFor(AppLocalizations localizations) {
+    final cachedEntries = _catalogEntries;
+    if (cachedEntries != null &&
+        _catalogEntriesAreTurkish == localizations.isTurkish) {
+      return cachedEntries;
+    }
 
+    final entries = _catalog.definitions
+        .map((definition) {
           final content = localizedExerciseGuideContent(
             content: _guideCatalog.contentFor(definition.type),
             isTurkish: localizations.isTurkish,
-          );
-          final regionLabel = _bodyRegionLabel(
-            localizations,
-            definition.type.bodyRegion,
           );
           final searchableText = <String>[
             localizations.exerciseTitle(definition.type.id),
             definition.type.title,
             content.subtitle,
             content.purpose,
-            regionLabel,
+            _bodyRegionLabel(localizations, definition.type.bodyRegion),
           ].join(' ').toLowerCase();
 
-          return searchableText.contains(_query);
+          return _ExerciseCatalogEntry(
+            definition: definition,
+            content: content,
+            searchableText: searchableText,
+          );
         })
         .toList(growable: false);
+
+    _catalogEntries = entries;
+    _catalogEntriesAreTurkish = localizations.isTurkish;
+    return entries;
   }
 
-  Widget _buildExerciseCard(ExerciseDefinition definition) {
-    final localizations = AppLocalizations.of(context);
-    final content = localizedExerciseGuideContent(
-      content: _guideCatalog.contentFor(definition.type),
-      isTurkish: localizations.isTurkish,
-    );
-
+  Widget _buildExerciseCard(_ExerciseCatalogEntry entry) {
+    final definition = entry.definition;
     return _ExerciseSelectionCard(
       definition: definition,
-      content: content,
+      content: entry.content,
       onTap: () => _handleExerciseTap(definition),
       onGuideTap: () => _openGuide(definition.type),
     );
@@ -209,12 +250,29 @@ class _ExerciseSelectionScreenState
     return localizations.allExercises;
   }
 
+  void _scheduleQueryUpdate(String query) {
+    _searchDebounce?.cancel();
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery == _query) {
+      return;
+    }
+
+    _searchDebounce = Timer(_searchDebounceDuration, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _query = normalizedQuery);
+    });
+  }
+
   void _clearSearch() {
+    _searchDebounce?.cancel();
     _searchController.clear();
     setState(() => _query = '');
   }
 
   void _clearDiscoveryFilters() {
+    _searchDebounce?.cancel();
     _searchController.clear();
     setState(() {
       _query = '';
@@ -246,6 +304,18 @@ class _ExerciseSelectionScreenState
       MaterialPageRoute(builder: (_) => GuideScreen(initialExercise: exercise)),
     );
   }
+}
+
+class _ExerciseCatalogEntry {
+  const _ExerciseCatalogEntry({
+    required this.definition,
+    required this.content,
+    required this.searchableText,
+  });
+
+  final ExerciseDefinition definition;
+  final ExerciseGuideContent content;
+  final String searchableText;
 }
 
 class _ExerciseDiscoveryHeader extends StatelessWidget {

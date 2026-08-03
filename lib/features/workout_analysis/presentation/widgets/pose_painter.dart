@@ -8,6 +8,7 @@ class PosePainter extends CustomPainter {
   final bool isMirrored;
   final bool showDebugLandmarks;
   final String? emphasizedSide;
+  final _PoseEmphasis _emphasis;
 
   PosePainter(
     this.landmarks,
@@ -16,247 +17,150 @@ class PosePainter extends CustomPainter {
     this.isMirrored = false,
     this.showDebugLandmarks = false,
     this.emphasizedSide,
-  });
+  }) : _emphasis = _PoseEmphasis.parse(emphasizedSide);
+
+  static final Paint _skeletonGlowPaint = _strokePaint(
+    color: const Color(0xFF61E6BE).withValues(alpha: 0.14),
+    strokeWidth: 7.5,
+  );
+  static final Paint _skeletonPaint = _strokePaint(
+    color: const Color(0xFF61E6BE).withValues(alpha: 0.94),
+    strokeWidth: 3.1,
+  );
+  static final Paint _spinePaint = _strokePaint(
+    color: const Color(0xFF61E6BE).withValues(alpha: 0.56),
+    strokeWidth: 2.4,
+  );
+  static final Paint _accentGlowPaint = _strokePaint(
+    color: const Color(0xFFFFC857).withValues(alpha: 0.18),
+    strokeWidth: 8.5,
+  );
+  static final Paint _accentPaint = _strokePaint(
+    color: const Color(0xFFFFC857).withValues(alpha: 0.98),
+    strokeWidth: 3.8,
+  );
+  static final Paint _jointPaint = _fillPaint(
+    Colors.white.withValues(alpha: 0.94),
+  );
+  static final Paint _jointRingPaint = _ringPaint(
+    color: const Color(0xFF61E6BE).withValues(alpha: 0.82),
+    strokeWidth: 1.35,
+  );
+  static final Paint _accentJointPaint = _fillPaint(
+    const Color(0xFFFFC857).withValues(alpha: 0.98),
+  );
+  static final Paint _accentJointRingPaint = _ringPaint(
+    color: const Color(0xFFFFC857).withValues(alpha: 0.88),
+    strokeWidth: 1.7,
+  );
+  static final Paint _selectedSideGlowPaint = _strokePaint(
+    color: const Color(0xFF65D8FF).withValues(alpha: 0.18),
+    strokeWidth: 10.5,
+  );
+  static final Paint _selectedSidePaint = _strokePaint(
+    color: const Color(0xFF65D8FF).withValues(alpha: 0.98),
+    strokeWidth: 5.2,
+  );
+  static final Paint _selectedSideJointPaint = _fillPaint(
+    const Color(0xFF65D8FF).withValues(alpha: 0.98),
+  );
+  static final Paint _selectedSideJointRingPaint = _ringPaint(
+    color: const Color(0xFF65D8FF).withValues(alpha: 0.92),
+    strokeWidth: 2,
+  );
+  static final Paint _debugDotPaint = _fillPaint(
+    Colors.white.withValues(alpha: 0.20),
+  );
 
   @override
   void paint(Canvas canvas, Size size) {
-    final baseLineColor = const Color(0xFF61E6BE).withValues(alpha: 0.94);
-    final formAccentColor = const Color(0xFFFFC857).withValues(alpha: 0.98);
-    final jointColor = Colors.white.withValues(alpha: 0.94);
-    final debugDotColor = Colors.white.withValues(alpha: 0.20);
-    final selectedSideColor = const Color(0xFF65D8FF).withValues(alpha: 0.98);
-
-    final skeletonGlowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = baseLineColor.withValues(alpha: 0.14);
-
-    final skeletonPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.1
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = baseLineColor;
-
-    final spinePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = baseLineColor.withValues(alpha: 0.56);
-
-    final accentGlowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = formAccentColor.withValues(alpha: 0.18);
-
-    final accentPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = formAccentColor;
-
-    final jointPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = jointColor;
-
-    final jointRingPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.35
-      ..isAntiAlias = true
-      ..color = baseLineColor.withValues(alpha: 0.82);
-
-    final accentJointPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = formAccentColor;
-
-    final accentJointRingPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.7
-      ..isAntiAlias = true
-      ..color = formAccentColor.withValues(alpha: 0.88);
-
-    final selectedSideGlowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = selectedSideColor.withValues(alpha: 0.18);
-
-    final selectedSidePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true
-      ..color = selectedSideColor;
-
-    final selectedSideJointPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = selectedSideColor;
-
-    final selectedSideJointRingPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..isAntiAlias = true
-      ..color = selectedSideColor.withValues(alpha: 0.92);
-
-    final debugDotPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = debugDotColor;
-
-    double translateX(double x) {
-      final scaledX = x * size.width / absoluteImageSize.width;
-      return isMirrored ? size.width - scaledX : scaledX;
+    if (landmarks.isEmpty ||
+        size.isEmpty ||
+        absoluteImageSize.width <= 0 ||
+        absoluteImageSize.height <= 0) {
+      return;
     }
 
-    double translateY(double y) {
-      return y * size.height / absoluteImageSize.height;
-    }
-
-    final points = <PoseLandmarkType, Offset>{};
-    for (final landmark in landmarks) {
-      points[landmark.type] = Offset(
-        translateX(landmark.x),
-        translateY(landmark.y),
-      );
-    }
-
-    Offset? midpoint(PoseLandmarkType a, PoseLandmarkType b) {
-      final first = points[a];
-      final second = points[b];
-      if (first == null || second == null) {
-        return null;
-      }
-
-      return Offset((first.dx + second.dx) / 2, (first.dy + second.dy) / 2);
-    }
-
-    void drawLine(Offset? start, Offset? end, Paint paint) {
-      if (start == null || end == null) {
-        return;
-      }
-
-      canvas.drawLine(start, end, paint);
-    }
-
-    void drawSegment(_PoseSegment segment, Paint paint) {
-      drawLine(points[segment.start], points[segment.end], paint);
-    }
-
-    void drawJoint(PoseLandmarkType type, Paint paint, {double radius = 3.2}) {
-      final point = points[type];
-      if (point == null) {
-        return;
-      }
-
-      canvas.drawCircle(point, radius, paint);
-    }
-
-    void drawJointWithRing(
-      PoseLandmarkType type, {
-      required Paint fill,
-      required Paint ring,
-      double fillRadius = 3.2,
-      double ringRadius = 5.2,
-    }) {
-      drawJoint(type, ring, radius: ringRadius);
-      drawJoint(type, fill, radius: fillRadius);
-    }
+    final geometry = _PoseGeometry.fromLandmarks(
+      landmarks: landmarks,
+      imageSize: absoluteImageSize,
+      canvasSize: size,
+      isMirrored: isMirrored,
+    );
 
     if (showDebugLandmarks) {
-      for (final point in points.values) {
-        canvas.drawCircle(point, 2.1, debugDotPaint);
-      }
+      canvas.drawPath(geometry.allLandmarksPath(radius: 2.1), _debugDotPaint);
     }
 
-    final shoulderCenter = midpoint(
+    final shoulderCenter = geometry.midpoint(
       PoseLandmarkType.leftShoulder,
       PoseLandmarkType.rightShoulder,
     );
-    final hipCenter = midpoint(
+    final hipCenter = geometry.midpoint(
       PoseLandmarkType.leftHip,
       PoseLandmarkType.rightHip,
     );
+    final commonSkeletonPath = geometry.segmentPath(_commonSkeletonSegments);
+    final spinePath = Path();
+    _appendLine(spinePath, geometry[PoseLandmarkType.nose], shoulderCenter);
+    _appendLine(spinePath, shoulderCenter, hipCenter);
 
-    for (final segment in _commonSkeletonSegments) {
-      drawSegment(segment, skeletonGlowPaint);
-    }
-    drawLine(points[PoseLandmarkType.nose], shoulderCenter, skeletonGlowPaint);
-    drawLine(shoulderCenter, hipCenter, skeletonGlowPaint);
+    canvas
+      ..drawPath(commonSkeletonPath, _skeletonGlowPaint)
+      ..drawPath(spinePath, _skeletonGlowPaint)
+      ..drawPath(spinePath, _spinePaint)
+      ..drawPath(commonSkeletonPath, _skeletonPaint);
 
-    drawLine(points[PoseLandmarkType.nose], shoulderCenter, spinePaint);
-    drawLine(shoulderCenter, hipCenter, spinePaint);
-
-    for (final segment in _commonSkeletonSegments) {
-      drawSegment(segment, skeletonPaint);
-    }
-
-    final selectedSegments = switch (emphasizedSide?.toLowerCase()) {
-      'left' => _leftLegSegments,
-      'right' => _rightLegSegments,
-      _ => const <_PoseSegment>[],
-    };
-    final selectedJoints = switch (emphasizedSide?.toLowerCase()) {
-      'left' => _leftLegJoints,
-      'right' => _rightLegJoints,
-      _ => const <PoseLandmarkType>[],
-    };
-    for (final segment in selectedSegments) {
-      drawSegment(segment, selectedSideGlowPaint);
-      drawSegment(segment, selectedSidePaint);
+    final selectedSegments = _emphasis.segments;
+    if (selectedSegments.isNotEmpty) {
+      final selectedPath = geometry.segmentPath(selectedSegments);
+      canvas
+        ..drawPath(selectedPath, _selectedSideGlowPaint)
+        ..drawPath(selectedPath, _selectedSidePaint);
     }
 
     if (isFormBad) {
-      for (final segment in _accentSkeletonSegments) {
-        drawSegment(segment, accentGlowPaint);
-        drawSegment(segment, accentPaint);
-      }
-      drawLine(points[PoseLandmarkType.nose], shoulderCenter, accentGlowPaint);
-      drawLine(shoulderCenter, hipCenter, accentGlowPaint);
-      drawLine(points[PoseLandmarkType.nose], shoulderCenter, accentPaint);
-      drawLine(shoulderCenter, hipCenter, accentPaint);
+      final accentPath = geometry.segmentPath(_accentSkeletonSegments);
+      _appendLine(accentPath, geometry[PoseLandmarkType.nose], shoulderCenter);
+      _appendLine(accentPath, shoulderCenter, hipCenter);
+      canvas
+        ..drawPath(accentPath, _accentGlowPaint)
+        ..drawPath(accentPath, _accentPaint);
     }
 
-    for (final joint in _visibleJointTypes) {
-      drawJointWithRing(joint, fill: jointPaint, ring: jointRingPaint);
-    }
+    _drawJointGroup(
+      canvas,
+      geometry,
+      _visibleJointTypes,
+      fillPaint: _jointPaint,
+      ringPaint: _jointRingPaint,
+      fillRadius: 3.2,
+      ringRadius: 5.2,
+    );
 
-    for (final joint in selectedJoints) {
-      drawJointWithRing(
-        joint,
-        fill: selectedSideJointPaint,
-        ring: selectedSideJointRingPaint,
+    final selectedJoints = _emphasis.joints;
+    if (selectedJoints.isNotEmpty) {
+      _drawJointGroup(
+        canvas,
+        geometry,
+        selectedJoints,
+        fillPaint: _selectedSideJointPaint,
+        ringPaint: _selectedSideJointRingPaint,
         fillRadius: 4.4,
         ringRadius: 6.3,
       );
     }
 
     if (isFormBad) {
-      for (final joint in _accentJointTypes) {
-        drawJointWithRing(
-          joint,
-          fill: accentJointPaint,
-          ring: accentJointRingPaint,
-          fillRadius: 3.8,
-          ringRadius: 5.9,
-        );
-      }
+      _drawJointGroup(
+        canvas,
+        geometry,
+        _accentJointTypes,
+        fillPaint: _accentJointPaint,
+        ringPaint: _accentJointRingPaint,
+        fillRadius: 3.8,
+        ringRadius: 5.9,
+      );
     }
   }
 
@@ -267,8 +171,144 @@ class PosePainter extends CustomPainter {
         oldDelegate.isFormBad != isFormBad ||
         oldDelegate.isMirrored != isMirrored ||
         oldDelegate.showDebugLandmarks != showDebugLandmarks ||
-        oldDelegate.emphasizedSide != emphasizedSide;
+        oldDelegate._emphasis != _emphasis;
   }
+}
+
+Paint _strokePaint({required Color color, required double strokeWidth}) {
+  return Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = strokeWidth
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..isAntiAlias = true
+    ..color = color;
+}
+
+Paint _ringPaint({required Color color, required double strokeWidth}) {
+  return Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = strokeWidth
+    ..isAntiAlias = true
+    ..color = color;
+}
+
+Paint _fillPaint(Color color) {
+  return Paint()
+    ..style = PaintingStyle.fill
+    ..isAntiAlias = true
+    ..color = color;
+}
+
+void _drawJointGroup(
+  Canvas canvas,
+  _PoseGeometry geometry,
+  List<PoseLandmarkType> jointTypes, {
+  required Paint fillPaint,
+  required Paint ringPaint,
+  required double fillRadius,
+  required double ringRadius,
+}) {
+  canvas
+    ..drawPath(geometry.jointPath(jointTypes, ringRadius), ringPaint)
+    ..drawPath(geometry.jointPath(jointTypes, fillRadius), fillPaint);
+}
+
+void _appendLine(Path path, Offset? start, Offset? end) {
+  if (start == null || end == null) {
+    return;
+  }
+
+  path
+    ..moveTo(start.dx, start.dy)
+    ..lineTo(end.dx, end.dy);
+}
+
+class _PoseGeometry {
+  _PoseGeometry(this._points);
+
+  factory _PoseGeometry.fromLandmarks({
+    required List<PoseLandmark> landmarks,
+    required Size imageSize,
+    required Size canvasSize,
+    required bool isMirrored,
+  }) {
+    final points = List<Offset?>.filled(PoseLandmarkType.values.length, null);
+    final scaleX = canvasSize.width / imageSize.width;
+    final scaleY = canvasSize.height / imageSize.height;
+
+    for (final landmark in landmarks) {
+      final scaledX = landmark.x * scaleX;
+      points[landmark.type.index] = Offset(
+        isMirrored ? canvasSize.width - scaledX : scaledX,
+        landmark.y * scaleY,
+      );
+    }
+
+    return _PoseGeometry(points);
+  }
+
+  final List<Offset?> _points;
+
+  Offset? operator [](PoseLandmarkType type) => _points[type.index];
+
+  Offset? midpoint(PoseLandmarkType firstType, PoseLandmarkType secondType) {
+    final first = this[firstType];
+    final second = this[secondType];
+    if (first == null || second == null) {
+      return null;
+    }
+
+    return Offset((first.dx + second.dx) / 2, (first.dy + second.dy) / 2);
+  }
+
+  Path segmentPath(List<_PoseSegment> segments) {
+    final path = Path();
+    for (final segment in segments) {
+      _appendLine(path, this[segment.start], this[segment.end]);
+    }
+    return path;
+  }
+
+  Path jointPath(List<PoseLandmarkType> jointTypes, double radius) {
+    final path = Path();
+    for (final type in jointTypes) {
+      final point = this[type];
+      if (point != null) {
+        path.addOval(Rect.fromCircle(center: point, radius: radius));
+      }
+    }
+    return path;
+  }
+
+  Path allLandmarksPath({required double radius}) {
+    final path = Path();
+    for (final point in _points) {
+      if (point != null) {
+        path.addOval(Rect.fromCircle(center: point, radius: radius));
+      }
+    }
+    return path;
+  }
+}
+
+enum _PoseEmphasis {
+  none(<_PoseSegment>[], <PoseLandmarkType>[]),
+  left(_leftLegSegments, _leftLegJoints),
+  right(_rightLegSegments, _rightLegJoints);
+
+  const _PoseEmphasis(this.segments, this.joints);
+
+  static _PoseEmphasis parse(String? value) {
+    return switch (value?.trim().toLowerCase()) {
+      'left' => _PoseEmphasis.left,
+      'right' => _PoseEmphasis.right,
+      _ => _PoseEmphasis.none,
+    };
+  }
+
+  final List<_PoseSegment> segments;
+  final List<PoseLandmarkType> joints;
 }
 
 const List<_PoseSegment> _commonSkeletonSegments = [

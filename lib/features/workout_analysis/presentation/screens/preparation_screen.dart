@@ -20,6 +20,7 @@ import '../models/preparation_camera_geometry.dart';
 import '../models/preparation_start_gate_state.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../preparation_live_camera_handoff_coordinator.dart';
+import '../preparation_live_analysis_route.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
@@ -307,7 +308,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       return;
     }
 
-    final route = MaterialPageRoute<LiveAnalysisExitDisposition>(
+    final route = PreparationLiveAnalysisRoute<LiveAnalysisExitDisposition>(
       builder:
           widget.analysisScreenBuilder ?? (_) => const LiveAnalysisScreen(),
     );
