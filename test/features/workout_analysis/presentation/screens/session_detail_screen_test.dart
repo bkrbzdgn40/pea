@@ -270,4 +270,102 @@ void main() {
     );
     expect(repository.deletedSessionIds, isEmpty);
   });
+
+  testWidgets('uses a two-panel report with a rep timeline on wide screens', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = buildWorkoutSession(
+      id: 'session-wide-report',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 10, 12),
+      totalReps: 2,
+      averageScore: 84,
+      durationSec: 50,
+    );
+    final repository = TestSessionRepository(
+      sessionById: {'session-wide-report': session},
+      repsBySessionId: {
+        'session-wide-report': const <WorkoutRep>[
+          WorkoutRep(
+            repIndex: 1,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            validationStatus: 'valid',
+            score: 88,
+          ),
+          WorkoutRep(
+            repIndex: 2,
+            exerciseType: 'squat',
+            analysisKind: 'rangeRep',
+            validationStatus: 'lowConfidence',
+            score: 80,
+          ),
+        ],
+      },
+    );
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('session-detail-wide-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('session-rep-timeline')),
+      findsOneWidget,
+    );
+    expect(find.text('Deneme 1'), findsOneWidget);
+    expect(find.text('Deneme 2'), findsOneWidget);
+    expect(find.text('Düşük Güven'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('falls back to one scroll column for compact large text', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final session = buildWorkoutSession(
+      id: 'session-large-text-report',
+      ownerId: 'owner-1',
+      exerciseType: 'standing_hip_abduction',
+      startedAt: DateTime(2024, 1, 10, 13),
+      totalReps: 1,
+      averageScore: 82,
+      durationSec: 45,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(844, 390),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: SessionDetailScreen(session: session),
+      ),
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(
+            sessionById: {'session-large-text-report': session},
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('session-detail-portrait-layout')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

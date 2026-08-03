@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
 import '../../application/exercise_metric_registry.dart';
 import '../../application/workout_live_metrics.dart';
 import '../../domain/models/session_report.dart';
@@ -96,15 +97,12 @@ class _MissingSessionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        AppLocalizations.of(context).sessionDataMissingDetail,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.72),
-          fontSize: 16,
-        ),
-        textAlign: TextAlign.center,
-      ),
+    final localizations = AppLocalizations.of(context);
+    return AppEmptyView(
+      centered: true,
+      icon: Icons.summarize_outlined,
+      title: localizations.sessionDataMissing,
+      message: localizations.sessionDataMissingDetail,
     );
   }
 }
