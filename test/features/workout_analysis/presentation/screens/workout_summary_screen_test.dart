@@ -538,6 +538,80 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('Antrenman Analizi'), findsOneWidget);
   });
+  testWidgets('keeps validation outcomes distinct in the result hero', (
+    WidgetTester tester,
+  ) async {
+    final startedAt = DateTime(2024, 1, 9, 9);
+    final session = WorkoutSession(
+      id: 'summary-outcomes',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      analysisKind: 'rangeRep',
+      startedAt: startedAt,
+      endedAt: startedAt.add(const Duration(seconds: 40)),
+      durationSec: 40,
+      totalReps: 3,
+      averageScore: 82,
+      bestScore: 90,
+      worstScore: 74,
+      validReps: 2,
+      lowConfidenceReps: 1,
+      invalidReps: 1,
+      formWarningCount: 1,
+      reps: const <WorkoutRep>[
+        WorkoutRep(
+          repIndex: 1,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'valid',
+          score: 90,
+        ),
+        WorkoutRep(
+          repIndex: 2,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'lowConfidence',
+          score: 82,
+        ),
+        WorkoutRep(
+          repIndex: 3,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'invalid',
+        ),
+        WorkoutRep(
+          repIndex: 4,
+          exerciseType: 'squat',
+          analysisKind: 'rangeRep',
+          validationStatus: 'valid',
+          score: 74,
+        ),
+      ],
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    final hero = find.byKey(
+      const ValueKey<String>('workout-summary-outcome-card'),
+    );
+    expect(
+      find.descendant(of: hero, matching: find.text('Geçerli: 2')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: hero, matching: find.text('Düşük Güven: 1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: hero, matching: find.text('Geçersiz: 1')),
+      findsOneWidget,
+    );
+  });
 }
 
 HomeDashboardData _dashboardData() {

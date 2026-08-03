@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
+import 'session_result_visual.dart';
 
 class SessionHistoryCollection extends StatelessWidget {
   const SessionHistoryCollection({
@@ -32,7 +34,7 @@ class SessionHistoryCollection extends StatelessWidget {
               crossAxisCount: 2,
               mainAxisSpacing: layout.sectionGap,
               crossAxisSpacing: layout.sectionGap,
-              mainAxisExtent: 260,
+              mainAxisExtent: 294,
             ),
             itemCount: sessions.length,
             itemBuilder: (context, index) => _buildSessionCard(index),
@@ -103,6 +105,10 @@ class SessionHistoryToolbar extends StatelessWidget {
     return AppSurfaceCard(
       key: const ValueKey<String>('session-history-toolbar'),
       padding: const EdgeInsets.all(14),
+      variant: AppSurfaceVariant.strong,
+      borderColor: context.semanticColors.analysisAccent.withValues(
+        alpha: AppOpacity.border,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final stack = layout.hasLargeText || constraints.maxWidth < 520;
@@ -220,6 +226,9 @@ class _SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final tone = sessionResultTone(session);
+    final accent = tone.resolveColor(colors);
     final isHold = session.isHoldSession;
     final primaryLabel = isHold
         ? localizations.totalHold
@@ -268,7 +277,12 @@ class _SessionCard extends StatelessWidget {
         child: AppSurfaceCard(
           padding: const EdgeInsets.all(16),
           radius: 18,
-          borderColor: AppColors.accent.withValues(alpha: 0.2),
+          variant: AppSurfaceVariant.strong,
+          color: Color.alphaBlend(
+            accent.withValues(alpha: 0.045),
+            colors.surfaceStrong,
+          ),
+          borderColor: accent.withValues(alpha: AppOpacity.border),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -302,10 +316,17 @@ class _SessionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white38,
-                    size: 16,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Icon(tone.icon, color: accent, size: 21),
+                      const SizedBox(height: AppSpacing.xs),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: colors.foregroundSubtle,
+                        size: 14,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -328,8 +349,8 @@ class _SessionCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           primaryValue,
-                          style: const TextStyle(
-                            color: AppColors.accent,
+                          style: TextStyle(
+                            color: accent,
                             fontSize: 31,
                             height: 1,
                             fontWeight: FontWeight.w900,
@@ -351,12 +372,59 @@ class _SessionCard extends StatelessWidget {
                     _SessionMetric(label: entry.key, value: entry.value),
                 ],
               ),
+              if (!isHold && _hasValidationBreakdown(session)) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _SessionValidationStrip(session: session),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _SessionValidationStrip extends StatelessWidget {
+  const _SessionValidationStrip({required this.session});
+
+  final WorkoutSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final lowConfidence = session.lowConfidenceReps;
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        if (session.validReps > 0)
+          AppStatusChip(
+            label: '${localizations.valid}: ${session.validReps}',
+            tone: AppStatusTone.success,
+            showIcon: false,
+          ),
+        if (lowConfidence > 0)
+          AppStatusChip(
+            label: '${localizations.lowConfidence}: $lowConfidence',
+            tone: AppStatusTone.caution,
+            showIcon: false,
+          ),
+        if (session.invalidReps > 0)
+          AppStatusChip(
+            label: '${localizations.invalid}: ${session.invalidReps}',
+            tone: AppStatusTone.invalid,
+            showIcon: false,
+          ),
+      ],
+    );
+  }
+}
+
+bool _hasValidationBreakdown(WorkoutSession session) {
+  return session.validReps > 0 ||
+      session.lowConfidenceReps > 0 ||
+      session.invalidReps > 0;
 }
 
 class _ScoreDeltaChip extends StatelessWidget {
@@ -367,13 +435,14 @@ class _ScoreDeltaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final positive = scoreDelta > 0;
     final neutral = scoreDelta == 0;
     final accent = positive
-        ? AppColors.accent
+        ? colors.success
         : neutral
-        ? Colors.white60
-        : Colors.orangeAccent;
+        ? colors.foregroundMuted
+        : colors.invalid;
 
     return Container(
       key: const ValueKey<String>('session-history-score-delta'),
@@ -423,20 +492,21 @@ class _SessionMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black38,
+        color: colors.surfaceMuted,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: colors.outlineSubtle),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: colors.foregroundSubtle,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
@@ -444,8 +514,8 @@ class _SessionMetric extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colors.foreground,
               fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
