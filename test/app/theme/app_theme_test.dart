@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/app.dart';
+import 'package:pose_estimation_app/app/navigation/app_page_transitions.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/app/theme/app_semantic_colors.dart';
 import 'package:pose_estimation_app/app/theme/app_theme.dart';
@@ -65,6 +66,12 @@ void main() {
     expect(theme.dialogTheme.backgroundColor, AppColors.strongSurface);
     expect(theme.bottomSheetTheme.backgroundColor, AppColors.strongSurface);
     expect(theme.snackBarTheme.behavior, SnackBarBehavior.floating);
+    expect(theme.drawerTheme.width, 304);
+    expect(theme.bottomSheetTheme.showDragHandle, isTrue);
+    expect(
+      theme.pageTransitionsTheme.builders.values,
+      everyElement(isA<AppPageTransitionsBuilder>()),
+    );
     expect(theme.inputDecorationTheme.filled, isTrue);
     expect(theme.progressIndicatorTheme.color, AppColors.accent);
     expect(theme.elevatedButtonTheme.style, isNotNull);

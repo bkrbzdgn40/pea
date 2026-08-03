@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../layout/app_layout.dart';
 import '../../theme/app_design_tokens.dart';
 
 class AppHeaderListView<T> extends StatelessWidget {
@@ -9,7 +10,7 @@ class AppHeaderListView<T> extends StatelessWidget {
     required this.items,
     required this.itemBuilder,
     required this.emptyState,
-    this.padding = AppSpacing.pagePadding,
+    this.padding,
     this.separatorHeight = AppSpacing.listGap,
   });
 
@@ -17,13 +18,15 @@ class AppHeaderListView<T> extends StatelessWidget {
   final List<T> items;
   final Widget Function(BuildContext context, T item) itemBuilder;
   final Widget emptyState;
-  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? padding;
   final double separatorHeight;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedPadding = padding ?? AppLayout.of(context).pagePadding;
+
     return ListView.separated(
-      padding: padding,
+      padding: resolvedPadding,
       itemCount: items.isEmpty ? 2 : items.length + 1,
       separatorBuilder: (_, _) => SizedBox(height: separatorHeight),
       itemBuilder: (context, index) {

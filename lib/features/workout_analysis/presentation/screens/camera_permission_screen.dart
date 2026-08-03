@@ -5,12 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../app/localization/app_localizations.dart';
-
+import '../../../../app/presentation/widgets/app_button.dart';
+import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../widgets/analysis_selection_required_view.dart';
-import 'preparation_screen.dart';
 import 'exercise_selection_screen.dart';
+import 'preparation_screen.dart';
 
 class CameraPermissionScreen extends ConsumerStatefulWidget {
   const CameraPermissionScreen({super.key});
@@ -188,13 +192,10 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
     final activeExercise = ref.watch(activeAnalysisExerciseProvider);
 
     if (selectedExercise == null || activeExercise == null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          title: Text(localizations.cameraPermission),
-          backgroundColor: Colors.black,
-          elevation: 0,
-        ),
+      return AppScaffoldShell(
+        title: localizations.cameraPermission,
+        showDrawer: false,
+        padding: EdgeInsets.zero,
         body: AnalysisSelectionRequiredView(
           title: localizations.selectExerciseBeforeCameraTitle,
           message: localizations.selectExerciseBeforeCameraMessage,
@@ -203,106 +204,130 @@ class _CameraPermissionScreenState extends ConsumerState<CameraPermissionScreen>
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(localizations.cameraPermission),
-        backgroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF151515),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.photo_camera_outlined,
-                      color: Colors.greenAccent,
-                      size: 42,
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      localizations.cameraPermissionRequired,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
+    return AppScaffoldShell(
+      title: localizations.cameraPermission,
+      showDrawer: false,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppSurfaceCard(
+                        variant: AppSurfaceVariant.strong,
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _PermissionHeader(
+                              title: localizations.cameraPermissionRequired,
+                              message: _messageFor(localizations),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            _PermissionBenefit(
+                              text: localizations.cameraDetectsJoints,
+                            ),
+                            _PermissionBenefit(
+                              text: localizations.cameraEvaluatesForm,
+                            ),
+                            _PermissionBenefit(
+                              text: localizations.cameraCountsReps,
+                            ),
+                            _PermissionBenefit(
+                              text: localizations.cameraPrivacyNotice,
+                            ),
+                            _PermissionBenefit(
+                              text: localizations.workoutDataStorageNotice,
+                              icon: Icons.cloud_outlined,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _messageFor(localizations),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontSize: 16,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _PermissionBenefit(text: localizations.cameraDetectsJoints),
-                    _PermissionBenefit(text: localizations.cameraEvaluatesForm),
-                    _PermissionBenefit(text: localizations.cameraCountsReps),
-                    _PermissionBenefit(text: localizations.cameraPrivacyNotice),
-                    _PermissionBenefit(
-                      text: localizations.workoutDataStorageNotice,
-                      icon: Icons.cloud_outlined,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              ElevatedButton.icon(
-                onPressed: _isBusy ? null : _handlePrimaryAction,
-                icon: _isBusy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(
-                        _isBlocked
+                      const SizedBox(height: AppSpacing.lg),
+                      AppButton(
+                        label: _primaryLabelFor(localizations),
+                        onPressed: _isBusy ? null : _handlePrimaryAction,
+                        icon: _isBlocked
                             ? Icons.settings_outlined
                             : Icons.camera_alt_outlined,
+                        isLoading: _isBusy,
+                        expand: true,
                       ),
-                label: Text(_primaryLabelFor(localizations)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.white24,
-                  disabledForegroundColor: Colors.white70,
-                  minimumSize: const Size.fromHeight(56),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                      const SizedBox(height: AppSpacing.xs),
+                      AppButton(
+                        label: localizations.back,
+                        onPressed: () => Navigator.maybePop(context),
+                        variant: AppButtonVariant.ghost,
+                        expand: true,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(localizations.back),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PermissionHeader extends StatelessWidget {
+  const _PermissionHeader({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: colors.analysisAccent.withValues(alpha: AppOpacity.subtle),
+            borderRadius: BorderRadius.circular(AppRadii.compact),
+            border: Border.all(
+              color: colors.analysisAccent.withValues(
+                alpha: AppOpacity.strongBorder,
               ),
-              const Spacer(flex: 2),
-            ],
+            ),
+          ),
+          child: Icon(
+            Icons.photo_camera_outlined,
+            color: colors.accent,
+            size: 28,
           ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          title,
+          style: textTheme.headlineMedium?.copyWith(
+            color: colors.foreground,
+            fontWeight: AppFontWeights.heavy,
+            height: 1.12,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          message,
+          style: textTheme.bodyLarge?.copyWith(
+            color: colors.foregroundMuted,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -318,20 +343,21 @@ class _PermissionBenefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.greenAccent, size: 20),
-          const SizedBox(width: 10),
+          Icon(icon, color: colors.accent, size: 20),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                height: 1.3,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.foreground,
+                height: 1.35,
               ),
             ),
           ),

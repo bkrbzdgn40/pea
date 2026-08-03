@@ -4,6 +4,7 @@ import '../../localization/app_localizations.dart';
 import '../../navigation/app_destination.dart';
 import '../../navigation/app_destination_navigator.dart';
 import '../../theme/app_design_tokens.dart';
+import '../../theme/app_semantic_colors.dart';
 import 'app_surface_card.dart';
 
 export '../../navigation/app_destination.dart';
@@ -16,66 +17,100 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final textTheme = Theme.of(context).textTheme;
 
     return Drawer(
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppSurfaceCard(
+                variant: AppSurfaceVariant.strong,
                 padding: AppSpacing.headerSurfacePadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.fitness_center_rounded,
-                      color: AppColors.accent,
-                      size: 30,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Pose Analysis',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: colors.analysisAccent.withValues(
+                          alpha: AppOpacity.subtle,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadii.compact),
+                        border: Border.all(
+                          color: colors.analysisAccent.withValues(
+                            alpha: AppOpacity.strongBorder,
+                          ),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.fitness_center_rounded,
+                        color: colors.accent,
+                        size: 25,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      localizations.workoutMenu,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 13,
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pose Analysis',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.titleLarge?.copyWith(
+                              color: colors.foreground,
+                              fontWeight: AppFontWeights.heavy,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            localizations.workoutMenu,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colors.foregroundMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: AppSurfaceCard(
-                  color: AppColors.secondarySurface,
-                  borderColor: AppColors.subtleBorder,
+                  variant: AppSurfaceVariant.muted,
                   padding: EdgeInsets.zero,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: AppDestination.values
-                        .map(
-                          (destination) => _DrawerItem(
-                            icon: destination.icon,
-                            label: destination.label(localizations),
-                            isSelected: currentPage == destination,
-                            onTap: () => AppDestinationNavigator.open(
-                              context,
-                              destination: destination,
-                              currentDestination: currentPage,
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    itemCount: AppDestination.values.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.xxs),
+                    itemBuilder: (context, index) {
+                      final destination = AppDestination.values[index];
+                      return _DrawerItem(
+                        icon: destination.icon,
+                        label: destination.label(localizations),
+                        isSelected: currentPage == destination,
+                        onTap: () => AppDestinationNavigator.open(
+                          context,
+                          destination: destination,
+                          currentDestination: currentPage,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -102,25 +137,30 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Material(
       color: Colors.transparent,
       child: ListTile(
         selected: isSelected,
-        selectedTileColor: AppColors.accent.withValues(alpha: 0.12),
-        leading: Icon(
-          icon,
-          color: isSelected ? AppColors.accent : Colors.white70,
-        ),
+        leading: Icon(icon),
         title: Text(
           label,
-          style: TextStyle(
-            color: isSelected ? AppColors.accent : Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: isSelected ? colors.accent : colors.foreground,
+            fontWeight: AppFontWeights.semibold,
           ),
         ),
-        iconColor: AppColors.accent,
-        textColor: Colors.white,
+        trailing: isSelected
+            ? Icon(
+                Icons.circle,
+                color: colors.accent,
+                size: 8,
+                semanticLabel: null,
+              )
+            : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.small),
         ),

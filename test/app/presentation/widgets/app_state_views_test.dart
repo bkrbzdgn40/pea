@@ -70,4 +70,33 @@ void main() {
 
     expect(actionCount, 1);
   });
+
+  testWidgets('AppRootStateScaffold remains scrollable with large text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 568),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: const AppRootStateScaffold(
+            child: AppErrorView(
+              title: 'Oturum hazırlanamadı',
+              message:
+                  'Bu uzun hata açıklaması dar bir ekranda erişilebilir kalmalıdır.',
+              actionLabel: 'Tekrar Dene',
+              onAction: _noop,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
+
+void _noop() {}

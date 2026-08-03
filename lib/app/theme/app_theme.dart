@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../navigation/app_page_transitions.dart';
 import 'app_design_tokens.dart';
 import 'app_semantic_colors.dart';
 
@@ -39,14 +40,66 @@ class AppTheme {
       textTheme: textTheme,
       primaryTextTheme: textTheme,
       extensions: const <ThemeExtension<dynamic>>[AppSemanticColors.dark],
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: AppPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: AppPageTransitionsBuilder(),
+          TargetPlatform.iOS: AppPageTransitionsBuilder(
+            preserveCupertinoGesture: true,
+          ),
+          TargetPlatform.linux: AppPageTransitionsBuilder(),
+          TargetPlatform.macOS: AppPageTransitionsBuilder(),
+          TargetPlatform.windows: AppPageTransitionsBuilder(),
+        },
+      ),
       drawerTheme: const DrawerThemeData(
         backgroundColor: AppColors.scaffoldBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: AppElevation.overlay,
+        width: 304,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(
+            right: Radius.circular(AppRadii.large),
+          ),
+        ),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: AppColors.appBarBackground,
         foregroundColor: AppColors.primaryForeground,
         elevation: AppElevation.flat,
+        scrolledUnderElevation: AppElevation.raised,
         surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        titleSpacing: AppSpacing.md,
+        toolbarHeight: 62,
+        iconTheme: const IconThemeData(color: AppColors.primaryForeground),
+        actionsIconTheme: const IconThemeData(
+          color: AppColors.primaryForeground,
+        ),
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: AppColors.primaryForeground,
+          fontWeight: AppFontWeights.bold,
+        ),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: AppColors.secondaryForeground,
+        textColor: AppColors.primaryForeground,
+        selectedColor: AppColors.accent,
+        selectedTileColor: AppColors.accent.withValues(
+          alpha: AppOpacity.subtle,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xxs,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.subtleBorder,
+        space: AppSpacing.md,
+        thickness: 1,
       ),
       cardTheme: base.cardTheme.copyWith(
         color: AppColors.primarySurface,
@@ -66,11 +119,19 @@ class AppTheme {
         ),
         titleTextStyle: textTheme.titleLarge,
         contentTextStyle: textTheme.bodyMedium,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xl,
+        ),
       ),
       bottomSheetTheme: base.bottomSheetTheme.copyWith(
         backgroundColor: AppColors.strongSurface,
         modalBackgroundColor: AppColors.strongSurface,
         surfaceTintColor: Colors.transparent,
+        elevation: AppElevation.overlay,
+        modalElevation: AppElevation.overlay,
+        showDragHandle: true,
+        dragHandleColor: AppColors.surfaceBorder,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadii.large),
@@ -82,6 +143,13 @@ class AppTheme {
         contentTextStyle: textTheme.bodyMedium,
         actionTextColor: AppColors.accent,
         behavior: SnackBarBehavior.floating,
+        elevation: AppElevation.overlay,
+        insetPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.compact),
           side: const BorderSide(color: AppColors.surfaceBorder),
