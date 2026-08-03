@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/app.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/app/theme/app_semantic_colors.dart';
 import 'package:pose_estimation_app/app/theme/app_theme.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_bootstrap_provider.dart';
 
@@ -32,5 +34,42 @@ void main() {
     expect(theme.appBarTheme.backgroundColor, Colors.black);
     expect(theme.appBarTheme.foregroundColor, Colors.white);
     expect(theme.colorScheme.primary, Colors.greenAccent);
+    expect(theme.colorScheme.surface, AppColors.primarySurface);
+    expect(theme.colorScheme.error, AppColors.danger);
+  });
+
+  test('registers semantic colors as a ThemeExtension', () {
+    final semanticColors = AppTheme.dark.extension<AppSemanticColors>();
+
+    expect(semanticColors, isNotNull);
+    expect(semanticColors!.canvas, AppColors.scaffoldBackground);
+    expect(semanticColors.surface, AppColors.primarySurface);
+    expect(semanticColors.accent, AppColors.accent);
+    expect(semanticColors.analysisAccent, AppColors.analysisAccent);
+    expect(semanticColors.success, AppColors.success);
+    expect(semanticColors.caution, AppColors.caution);
+    expect(semanticColors.invalid, AppColors.invalid);
+    expect(semanticColors.danger, AppColors.danger);
+  });
+
+  test('provides typography and component theme contracts', () {
+    final theme = AppTheme.dark;
+
+    expect(theme.textTheme.displayLarge?.color, AppColors.primaryForeground);
+    expect(theme.textTheme.headlineMedium?.color, AppColors.primaryForeground);
+    expect(theme.textTheme.titleMedium?.color, AppColors.primaryForeground);
+    expect(theme.textTheme.bodyMedium?.color, AppColors.secondaryForeground);
+    expect(theme.textTheme.labelLarge?.color, AppColors.primaryForeground);
+
+    expect(theme.cardTheme.color, AppColors.primarySurface);
+    expect(theme.dialogTheme.backgroundColor, AppColors.strongSurface);
+    expect(theme.bottomSheetTheme.backgroundColor, AppColors.strongSurface);
+    expect(theme.snackBarTheme.behavior, SnackBarBehavior.floating);
+    expect(theme.inputDecorationTheme.filled, isTrue);
+    expect(theme.progressIndicatorTheme.color, AppColors.accent);
+    expect(theme.elevatedButtonTheme.style, isNotNull);
+    expect(theme.filledButtonTheme.style, isNotNull);
+    expect(theme.outlinedButtonTheme.style, isNotNull);
+    expect(theme.textButtonTheme.style, isNotNull);
   });
 }

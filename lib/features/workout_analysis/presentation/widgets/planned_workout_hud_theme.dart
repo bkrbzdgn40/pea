@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_hud_tokens.dart';
 import 'planned_workout_hud_models.dart';
 
-const Color plannedHudAccent = Color(0xFF61E6BE);
-const Color plannedHudSurface = Color(0xD91A2026);
-const Color plannedHudSurfaceStrong = Color(0xE6171D23);
-const Color plannedHudMetricSurface = Color(0x8F1A2026);
-const Color plannedHudMetricSurfaceStrong = Color(0xA6171D23);
+const Color plannedHudAccent = AppHudTokens.accent;
+const Color plannedHudSurface = AppHudTokens.surface;
+const Color plannedHudSurfaceStrong = AppHudTokens.surfaceStrong;
+const Color plannedHudMetricSurface = AppHudTokens.metricSurface;
+const Color plannedHudMetricSurfaceStrong = AppHudTokens.metricSurfaceStrong;
 
 BoxDecoration plannedSurfaceDecoration({
   required Color accentColor,
@@ -14,24 +16,19 @@ BoxDecoration plannedSurfaceDecoration({
   bool strong = false,
   Color? surfaceColor,
 }) {
-  return BoxDecoration(
-    color:
-        surfaceColor ?? (strong ? plannedHudSurfaceStrong : plannedHudSurface),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(
-      color: accentColor.withValues(alpha: strong ? 0.48 : 0.28),
-    ),
-    boxShadow: const <BoxShadow>[
-      BoxShadow(color: Colors.black45, blurRadius: 18, offset: Offset(0, 7)),
-    ],
+  return AppHudTokens.surfaceDecoration(
+    accentColor: accentColor,
+    radius: radius,
+    strong: strong,
+    surfaceColor: surfaceColor,
   );
 }
 
 Color plannedHudToneColor(PlannedWorkoutHudTone tone) {
   return switch (tone) {
-    PlannedWorkoutHudTone.positive => plannedHudAccent,
-    PlannedWorkoutHudTone.caution => Colors.amberAccent,
-    PlannedWorkoutHudTone.invalid => Colors.orangeAccent,
-    PlannedWorkoutHudTone.muted => Colors.white38,
+    PlannedWorkoutHudTone.positive => AppColors.success,
+    PlannedWorkoutHudTone.caution => AppColors.caution,
+    PlannedWorkoutHudTone.invalid => AppColors.invalid,
+    PlannedWorkoutHudTone.muted => AppColors.disabledForeground,
   };
 }
