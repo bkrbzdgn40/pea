@@ -11,6 +11,8 @@ import 'package:pose_estimation_app/features/workout_analysis/application/reposi
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 
+import 'presentation_test_harness.dart';
+
 class TestAuthRepository implements AuthRepository {
   const TestAuthRepository({this.currentUserId});
 
@@ -206,12 +208,23 @@ Future<void> pumpTestApp(
   List<Override> overrides = const <Override>[],
   List<NavigatorObserver> navigatorObservers = const <NavigatorObserver>[],
   Locale? locale,
+  PresentationTestConfiguration? configuration,
 }) {
+  if (configuration != null) {
+    configurePresentationTestView(tester, configuration);
+  }
+
   return tester.pumpWidget(
     ProviderScope(
       overrides: overrides,
       child: MaterialApp(
         theme: AppTheme.dark,
+        builder: configuration == null
+            ? null
+            : (context, child) => PresentationTestMediaQuery(
+                configuration: configuration,
+                child: child ?? const SizedBox.shrink(),
+              ),
         locale: locale ?? const Locale('tr'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

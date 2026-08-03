@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/app/theme/app_motion.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/formatters/measurement_confidence_presentation_formatter.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/range_rep_outcome_view_data.dart';
@@ -97,8 +99,8 @@ class RangeRepSideTrackingIndicator extends ConsumerWidget {
       padding: EdgeInsets.only(bottom: compact ? 6 : 9),
       child: AnimatedContainer(
         key: const ValueKey<String>('live-range-rep-side-indicator'),
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
+        duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
+        curve: AppMotion.resolveCurve(context, Curves.easeOut),
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 11 : 14,
           vertical: compact ? 7 : 9,
@@ -220,8 +222,11 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
       excludeSemantics: true,
       child: AnimatedContainer(
         key: const ValueKey<String>('live-feedback-message-card'),
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
+        duration: AppMotion.resolveDuration(
+          context,
+          AppMotionDurations.standard,
+        ),
+        curve: AppMotion.resolveCurve(context, Curves.easeOut),
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 12 : 16,
           vertical: compact ? 10 : 14,
@@ -283,7 +288,10 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 9),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
+                    duration: AppMotion.resolveDuration(
+                      context,
+                      AppMotionDurations.fast,
+                    ),
                     child: Text(
                       presentation.message,
                       key: ValueKey<String>(presentation.message),
@@ -360,7 +368,10 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                         ),
                         SizedBox(height: compact ? 3 : 5),
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
+                          duration: AppMotion.resolveDuration(
+                            context,
+                            AppMotionDurations.fast,
+                          ),
                           child: Text(
                             presentation.message,
                             key: ValueKey<String>(presentation.message),

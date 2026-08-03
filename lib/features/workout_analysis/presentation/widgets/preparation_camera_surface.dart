@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
 import '../errors/workout_camera_error_presentation.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/preparation_pose_guide.dart';
@@ -142,13 +144,15 @@ class _PreparationPoseOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return CustomPaint(
-      key: const ValueKey<String>('preparation-pose-overlay'),
-      painter: PosePainter(
-        landmarks,
-        imageSize,
-        isFormBad: false,
-        isMirrored: isMirrored,
+    return RepaintBoundary(
+      child: CustomPaint(
+        key: const ValueKey<String>('preparation-pose-overlay'),
+        painter: PosePainter(
+          landmarks,
+          imageSize,
+          isFormBad: false,
+          isMirrored: isMirrored,
+        ),
       ),
     );
   }
@@ -171,12 +175,18 @@ class _PreparationCountdownOverlay extends StatelessWidget {
               liveRegion: true,
               label: localizations.preparationCountdownSemantics(value),
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
+                duration: AppMotion.resolveDuration(
+                  context,
+                  AppMotionDurations.fast,
+                ),
                 transitionBuilder: (child, animation) {
                   return ScaleTransition(
                     scale: CurvedAnimation(
                       parent: animation,
-                      curve: Curves.easeOutBack,
+                      curve: AppMotion.resolveCurve(
+                        context,
+                        Curves.easeOutBack,
+                      ),
                     ),
                     child: FadeTransition(opacity: animation, child: child),
                   );
@@ -249,13 +259,18 @@ class _PreparationSafeZoneOverlay extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: TweenAnimationBuilder<Color?>(
             tween: ColorTween(end: color),
-            duration: const Duration(milliseconds: 180),
+            duration: AppMotion.resolveDuration(
+              context,
+              AppMotionDurations.fast,
+            ),
             builder: (context, animatedColor, _) {
-              return CustomPaint(
-                key: const ValueKey<String>('preparation-safe-zone'),
-                painter: _PreparationSafeZonePainter(
-                  color: animatedColor ?? color,
-                  strokeWidth: readiness.isReady ? 3 : 2,
+              return RepaintBoundary(
+                child: CustomPaint(
+                  key: const ValueKey<String>('preparation-safe-zone'),
+                  painter: _PreparationSafeZonePainter(
+                    color: animatedColor ?? color,
+                    strokeWidth: readiness.isReady ? 3 : 2,
+                  ),
                 ),
               );
             },

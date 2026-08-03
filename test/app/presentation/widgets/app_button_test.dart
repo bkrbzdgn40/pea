@@ -107,4 +107,41 @@ void main() {
     expect(find.byType(OutlinedButton), findsOneWidget);
     expect(find.byType(TextButton), findsOneWidget);
   });
+
+  testWidgets('truncates long labels without overflowing narrow layouts', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: AppButton(
+              label: 'Antrenmana guvenli bicimde devam et',
+              icon: Icons.arrow_forward_rounded,
+              expand: true,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Antrenmana guvenli bicimde devam et'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
 import '../models/preparation_pose_guide.dart';
 import '../providers/preparation_camera_controller.dart';
 
@@ -26,7 +28,7 @@ class PreparationStartPoseReference extends ConsumerWidget {
       child: IgnorePointer(
         child: AnimatedOpacity(
           key: const ValueKey<String>('preparation-start-pose-opacity'),
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
           opacity: hasTrackedPose ? 0.28 : 1,
           child: Padding(
             padding: const EdgeInsets.all(14),

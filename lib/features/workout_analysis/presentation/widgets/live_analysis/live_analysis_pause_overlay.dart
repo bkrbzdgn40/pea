@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/app/theme/app_motion.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/setup_readiness_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/mappers/setup_readiness_ui_mapper.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_pause_state.dart';
@@ -30,12 +32,14 @@ class PausedPoseOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return CustomPaint(
-      painter: PosePainter(
-        landmarks,
-        imageSize,
-        isFormBad: false,
-        isMirrored: isMirrored,
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: PosePainter(
+          landmarks,
+          imageSize,
+          isFormBad: false,
+          isMirrored: isMirrored,
+        ),
       ),
     );
   }
@@ -146,7 +150,10 @@ class LivePauseOverlay extends ConsumerWidget {
                     if (pauseState.isCountingDown) ...<Widget>[
                       const SizedBox(height: 20),
                       AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
+                        duration: AppMotion.resolveDuration(
+                          context,
+                          AppMotionDurations.fast,
+                        ),
                         transitionBuilder: (child, animation) =>
                             ScaleTransition(
                               scale: animation,

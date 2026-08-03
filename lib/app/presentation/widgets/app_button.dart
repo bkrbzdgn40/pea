@@ -177,11 +177,14 @@ class _ButtonContent extends StatelessWidget {
           Icon(icon, size: 19),
           const SizedBox(width: AppSpacing.xs),
         ],
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
         ),
       ],
     );

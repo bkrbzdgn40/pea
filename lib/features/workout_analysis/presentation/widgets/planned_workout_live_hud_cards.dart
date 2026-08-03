@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
+
 import 'planned_workout_hud_models.dart';
 import 'planned_workout_hud_theme.dart';
 
@@ -28,8 +31,8 @@ class PlannedWorkoutMetricCard extends StatelessWidget {
       label: '$label $value',
       excludeSemantics: true,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
+        duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
+        curve: AppMotion.resolveCurve(context, Curves.easeOut),
         padding: EdgeInsets.symmetric(
           horizontal: 8,
           vertical: compact ? 8 : 12,
@@ -66,7 +69,10 @@ class PlannedWorkoutMetricCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.bottomLeft,
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
+                          duration: AppMotion.resolveDuration(
+                            context,
+                            AppMotionDurations.fast,
+                          ),
                           child: Text(
                             value,
                             key: ValueKey<String>(value),
@@ -271,8 +277,8 @@ class PlannedWorkoutFeedbackCard extends StatelessWidget {
     final accentColor = plannedHudToneColor(data.feedbackTone);
     return AnimatedContainer(
       key: const ValueKey<String>('planned-workout-feedback-card'),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
+      duration: AppMotion.resolveDuration(context, AppMotionDurations.standard),
+      curve: AppMotion.resolveCurve(context, Curves.easeOut),
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 12 : 16,
         vertical: compact ? 9 : 13,
