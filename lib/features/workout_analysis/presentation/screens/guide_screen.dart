@@ -1,71 +1,301 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../application/exercise_catalog.dart';
+import '../../application/exercise_definition.dart';
+import '../../domain/models/exercise_type.dart';
 import '../data/exercise_guide_catalog.dart';
 import '../data/localized_exercise_guide_content.dart';
 import '../models/exercise_guide_content.dart';
 
 class GuideScreen extends StatefulWidget {
-  const GuideScreen({super.key});
+  const GuideScreen({super.key, this.initialExercise});
+
+  final ExerciseType? initialExercise;
 
   @override
   State<GuideScreen> createState() => _GuideScreenState();
 }
 
 class _GuideScreenState extends State<GuideScreen> {
+  static const _catalog = ExerciseCatalog();
+  static const _guideCatalog = ExerciseGuideCatalog();
+
+  final TextEditingController _searchController = TextEditingController();
   ExerciseDifficulty? _selectedDifficulty;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    const catalog = ExerciseCatalog();
-    const guideCatalog = ExerciseGuideCatalog();
-    final definitions = catalog.definitions
-        .where((definition) {
-          if (_selectedDifficulty == null) {
-            return true;
-          }
-
-          return guideCatalog.contentFor(definition.type).difficulty ==
-              _selectedDifficulty;
-        })
-        .toList(growable: false);
+    final definitions = _filteredDefinitions(localizations);
+    final analysisReadyCount = _catalog.definitions
+        .where((definition) => definition.isAnalysisSupported)
+        .length;
+    final resultsPadding = AppLayout.of(context).pagePadding.copyWith(top: 2);
 
     return AppScaffoldShell(
       title: localizations.exerciseGuide,
       currentPage: AppDestination.guide,
       padding: EdgeInsets.zero,
-      body: Column(
+      body: ListView(
+        key: const PageStorageKey<String>('exercise-guide-results'),
+        padding: EdgeInsets.zero,
         children: [
-          _DifficultyFilter(
+          _GuideDiscoveryHeader(
+            searchController: _searchController,
             selectedDifficulty: _selectedDifficulty,
-            onChanged: (difficulty) {
+            analysisReadyCount: analysisReadyCount,
+            guideCount: _catalog.definitions.length,
+            onQueryChanged: (value) {
+              setState(() => _query = value.trim().toLowerCase());
+            },
+            onClearSearch: _clearSearch,
+            onDifficultyChanged: (difficulty) {
               setState(() => _selectedDifficulty = difficulty);
             },
           ),
-          Expanded(
+          Padding(
+            padding: resultsPadding,
             child: definitions.isEmpty
-                ? const _GuideEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    itemCount: definitions.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final definition = definitions[index];
-                      final content = localizedExerciseGuideContent(
-                        content: guideCatalog.contentFor(definition.type),
-                        isTurkish: localizations.isTurkish,
-                      );
-
-                      return _ExerciseGuideCard(
-                        content: content,
-                        isAnalysisSupported: definition.isAnalysisSupported,
-                      );
-                    },
+                ? _GuideEmptyState(onClear: _clearFilters)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < definitions.length;
+                        index++
+                      ) ...[
+                        _buildGuideCard(
+                          definition: definitions[index],
+                          localizations: localizations,
+                        ),
+                        if (index != definitions.length - 1)
+                          const SizedBox(height: AppSpacing.sm),
+                      ],
+                    ],
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideCard({
+    required ExerciseDefinition definition,
+    required AppLocalizations localizations,
+  }) {
+    final content = localizedExerciseGuideContent(
+      content: _guideCatalog.contentFor(definition.type),
+      isTurkish: localizations.isTurkish,
+    );
+
+    return _ExerciseGuideCard(
+      content: content,
+      isAnalysisSupported: definition.isAnalysisSupported,
+      initiallyExpanded: definition.type == widget.initialExercise,
+    );
+  }
+
+  List<ExerciseDefinition> _filteredDefinitions(
+    AppLocalizations localizations,
+  ) {
+    final definitions = _catalog.definitions
+        .where((definition) {
+          final content = localizedExerciseGuideContent(
+            content: _guideCatalog.contentFor(definition.type),
+            isTurkish: localizations.isTurkish,
+          );
+          final matchesDifficulty =
+              _selectedDifficulty == null ||
+              content.difficulty == _selectedDifficulty;
+          if (!matchesDifficulty) {
+            return false;
+          }
+
+          if (_query.isEmpty) {
+            return true;
+          }
+
+          final searchableText = <String>[
+            localizations.exerciseTitle(definition.type.id),
+            definition.type.title,
+            content.subtitle,
+            content.purpose,
+            localizations.difficultyLabel(content.difficulty.name),
+            ...content.tips,
+            ...content.commonMistakes,
+          ].join(' ').toLowerCase();
+          return searchableText.contains(_query);
+        })
+        .toList(growable: true);
+
+    final initialExercise = widget.initialExercise;
+    if (initialExercise != null) {
+      final initialIndex = definitions.indexWhere(
+        (definition) => definition.type == initialExercise,
+      );
+      if (initialIndex > 0) {
+        final initialDefinition = definitions.removeAt(initialIndex);
+        definitions.insert(0, initialDefinition);
+      }
+    }
+
+    return definitions;
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _selectedDifficulty = null;
+    });
+  }
+}
+
+class _GuideDiscoveryHeader extends StatelessWidget {
+  const _GuideDiscoveryHeader({
+    required this.searchController,
+    required this.selectedDifficulty,
+    required this.analysisReadyCount,
+    required this.guideCount,
+    required this.onQueryChanged,
+    required this.onClearSearch,
+    required this.onDifficultyChanged,
+  });
+
+  final TextEditingController searchController;
+  final ExerciseDifficulty? selectedDifficulty;
+  final int analysisReadyCount;
+  final int guideCount;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<ExerciseDifficulty?> onDifficultyChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final padding = AppLayout.of(context).pagePadding.copyWith(bottom: 10);
+
+    return Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSurfaceCard(
+            variant: AppSurfaceVariant.strong,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: colors.analysisAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadii.small),
+                      ),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        color: colors.analysisAccent,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.exerciseGuideIntroTitle,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: colors.foreground,
+                                  fontWeight: AppFontWeights.heavy,
+                                ),
+                          ),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            localizations.exerciseGuideIntroBody,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: colors.foregroundMuted,
+                                  height: 1.35,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppStatusChip(
+                      label: localizations.guideLibraryCount(guideCount),
+                      tone: AppStatusTone.neutral,
+                      icon: Icons.library_books_rounded,
+                    ),
+                    AppStatusChip(
+                      label: localizations.analysisReadyCount(
+                        analysisReadyCount,
+                      ),
+                      tone: AppStatusTone.accent,
+                      icon: Icons.center_focus_strong_rounded,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            key: const ValueKey<String>('guide-search-field'),
+            controller: searchController,
+            onChanged: onQueryChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: localizations.searchExercises,
+              hintText: localizations.searchGuideHint,
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      key: const ValueKey<String>('clear-guide-search'),
+                      tooltip: localizations.clearSearch,
+                      onPressed: onClearSearch,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          _DifficultyFilter(
+            selectedDifficulty: selectedDifficulty,
+            onChanged: onDifficultyChanged,
           ),
         ],
       ),
@@ -86,7 +316,6 @@ class _DifficultyFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Row(
         children: [
           _FilterChipButton(
@@ -95,11 +324,15 @@ class _DifficultyFilter extends StatelessWidget {
             onTap: () => onChanged(null),
           ),
           for (final difficulty in ExerciseDifficulty.values) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.xs),
             _FilterChipButton(
+              key: ValueKey<String>(
+                'guide-difficulty-filter-${difficulty.name}',
+              ),
               label: AppLocalizations.of(
                 context,
               ).difficultyLabel(difficulty.name),
+              tone: _difficultyTone(difficulty),
               isSelected: selectedDifficulty == difficulty,
               onTap: () => onChanged(difficulty),
             ),
@@ -112,31 +345,39 @@ class _DifficultyFilter extends StatelessWidget {
 
 class _FilterChipButton extends StatelessWidget {
   const _FilterChipButton({
+    super.key,
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.tone = AppStatusTone.neutral,
   });
 
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final AppStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+    final toneColor = tone.resolveColor(colors);
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-      backgroundColor: const Color(0xFF151515),
-      selectedColor: Colors.greenAccent,
-      side: BorderSide(color: isSelected ? Colors.greenAccent : Colors.white12),
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.black : Colors.white70,
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+      backgroundColor: toneColor.withValues(alpha: 0.08),
+      selectedColor: toneColor.withValues(alpha: 0.22),
+      side: BorderSide(
+        color: toneColor.withValues(alpha: isSelected ? 1 : 0.48),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: toneColor,
+        fontWeight: AppFontWeights.heavy,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
     );
   }
 }
@@ -145,90 +386,128 @@ class _ExerciseGuideCard extends StatelessWidget {
   const _ExerciseGuideCard({
     required this.content,
     required this.isAnalysisSupported,
+    required this.initiallyExpanded,
   });
 
   final ExerciseGuideContent content;
   final bool isAnalysisSupported;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF151515),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white12),
-      ),
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      key: ValueKey<String>('exercise-guide-card-${content.type.id}'),
+      padding: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          iconColor: Colors.greenAccent,
-          collapsedIconColor: Colors.white70,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppLocalizations.of(context).exerciseTitle(content.type.id),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _GuideBadge(
-                    label: AppLocalizations.of(
-                      context,
-                    ).difficultyLabel(content.difficulty.name),
-                    isActive: false,
-                  ),
-                  if (isAnalysisSupported)
-                    _GuideBadge(
-                      label: AppLocalizations.of(context).analysisActive,
-                      isActive: true,
-                    ),
-                ],
-              ),
-            ],
+          key: PageStorageKey<String>('exercise-guide-${content.type.id}'),
+          initiallyExpanded: initiallyExpanded,
+          tilePadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.sm,
+            AppSpacing.sm,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          iconColor: colors.analysisAccent,
+          collapsedIconColor: colors.foregroundMuted,
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: colors.analysisAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              isAnalysisSupported
+                  ? Icons.center_focus_strong_rounded
+                  : Icons.menu_book_rounded,
+              color: isAnalysisSupported
+                  ? colors.analysisAccent
+                  : colors.foregroundSubtle,
+            ),
+          ),
+          title: Text(
+            localizations.exerciseTitle(content.type.id),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+            ),
           ),
           subtitle: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              content.subtitle,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.3,
-              ),
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  content.subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.foregroundMuted,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  children: [
+                    AppStatusChip(
+                      key: ValueKey<String>(
+                        'exercise-guide-difficulty-${content.type.id}',
+                      ),
+                      label: localizations.difficultyLabel(
+                        content.difficulty.name,
+                      ),
+                      tone: _difficultyTone(content.difficulty),
+                      icon: Icons.signal_cellular_alt_rounded,
+                    ),
+                    if (!isAnalysisSupported)
+                      AppStatusChip(
+                        label: localizations.guideAvailable,
+                        tone: AppStatusTone.neutral,
+                        icon: Icons.menu_book_rounded,
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
           children: [
             _GuideTextBlock(
-              title: AppLocalizations.of(context).purpose,
+              icon: Icons.flag_outlined,
+              title: localizations.purpose,
               text: content.purpose,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             _GuideSection(
-              title: AppLocalizations.of(context).setup,
+              icon: Icons.tune_rounded,
+              title: localizations.setup,
               items: content.setupSteps,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             _GuideSection(
-              title: AppLocalizations.of(context).techniqueTips,
+              icon: Icons.lightbulb_outline_rounded,
+              title: localizations.techniqueTips,
               items: content.tips,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             _GuideSection(
-              title: AppLocalizations.of(context).commonMistakes,
+              icon: Icons.report_problem_outlined,
+              title: localizations.commonMistakes,
               items: content.commonMistakes,
+              tone: AppStatusTone.caution,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _VideoButton(content: content),
           ],
         ),
@@ -237,112 +516,128 @@ class _ExerciseGuideCard extends StatelessWidget {
   }
 }
 
-class _GuideBadge extends StatelessWidget {
-  const _GuideBadge({required this.label, required this.isActive});
-
-  final String label;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.greenAccent
-            : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: isActive ? null : Border.all(color: Colors.white12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isActive ? Colors.black : Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
 class _GuideTextBlock extends StatelessWidget {
-  const _GuideTextBlock({required this.title, required this.text});
+  const _GuideTextBlock({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
 
+  final IconData icon;
   final String title;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
+    final colors = context.semanticColors;
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _GuideSectionTitle(icon: icon, title: title),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.foregroundMuted,
+              height: 1.4,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-            height: 1.35,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _GuideSection extends StatelessWidget {
-  const _GuideSection({required this.title, required this.items});
+  const _GuideSection({
+    required this.icon,
+    required this.title,
+    required this.items,
+    this.tone = AppStatusTone.accent,
+  });
 
+  final IconData icon;
   final String title;
   final List<String> items;
+  final AppStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final item in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Row(
+    final colors = context.semanticColors;
+    final bulletColor = tone.resolveColor(colors);
+
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _GuideSectionTitle(icon: icon, title: title, tone: tone),
+          const SizedBox(height: AppSpacing.xs),
+          for (var index = 0; index < items.length; index++) ...[
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Icon(Icons.circle, color: Colors.greenAccent, size: 6),
+                Padding(
+                  padding: const EdgeInsets.only(top: 7),
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: bulletColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
-                    item,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.3,
+                    items[index],
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.foregroundMuted,
+                      height: 1.35,
                     ),
                   ),
                 ),
               ],
             ),
+            if (index != items.length - 1)
+              const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideSectionTitle extends StatelessWidget {
+  const _GuideSectionTitle({
+    required this.icon,
+    required this.title,
+    this.tone = AppStatusTone.accent,
+  });
+
+  final IconData icon;
+  final String title;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: tone.resolveColor(colors)),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+            ),
           ),
+        ),
       ],
     );
   }
@@ -355,31 +650,26 @@ class _VideoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-      ),
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final sourceLabel = Text(
-            AppLocalizations.of(context).source(content.youtubeSourceLabel),
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            localizations.source(content.youtubeSourceLabel),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colors.foregroundSubtle,
+              fontWeight: AppFontWeights.semibold,
             ),
           );
-          final button = TextButton.icon(
+          final button = AppButton(
+            label: localizations.watchOnYoutube,
             onPressed: () => _openVideo(context, content.youtubeUrl),
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
-            label: Text(AppLocalizations.of(context).watchOnYoutube),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.greenAccent,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+            variant: AppButtonVariant.ghost,
+            icon: Icons.open_in_new_rounded,
           );
 
           if (constraints.maxWidth < 340) {
@@ -387,8 +677,8 @@ class _VideoButton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 sourceLabel,
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerLeft, child: button),
+                const SizedBox(height: AppSpacing.xs),
+                button,
               ],
             );
           }
@@ -396,8 +686,8 @@ class _VideoButton extends StatelessWidget {
           return Row(
             children: [
               Expanded(child: sourceLabel),
-              const SizedBox(width: 10),
-              button,
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(child: button),
             ],
           );
         },
@@ -406,7 +696,6 @@ class _VideoButton extends StatelessWidget {
   }
 
   Future<void> _openVideo(BuildContext context, String url) async {
-    // Product choice: keep guide videos external until an in-app player is designed.
     final uri = Uri.parse(url);
     final didLaunch = await launchUrl(
       uri,
@@ -423,28 +712,29 @@ class _VideoButton extends StatelessWidget {
   }
 }
 
+AppStatusTone _difficultyTone(ExerciseDifficulty difficulty) {
+  return switch (difficulty) {
+    ExerciseDifficulty.beginner => AppStatusTone.success,
+    ExerciseDifficulty.intermediate => AppStatusTone.caution,
+    ExerciseDifficulty.advanced => AppStatusTone.danger,
+  };
+}
+
 class _GuideEmptyState extends StatelessWidget {
-  const _GuideEmptyState();
+  const _GuideEmptyState({required this.onClear});
+
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: const Color(0xFF151515),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white12),
-          ),
-          child: Text(
-            AppLocalizations.of(context).noGuideContentForDifficulty,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-        ),
-      ),
+    final localizations = AppLocalizations.of(context);
+    return AppEmptyView(
+      centered: true,
+      icon: Icons.menu_book_outlined,
+      title: localizations.noGuideResults,
+      message: localizations.noGuideResultsBody,
+      actionLabel: localizations.clearGuideFilters,
+      onAction: onClear,
     );
   }
 }
