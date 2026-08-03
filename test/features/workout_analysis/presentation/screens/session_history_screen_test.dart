@@ -62,6 +62,7 @@ void main() {
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.text('Ort. Form/ROM'), findsOneWidget);
       expect(find.text('90'), findsOneWidget);
+      expect(find.text('Geçerli: 12'), findsOneWidget);
 
       final pushCountBeforeTap = observer.pushCount;
 

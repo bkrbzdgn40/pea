@@ -7,6 +7,7 @@ import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/workout_session.dart';
 import '../providers/session_repository_provider.dart';
@@ -271,39 +272,25 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         ),
         if (_errorMessage != null) ...[
           const SizedBox(height: 12),
-          Text(
-            _historyMessage(localizations, _errorMessage!),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
+          AppFeedbackBanner(
+            message: _historyMessage(localizations, _errorMessage!),
+            tone: AppStatusTone.caution,
+            icon: Icons.cloud_off_rounded,
           ),
         ],
         if (_hasMore) ...[
           const SizedBox(height: 14),
-          OutlinedButton.icon(
+          AppButton(
+            label: _isLoadingMore
+                ? localizations.loading
+                : localizations.loadMore,
             onPressed: _isLoadingMore
                 ? null
                 : () => unawaited(_loadMoreSessions()),
-            icon: _isLoadingMore
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.expand_more_rounded),
-            label: Text(
-              _isLoadingMore ? localizations.loading : localizations.loadMore,
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
+            icon: Icons.expand_more_rounded,
+            variant: AppButtonVariant.outline,
+            isLoading: _isLoadingMore,
+            expand: true,
           ),
         ],
       ],

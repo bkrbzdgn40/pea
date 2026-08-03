@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
-
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
@@ -14,6 +16,7 @@ import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
 import '../providers/session_repository_provider.dart';
+import '../widgets/session_result_visual.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
   const SessionDetailScreen({super.key, required this.session});
@@ -149,53 +152,106 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       title: localizations.sessionReport,
       showDrawer: false,
       padding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = AppLayout.of(context, constraints: constraints);
+          return _buildContent(layout: layout, report: report);
+        },
+      ),
+    );
+  }
+
+  Widget _buildContent({
+    required AppLayout layout,
+    required SessionReport report,
+  }) {
+    final useWideLayout =
+        layout.viewportSize.width >= 760 && !layout.hasLargeText;
+
+    if (!useWideLayout) {
+      return SingleChildScrollView(
+        key: const ValueKey<String>('session-detail-portrait-layout'),
+        padding: layout.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SessionSummaryCard(session: _session, report: report),
-            const SizedBox(height: 14),
-            _OverviewCard(session: _session, report: report),
-            const SizedBox(height: 14),
-            _ReportSummaryCard(report: report),
-            if (report.recommendations.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _RecommendationsCard(report: report),
-            ],
-            const SizedBox(height: 14),
-            _RepDetailsCard(
-              reps: _reps,
-              exerciseId: _session.exerciseType,
-              isLoading: _isLoadingRepDetails,
-              hasLoadError: _repLoadFailed,
-              onRetry: _loadSessionDetails,
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              key: const ValueKey<String>('session-delete-button'),
-              onPressed: _isDeleting ? null : _confirmAndDeleteSession,
-              icon: _isDeleting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_outline_rounded),
-              label: Text(
-                _isDeleting
-                    ? localizations.deleting
-                    : localizations.deleteSession,
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.redAccent,
-                side: const BorderSide(color: Colors.redAccent),
-                minimumSize: const Size.fromHeight(52),
-              ),
-            ),
+            ..._primaryContent(report),
+            SizedBox(height: layout.panelGap),
+            _buildRepDetails(),
+            SizedBox(height: layout.panelGap),
+            _buildDeleteAction(),
           ],
         ),
+      );
+    }
+
+    return Padding(
+      key: const ValueKey<String>('session-detail-wide-layout'),
+      padding: layout.pagePadding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 5,
+            child: SingleChildScrollView(
+              key: const ValueKey<String>('session-detail-primary-scroll'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ..._primaryContent(report),
+                  SizedBox(height: layout.panelGap),
+                  _buildDeleteAction(),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(width: layout.panelGap),
+          Expanded(
+            flex: 6,
+            child: SingleChildScrollView(
+              key: const ValueKey<String>('session-detail-reps-scroll'),
+              child: _buildRepDetails(),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  List<Widget> _primaryContent(SessionReport report) {
+    return <Widget>[
+      _SessionSummaryCard(session: _session, report: report),
+      const SizedBox(height: AppSpacing.sm),
+      _OverviewCard(session: _session, report: report),
+      const SizedBox(height: AppSpacing.sm),
+      _ReportSummaryCard(report: report),
+      if (report.recommendations.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.sm),
+        _RecommendationsCard(report: report),
+      ],
+    ];
+  }
+
+  Widget _buildRepDetails() {
+    return _RepDetailsCard(
+      reps: _reps,
+      exerciseId: _session.exerciseType,
+      isLoading: _isLoadingRepDetails,
+      hasLoadError: _repLoadFailed,
+      onRetry: _loadSessionDetails,
+    );
+  }
+
+  Widget _buildDeleteAction() {
+    final localizations = AppLocalizations.of(context);
+    return AppButton(
+      key: const ValueKey<String>('session-delete-button'),
+      label: _isDeleting ? localizations.deleting : localizations.deleteSession,
+      onPressed: _isDeleting ? null : _confirmAndDeleteSession,
+      icon: Icons.delete_outline_rounded,
+      variant: AppButtonVariant.danger,
+      isLoading: _isDeleting,
+      expand: true,
     );
   }
 
@@ -220,6 +276,9 @@ class _SessionSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final tone = sessionResultTone(session);
+    final accent = tone.resolveColor(colors);
     final chips = <MapEntry<String, String>>[
       MapEntry(
         localizations.analysis,
@@ -245,7 +304,14 @@ class _SessionSummaryCard extends StatelessWidget {
     ];
 
     return AppSurfaceCard(
+      key: const ValueKey<String>('session-detail-hero'),
       padding: const EdgeInsets.all(18),
+      variant: AppSurfaceVariant.strong,
+      color: Color.alphaBlend(
+        accent.withValues(alpha: 0.055),
+        colors.surfaceStrong,
+      ),
+      borderColor: accent.withValues(alpha: AppOpacity.strongBorder),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -254,13 +320,13 @@ class _SessionSummaryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withValues(alpha: 0.14),
+                  color: accent.withValues(alpha: AppOpacity.subtle),
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: accent.withValues(alpha: AppOpacity.border),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.fitness_center_rounded,
-                  color: Colors.greenAccent,
-                ),
+                child: Icon(tone.icon, color: accent),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -278,10 +344,16 @@ class _SessionSummaryCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       WorkoutPresentationFormatter.dateTime(session.startedAt),
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: colors.foregroundMuted,
                         fontSize: 13,
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppStatusChip(
+                      label: _sessionResultLabel(localizations, tone),
+                      tone: tone.statusTone,
+                      icon: tone.icon,
                     ),
                   ],
                 ),
@@ -439,60 +511,127 @@ class _RepDetailsCard extends StatelessWidget {
           if (isLoading)
             const Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 18),
-                child: CircularProgressIndicator(color: Colors.greenAccent),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: CircularProgressIndicator(),
               ),
             )
           else if (!hasReps && hasLoadError)
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  localizations.repDetailsLoadFailed,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                AppFeedbackBanner(
+                  message: localizations.repDetailsLoadFailed,
+                  tone: AppStatusTone.caution,
+                  icon: Icons.cloud_off_rounded,
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton(
+                const SizedBox(height: AppSpacing.sm),
+                AppButton(
+                  label: localizations.retry,
                   onPressed: () => unawaited(onRetry()),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white24),
-                  ),
-                  child: Text(localizations.retry),
+                  icon: Icons.refresh_rounded,
+                  variant: AppButtonVariant.outline,
+                  expand: true,
                 ),
               ],
             )
           else if (!hasReps)
-            Text(
-              localizations.noRepDetails,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.35,
-              ),
+            AppFeedbackBanner(
+              message: localizations.noRepDetails,
+              tone: AppStatusTone.neutral,
+              icon: Icons.format_list_numbered_rounded,
             )
           else ...[
             if (hasLoadError) ...[
-              Text(
-                localizations.showingCachedRepDetails,
-                style: TextStyle(
-                  color: Colors.amberAccent,
-                  fontSize: 13,
-                  height: 1.35,
-                ),
+              AppFeedbackBanner(
+                message: localizations.showingCachedRepDetails,
+                tone: AppStatusTone.caution,
+                icon: Icons.offline_bolt_outlined,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
             ],
-            ListView.separated(
+            ListView.builder(
+              key: const ValueKey<String>('session-rep-timeline'),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: reps!.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                return _RepTile(rep: reps![index], exerciseId: exerciseId);
+                return _RepTimelineItem(
+                  rep: reps![index],
+                  exerciseId: exerciseId,
+                  isLast: index == reps!.length - 1,
+                );
               },
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RepTimelineItem extends StatelessWidget {
+  const _RepTimelineItem({
+    required this.rep,
+    required this.exerciseId,
+    required this.isLast,
+  });
+
+  final WorkoutRep rep;
+  final String exerciseId;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+    final tone = repStatusTone(rep);
+    final accent = tone.resolveColor(colors);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 36,
+            child: Column(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accent.withValues(alpha: AppOpacity.subtle),
+                    border: Border.all(
+                      color: accent.withValues(alpha: AppOpacity.strongBorder),
+                    ),
+                  ),
+                  child: Text(
+                    '${rep.repIndex}',
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 11,
+                      fontWeight: AppFontWeights.heavy,
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: colors.outlineSubtle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.sm),
+              child: _RepTile(rep: rep, exerciseId: exerciseId),
+            ),
+          ),
         ],
       ),
     );
@@ -554,26 +693,10 @@ class _RepTile extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: _repStatusColor(rep).withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: _repStatusColor(rep).withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Text(
-                  _repStatusLabel(localizations, rep),
-                  style: TextStyle(
-                    color: _repStatusColor(rep),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              AppStatusChip(
+                label: _repStatusLabel(localizations, rep),
+                tone: repStatusTone(rep),
+                showIcon: true,
               ),
             ],
           ),
@@ -625,6 +748,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSurfaceCard(
+      variant: AppSurfaceVariant.strong,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -652,32 +776,10 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
+    return AppMetricTile(
+      label: label,
+      value: value,
+      tone: AppStatusTone.accent,
     );
   }
 }
@@ -690,21 +792,10 @@ class _SummaryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black45,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return AppStatusChip(
+      label: '$label: $value',
+      tone: AppStatusTone.neutral,
+      showIcon: false,
     );
   }
 }
@@ -716,21 +807,10 @@ class _IssueChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.redAccent,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return AppStatusChip(
+      label: label,
+      tone: AppStatusTone.danger,
+      icon: Icons.report_problem_outlined,
     );
   }
 }
@@ -751,7 +831,7 @@ class _RecommendationRow extends StatelessWidget {
             padding: EdgeInsets.only(top: 2),
             child: Icon(
               Icons.subdirectory_arrow_right_rounded,
-              color: Colors.greenAccent,
+              color: AppColors.analysisAccent,
               size: 18,
             ),
           ),
@@ -780,12 +860,13 @@ class _RepMetricPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black45,
+        color: colors.surfaceMuted,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: colors.outlineSubtle),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -793,13 +874,13 @@ class _RepMetricPill extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: TextStyle(color: colors.foregroundSubtle, fontSize: 11),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colors.foreground,
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
@@ -908,12 +989,16 @@ String _repStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
   };
 }
 
-Color _repStatusColor(WorkoutRep rep) {
-  return switch (rep.validationStatus) {
-    'valid' => Colors.greenAccent,
-    'low confidence' || 'lowConfidence' => Colors.amberAccent,
-    'invalid' => Colors.redAccent,
-    _ => Colors.white70,
+String _sessionResultLabel(
+  AppLocalizations localizations,
+  SessionResultTone tone,
+) {
+  return switch (tone) {
+    SessionResultTone.excellent => localizations.summaryResultExcellent,
+    SessionResultTone.strong => localizations.summaryResultStrong,
+    SessionResultTone.steady => localizations.summaryResultSteady,
+    SessionResultTone.focus => localizations.summaryResultNeedsFocus,
+    SessionResultTone.completed => localizations.summaryResultCompleted,
   };
 }
 

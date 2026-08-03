@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
+import 'session_result_visual.dart';
 
 class WorkoutSummaryContent extends StatelessWidget {
   const WorkoutSummaryContent({
@@ -98,8 +101,6 @@ class WorkoutSummaryContent extends StatelessWidget {
   }
 }
 
-enum _SummaryTone { excellent, strong, steady, focus, completed }
-
 class _SummaryOutcomeCard extends StatelessWidget {
   const _SummaryOutcomeCard({required this.session, required this.report});
 
@@ -109,17 +110,23 @@ class _SummaryOutcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final tone = _summaryTone(session);
-    final accent = _summaryToneColor(tone);
+    final colors = context.semanticColors;
+    final tone = sessionResultTone(session);
+    final accent = tone.resolveColor(colors);
     final primaryValue = session.isHoldSession
         ? WorkoutPresentationFormatter.holdDuration(session.totalHoldSeconds)
         : WorkoutPresentationFormatter.roundedScore(session.averageScore);
+    final validation = _summaryValidationCounts(session);
 
     return AppSurfaceCard(
       key: const ValueKey<String>('workout-summary-outcome-card'),
       padding: const EdgeInsets.all(20),
       radius: 20,
-      color: const Color(0xFF111A17),
+      variant: AppSurfaceVariant.strong,
+      color: Color.alphaBlend(
+        accent.withValues(alpha: 0.055),
+        colors.surfaceStrong,
+      ),
       borderColor: accent.withValues(alpha: 0.48),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +142,7 @@ class _SummaryOutcomeCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: accent.withValues(alpha: 0.36)),
                 ),
-                child: Icon(_summaryToneIcon(tone), color: accent, size: 25),
+                child: Icon(tone.icon, color: accent, size: 25),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -173,15 +180,37 @@ class _SummaryOutcomeCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Flexible(
-                child: Text(
-                  primaryValue,
-                  key: const ValueKey<String>('workout-summary-primary-value'),
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 44,
-                    height: 0.95,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1.2,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.resolveDuration(
+                    context,
+                    AppMotionDurations.emphasized,
+                  ),
+                  switchInCurve: AppMotionCurves.standard,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(
+                        begin: 0.96,
+                        end: 1,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey<String>(primaryValue),
+                    child: Text(
+                      primaryValue,
+                      key: const ValueKey<String>(
+                        'workout-summary-primary-value',
+                      ),
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 44,
+                        height: 0.95,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -204,16 +233,113 @@ class _SummaryOutcomeCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             _summaryNarrative(localizations, report),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.foregroundMuted,
               height: 1.45,
             ),
           ),
+          if (validation != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            _SummaryValidationOverview(counts: validation),
+          ],
         ],
       ),
     );
   }
+}
+
+class _SummaryValidationOverview extends StatelessWidget {
+  const _SummaryValidationOverview({required this.counts});
+
+  final _SummaryValidationCounts counts;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
+    return Semantics(
+      container: true,
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          if (counts.valid > 0)
+            AppStatusChip(
+              label: '${localizations.valid}: ${counts.valid}',
+              tone: AppStatusTone.success,
+              icon: Icons.check_circle_rounded,
+            ),
+          if (counts.lowConfidence > 0)
+            AppStatusChip(
+              label: '${localizations.lowConfidence}: ${counts.lowConfidence}',
+              tone: AppStatusTone.caution,
+              icon: Icons.visibility_outlined,
+            ),
+          if (counts.invalid > 0)
+            AppStatusChip(
+              label: '${localizations.invalid}: ${counts.invalid}',
+              tone: AppStatusTone.invalid,
+              icon: Icons.close_rounded,
+            ),
+          if (counts.unknown > 0)
+            AppStatusChip(
+              label: '${localizations.uncertain}: ${counts.unknown}',
+              tone: AppStatusTone.neutral,
+              icon: Icons.help_outline_rounded,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryValidationCounts {
+  const _SummaryValidationCounts({
+    required this.valid,
+    required this.lowConfidence,
+    required this.invalid,
+    required this.unknown,
+  });
+
+  final int valid;
+  final int lowConfidence;
+  final int invalid;
+  final int unknown;
+}
+
+_SummaryValidationCounts? _summaryValidationCounts(WorkoutSession session) {
+  if (session.isHoldSession) return null;
+
+  final reps = session.reps;
+  if (reps != null && reps.isNotEmpty) {
+    final valid = reps.where((rep) => rep.isValidatedAsValid).length;
+    final lowConfidence = reps
+        .where((rep) => rep.isValidatedAsLowConfidence)
+        .length;
+    final invalid = reps.where((rep) => rep.isValidatedAsInvalid).length;
+    final unknown = reps.where((rep) => rep.isValidationUnknown).length;
+    if (valid + lowConfidence + invalid + unknown > 0) {
+      return _SummaryValidationCounts(
+        valid: valid,
+        lowConfidence: lowConfidence,
+        invalid: invalid,
+        unknown: unknown,
+      );
+    }
+  }
+
+  if (session.validReps <= 0 &&
+      session.lowConfidenceReps <= 0 &&
+      session.invalidReps <= 0) {
+    return null;
+  }
+
+  return _SummaryValidationCounts(
+    valid: session.validReps,
+    lowConfidence: session.lowConfidenceReps,
+    invalid: session.invalidReps,
+    unknown: 0,
+  );
 }
 
 class _SummaryInsights extends StatelessWidget {
@@ -417,44 +543,28 @@ class _SummaryActions extends StatelessWidget {
       key: const ValueKey<String>('workout-summary-actions'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ElevatedButton.icon(
+        AppButton(
           key: const ValueKey<String>('workout-summary-retry-action'),
+          label: localizations.repeatSameExercise,
           onPressed: onRetry,
-          icon: const Icon(Icons.replay_rounded),
-          label: Text(localizations.repeatSameExercise),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            foregroundColor: Colors.black,
-            minimumSize: const Size.fromHeight(56),
-            textStyle: const TextStyle(fontWeight: FontWeight.w900),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+          icon: Icons.replay_rounded,
+          expand: true,
         ),
         SizedBox(height: layout.sectionGap),
-        OutlinedButton.icon(
+        AppButton(
+          label: localizations.viewDetails,
           onPressed: onOpenDetails,
-          icon: const Icon(Icons.insights_outlined),
-          label: Text(localizations.viewDetails),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: BorderSide(color: AppColors.accent.withValues(alpha: 0.42)),
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+          icon: Icons.insights_outlined,
+          variant: AppButtonVariant.outline,
+          expand: true,
         ),
-        const SizedBox(height: 4),
-        TextButton.icon(
+        const SizedBox(height: AppSpacing.xxs),
+        AppButton(
+          label: localizations.returnHome,
           onPressed: onReturnHome,
-          icon: const Icon(Icons.home_outlined),
-          label: Text(localizations.returnHome),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white70,
-            minimumSize: const Size.fromHeight(48),
-          ),
+          icon: Icons.home_outlined,
+          variant: AppButtonVariant.ghost,
+          expand: true,
         ),
       ],
     );
@@ -469,77 +579,24 @@ class _SummaryValueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      radius: 14,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.66),
-              fontSize: 12,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.accent,
-              fontSize: 22,
-              height: 1,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
+    return AppMetricTile(
+      label: label,
+      value: value,
+      tone: AppStatusTone.accent,
     );
   }
 }
 
-_SummaryTone _summaryTone(WorkoutSession session) {
-  if (session.isHoldSession) {
-    if (session.totalHoldSeconds <= 0) return _SummaryTone.focus;
-    if (session.formBreakCount == 0 && session.totalHoldSeconds >= 30) {
-      return _SummaryTone.strong;
-    }
-    return _SummaryTone.completed;
-  }
-
-  if (session.averageScore <= 0) return _SummaryTone.completed;
-  if (session.averageScore >= 90) return _SummaryTone.excellent;
-  if (session.averageScore >= 80) return _SummaryTone.strong;
-  if (session.averageScore >= 70) return _SummaryTone.steady;
-  return _SummaryTone.focus;
-}
-
-Color _summaryToneColor(_SummaryTone tone) {
+String _summaryToneLabel(
+  AppLocalizations localizations,
+  SessionResultTone tone,
+) {
   return switch (tone) {
-    _SummaryTone.excellent || _SummaryTone.strong => AppColors.accent,
-    _SummaryTone.steady || _SummaryTone.completed => Colors.lightBlueAccent,
-    _SummaryTone.focus => Colors.amberAccent,
-  };
-}
-
-IconData _summaryToneIcon(_SummaryTone tone) {
-  return switch (tone) {
-    _SummaryTone.excellent => Icons.auto_awesome_rounded,
-    _SummaryTone.strong => Icons.verified_rounded,
-    _SummaryTone.steady => Icons.trending_up_rounded,
-    _SummaryTone.focus => Icons.track_changes_rounded,
-    _SummaryTone.completed => Icons.check_circle_outline_rounded,
-  };
-}
-
-String _summaryToneLabel(AppLocalizations localizations, _SummaryTone tone) {
-  return switch (tone) {
-    _SummaryTone.excellent => localizations.summaryResultExcellent,
-    _SummaryTone.strong => localizations.summaryResultStrong,
-    _SummaryTone.steady => localizations.summaryResultSteady,
-    _SummaryTone.focus => localizations.summaryResultNeedsFocus,
-    _SummaryTone.completed => localizations.summaryResultCompleted,
+    SessionResultTone.excellent => localizations.summaryResultExcellent,
+    SessionResultTone.strong => localizations.summaryResultStrong,
+    SessionResultTone.steady => localizations.summaryResultSteady,
+    SessionResultTone.focus => localizations.summaryResultNeedsFocus,
+    SessionResultTone.completed => localizations.summaryResultCompleted,
   };
 }
 
