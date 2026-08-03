@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../application/workout_engine.dart';
 
 /// Result returned to live analysis when the planned-workout rest route closes.
 enum WorkoutRestResult { completed, skipped }
@@ -16,6 +18,11 @@ class WorkoutRestScreen extends StatefulWidget {
     required this.nextExerciseName,
     required this.nextSetNumber,
     this.tickDuration = const Duration(seconds: 1),
+    this.showExerciseCompletionTransition = false,
+    this.completedExerciseName,
+    this.exerciseCompletionTransitionDuration = const Duration(
+      milliseconds: 1500,
+    ),
   });
 
   final Duration duration;
@@ -23,6 +30,9 @@ class WorkoutRestScreen extends StatefulWidget {
   final String nextExerciseName;
   final int nextSetNumber;
   final Duration tickDuration;
+  final bool showExerciseCompletionTransition;
+  final String? completedExerciseName;
+  final Duration exerciseCompletionTransitionDuration;
 
   @override
   State<WorkoutRestScreen> createState() => _WorkoutRestScreenState();
@@ -30,31 +40,59 @@ class WorkoutRestScreen extends StatefulWidget {
 
 class _WorkoutRestScreenState extends State<WorkoutRestScreen> {
   static const int _extensionSeconds = 15;
+  static final int _maximumRestSeconds = maxWorkoutPlanRestDuration.inSeconds;
   Timer? _timer;
+  Timer? _exerciseCompletionTimer;
   late int _remainingSeconds;
   late int _activeDurationSeconds;
+  late bool _showExerciseCompletionTransition;
   bool _timerElapsed = false;
   bool _isClosing = false;
   bool _allowPop = false;
 
-  int get _totalSeconds => widget.duration.inSeconds.clamp(0, 86400).toInt();
+  int get _totalSeconds =>
+      widget.duration.inSeconds.clamp(0, _maximumRestSeconds).toInt();
 
   @override
   void initState() {
     super.initState();
     _remainingSeconds = _totalSeconds;
     _activeDurationSeconds = _totalSeconds;
-    if (_remainingSeconds <= 0) {
-      _timerElapsed = true;
+    _showExerciseCompletionTransition = widget.showExerciseCompletionTransition;
+    if (_showExerciseCompletionTransition) {
+      _exerciseCompletionTimer = Timer(
+        widget.exerciseCompletionTransitionDuration,
+        _completeExerciseTransition,
+      );
       return;
     }
-    _startTimer();
+    _startRestFlow();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _exerciseCompletionTimer?.cancel();
     super.dispose();
+  }
+
+  void _completeExerciseTransition() {
+    if (!mounted || _isClosing || !_showExerciseCompletionTransition) {
+      return;
+    }
+    setState(() => _showExerciseCompletionTransition = false);
+    _startRestFlow();
+  }
+
+  void _startRestFlow() {
+    if (_remainingSeconds <= 0) {
+      _timerElapsed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _finish(WorkoutRestResult.completed);
+      });
+      return;
+    }
+    _startTimer();
   }
 
   void _startTimer() {
@@ -72,6 +110,9 @@ class _WorkoutRestScreenState extends State<WorkoutRestScreen> {
         _remainingSeconds = 0;
         _timerElapsed = true;
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _finish(WorkoutRestResult.completed);
+      });
       return;
     }
     setState(() => _remainingSeconds -= 1);
@@ -81,14 +122,18 @@ class _WorkoutRestScreenState extends State<WorkoutRestScreen> {
     if (_isClosing) {
       return;
     }
+    if (_remainingSeconds >= _maximumRestSeconds) {
+      return;
+    }
     setState(() {
-      if (_timerElapsed || _remainingSeconds <= 0) {
-        _remainingSeconds = _extensionSeconds;
-        _activeDurationSeconds = _extensionSeconds;
-      } else {
-        _remainingSeconds += _extensionSeconds;
-        _activeDurationSeconds += _extensionSeconds;
-      }
+      final nextRemaining = (_remainingSeconds + _extensionSeconds)
+          .clamp(0, _maximumRestSeconds)
+          .toInt();
+      final addedSeconds = nextRemaining - _remainingSeconds;
+      _remainingSeconds = nextRemaining;
+      _activeDurationSeconds = (_activeDurationSeconds + addedSeconds)
+          .clamp(1, _maximumRestSeconds)
+          .toInt();
       _timerElapsed = false;
     });
     _startTimer();
@@ -100,6 +145,7 @@ class _WorkoutRestScreenState extends State<WorkoutRestScreen> {
     }
     _isClosing = true;
     _timer?.cancel();
+    _exerciseCompletionTimer?.cancel();
     setState(() => _allowPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && Navigator.of(context).canPop()) {
@@ -132,79 +178,213 @@ class _WorkoutRestScreenState extends State<WorkoutRestScreen> {
             ),
           ),
           child: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final layout = AppLayout.of(context, constraints: constraints);
-                final useSplitLayout =
-                    layout.isLandscape &&
-                    constraints.maxWidth >= 700 &&
-                    !layout.hasLargeText;
-                final countdown = _RestCountdownPanel(
-                  planName: widget.planName,
-                  remainingSeconds: _remainingSeconds,
-                  progress: progress.clamp(0.0, 1.0).toDouble(),
-                  timerElapsed: _timerElapsed,
-                  compact: layout.isCompact,
-                );
-                final details = _RestDetailsPanel(
-                  nextExerciseName: widget.nextExerciseName,
-                  nextSetNumber: widget.nextSetNumber,
-                  extensionSeconds: _extensionSeconds,
-                  onAddTime: _addRestTime,
-                  onReady: () => _finish(WorkoutRestResult.completed),
-                );
+            child: _showExerciseCompletionTransition
+                ? _ExerciseCompletionTransitionView(
+                    completedExerciseName: widget.completedExerciseName,
+                    nextExerciseName: widget.nextExerciseName,
+                    nextSetNumber: widget.nextSetNumber,
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final layout = AppLayout.of(
+                        context,
+                        constraints: constraints,
+                      );
+                      final useSplitLayout =
+                          layout.isLandscape &&
+                          constraints.maxWidth >= 700 &&
+                          !layout.hasLargeText;
+                      final countdown = _RestCountdownPanel(
+                        planName: widget.planName,
+                        remainingSeconds: _remainingSeconds,
+                        progress: progress.clamp(0.0, 1.0).toDouble(),
+                        timerElapsed: _timerElapsed,
+                        compact: layout.isCompact,
+                      );
+                      final details = _RestDetailsPanel(
+                        nextExerciseName: widget.nextExerciseName,
+                        nextSetNumber: widget.nextSetNumber,
+                        extensionSeconds: _extensionSeconds,
+                        canAddTime: _remainingSeconds < _maximumRestSeconds,
+                        onAddTime: _addRestTime,
+                        onReady: () => _finish(WorkoutRestResult.completed),
+                      );
 
-                return Padding(
-                  padding: layout.pagePadding,
-                  child: useSplitLayout
-                      ? Row(
-                          key: const ValueKey<String>(
-                            'planned-rest-split-layout',
-                          ),
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Expanded(
-                              flex: 5,
-                              child: LayoutBuilder(
-                                builder: (context, paneConstraints) =>
-                                    SingleChildScrollView(
-                                      child: ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          minHeight: paneConstraints.maxHeight,
-                                        ),
-                                        child: countdown,
-                                      ),
+                      return Padding(
+                        padding: layout.pagePadding,
+                        child: useSplitLayout
+                            ? Row(
+                                key: const ValueKey<String>(
+                                  'planned-rest-split-layout',
+                                ),
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  Expanded(
+                                    flex: 5,
+                                    child: LayoutBuilder(
+                                      builder: (context, paneConstraints) =>
+                                          SingleChildScrollView(
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                minHeight:
+                                                    paneConstraints.maxHeight,
+                                              ),
+                                              child: countdown,
+                                            ),
+                                          ),
                                     ),
+                                  ),
+                                  SizedBox(width: layout.panelGap),
+                                  SizedBox(
+                                    width: (constraints.maxWidth * 0.36)
+                                        .clamp(300.0, 380.0)
+                                        .toDouble(),
+                                    child: SingleChildScrollView(
+                                      child: details,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : SingleChildScrollView(
+                                key: const ValueKey<String>(
+                                  'planned-rest-stacked-layout',
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: <Widget>[
+                                    countdown,
+                                    SizedBox(height: layout.sectionGap),
+                                    details,
+                                  ],
+                                ),
                               ),
-                            ),
-                            SizedBox(width: layout.panelGap),
-                            SizedBox(
-                              width: (constraints.maxWidth * 0.36)
-                                  .clamp(300.0, 380.0)
-                                  .toDouble(),
-                              child: SingleChildScrollView(child: details),
-                            ),
-                          ],
-                        )
-                      : SingleChildScrollView(
-                          key: const ValueKey<String>(
-                            'planned-rest-stacked-layout',
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              countdown,
-                              SizedBox(height: layout.sectionGap),
-                              details,
-                            ],
-                          ),
-                        ),
-                );
-              },
-            ),
+                      );
+                    },
+                  ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ExerciseCompletionTransitionView extends StatelessWidget {
+  const _ExerciseCompletionTransitionView({
+    required this.completedExerciseName,
+    required this.nextExerciseName,
+    required this.nextSetNumber,
+  });
+
+  final String? completedExerciseName;
+  final String nextExerciseName;
+  final int nextSetNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final completedName = completedExerciseName?.trim();
+    final message = completedName == null || completedName.isEmpty
+        ? localizations.restSetCompleted
+        : localizations.plannedExerciseCompletedMessage(completedName);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = AppLayout.of(context, constraints: constraints);
+        return SingleChildScrollView(
+          key: const ValueKey<String>('planned-exercise-completion-transition'),
+          padding: layout.pagePadding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - layout.pagePadding.vertical)
+                  .clamp(0.0, double.infinity)
+                  .toDouble(),
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: layout.isCompact ? 88 : 104,
+                      height: layout.isCompact ? 88 : 104,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        border: Border.all(
+                          color: AppColors.success.withValues(alpha: 0.48),
+                          width: 2,
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: AppColors.success.withValues(alpha: 0.22),
+                            blurRadius: 40,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: AppColors.success,
+                        size: 58,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Text(
+                      localizations.plannedExerciseCompleted,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: AppColors.primaryForeground,
+                            fontWeight: AppFontWeights.heavy,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.secondaryForeground,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.analysisAccent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                        border: Border.all(
+                          color: AppColors.analysisAccent.withValues(
+                            alpha: 0.30,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        localizations.nextPlannedStep(
+                          nextExerciseName,
+                          nextSetNumber,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.secondaryForeground,
+                          fontWeight: AppFontWeights.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -329,6 +509,7 @@ class _RestDetailsPanel extends StatelessWidget {
     required this.nextExerciseName,
     required this.nextSetNumber,
     required this.extensionSeconds,
+    required this.canAddTime,
     required this.onAddTime,
     required this.onReady,
   });
@@ -338,6 +519,7 @@ class _RestDetailsPanel extends StatelessWidget {
   final String nextExerciseName;
   final int nextSetNumber;
   final int extensionSeconds;
+  final bool canAddTime;
   final VoidCallback onAddTime;
   final VoidCallback onReady;
 
@@ -420,7 +602,7 @@ class _RestDetailsPanel extends StatelessWidget {
             final stackActions = constraints.maxWidth < 330 || textScale >= 1.5;
             final addButton = OutlinedButton.icon(
               key: const ValueKey<String>('add-planned-rest-time'),
-              onPressed: onAddTime,
+              onPressed: canAddTime ? onAddTime : null,
               icon: const Icon(Icons.add_alarm_rounded),
               label: Text(localizations.addRestTime(extensionSeconds)),
               style: OutlinedButton.styleFrom(

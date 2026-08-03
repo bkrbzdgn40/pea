@@ -5,7 +5,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import '../../../../support/presentation_test_support.dart';
 
 void main() {
-  testWidgets('waits for user confirmation when the rest timer finishes', (
+  testWidgets('advances automatically when the rest timer reaches zero', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(tester, home: const _WorkoutRestHost());
@@ -23,19 +23,87 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
-
-    expect(find.text('0:00'), findsOneWidget);
-    expect(find.text('Hazırsın'), findsOneWidget);
-    expect(find.text('Dinlenme'), findsNothing);
-    expect(find.text('completed'), findsNothing);
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('complete-planned-rest')),
-    );
     await tester.pumpAndSettle();
 
     expect(find.text('completed'), findsOneWidget);
+    expect(find.text('Dinlenme'), findsNothing);
+  });
+
+  testWidgets(
+    'shows a short exercise-completion transition before rest starts',
+    (WidgetTester tester) async {
+      await pumpTestApp(
+        tester,
+        home: const WorkoutRestScreen(
+          duration: Duration(seconds: 2),
+          planName: 'Ev Planı',
+          nextExerciseName: 'Plank',
+          nextSetNumber: 1,
+          completedExerciseName: 'Squat',
+          showExerciseCompletionTransition: true,
+          exerciseCompletionTransitionDuration: Duration(milliseconds: 200),
+          tickDuration: Duration(milliseconds: 100),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('planned-exercise-completion-transition'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Egzersiz tamamlandı'), findsOneWidget);
+      expect(
+        find.text('Squat tamamlandı. Kısa bir dinlenme başlıyor.'),
+        findsOneWidget,
+      );
+      expect(find.text('Sırada: Plank • Set 1'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('planned-rest-countdown')),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(
+        find.byKey(
+          const ValueKey<String>('planned-exercise-completion-transition'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        find.byKey(
+          const ValueKey<String>('planned-exercise-completion-transition'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('0:02'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('clamps the rest screen and extension action to sixty seconds', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const WorkoutRestScreen(
+        duration: Duration(seconds: 75),
+        planName: 'Ev Planı',
+        nextExerciseName: 'Squat',
+        nextSetNumber: 2,
+        tickDuration: Duration(minutes: 1),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('1:00'), findsOneWidget);
+    final addButton = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey<String>('add-planned-rest-time')),
+    );
+    expect(addButton.onPressed, isNull);
   });
 
   testWidgets('uses a split layout in a compact landscape viewport', (

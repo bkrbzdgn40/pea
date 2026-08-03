@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../app/layout/app_layout.dart';
 import '../../../../../app/localization/app_localizations.dart';
-import '../../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../../app/presentation/widgets/app_ui_primitives.dart';
 import '../../../application/exercise_catalog.dart';
 import '../../../application/exercise_definition_metadata.dart';
 import '../../../application/saved_workout_plan.dart';
@@ -16,7 +16,14 @@ import '../../screens/workout_plan_review_screen.dart';
 import 'exercise_picker_sheet.dart';
 import 'workout_plan_builder_widgets.dart';
 
-enum WorkoutPlanBuilderResult { saved }
+enum WorkoutPlanBuilderAction { saved, start }
+
+class WorkoutPlanBuilderResult {
+  const WorkoutPlanBuilderResult({required this.action, required this.plan});
+
+  final WorkoutPlanBuilderAction action;
+  final SavedWorkoutPlan plan;
+}
 
 class WorkoutPlanBuilderSheet extends ConsumerStatefulWidget {
   const WorkoutPlanBuilderSheet({super.key, this.initialPlan});
@@ -421,44 +428,51 @@ class _WorkoutPlanBuilderSheetState
   }
 
   Widget _buildBuilderFooter(AppLocalizations localizations) {
-    final saveButton = OutlinedButton.icon(
+    final saveButton = AppButton(
       key: const ValueKey<String>('save-workout-plan'),
+      label: _planId == null
+          ? localizations.savePlan
+          : localizations.savePlanChanges,
+      icon: Icons.save_outlined,
+      variant: AppButtonVariant.outline,
+      isLoading: _isSaving,
+      expand: true,
       onPressed: _canSave ? _savePlan : null,
-      icon: _isSaving
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.save_outlined),
-      label: Text(
-        _planId == null
-            ? localizations.savePlan
-            : localizations.savePlanChanges,
-      ),
     );
-    final reviewButton = ElevatedButton.icon(
+    final reviewButton = AppButton(
       key: const ValueKey<String>('review-workout-plan'),
-      onPressed: _canContinue ? _openReview : null,
-      icon: const Icon(Icons.summarize_rounded),
-      label: Text(localizations.reviewPlan),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        backgroundColor: Colors.greenAccent,
-        foregroundColor: Colors.black,
-      ),
+      label: localizations.reviewPlan,
+      icon: Icons.summarize_rounded,
+      variant: AppButtonVariant.secondary,
+      expand: true,
+      onPressed: _canContinue && !_isSaving ? _openReview : null,
+    );
+    final startButton = AppButton(
+      key: const ValueKey<String>('start-workout-plan'),
+      label: localizations.saveAndStartPlan,
+      icon: Icons.play_arrow_rounded,
+      isLoading: _isSaving,
+      expand: true,
+      onPressed: _canContinue && !_isSaving ? _saveAndStart : null,
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final stackActions = constraints.maxWidth < 420 || textScale > 1.3;
+        final stackActions = constraints.maxWidth < 520 || textScale > 1.3;
         if (stackActions) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              saveButton,
+              startButton,
               const SizedBox(height: 8),
-              reviewButton,
+              Row(
+                children: <Widget>[
+                  Expanded(child: saveButton),
+                  const SizedBox(width: 8),
+                  Expanded(child: reviewButton),
+                ],
+              ),
             ],
           );
         }
@@ -467,6 +481,8 @@ class _WorkoutPlanBuilderSheetState
             Expanded(child: saveButton),
             const SizedBox(width: 10),
             Expanded(child: reviewButton),
+            const SizedBox(width: 10),
+            Expanded(child: startButton),
           ],
         );
       },
@@ -569,30 +585,50 @@ class _WorkoutPlanBuilderSheetState
     if (!_canSave) {
       return;
     }
-    setState(() => _isSaving = true);
+    await _completeBuilder(WorkoutPlanBuilderAction.saved);
+  }
+
+  Future<void> _saveAndStart() async {
+    if (!_canContinue || _isSaving) {
+      return;
+    }
+    await _completeBuilder(WorkoutPlanBuilderAction.start);
+  }
+
+  Future<void> _completeBuilder(WorkoutPlanBuilderAction action) async {
     final plan = _buildPlan();
-    try {
-      await ref.read(savedWorkoutPlansProvider.notifier).save(plan);
-      if (!mounted) {
+    if (_hasUnsavedChanges) {
+      setState(() => _isSaving = true);
+      try {
+        await ref.read(savedWorkoutPlansProvider.notifier).save(plan);
+      } catch (_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _isSaving = false);
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).planSaveFailed)),
+        );
         return;
       }
-      setState(() {
-        _allowSheetPop = true;
-      });
-      await WidgetsBinding.instance.endOfFrame;
-      if (mounted) {
-        Navigator.of(context).pop(WorkoutPlanBuilderResult.saved);
-      }
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _isSaving = false);
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).planSaveFailed)),
-      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _planId = plan.id;
+      _loadedPlanBaseline = plan;
+      _isSaving = false;
+      _allowSheetPop = true;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) {
+      Navigator.of(
+        context,
+      ).pop(WorkoutPlanBuilderResult(action: action, plan: plan));
     }
   }
 

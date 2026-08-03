@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../application/saved_workout_plan.dart';
+import '../controllers/workout_plan_launcher.dart';
 import '../providers/saved_workout_plans_provider.dart';
 import '../widgets/workout_plan/saved_plans_section.dart';
 import '../widgets/workout_plan/workout_plan_builder_sheet.dart';
@@ -20,13 +24,10 @@ class WorkoutPlanSetupScreen extends ConsumerStatefulWidget {
 
 class _WorkoutPlanSetupScreenState
     extends ConsumerState<WorkoutPlanSetupScreen> {
-  String? _selectedPlanId;
-
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final savedPlans = ref.watch(savedWorkoutPlansProvider);
-    final selectedPlan = _findSelectedPlan(savedPlans.valueOrNull);
 
     return AppScaffoldShell(
       title: localizations.plannedWorkout,
@@ -38,29 +39,20 @@ class _WorkoutPlanSetupScreenState
             padding: layout.pagePadding,
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 980),
+                constraints: const BoxConstraints(maxWidth: 1040),
                 child: ListView(
                   key: const ValueKey<String>('workout-plan-home-scroll'),
                   padding: EdgeInsets.zero,
                   children: <Widget>[
-                    Text(
-                      localizations.plannedWorkoutBuilderIntro,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        height: 1.35,
-                      ),
-                    ),
+                    _PlannedWorkoutHero(onCreate: () => _openPlanBuilder()),
                     SizedBox(height: layout.sectionGap),
                     SavedPlansSection(
                       plans: savedPlans,
-                      selectedPlanId: _selectedPlanId,
-                      onSelect: (plan) =>
-                          setState(() => _selectedPlanId = plan.id),
                       onDelete: _confirmDeletePlan,
                       onNew: () => _openPlanBuilder(),
-                      onReview: selectedPlan == null
-                          ? null
-                          : () => _openSelectedPlanReview(selectedPlan),
+                      onReview: _openPlanReview,
+                      onEdit: _openPlanBuilder,
+                      onStart: _startPlan,
                     ),
                   ],
                 ),
@@ -72,20 +64,7 @@ class _WorkoutPlanSetupScreenState
     );
   }
 
-  SavedWorkoutPlan? _findSelectedPlan(List<SavedWorkoutPlan>? plans) {
-    final selectedPlanId = _selectedPlanId;
-    if (selectedPlanId == null || plans == null) {
-      return null;
-    }
-    for (final plan in plans) {
-      if (plan.id == selectedPlanId) {
-        return plan;
-      }
-    }
-    return null;
-  }
-
-  Future<void> _openSelectedPlanReview(SavedWorkoutPlan plan) async {
+  Future<void> _openPlanReview(SavedWorkoutPlan plan) async {
     final result = await Navigator.push<WorkoutPlanReviewResult>(
       context,
       MaterialPageRoute(
@@ -102,6 +81,10 @@ class _WorkoutPlanSetupScreenState
     await _openPlanBuilder(plan);
   }
 
+  void _startPlan(SavedWorkoutPlan plan) {
+    launchWorkoutPlan(context: context, ref: ref, plan: plan);
+  }
+
   Future<void> _openPlanBuilder([SavedWorkoutPlan? plan]) async {
     final result = await showModalBottomSheet<WorkoutPlanBuilderResult>(
       context: context,
@@ -112,7 +95,12 @@ class _WorkoutPlanSetupScreenState
       barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (_) => WorkoutPlanBuilderSheet(initialPlan: plan),
     );
-    if (!mounted || result != WorkoutPlanBuilderResult.saved) {
+    if (!mounted || result == null) {
+      return;
+    }
+
+    if (result.action == WorkoutPlanBuilderAction.start) {
+      _startPlan(result.plan);
       return;
     }
 
@@ -147,8 +135,91 @@ class _WorkoutPlanSetupScreenState
     }
 
     await ref.read(savedWorkoutPlansProvider.notifier).delete(plan.id);
-    if (mounted && _selectedPlanId == plan.id) {
-      setState(() => _selectedPlanId = null);
-    }
+  }
+}
+
+class _PlannedWorkoutHero extends StatelessWidget {
+  const _PlannedWorkoutHero({required this.onCreate});
+
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.accent,
+      radius: AppRadii.large,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stack =
+              constraints.maxWidth < 620 ||
+              MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+          final copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: colors.analysisAccent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppRadii.surface),
+                  border: Border.all(
+                    color: colors.analysisAccent.withValues(alpha: 0.38),
+                  ),
+                ),
+                child: Icon(
+                  Icons.route_rounded,
+                  color: colors.analysisAccent,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                localizations.plannedWorkout,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.foreground,
+                  fontWeight: AppFontWeights.heavy,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                localizations.plannedWorkoutBuilderIntro,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.foregroundMuted,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          );
+          final action = AppButton(
+            key: const ValueKey<String>('new-workout-plan'),
+            label: localizations.newPlan,
+            icon: Icons.add_rounded,
+            expand: stack,
+            onPressed: onCreate,
+          );
+          if (stack) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                copy,
+                const SizedBox(height: AppSpacing.lg),
+                action,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Expanded(child: copy),
+              const SizedBox(width: AppSpacing.xl),
+              SizedBox(width: 180, child: action),
+            ],
+          );
+        },
+      ),
+    );
   }
 }

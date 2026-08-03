@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/presentation/widgets/app_button.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/saved_workout_plan.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_engine.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
@@ -102,6 +103,74 @@ void main() {
     expect(find.text('30 sn'), findsOneWidget);
   });
 
+  testWidgets('caps plan rest at sixty seconds', (WidgetTester tester) async {
+    _useTallPhoneViewport(tester);
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
+    await _addExercise(tester, ExerciseType.squat);
+
+    final addRest = find.byTooltip('Dinlenme +').first;
+    for (var index = 0; index < 3; index += 1) {
+      await tester.tap(addRest);
+      await tester.pump();
+    }
+
+    expect(find.text('60 sn'), findsOneWidget);
+    await tester.tap(addRest, warnIfMissed: false);
+    await tester.pump();
+    expect(find.text('60 sn'), findsOneWidget);
+  });
+
+  testWidgets('uses a searchable horizontally filtered exercise picker', (
+    WidgetTester tester,
+  ) async {
+    _useTallPhoneViewport(tester);
+    final repository = _MemoryWorkoutPlanRepository();
+    await pumpTestApp(
+      tester,
+      home: const WorkoutPlanSetupScreen(),
+      overrides: [workoutPlanRepositoryProvider.overrideWithValue(repository)],
+    );
+    await tester.pumpAndSettle();
+    await _openNewPlanBuilder(tester);
+
+    final addButton = find.byKey(const ValueKey<String>('add-plan-exercise'));
+    await tester.ensureVisible(addButton);
+    await tester.tap(addButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('plan-exercise-region-scroll')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('plan-exercise-picker-list')),
+      findsOneWidget,
+    );
+    expect(find.text('Tüm Hareketler'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('plan-exercise-search')),
+      'plank',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('plan-picker-plank')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('plan-picker-squat')),
+      findsNothing,
+    );
+  });
+
   testWidgets('reorders entries downward using the adjusted item index', (
     WidgetTester tester,
   ) async {
@@ -131,7 +200,7 @@ void main() {
     expect(find.text('3. Squat'), findsOneWidget);
   });
 
-  testWidgets('selects a saved plan before opening its summary and editor', (
+  testWidgets('opens saved plan actions directly from its card', (
     WidgetTester tester,
   ) async {
     _useTallPhoneViewport(tester);
@@ -153,55 +222,22 @@ void main() {
     final saveButton = find.byKey(const ValueKey<String>('save-workout-plan'));
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
-    await tester.tap(saveButton, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     expect(repository.saveCalls, 1);
     expect(repository.plans, hasLength(1));
-    expect(repository.plans.single.name, 'Ev Planı');
-    expect(
-      repository.plans.single.entries.single.exercise,
-      ExerciseType.bicepsCurl,
-    );
+    final plan = repository.plans.single;
     expect(find.text('Plan kaydedildi.'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
-      findsNothing,
+      find.byKey(ValueKey<String>('edit-plan-${plan.id}')),
+      findsOneWidget,
     );
-
-    final reviewButton = find.byKey(
-      const ValueKey<String>('review-selected-workout-plan'),
-    );
-    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNull);
-
-    await tester.tap(
-      find.byKey(ValueKey<String>('load-plan-${repository.plans.single.id}')),
-    );
-    await tester.pumpAndSettle();
-
     expect(
-      find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
-      findsNothing,
-    );
-    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNotNull);
-
-    await tester.tap(reviewButton);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Plan Özeti'), findsOneWidget);
-    expect(find.text('Ev Planı'), findsOneWidget);
-    expect(find.text('Biseps Curl'), findsOneWidget);
-    expect(
-      tester
-          .widget<OutlinedButton>(
-            find.byKey(const ValueKey<String>('review-save-plan')),
-          )
-          .onPressed,
-      isNull,
+      find.byKey(ValueKey<String>('start-plan-${plan.id}')),
+      findsOneWidget,
     );
 
-    await tester.tap(find.text('Düzenle'));
+    await tester.tap(find.byKey(ValueKey<String>('edit-plan-${plan.id}')));
     await tester.pumpAndSettle();
 
     expect(
@@ -227,7 +263,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Kaydedilmemiş değişiklikler var.'), findsOneWidget);
-    expect(tester.widget<OutlinedButton>(saveButton).onPressed, isNotNull);
+    expect(tester.widget<AppButton>(saveButton).onPressed, isNotNull);
   });
 
   testWidgets('stacks saved plans vertically inside the page scroll', (
@@ -266,6 +302,10 @@ void main() {
       tester.getTopLeft(secondCard).dy,
       greaterThan(tester.getBottomLeft(firstCard).dy),
     );
+    final exerciseStrip = tester.widget<ListView>(
+      find.byKey(const ValueKey<String>('plan-exercise-strip-plan-0')),
+    );
+    expect(exerciseStrip.scrollDirection, Axis.horizontal);
 
     await tester.ensureVisible(find.text('Plan 6'));
     await tester.pumpAndSettle();
@@ -290,7 +330,7 @@ void main() {
     final reviewButton = find.byKey(
       const ValueKey<String>('review-workout-plan'),
     );
-    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNull);
+    expect(tester.widget<AppButton>(reviewButton).onPressed, isNull);
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('workout-plan-name-field')),
@@ -298,7 +338,7 @@ void main() {
     );
     await _addExercise(tester, ExerciseType.plank);
     await tester.ensureVisible(reviewButton);
-    expect(tester.widget<ElevatedButton>(reviewButton).onPressed, isNotNull);
+    expect(tester.widget<AppButton>(reviewButton).onPressed, isNotNull);
 
     await tester.tap(reviewButton);
     await tester.pumpAndSettle();
@@ -320,9 +360,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.saveCalls, 1);
-    expect(tester.widget<OutlinedButton>(reviewSaveButton).onPressed, isNull);
+    expect(tester.widget<AppButton>(reviewSaveButton).onPressed, isNull);
 
-    await tester.tap(find.text('Düzenle'));
+    final reviewEditButton = find.byKey(
+      const ValueKey<String>('review-edit-plan'),
+    );
+    await tester.ensureVisible(reviewEditButton);
+    await tester.pumpAndSettle();
+    await tester.tap(reviewEditButton);
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
@@ -404,7 +449,10 @@ void main() {
       find.byKey(const ValueKey<String>('workout-plan-builder-sheet')),
       findsNothing,
     );
-    expect(find.text('Planlı Antrenman'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('new-workout-plan')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('keeps the modal builder usable on a compact phone viewport', (
@@ -424,15 +472,24 @@ void main() {
     await tester.pumpAndSettle();
     await _openNewPlanBuilder(tester);
 
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('workout-plan-name-field')),
+      'Hızlı Core Planı',
+    );
     await _addExercise(tester, ExerciseType.plank);
     final reviewButton = find.byKey(
       const ValueKey<String>('review-workout-plan'),
     );
-    await tester.ensureVisible(reviewButton);
+    final startButton = find.byKey(
+      const ValueKey<String>('start-workout-plan'),
+    );
+    await tester.ensureVisible(startButton);
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(reviewButton, findsOneWidget);
+    expect(find.text('Kaydet ve Başlat'), findsOneWidget);
+    expect(tester.widget<AppButton>(startButton).onPressed, isNotNull);
   });
 
   testWidgets('uses split plan editing in landscape', (
@@ -499,7 +556,10 @@ void _useTallPhoneViewport(WidgetTester tester) {
 }
 
 Future<void> _openNewPlanBuilder(WidgetTester tester) async {
-  await tester.tap(find.text('Yeni plan'));
+  final newPlanButton = find.byKey(const ValueKey<String>('new-workout-plan'));
+  await tester.ensureVisible(newPlanButton);
+  await tester.pumpAndSettle();
+  await tester.tap(newPlanButton);
   await tester.pumpAndSettle();
 }
 

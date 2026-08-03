@@ -628,6 +628,23 @@ void main() {
       );
     });
 
+    test('rejects rest durations above the plan maximum', () {
+      expect(
+        () => WorkoutEngine(
+          plan: WorkoutPlan(
+            exercises: const <WorkoutExerciseBlock>[
+              WorkoutExerciseBlock(
+                exercise: ExerciseType.squat,
+                target: WorkoutTarget.repetitions(5),
+                restAfterSet: Duration(seconds: 61),
+              ),
+            ],
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('reset clears progress and allows a fresh start', () {
       final engine = WorkoutEngine(
         plan: WorkoutPlan(

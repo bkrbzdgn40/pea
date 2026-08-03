@@ -2,6 +2,8 @@ import '../domain/models/exercise_type.dart';
 import 'exercise_catalog.dart';
 import 'exercise_definition_metadata.dart';
 
+const Duration maxWorkoutPlanRestDuration = Duration(seconds: 60);
+
 enum WorkoutTargetType { repetitions, holdDuration }
 
 class WorkoutTarget {
@@ -575,6 +577,14 @@ class WorkoutEngine {
           block.restAfterSet,
           'block.restAfterSet',
           'Rest duration cannot be negative.',
+        );
+      }
+      if (block.restAfterSet.compareTo(maxWorkoutPlanRestDuration) > 0) {
+        throw ArgumentError.value(
+          block.restAfterSet,
+          'block.restAfterSet',
+          'Rest duration cannot exceed '
+              '${maxWorkoutPlanRestDuration.inSeconds} seconds.',
         );
       }
 

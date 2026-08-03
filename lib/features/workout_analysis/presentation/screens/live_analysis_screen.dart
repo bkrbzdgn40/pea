@@ -548,6 +548,17 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         PlannedResumeCountdownOverlay(
                           value: _plannedWorkoutFlowController
                               .resumeCountdownValue!,
+                          nextExerciseName:
+                              _plannedWorkoutFlowController.resumeExercise ==
+                                  null
+                              ? null
+                              : localizations.exerciseTitle(
+                                  _plannedWorkoutFlowController
+                                      .resumeExercise!
+                                      .id,
+                                ),
+                          nextSetNumber:
+                              _plannedWorkoutFlowController.resumeSetNumber,
                         ),
                       if (pauseState.isActive)
                         const WorkoutAnalysisFailureOverlay(),
@@ -659,6 +670,16 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       PlannedResumeCountdownOverlay(
                         value:
                             _plannedWorkoutFlowController.resumeCountdownValue!,
+                        nextExerciseName:
+                            _plannedWorkoutFlowController.resumeExercise == null
+                            ? null
+                            : localizations.exerciseTitle(
+                                _plannedWorkoutFlowController
+                                    .resumeExercise!
+                                    .id,
+                              ),
+                        nextSetNumber:
+                            _plannedWorkoutFlowController.resumeSetNumber,
                       ),
                     if (pauseState.isActive)
                       const WorkoutAnalysisFailureOverlay(),

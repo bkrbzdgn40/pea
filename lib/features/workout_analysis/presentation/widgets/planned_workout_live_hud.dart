@@ -85,21 +85,16 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
     final isLowConfidenceLastRep =
         metric.lastValidationStatus == 'low confidence' ||
         metric.lastValidationStatus == 'lowConfidence';
-    final hasRepScore = metric.repCount > 0 && !isInvalidLastAttempt;
-    final String secondaryValue;
-    final PlannedWorkoutHudTone secondaryTone;
-    if (isHoldAnalysis) {
-      secondaryValue = formatSeconds(metric.bestHoldSeconds);
-      secondaryTone = PlannedWorkoutHudTone.positive;
-    } else if (hasRepScore) {
-      secondaryValue = metric.lastRepScore.toString();
-      secondaryTone = isLowConfidenceLastRep
-          ? PlannedWorkoutHudTone.caution
-          : PlannedWorkoutHudTone.positive;
-    } else {
-      secondaryValue = '—';
-      secondaryTone = PlannedWorkoutHudTone.muted;
-    }
+    final secondaryMetric = plannedSecondaryMetricPresentation(
+      isHoldAnalysis: isHoldAnalysis,
+      hasCurrentProgress: isHoldAnalysis
+          ? snapshot.currentHoldDuration.compareTo(Duration.zero) > 0
+          : snapshot.currentRepetitions > 0,
+      bestHoldSeconds: metric.bestHoldSeconds,
+      lastRepScore: metric.lastRepScore,
+      isInvalidLastAttempt: isInvalidLastAttempt,
+      isLowConfidenceLastRep: isLowConfidenceLastRep,
+    );
 
     final feedback = trackingPhase == LiveTrackingPhase.tracking
         ? plannedFeedbackPresentation(
@@ -130,8 +125,8 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
             ? localizations.bestMetric
             : localizations.formRangeScoreMetric,
       ),
-      secondaryValue: secondaryValue,
-      secondaryTone: secondaryTone,
+      secondaryValue: secondaryMetric.value,
+      secondaryTone: secondaryMetric.tone,
       progressLabel: localizations.plannedWorkoutProgress(
         round: snapshot.roundNumber,
         totalRounds: snapshot.totalRounds,
