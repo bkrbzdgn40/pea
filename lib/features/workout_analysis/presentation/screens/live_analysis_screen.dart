@@ -36,6 +36,7 @@ import '../widgets/live_analysis/live_analysis_feedback.dart';
 import '../widgets/live_analysis/live_analysis_pause_overlay.dart';
 import '../widgets/live_analysis/live_analysis_pose_overlays.dart';
 import '../widgets/live_analysis/live_analysis_side_panel.dart';
+import '../widgets/live_analysis/live_analysis_stage_effects.dart';
 import '../widgets/live_analysis/live_analysis_top_bar.dart';
 import '../widgets/live_analysis/workout_analysis_failure_overlay.dart';
 import '../widgets/planned_workout_live_hud.dart';
@@ -416,6 +417,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   fit: StackFit.expand,
                   children: <Widget>[
                     CameraPreview(controller),
+                    LiveCameraStageEffects(compact: layout.isLandscape),
                     if (pauseState.isActive)
                       WorkoutPoseOverlay(
                         imageSize: imageSize,

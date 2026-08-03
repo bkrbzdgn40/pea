@@ -108,6 +108,7 @@ class RangeRepSideTrackingIndicator extends ConsumerWidget {
         decoration: liveHudSurfaceDecoration(
           accentColor: accentColor,
           radius: compact ? 17 : 21,
+          glow: hasSelectedSide,
           surfaceColor: liveHudSurface,
         ),
         child: Row(
@@ -234,6 +235,7 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
         decoration: liveHudSurfaceDecoration(
           accentColor: accentColor,
           strong: isRepOutcome,
+          glow: isRepOutcome,
           radius: compact ? 18 : 24,
           surfaceColor: isRepOutcome ? liveHudSurfaceStrong : liveHudSurface,
         ),
@@ -504,10 +506,12 @@ class _WorkoutSetCompletedCard extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 14),
-      decoration: BoxDecoration(
-        color: const Color(0xE6112A20),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.greenAccent),
+      decoration: liveHudSurfaceDecoration(
+        accentColor: AppColors.success,
+        radius: 15,
+        strong: true,
+        glow: true,
+        surfaceColor: const Color(0xE6112A20),
       ),
       child: Row(
         children: [

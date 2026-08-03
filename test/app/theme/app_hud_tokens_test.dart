@@ -26,17 +26,21 @@ void main() {
         accentColor: liveHudAccent,
         radius: 18,
         strong: true,
+        glow: true,
       );
       final plannedDecoration = plannedSurfaceDecoration(
         accentColor: plannedHudAccent,
         radius: 18,
         strong: true,
+        glow: true,
       );
 
       expect(liveDecoration.color, plannedDecoration.color);
       expect(liveDecoration.borderRadius, plannedDecoration.borderRadius);
       expect(liveDecoration.border, plannedDecoration.border);
       expect(liveDecoration.boxShadow, plannedDecoration.boxShadow);
+      expect(liveDecoration.boxShadow, isNotEmpty);
+      expect(liveDecoration.boxShadow!.length, greaterThan(2));
     },
   );
 

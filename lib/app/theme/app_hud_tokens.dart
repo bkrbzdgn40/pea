@@ -15,17 +15,31 @@ class AppHudTokens {
     required Color accentColor,
     required double radius,
     bool strong = false,
+    bool glow = false,
     Color? surfaceColor,
   }) {
+    final borderAlpha = strong ? AppOpacity.strongBorder : AppOpacity.border;
     return BoxDecoration(
       color: surfaceColor ?? (strong ? surfaceStrong : surface),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: accentColor.withValues(
-          alpha: strong ? AppOpacity.strongBorder : AppOpacity.border,
-        ),
+        color: accentColor.withValues(alpha: borderAlpha),
+        width: strong ? 1.25 : 1,
       ),
-      boxShadow: AppShadows.hud,
+      boxShadow: <BoxShadow>[
+        ...AppShadows.hud,
+        if (glow)
+          BoxShadow(
+            color: accentColor.withValues(alpha: strong ? 0.24 : 0.16),
+            blurRadius: strong ? 28 : 20,
+            spreadRadius: strong ? -2 : -4,
+          ),
+        BoxShadow(
+          color: Colors.white.withValues(alpha: strong ? 0.045 : 0.025),
+          blurRadius: 1,
+          offset: const Offset(0, -1),
+        ),
+      ],
     );
   }
 }

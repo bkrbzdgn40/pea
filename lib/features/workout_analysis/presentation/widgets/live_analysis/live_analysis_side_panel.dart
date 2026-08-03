@@ -49,9 +49,25 @@ class LiveAnalysisSidePanel extends ConsumerWidget {
         final textScale = MediaQuery.textScalerOf(context).scale(1);
         final useStackedLayout = constraints.maxWidth < 320 || textScale >= 1.5;
 
-        return ColoredBox(
+        return DecoratedBox(
           key: const ValueKey<String>('live-analysis-side-panel'),
-          color: const Color(0xF0161B20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Color(0xFA182027), Color(0xFA101419)],
+            ),
+            border: Border(
+              left: BorderSide(color: liveHudAccent.withValues(alpha: 0.34)),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: liveHudAccent.withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(-8, 0),
+              ),
+            ],
+          ),
           child: SafeArea(
             left: false,
             child: Padding(
@@ -499,6 +515,7 @@ class _LiveMetricSurface extends StatelessWidget {
         decoration: liveHudSurfaceDecoration(
           accentColor: accentColor,
           strong: emphasize,
+          glow: emphasize,
           radius: compact ? 18 : 25,
           surfaceColor: emphasize
               ? liveHudMetricSurfaceStrong
