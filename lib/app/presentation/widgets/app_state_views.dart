@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_design_tokens.dart';
+import '../../theme/app_semantic_colors.dart';
+import 'app_button.dart';
 import 'app_surface_card.dart';
 
 class AppLoadingView extends StatelessWidget {
@@ -10,20 +12,29 @@ class AppLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: AppColors.accent),
-          if (message != null) ...[
-            const SizedBox(height: 18),
-            Text(
-              message!,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
+      child: Semantics(
+        container: true,
+        liveRegion: true,
+        label: message,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: colors.accent),
+            if (message != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                message!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: colors.foreground),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -47,48 +58,42 @@ class AppErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Center(
       child: AppSurfaceCard(
+        variant: AppSurfaceVariant.strong,
         padding: AppSpacing.headerSurfacePadding,
         radius: AppRadii.surface,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: AppColors.accent, size: 40),
-              SizedBox(height: title != null ? 16 : 10),
+              Icon(icon, color: colors.danger, size: 40),
+              SizedBox(height: title != null ? AppSpacing.md : AppSpacing.xs),
             ],
             if (title != null) ...[
               Text(
                 title!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.foreground,
+                  fontWeight: AppFontWeights.heavy,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.xs),
             ],
             Text(
               message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.foregroundMuted,
                 height: 1.35,
               ),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 18),
-              ElevatedButton(
-                onPressed: onAction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.black,
-                ),
-                child: Text(actionLabel!),
-              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppButton(label: actionLabel!, onPressed: onAction),
             ],
           ],
         ),
@@ -117,69 +122,66 @@ class AppEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = centered ? _buildCentered() : _buildInline();
+    final content = centered ? _buildCentered(context) : _buildInline(context);
     if (centered) {
       return Center(child: content);
     }
     return content;
   }
 
-  Widget _buildCentered() {
+  Widget _buildCentered(BuildContext context) {
+    final colors = context.semanticColors;
+
     return AppSurfaceCard(
-      padding: const EdgeInsets.all(22),
-      radius: 18,
+      variant: AppSurfaceVariant.muted,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      radius: AppRadii.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.accent, size: 42),
+          Icon(icon, color: colors.accent, size: 42),
           if (title != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             Text(
               title!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: colors.foreground,
+                fontWeight: AppFontWeights.heavy,
               ),
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             message,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.foregroundMuted,
               height: 1.35,
             ),
             textAlign: TextAlign.center,
           ),
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 18),
-            ElevatedButton(
-              onPressed: onAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.black,
-              ),
-              child: Text(actionLabel!),
-            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppButton(label: actionLabel!, onPressed: onAction),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildInline() {
+  Widget _buildInline(BuildContext context) {
+    final colors = context.semanticColors;
+
     return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: AppColors.accent, size: 24),
-              const SizedBox(width: 12),
+              Icon(icon, color: colors.accent, size: 24),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,19 +189,18 @@ class AppEmptyView extends StatelessWidget {
                     if (title != null) ...[
                       Text(
                         title!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: colors.foreground,
+                              fontWeight: AppFontWeights.heavy,
+                            ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: AppSpacing.xxs),
                     ],
                     Text(
                       message,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.foregroundMuted,
                         height: 1.35,
                       ),
                     ),
@@ -209,11 +210,11 @@ class AppEmptyView extends StatelessWidget {
             ],
           ),
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 14),
-            TextButton(
+            const SizedBox(height: AppSpacing.xs),
+            AppButton(
+              label: actionLabel!,
               onPressed: onAction,
-              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-              child: Text(actionLabel!),
+              variant: AppButtonVariant.ghost,
             ),
           ],
         ],

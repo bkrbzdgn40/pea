@@ -46,4 +46,31 @@ void main() {
     expect(border.top.color, Colors.red);
     expect(decoration.borderRadius, BorderRadius.circular(20));
   });
+
+  testWidgets('resolves semantic surface variants without custom colors', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: AppSurfaceCard(
+          variant: AppSurfaceVariant.accent,
+          child: Text('accent-surface'),
+        ),
+      ),
+    );
+
+    final container = tester.widget<Container>(find.byType(Container));
+    final decoration = container.decoration! as BoxDecoration;
+    final border = decoration.border! as Border;
+
+    expect(
+      decoration.color,
+      AppColors.analysisAccent.withValues(alpha: AppOpacity.subtle),
+    );
+    expect(
+      border.top.color,
+      AppColors.analysisAccent.withValues(alpha: AppOpacity.strongBorder),
+    );
+  });
 }
