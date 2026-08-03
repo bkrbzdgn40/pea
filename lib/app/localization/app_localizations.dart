@@ -234,6 +234,27 @@ class AppLocalizations {
   );
   String get totalAnalyses => pick(tr: 'Toplam Analiz', en: 'Total Analyses');
   String get thisWeek => pick(tr: 'Bu Hafta', en: 'This Week');
+  String get homeOverview =>
+      pick(tr: 'İlerleme Özeti', en: 'Progress Overview');
+  String get homeOverviewSubtitle => pick(
+    tr: 'Kaydedilmiş oturumlarından doğrulanmış özet',
+    en: 'A verified summary from your saved sessions',
+  );
+  String get recentSession => pick(tr: 'Son Oturum', en: 'Latest Session');
+  String get recentSessionSubtitle => pick(
+    tr: 'En son tamamladığın kayıtlı analiz',
+    en: 'Your most recently completed saved analysis',
+  );
+  String get openSession => pick(tr: 'Oturumu Aç', en: 'Open Session');
+  String get quickFlows => pick(tr: 'Diğer Akışlar', en: 'More Workflows');
+  String get cameraBasedAnalysis => pick(
+    tr: 'Kamera tabanlı hareket analizi',
+    en: 'Camera-based movement analysis',
+  );
+  String get homeDataRetryDescription => pick(
+    tr: 'Kaydedilmiş oturumlarını yeniden yüklemek için tekrar dene.',
+    en: 'Try again to reload your saved sessions.',
+  );
 
   // Achievements
   String get achievementsLoadFailed => pick(

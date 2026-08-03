@@ -51,6 +51,7 @@ HomeDashboardData _buildDashboardData(
       localizations,
     ),
     source: HomeDashboardSource.real,
+    latestSession: _latestSession(sessions),
   );
 }
 
@@ -82,4 +83,14 @@ List<ExerciseDistributionItem> _buildExerciseDistribution(
         value: item.value * 100 / totalSessionCount,
       ),
   ];
+}
+
+WorkoutSession? _latestSession(List<WorkoutSession> sessions) {
+  if (sessions.isEmpty) {
+    return null;
+  }
+
+  return sessions.reduce((latest, candidate) {
+    return candidate.startedAt.isAfter(latest.startedAt) ? candidate : latest;
+  });
 }

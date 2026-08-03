@@ -1,3 +1,5 @@
+import '../../domain/models/workout_session.dart';
+
 enum HomeDashboardSource { loading, real, noUser, empty, error }
 
 /// Aggregated values used by Home without exposing session query details.
@@ -10,6 +12,7 @@ class HomeDashboardData {
     required this.scoreTrend,
     required this.exerciseDistribution,
     required this.source,
+    this.latestSession,
   });
 
   final int totalAnalyses;
@@ -19,6 +22,7 @@ class HomeDashboardData {
   final List<ScoreTrendPoint> scoreTrend;
   final List<ExerciseDistributionItem> exerciseDistribution;
   final HomeDashboardSource source;
+  final WorkoutSession? latestSession;
 
   factory HomeDashboardData.empty({
     HomeDashboardSource source = HomeDashboardSource.empty,
@@ -31,6 +35,7 @@ class HomeDashboardData {
       scoreTrend: const <ScoreTrendPoint>[],
       exerciseDistribution: const <ExerciseDistributionItem>[],
       source: source,
+      latestSession: null,
     );
   }
 

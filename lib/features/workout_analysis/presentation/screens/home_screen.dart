@@ -3,9 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_feedback_banner.dart';
+import '../../../../app/presentation/widgets/app_metric_tile.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_section.dart';
+import '../../../../app/presentation/widgets/app_status_tone.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../../achievements/presentation/models/achievement.dart';
 import '../../../achievements/presentation/providers/achievements_provider.dart';
 import '../../../achievements/presentation/screens/achievements_screen.dart';
@@ -13,16 +18,20 @@ import '../../../goals/presentation/models/workout_goal.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
 import '../../../goals/presentation/screens/goals_screen.dart';
 import '../../domain/models/exercise_type.dart';
+import '../../domain/models/workout_session.dart';
 import '../models/home_dashboard_data.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../providers/selected_exercise_provider.dart';
+import '../providers/user_sessions_snapshot_provider.dart';
 import '../providers/workout_plan_session_provider.dart';
 import '../widgets/exercise_distribution_card.dart';
 import '../widgets/home_feature_preview_card.dart';
+import '../widgets/home_recent_session_card.dart';
 import '../widgets/home_task_surface.dart';
 import 'assessment_selection_screen.dart';
 import 'camera_permission_screen.dart';
 import 'exercise_selection_screen.dart';
+import 'session_detail_screen.dart';
 import 'workout_plan_setup_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -31,15 +40,24 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
+    final dashboardAsync = ref.watch(homeDashboardProvider);
     final dashboardData =
-        ref.watch(homeDashboardProvider).valueOrNull ??
-        HomeDashboardData.fallback();
-    final hasDashboardData = dashboardData.source == HomeDashboardSource.real;
+        dashboardAsync.valueOrNull ??
+        HomeDashboardData.fallback(
+          source: dashboardAsync.hasError
+              ? HomeDashboardSource.error
+              : HomeDashboardSource.loading,
+        );
     final goalsState = ref.watch(goalsProvider).valueOrNull;
     final goalPreview = _trustedGoalPreview(goalsState);
     final achievementsState = ref.watch(achievementsProvider).valueOrNull;
     final achievementPreview = _trustedAchievementPreview(achievementsState);
     final selectedExercise = ref.watch(selectedExerciseProvider);
+
+    void refreshDashboard() {
+      ref.invalidate(userSessionsSnapshotProvider);
+      ref.invalidate(homeDashboardProvider);
+    }
 
     void openExerciseSelection() {
       ref.read(workoutPlanSessionProvider.notifier).reset();
@@ -47,6 +65,19 @@ class HomeScreen extends ConsumerWidget {
         context,
         MaterialPageRoute(builder: (_) => const ExerciseSelectionScreen()),
       );
+    }
+
+    void openRecentSession(WorkoutSession session) {
+      Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SessionDetailScreen(session: session),
+        ),
+      ).then((wasDeleted) {
+        if (wasDeleted == true && context.mounted) {
+          refreshDashboard();
+        }
+      });
     }
 
     return AppScaffoldShell(
@@ -63,7 +94,6 @@ class HomeScreen extends ConsumerWidget {
               layout: layout,
               selectedExercise: selectedExercise,
               dashboardData: dashboardData,
-              hasDashboardData: hasDashboardData,
               goalPreview: goalPreview,
               achievementPreview: achievementPreview,
               onStartAnalysis: () {
@@ -106,6 +136,8 @@ class HomeScreen extends ConsumerWidget {
                   MaterialPageRoute(builder: (_) => const AchievementsScreen()),
                 );
               },
+              onRetryDashboard: refreshDashboard,
+              onOpenRecentSession: openRecentSession,
             ),
           );
         },
@@ -119,7 +151,6 @@ class _ResponsiveHomeContent extends StatelessWidget {
     required this.layout,
     required this.selectedExercise,
     required this.dashboardData,
-    required this.hasDashboardData,
     required this.goalPreview,
     required this.achievementPreview,
     required this.onStartAnalysis,
@@ -128,12 +159,13 @@ class _ResponsiveHomeContent extends StatelessWidget {
     required this.onOpenAssessment,
     required this.onOpenGoals,
     required this.onOpenAchievements,
+    required this.onRetryDashboard,
+    required this.onOpenRecentSession,
   });
 
   final AppLayout layout;
   final ExerciseType? selectedExercise;
   final HomeDashboardData dashboardData;
-  final bool hasDashboardData;
   final WorkoutGoal? goalPreview;
   final Achievement? achievementPreview;
   final VoidCallback onStartAnalysis;
@@ -142,12 +174,22 @@ class _ResponsiveHomeContent extends StatelessWidget {
   final VoidCallback onOpenAssessment;
   final VoidCallback onOpenGoals;
   final VoidCallback onOpenAchievements;
+  final VoidCallback onRetryDashboard;
+  final ValueChanged<WorkoutSession> onOpenRecentSession;
 
   @override
   Widget build(BuildContext context) {
     final useWideComposition =
         layout.viewportSize.width >= 560 &&
         (layout.isLandscape || layout.isExpanded);
+
+    final progressPanel = _HomeProgressPanel(
+      dashboardData: dashboardData,
+      goalPreview: goalPreview,
+      onOpenGoals: onOpenGoals,
+      onRetry: onRetryDashboard,
+      onOpenRecentSession: onOpenRecentSession,
+    );
 
     if (!useWideComposition) {
       return Column(
@@ -165,22 +207,14 @@ class _ResponsiveHomeContent extends StatelessWidget {
             onOpenAssessment: onOpenAssessment,
           ),
           SizedBox(height: layout.panelGap),
-          _HomeProgressPanel(
-            dashboardData: dashboardData,
-            hasDashboardData: hasDashboardData,
-            goalPreview: goalPreview,
-            onOpenGoals: onOpenGoals,
-          ),
+          progressPanel,
           SizedBox(height: layout.sectionGap),
           _HomeAchievementPreview(
             achievementPreview: achievementPreview,
             onOpenAchievements: onOpenAchievements,
           ),
           SizedBox(height: layout.sectionGap),
-          _HomeDistributionPreview(
-            dashboardData: dashboardData,
-            hasDashboardData: hasDashboardData,
-          ),
+          _HomeDistributionPreview(dashboardData: dashboardData),
         ],
       );
     }
@@ -189,6 +223,8 @@ class _ResponsiveHomeContent extends StatelessWidget {
       key: const ValueKey('home-wide-layout'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const HomeGreetingHeader(),
+        SizedBox(height: layout.panelGap),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -204,15 +240,7 @@ class _ResponsiveHomeContent extends StatelessWidget {
               ),
             ),
             SizedBox(width: layout.panelGap),
-            Expanded(
-              flex: 5,
-              child: _HomeProgressPanel(
-                dashboardData: dashboardData,
-                hasDashboardData: hasDashboardData,
-                goalPreview: goalPreview,
-                onOpenGoals: onOpenGoals,
-              ),
-            ),
+            Expanded(flex: 5, child: progressPanel),
           ],
         ),
         SizedBox(height: layout.panelGap),
@@ -221,10 +249,7 @@ class _ResponsiveHomeContent extends StatelessWidget {
           onOpenAchievements: onOpenAchievements,
         ),
         SizedBox(height: layout.sectionGap),
-        _HomeDistributionPreview(
-          dashboardData: dashboardData,
-          hasDashboardData: hasDashboardData,
-        ),
+        _HomeDistributionPreview(dashboardData: dashboardData),
       ],
     );
   }
@@ -233,51 +258,107 @@ class _ResponsiveHomeContent extends StatelessWidget {
 class _HomeProgressPanel extends StatelessWidget {
   const _HomeProgressPanel({
     required this.dashboardData,
-    required this.hasDashboardData,
     required this.goalPreview,
     required this.onOpenGoals,
+    required this.onRetry,
+    required this.onOpenRecentSession,
   });
 
   final HomeDashboardData dashboardData;
-  final bool hasDashboardData;
   final WorkoutGoal? goalPreview;
   final VoidCallback onOpenGoals;
+  final VoidCallback onRetry;
+  final ValueChanged<WorkoutSession> onOpenRecentSession;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    return Column(
+    return AppSection(
       key: const ValueKey('home-progress-panel'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (hasDashboardData)
-          _DashboardStats(data: dashboardData)
-        else
-          const _HomeProgressEmptyCard(),
-        const SizedBox(height: 12),
-        if (goalPreview == null)
-          HomeFeaturePreviewCard(
-            title: localizations.weeklyGoal,
-            subtitle: localizations.weeklyGoalEmpty,
-            icon: Icons.flag_rounded,
-            onTap: onOpenGoals,
-          )
-        else
-          HomeFeaturePreviewCard(
-            title: localizations.weeklyGoal,
-            subtitle: localizations.goalTitle(
-              goalPreview!.id,
-              fallback: goalPreview!.title,
-            ),
-            icon: Icons.flag_rounded,
-            progress: goalPreview!.progress,
-            trailingText:
-                '${_formatGoalValue(goalPreview!.currentValue)} / ${_formatGoalValue(goalPreview!.targetValue)} ${localizations.goalUnit(goalPreview!.id, fallback: goalPreview!.unit)}',
-            onTap: onOpenGoals,
+      title: localizations.homeOverview,
+      description: localizations.homeOverviewSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _HomeDashboardState(
+            data: dashboardData,
+            onRetry: onRetry,
+            onOpenRecentSession: onOpenRecentSession,
           ),
-      ],
+          const SizedBox(height: AppSpacing.sm),
+          if (goalPreview == null)
+            HomeFeaturePreviewCard(
+              title: localizations.weeklyGoal,
+              subtitle: localizations.weeklyGoalEmpty,
+              icon: Icons.flag_rounded,
+              onTap: onOpenGoals,
+            )
+          else
+            HomeFeaturePreviewCard(
+              title: localizations.weeklyGoal,
+              subtitle: localizations.goalTitle(
+                goalPreview!.id,
+                fallback: goalPreview!.title,
+              ),
+              icon: Icons.flag_rounded,
+              progress: goalPreview!.progress,
+              trailingText:
+                  '${_formatGoalValue(goalPreview!.currentValue)} / ${_formatGoalValue(goalPreview!.targetValue)} ${localizations.goalUnit(goalPreview!.id, fallback: goalPreview!.unit)}',
+              onTap: onOpenGoals,
+            ),
+        ],
+      ),
     );
+  }
+}
+
+class _HomeDashboardState extends StatelessWidget {
+  const _HomeDashboardState({
+    required this.data,
+    required this.onRetry,
+    required this.onOpenRecentSession,
+  });
+
+  final HomeDashboardData data;
+  final VoidCallback onRetry;
+  final ValueChanged<WorkoutSession> onOpenRecentSession;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
+    return switch (data.source) {
+      HomeDashboardSource.real => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DashboardStats(data: data),
+          if (data.latestSession != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            HomeRecentSessionCard(
+              session: data.latestSession!,
+              onTap: () => onOpenRecentSession(data.latestSession!),
+            ),
+          ],
+        ],
+      ),
+      HomeDashboardSource.loading => AppFeedbackBanner(
+        title: localizations.homeOverview,
+        message: localizations.loading,
+        tone: AppStatusTone.accent,
+        icon: Icons.hourglass_top_rounded,
+        liveRegion: false,
+      ),
+      HomeDashboardSource.error => AppFeedbackBanner(
+        title: localizations.dataLoadFailed,
+        message: localizations.homeDataRetryDescription,
+        tone: AppStatusTone.danger,
+        actionLabel: localizations.retry,
+        onAction: onRetry,
+      ),
+      HomeDashboardSource.noUser ||
+      HomeDashboardSource.empty => const _HomeProgressEmptyCard(),
+    };
   }
 }
 
@@ -323,19 +404,15 @@ class _HomeAchievementPreview extends StatelessWidget {
 }
 
 class _HomeDistributionPreview extends StatelessWidget {
-  const _HomeDistributionPreview({
-    required this.dashboardData,
-    required this.hasDashboardData,
-  });
+  const _HomeDistributionPreview({required this.dashboardData});
 
   final HomeDashboardData dashboardData;
-  final bool hasDashboardData;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
-    if (hasDashboardData) {
+    if (dashboardData.source == HomeDashboardSource.real) {
       return ExerciseDistributionCard(
         items: dashboardData.exerciseDistribution,
       );
@@ -355,36 +432,45 @@ class _HomeProgressEmptyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
 
     return AppSurfaceCard(
+      variant: AppSurfaceVariant.accent,
       padding: AppSpacing.headerSurfacePadding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.insights_rounded,
-            color: Colors.greenAccent,
-            size: 28,
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.analysisAccent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              Icons.insights_rounded,
+              color: colors.analysisAccent,
+              size: 24,
+            ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   localizations.progressWillAppearHere,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.foreground,
+                    fontWeight: AppFontWeights.heavy,
                   ),
                 ),
-                const SizedBox(height: 7),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   localizations.firstAnalysisProgressDescription,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.foregroundMuted,
                     height: 1.35,
                   ),
                 ),
@@ -410,36 +496,38 @@ class _HomeInsightPlaceholderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return AppSurfaceCard(
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.greenAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: colors.analysisAccent.withValues(alpha: AppOpacity.subtle),
+              borderRadius: BorderRadius.circular(AppRadii.small),
             ),
-            child: Icon(icon, color: Colors.greenAccent, size: 22),
+            child: Icon(icon, color: colors.analysisAccent, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.foreground,
+                    fontWeight: AppFontWeights.heavy,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.foregroundMuted,
                     height: 1.3,
                   ),
                 ),
@@ -463,58 +551,48 @@ class _DashboardStats extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const spacing = 10.0;
-        final cardWidth = (constraints.maxWidth - spacing) / 2;
+        final stackCards =
+            MediaQuery.textScalerOf(context).scale(1) >= 1.6 ||
+            constraints.maxWidth < 280;
+        final cards = <Widget>[
+          AppMetricTile(
+            key: const ValueKey('home-total-analyses'),
+            label: localizations.totalAnalyses,
+            value: data.totalAnalyses.toString(),
+            icon: Icons.analytics_outlined,
+            tone: AppStatusTone.accent,
+          ),
+          AppMetricTile(
+            key: const ValueKey('home-this-week'),
+            label: localizations.thisWeek,
+            value: data.thisWeekCount.toString(),
+            icon: Icons.calendar_today_rounded,
+            tone: AppStatusTone.success,
+          ),
+        ];
 
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            _DashboardStatCard(
-              label: localizations.totalAnalyses,
-              value: data.totalAnalyses.toString(),
-            ),
-            _DashboardStatCard(
-              label: localizations.thisWeek,
-              value: data.thisWeekCount.toString(),
-            ),
-          ].map((card) => SizedBox(width: cardWidth, child: card)).toList(),
+        if (stackCards) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              cards.first,
+              const SizedBox(height: AppSpacing.xs),
+              cards.last,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: cards.first),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(child: cards.last),
+            ],
+          ),
         );
       },
-    );
-  }
-}
-
-class _DashboardStatCard extends StatelessWidget {
-  const _DashboardStatCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(12),
-      radius: 14,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white60, fontSize: 11),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.greenAccent,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
