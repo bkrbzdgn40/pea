@@ -20,15 +20,23 @@ class PosePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final baseLineColor = const Color(0xFFB9F3E7).withValues(alpha: 0.84);
-    final formAccentColor = const Color(0xFFFFBE78).withValues(alpha: 0.92);
-    final jointColor = Colors.white.withValues(alpha: 0.86);
+    final baseLineColor = const Color(0xFF61E6BE).withValues(alpha: 0.94);
+    final formAccentColor = const Color(0xFFFFC857).withValues(alpha: 0.98);
+    final jointColor = Colors.white.withValues(alpha: 0.94);
     final debugDotColor = Colors.white.withValues(alpha: 0.20);
     final selectedSideColor = const Color(0xFF65D8FF).withValues(alpha: 0.98);
 
+    final skeletonGlowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = baseLineColor.withValues(alpha: 0.14);
+
     final skeletonPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.8
+      ..strokeWidth = 3.1
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true
@@ -36,15 +44,23 @@ class PosePainter extends CustomPainter {
 
     final spinePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true
-      ..color = baseLineColor.withValues(alpha: 0.46);
+      ..color = baseLineColor.withValues(alpha: 0.56);
+
+    final accentGlowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = formAccentColor.withValues(alpha: 0.18);
 
     final accentPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.2
+      ..strokeWidth = 3.8
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true
@@ -55,14 +71,34 @@ class PosePainter extends CustomPainter {
       ..isAntiAlias = true
       ..color = jointColor;
 
+    final jointRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.35
+      ..isAntiAlias = true
+      ..color = baseLineColor.withValues(alpha: 0.82);
+
     final accentJointPaint = Paint()
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
       ..color = formAccentColor;
 
+    final accentJointRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7
+      ..isAntiAlias = true
+      ..color = formAccentColor.withValues(alpha: 0.88);
+
+    final selectedSideGlowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true
+      ..color = selectedSideColor.withValues(alpha: 0.18);
+
     final selectedSidePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0
+      ..strokeWidth = 5.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true
@@ -72,6 +108,12 @@ class PosePainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..isAntiAlias = true
       ..color = selectedSideColor;
+
+    final selectedSideJointRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..isAntiAlias = true
+      ..color = selectedSideColor.withValues(alpha: 0.92);
 
     final debugDotPaint = Paint()
       ..style = PaintingStyle.fill
@@ -126,6 +168,17 @@ class PosePainter extends CustomPainter {
       canvas.drawCircle(point, radius, paint);
     }
 
+    void drawJointWithRing(
+      PoseLandmarkType type, {
+      required Paint fill,
+      required Paint ring,
+      double fillRadius = 3.2,
+      double ringRadius = 5.2,
+    }) {
+      drawJoint(type, ring, radius: ringRadius);
+      drawJoint(type, fill, radius: fillRadius);
+    }
+
     if (showDebugLandmarks) {
       for (final point in points.values) {
         canvas.drawCircle(point, 2.1, debugDotPaint);
@@ -140,6 +193,12 @@ class PosePainter extends CustomPainter {
       PoseLandmarkType.leftHip,
       PoseLandmarkType.rightHip,
     );
+
+    for (final segment in _commonSkeletonSegments) {
+      drawSegment(segment, skeletonGlowPaint);
+    }
+    drawLine(points[PoseLandmarkType.nose], shoulderCenter, skeletonGlowPaint);
+    drawLine(shoulderCenter, hipCenter, skeletonGlowPaint);
 
     drawLine(points[PoseLandmarkType.nose], shoulderCenter, spinePaint);
     drawLine(shoulderCenter, hipCenter, spinePaint);
@@ -159,27 +218,44 @@ class PosePainter extends CustomPainter {
       _ => const <PoseLandmarkType>[],
     };
     for (final segment in selectedSegments) {
+      drawSegment(segment, selectedSideGlowPaint);
       drawSegment(segment, selectedSidePaint);
-    }
-    for (final joint in selectedJoints) {
-      drawJoint(joint, selectedSideJointPaint, radius: 4.2);
     }
 
     if (isFormBad) {
       for (final segment in _accentSkeletonSegments) {
+        drawSegment(segment, accentGlowPaint);
         drawSegment(segment, accentPaint);
       }
+      drawLine(points[PoseLandmarkType.nose], shoulderCenter, accentGlowPaint);
+      drawLine(shoulderCenter, hipCenter, accentGlowPaint);
       drawLine(points[PoseLandmarkType.nose], shoulderCenter, accentPaint);
       drawLine(shoulderCenter, hipCenter, accentPaint);
     }
 
     for (final joint in _visibleJointTypes) {
-      drawJoint(joint, jointPaint);
+      drawJointWithRing(joint, fill: jointPaint, ring: jointRingPaint);
+    }
+
+    for (final joint in selectedJoints) {
+      drawJointWithRing(
+        joint,
+        fill: selectedSideJointPaint,
+        ring: selectedSideJointRingPaint,
+        fillRadius: 4.4,
+        ringRadius: 6.3,
+      );
     }
 
     if (isFormBad) {
       for (final joint in _accentJointTypes) {
-        drawJoint(joint, accentJointPaint, radius: 3.5);
+        drawJointWithRing(
+          joint,
+          fill: accentJointPaint,
+          ring: accentJointRingPaint,
+          fillRadius: 3.8,
+          ringRadius: 5.9,
+        );
       }
     }
   }

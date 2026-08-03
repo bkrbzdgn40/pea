@@ -101,6 +101,8 @@ void main() {
     final primaryDecoration = primaryCard.decoration! as BoxDecoration;
     expect(timerIcon.size, 16);
     expect(primaryDecoration.color, const Color(0xA6171D23));
+    expect(primaryDecoration.boxShadow, isNotEmpty);
+    expect(primaryDecoration.boxShadow!.length, greaterThan(2));
     expect(
       find.byKey(const ValueKey<String>('planned-workout-progress-card')),
       findsOneWidget,

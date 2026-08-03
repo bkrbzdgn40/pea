@@ -20,5 +20,13 @@ void main() {
       ).shouldRepaint(portrait),
       isTrue,
     );
+    expect(
+      PosePainter(
+        const [],
+        const Size(480, 640),
+        isFormBad: true,
+      ).shouldRepaint(portrait),
+      isTrue,
+    );
   });
 }

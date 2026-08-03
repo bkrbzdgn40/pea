@@ -480,6 +480,18 @@ void main() {
         find.byKey(const ValueKey<String>('live-feedback-kind-coaching')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey<String>('live-camera-stage-effects')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-camera-vignette')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-camera-analysis-frame')),
+        findsOneWidget,
+      );
       expect(performanceHeader, findsOneWidget);
       expect(tester.getSize(performanceHeader).height, 104);
       expect(
@@ -825,10 +837,18 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('live-rep-outcome-pulse')),
+      findsOneWidget,
+    );
 
     harness.container.read(liveRangeRepOutcomeProvider.notifier).dismiss();
     await tester.pump();
     expect(find.text('Geçersiz tekrar'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('live-rep-outcome-pulse')),
+      findsNothing,
+    );
   });
 
   testWidgets('keeps technical FPS out of the normal live surface', (

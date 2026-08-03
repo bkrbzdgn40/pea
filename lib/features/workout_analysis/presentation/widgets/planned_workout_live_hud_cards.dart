@@ -40,6 +40,7 @@ class PlannedWorkoutMetricCard extends StatelessWidget {
         decoration: plannedSurfaceDecoration(
           accentColor: accentColor,
           strong: emphasize,
+          glow: emphasize,
           radius: compact ? 18 : 25,
           surfaceColor: emphasize
               ? plannedHudMetricSurfaceStrong
@@ -286,6 +287,7 @@ class PlannedWorkoutFeedbackCard extends StatelessWidget {
       decoration: plannedSurfaceDecoration(
         accentColor: accentColor,
         strong: true,
+        glow: true,
         radius: compact ? 18 : 24,
       ),
       child: Row(

@@ -12,12 +12,14 @@ BoxDecoration liveHudSurfaceDecoration({
   required Color accentColor,
   required double radius,
   bool strong = false,
+  bool glow = false,
   Color? surfaceColor,
 }) {
   return AppHudTokens.surfaceDecoration(
     accentColor: accentColor,
     radius: radius,
     strong: strong,
+    glow: glow,
     surfaceColor: surfaceColor,
   );
 }
