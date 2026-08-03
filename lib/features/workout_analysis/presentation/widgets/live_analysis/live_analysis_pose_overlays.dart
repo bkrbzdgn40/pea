@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/app/theme/app_motion.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/live_tracking_state.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_tracking_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
@@ -36,14 +38,16 @@ class WorkoutPoseOverlay extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return CustomPaint(
-      painter: PosePainter(
-        landmarks,
-        imageSize,
-        isFormBad: pose.isFormBad,
-        isMirrored: isMirrored,
-        showDebugLandmarks: showDebugLandmarks,
-        emphasizedSide: pose.movementSelectedSide,
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: PosePainter(
+          landmarks,
+          imageSize,
+          isFormBad: pose.isFormBad,
+          isMirrored: isMirrored,
+          showDebugLandmarks: showDebugLandmarks,
+          emphasizedSide: pose.movementSelectedSide,
+        ),
       ),
     );
   }
@@ -71,7 +75,10 @@ class LiveTrackingRecoveryOverlay extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: AppMotion.resolveDuration(
+                context,
+                AppMotionDurations.fast,
+              ),
               child: Container(
                 key: ValueKey<LiveTrackingPhase>(phase),
                 constraints: const BoxConstraints(maxWidth: 420),

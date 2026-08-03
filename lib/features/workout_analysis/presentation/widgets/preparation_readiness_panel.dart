@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_readiness_controller.dart';
@@ -32,7 +34,7 @@ class PreparationReadinessPanel extends ConsumerWidget {
       label: '${readiness.statusLabel}: ${readiness.message}',
       child: AnimatedContainer(
         key: const ValueKey<String>('preparation-readiness-panel'),
-        duration: const Duration(milliseconds: 180),
+        duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 12 : 16,
           vertical: compact ? 11 : 14,

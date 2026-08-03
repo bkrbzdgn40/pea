@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../app/localization/app_localizations.dart';
 import '../../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../../app/theme/app_design_tokens.dart';
+import '../../../../../app/theme/app_motion.dart';
 import '../../../application/saved_workout_plan.dart';
 
 class SavedPlansSection extends StatelessWidget {
@@ -130,7 +131,7 @@ class SavedPlanTile extends StatelessWidget {
     final accent = Colors.greenAccent;
     return AnimatedContainer(
       key: ValueKey<String>('saved-plan-card-${plan.id}'),
-      duration: const Duration(milliseconds: 180),
+      duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
       decoration: BoxDecoration(
         color: isSelected
             ? accent.withValues(alpha: 0.09)

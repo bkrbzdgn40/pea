@@ -53,4 +53,42 @@ void main() {
     expect(find.text('Bekliyor'), findsOneWidget);
     expect(find.byType(Icon), findsNothing);
   });
+
+  testWidgets('truncates long labels without overflowing narrow layouts', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: Padding(
+            padding: EdgeInsets.all(AppSpacing.md),
+            child: AppStatusChip(
+              label: 'Analiz sonucu guvenle hazir ve kullanilabilir',
+              tone: AppStatusTone.success,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Analiz sonucu guvenle hazir ve kullanilabilir'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
+import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/app/theme/app_motion.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_developer_ui_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
@@ -488,8 +490,8 @@ class _LiveMetricSurface extends StatelessWidget {
       label: '$label $value',
       excludeSemantics: true,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
+        duration: AppMotion.resolveDuration(context, AppMotionDurations.fast),
+        curve: AppMotion.resolveCurve(context, Curves.easeOut),
         padding: EdgeInsets.symmetric(
           horizontal: 8,
           vertical: compact ? 8 : 12,
@@ -529,9 +531,18 @@ class _LiveMetricSurface extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.bottomLeft,
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeIn,
+                          duration: AppMotion.resolveDuration(
+                            context,
+                            AppMotionDurations.fast,
+                          ),
+                          switchInCurve: AppMotion.resolveCurve(
+                            context,
+                            Curves.easeOutCubic,
+                          ),
+                          switchOutCurve: AppMotion.resolveCurve(
+                            context,
+                            Curves.easeIn,
+                          ),
                           transitionBuilder: (child, animation) =>
                               FadeTransition(
                                 opacity: animation,
