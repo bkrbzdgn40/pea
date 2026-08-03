@@ -468,6 +468,40 @@ class AppLocalizations {
   );
 
   // Exercise selection / guide shell
+  String get exerciseDiscoveryTitle =>
+      pick(tr: 'Hareketini keşfet', en: 'Discover your movement');
+  String get exerciseDiscoveryBody => pick(
+    tr: 'Kameralı analize hazır hareketleri ara, hedef bölgeye göre filtrele ve doğru akışı seç.',
+    en: 'Search camera-ready exercises, filter by target area, and choose the right flow.',
+  );
+  String analysisReadyCount(int count) =>
+      pick(tr: '$count analiz hazır', en: '$count analysis ready');
+  String guideLibraryCount(int count) =>
+      pick(tr: '$count rehber', en: '$count guides');
+  String get exerciseGuideIntroTitle =>
+      pick(tr: 'Tekniği önce gör', en: 'See the technique first');
+  String get exerciseGuideIntroBody => pick(
+    tr: 'Kurulum, teknik ipuçları ve yaygın hataları tek yerde incele.',
+    en: 'Review setup, technique cues, and common mistakes in one place.',
+  );
+  String get searchGuideHint => pick(
+    tr: 'Hareket, amaç veya teknik ipucu ara',
+    en: 'Search exercises, purpose, or technique cues',
+  );
+  String get guideAvailable => pick(tr: 'Rehber hazır', en: 'Guide available');
+  String get startAnalysis => pick(tr: 'Analizi başlat', en: 'Start analysis');
+  String get openGuide => pick(tr: 'Rehberi aç', en: 'Open guide');
+  String get noGuideResults => pick(
+    tr: 'Bu filtrelerle rehber bulunamadı',
+    en: 'No guides match these filters',
+  );
+  String get noGuideResultsBody => pick(
+    tr: 'Arama metnini veya zorluk filtresini değiştir.',
+    en: 'Change the search text or difficulty filter.',
+  );
+  String get clearGuideFilters =>
+      pick(tr: 'Rehber filtrelerini temizle', en: 'Clear guide filters');
+
   String get searchExercises => pick(tr: 'Hareket ara', en: 'Search exercises');
   String get searchExercisesHint => pick(
     tr: 'Hareket adı veya hedef bölge ara',

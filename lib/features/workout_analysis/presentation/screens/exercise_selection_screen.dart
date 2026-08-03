@@ -3,17 +3,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_ui_primitives.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../application/exercise_catalog.dart';
 import '../../application/exercise_definition.dart';
 import '../../application/exercise_definition_metadata.dart';
 import '../../domain/models/exercise_type.dart';
 import '../data/exercise_guide_catalog.dart';
 import '../data/localized_exercise_guide_content.dart';
+import '../models/exercise_guide_content.dart';
 import '../providers/recent_exercises_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import 'camera_permission_screen.dart';
+import 'guide_screen.dart';
 
 class ExerciseSelectionScreen extends ConsumerStatefulWidget {
   const ExerciseSelectionScreen({super.key});
@@ -48,17 +55,25 @@ class _ExerciseSelectionScreenState
         const <ExerciseType>[];
     final showRecent =
         _query.isEmpty && _selectedRegion == null && recentExercises.isNotEmpty;
+    final analysisReadyCount = _catalog.definitions
+        .where((definition) => definition.isAnalysisSupported)
+        .length;
+    final resultsPadding = AppLayout.of(context).pagePadding.copyWith(top: 2);
 
     return AppScaffoldShell(
       title: localizations.selectExercise,
       currentPage: AppDestination.exerciseSelection,
       padding: EdgeInsets.zero,
-      body: Column(
+      body: ListView(
+        key: const PageStorageKey<String>('exercise-selection-results'),
+        padding: EdgeInsets.zero,
         children: [
           _ExerciseDiscoveryHeader(
             searchController: _searchController,
             selectedRegion: _selectedRegion,
             isCategoryExpanded: _isCategoryExpanded,
+            analysisReadyCount: analysisReadyCount,
+            guideCount: _catalog.definitions.length,
             onQueryChanged: (query) {
               setState(() => _query = query.trim().toLowerCase());
             },
@@ -73,23 +88,21 @@ class _ExerciseSelectionScreenState
               });
             },
           ),
-          Expanded(
+          Padding(
+            padding: resultsPadding,
             child: definitions.isEmpty
                 ? _EmptyExerciseResults(onClear: _clearDiscoveryFilters)
-                : ListView(
-                    key: const PageStorageKey<String>(
-                      'exercise-selection-results',
-                    ),
-                    padding: const EdgeInsets.fromLTRB(20, 2, 20, 20),
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (showRecent) ...[
                         _SectionHeader(
                           title: localizations.recentExercises,
                           count: recentExercises.length,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.xs),
                         SizedBox(
-                          height: 64,
+                          height: 78,
                           child: ListView.separated(
                             key: const ValueKey<String>(
                               'recent-exercises-list',
@@ -97,7 +110,7 @@ class _ExerciseSelectionScreenState
                             scrollDirection: Axis.horizontal,
                             itemCount: recentExercises.length,
                             separatorBuilder: (_, _) =>
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppSpacing.xs),
                             itemBuilder: (context, index) {
                               final definition = _catalog.definitionFor(
                                 recentExercises[index],
@@ -109,13 +122,13 @@ class _ExerciseSelectionScreenState
                             },
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.md),
                       ],
                       _SectionHeader(
                         title: _resultSectionTitle(localizations),
                         count: definitions.length,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       for (
                         var index = 0;
                         index < definitions.length;
@@ -123,7 +136,7 @@ class _ExerciseSelectionScreenState
                       ) ...[
                         _buildExerciseCard(definitions[index]),
                         if (index != definitions.length - 1)
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.xs),
                       ],
                     ],
                   ),
@@ -161,6 +174,7 @@ class _ExerciseSelectionScreenState
             localizations.exerciseTitle(definition.type.id),
             definition.type.title,
             content.subtitle,
+            content.purpose,
             regionLabel,
           ].join(' ').toLowerCase();
 
@@ -170,9 +184,17 @@ class _ExerciseSelectionScreenState
   }
 
   Widget _buildExerciseCard(ExerciseDefinition definition) {
+    final localizations = AppLocalizations.of(context);
+    final content = localizedExerciseGuideContent(
+      content: _guideCatalog.contentFor(definition.type),
+      isTurkish: localizations.isTurkish,
+    );
+
     return _ExerciseSelectionCard(
       definition: definition,
+      content: content,
       onTap: () => _handleExerciseTap(definition),
+      onGuideTap: () => _openGuide(definition.type),
     );
   }
 
@@ -203,10 +225,7 @@ class _ExerciseSelectionScreenState
 
   void _handleExerciseTap(ExerciseDefinition definition) {
     if (!definition.isAnalysisSupported) {
-      final localizations = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(localizations.exerciseNotActiveForAnalysis)),
-      );
+      _openGuide(definition.type);
       return;
     }
 
@@ -220,6 +239,13 @@ class _ExerciseSelectionScreenState
       MaterialPageRoute(builder: (_) => const CameraPermissionScreen()),
     );
   }
+
+  void _openGuide(ExerciseType exercise) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => GuideScreen(initialExercise: exercise)),
+    );
+  }
 }
 
 class _ExerciseDiscoveryHeader extends StatelessWidget {
@@ -227,6 +253,8 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
     required this.searchController,
     required this.selectedRegion,
     required this.isCategoryExpanded,
+    required this.analysisReadyCount,
+    required this.guideCount,
     required this.onQueryChanged,
     required this.onClearSearch,
     required this.onToggleCategory,
@@ -236,6 +264,8 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
   final TextEditingController searchController;
   final ExerciseBodyRegion? selectedRegion;
   final bool isCategoryExpanded;
+  final int analysisReadyCount;
+  final int guideCount;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearSearch;
   final VoidCallback onToggleCategory;
@@ -244,16 +274,89 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final filters = <ExerciseBodyRegion?>[null, ...ExerciseBodyRegion.values];
     final selectedLabel = selectedRegion == null
         ? localizations.all
         : _bodyRegionLabel(localizations, selectedRegion!);
+    final padding = AppLayout.of(context).pagePadding.copyWith(bottom: 10);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      padding: padding,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AppSurfaceCard(
+            variant: AppSurfaceVariant.accent,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: colors.analysisAccent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(AppRadii.small),
+                      ),
+                      child: Icon(
+                        Icons.fitness_center_rounded,
+                        color: colors.analysisAccent,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.exerciseDiscoveryTitle,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: colors.foreground,
+                                  fontWeight: AppFontWeights.heavy,
+                                ),
+                          ),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            localizations.exerciseDiscoveryBody,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: colors.foregroundMuted,
+                                  height: 1.35,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppStatusChip(
+                      label: localizations.analysisReadyCount(
+                        analysisReadyCount,
+                      ),
+                      tone: AppStatusTone.accent,
+                      icon: Icons.center_focus_strong_rounded,
+                    ),
+                    AppStatusChip(
+                      label: localizations.guideLibraryCount(guideCount),
+                      tone: AppStatusTone.neutral,
+                      icon: Icons.menu_book_rounded,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             key: const ValueKey<String>('exercise-search-field'),
             controller: searchController,
@@ -271,51 +374,40 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
                       onPressed: onClearSearch,
                       icon: const Icon(Icons.close_rounded),
                     ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              filled: true,
-              fillColor: const Color(0xFF151515),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Colors.white12),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Colors.greenAccent),
-              ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.xs),
           Material(
-            color: const Color(0xFF151515),
-            borderRadius: BorderRadius.circular(14),
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.compact),
             child: InkWell(
               key: const ValueKey<String>('exercise-category-selector'),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppRadii.compact),
               onTap: onToggleCategory,
               child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                constraints: const BoxConstraints(
+                  minHeight: AppTouchTargets.minimum,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppRadii.compact),
                   border: Border.all(
                     color: isCategoryExpanded
-                        ? Colors.greenAccent
-                        : Colors.white12,
+                        ? colors.analysisAccent
+                        : colors.outline,
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.accessibility_new_rounded,
                       size: 19,
-                      color: Colors.white70,
+                      color: colors.foregroundMuted,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -323,23 +415,24 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
                         children: [
                           Text(
                             localizations.exerciseCategories,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: colors.foregroundSubtle,
+                                  fontWeight: AppFontWeights.bold,
+                                ),
                           ),
-                          const SizedBox(height: 1),
                           Text(
                             selectedLabel,
                             key: const ValueKey<String>(
                               'selected-exercise-category',
                             ),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: colors.foreground,
+                                  fontWeight: AppFontWeights.heavy,
+                                ),
                           ),
                         ],
                       ),
@@ -347,10 +440,13 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
                     AnimatedRotation(
                       key: const ValueKey<String>('exercise-category-arrow'),
                       turns: isCategoryExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 160),
-                      child: const Icon(
+                      duration: AppMotion.resolveDuration(
+                        context,
+                        AppMotionDurations.fast,
+                      ),
+                      child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white70,
+                        color: colors.foregroundMuted,
                       ),
                     ),
                   ],
@@ -359,29 +455,22 @@ class _ExerciseDiscoveryHeader extends StatelessWidget {
             ),
           ),
           if (isCategoryExpanded) ...[
-            const SizedBox(height: 8),
-            Material(
+            const SizedBox(height: AppSpacing.xs),
+            AppSurfaceCard(
               key: const ValueKey<String>('exercise-category-options'),
-              color: const Color(0xFF151515),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < filters.length; index++) ...[
-                      _CategoryOption(
-                        region: filters[index],
-                        selected: selectedRegion == filters[index],
-                        onTap: () => onRegionSelected(filters[index]),
-                      ),
-                      if (index != filters.length - 1)
-                        const Divider(height: 1, color: Colors.white10),
-                    ],
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var index = 0; index < filters.length; index++) ...[
+                    _CategoryOption(
+                      region: filters[index],
+                      selected: selectedRegion == filters[index],
+                      onTap: () => onRegionSelected(filters[index]),
+                    ),
+                    if (index != filters.length - 1)
+                      Divider(height: 1, color: colors.outlineSubtle),
                   ],
-                ),
+                ],
               ),
             ),
           ],
@@ -405,6 +494,7 @@ class _CategoryOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final label = region == null
         ? localizations.all
         : _bodyRegionLabel(localizations, region!);
@@ -412,27 +502,30 @@ class _CategoryOption extends StatelessWidget {
     return InkWell(
       key: ValueKey<String>('exercise-category-${region?.name ?? 'all'}'),
       onTap: onTap,
-      child: SizedBox(
-        height: 42,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: AppTouchTargets.minimum),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    color: selected ? Colors.greenAccent : Colors.white70,
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: selected
+                        ? colors.analysisAccent
+                        : colors.foregroundMuted,
+                    fontWeight: selected
+                        ? AppFontWeights.heavy
+                        : AppFontWeights.semibold,
                   ),
                 ),
               ),
               if (selected)
-                const Icon(
+                Icon(
                   Icons.check_rounded,
                   size: 19,
-                  color: Colors.greenAccent,
+                  color: colors.analysisAccent,
                 ),
             ],
           ),
@@ -451,24 +544,23 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
             ),
           ),
         ),
         Text(
           localizations.exerciseResultCount(count),
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colors.foregroundSubtle,
+            fontWeight: AppFontWeights.semibold,
           ),
         ),
       ],
@@ -485,70 +577,74 @@ class _RecentExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     return SizedBox(
-      width: 150,
-      child: Material(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          key: ValueKey<String>('recent-exercise-card-${definition.type.id}'),
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+      width: 168,
+      child: AppSurfaceCard(
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey<String>('recent-exercise-card-${definition.type.id}'),
+            borderRadius: BorderRadius.circular(AppRadii.surface),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colors.analysisAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadii.small),
+                    ),
+                    child: Icon(
+                      Icons.history_rounded,
+                      size: 18,
+                      color: colors.analysisAccent,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.history_rounded,
-                    size: 17,
-                    color: Colors.greenAccent,
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          localizations.exerciseTitle(definition.type.id),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: colors.foreground,
+                                fontWeight: AppFontWeights.heavy,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _bodyRegionLabel(
+                            localizations,
+                            definition.type.bodyRegion,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colors.foregroundSubtle),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        localizations.exerciseTitle(definition.type.id),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _bodyRegionLabel(
-                          localizations,
-                          definition.type.bodyRegion,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 13,
+                    color: colors.foregroundSubtle,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -565,56 +661,68 @@ class _EmptyExerciseResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.search_off_rounded,
-              size: 48,
-              color: Colors.white38,
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            color: colors.analysisAccent,
+            size: 42,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            localizations.noExercisesFound,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
             ),
-            const SizedBox(height: 14),
-            Text(
-              localizations.noExercisesFound,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            localizations.noExercisesFoundBody,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.foregroundMuted,
+              height: 1.35,
             ),
-            const SizedBox(height: 6),
-            Text(
-              localizations.noExercisesFoundBody,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white60, height: 1.35),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const ValueKey<String>('clear-exercise-filters'),
-              onPressed: onClear,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(localizations.clearExerciseFilters),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppButton(
+            key: const ValueKey<String>('clear-exercise-filters'),
+            label: localizations.clearExerciseFilters,
+            onPressed: onClear,
+            variant: AppButtonVariant.outline,
+            icon: Icons.refresh_rounded,
+          ),
+        ],
       ),
     );
   }
 }
 
 class _ExerciseSelectionCard extends StatelessWidget {
-  const _ExerciseSelectionCard({required this.definition, required this.onTap});
+  const _ExerciseSelectionCard({
+    required this.definition,
+    required this.content,
+    required this.onTap,
+    required this.onGuideTap,
+  });
 
   final ExerciseDefinition definition;
+  final ExerciseGuideContent content;
   final VoidCallback onTap;
+  final VoidCallback onGuideTap;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final isActive = definition.isAnalysisSupported;
     final title = localizations.exerciseTitle(definition.type.id);
     final bodyRegion = _bodyRegionLabel(
@@ -622,93 +730,114 @@ class _ExerciseSelectionCard extends StatelessWidget {
       definition.type.bodyRegion,
     );
     final trackingType = _trackingTypeLabel(context, definition.trackingType);
+    final actionLabel = isActive
+        ? localizations.startAnalysis
+        : localizations.openGuide;
 
     return Semantics(
       button: true,
-      enabled: isActive,
+      enabled: true,
       label: '$title, $bodyRegion, $trackingType',
-      child: Material(
-        color: const Color(0xFF151515),
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          key: ValueKey<String>(
-            'exercise-selection-card-${definition.type.id}',
-          ),
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 64),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
+      hint: actionLabel,
+      child: AppSurfaceCard(
+        padding: EdgeInsets.zero,
+        variant: isActive
+            ? AppSurfaceVariant.standard
+            : AppSurfaceVariant.muted,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey<String>(
+              'exercise-selection-card-${definition.type.id}',
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? Colors.greenAccent.withValues(alpha: 0.12)
-                        : Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isActive
-                        ? Icons.play_arrow_rounded
-                        : Icons.lock_outline_rounded,
-                    size: 21,
-                    color: isActive ? Colors.greenAccent : Colors.white54,
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '$bodyRegion • $trackingType',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (!isActive) ...[
-                  Text(
-                    localizations.guideOnlyForNow,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+            borderRadius: BorderRadius.circular(AppRadii.surface),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? colors.analysisAccent.withValues(alpha: 0.12)
+                          : colors.foreground.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(AppRadii.small),
+                    ),
+                    child: Icon(
+                      isActive
+                          ? Icons.center_focus_strong_rounded
+                          : Icons.menu_book_rounded,
+                      size: 22,
+                      color: isActive
+                          ? colors.analysisAccent
+                          : colors.foregroundSubtle,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: colors.foreground,
+                                fontWeight: AppFontWeights.heavy,
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          content.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colors.foregroundMuted,
+                                height: 1.3,
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xxs,
+                          children: [
+                            AppStatusChip(
+                              label: '$bodyRegion • $trackingType',
+                              showIcon: false,
+                            ),
+                            if (!isActive)
+                              AppStatusChip(
+                                label: localizations.guideAvailable,
+                                tone: AppStatusTone.neutral,
+                                icon: Icons.menu_book_rounded,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  AppIconButton(
+                    key: ValueKey<String>(
+                      'exercise-guide-action-${definition.type.id}',
+                    ),
+                    icon: Icons.menu_book_outlined,
+                    tooltip: localizations.openGuide,
+                    onPressed: onGuideTap,
+                    variant: AppIconButtonVariant.standard,
+                    iconSize: 20,
+                  ),
                 ],
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: isActive ? Colors.greenAccent : Colors.white30,
-                ),
-              ],
+              ),
             ),
           ),
         ),

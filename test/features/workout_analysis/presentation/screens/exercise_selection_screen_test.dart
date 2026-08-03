@@ -6,14 +6,19 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/exer
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/camera_permission_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/guide_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../support/presentation_test_harness.dart';
 import '../../../../support/presentation_test_support.dart';
 
 Finder _exerciseResultsScrollable() {
   return find.descendant(
     of: find.byKey(const PageStorageKey<String>('exercise-selection-results')),
-    matching: find.byType(Scrollable),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    ),
   );
 }
 
@@ -59,7 +64,9 @@ void main() {
         .setMockMethodCallHandler(permissionChannel, null);
   });
 
-  testWidgets('renders compact exercise metadata in English', (tester) async {
+  testWidgets('renders discovery metadata and capability in English', (
+    tester,
+  ) async {
     await pumpTestApp(
       tester,
       home: const ExerciseSelectionScreen(),
@@ -78,15 +85,21 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text(
-        'A foundational movement for lower-body strength and knee-hip control.',
+      find.descendant(
+        of: squatCard,
+        matching: find.text(
+          'A foundational movement for lower-body strength and knee-hip control.',
+        ),
       ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: squatCard, matching: find.text('Analysis active')),
       findsNothing,
     );
-    expect(find.text('Analysis active'), findsNothing);
   });
 
-  testWidgets('renders compact exercise metadata in Turkish', (tester) async {
+  testWidgets('renders discovery metadata in Turkish', (tester) async {
     await pumpTestApp(
       tester,
       home: const ExerciseSelectionScreen(),
@@ -101,9 +114,73 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text('Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.'),
-      findsNothing,
+      find.descendant(
+        of: squatCard,
+        matching: find.text(
+          'Alt vücut kuvveti ve diz-kalça kontrolü için temel hareket.',
+        ),
+      ),
+      findsOneWidget,
     );
+  });
+
+  testWidgets('guide action opens the requested guide without analysis', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('en'),
+          home: ExerciseSelectionScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final guideAction = find.byKey(
+      const ValueKey<String>('exercise-guide-action-squat'),
+    );
+    await tester.ensureVisible(guideAction);
+    await tester.pumpAndSettle();
+    await tester.tap(guideAction);
+    await tester.pumpAndSettle();
+
+    expect(container.read(selectedExerciseProvider), isNull);
+    expect(find.byType(GuideScreen), findsOneWidget);
+    expect(
+      find.text(
+        'Trains the legs, hips, and trunk stability together. Controlled depth and consistent alignment take priority.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('exercise discovery survives compact large-text layouts', (
+    tester,
+  ) async {
+    const configuration = PresentationTestConfiguration(
+      viewport: PresentationTestViewport.compactPortrait,
+      textScaleFactor: 2,
+      name: 'exercise-discovery-compact-large-text',
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const ExerciseSelectionScreen(),
+      locale: const Locale('en'),
+      configuration: configuration,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('exercise-search-field')),
+      findsOneWidget,
+    );
+    expectNoPresentationExceptions(tester);
   });
 
   testWidgets('keeps preparation-only setup details out of catalog cards', (
@@ -426,15 +503,15 @@ void main() {
     expect(find.text('Recently Used'), findsOneWidget);
     expect(shoulderPressCard, findsOneWidget);
     expect(bicepsCurlCard, findsOneWidget);
-    expect(tester.getSize(shoulderPressCard).width, lessThanOrEqualTo(150));
-    expect(tester.getSize(shoulderPressCard).height, lessThanOrEqualTo(64));
+    expect(tester.getSize(shoulderPressCard).width, lessThanOrEqualTo(168));
+    expect(tester.getSize(shoulderPressCard).height, lessThanOrEqualTo(78));
     expect(
       tester.getTopLeft(shoulderPressCard).dx,
       lessThan(tester.getTopLeft(bicepsCurlCard).dx),
     );
   });
 
-  testWidgets('shows at least four full exercise rows on a phone viewport', (
+  testWidgets('keeps discovery cards compact and reachable on phones', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -447,18 +524,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final firstFourCards = <Finder>[
+    final firstThreeCards = <Finder>[
       _exerciseCard('squat'),
       _exerciseCard('plank'),
       _exerciseCard('hollow_hold'),
-      _exerciseCard('lunge'),
     ];
 
-    for (final card in firstFourCards) {
-      final rect = tester.getRect(card);
-      expect(rect.top, greaterThanOrEqualTo(0));
-      expect(rect.bottom, lessThanOrEqualTo(844));
-      expect(rect.height, lessThanOrEqualTo(64));
+    for (final card in firstThreeCards) {
+      expect(card, findsOneWidget);
+      expect(tester.getSize(card).height, lessThanOrEqualTo(132));
     }
+
+    final firstCardRect = tester.getRect(firstThreeCards.first);
+    expect(firstCardRect.top, greaterThanOrEqualTo(0));
+    expect(firstCardRect.top, lessThan(844));
+
+    await _scrollExerciseIntoView(tester, firstThreeCards.last);
+
+    final thirdCardRect = tester.getRect(firstThreeCards.last);
+    expect(thirdCardRect.top, greaterThanOrEqualTo(0));
+    expect(thirdCardRect.bottom, lessThanOrEqualTo(844));
   });
 }
