@@ -59,12 +59,18 @@ class PlannedWorkoutFlowController {
   bool _advanceFailed = false;
   int _lastHandledCompletedSetCount = 0;
   WorkoutState? _completedSetState;
+  ExerciseType? _resumeExercise;
+  int? _resumeSetNumber;
 
   bool get isTransitionLocked => _isTransitionLocked;
 
   bool get advanceFailed => _advanceFailed;
 
   int? get resumeCountdownValue => _resumeCountdownValue;
+
+  ExerciseType? get resumeExercise => _resumeExercise;
+
+  int? get resumeSetNumber => _resumeSetNumber;
 
   void observe({
     required ExerciseType activeExercise,
@@ -85,10 +91,10 @@ class PlannedWorkoutFlowController {
   }
 
   Future<void> retryAdvance() async {
-    if (!_isTransitionLocked) {
+    if (!_isTransitionLocked || _resumeCountdownValue != null) {
       return;
     }
-    await _advanceAfterTransition();
+    await _prepareNextStep();
   }
 
   void dispose() {
@@ -120,21 +126,24 @@ class PlannedWorkoutFlowController {
     }
 
     if (snapshot.restAfterSet.compareTo(Duration.zero) <= 0) {
-      _startResumeCountdown();
+      await _prepareNextStep();
       return;
     }
 
     final planController = _ref.read(workoutPlanSessionProvider.notifier);
+    final completedExercise = snapshot.currentExercise;
     final nextExercise = planController.nextExerciseAfterCompletedSet;
-    if (nextExercise == null || _isRestRouteVisible) {
-      _startResumeCountdown();
+    if (completedExercise == null ||
+        nextExercise == null ||
+        _isRestRouteVisible) {
+      await _prepareNextStep();
       return;
     }
 
     final localizations = AppLocalizations.of(_context());
     final planName = _ref.read(workoutPlanSessionProvider).plan?.name.trim();
     final nextSetNumber =
-        nextExercise == snapshot.currentExercise &&
+        nextExercise == completedExercise &&
             snapshot.setNumber < snapshot.setsInCurrentExercise
         ? snapshot.setNumber + 1
         : 1;
@@ -150,6 +159,10 @@ class PlannedWorkoutFlowController {
               : planName,
           nextExerciseName: localizations.exerciseTitle(nextExercise.id),
           nextSetNumber: nextSetNumber,
+          showExerciseCompletionTransition: nextExercise != completedExercise,
+          completedExerciseName: localizations.exerciseTitle(
+            completedExercise.id,
+          ),
         ),
       ),
     );
@@ -158,7 +171,7 @@ class PlannedWorkoutFlowController {
         !_ref.read(workoutPlanSessionProvider).isSetCompleted) {
       return;
     }
-    _startResumeCountdown();
+    await _prepareNextStep();
   }
 
   void _startResumeCountdown() {
@@ -177,7 +190,7 @@ class PlannedWorkoutFlowController {
       final currentValue = _resumeCountdownValue;
       if (currentValue == null || currentValue <= 1) {
         timer.cancel();
-        unawaited(_advanceAfterTransition());
+        _resumePreparedStep();
         return;
       }
       final nextValue = currentValue - 1;
@@ -201,7 +214,7 @@ class PlannedWorkoutFlowController {
     );
   }
 
-  Future<void> _advanceAfterTransition() async {
+  Future<void> _prepareNextStep() async {
     final WorkoutState? finalState =
         _completedSetState ?? _ref.read(workoutControllerProvider);
     if (finalState == null) {
@@ -213,12 +226,6 @@ class PlannedWorkoutFlowController {
       return;
     }
 
-    final activeExercise = _ref.read(activeAnalysisExerciseProvider);
-    final nextExercise = _ref
-        .read(workoutPlanSessionProvider.notifier)
-        .nextExerciseAfterCompletedSet;
-    final changesExercise =
-        nextExercise == null || nextExercise != activeExercise;
     final advanced = await _advancePlannedWorkout(finalState);
     if (!_isMounted()) {
       return;
@@ -229,15 +236,30 @@ class PlannedWorkoutFlowController {
       _notifyStateChanged();
       return;
     }
-    if (_ref.read(workoutPlanSessionProvider).isWorkoutCompleted) {
+
+    final planState = _ref.read(workoutPlanSessionProvider);
+    if (planState.isWorkoutCompleted) {
       return;
     }
 
-    if (!changesExercise) {
-      _ref.read(workoutControllerProvider.notifier).handleManualResume();
+    final snapshot = planState.snapshot;
+    _resumeExercise = snapshot?.currentExercise;
+    _resumeSetNumber = snapshot?.setNumber;
+    _advanceFailed = false;
+    _ref.read(feedbackDeliveryProvider).reset();
+    _startResumeCountdown();
+  }
+
+  void _resumePreparedStep() {
+    if (!_isMounted() || !_isTransitionLocked) {
+      return;
     }
+
+    _ref.read(workoutControllerProvider.notifier).handleManualResume();
     _ref.read(feedbackDeliveryProvider).reset();
     _resumeCountdownValue = null;
+    _resumeExercise = null;
+    _resumeSetNumber = null;
     _completedSetState = null;
     _advanceFailed = false;
     _isTransitionLocked = false;

@@ -1268,6 +1268,8 @@ class AppLocalizations {
       pick(tr: 'Tahmini dinlenme', en: 'Estimated rest');
   String get editPlan => pick(tr: 'Düzenle', en: 'Edit');
   String get startPlan => pick(tr: 'Planı Başlat', en: 'Start Plan');
+  String get saveAndStartPlan =>
+      pick(tr: 'Kaydet ve Başlat', en: 'Save and Start');
   String repTargetSummary(int repetitions) =>
       pick(tr: '$repetitions tekrar', en: '$repetitions reps');
   String holdTargetSummary(int seconds) =>
@@ -1285,6 +1287,12 @@ class AppLocalizations {
   String get restScreenTitle => pick(tr: 'Dinlenme', en: 'Rest');
   String get restSetCompleted =>
       pick(tr: 'Set tamamlandı', en: 'Set completed');
+  String get plannedExerciseCompleted =>
+      pick(tr: 'Egzersiz tamamlandı', en: 'Exercise completed');
+  String plannedExerciseCompletedMessage(String exerciseName) => pick(
+    tr: '$exerciseName tamamlandı. Kısa bir dinlenme başlıyor.',
+    en: '$exerciseName is complete. A short rest is starting.',
+  );
   String nextPlannedStep(String exerciseName, int setNumber) => pick(
     tr: 'Sırada: $exerciseName • Set $setNumber',
     en: 'Next: $exerciseName • Set $setNumber',

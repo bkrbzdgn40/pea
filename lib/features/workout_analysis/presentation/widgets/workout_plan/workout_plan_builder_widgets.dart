@@ -105,7 +105,7 @@ class WorkoutPlanEntryCard extends StatelessWidget {
         label: localizations.restDuration,
         value: entry.restAfterSet.inSeconds,
         minimum: 0,
-        maximum: 300,
+        maximum: maxWorkoutPlanRestDuration.inSeconds,
         step: 15,
         suffix: localizations.secondsShort,
         onChanged: (value) =>

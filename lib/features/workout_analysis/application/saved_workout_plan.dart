@@ -34,12 +34,26 @@ class SavedWorkoutPlanEntry {
     );
   }
 
+  Duration get normalizedRestAfterSet => Duration(
+    seconds: restAfterSet.inSeconds
+        .clamp(0, maxWorkoutPlanRestDuration.inSeconds)
+        .toInt(),
+  );
+
+  SavedWorkoutPlanEntry normalized() {
+    final normalizedRest = normalizedRestAfterSet;
+    if (normalizedRest == restAfterSet) {
+      return this;
+    }
+    return copyWith(restAfterSet: normalizedRest);
+  }
+
   WorkoutExerciseBlock toWorkoutBlock() {
     return WorkoutExerciseBlock(
       exercise: exercise,
       target: target,
       sets: sets,
-      restAfterSet: restAfterSet,
+      restAfterSet: normalizedRestAfterSet,
     );
   }
 
@@ -52,7 +66,7 @@ class SavedWorkoutPlanEntry {
       'targetValue': target.type == WorkoutTargetType.repetitions
           ? target.repetitions
           : target.holdDuration?.inSeconds,
-      'restSeconds': restAfterSet.inSeconds,
+      'restSeconds': normalizedRestAfterSet.inSeconds,
     };
   }
 
@@ -101,7 +115,12 @@ class SavedWorkoutPlanEntry {
       exercise: exercise,
       sets: sets.toInt(),
       target: target,
-      restAfterSet: Duration(seconds: restSeconds.toInt()),
+      restAfterSet: Duration(
+        seconds: restSeconds
+            .toInt()
+            .clamp(0, maxWorkoutPlanRestDuration.inSeconds)
+            .toInt(),
+      ),
     );
   }
 }
@@ -113,7 +132,9 @@ class SavedWorkoutPlan {
     required this.rounds,
     required List<SavedWorkoutPlanEntry> entries,
     required this.updatedAt,
-  }) : entries = List<SavedWorkoutPlanEntry>.unmodifiable(entries);
+  }) : entries = List<SavedWorkoutPlanEntry>.unmodifiable(
+         entries.map((entry) => entry.normalized()),
+       );
 
   final String id;
   final String name;
@@ -165,7 +186,7 @@ class SavedWorkoutPlan {
         for (var set = 0; set < entry.sets; set += 1) {
           remainingSets -= 1;
           if (remainingSets > 0) {
-            total += entry.restAfterSet;
+            total += entry.normalizedRestAfterSet;
           }
         }
       }

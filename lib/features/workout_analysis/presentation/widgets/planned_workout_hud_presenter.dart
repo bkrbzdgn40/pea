@@ -21,6 +21,44 @@ class PlannedFeedbackPresentation {
   final IconData icon;
 }
 
+class PlannedSecondaryMetricPresentation {
+  const PlannedSecondaryMetricPresentation({
+    required this.value,
+    required this.tone,
+  });
+
+  final String value;
+  final PlannedWorkoutHudTone tone;
+}
+
+PlannedSecondaryMetricPresentation plannedSecondaryMetricPresentation({
+  required bool isHoldAnalysis,
+  required bool hasCurrentProgress,
+  required int bestHoldSeconds,
+  required int lastRepScore,
+  required bool isInvalidLastAttempt,
+  required bool isLowConfidenceLastRep,
+}) {
+  if (!hasCurrentProgress || (!isHoldAnalysis && isInvalidLastAttempt)) {
+    return const PlannedSecondaryMetricPresentation(
+      value: '—',
+      tone: PlannedWorkoutHudTone.muted,
+    );
+  }
+  if (isHoldAnalysis) {
+    return PlannedSecondaryMetricPresentation(
+      value: formatSeconds(bestHoldSeconds),
+      tone: PlannedWorkoutHudTone.positive,
+    );
+  }
+  return PlannedSecondaryMetricPresentation(
+    value: lastRepScore.toString(),
+    tone: isLowConfidenceLastRep
+        ? PlannedWorkoutHudTone.caution
+        : PlannedWorkoutHudTone.positive,
+  );
+}
+
 PlannedFeedbackPresentation plannedFeedbackPresentation({
   required String message,
   required bool isFormBad,

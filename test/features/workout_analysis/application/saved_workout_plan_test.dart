@@ -128,4 +128,51 @@ void main() {
       expect(plan.estimatedRestDuration, const Duration(seconds: 165));
     },
   );
+
+  test('normalizes rest duration to the sixty-second plan limit', () {
+    final plan = SavedWorkoutPlan(
+      id: 'rest-limit',
+      name: 'Rest Limit',
+      rounds: 1,
+      updatedAt: DateTime.utc(2026, 8, 3),
+      entries: const <SavedWorkoutPlanEntry>[
+        SavedWorkoutPlanEntry(
+          id: 'entry-1',
+          exercise: ExerciseType.squat,
+          sets: 1,
+          target: WorkoutTarget.repetitions(10),
+          restAfterSet: Duration(seconds: 95),
+        ),
+      ],
+    );
+
+    expect(plan.entries.single.restAfterSet, maxWorkoutPlanRestDuration);
+    expect(
+      plan.toWorkoutPlan().exercises.single.restAfterSet,
+      maxWorkoutPlanRestDuration,
+    );
+    final encodedEntries = plan.toJson()['entries']! as List<Object?>;
+    final encodedEntry = encodedEntries.single! as Map<String, Object?>;
+    expect(encodedEntry['restSeconds'], 60);
+
+    final decoded = SavedWorkoutPlan.fromJson(<String, Object?>{
+      'id': 'decoded-rest-limit',
+      'name': 'Decoded Rest Limit',
+      'rounds': 1,
+      'updatedAt': DateTime.utc(2026, 8, 3).toIso8601String(),
+      'entries': <Map<String, Object?>>[
+        <String, Object?>{
+          'id': 'entry-1',
+          'exercise': ExerciseType.squat.id,
+          'sets': 1,
+          'targetType': 'repetitions',
+          'targetValue': 10,
+          'restSeconds': 120,
+        },
+      ],
+    });
+
+    expect(decoded, isNotNull);
+    expect(decoded!.entries.single.restAfterSet, maxWorkoutPlanRestDuration);
+  });
 }

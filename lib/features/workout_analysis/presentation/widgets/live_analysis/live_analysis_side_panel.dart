@@ -654,45 +654,143 @@ class CalibrationPanelOverlay extends ConsumerWidget {
 }
 
 class PlannedResumeCountdownOverlay extends StatelessWidget {
-  const PlannedResumeCountdownOverlay({super.key, required this.value});
+  const PlannedResumeCountdownOverlay({
+    super.key,
+    required this.value,
+    this.nextExerciseName,
+    this.nextSetNumber,
+  });
 
   final int value;
+  final String? nextExerciseName;
+  final int? nextSetNumber;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final nextExerciseName = this.nextExerciseName;
+    final nextSetNumber = this.nextSetNumber;
     return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withValues(alpha: 0.62),
-        child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  localizations.nextSetStarting,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
+      child: BlockSemantics(
+        key: const ValueKey<String>('planned-resume-semantics-blocker'),
+        child: DecoratedBox(
+          key: const ValueKey<String>('planned-resume-countdown-overlay'),
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -0.22),
+              radius: 1.1,
+              colors: <Color>[Color(0xFF12362B), Color(0xFF050A08)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.analysisAccent.withValues(
+                            alpha: 0.12,
+                          ),
+                          border: Border.all(
+                            color: AppColors.analysisAccent.withValues(
+                              alpha: 0.48,
+                            ),
+                          ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.analysisAccent.withValues(
+                                alpha: 0.18,
+                              ),
+                              blurRadius: 32,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: AppColors.analysisAccent,
+                          size: 42,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        localizations.nextSetStarting,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: AppColors.primaryForeground,
+                              fontWeight: AppFontWeights.heavy,
+                            ),
+                      ),
+                      if (nextExerciseName != null &&
+                          nextSetNumber != null) ...<Widget>[
+                        const SizedBox(height: AppSpacing.sm),
+                        Container(
+                          key: const ValueKey<String>(
+                            'planned-resume-next-step',
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.analysisAccent.withValues(
+                              alpha: 0.10,
+                            ),
+                            borderRadius: BorderRadius.circular(AppRadii.pill),
+                            border: Border.all(
+                              color: AppColors.analysisAccent.withValues(
+                                alpha: 0.30,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            localizations.nextPlannedStep(
+                              nextExerciseName,
+                              nextSetNumber,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.secondaryForeground,
+                              fontWeight: AppFontWeights.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.xl),
+                      Semantics(
+                        liveRegion: true,
+                        label: '$value',
+                        child: Text(
+                          '$value',
+                          key: ValueKey<String>(
+                            'planned-resume-countdown-$value',
+                          ),
+                          style: const TextStyle(
+                            color: AppColors.analysisAccent,
+                            fontSize: 112,
+                            height: 0.92,
+                            fontWeight: FontWeight.w900,
+                            fontFeatures: <FontFeature>[
+                              FontFeature.tabularFigures(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                Semantics(
-                  liveRegion: true,
-                  label: '$value',
-                  child: Text(
-                    '$value',
-                    key: ValueKey<String>('planned-resume-countdown-$value'),
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 104,
-                      height: 1,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
