@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_motion.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../models/preparation_pose_guide.dart';
 import '../providers/preparation_camera_controller.dart';
 
@@ -18,6 +19,7 @@ class PreparationStartPoseReference extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.semanticColors;
     final hasTrackedPose = ref.watch(
       preparationCameraControllerProvider.select(
         (state) => state.landmarks.isNotEmpty,
@@ -37,50 +39,60 @@ class PreparationStartPoseReference extends ConsumerWidget {
               children: [
                 Align(
                   alignment: Alignment.topLeft,
-                  child: Container(
-                    key: const ValueKey<String>('preparation-start-pose-chip'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.56),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.18),
+                  child: FractionallySizedBox(
+                    widthFactor: 0.58,
+                    alignment: Alignment.topLeft,
+                    child: Container(
+                      key: const ValueKey<String>(
+                        'preparation-start-pose-chip',
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.accessibility_new_rounded,
-                          color: Color(0xFFB9F3E7),
-                          size: 18,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(AppRadii.small),
+                        border: Border.all(
+                          color: colors.analysisAccent.withValues(alpha: 0.28),
                         ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            title,
-                            key: const ValueKey<String>(
-                              'preparation-start-pose-title',
-                            ),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.accessibility_new_rounded,
+                            color: colors.analysisAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Flexible(
+                            child: Text(
+                              title,
+                              key: const ValueKey<String>(
+                                'preparation-start-pose-title',
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.foreground,
+                                fontSize: 12,
+                                fontWeight: AppFontWeights.heavy,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                CustomPaint(
-                  key: const ValueKey<String>(
-                    'preparation-start-pose-reference',
+                RepaintBoundary(
+                  child: CustomPaint(
+                    key: const ValueKey<String>(
+                      'preparation-start-pose-reference',
+                    ),
+                    painter: _PreparationStartPoseReferencePainter(template),
                   ),
-                  painter: _PreparationStartPoseReferencePainter(template),
                 ),
               ],
             ),

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_feedback_banner.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/app_status_tone.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../models/preparation_start_gate_state.dart';
 
 class PreparationStartGateControls extends StatelessWidget {
@@ -30,119 +35,190 @@ class PreparationStartGateControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final currentPhase = phase ?? PreparationStartGatePhase.idle;
 
     if (currentPhase == PreparationStartGatePhase.monitoring ||
         currentPhase == PreparationStartGatePhase.overrideAvailable) {
-      return Container(
+      return AppSurfaceCard(
         key: const ValueKey<String>('preparation-start-gate-active'),
-        padding: EdgeInsets.all(compact ? 12 : 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.4)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+        padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.md),
+        color: colors.analysisAccent.withValues(alpha: 0.08),
+        borderColor: colors.analysisAccent.withValues(alpha: 0.42),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(1);
+            final stackCancelAction =
+                compact || constraints.maxWidth < 360 || textScale > 1.3;
+            final monitoringSummary = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Text(
-                    localizations.preparationGateMonitoringTitle,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: compact ? 14 : 15,
-                      fontWeight: FontWeight.w800,
+                Container(
+                  width: compact ? 38 : 42,
+                  height: compact ? 38 : 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.analysisAccent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: colors.analysisAccent,
                     ),
                   ),
                 ),
-                if (compact)
-                  IconButton(
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        localizations.preparationGateMonitoringTitle,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colors.foreground,
+                          fontWeight: AppFontWeights.heavy,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        localizations.preparationGateMonitoringMessage,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.foregroundMuted,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+            final cancelAction = compact
+                ? IconButton(
                     key: const ValueKey<String>('preparation-cancel-gate'),
                     tooltip: localizations.preparationGateCancel,
                     onPressed: onCancel,
                     icon: const Icon(Icons.close_rounded),
                   )
-                else
-                  TextButton(
+                : TextButton(
                     key: const ValueKey<String>('preparation-cancel-gate'),
                     onPressed: onCancel,
                     child: Text(localizations.preparationGateCancel),
+                  );
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (stackCancelAction) ...[
+                  monitoringSummary,
+                  const SizedBox(height: AppSpacing.xxs),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: cancelAction,
                   ),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: monitoringSummary),
+                      const SizedBox(width: AppSpacing.xs),
+                      cancelAction,
+                    ],
+                  ),
+                if (currentPhase ==
+                    PreparationStartGatePhase.overrideAvailable) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  AppFeedbackBanner(
+                    key: const ValueKey<String>('preparation-override-warning'),
+                    title: localizations.preparationReadinessNeedsAdjustment,
+                    message: localizations.preparationGateOverrideWarning,
+                    tone: AppStatusTone.caution,
+                    icon: Icons.warning_amber_rounded,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      key: const ValueKey<String>(
+                        'preparation-override-analysis',
+                      ),
+                      onPressed: onOverride,
+                      icon: const Icon(Icons.warning_amber_rounded),
+                      label: Text(localizations.preparationGateOverrideAction),
+                    ),
+                  ),
+                ],
               ],
-            ),
-            if (currentPhase ==
-                PreparationStartGatePhase.overrideAvailable) ...[
-              const SizedBox(height: 10),
-              Text(
-                localizations.preparationGateOverrideWarning,
-                key: const ValueKey<String>('preparation-override-warning'),
-                style: const TextStyle(
-                  color: Colors.amberAccent,
-                  fontSize: 13,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextButton.icon(
-                key: const ValueKey<String>('preparation-override-analysis'),
-                onPressed: onOverride,
-                icon: const Icon(Icons.warning_amber_rounded),
-                label: Text(localizations.preparationGateOverrideAction),
-              ),
-            ],
-          ],
+            );
+          },
         ),
       );
     }
 
     if (currentPhase == PreparationStartGatePhase.countingDown) {
-      return Container(
+      return AppSurfaceCard(
         key: const ValueKey<String>('preparation-countdown-controls'),
-        padding: EdgeInsets.all(compact ? 12 : 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.55)),
-        ),
+        padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.md),
+        color: colors.success.withValues(alpha: 0.08),
+        borderColor: colors.success.withValues(alpha: 0.48),
         child: Row(
           children: [
-            const Icon(
-              Icons.timer_outlined,
-              color: Colors.greenAccent,
-              size: 23,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                localizations.preparationCountdownTitle,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: compact ? 14 : 15,
-                  fontWeight: FontWeight.w800,
-                ),
+            Container(
+              width: compact ? 40 : 46,
+              height: compact ? 40 : 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.success.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.timer_outlined,
+                color: colors.success,
+                size: 23,
               ),
             ),
-            if (countdownValue != null)
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    localizations.preparationCountdownTitle,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: colors.foreground,
+                      fontWeight: AppFontWeights.heavy,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    localizations.preparationCountdownMessage,
+                    maxLines: compact ? 2 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.foregroundMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (countdownValue != null) ...[
+              const SizedBox(width: AppSpacing.xs),
               Text(
                 countdownValue!.toString(),
                 key: const ValueKey<String>(
                   'preparation-countdown-control-value',
                 ),
-                style: const TextStyle(
-                  color: Colors.greenAccent,
-                  fontSize: 27,
-                  fontWeight: FontWeight.w900,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: colors.success,
+                  fontWeight: AppFontWeights.heavy,
                 ),
               ),
-            const SizedBox(width: 8),
+            ],
             IconButton(
               key: const ValueKey<String>('preparation-cancel-countdown'),
               tooltip: localizations.preparationGateCancel,
@@ -165,7 +241,7 @@ class PreparationStartGateControls extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         label: Text(localizations.preparationGateLaunching),
-        style: _startButtonStyle(compact: compact),
+        style: _startButtonStyle(compact: compact, colors: colors),
       );
     }
 
@@ -186,19 +262,25 @@ class PreparationStartGateControls extends StatelessWidget {
             ? localizations.preparationCameraUnavailable
             : localizations.startPreparationCheck,
       ),
-      style: _startButtonStyle(compact: compact),
+      style: _startButtonStyle(compact: compact, colors: colors),
     );
   }
 
-  ButtonStyle _startButtonStyle({required bool compact}) {
+  ButtonStyle _startButtonStyle({
+    required bool compact,
+    required AppSemanticColors colors,
+  }) {
     return ElevatedButton.styleFrom(
-      backgroundColor: Colors.greenAccent,
+      backgroundColor: colors.accent,
       foregroundColor: Colors.black,
-      disabledBackgroundColor: Colors.white24,
-      disabledForegroundColor: Colors.white70,
+      disabledBackgroundColor: colors.surfaceMuted,
+      disabledForegroundColor: colors.foregroundSubtle,
       minimumSize: Size.fromHeight(compact ? 52 : 56),
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      textStyle: const TextStyle(fontSize: 16, fontWeight: AppFontWeights.bold),
+      elevation: AppElevation.flat,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.compact),
+      ),
     );
   }
 }

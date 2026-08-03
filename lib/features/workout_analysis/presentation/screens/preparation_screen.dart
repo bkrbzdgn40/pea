@@ -8,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/layout/camera_layout_spec.dart';
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_motion.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../application/exercise_catalog.dart';
@@ -431,8 +434,11 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       context: context,
       barrierDismissible: true,
       barrierLabel: localizations.close,
-      barrierColor: Colors.black.withValues(alpha: 0.76),
-      transitionDuration: const Duration(milliseconds: 180),
+      barrierColor: context.semanticColors.canvas.withValues(alpha: 0.82),
+      transitionDuration: AppMotion.resolveDuration(
+        context,
+        AppMotionDurations.fast,
+      ),
       pageBuilder: (dialogContext, _, _) {
         return PreparationGuideOverlay(
           exerciseName: exerciseName,
@@ -463,6 +469,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final viewportOrientation = MediaQuery.orientationOf(context);
     final viewportLayout = AppLayout.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
@@ -470,10 +477,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
 
     if (selectedExercise == null || activeExercise == null) {
       return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: colors.canvas,
         appBar: AppBar(
           title: Text(localizations.preparation),
-          backgroundColor: Colors.black,
+          backgroundColor: colors.canvas,
           elevation: 0,
         ),
         body: AnalysisSelectionRequiredView(
@@ -606,12 +613,12 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: colors.canvas,
       appBar: viewportLayout.isLandscape
           ? null
           : AppBar(
               title: Text(localizations.preparation),
-              backgroundColor: Colors.black,
+              backgroundColor: Colors.transparent,
               elevation: 0,
               actions: [
                 PreparationGuideAction(
@@ -622,138 +629,146 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
                 const SizedBox(width: 8),
               ],
             ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final layout = AppLayout.of(context, constraints: constraints);
-            final cameraLayout = AppCameraLayoutSpec.resolve(
-              layout: layout,
-              constraints: constraints,
-            );
-            final compactPanel =
-                layout.isCompact ||
-                layout.hasLargeText ||
-                cameraLayout.usesSidePanel;
-            final header = PreparationHeader(
-              exerciseName: activeExerciseTitle,
-              summary: compactSummary,
-              compact: compactPanel,
-            );
-            final notices = PreparationNotices(
-              fallbackMessage: fallbackMessage,
-              hasConfigError: configState.hasError,
-              onRetryConfig: () => ref.invalidate(exerciseConfigProvider),
-            );
-            final cameraStage = PreparationCameraStage(
-              aspectRatio:
-                  cameraGeometry?.aspectRatio ??
-                  (layout.isLandscape ? 4 / 3 : 3 / 4),
-              child: cameraSurface,
-            );
-            final readinessPanel = readinessRequest == null
-                ? const SizedBox.shrink()
-                : PreparationReadinessPanel(
-                    request: readinessRequest,
-                    compact: compactPanel,
-                  );
-            final startControls = PreparationStartGateControls(
-              phase: startGatePhase,
-              countdownValue: countdownValue,
-              isConfigReady: isConfigReady,
-              isCameraReady: isCameraReady,
-              isPreparing: isPreparing,
-              compact: compactPanel,
-              onArm: canArmPreparation && startGateProvider != null
-                  ? () => ref.read(startGateProvider.notifier).arm()
-                  : null,
-              onCancel:
-                  (startGatePhase == PreparationStartGatePhase.monitoring ||
-                          startGatePhase ==
-                              PreparationStartGatePhase.overrideAvailable ||
-                          startGatePhase ==
-                              PreparationStartGatePhase.countingDown) &&
-                      readinessRequest != null
-                  ? () => _cancelPreparationGate(readinessRequest)
-                  : null,
-              onOverride:
-                  startGatePhase ==
-                          PreparationStartGatePhase.overrideAvailable &&
-                      isConfigReady &&
-                      isCameraReady &&
-                      _cameraHandoffCoordinator.canUsePreparationCamera &&
-                      startGateProvider != null
-                  ? () => ref.read(startGateProvider.notifier).approveOverride()
-                  : null,
-            );
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -0.55),
+            radius: 1.2,
+            colors: <Color>[
+              colors.analysisAccent.withValues(alpha: 0.08),
+              colors.canvas,
+              colors.canvas,
+            ],
+            stops: const <double>[0, 0.48, 1],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = AppLayout.of(context, constraints: constraints);
+              final cameraLayout = AppCameraLayoutSpec.resolve(
+                layout: layout,
+                constraints: constraints,
+              );
+              final compactPanel =
+                  layout.isCompact ||
+                  layout.hasLargeText ||
+                  cameraLayout.usesSidePanel;
+              final header = PreparationHeader(
+                exerciseName: activeExerciseTitle,
+                summary: compactSummary,
+                compact: compactPanel,
+              );
+              final notices = PreparationNotices(
+                fallbackMessage: fallbackMessage,
+                hasConfigError: configState.hasError,
+                onRetryConfig: () => ref.invalidate(exerciseConfigProvider),
+              );
+              final cameraStage = PreparationCameraStage(
+                aspectRatio:
+                    cameraGeometry?.aspectRatio ??
+                    (layout.isLandscape ? 4 / 3 : 3 / 4),
+                child: cameraSurface,
+              );
+              final readinessPanel = readinessRequest == null
+                  ? const SizedBox.shrink()
+                  : PreparationReadinessPanel(
+                      request: readinessRequest,
+                      compact: compactPanel,
+                    );
+              final startControls = PreparationStartGateControls(
+                phase: startGatePhase,
+                countdownValue: countdownValue,
+                isConfigReady: isConfigReady,
+                isCameraReady: isCameraReady,
+                isPreparing: isPreparing,
+                compact: compactPanel,
+                onArm: canArmPreparation && startGateProvider != null
+                    ? () => ref.read(startGateProvider.notifier).arm()
+                    : null,
+                onCancel:
+                    (startGatePhase == PreparationStartGatePhase.monitoring ||
+                            startGatePhase ==
+                                PreparationStartGatePhase.overrideAvailable ||
+                            startGatePhase ==
+                                PreparationStartGatePhase.countingDown) &&
+                        readinessRequest != null
+                    ? () => _cancelPreparationGate(readinessRequest)
+                    : null,
+                onOverride:
+                    startGatePhase ==
+                            PreparationStartGatePhase.overrideAvailable &&
+                        isConfigReady &&
+                        isCameraReady &&
+                        _cameraHandoffCoordinator.canUsePreparationCamera &&
+                        startGateProvider != null
+                    ? () =>
+                          ref.read(startGateProvider.notifier).approveOverride()
+                    : null,
+              );
 
-            if (cameraLayout.usesSidePanel) {
-              return Padding(
-                key: const ValueKey<String>('preparation-side-panel-layout'),
+              if (cameraLayout.usesSidePanel) {
+                return Padding(
+                  key: const ValueKey<String>('preparation-side-panel-layout'),
+                  padding: cameraLayout.outerPadding,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: cameraStage),
+                      SizedBox(width: cameraLayout.gap),
+                      SizedBox(
+                        width: cameraLayout.sidePanelWidth,
+                        child: SingleChildScrollView(
+                          key: const ValueKey<String>(
+                            'preparation-side-panel-scroll',
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              PreparationLandscapeToolbar(
+                                title: localizations.preparation,
+                                onBack: () => Navigator.of(context).maybePop(),
+                                onGuide: openGuide,
+                              ),
+                              SizedBox(height: layout.sectionGap),
+                              header,
+                              notices,
+                              SizedBox(height: layout.sectionGap),
+                              readinessPanel,
+                              SizedBox(height: layout.sectionGap),
+                              startControls,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final cameraHeight =
+                  (constraints.maxHeight * (layout.hasLargeText ? 0.44 : 0.52))
+                      .clamp(layout.isCompact ? 220.0 : 260.0, 560.0)
+                      .toDouble();
+              return SingleChildScrollView(
+                key: const ValueKey<String>('preparation-stacked-layout'),
                 padding: cameraLayout.outerPadding,
-                child: Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: cameraStage),
-                    SizedBox(width: cameraLayout.gap),
-                    SizedBox(
-                      width: cameraLayout.sidePanelWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          PreparationLandscapeToolbar(
-                            title: localizations.preparation,
-                            onBack: () => Navigator.of(context).maybePop(),
-                            onGuide: openGuide,
-                          ),
-                          SizedBox(height: layout.sectionGap),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              key: const ValueKey<String>(
-                                'preparation-side-panel-scroll',
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  header,
-                                  notices,
-                                  SizedBox(height: layout.sectionGap),
-                                  readinessPanel,
-                                  SizedBox(height: layout.sectionGap),
-                                  startControls,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    header,
+                    notices,
+                    SizedBox(height: layout.sectionGap),
+                    SizedBox(height: cameraHeight, child: cameraStage),
+                    SizedBox(height: layout.sectionGap),
+                    readinessPanel,
+                    SizedBox(height: layout.sectionGap),
+                    startControls,
                   ],
                 ),
               );
-            }
-
-            final cameraHeight =
-                (constraints.maxHeight * (layout.hasLargeText ? 0.44 : 0.52))
-                    .clamp(layout.isCompact ? 220.0 : 260.0, 560.0)
-                    .toDouble();
-            return SingleChildScrollView(
-              key: const ValueKey<String>('preparation-stacked-layout'),
-              padding: cameraLayout.outerPadding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  header,
-                  notices,
-                  SizedBox(height: layout.sectionGap),
-                  SizedBox(height: cameraHeight, child: cameraStage),
-                  SizedBox(height: layout.sectionGap),
-                  readinessPanel,
-                  SizedBox(height: layout.sectionGap),
-                  startControls,
-                ],
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );

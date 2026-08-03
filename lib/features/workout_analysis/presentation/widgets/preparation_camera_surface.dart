@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_button.dart';
+import '../../../../app/presentation/widgets/app_status_chip.dart';
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_motion.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../errors/workout_camera_error_presentation.dart';
 import '../mappers/setup_readiness_ui_mapper.dart';
 import '../models/preparation_pose_guide.dart';
@@ -13,6 +16,7 @@ import '../models/setup_readiness_view_data.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_readiness_controller.dart';
 import 'preparation_start_pose_reference.dart';
+import 'preparation_visual_style.dart';
 import 'pose_painter.dart';
 
 class PreparationCameraSurface extends StatelessWidget {
@@ -44,6 +48,7 @@ class PreparationCameraSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
 
     return AspectRatio(
       key: const ValueKey<String>('preparation-camera-aspect-ratio'),
@@ -51,13 +56,32 @@ class PreparationCameraSurface extends StatelessWidget {
           geometry?.aspectRatio ??
           (viewportOrientation == Orientation.landscape ? 4 / 3 : 3 / 4),
       child: DecoratedBox(
+        key: const ValueKey<String>('preparation-camera-frame'),
         decoration: BoxDecoration(
-          color: const Color(0xFF101010),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              colors.surfaceStrong,
+              Colors.black,
+              colors.surfaceMuted,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppRadii.large),
+          border: Border.all(
+            color: colors.analysisAccent.withValues(alpha: 0.42),
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: colors.analysisAccent.withValues(alpha: 0.14),
+              blurRadius: 30,
+              spreadRadius: 1,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadii.large),
           child: cameraState.when(
             skipLoadingOnRefresh: false,
             skipLoadingOnReload: false,
@@ -85,6 +109,7 @@ class PreparationCameraSurface extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   CameraPreview(controller),
+                  const _PreparationCameraVignette(),
                   PreparationStartPoseReference(
                     template: startPoseTemplate,
                     title: startPoseGuideTitle,
@@ -158,6 +183,34 @@ class _PreparationPoseOverlay extends ConsumerWidget {
   }
 }
 
+class _PreparationCameraVignette extends StatelessWidget {
+  const _PreparationCameraVignette();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          key: ValueKey<String>('preparation-camera-vignette'),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Color(0x66000000),
+                Color(0x00000000),
+                Color(0x12000000),
+                Color(0xB8000000),
+              ],
+              stops: <double>[0, 0.24, 0.62, 1],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PreparationCountdownOverlay extends StatelessWidget {
   const _PreparationCountdownOverlay({required this.value});
 
@@ -166,10 +219,12 @@ class _PreparationCountdownOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
     return Positioned.fill(
       child: IgnorePointer(
         child: ColoredBox(
-          color: Colors.black.withValues(alpha: 0.32),
+          color: Colors.black.withValues(alpha: 0.52),
           child: Center(
             child: Semantics(
               liveRegion: true,
@@ -191,32 +246,76 @@ class _PreparationCountdownOverlay extends StatelessWidget {
                     child: FadeTransition(opacity: animation, child: child),
                   );
                 },
-                child: Container(
+                child: Column(
                   key: ValueKey<String>('preparation-countdown-$value'),
-                  width: 132,
-                  height: 132,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.78),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.greenAccent, width: 4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.greenAccent.withValues(alpha: 0.28),
-                        blurRadius: 24,
-                        spreadRadius: 4,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 142,
+                      height: 142,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.82),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colors.success, width: 4),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: colors.success.withValues(alpha: 0.34),
+                            blurRadius: 34,
+                            spreadRadius: 5,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    value.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 68,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox.square(
+                            dimension: 118,
+                            child: CircularProgressIndicator(
+                              value: (4 - value).clamp(0, 3) / 3,
+                              strokeWidth: 3,
+                              color: colors.success,
+                              backgroundColor: colors.success.withValues(
+                                alpha: 0.16,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            value.toString(),
+                            style: TextStyle(
+                              color: colors.foreground,
+                              fontSize: 68,
+                              fontWeight: AppFontWeights.heavy,
+                              height: 1,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.68),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                        border: Border.all(
+                          color: colors.success.withValues(alpha: 0.34),
+                        ),
+                      ),
+                      child: Text(
+                        localizations.preparationCountdownMessage,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.foreground,
+                          fontWeight: AppFontWeights.semibold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -239,7 +338,27 @@ class _PreparationReadinessOverlay extends ConsumerWidget {
       readinessSnapshot: ref.watch(preparationReadinessStateProvider(request)),
     );
 
-    return _PreparationSafeZoneOverlay(readiness: readiness);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _PreparationSafeZoneOverlay(readiness: readiness),
+        Positioned(
+          top: AppSpacing.sm,
+          right: AppSpacing.sm,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: AppStatusChip(
+              key: const ValueKey<String>(
+                'preparation-camera-readiness-status',
+              ),
+              label: readiness.statusLabel,
+              tone: PreparationVisualStyle.readinessTone(readiness.visualState),
+              icon: PreparationVisualStyle.readinessIcon(readiness.visualState),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -250,13 +369,15 @@ class _PreparationSafeZoneOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _readinessColor(
+    final color = PreparationVisualStyle.readinessColor(
+      context,
       readiness.visualState,
-    ).withValues(alpha: 0.88);
+    ).withValues(alpha: 0.92);
+
     return Positioned.fill(
       child: IgnorePointer(
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           child: TweenAnimationBuilder<Color?>(
             tween: ColorTween(end: color),
             duration: AppMotion.resolveDuration(
@@ -292,13 +413,23 @@ class _PreparationSafeZonePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final guideRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final guidePaint = Paint()
+      ..color = color.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(guideRect, const Radius.circular(18)),
+      guidePaint,
+    );
+
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
     final cornerLength = (size.shortestSide * 0.12)
-        .clamp(18.0, 32.0)
+        .clamp(20.0, 36.0)
         .toDouble();
     final path = Path()
       ..moveTo(0, cornerLength)
@@ -314,6 +445,23 @@ class _PreparationSafeZonePainter extends CustomPainter {
       ..lineTo(0, size.height)
       ..lineTo(0, size.height - cornerLength);
     canvas.drawPath(path, paint);
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final crosshairPaint = Paint()
+      ..color = color.withValues(alpha: 0.36)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    canvas
+      ..drawLine(
+        Offset(center.dx - 8, center.dy),
+        Offset(center.dx + 8, center.dy),
+        crosshairPaint,
+      )
+      ..drawLine(
+        Offset(center.dx, center.dy - 8),
+        Offset(center.dx, center.dy + 8),
+        crosshairPaint,
+      );
   }
 
   @override
@@ -322,32 +470,66 @@ class _PreparationSafeZonePainter extends CustomPainter {
   }
 }
 
-Color _readinessColor(SetupReadinessVisualState state) {
-  return switch (state) {
-    SetupReadinessVisualState.checking => Colors.amberAccent,
-    SetupReadinessVisualState.needsAdjustment => Colors.orangeAccent,
-    SetupReadinessVisualState.ready => Colors.greenAccent,
-  };
-}
-
 class _PreparationCameraLoading extends StatelessWidget {
   const _PreparationCameraLoading();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      key: const ValueKey<String>('preparation-camera-loading'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: Colors.greenAccent),
-          const SizedBox(height: 14),
-          Text(
-            AppLocalizations.of(context).preparationCameraLoading,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+    final colors = context.semanticColors;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final compact = constraints.maxHeight < 260 || textScale > 1.3;
+        final outerPadding = compact ? AppSpacing.sm : AppSpacing.lg;
+        final cardPadding = compact ? AppSpacing.md : AppSpacing.lg;
+
+        return SingleChildScrollView(
+          key: const ValueKey<String>('preparation-camera-loading'),
+          padding: EdgeInsets.all(outerPadding),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - (outerPadding * 2)).clamp(
+                0.0,
+                double.infinity,
+              ),
+            ),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 300),
+                padding: EdgeInsets.all(cardPadding),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.68),
+                  borderRadius: BorderRadius.circular(AppRadii.surface),
+                  border: Border.all(color: colors.outline),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: compact ? 28 : 36,
+                      height: compact ? 28 : 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: compact ? 2.5 : 3,
+                        color: colors.analysisAccent,
+                      ),
+                    ),
+                    SizedBox(height: compact ? AppSpacing.xs : AppSpacing.sm),
+                    Text(
+                      AppLocalizations.of(context).preparationCameraLoading,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.foreground,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -365,31 +547,56 @@ class _PreparationCameraError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Center(
       key: const ValueKey<String>('preparation-camera-error'),
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.photo_camera_outlined,
-              color: Colors.greenAccent,
-              size: 40,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                height: 1.35,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(AppRadii.surface),
+            border: Border.all(color: colors.danger.withValues(alpha: 0.46)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.danger.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.photo_camera_outlined,
+                  color: colors.danger,
+                  size: 28,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            OutlinedButton(onPressed: onPressed, child: Text(actionLabel)),
-          ],
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.foreground,
+                  height: 1.35,
+                  fontWeight: AppFontWeights.semibold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppButton(
+                label: actionLabel,
+                onPressed: onPressed,
+                variant: AppButtonVariant.outline,
+                icon: Icons.refresh_rounded,
+              ),
+            ],
+          ),
         ),
       ),
     );
