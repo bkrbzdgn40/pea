@@ -122,6 +122,18 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-camera-preview')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-camera-frame')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-camera-vignette')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-camera-readiness-status')),
+      findsOneWidget,
+    );
     expect(find.byType(CameraPreview), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('preparation-safe-zone')),
@@ -135,6 +147,21 @@ void main() {
       find.byKey(const ValueKey<String>('preparation-readiness-panel')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('preparation-readiness-progress')),
+      findsOneWidget,
+    );
+    for (final check in <String>[
+      'person',
+      'framing',
+      'cameraView',
+      'startPose',
+    ]) {
+      expect(
+        find.byKey(ValueKey<String>('preparation-readiness-check-$check')),
+        findsOneWidget,
+      );
+    }
     expect(
       find.byKey(const ValueKey<String>('preparation-readiness-banner')),
       findsNothing,
@@ -500,9 +527,14 @@ void main() {
       findsNothing,
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('preparation-cancel-gate')),
+    final cancelGate = find.byKey(
+      const ValueKey<String>('preparation-cancel-gate'),
     );
+    await tester.ensureVisible(cancelGate);
+    await tester.pump();
+    final cancelButton = tester.widget<IconButton>(cancelGate);
+    expect(cancelButton.onPressed, isNotNull);
+    await tester.tap(cancelGate);
     await tester.pump();
 
     expect(

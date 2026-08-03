@@ -2,6 +2,12 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_feedback_banner.dart';
+import '../../../../app/presentation/widgets/app_icon_button.dart';
+import '../../../../app/presentation/widgets/app_status_tone.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 
 class PreparationGuideAction extends StatelessWidget {
   const PreparationGuideAction({
@@ -17,17 +23,17 @@ class PreparationGuideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     if (compact) {
-      return IconButton(
+      return AppIconButton(
         key: const ValueKey<String>('preparation-guide-action'),
         tooltip: localizations.preparationGuide,
         onPressed: onPressed,
-        icon: const Icon(Icons.help_outline_rounded),
+        icon: Icons.help_outline_rounded,
+        variant: AppIconButtonVariant.filled,
       );
     }
 
     return TextButton.icon(
       key: const ValueKey<String>('preparation-guide-action'),
-      style: TextButton.styleFrom(foregroundColor: Colors.white),
       onPressed: onPressed,
       icon: const Icon(Icons.help_outline_rounded, size: 20),
       label: Text(localizations.preparationGuide),
@@ -50,34 +56,43 @@ class PreparationLandscapeToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    return Row(
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
       key: const ValueKey<String>('preparation-landscape-toolbar'),
-      children: [
-        IconButton(
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      variant: AppSurfaceVariant.muted,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          const SizedBox(width: AppSpacing.xxs),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colors.foreground,
+                fontWeight: AppFontWeights.heavy,
+              ),
             ),
           ),
-        ),
-        IconButton(
-          key: const ValueKey<String>('preparation-guide-action'),
-          tooltip: localizations.preparationGuide,
-          onPressed: onGuide,
-          icon: const Icon(Icons.help_outline_rounded),
-        ),
-      ],
+          AppIconButton(
+            key: const ValueKey<String>('preparation-guide-action'),
+            tooltip: localizations.preparationGuide,
+            onPressed: onGuide,
+            icon: Icons.help_outline_rounded,
+            variant: AppIconButtonVariant.filled,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -96,34 +111,69 @@ class PreparationHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
       key: const ValueKey<String>('preparation-compact-header'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          exerciseName,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: compact ? 20 : 24,
-            height: 1.1,
-            fontWeight: FontWeight.w900,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? AppSpacing.sm : AppSpacing.md,
+        vertical: compact ? AppSpacing.sm : 14,
+      ),
+      color: colors.analysisAccent.withValues(alpha: 0.08),
+      borderColor: colors.analysisAccent.withValues(alpha: 0.28),
+      child: Row(
+        children: [
+          Container(
+            width: compact ? 42 : 48,
+            height: compact ? 42 : 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.analysisAccent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppRadii.compact),
+              border: Border.all(
+                color: colors.analysisAccent.withValues(alpha: 0.24),
+              ),
+            ),
+            child: Icon(
+              Icons.center_focus_strong_rounded,
+              color: colors.analysisAccent,
+              size: compact ? 23 : 26,
+            ),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          summary,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: const Color(0xFFB9F3E7),
-            fontSize: compact ? 13 : 15,
-            height: 1.25,
-            fontWeight: FontWeight.w700,
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  exerciseName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.foreground,
+                    fontSize: compact ? 20 : 24,
+                    height: 1.1,
+                    fontWeight: AppFontWeights.heavy,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.analysisAccent,
+                    fontSize: compact ? 13 : 15,
+                    height: 1.25,
+                    fontWeight: AppFontWeights.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -147,14 +197,14 @@ class PreparationNotices extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (fallbackMessage != null)
             PreparationMessageCard(message: fallbackMessage!),
           if (fallbackMessage != null && hasConfigError)
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.xs),
           if (hasConfigError) PreparationConfigError(onRetry: onRetryConfig),
         ],
       ),
@@ -203,21 +253,11 @@ class PreparationMessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 14,
-          height: 1.35,
-        ),
-      ),
+    return AppFeedbackBanner(
+      message: message,
+      tone: AppStatusTone.caution,
+      icon: Icons.info_outline_rounded,
+      liveRegion: false,
     );
   }
 }
@@ -229,31 +269,14 @@ class PreparationConfigError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              AppLocalizations.of(context).analysisConfigLoadFailed,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.35,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppLocalizations.of(context).retry),
-          ),
-        ],
-      ),
+    final localizations = AppLocalizations.of(context);
+    return AppFeedbackBanner(
+      title: localizations.preparationReadinessNeedsAdjustment,
+      message: localizations.analysisConfigLoadFailed,
+      tone: AppStatusTone.danger,
+      actionLabel: localizations.retry,
+      onAction: onRetry,
+      icon: Icons.sync_problem_rounded,
     );
   }
 }
