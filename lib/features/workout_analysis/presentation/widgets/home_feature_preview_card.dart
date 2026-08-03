@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 
-/// Shared Home preview card for secondary surfaces such as goals and coach.
+/// Shared Home preview card for secondary surfaces such as goals and badges.
 class HomeFeaturePreviewCard extends StatelessWidget {
   const HomeFeaturePreviewCard({
     super.key,
@@ -25,103 +26,124 @@ class HomeFeaturePreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
     final normalizedProgress = progress?.clamp(0, 1).toDouble();
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: AppSurfaceCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Semantics(
+      button: true,
+      label: title,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.surface),
+          onTap: onTap,
+          child: Ink(
+            padding: AppSpacing.surfacePadding,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(AppRadii.surface),
+              border: Border.all(color: colors.outline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.greenAccent, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colors.analysisAccent.withValues(
+                          alpha: AppOpacity.subtle,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadii.small),
+                      ),
+                      child: Icon(icon, color: colors.analysisAccent, size: 22),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                          Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: AppSpacing.xxs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: colors.foreground,
+                                      fontWeight: AppFontWeights.heavy,
+                                    ),
                               ),
-                            ),
+                              if (badgeText != null)
+                                _PreviewBadge(text: badgeText!),
+                            ],
                           ),
-                          if (badgeText != null) ...[
-                            const SizedBox(width: 8),
-                            _PreviewBadge(text: badgeText!),
-                          ],
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            subtitle,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colors.foregroundMuted,
+                                  height: 1.3,
+                                ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colors.analysisAccent,
+                    ),
+                  ],
+                ),
+                if (normalizedProgress != null || trailingText != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          trailingText ?? '',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colors.foregroundMuted,
+                                fontWeight: AppFontWeights.semibold,
+                              ),
                         ),
                       ),
+                      if (normalizedProgress != null) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          '%${(normalizedProgress * 100).round()}',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: colors.analysisAccent,
+                                fontWeight: AppFontWeights.heavy,
+                              ),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.greenAccent,
-                ),
+                  if (normalizedProgress != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    LinearProgressIndicator(
+                      value: normalizedProgress,
+                      minHeight: 7,
+                      backgroundColor: colors.outlineSubtle,
+                      color: colors.analysisAccent,
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                  ],
+                ],
               ],
             ),
-            if (normalizedProgress != null || trailingText != null) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      trailingText ?? '',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (normalizedProgress != null)
-                    Text(
-                      '%${(normalizedProgress * 100).round()}',
-                      style: const TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                ],
-              ),
-              if (normalizedProgress != null) ...[
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: normalizedProgress,
-                  minHeight: 7,
-                  backgroundColor: Colors.white12,
-                  color: Colors.greenAccent,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ],
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -135,19 +157,23 @@ class _PreviewBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.greenAccent,
-        borderRadius: BorderRadius.all(Radius.circular(999)),
+      decoration: BoxDecoration(
+        color: colors.analysisAccent,
+        borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs,
+          vertical: AppSpacing.xxs,
+        ),
         child: Text(
           text,
-          style: const TextStyle(
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: Colors.black,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
+            fontWeight: AppFontWeights.heavy,
           ),
         ),
       ),

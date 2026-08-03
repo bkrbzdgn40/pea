@@ -46,6 +46,7 @@ void main() {
       expect(data.totalAnalyses, 10);
       expect(data.averageScore, 50);
       expect(data.bestScore, 90);
+      expect(data.latestSession?.id, 'range-8');
       expect(
         data.scoreTrend.map((point) => point.score).toList(growable: false),
         <double>[30, 40, 50, 60, 70, 80, 90],
@@ -81,6 +82,7 @@ void main() {
       expect(data.bestScore, 0);
       expect(data.scoreTrend, isEmpty);
       expect(data.exerciseDistribution, isEmpty);
+      expect(data.latestSession, isNull);
     }
   });
 }

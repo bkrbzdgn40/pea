@@ -6,11 +6,13 @@ import 'package:pose_estimation_app/features/achievements/presentation/providers
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 
+import '../../../../support/presentation_test_harness.dart';
 import '../../../../support/presentation_test_support.dart';
 
 void main() {
@@ -71,6 +73,87 @@ void main() {
       expect(find.text('Değerlendirme'), findsOneWidget);
     },
   );
+
+  testWidgets('keeps the dashboard metric cards at equal height', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      locale: const Locale('en'),
+      configuration: const PresentationTestConfiguration(
+        viewport: PresentationTestViewport.standardPortrait,
+      ),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+
+    final totalAnalysesSize = tester.getSize(
+      find.byKey(const ValueKey('home-total-analyses')),
+    );
+    final thisWeekSize = tester.getSize(
+      find.byKey(const ValueKey('home-this-week')),
+    );
+
+    expect(thisWeekSize.height, totalAnalysesSize.height);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('surfaces the latest saved session without global scoring', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith(
+          (ref) => HomeDashboardData(
+            totalAnalyses: 8,
+            averageScore: 87,
+            thisWeekCount: 3,
+            bestScore: 93,
+            scoreTrend: const <ScoreTrendPoint>[],
+            exerciseDistribution: const <ExerciseDistributionItem>[],
+            source: HomeDashboardSource.real,
+            latestSession: _latestRangeSession(),
+          ),
+        ),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.text('Son Oturum'), findsOneWidget);
+    expect(find.text('Squat'), findsOneWidget);
+    expect(find.text('Ort. Skor'), findsOneWidget);
+    expect(find.text('Ortalama Skor'), findsNothing);
+    expect(find.text('Oturumu Aç'), findsOneWidget);
+  });
 
   testWidgets(
     'does not present zero score as poor performance for hold-only history',
@@ -455,5 +538,23 @@ HomeDashboardData _holdOnlyDashboardData() {
       ExerciseDistributionItem(label: 'Hollow Hold', value: 50),
     ],
     source: HomeDashboardSource.real,
+  );
+}
+
+WorkoutSession _latestRangeSession() {
+  return WorkoutSession(
+    id: 'latest-session',
+    ownerId: 'owner',
+    exerciseType: 'squat',
+    startedAt: DateTime(2026, 8, 3, 10, 30),
+    endedAt: DateTime(2026, 8, 3, 10, 31),
+    durationSec: 60,
+    totalReps: 12,
+    averageScore: 88,
+    bestScore: 94,
+    validReps: 10,
+    lowConfidenceReps: 1,
+    invalidReps: 1,
+    formWarningCount: 1,
   );
 }

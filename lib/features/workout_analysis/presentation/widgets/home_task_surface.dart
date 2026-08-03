@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
+import '../../../../app/presentation/widgets/app_section.dart';
+import '../../../../app/presentation/widgets/app_status_chip.dart';
+import '../../../../app/presentation/widgets/app_status_tone.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/exercise_type.dart';
 
 class HomeGreetingHeader extends StatelessWidget {
@@ -12,27 +15,57 @@ class HomeGreetingHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: colors.analysisAccent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.analysisAccent.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  localizations.cameraBasedAnalysis.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colors.analysisAccent,
+                    fontWeight: AppFontWeights.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             localizations.greetingForHour(DateTime.now().hour),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+              height: 1.05,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             localizations.homeReadyPrompt,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.3,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: colors.foregroundMuted,
+              height: 1.35,
             ),
           ),
         ],
@@ -76,24 +109,122 @@ class HomeTaskPanel extends StatelessWidget {
       key: const ValueKey('home-task-panel'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SelectedExerciseSummary(
-          key: const ValueKey('home-selected-exercise'),
+        _HomeAnalysisHero(
           selectedExercise: selectedExercise,
-          onChangeExercise: onSelectExercise,
-        ),
-        SizedBox(height: layout.sectionGap),
-        _HomePrimaryActionCard(
           title: primaryTitle,
           subtitle: primarySubtitle,
-          onTap: onStartAnalysis,
+          onStartAnalysis: onStartAnalysis,
+          onSelectExercise: onSelectExercise,
         ),
-        SizedBox(height: layout.sectionGap),
-        _HomeSecondaryActions(
-          layout: layout,
-          onOpenWorkoutPlan: onOpenWorkoutPlan,
-          onOpenAssessment: onOpenAssessment,
+        SizedBox(height: layout.panelGap),
+        AppSection(
+          title: localizations.quickFlows,
+          child: _HomeSecondaryActions(
+            layout: layout,
+            onOpenWorkoutPlan: onOpenWorkoutPlan,
+            onOpenAssessment: onOpenAssessment,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _HomeAnalysisHero extends StatelessWidget {
+  const _HomeAnalysisHero({
+    required this.selectedExercise,
+    required this.title,
+    required this.subtitle,
+    required this.onStartAnalysis,
+    required this.onSelectExercise,
+  });
+
+  final ExerciseType? selectedExercise;
+  final String title;
+  final String subtitle;
+  final VoidCallback onStartAnalysis;
+  final VoidCallback onSelectExercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.surfaceStrong,
+            colors.analysisAccent.withValues(alpha: 0.12),
+            colors.surface,
+          ],
+          stops: const [0, 0.58, 1],
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.large),
+        border: Border.all(
+          color: colors.analysisAccent.withValues(alpha: AppOpacity.border),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.analysisAccent.withValues(alpha: 0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -52,
+            top: -58,
+            child: IgnorePointer(
+              child: Container(
+                width: 164,
+                height: 164,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colors.analysisAccent.withValues(alpha: 0.12),
+                    width: 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 24,
+            bottom: -46,
+            child: IgnorePointer(
+              child: Icon(
+                Icons.accessibility_new_rounded,
+                size: 118,
+                color: colors.analysisAccent.withValues(alpha: 0.055),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SelectedExerciseSummary(
+                  key: const ValueKey('home-selected-exercise'),
+                  selectedExercise: selectedExercise,
+                  onChangeExercise: onSelectExercise,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _HomePrimaryActionCard(
+                  title: title,
+                  subtitle: subtitle,
+                  onTap: onStartAnalysis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -116,67 +247,29 @@ class _SelectedExerciseSummary extends StatelessWidget {
         ? null
         : localizations.exerciseTitle(selectedExercise!.id);
 
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(14),
-      borderColor: hasSelection
-          ? Colors.greenAccent.withValues(alpha: 0.35)
-          : AppColors.surfaceBorder,
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: (hasSelection ? Colors.greenAccent : Colors.white70)
-                  .withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppRadii.small),
-            ),
-            child: Icon(
-              hasSelection
-                  ? Icons.check_circle_outline_rounded
-                  : Icons.info_outline_rounded,
-              color: hasSelection ? Colors.greenAccent : Colors.white70,
-              size: 20,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: AppStatusChip(
+            label: hasSelection
+                ? localizations.selectedExercise(exerciseTitle!)
+                : localizations.noExerciseSelected,
+            tone: hasSelection ? AppStatusTone.success : AppStatusTone.neutral,
+            icon: hasSelection
+                ? Icons.check_circle_outline_rounded
+                : Icons.info_outline_rounded,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  hasSelection
-                      ? localizations.selectedExercise(exerciseTitle!)
-                      : localizations.noExerciseSelected,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  hasSelection
-                      ? localizations.quickStartUsesSelection
-                      : localizations.quickStartNeedsSelection,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        TextButton(
+          onPressed: onChangeExercise,
+          child: Text(
+            hasSelection ? localizations.change : localizations.select,
           ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onChangeExercise,
-            child: Text(
-              hasSelection ? localizations.change : localizations.select,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -194,6 +287,8 @@ class _HomePrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Material(
       key: const ValueKey('home-primary-action'),
       color: Colors.transparent,
@@ -201,12 +296,15 @@ class _HomePrimaryActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadii.surface),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
+          ),
           decoration: BoxDecoration(
-            color: Colors.greenAccent.withValues(alpha: 0.14),
+            color: colors.analysisAccent.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(AppRadii.surface),
             border: Border.all(
-              color: Colors.greenAccent.withValues(alpha: 0.55),
+              color: colors.analysisAccent.withValues(alpha: 0.52),
             ),
           ),
           child: Row(
@@ -215,46 +313,47 @@ class _HomePrimaryActionCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withValues(alpha: 0.16),
+                  color: colors.analysisAccent,
                   borderRadius: BorderRadius.circular(AppRadii.small),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.analysisAccent.withValues(alpha: 0.28),
+                      blurRadius: 16,
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.play_arrow_rounded,
-                  color: Colors.greenAccent,
+                  color: Colors.black,
                   size: 28,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.foreground,
                         height: 1.2,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: AppFontWeights.heavy,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.25,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.foregroundMuted,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.greenAccent,
-              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(Icons.arrow_forward_rounded, color: colors.analysisAccent),
             ],
           ),
         ),
@@ -342,17 +441,19 @@ class _HomeSecondaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadii.surface),
         child: Ink(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            color: AppColors.primarySurface,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(AppRadii.surface),
-            border: Border.all(color: AppColors.surfaceBorder),
+            border: Border.all(color: colors.outline),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,12 +462,12 @@ class _HomeSecondaryActionCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: Colors.white70.withValues(alpha: 0.12),
+                  color: colors.foreground.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(AppRadii.small),
                 ),
-                child: Icon(icon, color: Colors.white70, size: 21),
+                child: Icon(icon, color: colors.foregroundMuted, size: 21),
               ),
-              const SizedBox(width: 11),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -374,26 +475,30 @@ class _HomeSecondaryActionCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.foreground,
                         height: 1.2,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: AppFontWeights.heavy,
                       ),
                     ),
                     if (showSubtitle) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xxs),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 11,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.foregroundMuted,
                           height: 1.25,
                         ),
                       ),
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              Icon(
+                Icons.arrow_outward_rounded,
+                size: 18,
+                color: colors.foregroundSubtle,
               ),
             ],
           ),
