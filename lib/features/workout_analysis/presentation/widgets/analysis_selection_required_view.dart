@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../../app/presentation/widgets/app_state_views.dart';
 
 class AnalysisSelectionRequiredView extends StatelessWidget {
   const AnalysisSelectionRequiredView({
@@ -16,66 +17,35 @@ class AnalysisSelectionRequiredView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const pagePadding = 24.0;
+
     return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF151515),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final minimumContentHeight = constraints.maxHeight > pagePadding * 2
+              ? constraints.maxHeight - pagePadding * 2
+              : 0.0;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(pagePadding),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minimumContentHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: AppEmptyView(
+                    centered: true,
+                    icon: Icons.directions_run_rounded,
+                    title: title,
+                    message: message,
+                    actionLabel: AppLocalizations.of(context).selectExercise,
+                    onAction: onSelectExercise,
+                  ),
+                ),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.directions_run_rounded,
-                  color: Colors.greenAccent,
-                  size: 40,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 15,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                ElevatedButton.icon(
-                  onPressed: onSelectExercise,
-                  icon: const Icon(Icons.playlist_add_check_rounded),
-                  label: Text(AppLocalizations.of(context).selectExercise),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.greenAccent,
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size.fromHeight(52),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

@@ -1,9 +1,49 @@
 import 'package:flutter/material.dart';
 
+import '../../layout/app_layout.dart';
 import '../../theme/app_design_tokens.dart';
 import '../../theme/app_semantic_colors.dart';
 import 'app_button.dart';
 import 'app_surface_card.dart';
+
+class AppRootStateScaffold extends StatelessWidget {
+  const AppRootStateScaffold({
+    super.key,
+    required this.child,
+    this.maxContentWidth = 520,
+  }) : assert(maxContentWidth > 0);
+
+  final Widget child;
+  final double maxContentWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = AppLayout.of(context).pagePadding;
+
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Padding(
+                  padding: padding,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxContentWidth),
+                      child: SizedBox(width: double.infinity, child: child),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 
 class AppLoadingView extends StatelessWidget {
   const AppLoadingView({super.key, this.message});

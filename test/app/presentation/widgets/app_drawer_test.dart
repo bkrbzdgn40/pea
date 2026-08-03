@@ -13,6 +13,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/guide_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 
+import '../../../support/presentation_test_harness.dart';
 import '../../../support/presentation_test_support.dart';
 
 void main() {
@@ -79,6 +80,28 @@ void main() {
         Icons.settings_rounded,
       ],
     );
+  });
+
+  testWidgets('drawer remains usable with compact large text', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      locale: const Locale('tr'),
+      configuration: const PresentationTestConfiguration(
+        viewport: PresentationTestViewport.compactPortrait,
+        textScaleFactor: 2,
+      ),
+      home: const _DrawerHost(currentPage: AppDestination.home),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.menu).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pose Analysis'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Geçmiş Oturumlar'), findsOneWidget);
+    expectNoPresentationExceptions(tester);
   });
 
   testWidgets('current destination selection only closes the drawer', (
