@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/market/presentation/screens/market_screen.dart';
 import '../../features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
 import '../../features/workout_analysis/presentation/screens/guide_screen.dart';
 import '../../features/workout_analysis/presentation/screens/home_screen.dart';
@@ -18,6 +19,7 @@ abstract final class AppRoutes {
         AppDestination.sessionHistory.routeName: (_) =>
             const SessionHistoryScreen(),
         AppDestination.guide.routeName: (_) => const GuideScreen(),
+        AppDestination.market.routeName: (_) => const MarketScreen(),
         AppDestination.settings.routeName: (_) => const SettingsScreen(),
       });
 }
