@@ -14,6 +14,7 @@ import '../../../../app/theme/app_semantic_colors.dart';
 import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../application/exercise_catalog.dart';
+import '../camera_focus_stabilizer.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
 import '../models/preparation_camera_geometry.dart';
@@ -55,6 +56,7 @@ class PreparationScreen extends ConsumerStatefulWidget {
 
 class _PreparationScreenState extends ConsumerState<PreparationScreen>
     with WidgetsBindingObserver {
+  late final CameraFocusStabilizer _cameraFocusStabilizer;
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
   late final ScreenAwakeController _screenAwakeController;
   late final PreparationLiveCameraHandoffCoordinator _cameraHandoffCoordinator;
@@ -76,6 +78,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _cameraFocusStabilizer = CameraFocusStabilizer(debugLabel: 'preparation');
     _imageStreamCoordinator = CameraImageStreamCoordinator();
     _screenAwakeController = ref.read(screenAwakeControllerProvider);
     _cameraHandoffCoordinator =
@@ -107,6 +110,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     if (_ownsCameraHandoffCoordinator) {
       _cameraHandoffCoordinator.dispose();
     }
+    _cameraFocusStabilizer.dispose();
     unawaited(_imageStreamCoordinator.dispose());
     super.dispose();
   }
@@ -152,6 +156,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       if (readinessRequest != null) {
         ref.invalidate(preparationStartGateProvider(readinessRequest));
       }
+      _cameraFocusStabilizer.cancelPending();
       unawaited(_imageStreamCoordinator.stop());
       return;
     }
@@ -189,6 +194,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       }
 
       _stopObservingCameraGeometry();
+      _cameraFocusStabilizer.cancelPending();
       _automaticallyArmedRequest = null;
       ref.invalidate(cameraProvider);
       await ref.read(cameraProvider.future);
@@ -240,6 +246,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
     }
 
     try {
+      final cameraController = ref.read(cameraProvider).asData?.value;
+      if (cameraController != null) {
+        await _cameraFocusStabilizer.lockForAnalysis(cameraController);
+      }
       await _startAnalysis();
     } finally {
       if (mounted) {
@@ -291,6 +301,10 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
 
   void _cancelPreparationGate(SetupReadinessRequest request) {
     _automaticallyArmedRequest = request;
+    final cameraController = ref.read(cameraProvider).asData?.value;
+    if (cameraController != null) {
+      unawaited(_cameraFocusStabilizer.useAuto(cameraController));
+    }
     ref.read(preparationStartGateProvider(request).notifier).reset();
   }
 
@@ -355,20 +369,20 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
           !_isRecoveringCamera &&
           _cameraHandoffCoordinator.canUsePreparationCamera &&
           _hasAnalysisSelection(),
-      onFrame: (image, streamController) {
+      minimumFrameInterval: () => const Duration(milliseconds: 100),
+      debugLabel: 'preparation',
+      onFrame: (image, streamController) async {
         if (!mounted) {
           return;
         }
-        unawaited(
-          ref
-              .read(preparationCameraControllerProvider.notifier)
-              .processCameraImage(
-                image,
-                streamController.description.sensorOrientation,
-                deviceOrientation: _displayDeviceOrientation,
-                lensDirection: streamController.description.lensDirection,
-              ),
-        );
+        await ref
+            .read(preparationCameraControllerProvider.notifier)
+            .processCameraImage(
+              image,
+              streamController.description.sensorOrientation,
+              deviceOrientation: _displayDeviceOrientation,
+              lensDirection: streamController.description.lensDirection,
+            );
       },
       onError: (_, _) => _recoverCameraAfterStreamError(),
     );
@@ -381,6 +395,7 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
 
     _stopObservingCameraGeometry();
     _observedCameraController = controller;
+    unawaited(_cameraFocusStabilizer.useAuto(controller));
     final value = safeCameraValue(controller);
     _observedDeviceOrientation = value?.deviceOrientation;
     _observedPreviewSize = value?.previewSize;
@@ -541,8 +556,25 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
         previous,
         next,
       ) {
-        if (previous?.phase == PreparationStartGatePhase.countingDown &&
-            next.phase == PreparationStartGatePhase.approved) {
+        final previousPhase = previous?.phase;
+        final nextPhase = next.phase;
+        if (previousPhase != PreparationStartGatePhase.countingDown &&
+            nextPhase == PreparationStartGatePhase.countingDown) {
+          final activeController = ref.read(cameraProvider).asData?.value;
+          if (activeController != null) {
+            unawaited(_cameraFocusStabilizer.lockForAnalysis(activeController));
+          }
+        } else if (previousPhase == PreparationStartGatePhase.countingDown &&
+            nextPhase != PreparationStartGatePhase.approved &&
+            nextPhase != PreparationStartGatePhase.launching) {
+          final activeController = ref.read(cameraProvider).asData?.value;
+          if (activeController != null) {
+            unawaited(_cameraFocusStabilizer.useAuto(activeController));
+          }
+        }
+
+        if (previousPhase == PreparationStartGatePhase.countingDown &&
+            nextPhase == PreparationStartGatePhase.approved) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               unawaited(_launchApprovedAnalysis(readinessRequest));

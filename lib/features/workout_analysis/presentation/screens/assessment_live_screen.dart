@@ -10,6 +10,7 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../domain/models/assessment_models.dart';
+import '../camera_focus_stabilizer.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../errors/workout_camera_error_presentation.dart';
 import '../models/preparation_camera_geometry.dart';
@@ -28,6 +29,7 @@ class AssessmentLiveScreen extends ConsumerStatefulWidget {
 
 class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
     with WidgetsBindingObserver {
+  late final CameraFocusStabilizer _cameraFocusStabilizer;
   late final CameraImageStreamCoordinator _imageStreamCoordinator;
   bool _isRecoveringCamera = false;
   bool _isAppResumed = true;
@@ -37,6 +39,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _cameraFocusStabilizer = CameraFocusStabilizer(debugLabel: 'assessment');
     _imageStreamCoordinator = CameraImageStreamCoordinator();
   }
 
@@ -51,6 +54,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cameraFocusStabilizer.dispose();
     unawaited(_imageStreamCoordinator.dispose());
     super.dispose();
   }
@@ -61,6 +65,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _isAppResumed = false;
+      _cameraFocusStabilizer.cancelPending();
       unawaited(_imageStreamCoordinator.stop());
       return;
     }
@@ -185,6 +190,12 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
   }
 
   void _ensureImageStream(CameraController controller) {
+    unawaited(
+      _cameraFocusStabilizer.lockForAnalysis(
+        controller,
+        settleDuration: const Duration(milliseconds: 900),
+      ),
+    );
     _imageStreamCoordinator.ensureStarted(
       controller: controller,
       shouldStart: () =>
@@ -192,20 +203,20 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
           _isAppResumed &&
           !_isRecoveringCamera &&
           !ref.read(assessmentLiveControllerProvider).snapshot.isCompleted,
-      onFrame: (image, streamController) {
+      minimumFrameInterval: () => const Duration(milliseconds: 100),
+      debugLabel: 'assessment',
+      onFrame: (image, streamController) async {
         if (!mounted) {
           return;
         }
-        unawaited(
-          ref
-              .read(assessmentLiveControllerProvider.notifier)
-              .processCameraImage(
-                image,
-                streamController.description.sensorOrientation,
-                deviceOrientation: _displayDeviceOrientation,
-                lensDirection: streamController.description.lensDirection,
-              ),
-        );
+        await ref
+            .read(assessmentLiveControllerProvider.notifier)
+            .processCameraImage(
+              image,
+              streamController.description.sensorOrientation,
+              deviceOrientation: _displayDeviceOrientation,
+              lensDirection: streamController.description.lensDirection,
+            );
       },
       onError: (_, _) => _recoverCameraAfterStreamError(),
     );
@@ -237,6 +248,7 @@ class _AssessmentLiveScreenState extends ConsumerState<AssessmentLiveScreen>
     }
 
     try {
+      _cameraFocusStabilizer.cancelPending();
       await _imageStreamCoordinator.stop();
       if (!mounted || !_isAppResumed) {
         return;

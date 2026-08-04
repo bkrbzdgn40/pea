@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../application/workout_session_lifecycle_controller.dart';
+import '../camera_focus_stabilizer.dart';
 import '../camera_image_stream_coordinator.dart';
+import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/live_pause_controller.dart';
 import '../providers/preparation_camera_controller.dart';
@@ -28,6 +30,7 @@ class LiveCameraSessionController {
     required WorkoutSessionLifecycleOwner? Function() sessionLifecycle,
     required Future<void> Function(bool enable) setScreenAwake,
     required VoidCallback onPermissionRequired,
+    CameraFocusStabilizer? cameraFocusStabilizer,
     CameraImageStreamCoordinator? imageStreamCoordinator,
   }) : _ref = ref,
        _isMounted = isMounted,
@@ -37,6 +40,9 @@ class LiveCameraSessionController {
        _sessionLifecycle = sessionLifecycle,
        _setScreenAwake = setScreenAwake,
        _onPermissionRequired = onPermissionRequired,
+       _cameraFocusStabilizer =
+           cameraFocusStabilizer ??
+           CameraFocusStabilizer(debugLabel: 'live-analysis'),
        _imageStreamCoordinator =
            imageStreamCoordinator ?? CameraImageStreamCoordinator();
 
@@ -48,6 +54,7 @@ class LiveCameraSessionController {
   final WorkoutSessionLifecycleOwner? Function() _sessionLifecycle;
   final Future<void> Function(bool enable) _setScreenAwake;
   final VoidCallback _onPermissionRequired;
+  final CameraFocusStabilizer _cameraFocusStabilizer;
   final CameraImageStreamCoordinator _imageStreamCoordinator;
 
   ProviderSubscription<AsyncValue<CameraController>>? _cameraSubscription;
@@ -76,6 +83,12 @@ class LiveCameraSessionController {
       (_, next) {
         next.whenData((controller) {
           _latestCameraController = controller;
+          unawaited(
+            _cameraFocusStabilizer.lockForAnalysis(
+              controller,
+              settleDuration: const Duration(milliseconds: 900),
+            ),
+          );
           _scheduleEnsureLatestStream();
         });
       },
@@ -107,6 +120,7 @@ class LiveCameraSessionController {
           .handleLifecycleInterruption();
       unawaited(_setScreenAwake(false));
       markRecovering();
+      _cameraFocusStabilizer.cancelPending();
       await stopImageStream();
       return;
     }
@@ -209,9 +223,11 @@ class LiveCameraSessionController {
     _cameraSubscription?.close();
     _cameraSubscription = null;
     _recoveryTimer?.cancel();
+    _cameraFocusStabilizer.cancelPending();
     _stopObservingCameraGeometry();
     unawaited(_setScreenAwake(false));
     await _imageStreamCoordinator.dispose();
+    _cameraFocusStabilizer.dispose();
   }
 
   void _scheduleEnsureLatestStream() {
@@ -237,12 +253,15 @@ class LiveCameraSessionController {
     _imageStreamCoordinator.ensureStarted(
       controller: controller,
       shouldStart: _shouldStartImageStream,
-      onFrame: (image, streamController) {
+      minimumFrameInterval: () =>
+          _ref.read(activeAnalysisFrameIntervalProvider),
+      debugLabel: 'live-analysis',
+      onFrame: (image, streamController) async {
         if (!_isMounted() || _isPlanTransitionLocked()) {
           return;
         }
         if (_ref.read(livePauseControllerProvider).isActive) {
-          _ref
+          await _ref
               .read(workoutControllerProvider.notifier)
               .processCameraImage(
                 image,
@@ -253,7 +272,7 @@ class LiveCameraSessionController {
           return;
         }
 
-        _ref
+        await _ref
             .read(preparationCameraControllerProvider.notifier)
             .processCameraImage(
               image,

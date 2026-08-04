@@ -245,7 +245,7 @@ void main() {
       state = harness.container.read(workoutControllerProvider);
 
       expect(state.repCount, 0);
-      expect(state.currentPhase, 'WAITING');
+      expect(state.currentPhase, 'AWAITING_NEUTRAL');
 
       clock.advance(const Duration(milliseconds: 100));
       await _analyzeFrame(harness.controller, detector, <Pose>[

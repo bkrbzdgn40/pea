@@ -131,6 +131,116 @@ void main() {
     expect(coordinator.ownedController, isNull);
     expect(coordinator.ownsImageStream, isFalse);
   });
+
+  test('drops frames while the current handler is still in flight', () async {
+    final controller = _FakeCameraController();
+    final coordinator = CameraImageStreamCoordinator();
+    final firstFrameGate = Completer<void>();
+    var handledFrameCount = 0;
+    addTearDown(() async {
+      if (!firstFrameGate.isCompleted) {
+        firstFrameGate.complete();
+      }
+      await coordinator.dispose();
+      await controller.dispose();
+    });
+
+    coordinator.ensureStarted(
+      controller: controller,
+      shouldStart: () => true,
+      onFrame: (_, _) async {
+        handledFrameCount += 1;
+        if (handledFrameCount == 1) {
+          await firstFrameGate.future;
+        }
+      },
+    );
+    await coordinator.waitForIdle();
+
+    controller.emitFrame();
+    controller.emitFrame();
+    controller.emitFrame();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(handledFrameCount, 1);
+    expect(coordinator.hasInFlightFrame, isTrue);
+
+    firstFrameGate.complete();
+    await coordinator.waitForIdle();
+    controller.emitFrame();
+    await coordinator.waitForIdle();
+
+    expect(handledFrameCount, 2);
+  });
+
+  test(
+    'applies the callback interval before invoking the frame handler',
+    () async {
+      final controller = _FakeCameraController();
+      final coordinator = CameraImageStreamCoordinator();
+      var handledFrameCount = 0;
+      addTearDown(() async {
+        await coordinator.dispose();
+        await controller.dispose();
+      });
+
+      coordinator.ensureStarted(
+        controller: controller,
+        shouldStart: () => true,
+        minimumFrameInterval: () => const Duration(seconds: 1),
+        onFrame: (_, _) {
+          handledFrameCount += 1;
+        },
+      );
+      await coordinator.waitForIdle();
+
+      controller.emitFrame();
+      await coordinator.waitForIdle();
+      controller.emitFrame();
+      await coordinator.waitForIdle();
+
+      expect(handledFrameCount, 1);
+    },
+  );
+
+  test('stop rejects new callbacks and drains the in-flight handler', () async {
+    final controller = _FakeCameraController();
+    final coordinator = CameraImageStreamCoordinator();
+    final frameGate = Completer<void>();
+    var handledFrameCount = 0;
+    addTearDown(() async {
+      if (!frameGate.isCompleted) {
+        frameGate.complete();
+      }
+      await coordinator.dispose();
+      await controller.dispose();
+    });
+
+    coordinator.ensureStarted(
+      controller: controller,
+      shouldStart: () => true,
+      onFrame: (_, _) async {
+        handledFrameCount += 1;
+        await frameGate.future;
+      },
+    );
+    await coordinator.waitForIdle();
+
+    controller.emitFrame();
+    await Future<void>.delayed(Duration.zero);
+    final stopFuture = coordinator.stop();
+    controller.emitFrame();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(handledFrameCount, 1);
+
+    frameGate.complete();
+    await stopFuture;
+
+    expect(controller.stopImageStreamCallCount, 1);
+    expect(coordinator.hasInFlightFrame, isFalse);
+    expect(coordinator.ownsImageStream, isFalse);
+  });
 }
 
 class _FakeCameraController extends CameraController {
@@ -155,6 +265,7 @@ class _FakeCameraController extends CameraController {
   final Completer<void> startEntered = Completer<void>();
   int startImageStreamCallCount = 0;
   int stopImageStreamCallCount = 0;
+  void Function(CameraImage image)? _onLatestImageAvailable;
 
   @override
   Widget buildPreview() => const SizedBox.expand();
@@ -164,6 +275,7 @@ class _FakeCameraController extends CameraController {
     void Function(CameraImage image) onLatestImageAvailable,
   ) async {
     startImageStreamCallCount += 1;
+    _onLatestImageAvailable = onLatestImageAvailable;
     if (!startEntered.isCompleted) {
       startEntered.complete();
     }
@@ -177,6 +289,16 @@ class _FakeCameraController extends CameraController {
   @override
   Future<void> stopImageStream() async {
     stopImageStreamCallCount += 1;
+    _onLatestImageAvailable = null;
     value = value.copyWith(isStreamingImages: false);
   }
+
+  void emitFrame() {
+    _onLatestImageAvailable?.call(_FakeCameraImage());
+  }
+}
+
+class _FakeCameraImage implements CameraImage {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -10,7 +10,6 @@ import '../../../../core/utils/monotonic_datetime_clock.dart';
 
 import '../../application/common_frame_pose_pipeline.dart';
 import '../../application/engine_kind.dart';
-import '../../application/exercise_catalog.dart';
 import '../../application/exercise_metric_registry.dart';
 import '../../application/exercise_metrics.dart';
 import '../../application/feedback_delivery_controller.dart';
@@ -107,12 +106,9 @@ final workoutClockProvider = Provider<DateTime Function()>((ref) {
 
 final workoutFramePosePipelineFactoryProvider =
     Provider<WorkoutFramePosePipelineFactory>((ref) {
-      final activeExercise = ref.watch(activeAnalysisExerciseProvider);
-      final analysisFrameInterval = activeExercise == null
-          ? const Duration(milliseconds: 100)
-          : const ExerciseCatalog()
-                .definitionFor(activeExercise)
-                .analysisFrameInterval;
+      final analysisFrameInterval = ref.watch(
+        activeAnalysisFrameIntervalProvider,
+      );
 
       return ({required PoseAcceptanceStabilizer poseAcceptanceStabilizer}) {
         return WorkoutFramePosePipeline(
