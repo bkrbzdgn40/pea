@@ -11,6 +11,7 @@ enum AppDestination {
   ),
   sessionHistory(icon: Icons.history_rounded, routeName: '/history'),
   guide(icon: Icons.menu_book_rounded, routeName: '/guide'),
+  market(icon: Icons.storefront_rounded, routeName: '/market'),
   settings(icon: Icons.settings_rounded, routeName: '/settings');
 
   const AppDestination({required this.icon, required this.routeName});
@@ -25,6 +26,7 @@ enum AppDestination {
       AppDestination.exerciseSelection => localizations.selectExercise,
       AppDestination.sessionHistory => localizations.sessionHistory,
       AppDestination.guide => localizations.exerciseGuide,
+      AppDestination.market => localizations.market,
       AppDestination.settings => localizations.settings,
     };
   }

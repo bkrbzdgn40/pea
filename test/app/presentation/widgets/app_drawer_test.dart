@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/achievements/presentation/models/ac
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/market/presentation/screens/market_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/exercise_selection_screen.dart';
@@ -24,6 +25,7 @@ void main() {
       AppDestination.exerciseSelection,
       AppDestination.sessionHistory,
       AppDestination.guide,
+      AppDestination.market,
       AppDestination.settings,
     ]);
     expect(
@@ -39,6 +41,7 @@ void main() {
         'Hareket Seç',
         'Geçmiş Oturumlar',
         'Hareket Rehberi',
+        'Market',
         'Ayarlar',
       },
     );
@@ -55,6 +58,7 @@ void main() {
         'Select Exercise',
         'Session History',
         'Exercise Guide',
+        'Market',
         'Settings',
       },
     );
@@ -66,6 +70,7 @@ void main() {
         '/exercises',
         '/history',
         '/guide',
+        '/market',
         '/settings',
       },
     );
@@ -77,6 +82,7 @@ void main() {
         Icons.directions_run_rounded,
         Icons.history_rounded,
         Icons.menu_book_rounded,
+        Icons.storefront_rounded,
         Icons.settings_rounded,
       ],
     );
@@ -223,6 +229,27 @@ void main() {
     expect(find.byType(ExerciseSelectionScreen), findsNothing);
   });
 
+  testWidgets('market destination opens the local preview catalog', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      home: const _DrawerHost(currentPage: AppDestination.home),
+    );
+    await tester.pumpAndSettle();
+
+    await _selectDrawerDestination(tester, 'Market');
+
+    expect(observer.lastNewRoute?.settings.name, '/market');
+    expect(find.byType(MarketScreen), findsOneWidget);
+    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsOneWidget);
+    expect(find.text('8 örnek ürün'), findsOneWidget);
+  });
+
   testWidgets('home selection resets the complete root stack', (
     WidgetTester tester,
   ) async {
@@ -295,7 +322,11 @@ void main() {
 Future<void> _selectDrawerDestination(WidgetTester tester, String label) async {
   await tester.tap(find.byIcon(Icons.menu).first);
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(ListTile, label));
+
+  final destinationFinder = find.widgetWithText(ListTile, label);
+  await tester.ensureVisible(destinationFinder);
+  await tester.pumpAndSettle();
+  await tester.tap(destinationFinder);
   await tester.pumpAndSettle();
 }
 

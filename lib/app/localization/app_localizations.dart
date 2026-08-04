@@ -111,6 +111,209 @@ class AppLocalizations {
   String get sessionHistory =>
       pick(tr: 'Geçmiş Oturumlar', en: 'Session History');
   String get exerciseGuide => pick(tr: 'Hareket Rehberi', en: 'Exercise Guide');
+  String get market => pick(tr: 'Market', en: 'Market');
+  String get marketCatalogTitle => pick(
+    tr: 'Antrenmanını destekleyen ekipmanlar',
+    en: 'Equipment that supports your training',
+  );
+  String get marketCatalogDescription => pick(
+    tr: 'Bu alan şimdilik yerel örnek ürünlerle çalışan hafif bir market şablonudur.',
+    en: 'This area is currently a lightweight market template powered by local sample products.',
+  );
+  String get marketPreviewLabel => pick(tr: 'Şablon', en: 'Template');
+  String get marketCatalogLoading =>
+      pick(tr: 'Ürünler hazırlanıyor...', en: 'Preparing products...');
+  String get marketCatalogLoadFailedTitle => pick(
+    tr: 'Market kataloğu açılamadı',
+    en: 'Market catalog could not be opened',
+  );
+  String get marketCatalogLoadFailedMessage => pick(
+    tr: 'Yerel ürün şablonu okunamadı. Yeniden deneyebilirsin.',
+    en: 'The local product template could not be read. You can try again.',
+  );
+  String marketExampleProductCount(int count) =>
+      pick(tr: '$count örnek ürün', en: '$count sample products');
+  String get marketAllCategories => pick(tr: 'Tümü', en: 'All');
+  String marketCategoryLabel(String categoryId) {
+    return switch (categoryId) {
+      'setup' => pick(tr: 'Kamera ve Kurulum', en: 'Camera and Setup'),
+      'strength' => pick(tr: 'Kuvvet', en: 'Strength'),
+      'mobility' => pick(tr: 'Mobilite', en: 'Mobility'),
+      'accessories' => pick(
+        tr: 'Antrenman Aksesuarları',
+        en: 'Training Accessories',
+      ),
+      'apparel' => pick(tr: 'Giyim', en: 'Apparel'),
+      _ => categoryId,
+    };
+  }
+
+  String marketProductName(String productId) {
+    return switch (productId) {
+      'phone_tripod' => pick(tr: 'Telefon Tripodu', en: 'Phone Tripod'),
+      'exercise_mat' => pick(tr: 'Egzersiz Matı', en: 'Exercise Mat'),
+      'resistance_band_set' => pick(
+        tr: 'Direnç Bandı Seti',
+        en: 'Resistance Band Set',
+      ),
+      'mini_loop_band_set' => pick(
+        tr: 'Mini Loop Band Seti',
+        en: 'Mini Loop Band Set',
+      ),
+      'foam_roller' => pick(tr: 'Foam Roller', en: 'Foam Roller'),
+      'adjustable_dumbbell' => pick(
+        tr: 'Ayarlanabilir Dambıl',
+        en: 'Adjustable Dumbbell',
+      ),
+      'training_tshirt' => pick(
+        tr: 'Antrenman Tişörtü',
+        en: 'Training T-Shirt',
+      ),
+      'training_shorts' => pick(tr: 'Antrenman Şortu', en: 'Training Shorts'),
+      _ => productId,
+    };
+  }
+
+  String marketProductDescription(String productId) {
+    return switch (productId) {
+      'phone_tripod' => pick(
+        tr: 'Kamerayı sabit tutarak analiz kadrajını daha kolay korumana yardımcı olur.',
+        en: 'Helps keep the camera stable and the analysis framing consistent.',
+      ),
+      'exercise_mat' => pick(
+        tr: 'Zemin hareketlerinde daha dengeli ve konforlu bir çalışma alanı sunar.',
+        en: 'Provides a more stable and comfortable surface for floor exercises.',
+      ),
+      'resistance_band_set' => pick(
+        tr: 'Farklı direnç seviyeleriyle kuvvet çalışmalarını çeşitlendirir.',
+        en: 'Adds variety to strength sessions with multiple resistance levels.',
+      ),
+      'mini_loop_band_set' => pick(
+        tr: 'Aktivasyon, kalça ve alt vücut egzersizleri için kompakt destek sağlar.',
+        en: 'Provides compact support for activation, glute, and lower-body work.',
+      ),
+      'foam_roller' => pick(
+        tr: 'Antrenman öncesi mobilite ve antrenman sonrası gevşeme rutinlerini destekler.',
+        en: 'Supports mobility before training and recovery routines afterward.',
+      ),
+      'adjustable_dumbbell' => pick(
+        tr: 'Tek ekipmanla farklı ağırlık seviyelerinde kuvvet antrenmanı yapmayı sağlar.',
+        en: 'Enables strength training at different loads with a single piece of equipment.',
+      ),
+      'training_tshirt' => pick(
+        tr: 'Antrenman sırasında rahat hareket etmeyi destekleyen hafif spor tişörtüdür.',
+        en: 'A lightweight sports T-shirt designed to support comfortable movement during training.',
+      ),
+      'training_shorts' => pick(
+        tr: 'Hareket açıklığını kısıtlamadan antrenman yapmaya uygun spor şortudur.',
+        en: 'Training shorts designed to allow unrestricted movement during exercise.',
+      ),
+      _ => productId,
+    };
+  }
+
+  String get marketFeaturedLabel => pick(tr: 'Öne çıkan', en: 'Featured');
+  String get marketTemplateProductLabel => pick(
+    tr: 'Şablon ürün · Satış aktif değil',
+    en: 'Template product · Sales inactive',
+  );
+  String get marketProductInformation =>
+      pick(tr: 'Ürün bilgisi', en: 'Product information');
+  String get marketTemplateProductDetailMessage => pick(
+    tr: 'Bu ürün şimdilik market akışını göstermek için kullanılan yerel bir şablondur. Sepet cihaz belleğinde geçici olarak çalışır; ödeme henüz aktif değildir.',
+    en: 'This product is currently a local template used to demonstrate the market flow. The cart works temporarily in device memory; payment is not active yet.',
+  );
+  String marketOpenProductDetails(String productName, String price) => pick(
+    tr: '$productName, $price. Ürün detayını aç',
+    en: '$productName, $price. Open product details',
+  );
+  String marketProductImageLabel(String productName) =>
+      pick(tr: '$productName ürün görseli', en: '$productName product image');
+  String marketCartItemCount(int itemCount) =>
+      pick(tr: 'Sepet, $itemCount ürün', en: 'Cart, $itemCount items');
+  String marketIncreaseProductQuantity(String productName) => pick(
+    tr: '$productName adedini artır',
+    en: 'Increase $productName quantity',
+  );
+  String marketDecreaseProductQuantity(String productName) => pick(
+    tr: '$productName adedini azalt',
+    en: 'Decrease $productName quantity',
+  );
+  String marketRemoveProductFromCart(String productName) => pick(
+    tr: '$productName ürününü sepetten kaldır',
+    en: 'Remove $productName from cart',
+  );
+  String marketProductQuantityValue(String productName, int quantity) => pick(
+    tr: '$productName, $quantity adet',
+    en: '$productName, quantity $quantity',
+  );
+  String get marketCart => pick(tr: 'Sepet', en: 'Cart');
+  String get marketAddToCart => pick(tr: 'Sepete ekle', en: 'Add to cart');
+  String get marketAddAnotherToCart =>
+      pick(tr: 'Bir tane daha ekle', en: 'Add another');
+  String marketInCart(int quantity) =>
+      pick(tr: 'Sepette ($quantity)', en: 'In cart ($quantity)');
+  String get marketCartOverviewTitle =>
+      pick(tr: 'Sepetini gözden geçir', en: 'Review your cart');
+  String marketCartOverviewSummary(int itemCount, int lineCount) => pick(
+    tr: '$itemCount ürün · $lineCount çeşit',
+    en: '$itemCount items · $lineCount products',
+  );
+  String get marketCartEmptyTitle =>
+      pick(tr: 'Sepetin boş', en: 'Your cart is empty');
+  String get marketCartEmptyMessage => pick(
+    tr: 'Ürün detayından bir şablon ürün eklediğinde burada görünecek.',
+    en: 'A template product will appear here after you add it from product details.',
+  );
+  String get marketContinueShopping =>
+      pick(tr: 'Alışverişe dön', en: 'Continue shopping');
+  String get marketReturnToCart => pick(tr: 'Sepete dön', en: 'Return to cart');
+  String get marketQuantity => pick(tr: 'Adet', en: 'Quantity');
+  String get marketIncreaseQuantity =>
+      pick(tr: 'Adedi artır', en: 'Increase quantity');
+  String get marketDecreaseQuantity =>
+      pick(tr: 'Adedi azalt', en: 'Decrease quantity');
+  String get marketRemoveFromCart =>
+      pick(tr: 'Sepetten kaldır', en: 'Remove from cart');
+  String get marketSubtotal => pick(tr: 'Ara toplam', en: 'Subtotal');
+  String get marketCheckoutTemplateMessage => pick(
+    tr: 'Bu sepet yalnızca yerel şablon akışını gösterir. Ödeme ve sipariş oluşturma henüz aktif değildir.',
+    en: 'This cart only demonstrates the local template flow. Payment and order creation are not active yet.',
+  );
+  String get marketProceedToCheckout =>
+      pick(tr: 'Sipariş özetine geç', en: 'Review order');
+  String get marketCheckoutTitle =>
+      pick(tr: 'Sipariş özeti', en: 'Order summary');
+  String get marketCheckoutTemplateTitle =>
+      pick(tr: 'Ödeme henüz aktif değil', en: 'Payment is not active yet');
+  String get marketCheckoutTemplateDescription => pick(
+    tr: 'Bu ekran alışveriş akışının şablonunu gösterir. Adres kaydı, ödeme ve sipariş oluşturma işlemleri yapılmaz.',
+    en: 'This screen demonstrates the checkout flow template. No address, payment, or order is created.',
+  );
+  String get marketDeliveryInformation =>
+      pick(tr: 'Teslimat bilgileri', en: 'Delivery information');
+  String get marketDeliveryTemplateMessage => pick(
+    tr: 'Gerçek satış akışına geçildiğinde teslimat adresi ve iletişim bilgileri burada yönetilecek.',
+    en: 'Delivery address and contact details will be managed here when the real sales flow is enabled.',
+  );
+  String get marketPaymentMethod =>
+      pick(tr: 'Ödeme yöntemi', en: 'Payment method');
+  String get marketPaymentTemplateMessage => pick(
+    tr: 'Kart veya diğer ödeme yöntemleri bu şablon sürümünde alınmaz ve saklanmaz.',
+    en: 'Card or other payment details are not collected or stored in this template version.',
+  );
+  String get marketOrderItems => pick(tr: 'Ürünler', en: 'Items');
+  String get marketCheckoutTotal => pick(tr: 'Toplam', en: 'Total');
+  String get marketCheckoutTotalNote => pick(
+    tr: 'Kargo, indirim ve vergi hesaplamaları bu şablona dahil değildir.',
+    en: 'Shipping, discount, and tax calculations are not included in this template.',
+  );
+  String get marketCheckoutEmptyTitle =>
+      pick(tr: 'Sipariş özeti hazır değil', en: 'Order summary is not ready');
+  String get marketCheckoutEmptyMessage => pick(
+    tr: 'Sipariş özetini görmek için önce sepete bir ürün eklemelisin.',
+    en: 'Add an item to the cart before reviewing the order summary.',
+  );
   String get workoutMenu => pick(tr: 'Antrenman menüsü', en: 'Workout menu');
   String get achievements => pick(tr: 'Başarılar', en: 'Achievements');
   String get goals => pick(tr: 'Hedefler', en: 'Goals');

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "products": [
+    {
+      "id": "phone_tripod",
+      "category": "setup",
+      "priceMinor": 79900,
+      "currencyCode": "TRY",
+      "isFeatured": true,
+      "imageAssetPath": "assets/market/products/phone_tripod.webp"
+    },
+    {
+      "id": "exercise_mat",
+      "category": "accessories",
+      "priceMinor": 64900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/exercise_mat.webp"
+    },
+    {
+      "id": "resistance_band_set",
+      "category": "strength",
+      "priceMinor": 49900,
+      "currencyCode": "TRY",
+      "isFeatured": true,
+      "imageAssetPath": "assets/market/products/resistance_band_set.webp"
+    },
+    {
+      "id": "mini_loop_band_set",
+      "category": "strength",
+      "priceMinor": 27900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/mini_loop_band_set.webp"
+    },
+    {
+      "id": "foam_roller",
+      "category": "mobility",
+      "priceMinor": 54900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/foam_roller.webp"
+    },
+    {
+      "id": "adjustable_dumbbell",
+      "category": "strength",
+      "priceMinor": 249900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/adjustable_dumbbell.webp"
+    },
+    {
+      "id": "training_tshirt",
+      "category": "apparel",
+      "priceMinor": 44900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/training_tshirt.webp"
+    },
+    {
+      "id": "training_shorts",
+      "category": "apparel",
+      "priceMinor": 39900,
+      "currencyCode": "TRY",
+      "imageAssetPath": "assets/market/products/training_shorts.webp"
+    }
+  ]
+}
