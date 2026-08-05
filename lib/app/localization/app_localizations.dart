@@ -1285,6 +1285,14 @@ class AppLocalizations {
       pick(tr: 'Geçerli örnek: $count', en: 'Valid samples: $count');
   String get assessmentResult =>
       pick(tr: 'Değerlendirme sonucu', en: 'Assessment Result');
+  String get cameraEstimate =>
+      pick(tr: 'Kamera tahmini', en: 'Camera estimate');
+  String approximateDegrees(int degrees) =>
+      pick(tr: 'Yaklaşık $degrees°', en: 'About $degrees°');
+  String approximateScore(int score) =>
+      pick(tr: 'Yaklaşık $score / 100', en: 'About $score / 100');
+  String approximateSeconds(int seconds) =>
+      pick(tr: 'Yaklaşık $seconds sn', en: 'About $seconds s');
   String get insufficientMeasurement =>
       pick(tr: 'Yetersiz ölçüm', en: 'Insufficient Measurement');
   String get insufficientMeasurementDescription => pick(

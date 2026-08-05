@@ -13,6 +13,7 @@ import '../../domain/models/assessment_models.dart';
 import '../camera_focus_stabilizer.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../errors/workout_camera_error_presentation.dart';
+import '../formatters/assessment_result_presentation_formatter.dart';
 import '../models/preparation_camera_geometry.dart';
 import '../providers/assessment_live_controller.dart';
 import '../providers/camera_provider.dart';
@@ -569,6 +570,30 @@ class _AssessmentResultCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (hasSufficientData) ...[
+            const SizedBox(height: 6),
+            Row(
+              key: const ValueKey<String>('assessment-estimate-context'),
+              children: [
+                const Icon(
+                  Icons.photo_camera_outlined,
+                  size: 15,
+                  color: Colors.white60,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    localizations.cameraEstimate,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           if (!hasSufficientData)
             Text(
@@ -593,11 +618,17 @@ class _AssessmentResultCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(
-                            entry.value,
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontWeight: FontWeight.w800,
+                          Flexible(
+                            child: Text(
+                              entry.value,
+                              key: ValueKey<String>(
+                                'assessment-result-value-${entry.key}',
+                              ),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(
+                                color: Colors.greenAccent,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],
@@ -635,7 +666,8 @@ List<MapEntry<String, String>> _resultValues(
       return <MapEntry<String, String>>[
         MapEntry(
           localizations.kneeFlexion,
-          _degrees(
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
             _averageAvailable(
               squat.leftKneeFlexionDegrees,
               squat.rightKneeFlexionDegrees,
@@ -652,38 +684,65 @@ List<MapEntry<String, String>> _resultValues(
         ),
         MapEntry(
           localizations.torsoInclination,
-          _degrees(squat.torsoInclinationAtDeepestDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            squat.torsoInclinationAtDeepestDegrees,
+          ),
         ),
       ];
     case BalanceAssessmentResult balance:
       return <MapEntry<String, String>>[
-        MapEntry(localizations.stabilityScore, _score(balance.stabilityScore)),
+        MapEntry(
+          localizations.stabilityScore,
+          AssessmentResultPresentationFormatter.score(
+            localizations,
+            balance.stabilityScore,
+          ),
+        ),
         MapEntry(
           localizations.continuousStanceDuration,
-          _assessmentDuration(localizations, balance.observedDuration),
+          AssessmentResultPresentationFormatter.duration(
+            localizations,
+            balance.observedDuration,
+          ),
         ),
       ];
     case ShoulderMobilityAssessmentResult shoulder:
       return <MapEntry<String, String>>[
         MapEntry(
           localizations.leftMaximumElevation,
-          _degrees(shoulder.leftMaximumElevationDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            shoulder.leftMaximumElevationDegrees,
+          ),
         ),
         MapEntry(
           localizations.rightMaximumElevation,
-          _degrees(shoulder.rightMaximumElevationDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            shoulder.rightMaximumElevationDegrees,
+          ),
         ),
         MapEntry(
           localizations.leftRightDifference,
-          _degrees(shoulder.sideDifferenceDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            shoulder.sideDifferenceDegrees,
+          ),
         ),
         MapEntry(
           localizations.leftMaximumLateralTorsoInclination,
-          _degrees(shoulder.torsoInclinationAtLeftMaximumDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            shoulder.torsoInclinationAtLeftMaximumDegrees,
+          ),
         ),
         MapEntry(
           localizations.rightMaximumLateralTorsoInclination,
-          _degrees(shoulder.torsoInclinationAtRightMaximumDegrees),
+          AssessmentResultPresentationFormatter.degrees(
+            localizations,
+            shoulder.torsoInclinationAtRightMaximumDegrees,
+          ),
         ),
       ];
   }
@@ -694,14 +753,4 @@ double? _averageAvailable(double? left, double? right) {
     return (left + right) / 2.0;
   }
   return left ?? right;
-}
-
-String _degrees(double? value) =>
-    value == null ? '—' : '${value.toStringAsFixed(1)}°';
-String _score(double? value) =>
-    value == null ? '—' : '${value.toStringAsFixed(0)} / 100';
-
-String _assessmentDuration(AppLocalizations localizations, Duration duration) {
-  final seconds = duration.inMilliseconds / 1000;
-  return localizations.secondsValue(seconds);
 }

@@ -430,7 +430,13 @@ void main() {
 
     expect(find.text('Değerlendirme sonucu'), findsOneWidget);
     expect(find.text('Diz fleksiyonu'), findsOneWidget);
-    expect(find.text('96.0°'), findsOneWidget);
+    expect(find.text('Yaklaşık 96°'), findsOneWidget);
+    expect(find.text('96.0°'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('assessment-estimate-context')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Kamera tahmini'), findsOneWidget);
     expect(find.text('Diz farkı'), findsNothing);
     expect(find.text('Sol diz fleksiyonu'), findsNothing);
     expect(find.text('Sağ diz fleksiyonu'), findsNothing);
