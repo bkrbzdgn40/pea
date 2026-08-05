@@ -1,3 +1,4 @@
+import 'session_measurement_evidence.dart';
 import 'workout_rep.dart';
 
 /// Persistable domain snapshot of one completed workout analysis session.
@@ -21,10 +22,40 @@ class WorkoutSession {
     this.totalHoldSeconds = 0.0,
     this.bestHoldSeconds = 0.0,
     this.formBreakCount = 0,
+    this.preparationOutcome = PreparationOutcome.legacyUnknown,
+    this.measurementQuality = SessionMeasurementQuality.unknown,
+    this.averageMeasurementConfidence,
+    this.measurementSampleCount = 0,
     this.reps,
     this.createdAt,
     this.updatedAt,
-  });
+  }) : assert(measurementSampleCount >= 0),
+       assert(
+         averageMeasurementConfidence == null ||
+             (averageMeasurementConfidence >= 0 &&
+                 averageMeasurementConfidence <= 1),
+       ),
+       assert(
+         (averageMeasurementConfidence == null &&
+                 measurementSampleCount == 0) ||
+             (averageMeasurementConfidence != null &&
+                 measurementSampleCount > 0),
+       ),
+       assert(
+         (measurementSampleCount == 0 &&
+                 measurementQuality == SessionMeasurementQuality.unknown) ||
+             (measurementSampleCount == 1 &&
+                 measurementQuality ==
+                     SessionMeasurementQuality.insufficient) ||
+             (measurementSampleCount >= 2 &&
+                 measurementQuality != SessionMeasurementQuality.unknown &&
+                 measurementQuality != SessionMeasurementQuality.insufficient),
+       ),
+       assert(
+         preparationOutcome == PreparationOutcome.passed ||
+             (measurementQuality != SessionMeasurementQuality.high &&
+                 measurementQuality != SessionMeasurementQuality.moderate),
+       );
 
   final String id;
   final String ownerId;
@@ -44,6 +75,10 @@ class WorkoutSession {
   final double totalHoldSeconds;
   final double bestHoldSeconds;
   final int formBreakCount;
+  final PreparationOutcome preparationOutcome;
+  final SessionMeasurementQuality measurementQuality;
+  final double? averageMeasurementConfidence;
+  final int measurementSampleCount;
 
   /// Optional rep-level details kept in the domain model.
   ///
@@ -55,6 +90,13 @@ class WorkoutSession {
 
   Duration get duration => Duration(seconds: durationSec);
   bool get isHoldSession => analysisKind == 'hold';
+  bool get preparationWasOverridden =>
+      preparationOutcome == PreparationOutcome.overridden;
+  bool get hasKnownMeasurementEvidence =>
+      averageMeasurementConfidence != null && measurementSampleCount > 0;
+  bool get hasLimitedMeasurementEvidence =>
+      measurementQuality == SessionMeasurementQuality.limited ||
+      measurementQuality == SessionMeasurementQuality.insufficient;
 
   WorkoutSession copyWith({
     String? id,
@@ -75,6 +117,10 @@ class WorkoutSession {
     double? totalHoldSeconds,
     double? bestHoldSeconds,
     int? formBreakCount,
+    PreparationOutcome? preparationOutcome,
+    SessionMeasurementQuality? measurementQuality,
+    double? averageMeasurementConfidence,
+    int? measurementSampleCount,
     List<WorkoutRep>? reps,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -98,6 +144,12 @@ class WorkoutSession {
       totalHoldSeconds: totalHoldSeconds ?? this.totalHoldSeconds,
       bestHoldSeconds: bestHoldSeconds ?? this.bestHoldSeconds,
       formBreakCount: formBreakCount ?? this.formBreakCount,
+      preparationOutcome: preparationOutcome ?? this.preparationOutcome,
+      measurementQuality: measurementQuality ?? this.measurementQuality,
+      averageMeasurementConfidence:
+          averageMeasurementConfidence ?? this.averageMeasurementConfidence,
+      measurementSampleCount:
+          measurementSampleCount ?? this.measurementSampleCount,
       reps: reps ?? this.reps,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -128,6 +180,10 @@ class WorkoutSession {
       'totalHoldSeconds': totalHoldSeconds,
       'bestHoldSeconds': bestHoldSeconds,
       'formBreakCount': formBreakCount,
+      'preparationOutcome': preparationOutcome.name,
+      'measurementQuality': measurementQuality.name,
+      'averageMeasurementConfidence': averageMeasurementConfidence,
+      'measurementSampleCount': measurementSampleCount,
       'reps': reps?.map((rep) => rep.toMap()).toList(growable: false),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -162,6 +218,21 @@ class WorkoutSession {
         map,
         'formBreakCount',
         'holdFormBreakCount',
+        0,
+      ),
+      preparationOutcome: PreparationOutcome.fromWireValue(
+        map['preparationOutcome'],
+      ),
+      measurementQuality: SessionMeasurementQuality.fromWireValue(
+        map['measurementQuality'],
+      ),
+      averageMeasurementConfidence: _readNullableDouble(
+        map,
+        'averageMeasurementConfidence',
+      ),
+      measurementSampleCount: _readIntOrDefault(
+        map,
+        'measurementSampleCount',
         0,
       ),
       reps: _readNullableWorkoutReps(map, 'reps'),
@@ -274,6 +345,19 @@ double _readDoubleOrDefault(
   }
 
   throw FormatException('Expected number for "$key".');
+}
+
+double? _readNullableDouble(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  throw FormatException('Expected nullable number for "$key".');
 }
 
 double _readDoubleWithFallback(

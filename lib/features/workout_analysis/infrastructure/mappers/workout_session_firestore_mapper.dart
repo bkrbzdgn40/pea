@@ -30,6 +30,10 @@ class WorkoutSessionFirestoreMapper {
       'holdDurationSeconds': session.totalHoldSeconds,
       'bestHoldSeconds': session.bestHoldSeconds,
       'holdFormBreakCount': session.formBreakCount,
+      'preparationOutcome': session.preparationOutcome.name,
+      'measurementQuality': session.measurementQuality.name,
+      'averageMeasurementConfidence': session.averageMeasurementConfidence,
+      'measurementSampleCount': session.measurementSampleCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -61,6 +65,10 @@ class WorkoutSessionFirestoreMapper {
       'bestHoldSeconds': data['bestHoldSeconds'],
       'holdFormBreakCount':
           data['holdFormBreakCount'] ?? data['formBreakCount'],
+      'preparationOutcome': data['preparationOutcome'],
+      'measurementQuality': data['measurementQuality'],
+      'averageMeasurementConfidence': data['averageMeasurementConfidence'],
+      'measurementSampleCount': data['measurementSampleCount'],
       'createdAt': _toPlainDate(data['createdAt']),
       'updatedAt': _toPlainDate(data['updatedAt']),
     });

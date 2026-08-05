@@ -67,6 +67,37 @@ void main() {
       );
     });
 
+    test('legacy client can still create a session during rollout', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..remove('preparationOutcome')
+        ..remove('measurementQuality')
+        ..remove('averageMeasurementConfidence')
+        ..remove('measurementSampleCount');
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(
+        response.statusCode,
+        inInclusiveRange(200, 299),
+        reason: response.body,
+      );
+    });
+
+    test('partial measurement evidence rollout shape is rejected', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..remove('measurementQuality');
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
     test('owner can read session', () async {
       await _createSession(ownerClient);
 
@@ -121,6 +152,56 @@ void main() {
     test('negative low-confidence count is rejected', () async {
       final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
         ..['lowConfidenceReps'] = -1;
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('unknown preparation outcome is rejected', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['preparationOutcome'] = 'forced';
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('unknown session measurement quality is rejected', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['measurementQuality'] = 'excellent';
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('overridden preparation cannot claim high quality', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['preparationOutcome'] = 'overridden'
+        ..['measurementQuality'] = 'high';
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('measurement evidence count must match confidence presence', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['averageMeasurementConfidence'] = null
+        ..['measurementSampleCount'] = 3;
 
       final response = await ownerClient.setDocument(
         _sessionPath(ownerClient.uid!, 'session_a'),
@@ -633,6 +714,10 @@ Map<String, Object?> _validSessionData({
     'holdDurationSeconds': 0.0,
     'bestHoldSeconds': 0.0,
     'holdFormBreakCount': 0,
+    'preparationOutcome': 'passed',
+    'measurementQuality': 'moderate',
+    'averageMeasurementConfidence': 0.86,
+    'measurementSampleCount': 11,
     'createdAt': now,
     'updatedAt': now.add(const Duration(minutes: 10)),
   };
@@ -665,6 +750,10 @@ Map<String, Object?> _productionSessionData({
     'holdDurationSeconds': 0.0,
     'bestHoldSeconds': 0.0,
     'holdFormBreakCount': 0,
+    'preparationOutcome': 'passed',
+    'measurementQuality': 'high',
+    'averageMeasurementConfidence': 0.94,
+    'measurementSampleCount': 2,
     'createdAt': createdAt,
     'updatedAt': createdAt,
   };

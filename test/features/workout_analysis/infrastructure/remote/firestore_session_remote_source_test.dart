@@ -3,6 +3,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/core/firebase/firebase_failures.dart';
 import 'package:pose_estimation_app/core/firebase/firestore_paths.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/infrastructure/remote/firebase_session_write_auth_guard.dart';
@@ -38,6 +39,10 @@ void main() {
         expect(sessionSnapshot.exists, isTrue);
         expect(sessionSnapshot.data(), isNotNull);
         expect(sessionSnapshot.data()!.containsKey('reps'), isFalse);
+        expect(sessionSnapshot.data()!['preparationOutcome'], 'passed');
+        expect(sessionSnapshot.data()!['measurementQuality'], 'moderate');
+        expect(sessionSnapshot.data()!['averageMeasurementConfidence'], 0.84);
+        expect(sessionSnapshot.data()!['measurementSampleCount'], 2);
         expect(repsSnapshot.docs, hasLength(2));
         expect(repsSnapshot.docs.first.id, 'rep_0001');
         expect(repsSnapshot.docs.last.id, 'rep_0002');
@@ -575,6 +580,10 @@ WorkoutSession _session() {
     validReps: 1,
     invalidReps: 1,
     formWarningCount: 2,
+    preparationOutcome: PreparationOutcome.passed,
+    measurementQuality: SessionMeasurementQuality.moderate,
+    averageMeasurementConfidence: 0.84,
+    measurementSampleCount: 2,
     reps: <WorkoutRep>[
       WorkoutRep(
         repIndex: 2,

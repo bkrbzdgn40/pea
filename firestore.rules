@@ -84,6 +84,54 @@ service cloud.firestore {
         (value is number && value >= 0 && value <= 1);
     }
 
+    function isPreparationOutcome(value) {
+      return value == 'passed' ||
+        value == 'overridden' ||
+        value == 'legacyUnknown';
+    }
+
+    function isSessionMeasurementQuality(value) {
+      return value == 'high' ||
+        value == 'moderate' ||
+        value == 'limited' ||
+        value == 'insufficient' ||
+        value == 'unknown';
+    }
+
+    function hasValidSessionMeasurementEvidence(data) {
+      let evidenceKeys = [
+        'preparationOutcome',
+        'measurementQuality',
+        'averageMeasurementConfidence',
+        'measurementSampleCount',
+      ];
+      let hasNoEvidenceFields = !data.keys().hasAny(evidenceKeys);
+      let hasAllEvidenceFields = data.keys().hasAll(evidenceKeys);
+      let preparationOutcome = data.get('preparationOutcome', null);
+      let confidence = data.get('averageMeasurementConfidence', null);
+      let sampleCount = data.get('measurementSampleCount', null);
+      let quality = data.get('measurementQuality', null);
+      let isCurrentShape = hasAllEvidenceFields &&
+        isPreparationOutcome(preparationOutcome) &&
+        isSessionMeasurementQuality(quality) &&
+        isNullableUnitInterval(confidence) &&
+        isNonNegativeInt(sampleCount) &&
+        (
+          (confidence == null && sampleCount == 0 && quality == 'unknown') ||
+          (confidence != null && sampleCount == 1 &&
+            quality == 'insufficient') ||
+          (confidence != null && sampleCount >= 2 &&
+            (
+              quality == 'limited' ||
+              (
+                preparationOutcome == 'passed' &&
+                (quality == 'high' || quality == 'moderate')
+              )
+            ))
+        );
+      return hasNoEvidenceFields || isCurrentShape;
+    }
+
     function isMeasurementConfidenceIssueList(value) {
       return value is list && value.hasOnly([
         'missing_required_landmark',
@@ -144,6 +192,10 @@ service cloud.firestore {
         'holdDurationSeconds',
         'bestHoldSeconds',
         'holdFormBreakCount',
+        'preparationOutcome',
+        'measurementQuality',
+        'averageMeasurementConfidence',
+        'measurementSampleCount',
         'createdAt',
         'updatedAt',
       ]) &&
@@ -198,7 +250,8 @@ service cloud.firestore {
         isNonNegativeInt(request.resource.data.formWarningCount) &&
         isNonNegativeNumber(request.resource.data.holdDurationSeconds) &&
         isNonNegativeNumber(request.resource.data.bestHoldSeconds) &&
-        isNonNegativeInt(request.resource.data.holdFormBreakCount);
+        isNonNegativeInt(request.resource.data.holdFormBreakCount) &&
+        hasValidSessionMeasurementEvidence(request.resource.data);
     }
 
     function isValidSessionCreate(userId, sessionId) {

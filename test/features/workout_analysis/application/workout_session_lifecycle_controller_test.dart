@@ -8,6 +8,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_technique_assessment.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_validation_result.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/validated_rep_event.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
@@ -664,6 +665,70 @@ void main() {
     expect(publications, isEmpty);
     expect(controller.currentStateSnapshot().isFinishing, isFalse);
   });
+  test(
+    'persists preparation outcome and derives session measurement evidence',
+    () async {
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        resolvePreparationOutcome: () => PreparationOutcome.overridden,
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+      controller.startSession(exercise: ExerciseType.lunge);
+
+      final firstState = _rangeRepState(
+        repCount: 1,
+        lastRepScore: 90,
+        validatedRepIndex: 1,
+        validationStatus: 'valid',
+        validatedRepEvent: _validatedEvent(
+          attemptIndex: 1,
+          acceptedRepIndex: 1,
+          status: RangeRepValidationStatus.valid,
+          side: ValidatedRepSide.left,
+          finalScore: 90,
+          measurementConfidence:
+              const MeasurementConfidenceBreakdown.legacyScalar(0.96),
+        ),
+      );
+      controller.collect(firstState);
+
+      final secondState = _rangeRepState(
+        repCount: 2,
+        lastRepScore: 88,
+        validatedRepIndex: 2,
+        validationStatus: 'valid',
+        validatedRepEvent: _validatedEvent(
+          attemptIndex: 2,
+          acceptedRepIndex: 2,
+          status: RangeRepValidationStatus.valid,
+          side: ValidatedRepSide.left,
+          finalScore: 88,
+          measurementConfidence:
+              const MeasurementConfidenceBreakdown.legacyScalar(0.94),
+        ),
+      );
+      controller.collect(secondState);
+
+      expect(
+        controller.currentStateSnapshot().preparationOutcome,
+        PreparationOutcome.overridden,
+      );
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(finalState: secondState);
+
+      expect(result.isSuccess, isTrue);
+      final session = result.session!;
+      expect(session.preparationOutcome, PreparationOutcome.overridden);
+      expect(session.measurementQuality, SessionMeasurementQuality.limited);
+      expect(session.measurementSampleCount, 2);
+      expect(session.averageMeasurementConfidence, closeTo(0.95, 0.0001));
+    },
+  );
+
   test(
     'validated rep events drive persistence without duplicate collection',
     () async {

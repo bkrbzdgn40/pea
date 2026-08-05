@@ -5,9 +5,11 @@ import 'exercise_catalog.dart';
 import 'engine_kind.dart';
 import 'hold_session_metrics_collector.dart';
 import 'workout_state.dart';
+import '../domain/session_measurement_evidence_policy.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
 import '../domain/models/range_rep_validation_result.dart';
+import '../domain/models/session_measurement_evidence.dart';
 import '../domain/models/workout_rep.dart';
 import '../domain/models/workout_session.dart';
 import '../domain/models/validated_rep_event.dart';
@@ -26,6 +28,7 @@ class WorkoutSessionLifecycleStateSnapshot {
     required this.bestHoldSeconds,
     required this.formBreakCount,
     required this.completedWorkoutReps,
+    required this.preparationOutcome,
     required this.hasSavableProgress,
     required this.isFinishing,
     required this.hasSavedSession,
@@ -43,6 +46,7 @@ class WorkoutSessionLifecycleStateSnapshot {
   final double bestHoldSeconds;
   final int formBreakCount;
   final List<WorkoutRep> completedWorkoutReps;
+  final PreparationOutcome preparationOutcome;
   final bool hasSavableProgress;
   final bool isFinishing;
   final bool hasSavedSession;
@@ -104,6 +108,9 @@ class WorkoutSessionLifecycleController
     required void Function() invalidateUserSessionsSnapshot,
     required void Function(WorkoutSession? session) publishCompletedSession,
     DateTime Function()? clock,
+    PreparationOutcome Function()? resolvePreparationOutcome,
+    SessionMeasurementEvidencePolicy measurementEvidencePolicy =
+        const SessionMeasurementEvidencePolicy(),
     HoldSessionMetricsCollector? holdSessionCollector,
     ExerciseCatalog exerciseCatalog = const ExerciseCatalog(),
   }) : _sessionRepository = sessionRepository,
@@ -111,6 +118,10 @@ class WorkoutSessionLifecycleController
        _invalidateUserSessionsSnapshot = invalidateUserSessionsSnapshot,
        _publishCompletedSession = publishCompletedSession,
        _clock = clock ?? DateTime.now,
+       _resolvePreparationOutcome =
+           resolvePreparationOutcome ??
+           (() => PreparationOutcome.legacyUnknown),
+       _measurementEvidencePolicy = measurementEvidencePolicy,
        _holdSessionCollector =
            holdSessionCollector ?? HoldSessionMetricsCollector(),
        _exerciseCatalog = exerciseCatalog;
@@ -120,6 +131,8 @@ class WorkoutSessionLifecycleController
   final void Function() _invalidateUserSessionsSnapshot;
   final void Function(WorkoutSession? session) _publishCompletedSession;
   final DateTime Function() _clock;
+  final PreparationOutcome Function() _resolvePreparationOutcome;
+  final SessionMeasurementEvidencePolicy _measurementEvidencePolicy;
   final HoldSessionMetricsCollector _holdSessionCollector;
   final ExerciseCatalog _exerciseCatalog;
 
@@ -139,6 +152,7 @@ class WorkoutSessionLifecycleController
   bool _isFinishing = false;
   bool _hasSavedSession = false;
   bool _finishArmed = false;
+  PreparationOutcome _preparationOutcome = PreparationOutcome.legacyUnknown;
 
   @override
   bool get isFinishing => _isFinishing;
@@ -170,6 +184,7 @@ class WorkoutSessionLifecycleController
       completedWorkoutReps: List<WorkoutRep>.unmodifiable(
         _completedWorkoutReps,
       ),
+      preparationOutcome: _preparationOutcome,
       hasSavableProgress: hasSavableProgress,
       isFinishing: _isFinishing,
       hasSavedSession: _hasSavedSession,
@@ -179,6 +194,7 @@ class WorkoutSessionLifecycleController
   @override
   void startSession({required ExerciseType exercise}) {
     _activeSessionExercise = exercise;
+    _preparationOutcome = _resolvePreparationOutcome();
     _sessionStartedAt = _clock();
     _lastObservedRepCount = 0;
     _lastObservedValidationAttemptIndex = null;
@@ -593,6 +609,15 @@ class WorkoutSessionLifecycleController
               ..sort((left, right) => left.repIndex.compareTo(right.repIndex)),
           );
 
+    final measurementEvidence = isHoldAnalysis
+        ? SessionMeasurementEvidence.unknown(
+            preparationOutcome: _preparationOutcome,
+          )
+        : _measurementEvidencePolicy.evaluate(
+            preparationOutcome: _preparationOutcome,
+            reps: persistedReps ?? const <WorkoutRep>[],
+          );
+
     return WorkoutSession(
       id: 'session_${endedAt.microsecondsSinceEpoch}',
       ownerId: ownerId,
@@ -616,6 +641,11 @@ class WorkoutSessionLifecycleController
       totalHoldSeconds: _holdSessionCollector.totalHoldSeconds,
       bestHoldSeconds: _holdSessionCollector.bestHoldSeconds,
       formBreakCount: _holdSessionCollector.formBreakCount,
+      preparationOutcome: measurementEvidence.preparationOutcome,
+      measurementQuality: measurementEvidence.measurementQuality,
+      averageMeasurementConfidence:
+          measurementEvidence.averageMeasurementConfidence,
+      measurementSampleCount: measurementEvidence.measurementSampleCount,
       reps: persistedReps,
     );
   }

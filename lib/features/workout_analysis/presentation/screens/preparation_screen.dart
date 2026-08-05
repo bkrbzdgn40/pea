@@ -14,6 +14,7 @@ import '../../../../app/theme/app_semantic_colors.dart';
 import '../../../../core/orientation/app_display_orientation.dart';
 
 import '../../application/exercise_catalog.dart';
+import '../../domain/models/session_measurement_evidence.dart';
 import '../camera_focus_stabilizer.dart';
 import '../camera_image_stream_coordinator.dart';
 import '../mappers/exercise_setup_ui_mapper.dart';
@@ -25,6 +26,7 @@ import '../preparation_live_analysis_route.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
+import '../providers/pending_preparation_outcome_provider.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_start_gate_controller.dart';
 import '../providers/selected_exercise_provider.dart';
@@ -241,9 +243,12 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       gateController.reset();
       return;
     }
+    final approvalSource = ref.read(gateProvider).approvalSource;
     if (!gateController.beginLaunch()) {
       return;
     }
+    ref.read(pendingPreparationOutcomeProvider.notifier).state =
+        preparationOutcomeFromApprovalSource(approvalSource);
 
     try {
       final cameraController = ref.read(cameraProvider).asData?.value;
@@ -253,6 +258,8 @@ class _PreparationScreenState extends ConsumerState<PreparationScreen>
       await _startAnalysis();
     } finally {
       if (mounted) {
+        ref.read(pendingPreparationOutcomeProvider.notifier).state =
+            PreparationOutcome.legacyUnknown;
         ref.invalidate(gateProvider);
       }
     }

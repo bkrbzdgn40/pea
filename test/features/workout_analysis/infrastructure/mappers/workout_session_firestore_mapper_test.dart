@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/infrastructure/mappers/workout_session_firestore_mapper.dart';
@@ -23,6 +24,10 @@ void main() {
       expect(document['holdDurationSeconds'], session.totalHoldSeconds);
       expect(document['bestHoldSeconds'], session.bestHoldSeconds);
       expect(document['holdFormBreakCount'], session.formBreakCount);
+      expect(document['preparationOutcome'], 'overridden');
+      expect(document['measurementQuality'], 'limited');
+      expect(document['averageMeasurementConfidence'], 0.72);
+      expect(document['measurementSampleCount'], 2);
       expect(document['startedAt'], isA<Timestamp>());
       expect(document['endedAt'], isA<Timestamp>());
       expect(document.containsKey('reps'), isFalse);
@@ -66,6 +71,25 @@ void main() {
       expect(session.totalHoldSeconds, 0.0);
       expect(session.formBreakCount, 0);
       expect(session.reps, isNull);
+      expect(session.preparationOutcome, PreparationOutcome.legacyUnknown);
+      expect(session.measurementQuality, SessionMeasurementQuality.unknown);
+      expect(session.averageMeasurementConfidence, isNull);
+      expect(session.measurementSampleCount, 0);
+    });
+
+    test('round-trips current measurement evidence fields', () {
+      final session = _sessionWithReps();
+
+      final restored = mapper.fromDocument(
+        mapper.toDocument(session),
+        fallbackId: 'fallback',
+        fallbackOwnerId: 'fallback-owner',
+      );
+
+      expect(restored.preparationOutcome, PreparationOutcome.overridden);
+      expect(restored.measurementQuality, SessionMeasurementQuality.limited);
+      expect(restored.averageMeasurementConfidence, 0.72);
+      expect(restored.measurementSampleCount, 2);
     });
 
     test('preserves hollow_hold session identity without schema changes', () {
@@ -128,6 +152,10 @@ WorkoutSession _sessionWithReps() {
     totalHoldSeconds: 0.0,
     bestHoldSeconds: 0.0,
     formBreakCount: 0,
+    preparationOutcome: PreparationOutcome.overridden,
+    measurementQuality: SessionMeasurementQuality.limited,
+    averageMeasurementConfidence: 0.72,
+    measurementSampleCount: 2,
     createdAt: DateTime.utc(2026, 1, 1, 12),
     updatedAt: DateTime.utc(2026, 1, 1, 12, 10),
     reps: const <WorkoutRep>[
