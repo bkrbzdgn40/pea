@@ -391,7 +391,7 @@ class _HomeSecondaryActions extends StatelessWidget {
           ),
           _HomeSecondaryActionCard(
             key: const ValueKey('home-assessment-action'),
-            icon: Icons.monitor_heart_rounded,
+            icon: Icons.center_focus_strong_rounded,
             title: localizations.assessment,
             subtitle: localizations.assessmentSubtitle,
             showSubtitle: !layout.isCompact,

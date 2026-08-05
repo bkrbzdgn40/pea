@@ -546,10 +546,10 @@ class AppLocalizations {
       pick(tr: 'Planlı Antrenman', en: 'Planned Workout');
   String get plannedWorkoutSubtitle =>
       pick(tr: 'Set, tur ve hedef akışı', en: 'Sets, rounds, and target flow');
-  String get assessment => pick(tr: 'Değerlendirme', en: 'Assessment');
+  String get assessment => pick(tr: 'Kamera Ölçümü', en: 'Camera Measurement');
   String get assessmentSubtitle => pick(
-    tr: 'Squat, denge ve omuz ölçümü',
-    en: 'Squat, balance, and shoulder measurement',
+    tr: 'Squat, tek ayak duruşu ve omuz hareketi',
+    en: 'Squat, single-leg stance, and shoulder movement',
   );
   String selectedExercise(String exerciseName) => pick(
     tr: 'Seçili hareket: $exerciseName',
@@ -1231,46 +1231,49 @@ class AppLocalizations {
 
   // Assessment surfaces
   String get assessmentMode =>
-      pick(tr: 'Değerlendirme Modu', en: 'Assessment Mode');
+      pick(tr: 'Kamera Ölçümleri', en: 'Camera Measurements');
   String get assessmentDisclaimer => pick(
-    tr: 'Bu sonuçlar kamera tabanlı ürün ölçümleridir; klinik tanı veya tıbbi değerlendirme değildir.',
-    en: 'These results are camera-based product measurements; they are not a clinical diagnosis or medical assessment.',
+    tr: 'Bu ekran kamera görüntüsünden yaklaşık hareket ölçümleri üretir; klinik tanı veya tıbbi değerlendirme yerine geçmez.',
+    en: 'This screen estimates movement from the camera image; it does not replace a clinical diagnosis or medical assessment.',
   );
   String assessmentTitle(String typeName) {
     return switch (typeName) {
-      'squat' => pick(tr: 'Squat Değerlendirmesi', en: 'Squat Assessment'),
-      'balance' => pick(tr: 'Denge Değerlendirmesi', en: 'Balance Assessment'),
+      'squat' => pick(tr: 'Squat Hareket Ölçümü', en: 'Squat Movement Check'),
+      'balance' => pick(
+        tr: 'Tek Ayak Duruş Ölçümü',
+        en: 'Single-Leg Stance Check',
+      ),
       'shoulderMobility' => pick(
-        tr: 'Omuz Elevasyon Değerlendirmesi',
-        en: 'Shoulder Elevation Assessment',
+        tr: 'Omuz Hareket Ölçümü',
+        en: 'Shoulder Movement Check',
       ),
       _ => typeName,
     };
   }
 
   String get squatAssessmentSubtitle => pick(
-    tr: 'Yan görünümde izlenen taraftaki diz fleksiyonu, derinlik ve gövde eğimi.',
-    en: 'Knee flexion, depth, and torso inclination measured from the tracked side view.',
+    tr: 'Yan görünümde diz bükülmesi, squat derinliği ve gövde eğimi.',
+    en: 'Knee bend, squat depth, and torso lean from a side view.',
   );
   String get balanceAssessmentSubtitle => pick(
-    tr: 'Ön görünümde kesintisiz tek ayak duruşu ve görüntü düzlemindeki salınımdan türetilen stabilite.',
-    en: 'Continuous single-leg stance and stability derived from sway in the image plane from a front view.',
+    tr: 'Ön görünümde tek ayak duruş süresi ve görüntüdeki salınım.',
+    en: 'Single-leg stance time and visible sway from a front view.',
   );
   String get shoulderAssessmentSubtitle => pick(
-    tr: 'Ön görünümde iki yana kol elevasyonu, sağ-sol farkı ve yanal gövde eğimi.',
-    en: 'Bilateral arm elevation, left-right difference, and lateral torso inclination from a front view.',
+    tr: 'Ön görünümde kolları yana kaldırma açısı, sağ-sol farkı ve gövde yana eğimi.',
+    en: 'Arm raise angles, left-right difference, and side lean from a front view.',
   );
   String get chooseStandingFoot =>
       pick(tr: 'Duruş ayağını seç', en: 'Choose the standing foot');
   String get leftFoot => pick(tr: 'Sol ayak', en: 'Left foot');
   String get rightFoot => pick(tr: 'Sağ ayak', en: 'Right foot');
   String get assessmentCameraPermissionRequired => pick(
-    tr: 'Değerlendirme için kamera izni gerekli.',
-    en: 'Camera permission is required for the assessment.',
+    tr: 'Bu ölçüm için kamera izni gerekli.',
+    en: 'Camera permission is required for this measurement.',
   );
   String get chooseAssessmentFirst => pick(
-    tr: 'Önce bir değerlendirme seçmelisin.',
-    en: 'Choose an assessment first.',
+    tr: 'Önce bir kamera ölçümü seçmelisin.',
+    en: 'Choose a camera measurement first.',
   );
   String get cameraInUseMessage => pick(
     tr: 'Kamera başka bir uygulama tarafından kullanılıyor olabilir. Diğer kamera uygulamalarını kapatıp tekrar dene.',
@@ -1284,7 +1287,7 @@ class AppLocalizations {
   String validSamples(int count) =>
       pick(tr: 'Geçerli örnek: $count', en: 'Valid samples: $count');
   String get assessmentResult =>
-      pick(tr: 'Değerlendirme sonucu', en: 'Assessment Result');
+      pick(tr: 'Kamera ölçüm özeti', en: 'Camera Measurement Summary');
   String get cameraEstimate =>
       pick(tr: 'Kamera tahmini', en: 'Camera estimate');
   String approximateDegrees(int degrees) =>
@@ -1301,28 +1304,31 @@ class AppLocalizations {
   );
   String get yes => pick(tr: 'Evet', en: 'Yes');
   String get no => pick(tr: 'Hayır', en: 'No');
-  String get kneeFlexion => pick(tr: 'Diz fleksiyonu', en: 'Knee flexion');
+  String get kneeFlexion =>
+      pick(tr: 'Diz bükülme açısı', en: 'Knee bend angle');
   String get hipReachedKneeHeight =>
-      pick(tr: 'Kalça diz seviyesine indi', en: 'Hip reached knee height');
+      pick(tr: 'Kalça diz seviyesine ulaştı', en: 'Hip reached knee height');
   String get torsoInclination =>
-      pick(tr: 'Gövde eğimi', en: 'Torso inclination');
+      pick(tr: 'Gövde öne eğilme açısı', en: 'Forward torso lean');
   String get stabilityScore =>
-      pick(tr: 'Stabilite skoru', en: 'Stability score');
+      pick(tr: 'Denge göstergesi', en: 'Balance indicator');
   String get continuousStanceDuration =>
-      pick(tr: 'Kesintisiz duruş süresi', en: 'Continuous stance duration');
+      pick(tr: 'Tek ayak duruş süresi', en: 'Single-leg stance time');
   String get leftMaximumElevation =>
-      pick(tr: 'Sol maksimum elevasyon', en: 'Left maximum elevation');
+      pick(tr: 'Sol kol kaldırma açısı', en: 'Left arm raise angle');
   String get rightMaximumElevation =>
-      pick(tr: 'Sağ maksimum elevasyon', en: 'Right maximum elevation');
-  String get leftRightDifference =>
-      pick(tr: 'Sağ-sol farkı', en: 'Left-right difference');
+      pick(tr: 'Sağ kol kaldırma açısı', en: 'Right arm raise angle');
+  String get leftRightDifference => pick(
+    tr: 'Kol açıları arasındaki fark',
+    en: 'Difference between arm angles',
+  );
   String get leftMaximumLateralTorsoInclination => pick(
-    tr: 'Sol maksimumda yanal gövde eğimi',
-    en: 'Lateral torso inclination at left maximum',
+    tr: 'Sol kol yukarıdayken gövde yana eğimi',
+    en: 'Side lean with the left arm raised',
   );
   String get rightMaximumLateralTorsoInclination => pick(
-    tr: 'Sağ maksimumda yanal gövde eğimi',
-    en: 'Lateral torso inclination at right maximum',
+    tr: 'Sağ kol yukarıdayken gövde yana eğimi',
+    en: 'Side lean with the right arm raised',
   );
   String secondsValue(double seconds) => pick(
     tr: '${seconds.toStringAsFixed(1)} sn',
@@ -1954,8 +1960,10 @@ class AppLocalizations {
     tr: 'Ölçüm henüz hazır değil. Yönergeyi tamamlamaya devam et.',
     en: 'The measurement is not ready yet. Keep following the instruction.',
   );
-  String get assessmentCompletedFeedback =>
-      pick(tr: 'Değerlendirme tamamlandı.', en: 'Assessment completed.');
+  String get assessmentCompletedFeedback => pick(
+    tr: 'Kamera ölçümü tamamlandı.',
+    en: 'Camera measurement completed.',
+  );
   String get assessmentInsufficientFeedback => pick(
     tr: 'Sonuç için yeterli ölçüm toplanamadı.',
     en: 'Not enough measurement data was collected for a result.',
@@ -1980,8 +1988,8 @@ class AppLocalizations {
         en: 'Continuous stance: $elapsed / $target s',
       );
   String assessmentElevationProgress(int percent) => pick(
-    tr: 'Elevasyon ilerlemesi: %$percent',
-    en: 'Elevation progress: $percent%',
+    tr: 'Kol kaldırma ilerlemesi: %$percent',
+    en: 'Arm raise progress: $percent%',
   );
   String get squatAssessmentInstruction => pick(
     tr: 'Kameraya sol veya sağ yanını dön. Tüm vücudun kadrajdayken kontrollü bir squat yap ve tekrar ayağa kalk.',

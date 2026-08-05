@@ -115,7 +115,7 @@ void main() {
       expect(state.snapshot.isActive, isTrue);
       expect(state.snapshot.sampleCount, 0);
       expect(state.snapshot.isReadyToComplete, isFalse);
-      expect(state.progressMessage, 'Elevasyon ilerlemesi: %0');
+      expect(state.progressMessage, 'Kol kaldırma ilerlemesi: %0');
       expect(state.feedbackMessage, contains('iki yana doğru'));
     });
   });

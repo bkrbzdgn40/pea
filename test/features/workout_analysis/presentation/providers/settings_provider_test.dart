@@ -111,7 +111,7 @@ void main() {
     expect(container.read(appLocalizationsProvider).ttsLanguageTag, 'en-US');
     expect(
       container.read(appLocalizationsProvider).assessmentCompletedFeedback,
-      'Assessment completed.',
+      'Camera measurement completed.',
     );
   });
 }

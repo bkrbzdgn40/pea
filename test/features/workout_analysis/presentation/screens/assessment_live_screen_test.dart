@@ -337,7 +337,7 @@ void main() {
 
     expect(find.text('Yetersiz ölçüm'), findsOneWidget);
     expect(find.text('Tekrar Dene'), findsOneWidget);
-    expect(find.text('Diz fleksiyonu'), findsNothing);
+    expect(find.text('Diz bükülme açısı'), findsNothing);
     expect(find.text('Diz farkı'), findsNothing);
 
     await tester.tap(find.text('Tekrar Dene'));
@@ -414,7 +414,7 @@ void main() {
         readinessProgress: 1,
         result: result,
       ),
-      feedbackMessage: 'Değerlendirme tamamlandı.',
+      feedbackMessage: 'Kamera ölçümü tamamlandı.',
       progressMessage: 'Ölçüm hazır',
     );
     final harness = await _pumpScreen(
@@ -428,8 +428,8 @@ void main() {
       await harness.dispose();
     });
 
-    expect(find.text('Değerlendirme sonucu'), findsOneWidget);
-    expect(find.text('Diz fleksiyonu'), findsOneWidget);
+    expect(find.text('Kamera ölçüm özeti'), findsOneWidget);
+    expect(find.text('Diz bükülme açısı'), findsOneWidget);
     expect(find.text('Yaklaşık 96°'), findsOneWidget);
     expect(find.text('96.0°'), findsNothing);
     expect(
@@ -438,8 +438,8 @@ void main() {
     );
     expect(find.textContaining('Kamera tahmini'), findsOneWidget);
     expect(find.text('Diz farkı'), findsNothing);
-    expect(find.text('Sol diz fleksiyonu'), findsNothing);
-    expect(find.text('Sağ diz fleksiyonu'), findsNothing);
+    expect(find.text('Sol diz bükülme açısı'), findsNothing);
+    expect(find.text('Sağ diz bükülme açısı'), findsNothing);
   });
 }
 

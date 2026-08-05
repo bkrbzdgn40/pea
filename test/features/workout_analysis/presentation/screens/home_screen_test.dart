@@ -73,7 +73,21 @@ void main() {
       expect(find.text('Haftalık Hedef'), findsOneWidget);
       expect(find.text('Başarılar'), findsOneWidget);
       expect(find.text('Planlı Antrenman'), findsOneWidget);
-      expect(find.text('Değerlendirme'), findsOneWidget);
+      expect(find.text('Kamera Ölçümü'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('home-assessment-action')),
+          matching: find.byIcon(Icons.center_focus_strong_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('home-assessment-action')),
+          matching: find.byIcon(Icons.monitor_heart_rounded),
+        ),
+        findsNothing,
+      );
       expect(
         find.byKey(const Key('exercise-distribution-card')),
         findsOneWidget,
@@ -585,7 +599,7 @@ void main() {
     expect(find.text('Exercise Guide'), findsNothing);
     expect(find.text('Session History'), findsNothing);
     expect(find.text('Planned Workout'), findsOneWidget);
-    expect(find.text('Assessment'), findsOneWidget);
+    expect(find.text('Camera Measurement'), findsOneWidget);
     expect(find.text('Weekly Goal'), findsOneWidget);
     expect(find.text('Achievements'), findsOneWidget);
     expect(find.text('First Analysis'), findsOneWidget);
