@@ -6,6 +6,12 @@ import '../../domain/models/exercise_type.dart';
 import '../models/home_dashboard_data.dart';
 import 'user_sessions_snapshot_provider.dart';
 
+final scoreTrendClockProvider = Provider<DateTime Function()>((ref) {
+  return DateTime.now;
+});
+
+enum ScoreTrendRange { sevenDays, thirtyDays, all }
+
 final exerciseScoreTrendProvider =
     FutureProvider.family<ExerciseScoreTrendData, ExerciseType>((
       ref,
@@ -42,8 +48,42 @@ class ExerciseScoreTrendData {
   bool get hasRealData =>
       source == UserSessionsSnapshotSource.real && samples.isNotEmpty;
 
-  double get bestAverageScore {
-    return samples.fold<double>(
+  double get bestAverageScore => bestAverageScoreFor(samples);
+
+  List<WorkoutScoreSample> samplesForRange(
+    ScoreTrendRange range, {
+    required DateTime now,
+  }) {
+    if (range == ScoreTrendRange.all || samples.isEmpty) {
+      return samples;
+    }
+
+    final localNow = now.toLocal();
+    final startOfTomorrow = DateTime(
+      localNow.year,
+      localNow.month,
+      localNow.day + 1,
+    );
+    final dayCount = switch (range) {
+      ScoreTrendRange.sevenDays => 7,
+      ScoreTrendRange.thirtyDays => 30,
+      ScoreTrendRange.all => throw StateError(
+        'All-time range has no boundary.',
+      ),
+    };
+    final startInclusive = startOfTomorrow.subtract(Duration(days: dayCount));
+
+    return samples
+        .where((sample) {
+          final startedAt = _localStartedAt(sample);
+          return !startedAt.isBefore(startInclusive) &&
+              startedAt.isBefore(startOfTomorrow);
+        })
+        .toList(growable: false);
+  }
+
+  double bestAverageScoreFor(Iterable<WorkoutScoreSample> source) {
+    return source.fold<double>(
       0,
       (best, sample) => sample.score > best ? sample.score : best,
     );
@@ -73,15 +113,20 @@ class ExerciseScoreTrendData {
     ];
   }
 
-  List<ScoreTrendPoint> detailPoints() {
+  List<ScoreTrendPoint> detailPoints({Iterable<WorkoutScoreSample>? source}) {
+    final resolvedSamples = source ?? samples;
     return [
-      for (final sample in samples)
+      for (final sample in resolvedSamples)
         ScoreTrendPoint(
-          label: _dateLabel(sample.startedAt.toLocal()),
+          label: _dateLabel(_localStartedAt(sample)),
           score: sample.score,
         ),
     ];
   }
+}
+
+DateTime _localStartedAt(WorkoutScoreSample sample) {
+  return sample.startedAt.toLocal();
 }
 
 String _weekdayLabel(DateTime dateTime) {

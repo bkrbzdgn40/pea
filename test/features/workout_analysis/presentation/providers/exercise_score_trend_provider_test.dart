@@ -96,4 +96,75 @@ void main() {
       expect(trend.hasRealData, isFalse);
     },
   );
+
+  test('trend ranges use inclusive local calendar-day windows', () async {
+    final snapshot = UserSessionsSnapshot(
+      sessions: [
+        buildWorkoutSession(
+          id: 'outside-month',
+          startedAt: DateTime(2023, 12, 1, 9),
+          exerciseType: 'squat',
+          averageScore: 50,
+        ),
+        buildWorkoutSession(
+          id: 'inside-month',
+          startedAt: DateTime(2023, 12, 20, 9),
+          exerciseType: 'squat',
+          averageScore: 60,
+        ),
+        buildWorkoutSession(
+          id: 'week-boundary',
+          startedAt: DateTime(2024, 1, 4),
+          exerciseType: 'squat',
+          averageScore: 70,
+        ),
+        buildWorkoutSession(
+          id: 'inside-week',
+          startedAt: DateTime(2024, 1, 8, 9),
+          exerciseType: 'squat',
+          averageScore: 80,
+        ),
+        buildWorkoutSession(
+          id: 'future',
+          startedAt: DateTime(2024, 1, 11),
+          exerciseType: 'squat',
+          averageScore: 90,
+        ),
+      ],
+      source: UserSessionsSnapshotSource.real,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final trend = await container.read(
+      exerciseScoreTrendProvider(ExerciseType.squat).future,
+    );
+    final now = DateTime(2024, 1, 10, 12);
+
+    expect(
+      trend
+          .samplesForRange(ScoreTrendRange.sevenDays, now: now)
+          .map((sample) => sample.score)
+          .toList(growable: false),
+      <double>[70, 80],
+    );
+    expect(
+      trend
+          .samplesForRange(ScoreTrendRange.thirtyDays, now: now)
+          .map((sample) => sample.score)
+          .toList(growable: false),
+      <double>[60, 70, 80],
+    );
+    expect(
+      trend
+          .samplesForRange(ScoreTrendRange.all, now: now)
+          .map((sample) => sample.score)
+          .toList(growable: false),
+      <double>[50, 60, 70, 80, 90],
+    );
+  });
 }

@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/market_product.dart';
 import '../providers/market_catalog_provider.dart';
 import '../widgets/market_cart_action.dart';
-import '../widgets/market_catalog_header.dart';
 import '../widgets/market_category_filter.dart';
 import '../widgets/market_empty_state.dart';
 import '../widgets/market_product_card.dart';
@@ -52,15 +53,43 @@ class _MarketCatalogLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
 
+    final colors = context.semanticColors;
+
     return Center(
       key: const Key('market-catalog-loading'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: AppSpacing.md),
-          Text(localizations.marketCatalogLoading, textAlign: TextAlign.center),
-        ],
+      child: AppSurfaceCard(
+        variant: AppSurfaceVariant.muted,
+        radius: AppRadii.large,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.analysisAccent.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colors.analysisAccent.withValues(alpha: 0.28),
+                ),
+              ),
+              child: const SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              localizations.marketCatalogLoading,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.foregroundMuted,
+                fontWeight: AppFontWeights.semibold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -83,48 +112,72 @@ class _MarketCatalog extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = AppLayout.of(context, constraints: constraints);
-        final cardExtent = layout.hasLargeText ? 252.0 : 224.0;
+        final cardExtent = layout.hasLargeText ? 268.0 : 236.0;
 
-        return CustomScrollView(
-          key: const Key('market-catalog-scroll-view'),
-          slivers: [
-            SliverToBoxAdapter(
-              child: MarketCatalogHeader(productCount: products.length),
-            ),
-            SliverToBoxAdapter(child: SizedBox(height: layout.panelGap)),
-            SliverToBoxAdapter(
-              child: MarketCategoryFilter(
-                selectedCategory: selectedCategory,
-                onSelected: (category) {
-                  ref.read(selectedMarketCategoryProvider.notifier).state =
-                      category;
-                },
+        final colors = context.semanticColors;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PositionedDirectional(
+              top: -76,
+              end: -92,
+              child: IgnorePointer(
+                child: Container(
+                  width: 228,
+                  height: 228,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        colors.analysisAccent.withValues(alpha: 0.09),
+                        colors.analysisAccent.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            SliverToBoxAdapter(child: SizedBox(height: layout.panelGap)),
-            SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: layout.panelGap,
-                mainAxisSpacing: layout.panelGap,
-                mainAxisExtent: cardExtent,
-              ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final product = filteredProducts[index];
-                return MarketProductCard(
-                  product: product,
-                  onTap: () {
-                    Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            MarketProductDetailScreen(product: product),
-                      ),
+            CustomScrollView(
+              key: const Key('market-catalog-scroll-view'),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: MarketCategoryFilter(
+                    selectedCategory: selectedCategory,
+                    onSelected: (category) {
+                      ref.read(selectedMarketCategoryProvider.notifier).state =
+                          category;
+                    },
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: layout.panelGap)),
+                SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: layout.panelGap,
+                    mainAxisSpacing: layout.panelGap,
+                    mainAxisExtent: cardExtent,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final product = filteredProducts[index];
+                    return MarketProductCard(
+                      product: product,
+                      onTap: () {
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                MarketProductDetailScreen(product: product),
+                          ),
+                        );
+                      },
                     );
-                  },
-                );
-              }, childCount: filteredProducts.length),
+                  }, childCount: filteredProducts.length),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.xxs),
+                ),
+              ],
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxs)),
           ],
         );
       },

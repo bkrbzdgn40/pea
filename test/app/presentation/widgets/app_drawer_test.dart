@@ -246,8 +246,9 @@ void main() {
 
     expect(observer.lastNewRoute?.settings.name, '/market');
     expect(find.byType(MarketScreen), findsOneWidget);
-    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsOneWidget);
-    expect(find.text('8 örnek ürün'), findsOneWidget);
+    expect(find.text('Telefon Tripodu'), findsOneWidget);
+    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsNothing);
+    expect(find.text('8 örnek ürün'), findsNothing);
   });
 
   testWidgets('home selection resets the complete root stack', (

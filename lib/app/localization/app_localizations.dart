@@ -112,15 +112,6 @@ class AppLocalizations {
       pick(tr: 'Geçmiş Oturumlar', en: 'Session History');
   String get exerciseGuide => pick(tr: 'Hareket Rehberi', en: 'Exercise Guide');
   String get market => pick(tr: 'Market', en: 'Market');
-  String get marketCatalogTitle => pick(
-    tr: 'Antrenmanını destekleyen ekipmanlar',
-    en: 'Equipment that supports your training',
-  );
-  String get marketCatalogDescription => pick(
-    tr: 'Bu alan şimdilik yerel örnek ürünlerle çalışan hafif bir market şablonudur.',
-    en: 'This area is currently a lightweight market template powered by local sample products.',
-  );
-  String get marketPreviewLabel => pick(tr: 'Şablon', en: 'Template');
   String get marketCatalogLoading =>
       pick(tr: 'Ürünler hazırlanıyor...', en: 'Preparing products...');
   String get marketCatalogLoadFailedTitle => pick(
@@ -131,8 +122,6 @@ class AppLocalizations {
     tr: 'Yerel ürün şablonu okunamadı. Yeniden deneyebilirsin.',
     en: 'The local product template could not be read. You can try again.',
   );
-  String marketExampleProductCount(int count) =>
-      pick(tr: '$count örnek ürün', en: '$count sample products');
   String get marketAllCategories => pick(tr: 'Tümü', en: 'All');
   String marketCategoryLabel(String categoryId) {
     return switch (categoryId) {
@@ -229,6 +218,29 @@ class AppLocalizations {
   );
   String marketProductImageLabel(String productName) =>
       pick(tr: '$productName ürün görseli', en: '$productName product image');
+  String marketProductGalleryImageLabel(
+    String productName,
+    int imageIndex,
+    int imageCount,
+  ) {
+    if (imageCount <= 1) {
+      return marketProductImageLabel(productName);
+    }
+    return pick(
+      tr: '$productName ürün görseli, $imageIndex / $imageCount',
+      en: '$productName product image, $imageIndex of $imageCount',
+    );
+  }
+
+  String marketProductGalleryPosition(int imageIndex, int imageCount) => pick(
+    tr: 'Görsel $imageIndex / $imageCount',
+    en: 'Image $imageIndex of $imageCount',
+  );
+
+  String get marketPreviousProductImage =>
+      pick(tr: 'Önceki ürün görseli', en: 'Previous product image');
+  String get marketNextProductImage =>
+      pick(tr: 'Sonraki ürün görseli', en: 'Next product image');
   String marketCartItemCount(int itemCount) =>
       pick(tr: 'Sepet, $itemCount ürün', en: 'Cart, $itemCount items');
   String marketIncreaseProductQuantity(String productName) => pick(
@@ -277,37 +289,162 @@ class AppLocalizations {
       pick(tr: 'Sepetten kaldır', en: 'Remove from cart');
   String get marketSubtotal => pick(tr: 'Ara toplam', en: 'Subtotal');
   String get marketCheckoutTemplateMessage => pick(
-    tr: 'Bu sepet yalnızca yerel şablon akışını gösterir. Ödeme ve sipariş oluşturma henüz aktif değildir.',
-    en: 'This cart only demonstrates the local template flow. Payment and order creation are not active yet.',
+    tr: 'Teslimat bilgilerini girerek güvenli PayTR ödeme oturumunu hazırlayabilirsin. Kart bilgileri PEA tarafından alınmaz veya saklanmaz.',
+    en: 'Enter delivery details to prepare a secure PayTR payment session. PEA does not collect or store card details.',
   );
   String get marketProceedToCheckout =>
-      pick(tr: 'Sipariş özetine geç', en: 'Review order');
+      pick(tr: 'Ödemeye geç', en: 'Continue to payment');
   String get marketCheckoutTitle =>
-      pick(tr: 'Sipariş özeti', en: 'Order summary');
-  String get marketCheckoutTemplateTitle =>
-      pick(tr: 'Ödeme henüz aktif değil', en: 'Payment is not active yet');
-  String get marketCheckoutTemplateDescription => pick(
-    tr: 'Bu ekran alışveriş akışının şablonunu gösterir. Adres kaydı, ödeme ve sipariş oluşturma işlemleri yapılmaz.',
-    en: 'This screen demonstrates the checkout flow template. No address, payment, or order is created.',
+      pick(tr: 'Güvenli ödeme', en: 'Secure checkout');
+  String get marketSecureCheckoutTitle =>
+      pick(tr: 'Güvenli ödeme oturumu', en: 'Secure payment session');
+  String get marketSecureCheckoutDescription => pick(
+    tr: 'Teslimat bilgilerin yalnız sipariş ve PayTR ödeme oturumu için backend’e gönderilir. Kart bilgileri PEA uygulamasında alınmaz veya saklanmaz.',
+    en: 'Your delivery details are sent to the backend only for the order and PayTR payment session. Card details are not collected or stored by the PEA app.',
   );
-  String get marketDeliveryInformation =>
-      pick(tr: 'Teslimat bilgileri', en: 'Delivery information');
-  String get marketDeliveryTemplateMessage => pick(
-    tr: 'Gerçek satış akışına geçildiğinde teslimat adresi ve iletişim bilgileri burada yönetilecek.',
-    en: 'Delivery address and contact details will be managed here when the real sales flow is enabled.',
+  String get marketDeliveryInformation => pick(
+    tr: 'Teslimat ve iletişim bilgileri',
+    en: 'Delivery and contact details',
+  );
+  String get marketCheckoutFullName => pick(tr: 'Ad soyad', en: 'Full name');
+  String get marketCheckoutEmail => pick(tr: 'E-posta', en: 'Email');
+  String get marketCheckoutPhone => pick(tr: 'Telefon', en: 'Phone');
+  String get marketCheckoutAddress =>
+      pick(tr: 'Teslimat adresi', en: 'Delivery address');
+  String get marketCheckoutRequiredField =>
+      pick(tr: 'Bu alan zorunludur.', en: 'This field is required.');
+  String marketCheckoutInvalidLength(int minimum, int maximum) => pick(
+    tr: '$minimum ile $maximum karakter arasında bir değer gir.',
+    en: 'Enter between $minimum and $maximum characters.',
+  );
+  String get marketCheckoutInvalidEmail => pick(
+    tr: 'Geçerli bir e-posta adresi gir.',
+    en: 'Enter a valid email address.',
+  );
+  String get marketCheckoutInvalidPhone => pick(
+    tr: 'Geçerli bir telefon numarası gir.',
+    en: 'Enter a valid phone number.',
   );
   String get marketPaymentMethod =>
-      pick(tr: 'Ödeme yöntemi', en: 'Payment method');
-  String get marketPaymentTemplateMessage => pick(
-    tr: 'Kart veya diğer ödeme yöntemleri bu şablon sürümünde alınmaz ve saklanmaz.',
-    en: 'Card or other payment details are not collected or stored in this template version.',
+      pick(tr: 'PayTR güvenli ödeme', en: 'PayTR secure payment');
+  String get marketPaytrPaymentMessage => pick(
+    tr: 'Bilgilerin doğrulandıktan sonra backend kesin tutarı hesaplar ve PayTR ödeme oturumunu oluşturur. Kart ekranı uygulama içinde güvenli bir WebView ile açılır.',
+    en: 'After validation, the backend calculates the authoritative total and creates a PayTR payment session. The card screen opens inside the app in a secure WebView.',
   );
   String get marketOrderItems => pick(tr: 'Ürünler', en: 'Items');
   String get marketCheckoutTotal => pick(tr: 'Toplam', en: 'Total');
   String get marketCheckoutTotalNote => pick(
-    tr: 'Kargo, indirim ve vergi hesaplamaları bu şablona dahil değildir.',
-    en: 'Shipping, discount, and tax calculations are not included in this template.',
+    tr: 'Bu ekrandaki tutar yerel özettir. Ödeme oturumu oluşturulurken kesin tutar backend tarafından yeniden hesaplanır.',
+    en: 'The amount on this screen is a local summary. The backend recalculates the authoritative total when creating the payment session.',
   );
+  String get marketCreatePaymentSession => pick(
+    tr: 'PayTR ödeme oturumu oluştur',
+    en: 'Create PayTR payment session',
+  );
+  String get marketPaymentSessionCreating => pick(
+    tr: 'Ödeme oturumu hazırlanıyor...',
+    en: 'Preparing payment session...',
+  );
+  String get marketPaymentSessionReadyButton =>
+      pick(tr: 'PayTR ödeme ekranını aç', en: 'Open PayTR payment screen');
+  String get marketPaymentSessionReadyTitle =>
+      pick(tr: 'PayTR oturumu hazır', en: 'PayTR session is ready');
+  String get marketPaymentSessionReadyDescription => pick(
+    tr: 'Sipariş ve güvenli PayTR ödeme oturumu backend tarafından oluşturuldu. Ödeme ekranını açabilirsin; sepet yalnız doğrulanmış başarılı ödeme sonrası temizlenir.',
+    en: 'The order and secure PayTR payment session were created by the backend. You can open the payment screen; the cart is cleared only after a verified successful payment.',
+  );
+  String get marketPaymentSessionErrorTitle => pick(
+    tr: 'Ödeme oturumu oluşturulamadı',
+    en: 'Payment session could not be created',
+  );
+  String marketPaymentOrderReference(String orderId) =>
+      pick(tr: 'Sipariş referansı: $orderId', en: 'Order reference: $orderId');
+  String marketPaymentVerifiedTotal(String total) => pick(
+    tr: 'Backend tarafından doğrulanan toplam: $total',
+    en: 'Backend-verified total: $total',
+  );
+  String get marketPaymentConfigurationMissing => pick(
+    tr: 'Ödeme servisi bu build için yapılandırılmamış. PAYTR_API_BASE_URL değerini tanımla.',
+    en: 'The payment service is not configured for this build. Define PAYTR_API_BASE_URL.',
+  );
+  String get marketPaymentAuthenticationRequired => pick(
+    tr: 'Kullanıcı oturumu doğrulanamadı. Uygulamayı yeniden açıp tekrar dene.',
+    en: 'The user session could not be verified. Reopen the app and try again.',
+  );
+  String get marketPaymentCartChanged => pick(
+    tr: 'Sepetteki ürün veya fiyat bilgisi değişti. Sepete dönüp yeniden kontrol et.',
+    en: 'A product or price in the cart changed. Return to the cart and review it again.',
+  );
+  String get marketPaymentAlreadyFinalized => pick(
+    tr: 'Bu ödeme oturumu daha önce sonuçlandırılmış.',
+    en: 'This payment session has already been finalized.',
+  );
+  String get marketPaymentNetworkFailure => pick(
+    tr: 'Ödeme servisine ulaşılamadı. Aynı güvenli işlem anahtarıyla tekrar deneyebilirsin.',
+    en: 'The payment service could not be reached. You can retry with the same safe transaction key.',
+  );
+  String get marketPaymentSessionGenericFailure => pick(
+    tr: 'Ödeme oturumu şu anda oluşturulamadı. Bilgilerini kontrol edip tekrar dene.',
+    en: 'The payment session could not be created right now. Review your details and try again.',
+  );
+  String get marketPaytrScreenTitle =>
+      pick(tr: 'PayTR ödeme', en: 'PayTR payment');
+  String get marketPaytrSecureHeader => pick(
+    tr: 'Kart bilgileri PayTR tarafından işlenir',
+    en: 'Card details are processed by PayTR',
+  );
+  String get marketPaytrCheckStatus =>
+      pick(tr: 'Ödeme durumunu kontrol et', en: 'Check payment status');
+  String get marketPaytrVerifyingMessage => pick(
+    tr: 'Ödeme sonucu backend callback kaydından doğrulanıyor...',
+    en: 'The payment result is being verified from the backend callback record...',
+  );
+  String get marketPaytrPaidTitle =>
+      pick(tr: 'Ödeme doğrulandı', en: 'Payment verified');
+  String get marketPaytrPaidMessage => pick(
+    tr: 'PayTR callback sonucu backend tarafından doğrulandı. Sipariş ödendi olarak kaydedildi ve sepet temizlendi.',
+    en: 'The PayTR callback result was verified by the backend. The order was recorded as paid, and the cart was cleared.',
+  );
+  String get marketPaytrFailedTitle =>
+      pick(tr: 'Ödeme başarısız', en: 'Payment failed');
+  String get marketPaytrFailedMessage => pick(
+    tr: 'Backend ödeme girişimini başarısız olarak doğruladı. Sepetin korunuyor.',
+    en: 'The backend verified the payment attempt as failed. Your cart is preserved.',
+  );
+  String get marketPaytrUnknownTitle =>
+      pick(tr: 'Sonuç henüz kesinleşmedi', en: 'Result not confirmed yet');
+  String get marketPaytrUnknownMessage => pick(
+    tr: 'Callback sonucu henüz backend kaydına ulaşmamış olabilir. Sepetin korunuyor; biraz sonra tekrar kontrol et.',
+    en: 'The callback result may not have reached the backend record yet. Your cart is preserved; check again shortly.',
+  );
+  String get marketPaytrStatusError => pick(
+    tr: 'Ödeme durumu şu anda doğrulanamadı. Sepetin korunuyor ve tekrar kontrol edebilirsin.',
+    en: 'The payment status could not be verified right now. Your cart is preserved, and you can check again.',
+  );
+  String get marketPaytrWebErrorTitle => pick(
+    tr: 'Ödeme sayfası yüklenemedi',
+    en: 'Payment page could not be loaded',
+  );
+  String get marketPaytrWebErrorMessage => pick(
+    tr: 'PayTR ödeme sayfası yüklenirken bir bağlantı hatası oluştu. Sayfayı yenileyebilir veya ödeme durumunu kontrol edebilirsin.',
+    en: 'A connection error occurred while loading the PayTR payment page. You can reload the page or check the payment status.',
+  );
+  String get marketPaytrBlockedNavigation => pick(
+    tr: 'Güvenli olmayan ödeme bağlantısı engellendi.',
+    en: 'An unsafe payment link was blocked.',
+  );
+  String get marketPaytrReload => pick(tr: 'Sayfayı yenile', en: 'Reload page');
+  String get marketPaytrReturnToMarket =>
+      pick(tr: 'Markete dön', en: 'Return to market');
+  String get marketPaytrExitTitle =>
+      pick(tr: 'Ödeme ekranından çıkılsın mı?', en: 'Leave payment screen?');
+  String get marketPaytrExitMessage => pick(
+    tr: 'Ödeme işlemi devam ediyor olabilir. Çıkarsan sepetin korunur ve sonucu daha sonra yeniden kontrol edebilirsin.',
+    en: 'The payment may still be processing. If you leave, your cart is preserved, and you can check the result again later.',
+  );
+  String get marketPaytrExitAction =>
+      pick(tr: 'Ödeme ekranından çık', en: 'Leave payment screen');
+
   String get marketCheckoutEmptyTitle =>
       pick(tr: 'Sipariş özeti hazır değil', en: 'Order summary is not ready');
   String get marketCheckoutEmptyMessage => pick(
@@ -1347,6 +1484,33 @@ class AppLocalizations {
     en: '$exerciseName Form Score Trend',
   );
   String get viewDetails => pick(tr: 'Detayı Gör', en: 'View Details');
+  String get scoreTrendRangeTitle =>
+      pick(tr: 'Zaman Aralığı', en: 'Time Range');
+  String get scoreTrendLastSevenDays => pick(tr: '7 Gün', en: '7 Days');
+  String get scoreTrendLastThirtyDays => pick(tr: '30 Gün', en: '30 Days');
+  String get scoreTrendAllTime => pick(tr: 'Tümü', en: 'All Time');
+  String get scoreTrendLastSevenDaysContext =>
+      pick(tr: 'son 7 gün', en: 'the last 7 days');
+  String get scoreTrendLastThirtyDaysContext =>
+      pick(tr: 'son 30 gün', en: 'the last 30 days');
+  String get scoreTrendAllTimeContext =>
+      pick(tr: 'tüm zamanlar', en: 'the full history');
+  String formScoreTrendRangeSubtitle(
+    String exerciseName,
+    String rangeContext,
+  ) => pick(
+    tr: '$exerciseName için $rangeContext boyunca form skoru değişimi.',
+    en: 'Form score change for $exerciseName across $rangeContext.',
+  );
+  String formScoreTrendRangeEmpty(String exerciseName, String rangeContext) =>
+      pick(
+        tr: '$exerciseName için $rangeContext içinde form skoru yok.',
+        en: 'There is no form score for $exerciseName in $rangeContext.',
+      );
+  String get formScoreTrendRangeEmptyDetail => pick(
+    tr: 'Başka bir zaman aralığı seçebilir veya yeni bir analiz tamamlayabilirsin.',
+    en: 'Choose another time range or complete a new analysis.',
+  );
   String formScoreChangeSubtitle(String exerciseName) => pick(
     tr: '$exerciseName oturumlarındaki form skoru değişimi',
     en: 'Form score change across $exerciseName sessions',

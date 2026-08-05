@@ -74,7 +74,7 @@ class PreviewMarketCatalogRepository implements MarketCatalogRepository {
     final category = _categoryFromId(categoryId, index);
     final priceMinor = product['priceMinor'];
     final currencyCode = _readNonEmptyString(product, 'currencyCode', index);
-    final imageAssetPath = _readOptionalImageAssetPath(product, index);
+    final imageAssetPaths = _readOptionalImageAssetPaths(product, index);
     final isFeatured = product['isFeatured'] ?? false;
 
     if (priceMinor is! int || priceMinor < 0) {
@@ -98,24 +98,71 @@ class PreviewMarketCatalogRepository implements MarketCatalogRepository {
       id: id,
       category: category,
       price: Money(minorUnits: priceMinor, currencyCode: currencyCode),
-      imageAssetPath: imageAssetPath,
+      imageAssetPaths: imageAssetPaths,
       isFeatured: isFeatured,
     );
   }
 
-  String? _readOptionalImageAssetPath(Map<String, dynamic> product, int index) {
-    final value = product['imageAssetPath'];
-    if (value == null) {
-      return null;
+  List<String> _readOptionalImageAssetPaths(
+    Map<String, dynamic> product,
+    int index,
+  ) {
+    final galleryValue = product['imageAssetPaths'];
+    final legacyValue = product['imageAssetPath'];
+
+    if (galleryValue != null && legacyValue != null) {
+      throw FormatException(
+        'Market product at index $index cannot define both imageAssetPaths '
+        'and imageAssetPath.',
+      );
     }
-    if (value is! String ||
-        !value.startsWith('assets/market/products/') ||
-        !value.endsWith('.webp')) {
+
+    if (galleryValue != null) {
+      if (galleryValue is! List || galleryValue.isEmpty) {
+        throw FormatException(
+          'Market product at index $index has an invalid imageAssetPaths.',
+        );
+      }
+
+      final paths = <String>[];
+      final uniquePaths = <String>{};
+      for (var imageIndex = 0; imageIndex < galleryValue.length; imageIndex++) {
+        final value = galleryValue[imageIndex];
+        if (!_isValidImageAssetPath(value)) {
+          throw FormatException(
+            'Market product at index $index has an invalid imageAssetPaths '
+            'entry at index $imageIndex.',
+          );
+        }
+        final path = value as String;
+        if (!uniquePaths.add(path)) {
+          throw FormatException(
+            'Market product at index $index contains a duplicate gallery '
+            'image: $path.',
+          );
+        }
+        paths.add(path);
+      }
+
+      return List<String>.unmodifiable(paths);
+    }
+
+    if (legacyValue == null) {
+      return const <String>[];
+    }
+    if (!_isValidImageAssetPath(legacyValue)) {
       throw FormatException(
         'Market product at index $index has an invalid imageAssetPath.',
       );
     }
-    return value;
+
+    return List<String>.unmodifiable(<String>[legacyValue as String]);
+  }
+
+  bool _isValidImageAssetPath(Object? value) {
+    return value is String &&
+        value.startsWith('assets/market/products/') &&
+        value.endsWith('.webp');
   }
 
   String _readNonEmptyString(

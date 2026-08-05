@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show Key;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
@@ -63,6 +64,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Squat Form Skoru Trendi'), findsOneWidget);
+    expect(find.byKey(const Key('score-trend-card')), findsOneWidget);
+    expect(find.byKey(const Key('score-trend-chart-surface')), findsOneWidget);
+    expect(find.byKey(const Key('score-trend-latest-score')), findsOneWidget);
     expect(find.text('Push-up Form Skoru Trendi'), findsNothing);
 
     await tester.scrollUntilVisible(find.text('Detayı Gör'), 250);

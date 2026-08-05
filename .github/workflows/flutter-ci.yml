@@ -53,6 +53,27 @@ jobs:
           path: coverage/lcov.info
           if-no-files-found: error
 
+
+  functions-quality:
+    name: Functions Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions --no-audit --no-fund
+
+      - name: Build and test Functions
+        run: npm run check --prefix functions
+
   firestore-rules-emulator:
     name: Firestore/Auth Emulator Rules
     runs-on: ubuntu-latest
@@ -88,6 +109,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions --no-audit --no-fund
+
       - name: Run Firestore/Auth rules tests
         run: >-
           firebase emulators:exec
@@ -96,6 +120,14 @@ jobs:
           "env REQUIRE_FIREBASE_EMULATORS=true
           GCLOUD_PROJECT=pose-estimation-app-dd06c
           flutter test test/firestore_rules_test.dart --reporter expanded"
+
+      - name: Run payment repository emulator tests
+        run: >-
+          firebase emulators:exec
+          --project pose-estimation-app-dd06c
+          --only firestore
+          "env GCLOUD_PROJECT=pose-estimation-app-dd06c
+          npm run test:emulator --prefix functions"
 
       - name: Upload emulator failure logs
         if: ${{ failure() && !cancelled() }}

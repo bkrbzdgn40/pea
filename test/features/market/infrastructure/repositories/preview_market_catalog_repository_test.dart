@@ -17,10 +17,22 @@ void main() {
     expect(products.every((product) => product.price.minorUnits > 0), isTrue);
     expect(
       products.every(
-        (product) => product.imageAssetPath?.endsWith('.webp') ?? false,
+        (product) =>
+            product.galleryImageAssetPaths.length == 3 &&
+            product.galleryImageAssetPaths.toSet().length == 3 &&
+            product.galleryImageAssetPaths.every(
+              (path) => path.endsWith('.webp'),
+            ),
       ),
       isTrue,
     );
+
+    for (final product in products) {
+      for (final imageAssetPath in product.galleryImageAssetPaths) {
+        final imageData = await rootBundle.load(imageAssetPath);
+        expect(imageData.lengthInBytes, greaterThan(0));
+      }
+    }
     expect(
       products.map((product) => product.imageAssetPath).toSet(),
       hasLength(8),
@@ -65,6 +77,64 @@ void main() {
     await expectLater(repository.loadProducts(), throwsFormatException);
   });
 
+  test('loads an ordered product image gallery', () async {
+    final repository = PreviewMarketCatalogRepository(
+      bundle: _StringAssetBundle(
+        jsonEncode({
+          'schemaVersion': 1,
+          'products': [
+            {
+              'id': 'gallery_product',
+              'category': 'setup',
+              'priceMinor': 100,
+              'currencyCode': 'TRY',
+              'imageAssetPaths': [
+                'assets/market/products/phone_tripod.webp',
+                'assets/market/products/exercise_mat.webp',
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    final products = await repository.loadProducts();
+
+    expect(products.single.galleryImageAssetPaths, const <String>[
+      'assets/market/products/phone_tripod.webp',
+      'assets/market/products/exercise_mat.webp',
+    ]);
+    expect(
+      products.single.imageAssetPath,
+      'assets/market/products/phone_tripod.webp',
+    );
+  });
+
+  test('keeps the legacy single image catalog field compatible', () async {
+    final repository = PreviewMarketCatalogRepository(
+      bundle: _StringAssetBundle(
+        jsonEncode({
+          'schemaVersion': 1,
+          'products': [
+            {
+              'id': 'legacy_product',
+              'category': 'setup',
+              'priceMinor': 100,
+              'currencyCode': 'TRY',
+              'imageAssetPath': 'assets/market/products/phone_tripod.webp',
+            },
+          ],
+        }),
+      ),
+    );
+
+    final products = await repository.loadProducts();
+
+    expect(products.single.galleryImageAssetPaths, const <String>[
+      'assets/market/products/phone_tripod.webp',
+    ]);
+  });
+
   test('rejects image assets outside the market product directory', () async {
     final repository = PreviewMarketCatalogRepository(
       bundle: _StringAssetBundle(
@@ -77,6 +147,30 @@ void main() {
               'priceMinor': 100,
               'currencyCode': 'TRY',
               'imageAssetPath': 'assets/config/exercises/private.png',
+            },
+          ],
+        }),
+      ),
+    );
+
+    await expectLater(repository.loadProducts(), throwsFormatException);
+  });
+
+  test('rejects unsafe paths inside a product image gallery', () async {
+    final repository = PreviewMarketCatalogRepository(
+      bundle: _StringAssetBundle(
+        jsonEncode({
+          'schemaVersion': 1,
+          'products': [
+            {
+              'id': 'unsafe_gallery',
+              'category': 'strength',
+              'priceMinor': 100,
+              'currencyCode': 'TRY',
+              'imageAssetPaths': [
+                'assets/market/products/resistance_band_set.webp',
+                'assets/config/exercises/private.webp',
+              ],
             },
           ],
         }),

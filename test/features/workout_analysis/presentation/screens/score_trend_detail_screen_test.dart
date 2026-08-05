@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show Key;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_score_trend_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/score_trend_detail_screen.dart';
 
@@ -8,17 +10,25 @@ import '../../../../support/workout_statistics_test_support.dart';
 
 void main() {
   testWidgets(
-    'detail screen shows only the explicit exercise form-score trend',
+    'detail trend filters the explicit exercise by 7 days, 30 days, and all time',
     (tester) async {
       final snapshot = UserSessionsSnapshot(
         sessions: [
           buildWorkoutSession(
-            id: 'squat-1',
-            startedAt: DateTime(2024, 1, 1, 9),
+            id: 'squat-all-time',
+            startedAt: DateTime(2023, 12, 1, 9),
+            exerciseType: 'squat',
+            totalReps: 10,
+            averageScore: 55,
+            bestScore: 80,
+          ),
+          buildWorkoutSession(
+            id: 'squat-month',
+            startedAt: DateTime(2023, 12, 20, 9),
             exerciseType: 'squat',
             totalReps: 10,
             averageScore: 60,
-            bestScore: 95,
+            bestScore: 85,
           ),
           buildWorkoutSession(
             id: 'push-1',
@@ -29,8 +39,8 @@ void main() {
             bestScore: 100,
           ),
           buildWorkoutSession(
-            id: 'squat-2',
-            startedAt: DateTime(2024, 1, 3, 9),
+            id: 'squat-week-boundary',
+            startedAt: DateTime(2024, 1, 4),
             exerciseType: 'squat',
             totalReps: 8,
             averageScore: 65,
@@ -38,12 +48,20 @@ void main() {
           ),
           buildWorkoutSession(
             id: 'plank-hold',
-            startedAt: DateTime(2024, 1, 4, 9),
+            startedAt: DateTime(2024, 1, 5, 9),
             exerciseType: 'plank',
             analysisKind: 'hold',
             totalReps: 0,
             averageScore: 0,
             bestScore: 0,
+          ),
+          buildWorkoutSession(
+            id: 'squat-latest',
+            startedAt: DateTime(2024, 1, 8, 9),
+            exerciseType: 'squat',
+            totalReps: 9,
+            averageScore: 75,
+            bestScore: 95,
           ),
         ],
         source: UserSessionsSnapshotSource.real,
@@ -54,23 +72,114 @@ void main() {
         home: const ScoreTrendDetailScreen(exercise: ExerciseType.squat),
         overrides: [
           userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+          scoreTrendClockProvider.overrideWithValue(
+            () => DateTime(2024, 1, 10, 12),
+          ),
         ],
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Squat Form Skoru Trendi'), findsAtLeastNWidgets(1));
-      expect(find.text('01.01'), findsOneWidget);
-      expect(find.text('03.01'), findsOneWidget);
+      expect(
+        find.byKey(const Key('score-trend-range-selector')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('score-trend-range-thirty-days')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('score-trend-detail-hero')), findsOneWidget);
+      expect(
+        find.byKey(const Key('score-trend-chart-surface')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('score-trend-summary-grid')), findsOneWidget);
+      expect(find.text('20.12'), findsOneWidget);
+      expect(find.text('04.01'), findsOneWidget);
+      expect(find.text('08.01'), findsOneWidget);
+      expect(find.text('01.12'), findsNothing);
       expect(find.text('02.01'), findsNothing);
-      expect(find.text('04.01'), findsNothing);
-      expect(find.text('Oturum'), findsOneWidget);
-      expect(find.text('2'), findsOneWidget);
-      expect(find.text('Son Form Skoru'), findsOneWidget);
-      expect(find.text('En İyi Form Skoru'), findsOneWidget);
-      expect(find.text('65'), findsAtLeastNWidgets(1));
+      expect(find.text('05.01'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-session-count')),
+          matching: find.text('3'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('99'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('score-trend-range-seven-days')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('20.12'), findsNothing);
+      expect(find.text('04.01'), findsOneWidget);
+      expect(find.text('08.01'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-session-count')),
+          matching: find.text('2'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('score-trend-range-all')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('01.12'), findsOneWidget);
+      expect(find.text('20.12'), findsOneWidget);
+      expect(find.text('04.01'), findsOneWidget);
+      expect(find.text('08.01'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-session-count')),
+          matching: find.text('4'),
+        ),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets('range with no samples keeps the selector and shows guidance', (
+    tester,
+  ) async {
+    final snapshot = UserSessionsSnapshot(
+      sessions: [
+        buildWorkoutSession(
+          id: 'old-squat',
+          startedAt: DateTime(2023, 1, 4, 9),
+          exerciseType: 'squat',
+          averageScore: 70,
+        ),
+      ],
+      source: UserSessionsSnapshotSource.real,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const ScoreTrendDetailScreen(exercise: ExerciseType.squat),
+      overrides: [
+        userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+        scoreTrendClockProvider.overrideWithValue(
+          () => DateTime(2024, 1, 10, 12),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('score-trend-range-selector')), findsOneWidget);
+    expect(
+      find.text('Squat için son 30 gün içinde form skoru yok.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('score-trend-detail-hero')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('score-trend-range-all')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('score-trend-detail-hero')), findsOneWidget);
+    expect(find.text('04.01'), findsOneWidget);
+  });
 
   testWidgets('hold-only exercise does not invent a zero score trend', (
     tester,

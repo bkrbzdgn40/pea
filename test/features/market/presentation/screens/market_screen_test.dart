@@ -19,12 +19,21 @@ void main() {
     await _pumpMarketCatalog(tester);
 
     expect(find.text('Market'), findsOneWidget);
-    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsOneWidget);
-    expect(find.text('8 örnek ürün'), findsOneWidget);
+    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsNothing);
+    expect(find.text('8 örnek ürün'), findsNothing);
     expect(find.text('Telefon Tripodu'), findsOneWidget);
     expect(find.text('Giyim'), findsOneWidget);
     expect(find.text('Tümü'), findsOneWidget);
     expect(find.byType(Image), findsWidgets);
+    expect(
+      find.byKey(const Key('market-category-filter-surface')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('market-product-visual-frame-phone_tripod')),
+      findsOneWidget,
+    );
+    expect(find.text('Öne çıkan'), findsWidgets);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
@@ -184,12 +193,22 @@ void main() {
       ),
     );
 
-    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsOneWidget);
+    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsNothing);
     expect(find.byKey(const Key('market-catalog-scroll-view')), findsOneWidget);
+
+    final catalogScrollable = find.descendant(
+      of: find.byKey(const Key('market-catalog-scroll-view')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      ),
+    );
+    expect(catalogScrollable, findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('market-product-phone_tripod')),
       200,
+      scrollable: catalogScrollable,
     );
     await tester.pumpAndSettle();
 
@@ -227,7 +246,8 @@ void main() {
     await tester.tap(backButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsOneWidget);
+    expect(find.text('Telefon Tripodu'), findsOneWidget);
+    expect(find.text('Antrenmanını destekleyen ekipmanlar'), findsNothing);
   });
 }
 

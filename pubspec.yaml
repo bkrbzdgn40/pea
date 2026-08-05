@@ -38,6 +38,8 @@ dependencies:
   fl_chart: ^1.2.0
   url_launcher: ^6.3.2
   share_plus: ^10.1.4
+  http: ^1.6.0
+  webview_flutter: 4.9.0
 
   # Canlı Kamera Akışı ve İzinler
   camera: ^0.10.5+8

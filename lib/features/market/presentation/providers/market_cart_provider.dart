@@ -54,6 +54,10 @@ class MarketCartController extends StateNotifier<MarketCart> {
     _setQuantity(productId, currentQuantity - 1);
   }
 
+  void clear() {
+    state = const MarketCart();
+  }
+
   void remove(String productId) {
     state = state.copyWith(
       lines: state.lines

@@ -11,7 +11,7 @@ import '../../domain/models/market_product.dart';
 import '../formatters/market_price_formatter.dart';
 import '../providers/market_cart_provider.dart';
 import '../widgets/market_cart_action.dart';
-import '../widgets/market_product_visual.dart';
+import '../widgets/market_product_gallery.dart';
 import 'market_cart_screen.dart';
 
 class MarketProductDetailScreen extends ConsumerWidget {
@@ -63,13 +63,11 @@ class _MarketProductDetail extends ConsumerWidget {
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
                   height: visualHeight,
-                  child: MarketProductVisual(
+                  child: MarketProductGallery(
                     productId: product.id,
-                    imageAssetPath: product.imageAssetPath,
+                    productName: localizations.marketProductName(product.id),
+                    imageAssetPaths: product.galleryImageAssetPaths,
                     iconSize: visualIconSize,
-                    semanticLabel: localizations.marketProductImageLabel(
-                      localizations.marketProductName(product.id),
-                    ),
                   ),
                 ),
               ),

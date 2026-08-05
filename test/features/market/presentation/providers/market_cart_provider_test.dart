@@ -42,4 +42,14 @@ void main() {
     controller.remove(product.id);
     expect(controller.state.isEmpty, isTrue);
   });
+
+  test('clears the cart after a verified payment', () {
+    final controller = MarketCartController();
+    addTearDown(controller.dispose);
+
+    controller.add(product);
+    controller.clear();
+
+    expect(controller.state.isEmpty, isTrue);
+  });
 }

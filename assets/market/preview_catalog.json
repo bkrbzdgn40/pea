@@ -7,14 +7,22 @@
       "priceMinor": 79900,
       "currencyCode": "TRY",
       "isFeatured": true,
-      "imageAssetPath": "assets/market/products/phone_tripod.webp"
+      "imageAssetPaths": [
+        "assets/market/products/phone_tripod.webp",
+        "assets/market/products/phone_tripod_detail.webp",
+        "assets/market/products/phone_tripod_angle.webp"
+      ]
     },
     {
       "id": "exercise_mat",
       "category": "accessories",
       "priceMinor": 64900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/exercise_mat.webp"
+      "imageAssetPaths": [
+        "assets/market/products/exercise_mat.webp",
+        "assets/market/products/exercise_mat_detail.webp",
+        "assets/market/products/exercise_mat_angle.webp"
+      ]
     },
     {
       "id": "resistance_band_set",
@@ -22,42 +30,66 @@
       "priceMinor": 49900,
       "currencyCode": "TRY",
       "isFeatured": true,
-      "imageAssetPath": "assets/market/products/resistance_band_set.webp"
+      "imageAssetPaths": [
+        "assets/market/products/resistance_band_set.webp",
+        "assets/market/products/resistance_band_set_detail.webp",
+        "assets/market/products/resistance_band_set_angle.webp"
+      ]
     },
     {
       "id": "mini_loop_band_set",
       "category": "strength",
       "priceMinor": 27900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/mini_loop_band_set.webp"
+      "imageAssetPaths": [
+        "assets/market/products/mini_loop_band_set.webp",
+        "assets/market/products/mini_loop_band_set_detail.webp",
+        "assets/market/products/mini_loop_band_set_angle.webp"
+      ]
     },
     {
       "id": "foam_roller",
       "category": "mobility",
       "priceMinor": 54900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/foam_roller.webp"
+      "imageAssetPaths": [
+        "assets/market/products/foam_roller.webp",
+        "assets/market/products/foam_roller_detail.webp",
+        "assets/market/products/foam_roller_angle.webp"
+      ]
     },
     {
       "id": "adjustable_dumbbell",
       "category": "strength",
       "priceMinor": 249900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/adjustable_dumbbell.webp"
+      "imageAssetPaths": [
+        "assets/market/products/adjustable_dumbbell.webp",
+        "assets/market/products/adjustable_dumbbell_detail.webp",
+        "assets/market/products/adjustable_dumbbell_angle.webp"
+      ]
     },
     {
       "id": "training_tshirt",
       "category": "apparel",
       "priceMinor": 44900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/training_tshirt.webp"
+      "imageAssetPaths": [
+        "assets/market/products/training_tshirt.webp",
+        "assets/market/products/training_tshirt_detail.webp",
+        "assets/market/products/training_tshirt_angle.webp"
+      ]
     },
     {
       "id": "training_shorts",
       "category": "apparel",
       "priceMinor": 39900,
       "currencyCode": "TRY",
-      "imageAssetPath": "assets/market/products/training_shorts.webp"
+      "imageAssetPaths": [
+        "assets/market/products/training_shorts.webp",
+        "assets/market/products/training_shorts_detail.webp",
+        "assets/market/products/training_shorts_angle.webp"
+      ]
     }
   ]
 }

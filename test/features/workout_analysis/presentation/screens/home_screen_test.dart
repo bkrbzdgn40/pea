@@ -71,6 +71,14 @@ void main() {
       expect(find.text('Başarılar'), findsOneWidget);
       expect(find.text('Planlı Antrenman'), findsOneWidget);
       expect(find.text('Değerlendirme'), findsOneWidget);
+      expect(
+        find.byKey(const Key('exercise-distribution-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('exercise-distribution-chart-surface')),
+        findsOneWidget,
+      );
     },
   );
 
