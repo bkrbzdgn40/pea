@@ -6,6 +6,7 @@ import '../../../../app/presentation/widgets/app_status_tone.dart';
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 
 class HomeRecentSessionCard extends StatelessWidget {
@@ -23,11 +24,21 @@ class HomeRecentSessionCard extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
     final exerciseTitle = localizations.exerciseTitle(session.exerciseType);
+    final warningTitle =
+        SessionMeasurementEvidencePresenter.shouldShowWarning(session)
+        ? SessionMeasurementEvidencePresenter.warningTitle(
+            localizations,
+            session,
+          )
+        : null;
     final metrics = _buildMetrics(localizations);
 
     return Semantics(
       button: true,
-      label: '${localizations.recentSession}: $exerciseTitle',
+      label: [
+        '${localizations.recentSession}: $exerciseTitle',
+        ?warningTitle,
+      ].join(', '),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -48,6 +59,7 @@ class HomeRecentSessionCard extends StatelessWidget {
                   title: localizations.recentSession,
                   subtitle: localizations.recentSessionSubtitle,
                   exerciseTitle: exerciseTitle,
+                  warningTitle: warningTitle,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
@@ -194,11 +206,13 @@ class _RecentSessionHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.exerciseTitle,
+    this.warningTitle,
   });
 
   final String title;
   final String subtitle;
   final String exerciseTitle;
+  final String? warningTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +241,35 @@ class _RecentSessionHeader extends StatelessWidget {
       tone: AppStatusTone.accent,
       icon: Icons.fitness_center_rounded,
     );
+    final warningIndicator = warningTitle == null
+        ? null
+        : Tooltip(
+            message: warningTitle!,
+            excludeFromSemantics: true,
+            child: Container(
+              key: const ValueKey<String>(
+                'home-recent-session-evidence-warning',
+              ),
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.caution.withValues(alpha: AppOpacity.subtle),
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+                border: Border.all(
+                  color: colors.caution.withValues(
+                    alpha: AppOpacity.strongBorder,
+                  ),
+                ),
+              ),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                size: 18,
+                color: colors.caution,
+              ),
+            ),
+          );
+    final statusItems = <Widget>[exerciseChip, ?warningIndicator];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -239,7 +282,12 @@ class _RecentSessionHeader extends StatelessWidget {
             children: [
               titleBlock,
               const SizedBox(height: AppSpacing.xs),
-              exerciseChip,
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: statusItems,
+              ),
             ],
           );
         }
@@ -249,7 +297,15 @@ class _RecentSessionHeader extends StatelessWidget {
           children: [
             Expanded(child: titleBlock),
             const SizedBox(width: AppSpacing.sm),
-            Flexible(child: exerciseChip),
+            Flexible(
+              child: Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: statusItems,
+              ),
+            ),
           ],
         );
       },

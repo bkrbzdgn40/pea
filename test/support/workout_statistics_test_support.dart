@@ -1,3 +1,4 @@
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 
 WorkoutSession buildWorkoutSession({
@@ -10,6 +11,11 @@ WorkoutSession buildWorkoutSession({
   double averageScore = 0,
   double? bestScore,
   int durationSec = 600,
+  PreparationOutcome preparationOutcome = PreparationOutcome.legacyUnknown,
+  SessionMeasurementQuality measurementQuality =
+      SessionMeasurementQuality.unknown,
+  double? averageMeasurementConfidence,
+  int measurementSampleCount = 0,
 }) {
   return WorkoutSession(
     id: id,
@@ -26,6 +32,10 @@ WorkoutSession buildWorkoutSession({
     validReps: totalReps,
     invalidReps: 0,
     formWarningCount: 0,
+    preparationOutcome: preparationOutcome,
+    measurementQuality: measurementQuality,
+    averageMeasurementConfidence: averageMeasurementConfidence,
+    measurementSampleCount: measurementSampleCount,
   );
 }
 

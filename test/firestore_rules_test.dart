@@ -282,6 +282,163 @@ void main() {
     );
   });
 
+  group('Firestore goal security rules', skip: _emulatorSkipReason, () {
+    late _RulesClient unauthenticatedClient;
+    late _RulesClient ownerClient;
+    late _RulesClient otherClient;
+
+    setUp(() async {
+      await _clearEmulators();
+      unauthenticatedClient = const _RulesClient();
+      ownerClient = await _RulesClient.signUp();
+      otherClient = await _RulesClient.signUp();
+    });
+
+    test('owner can create and read a valid goal', () async {
+      final path = _goalPath(ownerClient.uid!, 'weeklySessions');
+      final write = await ownerClient.setDocument(
+        path,
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 5,
+        ),
+      );
+      final read = await ownerClient.getDocument(path);
+
+      expect(write.statusCode, inInclusiveRange(200, 299), reason: write.body);
+      expect(read.statusCode, 200, reason: read.body);
+    });
+
+    test('other and unauthenticated users cannot read a goal', () async {
+      final path = _goalPath(ownerClient.uid!, 'weeklySessions');
+      final write = await ownerClient.setDocument(
+        path,
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 5,
+        ),
+      );
+      expect(write.statusCode, inInclusiveRange(200, 299), reason: write.body);
+
+      final otherRead = await otherClient.getDocument(path);
+      final unauthenticatedRead = await unauthenticatedClient.getDocument(path);
+
+      expect(otherRead.statusCode, 403, reason: otherRead.body);
+      expect(
+        unauthenticatedRead.statusCode,
+        403,
+        reason: unauthenticatedRead.body,
+      );
+    });
+
+    test('goal document id and type must match', () async {
+      final response = await ownerClient.setDocument(
+        _goalPath(ownerClient.uid!, 'weeklySessions'),
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklyReps',
+          period: 'weekly',
+          targetValue: 100,
+        ),
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('goal period must match its type', () async {
+      final response = await ownerClient.setDocument(
+        _goalPath(ownerClient.uid!, 'averageScore'),
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'averageScore',
+          period: 'weekly',
+          targetValue: 85,
+        ),
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('goal target must stay within the supported range', () async {
+      final response = await ownerClient.setDocument(
+        _goalPath(ownerClient.uid!, 'weeklySessions'),
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 50,
+        ),
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('weekly goals reject fractional targets', () async {
+      final response = await ownerClient.setDocument(
+        _goalPath(ownerClient.uid!, 'weeklySessions'),
+        _validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 2.5,
+        ),
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
+    test('goal updatedAt cannot move backwards', () async {
+      final path = _goalPath(ownerClient.uid!, 'weeklySessions');
+      final createdAt = DateTime.utc(2026, 8, 5, 10);
+      final firstWrite = await ownerClient.setDocument(path, <String, Object?>{
+        ..._validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 5,
+        ),
+        'createdAt': createdAt,
+        'updatedAt': DateTime.utc(2026, 8, 5, 12),
+      });
+      expect(
+        firstWrite.statusCode,
+        inInclusiveRange(200, 299),
+        reason: firstWrite.body,
+      );
+
+      final rollback = await ownerClient.setDocument(path, <String, Object?>{
+        ..._validGoalData(
+          ownerId: ownerClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 6,
+        ),
+        'createdAt': createdAt,
+        'updatedAt': DateTime.utc(2026, 8, 5, 11),
+      });
+
+      expect(rollback.statusCode, 403, reason: rollback.body);
+    });
+
+    test('goal owner cannot be changed by another user', () async {
+      final response = await ownerClient.setDocument(
+        _goalPath(ownerClient.uid!, 'weeklySessions'),
+        _validGoalData(
+          ownerId: otherClient.uid!,
+          type: 'weeklySessions',
+          period: 'weekly',
+          targetValue: 5,
+        ),
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+  });
+
   group('Firestore rep security rules', skip: _emulatorSkipReason, () {
     late _RulesClient ownerClient;
     late _RulesClient otherClient;
@@ -679,6 +836,31 @@ Future<void> _clearEmulators() async {
     inInclusiveRange(200, 299),
     reason: authResponse.body,
   );
+}
+
+String _goalPath(String ownerId, String goalId) {
+  return 'users/$ownerId/goals/$goalId';
+}
+
+Map<String, Object?> _validGoalData({
+  required String ownerId,
+  required String type,
+  required String period,
+  required num targetValue,
+  String status = 'active',
+}) {
+  final now = DateTime.utc(2026, 8, 5, 12);
+
+  return <String, Object?>{
+    'id': type,
+    'ownerId': ownerId,
+    'type': type,
+    'period': period,
+    'targetValue': targetValue,
+    'status': status,
+    'createdAt': now,
+    'updatedAt': now,
+  };
 }
 
 String _sessionPath(String ownerId, String sessionId) {

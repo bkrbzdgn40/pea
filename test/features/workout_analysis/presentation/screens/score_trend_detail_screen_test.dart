@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show Key;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_score_trend_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/score_trend_detail_screen.dart';
@@ -228,6 +229,88 @@ void main() {
     );
     expect(find.text('0'), findsNothing);
   });
+  testWidgets(
+    'limited score stays visible with a warning while summary metrics exclude it',
+    (tester) async {
+      final snapshot = UserSessionsSnapshot(
+        sessions: [
+          buildWorkoutSession(
+            id: 'trusted',
+            startedAt: DateTime(2024, 1, 8, 9),
+            exerciseType: 'squat',
+            totalReps: 8,
+            averageScore: 80,
+            preparationOutcome: PreparationOutcome.passed,
+            measurementQuality: SessionMeasurementQuality.high,
+            averageMeasurementConfidence: 0.95,
+            measurementSampleCount: 8,
+          ),
+          buildWorkoutSession(
+            id: 'limited',
+            startedAt: DateTime(2024, 1, 9, 9),
+            exerciseType: 'squat',
+            totalReps: 8,
+            averageScore: 100,
+            preparationOutcome: PreparationOutcome.passed,
+            measurementQuality: SessionMeasurementQuality.limited,
+            averageMeasurementConfidence: 0.7,
+            measurementSampleCount: 8,
+          ),
+          buildWorkoutSession(
+            id: 'insufficient',
+            startedAt: DateTime(2024, 1, 10, 9),
+            exerciseType: 'squat',
+            totalReps: 1,
+            averageScore: 99,
+            preparationOutcome: PreparationOutcome.passed,
+            measurementQuality: SessionMeasurementQuality.insufficient,
+            averageMeasurementConfidence: 0.99,
+            measurementSampleCount: 1,
+          ),
+        ],
+        source: UserSessionsSnapshotSource.real,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const ScoreTrendDetailScreen(exercise: ExerciseType.squat),
+        overrides: [
+          userSessionsSnapshotProvider.overrideWith((ref) async => snapshot),
+          scoreTrendClockProvider.overrideWithValue(
+            () => DateTime(2024, 1, 10, 12),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(_trendSpots(tester), hasLength(2));
+      expect(
+        find.byKey(const Key('score-trend-detail-evidence-warning')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-session-count')),
+          matching: find.text('2'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-best-metric')),
+          matching: find.text('80'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('score-trend-average-metric')),
+          matching: find.text('80'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 List<FlSpot> _trendSpots(WidgetTester tester) {

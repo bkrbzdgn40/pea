@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 
 import '../../../../support/workout_statistics_test_support.dart';
@@ -115,6 +116,49 @@ void main() {
         expect(state.isFallback, isTrue);
         expect(state.achievements, isEmpty);
       }
+    },
+  );
+  test(
+    'limited evidence counts as a completed session but cannot unlock score or rep achievements',
+    () async {
+      final container = ProviderContainer(
+        overrides: [
+          userSessionsSnapshotProvider.overrideWith(
+            (ref) async => UserSessionsSnapshot(
+              sessions: [
+                buildWorkoutSession(
+                  id: 'limited',
+                  startedAt: DateTime(2024, 1, 3, 9),
+                  totalReps: 120,
+                  averageScore: 99,
+                  bestScore: 100,
+                  preparationOutcome: PreparationOutcome.passed,
+                  measurementQuality: SessionMeasurementQuality.limited,
+                  averageMeasurementConfidence: 0.7,
+                  measurementSampleCount: 120,
+                ),
+              ],
+              source: UserSessionsSnapshotSource.real,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = await container.read(achievementsProvider.future);
+
+      expect(
+        _achievementById(state.achievements, 'first_analysis').isUnlocked,
+        isTrue,
+      );
+      expect(
+        _achievementById(state.achievements, 'score_90_plus').isUnlocked,
+        isFalse,
+      );
+      expect(
+        _achievementById(state.achievements, 'hundred_reps').isUnlocked,
+        isFalse,
+      );
     },
   );
 }

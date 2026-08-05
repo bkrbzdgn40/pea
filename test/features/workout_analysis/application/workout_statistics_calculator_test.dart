@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics_calculator.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 
 import '../../../support/workout_statistics_test_support.dart';
 
@@ -191,6 +192,75 @@ void main() {
       expect(statistics.snapshotTotalReps, 420);
       expect(statistics.currentWeekAnalysisCount, 3);
       expect(statistics.currentWeekRepCount, 70);
+    },
+  );
+
+  test(
+    'limited evidence stays visible while aggregates use trusted or legacy sessions',
+    () {
+      final calculator = WorkoutStatisticsCalculator(
+        clock: () => DateTime(2024, 1, 10, 12),
+      );
+      final sessions = [
+        buildWorkoutSession(
+          id: 'trusted',
+          startedAt: DateTime(2024, 1, 8, 9),
+          totalReps: 10,
+          averageScore: 80,
+          preparationOutcome: PreparationOutcome.passed,
+          measurementQuality: SessionMeasurementQuality.high,
+          averageMeasurementConfidence: 0.94,
+          measurementSampleCount: 10,
+        ),
+        buildWorkoutSession(
+          id: 'limited',
+          startedAt: DateTime(2024, 1, 9, 9),
+          totalReps: 100,
+          averageScore: 100,
+          preparationOutcome: PreparationOutcome.passed,
+          measurementQuality: SessionMeasurementQuality.limited,
+          averageMeasurementConfidence: 0.7,
+          measurementSampleCount: 100,
+        ),
+        buildWorkoutSession(
+          id: 'insufficient',
+          startedAt: DateTime(2024, 1, 9, 12),
+          totalReps: 1,
+          averageScore: 99,
+          preparationOutcome: PreparationOutcome.passed,
+          measurementQuality: SessionMeasurementQuality.insufficient,
+          averageMeasurementConfidence: 0.99,
+          measurementSampleCount: 1,
+        ),
+        buildWorkoutSession(
+          id: 'legacy',
+          startedAt: DateTime(2024, 1, 10, 9),
+          totalReps: 20,
+          averageScore: 90,
+        ),
+      ];
+
+      final statistics = calculator.calculate(sessions);
+
+      expect(statistics.snapshotSessionCount, 4);
+      expect(statistics.snapshotTotalReps, 30);
+      expect(statistics.currentWeekAnalysisCount, 4);
+      expect(statistics.currentWeekRepCount, 30);
+      expect(statistics.averageScore, 85);
+      expect(statistics.bestScore, 90);
+      expect(statistics.bestAverageScore, 90);
+      expect(
+        statistics.chronologicalScoreSamples
+            .map((sample) => sample.score)
+            .toList(growable: false),
+        <double>[80, 100, 90],
+      );
+      expect(
+        statistics.chronologicalScoreSamples
+            .map((sample) => sample.contributesToScoreAggregates)
+            .toList(growable: false),
+        <bool>[true, false, true],
+      );
     },
   );
 }

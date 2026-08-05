@@ -1,3 +1,4 @@
+import '../../domain/models/session_measurement_evidence.dart';
 import '../../domain/models/workout_session.dart';
 
 enum HomeDashboardSource { loading, real, noUser, empty, error }
@@ -63,11 +64,26 @@ class ScoreTrendPoint {
     required this.label,
     required this.score,
     this.startedAt,
+    this.preparationOutcome = PreparationOutcome.legacyUnknown,
+    this.measurementQuality = SessionMeasurementQuality.unknown,
+    this.averageMeasurementConfidence,
+    this.measurementSampleCount = 0,
+    this.contributesToScoreAggregates = true,
   });
 
   final String label;
   final double score;
   final DateTime? startedAt;
+  final PreparationOutcome preparationOutcome;
+  final SessionMeasurementQuality measurementQuality;
+  final double? averageMeasurementConfidence;
+  final int measurementSampleCount;
+  final bool contributesToScoreAggregates;
+
+  bool get hasEvidenceWarning =>
+      preparationOutcome == PreparationOutcome.overridden ||
+      measurementQuality == SessionMeasurementQuality.limited ||
+      measurementQuality == SessionMeasurementQuality.insufficient;
 
   String get tooltipLabel {
     final localStartedAt = startedAt?.toLocal();

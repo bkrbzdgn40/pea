@@ -1,29 +1,47 @@
 import '../domain/models/workout_session.dart';
-import 'engine_kind.dart';
+import '../domain/session_evidence_eligibility_policy.dart';
 import 'workout_statistics.dart';
 
 class WorkoutStatisticsCalculator {
-  WorkoutStatisticsCalculator({DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+  WorkoutStatisticsCalculator({
+    DateTime Function()? clock,
+    SessionEvidenceEligibilityPolicy evidencePolicy =
+        const SessionEvidenceEligibilityPolicy(),
+  }) : _clock = clock ?? DateTime.now,
+       _evidencePolicy = evidencePolicy;
 
   final DateTime Function() _clock;
+  final SessionEvidenceEligibilityPolicy _evidencePolicy;
 
   WorkoutStatistics calculate(List<WorkoutSession> sessions) {
-    final scoreEligibleSessions = _scoreEligibleSessions(sessions);
-    final chronologicalScoreSamples = scoreEligibleSessions
+    final trendSessions =
+        sessions
+            .where(_evidencePolicy.appearsInScoreTrend)
+            .toList(growable: false)
+          ..sort((left, right) => left.startedAt.compareTo(right.startedAt));
+    final aggregateScoreSessions = sessions
+        .where(_evidencePolicy.contributesToScoreAggregates)
+        .toList(growable: false);
+    final chronologicalScoreSamples = trendSessions
         .map(
           (session) => WorkoutScoreSample(
             startedAt: session.startedAt,
             score: session.averageScore,
+            preparationOutcome: session.preparationOutcome,
+            measurementQuality: session.measurementQuality,
+            averageMeasurementConfidence: session.averageMeasurementConfidence,
+            measurementSampleCount: session.measurementSampleCount,
+            contributesToScoreAggregates: _evidencePolicy
+                .contributesToScoreAggregates(session),
           ),
         )
         .toList(growable: false);
     final currentWeekSessions = _currentWeekSessions(sessions);
-    final totalEligibleAverageScore = scoreEligibleSessions.fold<double>(
+    final totalEligibleAverageScore = aggregateScoreSessions.fold<double>(
       0,
       (total, session) => total + session.averageScore,
     );
-    final bestScore = scoreEligibleSessions.fold<double>(
+    final bestScore = aggregateScoreSessions.fold<double>(
       0,
       (best, session) => session.bestScore > best ? session.bestScore : best,
     );
@@ -35,37 +53,25 @@ class WorkoutStatisticsCalculator {
     }
 
     return WorkoutStatistics(
-      snapshotSessionCount: sessions.length,
-      snapshotTotalReps: sessions.fold<int>(
-        0,
-        (total, session) => total + session.totalReps,
-      ),
-      currentWeekAnalysisCount: currentWeekSessions.length,
-      currentWeekRepCount: currentWeekSessions.fold<int>(
-        0,
-        (total, session) => total + session.totalReps,
-      ),
+      snapshotSessionCount: sessions
+          .where(_evidencePolicy.countsAsCompletedSession)
+          .length,
+      snapshotTotalReps: sessions
+          .where(_evidencePolicy.contributesToRepetitionVolume)
+          .fold<int>(0, (total, session) => total + session.totalReps),
+      currentWeekAnalysisCount: currentWeekSessions
+          .where(_evidencePolicy.countsAsCompletedSession)
+          .length,
+      currentWeekRepCount: currentWeekSessions
+          .where(_evidencePolicy.contributesToRepetitionVolume)
+          .fold<int>(0, (total, session) => total + session.totalReps),
       chronologicalScoreSamples: chronologicalScoreSamples,
-      averageScore: scoreEligibleSessions.isEmpty
+      averageScore: aggregateScoreSessions.isEmpty
           ? 0
-          : totalEligibleAverageScore / scoreEligibleSessions.length,
+          : totalEligibleAverageScore / aggregateScoreSessions.length,
       bestScore: bestScore,
       exerciseSessionCounts: exerciseSessionCounts,
     );
-  }
-
-  List<WorkoutSession> _scoreEligibleSessions(List<WorkoutSession> sessions) {
-    final eligibleSessions = sessions
-        .where(_isScoreEligible)
-        .toList(growable: false);
-
-    return eligibleSessions
-      ..sort((left, right) => left.startedAt.compareTo(right.startedAt));
-  }
-
-  bool _isScoreEligible(WorkoutSession session) {
-    return session.analysisKind == EngineKind.rangeRep.name &&
-        session.averageScore > 0;
   }
 
   List<WorkoutSession> _currentWeekSessions(List<WorkoutSession> sessions) {

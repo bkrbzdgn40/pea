@@ -50,6 +50,14 @@ class ExerciseScoreTrendData {
 
   double get bestAverageScore => bestAverageScoreFor(samples);
 
+  List<WorkoutScoreSample> aggregateEligibleSamples(
+    Iterable<WorkoutScoreSample> source,
+  ) {
+    return source
+        .where((sample) => sample.contributesToScoreAggregates)
+        .toList(growable: false);
+  }
+
   List<WorkoutScoreSample> samplesForRange(
     ScoreTrendRange range, {
     required DateTime now,
@@ -96,10 +104,22 @@ class ExerciseScoreTrendData {
   }
 
   double bestAverageScoreFor(Iterable<WorkoutScoreSample> source) {
-    return source.fold<double>(
-      0,
-      (best, sample) => sample.score > best ? sample.score : best,
-    );
+    return source
+        .where((sample) => sample.contributesToScoreAggregates)
+        .fold<double>(
+          0,
+          (best, sample) => sample.score > best ? sample.score : best,
+        );
+  }
+
+  double? averageScoreFor(Iterable<WorkoutScoreSample> source) {
+    final eligible = aggregateEligibleSamples(source);
+    if (eligible.isEmpty) {
+      return null;
+    }
+
+    return eligible.fold<double>(0, (sum, sample) => sum + sample.score) /
+        eligible.length;
   }
 
   List<WorkoutScoreSample> latestSamples({int limit = 7}) {
@@ -119,10 +139,9 @@ class ExerciseScoreTrendData {
     final resolveWeekdayLabel = weekdayLabel ?? _weekdayLabel;
     return [
       for (final sample in latestSamples(limit: limit))
-        ScoreTrendPoint(
+        _pointFromSample(
+          sample,
           label: resolveWeekdayLabel(sample.startedAt.toLocal()),
-          score: sample.score,
-          startedAt: sample.startedAt,
         ),
     ];
   }
@@ -131,13 +150,25 @@ class ExerciseScoreTrendData {
     final resolvedSamples = source ?? samples;
     return [
       for (final sample in resolvedSamples)
-        ScoreTrendPoint(
-          label: _dateLabel(_localStartedAt(sample)),
-          score: sample.score,
-          startedAt: sample.startedAt,
-        ),
+        _pointFromSample(sample, label: _dateLabel(_localStartedAt(sample))),
     ];
   }
+}
+
+ScoreTrendPoint _pointFromSample(
+  WorkoutScoreSample sample, {
+  required String label,
+}) {
+  return ScoreTrendPoint(
+    label: label,
+    score: sample.score,
+    startedAt: sample.startedAt,
+    preparationOutcome: sample.preparationOutcome,
+    measurementQuality: sample.measurementQuality,
+    averageMeasurementConfidence: sample.averageMeasurementConfidence,
+    measurementSampleCount: sample.measurementSampleCount,
+    contributesToScoreAggregates: sample.contributesToScoreAggregates,
+  );
 }
 
 _ScoreTrendRangeBounds _rangeBounds(

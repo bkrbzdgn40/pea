@@ -485,10 +485,10 @@ class AppLocalizations {
     return pick(tr: 'İyi geceler', en: 'Good night');
   }
 
-  String get weeklyGoal => pick(tr: 'Haftalık Hedef', en: 'Weekly Goal');
+  String get weeklyGoal => pick(tr: 'Aktif Hedef', en: 'Active Goal');
   String get weeklyGoalEmpty => pick(
-    tr: 'İlk analizinden sonra hedeflerin burada şekillenir.',
-    en: 'Your goals will take shape here after your first analysis.',
+    tr: 'Kendine uygun bir hedef seç ve ilerlemeni takip et.',
+    en: 'Choose a goal that fits you and track your progress.',
   );
   String get achievementsEmptyPreview => pick(
     tr: 'Rozetlerin analizlerini tamamladıkça açılır.',
@@ -680,14 +680,130 @@ class AppLocalizations {
     tr: 'Hedefler yüklenemedi. Lütfen daha sonra tekrar dene.',
     en: 'Goals could not be loaded. Please try again later.',
   );
-  String get goalsHeaderTitle => pick(
-    tr: 'Haftalık ilerlemeni burada takip edeceksin',
-    en: 'Track your weekly progress here',
-  );
+  String get goalsHeaderTitle =>
+      pick(tr: 'Hedefini sen belirle', en: 'Choose your own goal');
   String get goalsHeaderSubtitle => pick(
-    tr: 'Analizlerin tamamlandıkça haftalık hedeflerin burada netleşir.',
-    en: 'Your weekly goals become clearer as you complete analyses.',
+    tr: 'Sana uygun tek bir hedef seç, değerini düzenle ve ilerlemeni sade biçimde takip et.',
+    en: 'Choose one goal that fits you, adjust its target, and track progress without clutter.',
   );
+  String get goalsSignInTitle =>
+      pick(tr: 'Hedefler için oturum açmalısın', en: 'Sign in to use goals');
+  String get goalsSignInMessage => pick(
+    tr: 'Hedeflerini kaydetmek ve cihazlar arasında korumak için hesabınla oturum aç.',
+    en: 'Sign in to save your goals and keep them across devices.',
+  );
+  String get activeGoal => pick(tr: 'Aktif hedef', en: 'Active goal');
+  String get activeGoalDescription => pick(
+    tr: 'Ana ekranda yalnızca bu hedef gösterilir.',
+    en: 'Only this goal appears on Home.',
+  );
+  String get noActiveGoalTitle =>
+      pick(tr: 'Aktif hedefin yok', en: 'No active goal');
+  String get noActiveGoalMessage => pick(
+    tr: 'Aşağıdaki önerilerden birini seçip hedef değerini kendine göre ayarla.',
+    en: 'Choose a suggestion below and adjust the target to fit you.',
+  );
+  String get suggestedGoals =>
+      pick(tr: 'Hedef önerileri', en: 'Goal suggestions');
+  String get suggestedGoalsDescription => pick(
+    tr: 'Değerler başlangıç önerisidir; başlamadan önce değiştirebilirsin.',
+    en: 'These are starting suggestions; you can change the value before activating one.',
+  );
+  String get pausedGoals =>
+      pick(tr: 'Duraklatılan hedefler', en: 'Paused goals');
+  String get pausedGoalsDescription => pick(
+    tr: 'İstediğin hedefe daha sonra kaldığın yerden devam edebilirsin.',
+    en: 'You can resume any goal later.',
+  );
+  String get startGoal => pick(tr: 'Başlat', en: 'Start');
+  String get createGoal => pick(tr: 'Hedef oluştur', en: 'Create goal');
+  String get editGoal => pick(tr: 'Düzenle', en: 'Edit');
+  String get pauseGoal => pick(tr: 'Duraklat', en: 'Pause');
+  String get resumeGoal => pick(tr: 'Devam et', en: 'Resume');
+  String get saveChanges =>
+      pick(tr: 'Değişiklikleri kaydet', en: 'Save changes');
+  String get goalSaved => pick(tr: 'Hedef kaydedildi.', en: 'Goal saved.');
+  String get goalPaused => pick(tr: 'Hedef duraklatıldı.', en: 'Goal paused.');
+  String get goalSaveFailed => pick(
+    tr: 'Hedef kaydedilemedi. Lütfen tekrar dene.',
+    en: 'The goal could not be saved. Please try again.',
+  );
+  String get goalTargetLabel => pick(tr: 'Hedef değeri', en: 'Target value');
+  String get goalTargetInvalid => pick(
+    tr: 'Bu hedef için geçerli aralıkta bir değer gir.',
+    en: 'Enter a value within the allowed range for this goal.',
+  );
+  String goalTargetRange(String minimum, String maximum) => pick(
+    tr: 'Geçerli aralık: $minimum–$maximum',
+    en: 'Allowed range: $minimum–$maximum',
+  );
+  String get goalTargetCanChange => pick(
+    tr: 'Başlamadan önce hedef değerini değiştirebilirsin.',
+    en: 'You can change the target before starting.',
+  );
+  String get startingGoalPausesCurrent => pick(
+    tr: 'Bu hedefi başlatınca mevcut aktif hedefin duraklatılır.',
+    en: 'Starting this goal pauses your current active goal.',
+  );
+  String get goalProgressUnavailable => pick(
+    tr: 'Oturum verileri şu an alınamadığı için hedef ilerlemesi geçici olarak gösterilemiyor.',
+    en: 'Goal progress is temporarily unavailable because session data could not be loaded.',
+  );
+  String get goalProgressUnavailableShort =>
+      pick(tr: 'İlerleme şu an alınamıyor', en: 'Progress unavailable');
+
+  String userGoalTitle(String typeId, double targetValue, {String? fallback}) {
+    final target = _formatGoalNumber(targetValue);
+    return switch (typeId) {
+      'weeklySessions' => pick(
+        tr: 'Haftada $target analiz',
+        en: '$target analyses per week',
+      ),
+      'weeklyReps' => pick(
+        tr: 'Haftada $target tekrar',
+        en: '$target reps per week',
+      ),
+      'averageScore' => pick(
+        tr: 'Ortalama skor hedefi: $target',
+        en: 'Average score target: $target',
+      ),
+      _ => fallback ?? typeId,
+    };
+  }
+
+  String userGoalDescription(String typeId, {String? fallback}) {
+    return switch (typeId) {
+      'weeklySessions' => pick(
+        tr: 'Bu hafta tamamlamak istediğin analiz sayısını belirle.',
+        en: 'Set how many analyses you want to complete this week.',
+      ),
+      'weeklyReps' => pick(
+        tr: 'Haftalık tekrar hacmini kendi programına göre belirle.',
+        en: 'Set a weekly repetition target that fits your plan.',
+      ),
+      'averageScore' => pick(
+        tr: 'Güvenilir ölçümlerdeki ortalama form göstergesi için hedef belirle.',
+        en: 'Set a target for your average form indicator from reliable measurements.',
+      ),
+      _ => fallback ?? '',
+    };
+  }
+
+  String userGoalUnit(String typeId, {String? fallback}) {
+    return switch (typeId) {
+      'weeklySessions' => pick(tr: 'analiz', en: 'analyses'),
+      'weeklyReps' => pick(tr: 'tekrar', en: 'reps'),
+      'averageScore' => pick(tr: 'skor', en: 'score'),
+      _ => fallback ?? '',
+    };
+  }
+
+  String _formatGoalNumber(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    final formatted = value.toStringAsFixed(1);
+    return isTurkish ? formatted.replaceAll('.', ',') : formatted;
+  }
+
   String goalsEmptyMessage(bool hasError) => hasError
       ? pick(
           tr: 'Hedefler şu an hazırlanamadı. Daha sonra tekrar bakabilirsin.',
@@ -1435,6 +1551,54 @@ class AppLocalizations {
       pick(tr: 'Ölçüm güveni', en: 'Measurement confidence');
   String get averageMeasurementConfidence =>
       pick(tr: 'Ortalama ölçüm güveni', en: 'Average measurement confidence');
+  String get measurementEvidence =>
+      pick(tr: 'Ölçüm güvenilirliği', en: 'Measurement reliability');
+  String get measurementQuality =>
+      pick(tr: 'Ölçüm kalitesi', en: 'Measurement quality');
+  String get measurementQualityHigh => pick(tr: 'Güçlü', en: 'Strong');
+  String get measurementQualityModerate =>
+      pick(tr: 'Yeterli', en: 'Sufficient');
+  String get measurementQualityLimited => pick(tr: 'Sınırlı', en: 'Limited');
+  String get measurementQualityInsufficient =>
+      pick(tr: 'Yetersiz', en: 'Insufficient');
+  String get measurementQualityUnavailable =>
+      pick(tr: 'Bilgi yok', en: 'Unavailable');
+  String get preparationCheck =>
+      pick(tr: 'Hazırlık kontrolü', en: 'Preparation check');
+  String get preparationPassed => pick(tr: 'Geçildi', en: 'Passed');
+  String get preparationOverridden =>
+      pick(tr: 'Manuel geçildi', en: 'Skipped manually');
+  String get preparationUnavailable => pick(tr: 'Bilgi yok', en: 'Unavailable');
+  String measurementSampleCount(int count) =>
+      pick(tr: '$count ölçüm örneği', en: '$count measurement samples');
+  String get measurementEvidenceWarningShort => pick(
+    tr: 'Ölçüm güvenilirliği sınırlı',
+    en: 'Measurement reliability is limited',
+  );
+  String get preparationOverrideWarningTitle => pick(
+    tr: 'Hazırlık kontrolü atlandı',
+    en: 'Preparation check was skipped',
+  );
+  String get preparationOverrideWarningMessage => pick(
+    tr: 'Bu oturum geçmişte görünür ancak skor karşılaştırmalarına, hedeflere ve başarımlara dahil edilmez.',
+    en: 'This session stays in history but is excluded from score comparisons, goals, and achievements.',
+  );
+  String get limitedMeasurementWarningTitle => pick(
+    tr: 'Ölçüm güvenilirliği sınırlı',
+    en: 'Measurement reliability is limited',
+  );
+  String get limitedMeasurementWarningMessage => pick(
+    tr: 'Skor grafikte uyarıyla görünür; ortalama, rekor, hedef ve başarım hesaplarına dahil edilmez.',
+    en: 'The score remains visible with a warning but is excluded from averages, records, goals, and achievements.',
+  );
+  String get insufficientMeasurementWarningTitle => pick(
+    tr: 'Yeterli ölçüm örneği yok',
+    en: 'Not enough measurement samples',
+  );
+  String get insufficientMeasurementWarningMessage => pick(
+    tr: 'Oturum geçmişte görünür; skor trendine ve ilerleme hesaplarına dahil edilmez.',
+    en: 'The session remains in history but is excluded from score trends and progress calculations.',
+  );
   String get measurementConfidenceReliable =>
       pick(tr: 'Güvenilir', en: 'Reliable');
   String get measurementConfidenceLimited => pick(tr: 'Sınırlı', en: 'Limited');

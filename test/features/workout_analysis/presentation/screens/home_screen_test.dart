@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
+import 'package:pose_estimation_app/features/goals/domain/models/user_workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics.dart';
@@ -70,7 +71,7 @@ void main() {
       expect(find.text('Ortalama Skor'), findsNothing);
       expect(find.text('En İyi Skor'), findsNothing);
       expect(find.text('Skor Trendi'), findsNothing);
-      expect(find.text('Haftalık Hedef'), findsOneWidget);
+      expect(find.text('Aktif Hedef'), findsOneWidget);
       expect(find.text('Başarılar'), findsOneWidget);
       expect(find.text('Planlı Antrenman'), findsOneWidget);
       expect(find.text('Kamera Ölçümü'), findsOneWidget);
@@ -548,6 +549,57 @@ void main() {
     expect(plannedTop.dy, lessThan(assessmentTop.dy));
   });
 
+  testWidgets('shows only the active user-defined goal on Home', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: [
+              WorkoutGoal(
+                id: 'weeklySessions',
+                title: '',
+                targetValue: 4,
+                currentValue: 2,
+                unit: '',
+                description: '',
+                isCompleted: false,
+                type: WorkoutGoalType.weeklySessions,
+                status: WorkoutGoalStatus.paused,
+              ),
+              WorkoutGoal(
+                id: 'weeklyReps',
+                title: '',
+                targetValue: 120,
+                currentValue: 60,
+                unit: '',
+                description: '',
+                isCompleted: false,
+                type: WorkoutGoalType.weeklyReps,
+              ),
+            ],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.empty,
+            achievements: [],
+          ),
+        ),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.text('Haftada 120 tekrar'), findsOneWidget);
+    expect(find.text('Haftada 4 analiz'), findsNothing);
+  });
+
   testWidgets('translates the primary Home surface to English', (
     WidgetTester tester,
   ) async {
@@ -600,7 +652,7 @@ void main() {
     expect(find.text('Session History'), findsNothing);
     expect(find.text('Planned Workout'), findsOneWidget);
     expect(find.text('Camera Measurement'), findsOneWidget);
-    expect(find.text('Weekly Goal'), findsOneWidget);
+    expect(find.text('Active Goal'), findsOneWidget);
     expect(find.text('Achievements'), findsOneWidget);
     expect(find.text('First Analysis'), findsOneWidget);
     expect(find.text('1 analiz tamamla'), findsNothing);

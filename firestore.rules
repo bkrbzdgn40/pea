@@ -254,6 +254,77 @@ service cloud.firestore {
         hasValidSessionMeasurementEvidence(request.resource.data);
     }
 
+    function isWorkoutGoalType(value) {
+      return value == 'weeklySessions' ||
+        value == 'weeklyReps' ||
+        value == 'averageScore';
+    }
+
+    function isWorkoutGoalPeriod(value) {
+      return value == 'weekly' || value == 'allTime';
+    }
+
+    function isWorkoutGoalStatus(value) {
+      return value == 'active' || value == 'paused';
+    }
+
+    function hasGoalFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'type',
+        'period',
+        'targetValue',
+        'status',
+        'createdAt',
+        'updatedAt',
+      ]) && data.keys().hasAll([
+        'id',
+        'ownerId',
+        'type',
+        'period',
+        'targetValue',
+        'status',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidGoalTarget(data) {
+      return data.targetValue is number &&
+        (
+          (data.type == 'weeklySessions' &&
+            data.targetValue is int &&
+            data.targetValue >= 1 && data.targetValue <= 14) ||
+          (data.type == 'weeklyReps' &&
+            data.targetValue is int &&
+            data.targetValue >= 10 && data.targetValue <= 1000) ||
+          (data.type == 'averageScore' &&
+            data.targetValue >= 1 && data.targetValue <= 100)
+        );
+    }
+
+    function hasValidGoalShape(data, userId, goalId) {
+      return hasGoalFields(data) &&
+        data.id is string &&
+        data.id == goalId &&
+        data.ownerId is string &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        isWorkoutGoalType(data.type) &&
+        data.id == data.type &&
+        isWorkoutGoalPeriod(data.period) &&
+        (
+          (data.type == 'averageScore' && data.period == 'allTime') ||
+          (data.type != 'averageScore' && data.period == 'weekly')
+        ) &&
+        hasValidGoalTarget(data) &&
+        isWorkoutGoalStatus(data.status) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
+    }
+
     function isValidSessionCreate(userId, sessionId) {
       return isOwner(userId) &&
         hasSessionFields() &&
@@ -373,6 +444,22 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if isOwner(userId);
       allow read, update, delete: if isOwner(userId);
+
+      match /goals/{goalId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          hasValidGoalShape(request.resource.data, userId, goalId);
+        allow update: if isOwner(userId) &&
+          resource.data.ownerId == request.auth.uid &&
+          request.resource.data.ownerId == resource.data.ownerId &&
+          request.resource.data.id == resource.data.id &&
+          request.resource.data.type == resource.data.type &&
+          request.resource.data.period == resource.data.period &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.updatedAt >= resource.data.updatedAt &&
+          hasValidGoalShape(request.resource.data, userId, goalId);
+        allow delete: if isOwner(userId);
+      }
 
       match /sessions/{sessionId} {
         allow read: if isOwner(userId);

@@ -136,11 +136,16 @@ class _TrendDetailContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final scores = [for (final sample in samples) sample.score];
-    final latestScore = scores.last;
-    final scoreDelta = latestScore - scores.first;
-    final averageScore =
-        scores.fold<double>(0, (sum, score) => sum + score) / scores.length;
+    final latestSample = samples.last;
+    final latestScore = latestSample.score;
+    final aggregateSamples = trendData.aggregateEligibleSamples(samples);
+    final scoreDelta = aggregateSamples.length < 2
+        ? 0.0
+        : aggregateSamples.last.score - aggregateSamples.first.score;
+    final averageScore = trendData.averageScoreFor(samples);
+    final bestScore = aggregateSamples.isEmpty
+        ? null
+        : trendData.bestAverageScoreFor(samples);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -154,6 +159,7 @@ class _TrendDetailContent extends StatelessWidget {
           ),
           latestScore: latestScore,
           scoreDelta: scoreDelta,
+          hasEvidenceWarning: latestSample.hasEvidenceWarning,
         ),
         const SizedBox(height: AppSpacing.md),
         LayoutBuilder(
@@ -177,7 +183,7 @@ class _TrendDetailContent extends StatelessWidget {
         _TrendMetricsGrid(
           sessionCount: samples.length,
           latestScore: latestScore,
-          bestScore: trendData.bestAverageScoreFor(samples),
+          bestScore: bestScore,
           averageScore: averageScore,
         ),
       ],
@@ -346,6 +352,7 @@ class _TrendDetailHero extends StatelessWidget {
     required this.subtitle,
     required this.latestScore,
     required this.scoreDelta,
+    required this.hasEvidenceWarning,
   });
 
   final ExerciseType exercise;
@@ -353,6 +360,7 @@ class _TrendDetailHero extends StatelessWidget {
   final String subtitle;
   final double latestScore;
   final double scoreDelta;
+  final bool hasEvidenceWarning;
 
   @override
   Widget build(BuildContext context) {
@@ -455,6 +463,7 @@ class _TrendDetailHero extends StatelessWidget {
                   deltaLabel: deltaLabel,
                   trendColor: trendColor,
                   trendIcon: trendIcon,
+                  hasEvidenceWarning: hasEvidenceWarning,
                 );
 
                 if (compact) {
@@ -490,12 +499,14 @@ class _HeroScore extends StatelessWidget {
     required this.deltaLabel,
     required this.trendColor,
     required this.trendIcon,
+    required this.hasEvidenceWarning,
   });
 
   final double latestScore;
   final String deltaLabel;
   final Color trendColor;
   final IconData trendIcon;
+  final bool hasEvidenceWarning;
 
   @override
   Widget build(BuildContext context) {
@@ -536,20 +547,36 @@ class _HeroScore extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(trendIcon, color: trendColor, size: 17),
-                  const SizedBox(width: 3),
-                  Text(
-                    deltaLabel,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: trendColor,
-                      fontWeight: AppFontWeights.heavy,
-                    ),
+              if (hasEvidenceWarning)
+                Tooltip(
+                  message: AppLocalizations.of(
+                    context,
+                  ).measurementEvidenceWarningShort,
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    key: const Key('score-trend-detail-evidence-warning'),
+                    color: colors.caution,
+                    size: 18,
+                    semanticLabel: AppLocalizations.of(
+                      context,
+                    ).measurementEvidenceWarningShort,
                   ),
-                ],
-              ),
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(trendIcon, color: trendColor, size: 17),
+                    const SizedBox(width: 3),
+                    Text(
+                      deltaLabel,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: trendColor,
+                        fontWeight: AppFontWeights.heavy,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ],
@@ -568,8 +595,8 @@ class _TrendMetricsGrid extends StatelessWidget {
 
   final int sessionCount;
   final double latestScore;
-  final double bestScore;
-  final double averageScore;
+  final double? bestScore;
+  final double? averageScore;
 
   @override
   Widget build(BuildContext context) {
@@ -592,14 +619,14 @@ class _TrendMetricsGrid extends StatelessWidget {
       AppMetricTile(
         key: const Key('score-trend-best-metric'),
         label: localizations.bestFormScore,
-        value: bestScore.round().toString(),
+        value: bestScore?.round().toString() ?? '—',
         icon: Icons.emoji_events_rounded,
         tone: AppStatusTone.success,
       ),
       AppMetricTile(
         key: const Key('score-trend-average-metric'),
         label: localizations.averageScore,
-        value: averageScore.round().toString(),
+        value: averageScore?.round().toString() ?? '—',
         icon: Icons.stacked_line_chart_rounded,
         tone: AppStatusTone.accent,
       ),

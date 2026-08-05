@@ -297,14 +297,18 @@ class _HomeProgressPanel extends StatelessWidget {
           else
             HomeFeaturePreviewCard(
               title: localizations.weeklyGoal,
-              subtitle: localizations.goalTitle(
-                goalPreview!.id,
+              subtitle: localizations.userGoalTitle(
+                goalPreview!.typeId,
+                goalPreview!.targetValue,
                 fallback: goalPreview!.title,
               ),
               icon: Icons.flag_rounded,
-              progress: goalPreview!.progress,
-              trailingText:
-                  '${_formatGoalValue(goalPreview!.currentValue)} / ${_formatGoalValue(goalPreview!.targetValue)} ${localizations.goalUnit(goalPreview!.id, fallback: goalPreview!.unit)}',
+              progress: goalPreview!.progressAvailable
+                  ? goalPreview!.progress
+                  : null,
+              trailingText: goalPreview!.progressAvailable
+                  ? '${_formatGoalValue(goalPreview!.currentValue)} / ${_formatGoalValue(goalPreview!.targetValue)} ${localizations.userGoalUnit(goalPreview!.typeId, fallback: goalPreview!.unit)}'
+                  : localizations.goalProgressUnavailableShort,
               onTap: onOpenGoals,
             ),
         ],
@@ -598,17 +602,11 @@ class _DashboardStats extends StatelessWidget {
 }
 
 WorkoutGoal? _trustedGoalPreview(GoalsState? state) {
-  if (state == null || state.isFallback) {
+  if (state == null || state.source != GoalsDataSource.real) {
     return null;
   }
 
-  for (final goal in state.goals) {
-    if (goal.id != 'three_day_streak') {
-      return goal;
-    }
-  }
-
-  return null;
+  return state.activeGoal;
 }
 
 Achievement? _trustedAchievementPreview(AchievementsState? state) {

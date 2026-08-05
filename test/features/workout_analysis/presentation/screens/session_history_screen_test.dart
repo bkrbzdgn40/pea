@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
@@ -278,5 +279,63 @@ void main() {
 
     expect(find.byKey(const ValueKey('session-history-list')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('marks only sessions with limited measurement evidence', (
+    WidgetTester tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final limited = buildWorkoutSession(
+        id: 'session-limited',
+        ownerId: 'owner-1',
+        startedAt: DateTime(2024, 1, 6, 10),
+        totalReps: 8,
+        averageScore: 95,
+        preparationOutcome: PreparationOutcome.passed,
+        measurementQuality: SessionMeasurementQuality.limited,
+        averageMeasurementConfidence: 0.7,
+        measurementSampleCount: 8,
+      );
+      final trusted = buildWorkoutSession(
+        id: 'session-trusted',
+        ownerId: 'owner-1',
+        startedAt: DateTime(2024, 1, 5, 10),
+        totalReps: 8,
+        averageScore: 85,
+        preparationOutcome: PreparationOutcome.passed,
+        measurementQuality: SessionMeasurementQuality.high,
+        averageMeasurementConfidence: 0.95,
+        measurementSampleCount: 8,
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const SessionHistoryScreen(),
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            const TestAuthRepository(currentUserId: 'owner-1'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(
+            TestSessionRepository(sessions: [limited, trusted]),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('session-history-measurement-warning'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Ölçüm güvenilirliği sınırlı'),
+        findsOneWidget,
+      );
+      expect(find.text('Önceki oturuma göre +10'), findsNothing);
+    } finally {
+      semantics.dispose();
+    }
   });
 }

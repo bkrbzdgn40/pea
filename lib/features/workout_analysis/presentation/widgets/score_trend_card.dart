@@ -5,6 +5,8 @@ import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
+import '../../domain/models/session_measurement_evidence.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../models/home_dashboard_data.dart';
 
 class ScoreTrendCard extends StatelessWidget {
@@ -44,10 +46,14 @@ class ScoreTrendCard extends StatelessWidget {
     final bounds = orderedPoints.isEmpty
         ? null
         : _ScoreTrendBounds.fromPoints(orderedPoints);
-    final latestScore = orderedPoints.isEmpty ? null : orderedPoints.last.score;
-    final scoreDelta = orderedPoints.length < 2
+    final latestPoint = orderedPoints.isEmpty ? null : orderedPoints.last;
+    final latestScore = latestPoint?.score;
+    final aggregatePoints = orderedPoints
+        .where((point) => point.contributesToScoreAggregates)
+        .toList(growable: false);
+    final scoreDelta = aggregatePoints.length < 2
         ? 0.0
-        : orderedPoints.last.score - orderedPoints.first.score;
+        : aggregatePoints.last.score - aggregatePoints.first.score;
 
     final content = AppSurfaceCard(
       key: const Key('score-trend-card'),
@@ -79,6 +85,8 @@ class ScoreTrendCard extends StatelessWidget {
                   _TrendSnapshot(
                     latestScore: latestScore,
                     scoreDelta: scoreDelta,
+                    hasEvidenceWarning: latestPoint!.hasEvidenceWarning,
+                    warningLabel: localizations.measurementEvidenceWarningShort,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
@@ -267,10 +275,17 @@ class _TrendHeader extends StatelessWidget {
 }
 
 class _TrendSnapshot extends StatelessWidget {
-  const _TrendSnapshot({required this.latestScore, required this.scoreDelta});
+  const _TrendSnapshot({
+    required this.latestScore,
+    required this.scoreDelta,
+    required this.hasEvidenceWarning,
+    required this.warningLabel,
+  });
 
   final double latestScore;
   final double scoreDelta;
+  final bool hasEvidenceWarning;
+  final String warningLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -327,32 +342,57 @@ class _TrendSnapshot extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
-        Container(
-          key: const Key('score-trend-delta-chip'),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: trendColor.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(AppRadii.pill),
-            border: Border.all(color: trendColor.withValues(alpha: 0.30)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(trendIcon, color: trendColor, size: 18),
-              const SizedBox(width: AppSpacing.xxs),
-              Text(
-                deltaLabel,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: trendColor,
-                  fontWeight: AppFontWeights.heavy,
+        if (hasEvidenceWarning)
+          Tooltip(
+            message: warningLabel,
+            child: Container(
+              key: const Key('score-trend-evidence-warning'),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: colors.caution.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+                border: Border.all(
+                  color: colors.caution.withValues(alpha: 0.30),
                 ),
               ),
-            ],
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: colors.caution,
+                size: 18,
+                semanticLabel: warningLabel,
+              ),
+            ),
+          )
+        else
+          Container(
+            key: const Key('score-trend-delta-chip'),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: trendColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              border: Border.all(color: trendColor.withValues(alpha: 0.30)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(trendIcon, color: trendColor, size: 18),
+                const SizedBox(width: AppSpacing.xxs),
+                Text(
+                  deltaLabel,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: trendColor,
+                    fontWeight: AppFontWeights.heavy,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -416,23 +456,10 @@ class _ScoreTrendChart extends StatelessWidget {
               getTooltipItems: (spots) {
                 return [
                   for (final spot in spots)
-                    LineTooltipItem(
-                      '${timeline.closestPoint(spot.x).source.tooltipLabel}\n',
-                      TextStyle(
-                        color: colors.foregroundMuted,
-                        fontSize: 11,
-                        fontWeight: AppFontWeights.semibold,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: spot.y.round().toString(),
-                          style: TextStyle(
-                            color: colors.analysisAccent,
-                            fontSize: 16,
-                            fontWeight: AppFontWeights.heavy,
-                          ),
-                        ),
-                      ],
+                    _trendTooltipItem(
+                      localizations: AppLocalizations.of(context),
+                      colors: colors,
+                      point: timeline.closestPoint(spot.x).source,
                     ),
                 ];
               },
@@ -520,11 +547,14 @@ class _ScoreTrendChart extends StatelessWidget {
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
+                  final point = timeline.points[index].source;
                   return FlDotCirclePainter(
                     radius: isDetailed ? 4.5 : 3.5,
                     color: colors.surfaceStrong,
                     strokeWidth: isDetailed ? 3 : 2.3,
-                    strokeColor: colors.analysisAccent,
+                    strokeColor: point.hasEvidenceWarning
+                        ? colors.caution
+                        : colors.analysisAccent,
                   );
                 },
               ),
@@ -547,6 +577,54 @@ class _ScoreTrendChart extends StatelessWidget {
       ),
     );
   }
+}
+
+LineTooltipItem _trendTooltipItem({
+  required AppLocalizations localizations,
+  required AppSemanticColors colors,
+  required ScoreTrendPoint point,
+}) {
+  final confidence = SessionMeasurementEvidencePresenter.confidenceLabel(
+    point.averageMeasurementConfidence,
+  );
+  final quality = SessionMeasurementEvidencePresenter.qualityLabel(
+    localizations,
+    point.measurementQuality,
+  );
+
+  return LineTooltipItem(
+    '${point.tooltipLabel}\n',
+    TextStyle(
+      color: colors.foregroundMuted,
+      fontSize: 11,
+      fontWeight: AppFontWeights.semibold,
+    ),
+    children: [
+      TextSpan(
+        text: point.score.round().toString(),
+        style: TextStyle(
+          color: point.hasEvidenceWarning
+              ? colors.caution
+              : colors.analysisAccent,
+          fontSize: 16,
+          fontWeight: AppFontWeights.heavy,
+        ),
+      ),
+      TextSpan(text: '\n${localizations.measurementQuality}: $quality'),
+      if (confidence != null)
+        TextSpan(text: '\n${localizations.measurementConfidence}: $confidence'),
+      if (point.measurementSampleCount > 0)
+        TextSpan(
+          text:
+              '\n${localizations.measurementSampleCount(point.measurementSampleCount)}',
+        ),
+      if (point.preparationOutcome == PreparationOutcome.overridden)
+        TextSpan(
+          text:
+              '\n${localizations.preparationCheck}: ${localizations.preparationOverridden}',
+        ),
+    ],
+  );
 }
 
 class _ScoreTrendPlaceholder extends StatelessWidget {

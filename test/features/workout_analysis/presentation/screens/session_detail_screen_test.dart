@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
@@ -367,5 +368,48 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows persisted preparation and measurement evidence details', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'session-evidence',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 11, 9),
+      totalReps: 6,
+      averageScore: 92,
+      preparationOutcome: PreparationOutcome.overridden,
+      measurementQuality: SessionMeasurementQuality.limited,
+      averageMeasurementConfidence: 0.74,
+      measurementSampleCount: 6,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(sessionById: {'session-evidence': session}),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('session-detail-measurement-evidence')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('session-detail-measurement-warning')),
+      findsOneWidget,
+    );
+    expect(find.text('Hazırlık kontrolü atlandı'), findsOneWidget);
+    expect(find.text('Ölçüm kalitesi'), findsOneWidget);
+    expect(find.text('Sınırlı'), findsWidgets);
+    expect(find.text('Manuel geçildi'), findsOneWidget);
+    expect(find.text('%74'), findsOneWidget);
+    expect(find.text('6 ölçüm örneği'), findsOneWidget);
   });
 }

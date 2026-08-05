@@ -64,6 +64,12 @@ List<ScoreTrendPoint> _buildScoreTrend(
       ScoreTrendPoint(
         label: localizations.weekdayShort(sample.startedAt.toLocal().weekday),
         score: sample.score,
+        startedAt: sample.startedAt,
+        preparationOutcome: sample.preparationOutcome,
+        measurementQuality: sample.measurementQuality,
+        averageMeasurementConfidence: sample.averageMeasurementConfidence,
+        measurementSampleCount: sample.measurementSampleCount,
+        contributesToScoreAggregates: sample.contributesToScoreAggregates,
       ),
   ];
 }

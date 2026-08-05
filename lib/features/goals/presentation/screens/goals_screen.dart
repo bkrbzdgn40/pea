@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
-import '../../../../app/presentation/widgets/app_header_list_view.dart';
+import '../../../../app/presentation/widgets/app_feedback_banner.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../../app/presentation/widgets/app_status_tone.dart';
+import '../../../../app/presentation/widgets/app_section.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
-import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/presentation/widgets/async_state_view.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../domain/models/user_workout_goal.dart';
+import '../../domain/models/workout_goal_template.dart';
 import '../models/workout_goal.dart';
 import '../providers/goals_provider.dart';
+import '../widgets/goal_cards.dart';
+import '../widgets/goal_editor_sheet.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -25,205 +30,262 @@ class GoalsScreen extends ConsumerWidget {
       padding: EdgeInsets.zero,
       body: AsyncStateView<GoalsState>(
         value: goalsState,
-        errorBuilder: (context, error, stackTrace) =>
-            AppErrorView(message: localizations.goalsLoadFailed),
-        dataBuilder: (context, state) => _GoalsList(state: state),
+        errorBuilder: (context, error, stackTrace) => AppErrorView(
+          message: localizations.goalsLoadFailed,
+          actionLabel: localizations.retry,
+          onAction: () => ref.invalidate(goalsProvider),
+        ),
+        dataBuilder: (context, state) => _GoalsContent(state: state),
       ),
     );
   }
 }
 
-class _GoalsList extends StatelessWidget {
-  const _GoalsList({required this.state});
+class _GoalsContent extends ConsumerWidget {
+  const _GoalsContent({required this.state});
 
   final GoalsState state;
 
   @override
-  Widget build(BuildContext context) {
-    final visibleGoals = state.isFallback
-        ? <WorkoutGoal>[]
-        : state.goals.where((goal) => goal.id != 'three_day_streak').toList();
-
-    return AppHeaderListView<WorkoutGoal>(
-      header: const _GoalsHeaderCard(),
-      items: visibleGoals,
-      emptyState: _GoalsEmptyState(source: state.source),
-      itemBuilder: (context, goal) => _GoalCard(goal: goal),
-    );
-  }
-}
-
-class _GoalsHeaderCard extends StatelessWidget {
-  const _GoalsHeaderCard();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
+    final management = ref.watch(goalManagementControllerProvider);
 
-    return AppSurfaceCard(
-      padding: AppSpacing.headerSurfacePadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.flag_rounded, color: Colors.greenAccent, size: 32),
-          const SizedBox(height: 14),
-          Text(
-            localizations.goalsHeaderTitle,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            localizations.goalsHeaderSubtitle,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.35,
-            ),
+    if (state.source == GoalsDataSource.noUser) {
+      return Padding(
+        padding: AppSpacing.pagePadding,
+        child: AppEmptyView(
+          title: localizations.goalsSignInTitle,
+          message: localizations.goalsSignInMessage,
+          icon: Icons.person_outline_rounded,
+        ),
+      );
+    }
+
+    if (state.source == GoalsDataSource.error) {
+      return Padding(
+        padding: AppSpacing.pagePadding,
+        child: AppErrorView(
+          message: localizations.goalsLoadFailed,
+          actionLabel: localizations.retry,
+          onAction: () => ref.invalidate(goalsProvider),
+        ),
+      );
+    }
+
+    final activeGoal = state.activeGoal;
+    final pausedGoals = state.pausedGoals;
+    final configuredTypes = state.goals
+        .map((goal) => goal.resolvedType)
+        .whereType<WorkoutGoalType>()
+        .toSet();
+    final availableTemplates = state.templates
+        .where((template) => !configuredTypes.contains(template.type))
+        .toList(growable: false);
+
+    return ListView(
+      key: const PageStorageKey<String>('goals-content'),
+      padding: AppSpacing.pagePadding,
+      children: [
+        const GoalsHeaderCard(),
+        if (!state.progressAvailable && state.goals.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          AppFeedbackBanner(
+            message: localizations.goalProgressUnavailable,
+            tone: AppStatusTone.caution,
+            icon: Icons.sync_problem_rounded,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GoalsEmptyState extends StatelessWidget {
-  const _GoalsEmptyState({required this.source});
-
-  final GoalsDataSource source;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final message = localizations.goalsEmptyMessage(
-      source == GoalsDataSource.error,
-    );
-
-    return AppEmptyView(message: message, icon: Icons.flag_outlined);
-  }
-}
-
-class _GoalCard extends StatelessWidget {
-  const _GoalCard({required this.goal});
-
-  final WorkoutGoal goal;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-
-    return AppSurfaceCard(
-      borderColor: goal.isCompleted
-          ? AppColors.accent
-          : AppColors.surfaceBorder,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.goalTitle(goal.id, fallback: goal.title),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+        const SizedBox(height: AppSpacing.xl),
+        AppSection(
+          title: localizations.activeGoal,
+          description: activeGoal == null
+              ? null
+              : localizations.activeGoalDescription,
+          child: activeGoal == null
+              ? AppEmptyView(
+                  key: const ValueKey<String>('no-active-goal'),
+                  title: localizations.noActiveGoalTitle,
+                  message: localizations.noActiveGoalMessage,
+                  icon: Icons.flag_outlined,
+                )
+              : ActiveGoalCard(
+                  goal: activeGoal,
+                  isSaving: management.isSaving,
+                  onEdit: () => _editGoal(context, ref, activeGoal),
+                  onPause: () => _pauseGoal(context, ref, activeGoal),
                 ),
-              ),
-              if (goal.isCompleted)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent,
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
-                  ),
-                  child: Text(
-                    localizations.completed,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
+        ),
+        if (availableTemplates.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          AppSection(
+            title: localizations.suggestedGoals,
+            description: localizations.suggestedGoalsDescription,
+            child: Column(
+              children: [
+                for (
+                  var index = 0;
+                  index < availableTemplates.length;
+                  index++
+                ) ...[
+                  GoalTemplateCard(
+                    template: availableTemplates[index],
+                    isSaving: management.isSaving,
+                    onSelect: () => _startTemplate(
+                      context,
+                      ref,
+                      availableTemplates[index],
+                      activeGoal: activeGoal,
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            localizations.goalDescription(goal.id, fallback: goal.description),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.3,
+                  if (index != availableTemplates.length - 1)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-          _GoalProgressRow(goal: goal),
         ],
-      ),
-    );
-  }
-}
-
-class _GoalProgressRow extends StatelessWidget {
-  const _GoalProgressRow({required this.goal});
-
-  final WorkoutGoal goal;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final progressPercent = (goal.progress * 100).round();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${_formatValue(goal.currentValue)} / ${_formatValue(goal.targetValue)} ${localizations.goalUnit(goal.id, fallback: goal.unit)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+        if (pausedGoals.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          AppSection(
+            title: localizations.pausedGoals,
+            description: localizations.pausedGoalsDescription,
+            child: Column(
+              children: [
+                for (var index = 0; index < pausedGoals.length; index++) ...[
+                  PausedGoalCard(
+                    goal: pausedGoals[index],
+                    isSaving: management.isSaving,
+                    onResume: () =>
+                        _resumeGoal(context, ref, pausedGoals[index]),
+                  ),
+                  if (index != pausedGoals.length - 1)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
             ),
-            Text(
-              '%$progressPercent',
-              style: const TextStyle(
-                color: Colors.greenAccent,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: goal.progress,
-          minHeight: 7,
-          backgroundColor: Colors.white12,
-          color: Colors.greenAccent,
-          borderRadius: BorderRadius.circular(AppRadii.pill),
-        ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.xl),
       ],
     );
   }
-}
 
-String _formatValue(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toInt().toString();
+  Future<void> _startTemplate(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutGoalTemplate template, {
+    required WorkoutGoal? activeGoal,
+  }) async {
+    final existing = state.goals
+        .where((goal) => goal.resolvedType == template.type)
+        .firstOrNull;
+    final target = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => GoalEditorSheet(
+        template: template,
+        initialValue: existing?.targetValue ?? template.defaultTarget,
+        replacesActiveGoal:
+            activeGoal != null && activeGoal.resolvedType != template.type,
+      ),
+    );
+    if (target == null || !context.mounted) return;
+
+    await _activateGoal(context, ref, template.type, target);
   }
 
-  return value.toStringAsFixed(1);
+  Future<void> _editGoal(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutGoal goal,
+  ) async {
+    final type = goal.resolvedType;
+    if (type == null) return;
+    final template = templateForGoalType(type);
+    final target = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => GoalEditorSheet(
+        template: template,
+        initialValue: goal.targetValue,
+        isEditing: true,
+      ),
+    );
+    if (target == null || !context.mounted) return;
+
+    await _activateGoal(context, ref, type, target);
+  }
+
+  Future<void> _resumeGoal(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutGoal goal,
+  ) async {
+    final type = goal.resolvedType;
+    if (type == null) return;
+    await _activateGoal(context, ref, type, goal.targetValue);
+  }
+
+  Future<void> _activateGoal(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutGoalType type,
+    double targetValue,
+  ) async {
+    final success = await ref
+        .read(goalManagementControllerProvider.notifier)
+        .activateGoal(type: type, targetValue: targetValue);
+    if (!context.mounted) return;
+    _showResult(
+      context,
+      success: success,
+      successMessage: AppLocalizations.of(context).goalSaved,
+    );
+  }
+
+  Future<void> _pauseGoal(
+    BuildContext context,
+    WidgetRef ref,
+    WorkoutGoal goal,
+  ) async {
+    final type = goal.resolvedType;
+    if (type == null) return;
+    final success = await ref
+        .read(goalManagementControllerProvider.notifier)
+        .pauseGoal(type);
+    if (!context.mounted) return;
+    _showResult(
+      context,
+      success: success,
+      successMessage: AppLocalizations.of(context).goalPaused,
+    );
+  }
+
+  void _showResult(
+    BuildContext context, {
+    required bool success,
+    required String successMessage,
+  }) {
+    final localizations = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            success ? successMessage : localizations.goalSaveFailed,
+          ),
+        ),
+      );
+  }
+}
+
+extension<T> on Iterable<T> {
+  T? get firstOrNull {
+    final iterator = this.iterator;
+    if (!iterator.moveNext()) return null;
+    return iterator.current;
+  }
 }

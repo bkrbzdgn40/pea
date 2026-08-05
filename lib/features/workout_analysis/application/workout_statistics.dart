@@ -1,8 +1,28 @@
+import '../domain/models/session_measurement_evidence.dart';
+
 class WorkoutScoreSample {
-  const WorkoutScoreSample({required this.startedAt, required this.score});
+  const WorkoutScoreSample({
+    required this.startedAt,
+    required this.score,
+    this.preparationOutcome = PreparationOutcome.legacyUnknown,
+    this.measurementQuality = SessionMeasurementQuality.unknown,
+    this.averageMeasurementConfidence,
+    this.measurementSampleCount = 0,
+    this.contributesToScoreAggregates = true,
+  });
 
   final DateTime startedAt;
   final double score;
+  final PreparationOutcome preparationOutcome;
+  final SessionMeasurementQuality measurementQuality;
+  final double? averageMeasurementConfidence;
+  final int measurementSampleCount;
+  final bool contributesToScoreAggregates;
+
+  bool get hasEvidenceWarning =>
+      preparationOutcome == PreparationOutcome.overridden ||
+      measurementQuality == SessionMeasurementQuality.limited ||
+      measurementQuality == SessionMeasurementQuality.insufficient;
 }
 
 class WorkoutStatistics {
@@ -32,10 +52,12 @@ class WorkoutStatistics {
   final Map<String, int> exerciseSessionCounts;
 
   double get bestAverageScore {
-    return chronologicalScoreSamples.fold<double>(
-      0,
-      (best, sample) => sample.score > best ? sample.score : best,
-    );
+    return chronologicalScoreSamples
+        .where((sample) => sample.contributesToScoreAggregates)
+        .fold<double>(
+          0,
+          (best, sample) => sample.score > best ? sample.score : best,
+        );
   }
 
   List<WorkoutScoreSample> latestScoreSamples({int limit = 7}) {

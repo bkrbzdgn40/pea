@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/home_recent_session_card.dart';
 
@@ -24,6 +25,38 @@ void main() {
     expect(find.text('10'), findsOneWidget);
     expect(find.text('88'), findsOneWidget);
     expect(find.text('Oturumu Aç'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('home-recent-session-evidence-warning'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('marks only a latest session with limited measurement evidence', (
+    tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: HomeRecentSessionCard(
+        session: _rangeSession().copyWith(
+          preparationOutcome: PreparationOutcome.passed,
+          measurementQuality: SessionMeasurementQuality.limited,
+          averageMeasurementConfidence: 0.72,
+          measurementSampleCount: 6,
+        ),
+        onTap: () {},
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('home-recent-session-evidence-warning'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Ölçüm güvenilirliği sınırlı'), findsOneWidget);
   });
 
   testWidgets('hold summary does not invent rep or score metrics', (

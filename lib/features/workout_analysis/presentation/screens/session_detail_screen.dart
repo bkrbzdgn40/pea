@@ -13,9 +13,11 @@ import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/measurement_confidence_presentation_formatter.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
 import '../providers/session_repository_provider.dart';
+import '../widgets/session_measurement_evidence_notice.dart';
 import '../widgets/session_result_visual.dart';
 
 class SessionDetailScreen extends ConsumerStatefulWidget {
@@ -222,6 +224,8 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     return <Widget>[
       _SessionSummaryCard(session: _session, report: report),
       const SizedBox(height: AppSpacing.sm),
+      _MeasurementEvidenceCard(session: _session),
+      const SizedBox(height: AppSpacing.sm),
       _OverviewCard(session: _session, report: report),
       const SizedBox(height: AppSpacing.sm),
       _ReportSummaryCard(report: report),
@@ -367,6 +371,86 @@ class _SessionSummaryCard extends StatelessWidget {
             children: chips
                 .map((chip) => _SummaryChip(label: chip.key, value: chip.value))
                 .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasurementEvidenceCard extends StatelessWidget {
+  const _MeasurementEvidenceCard({required this.session});
+
+  final WorkoutSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final confidence = SessionMeasurementEvidencePresenter.confidenceLabel(
+      session.averageMeasurementConfidence,
+    );
+    final metrics = <MapEntry<String, String>>[
+      MapEntry(
+        localizations.measurementQuality,
+        SessionMeasurementEvidencePresenter.qualityLabel(
+          localizations,
+          session.measurementQuality,
+        ),
+      ),
+      MapEntry(
+        localizations.preparationCheck,
+        SessionMeasurementEvidencePresenter.preparationLabel(
+          localizations,
+          session.preparationOutcome,
+        ),
+      ),
+      if (confidence != null)
+        MapEntry(localizations.averageMeasurementConfidence, confidence),
+      if (session.measurementSampleCount > 0)
+        MapEntry(
+          localizations.measurementEvidence,
+          localizations.measurementSampleCount(session.measurementSampleCount),
+        ),
+    ];
+
+    return _SectionCard(
+      key: const ValueKey<String>('session-detail-measurement-evidence'),
+      title: localizations.measurementEvidence,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (SessionMeasurementEvidencePresenter.shouldShowWarning(
+            session,
+          )) ...[
+            SessionMeasurementEvidenceNotice(
+              key: const ValueKey<String>('session-detail-measurement-warning'),
+              session: session,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = AppSpacing.xs;
+              final columnCount = constraints.maxWidth < 340 ? 1 : 2;
+              final tileWidth =
+                  (constraints.maxWidth - spacing * (columnCount - 1)) /
+                  columnCount;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final metric in metrics)
+                    SizedBox(
+                      width: tileWidth,
+                      child: _MetricTile(
+                        label: metric.key,
+                        value: metric.value,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -740,7 +824,7 @@ class _RepTile extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
+  const _SectionCard({super.key, required this.title, required this.child});
 
   final String title;
   final Widget child;

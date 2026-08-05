@@ -8,8 +8,10 @@ import '../../../../app/theme/app_motion.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_session.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
+import 'session_measurement_evidence_notice.dart';
 import 'session_result_visual.dart';
 
 class WorkoutSummaryContent extends StatelessWidget {
@@ -37,6 +39,8 @@ class WorkoutSummaryContent extends StatelessWidget {
     final useWideLayout =
         layout.viewportSize.width >= 700 &&
         (layout.isLandscape || layout.isExpanded);
+    final showEvidenceWarning =
+        SessionMeasurementEvidencePresenter.shouldShowWarning(session);
 
     if (!useWideLayout) {
       return SingleChildScrollView(
@@ -46,6 +50,15 @@ class WorkoutSummaryContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _SummaryOutcomeCard(session: session, report: report),
+            if (showEvidenceWarning) ...[
+              SizedBox(height: layout.sectionGap),
+              SessionMeasurementEvidenceNotice(
+                key: const ValueKey<String>(
+                  'workout-summary-measurement-warning',
+                ),
+                session: session,
+              ),
+            ],
             SizedBox(height: layout.sectionGap),
             _SummaryInsights(session: session, report: report),
             SizedBox(height: layout.panelGap),
@@ -75,6 +88,15 @@ class WorkoutSummaryContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _SummaryOutcomeCard(session: session, report: report),
+                  if (showEvidenceWarning) ...[
+                    SizedBox(height: layout.sectionGap),
+                    SessionMeasurementEvidenceNotice(
+                      key: const ValueKey<String>(
+                        'workout-summary-measurement-warning',
+                      ),
+                      session: session,
+                    ),
+                  ],
                   SizedBox(height: layout.sectionGap),
                   _SummaryInsights(session: session, report: report),
                   SizedBox(height: layout.panelGap),

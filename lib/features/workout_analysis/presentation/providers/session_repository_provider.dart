@@ -1,15 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/firebase/firebase_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/repositories/session_repository.dart';
 import '../../infrastructure/remote/firebase_session_write_auth_guard.dart';
 import '../../infrastructure/remote/firestore_session_remote_source.dart';
 import '../../infrastructure/repositories/firestore_session_repository.dart';
-
-final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
-  return FirebaseFirestore.instance;
-});
 
 final sessionWriteAuthGuardProvider = Provider<SessionWriteAuthGuard>((ref) {
   return FirebaseSessionWriteAuthGuard(ref.watch(firebaseAuthProvider));

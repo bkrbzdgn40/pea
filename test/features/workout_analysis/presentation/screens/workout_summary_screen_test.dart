@@ -6,6 +6,7 @@ import 'package:pose_estimation_app/features/goals/presentation/models/workout_g
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
@@ -609,6 +610,37 @@ void main() {
     );
     expect(
       find.descendant(of: hero, matching: find.text('Geçersiz: 1')),
+      findsOneWidget,
+    );
+  });
+  testWidgets('shows a concise warning only for limited measurement evidence', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'summary-limited-evidence',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      totalReps: 8,
+      averageScore: 96,
+      preparationOutcome: PreparationOutcome.passed,
+      measurementQuality: SessionMeasurementQuality.limited,
+      averageMeasurementConfidence: 0.72,
+      measurementSampleCount: 8,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('workout-summary-measurement-warning')),
+      findsOneWidget,
+    );
+    expect(find.text('Ölçüm güvenilirliği sınırlı'), findsOneWidget);
+    expect(
+      find.textContaining('hedef ve başarım hesaplarına dahil edilmez'),
       findsOneWidget,
     );
   });

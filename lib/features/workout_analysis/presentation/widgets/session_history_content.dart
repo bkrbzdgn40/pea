@@ -7,6 +7,8 @@ import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/workout_session.dart';
+import '../../domain/session_evidence_eligibility_policy.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import 'session_result_visual.dart';
 
@@ -62,8 +64,9 @@ class SessionHistoryCollection extends StatelessWidget {
   }
 
   int? _scoreDeltaFor(int index) {
+    const evidencePolicy = SessionEvidenceEligibilityPolicy();
     final session = sessions[index];
-    if (session.isHoldSession || session.averageScore <= 0) return null;
+    if (!evidencePolicy.contributesToScoreAggregates(session)) return null;
 
     for (
       var candidateIndex = index + 1;
@@ -72,8 +75,7 @@ class SessionHistoryCollection extends StatelessWidget {
     ) {
       final candidate = sessions[candidateIndex];
       if (candidate.exerciseType == session.exerciseType &&
-          !candidate.isHoldSession &&
-          candidate.averageScore > 0) {
+          evidencePolicy.contributesToScoreAggregates(candidate)) {
         return session.averageScore.round() - candidate.averageScore.round();
       }
     }
@@ -319,7 +321,47 @@ class _SessionCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Icon(tone.icon, color: accent, size: 21),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tone.icon, color: accent, size: 21),
+                          if (SessionMeasurementEvidencePresenter.shouldShowWarning(
+                            session,
+                          )) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Tooltip(
+                              message:
+                                  SessionMeasurementEvidencePresenter.warningTitle(
+                                    localizations,
+                                    session,
+                                  ),
+                              excludeFromSemantics: true,
+                              child: Semantics(
+                                container: true,
+                                excludeSemantics: true,
+                                label:
+                                    SessionMeasurementEvidencePresenter.warningTitle(
+                                      localizations,
+                                      session,
+                                    ),
+                                child: Icon(
+                                  SessionMeasurementEvidencePresenter.warningIcon(
+                                    session,
+                                  ),
+                                  key: const ValueKey<String>(
+                                    'session-history-measurement-warning',
+                                  ),
+                                  color:
+                                      SessionMeasurementEvidencePresenter.warningTone(
+                                        session,
+                                      ).resolveColor(colors),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                       const SizedBox(height: AppSpacing.xs),
                       Icon(
                         Icons.arrow_forward_ios_rounded,
