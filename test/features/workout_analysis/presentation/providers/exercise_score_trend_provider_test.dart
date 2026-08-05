@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_score_trend_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 
@@ -166,5 +168,54 @@ void main() {
           .toList(growable: false),
       <double>[50, 60, 70, 80, 90],
     );
+  });
+
+  test('chart windows preserve real calendar gaps and same-day times', () {
+    final trend = ExerciseScoreTrendData(
+      exercise: ExerciseType.squat,
+      samples: [
+        WorkoutScoreSample(startedAt: DateTime(2024, 1, 4, 9), score: 70),
+        WorkoutScoreSample(startedAt: DateTime(2024, 1, 4, 18), score: 72),
+        WorkoutScoreSample(startedAt: DateTime(2024, 1, 8, 9), score: 80),
+      ],
+      source: UserSessionsSnapshotSource.real,
+    );
+    final now = DateTime(2024, 1, 10, 12);
+    final window = trend.chartWindowForRange(
+      ScoreTrendRange.sevenDays,
+      now: now,
+    )!;
+
+    expect(window.axisUnit, ScoreTrendAxisUnit.calendarDays);
+    expect(window.startInclusive, DateTime(2024, 1, 4));
+    expect(window.endExclusive, DateTime(2024, 1, 11));
+    expect(window.positionFor(DateTime(2024, 1, 4, 9)), closeTo(0.375, 1e-9));
+    expect(window.positionFor(DateTime(2024, 1, 4, 18)), closeTo(0.75, 1e-9));
+    expect(window.positionFor(DateTime(2024, 1, 8, 9)), closeTo(4.375, 1e-9));
+  });
+
+  test('all-time chart uses calendar months and keeps full tooltip dates', () {
+    final samples = [
+      WorkoutScoreSample(startedAt: DateTime(2023, 12, 20, 9), score: 60),
+      WorkoutScoreSample(startedAt: DateTime(2024, 1, 8, 18, 5), score: 75),
+    ];
+    final trend = ExerciseScoreTrendData(
+      exercise: ExerciseType.squat,
+      samples: samples,
+      source: UserSessionsSnapshotSource.real,
+    );
+    final points = trend.detailPoints();
+    final window = trend.chartWindowForRange(
+      ScoreTrendRange.all,
+      now: DateTime(2024, 1, 10),
+    )!;
+
+    expect(window.axisUnit, ScoreTrendAxisUnit.calendarMonths);
+    expect(window.startInclusive, DateTime(2023, 12));
+    expect(window.endExclusive, DateTime(2024, 2));
+    expect(window.positionFor(samples.first.startedAt), lessThan(1));
+    expect(window.positionFor(samples.last.startedAt), greaterThan(1));
+    expect(points.first.startedAt, samples.first.startedAt);
+    expect(points.last.tooltipLabel, '08.01.2024 18:05');
   });
 }

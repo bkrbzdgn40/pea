@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show Key;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
@@ -68,6 +69,9 @@ void main() {
     expect(find.byKey(const Key('score-trend-chart-surface')), findsOneWidget);
     expect(find.byKey(const Key('score-trend-latest-score')), findsOneWidget);
     expect(find.text('Push-up Form Skoru Trendi'), findsNothing);
+    final spots = _trendSpots(tester);
+    expect(spots, hasLength(2));
+    expect(spots.last.x - spots.first.x, closeTo(2, 1e-9));
 
     await tester.scrollUntilVisible(find.text('Detayı Gör'), 250);
     await tester.tap(find.text('Detayı Gör'));
@@ -119,4 +123,9 @@ void main() {
 
     expect(find.textContaining('Form Skoru Trendi'), findsNothing);
   });
+}
+
+List<FlSpot> _trendSpots(WidgetTester tester) {
+  final chart = tester.widget<LineChart>(find.byType(LineChart));
+  return chart.data.lineBarsData.single.spots;
 }

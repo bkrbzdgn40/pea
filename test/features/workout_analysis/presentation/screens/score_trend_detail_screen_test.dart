@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show Key;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
@@ -94,12 +95,17 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('score-trend-summary-grid')), findsOneWidget);
-      expect(find.text('20.12'), findsOneWidget);
-      expect(find.text('04.01'), findsOneWidget);
-      expect(find.text('08.01'), findsOneWidget);
-      expect(find.text('01.12'), findsNothing);
-      expect(find.text('02.01'), findsNothing);
-      expect(find.text('05.01'), findsNothing);
+      expect(find.text('12.12'), findsOneWidget);
+      expect(find.text('09.01'), findsOneWidget);
+      final thirtyDaySpots = _trendSpots(tester);
+      expect(thirtyDaySpots, hasLength(3));
+      expect(
+        thirtyDaySpots.map((spot) => spot.y),
+        orderedEquals(<double>[60, 65, 75]),
+      );
+      expect(thirtyDaySpots[0].x, closeTo(8.375, 1e-9));
+      expect(thirtyDaySpots[1].x, closeTo(23, 1e-9));
+      expect(thirtyDaySpots[2].x, closeTo(27.375, 1e-9));
       expect(
         find.descendant(
           of: find.byKey(const Key('score-trend-session-count')),
@@ -112,9 +118,12 @@ void main() {
       await tester.tap(find.byKey(const Key('score-trend-range-seven-days')));
       await tester.pumpAndSettle();
 
-      expect(find.text('20.12'), findsNothing);
       expect(find.text('04.01'), findsOneWidget);
       expect(find.text('08.01'), findsOneWidget);
+      final sevenDaySpots = _trendSpots(tester);
+      expect(sevenDaySpots, hasLength(2));
+      expect(sevenDaySpots[0].x, closeTo(0, 1e-9));
+      expect(sevenDaySpots[1].x, closeTo(4.375, 1e-9));
       expect(
         find.descendant(
           of: find.byKey(const Key('score-trend-session-count')),
@@ -126,10 +135,14 @@ void main() {
       await tester.tap(find.byKey(const Key('score-trend-range-all')));
       await tester.pumpAndSettle();
 
-      expect(find.text('01.12'), findsOneWidget);
-      expect(find.text('20.12'), findsOneWidget);
-      expect(find.text('04.01'), findsOneWidget);
-      expect(find.text('08.01'), findsOneWidget);
+      expect(find.text('12.23'), findsOneWidget);
+      expect(find.text('01.24'), findsOneWidget);
+      final allTimeSpots = _trendSpots(tester);
+      expect(allTimeSpots, hasLength(4));
+      expect(
+        allTimeSpots[1].x - allTimeSpots[0].x,
+        greaterThan(allTimeSpots[3].x - allTimeSpots[2].x),
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('score-trend-session-count')),
@@ -178,7 +191,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('score-trend-detail-hero')), findsOneWidget);
-    expect(find.text('04.01'), findsOneWidget);
+    expect(find.text('01.23'), findsOneWidget);
+    expect(_trendSpots(tester).single.x, closeTo(3.375 / 31, 1e-9));
   });
 
   testWidgets('hold-only exercise does not invent a zero score trend', (
@@ -214,4 +228,9 @@ void main() {
     );
     expect(find.text('0'), findsNothing);
   });
+}
+
+List<FlSpot> _trendSpots(WidgetTester tester) {
+  final chart = tester.widget<LineChart>(find.byType(LineChart));
+  return chart.data.lineBarsData.single.spots;
 }

@@ -58,28 +58,41 @@ class ExerciseScoreTrendData {
       return samples;
     }
 
-    final localNow = now.toLocal();
-    final startOfTomorrow = DateTime(
-      localNow.year,
-      localNow.month,
-      localNow.day + 1,
-    );
-    final dayCount = switch (range) {
-      ScoreTrendRange.sevenDays => 7,
-      ScoreTrendRange.thirtyDays => 30,
-      ScoreTrendRange.all => throw StateError(
-        'All-time range has no boundary.',
-      ),
-    };
-    final startInclusive = startOfTomorrow.subtract(Duration(days: dayCount));
+    final bounds = _rangeBounds(range, now: now);
 
     return samples
         .where((sample) {
           final startedAt = _localStartedAt(sample);
-          return !startedAt.isBefore(startInclusive) &&
-              startedAt.isBefore(startOfTomorrow);
+          return !startedAt.isBefore(bounds.startInclusive) &&
+              startedAt.isBefore(bounds.endExclusive);
         })
         .toList(growable: false);
+  }
+
+  ScoreTrendChartWindow? chartWindowForRange(
+    ScoreTrendRange range, {
+    required DateTime now,
+    Iterable<WorkoutScoreSample>? source,
+  }) {
+    final resolvedSamples = (source ?? samples).toList(growable: false);
+    if (resolvedSamples.isEmpty) {
+      return null;
+    }
+
+    if (range != ScoreTrendRange.all) {
+      final bounds = _rangeBounds(range, now: now);
+      return ScoreTrendChartWindow(
+        startInclusive: bounds.startInclusive,
+        endExclusive: bounds.endExclusive,
+        axisUnit: ScoreTrendAxisUnit.calendarDays,
+      );
+    }
+
+    final points = detailPoints(source: resolvedSamples);
+    return ScoreTrendChartWindow.forPoints(
+      points,
+      axisUnit: ScoreTrendAxisUnit.calendarMonths,
+    );
   }
 
   double bestAverageScoreFor(Iterable<WorkoutScoreSample> source) {
@@ -109,6 +122,7 @@ class ExerciseScoreTrendData {
         ScoreTrendPoint(
           label: resolveWeekdayLabel(sample.startedAt.toLocal()),
           score: sample.score,
+          startedAt: sample.startedAt,
         ),
     ];
   }
@@ -120,9 +134,44 @@ class ExerciseScoreTrendData {
         ScoreTrendPoint(
           label: _dateLabel(_localStartedAt(sample)),
           score: sample.score,
+          startedAt: sample.startedAt,
         ),
     ];
   }
+}
+
+_ScoreTrendRangeBounds _rangeBounds(
+  ScoreTrendRange range, {
+  required DateTime now,
+}) {
+  final localNow = now.toLocal();
+  final endExclusive = DateTime(
+    localNow.year,
+    localNow.month,
+    localNow.day + 1,
+  );
+  final dayCount = switch (range) {
+    ScoreTrendRange.sevenDays => 7,
+    ScoreTrendRange.thirtyDays => 30,
+    ScoreTrendRange.all => throw StateError(
+      'All-time range has no fixed calendar-day boundary.',
+    ),
+  };
+
+  return _ScoreTrendRangeBounds(
+    startInclusive: endExclusive.subtract(Duration(days: dayCount)),
+    endExclusive: endExclusive,
+  );
+}
+
+class _ScoreTrendRangeBounds {
+  const _ScoreTrendRangeBounds({
+    required this.startInclusive,
+    required this.endExclusive,
+  });
+
+  final DateTime startInclusive;
+  final DateTime endExclusive;
 }
 
 DateTime _localStartedAt(WorkoutScoreSample sample) {

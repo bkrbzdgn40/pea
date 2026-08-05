@@ -17,6 +17,7 @@ class ScoreTrendCard extends StatelessWidget {
     this.subtitle,
     this.showHeader = true,
     this.showSnapshot = true,
+    this.timeWindow,
   });
 
   final String exerciseTitle;
@@ -26,22 +27,27 @@ class ScoreTrendCard extends StatelessWidget {
   final String? subtitle;
   final bool showHeader;
   final bool showSnapshot;
+  final ScoreTrendChartWindow? timeWindow;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
     final chartPoints = points.where(_isValidPoint).toList(growable: false);
-    final bounds = chartPoints.isEmpty
+    final timeline = _ScoreTrendTimeline.resolve(
+      chartPoints,
+      timeWindow: timeWindow,
+    );
+    final orderedPoints = timeline.points
+        .map((point) => point.source)
+        .toList(growable: false);
+    final bounds = orderedPoints.isEmpty
         ? null
-        : _ScoreTrendBounds.fromPoints(chartPoints);
-    final maxX = chartPoints.length > 1
-        ? (chartPoints.length - 1).toDouble()
-        : 1.0;
-    final latestScore = chartPoints.isEmpty ? null : chartPoints.last.score;
-    final scoreDelta = chartPoints.length < 2
+        : _ScoreTrendBounds.fromPoints(orderedPoints);
+    final latestScore = orderedPoints.isEmpty ? null : orderedPoints.last.score;
+    final scoreDelta = orderedPoints.length < 2
         ? 0.0
-        : chartPoints.last.score - chartPoints.first.score;
+        : orderedPoints.last.score - orderedPoints.first.score;
 
     final content = AppSurfaceCard(
       key: const Key('score-trend-card'),
@@ -80,9 +86,8 @@ class ScoreTrendCard extends StatelessWidget {
                   const _ScoreTrendPlaceholder()
                 else
                   _ScoreTrendChart(
-                    chartPoints: chartPoints,
+                    timeline: timeline,
                     bounds: bounds,
-                    maxX: maxX,
                     chartHeight: chartHeight,
                   ),
               ],
@@ -355,21 +360,20 @@ class _TrendSnapshot extends StatelessWidget {
 
 class _ScoreTrendChart extends StatelessWidget {
   const _ScoreTrendChart({
-    required this.chartPoints,
+    required this.timeline,
     required this.bounds,
-    required this.maxX,
     required this.chartHeight,
   });
 
-  final List<ScoreTrendPoint> chartPoints;
+  final _ScoreTrendTimeline timeline;
   final _ScoreTrendBounds bounds;
-  final double maxX;
   final double chartHeight;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.semanticColors;
     final isDetailed = chartHeight > 200;
+    final xLabelInterval = timeline.labelInterval(isDetailed: isDetailed);
 
     return Container(
       key: const Key('score-trend-chart-surface'),
@@ -395,7 +399,7 @@ class _ScoreTrendChart extends StatelessWidget {
       child: LineChart(
         LineChartData(
           minX: 0,
-          maxX: maxX,
+          maxX: timeline.maxX,
           minY: bounds.minY,
           maxY: bounds.maxY,
           clipData: const FlClipData.all(),
@@ -413,7 +417,7 @@ class _ScoreTrendChart extends StatelessWidget {
                 return [
                   for (final spot in spots)
                     LineTooltipItem(
-                      '${chartPoints[spot.x.round()].label}\n',
+                      '${timeline.closestPoint(spot.x).source.tooltipLabel}\n',
                       TextStyle(
                         color: colors.foregroundMuted,
                         fontSize: 11,
@@ -473,16 +477,19 @@ class _ScoreTrendChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 30,
-                interval: _xLabelInterval(chartPoints.length),
+                interval: xLabelInterval,
                 getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= chartPoints.length) {
+                  final label = timeline.axisLabel(
+                    value,
+                    interval: xLabelInterval,
+                  );
+                  if (label == null) {
                     return const SizedBox.shrink();
                   }
                   return Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.xs),
                     child: Text(
-                      chartPoints[index].label,
+                      label,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: colors.foregroundSubtle,
                         fontWeight: AppFontWeights.semibold,
@@ -496,10 +503,10 @@ class _ScoreTrendChart extends StatelessWidget {
           lineBarsData: [
             LineChartBarData(
               spots: [
-                for (var i = 0; i < chartPoints.length; i++)
-                  FlSpot(i.toDouble(), chartPoints[i].score),
+                for (final point in timeline.points)
+                  FlSpot(point.x, point.source.score),
               ],
-              isCurved: chartPoints.length > 2,
+              isCurved: timeline.points.length > 2,
               curveSmoothness: 0.22,
               preventCurveOverShooting: true,
               gradient: LinearGradient(
@@ -586,7 +593,172 @@ bool _isValidPoint(ScoreTrendPoint point) {
   return point.score > 0 && point.score <= 100;
 }
 
-double _xLabelInterval(int pointCount) {
+class _ScoreTrendTimeline {
+  const _ScoreTrendTimeline._({required this.points, required this.window});
+
+  final List<_ResolvedScoreTrendPoint> points;
+  final ScoreTrendChartWindow? window;
+
+  factory _ScoreTrendTimeline.resolve(
+    List<ScoreTrendPoint> source, {
+    ScoreTrendChartWindow? timeWindow,
+  }) {
+    if (source.isEmpty) {
+      return const _ScoreTrendTimeline._(
+        points: <_ResolvedScoreTrendPoint>[],
+        window: null,
+      );
+    }
+
+    final hasCompleteTimeline = source.every(
+      (point) => point.startedAt != null,
+    );
+    if (!hasCompleteTimeline) {
+      return _ScoreTrendTimeline._(
+        points: [
+          for (var index = 0; index < source.length; index++)
+            _ResolvedScoreTrendPoint(
+              source: source[index],
+              x: index.toDouble(),
+            ),
+        ],
+        window: null,
+      );
+    }
+
+    final resolvedWindow =
+        timeWindow ?? ScoreTrendChartWindow.forPoints(source);
+    final resolvedPoints = [
+      for (final point in source)
+        _ResolvedScoreTrendPoint(
+          source: point,
+          x: resolvedWindow.positionFor(point.startedAt!),
+        ),
+    ]..sort((left, right) => left.x.compareTo(right.x));
+
+    return _ScoreTrendTimeline._(
+      points: List<_ResolvedScoreTrendPoint>.unmodifiable(resolvedPoints),
+      window: resolvedWindow,
+    );
+  }
+
+  double get maxX {
+    final resolvedWindow = window;
+    if (resolvedWindow != null) {
+      return resolvedWindow.maxX;
+    }
+    return points.length > 1 ? (points.length - 1).toDouble() : 1.0;
+  }
+
+  _ResolvedScoreTrendPoint closestPoint(double x) {
+    var closest = points.first;
+    var closestDistance = (closest.x - x).abs();
+    for (final point in points.skip(1)) {
+      final distance = (point.x - x).abs();
+      if (distance < closestDistance) {
+        closest = point;
+        closestDistance = distance;
+      }
+    }
+    return closest;
+  }
+
+  double labelInterval({required bool isDetailed}) {
+    final resolvedWindow = window;
+    if (resolvedWindow == null) {
+      return _sessionLabelInterval(points.length);
+    }
+
+    final span = maxX + 0.000001;
+    if (resolvedWindow.axisUnit == ScoreTrendAxisUnit.calendarMonths) {
+      if (span <= 6) {
+        return 1;
+      }
+      if (span <= 18) {
+        return 3;
+      }
+      if (span <= 36) {
+        return 6;
+      }
+      return (span / (isDetailed ? 7 : 5)).ceilToDouble();
+    }
+
+    if (span <= 7) {
+      return isDetailed ? 2 : 3;
+    }
+    if (span <= 31) {
+      return 7;
+    }
+    if (span <= 90) {
+      return 14;
+    }
+    if (span <= 180) {
+      return 30;
+    }
+    if (span <= 365) {
+      return 60;
+    }
+    return (span / (isDetailed ? 7 : 5)).ceilToDouble();
+  }
+
+  String? axisLabel(double x, {required double interval}) {
+    if (x < 0 || x > maxX + 0.0001) {
+      return null;
+    }
+
+    final resolvedWindow = window;
+    if (resolvedWindow == null) {
+      final index = x.round();
+      if ((x - index).abs() > 0.0001 || index >= points.length) {
+        return null;
+      }
+      return points[index].source.label;
+    }
+
+    final date = resolvedWindow.dateForPosition(x);
+    final label = resolvedWindow.axisUnit == ScoreTrendAxisUnit.calendarMonths
+        ? _monthYearLabel(date)
+        : _dayMonthLabel(date);
+    final previousTick = _previousAxisTick(x, interval: interval);
+    if (previousTick != null) {
+      final isIrregularEndTick = (x - previousTick - interval).abs() > 0.0001;
+      if (isIrregularEndTick && x - previousTick < interval * 0.45) {
+        return null;
+      }
+      final previousDate = resolvedWindow.dateForPosition(previousTick);
+      final previousLabel =
+          resolvedWindow.axisUnit == ScoreTrendAxisUnit.calendarMonths
+          ? _monthYearLabel(previousDate)
+          : _dayMonthLabel(previousDate);
+      if (previousLabel == label) {
+        return null;
+      }
+    }
+    return label;
+  }
+}
+
+double? _previousAxisTick(double x, {required double interval}) {
+  if (x <= 0 || interval <= 0) {
+    return null;
+  }
+  final regularTickIndex = (x / interval).floor();
+  final regularTick = regularTickIndex * interval;
+  if ((regularTick - x).abs() < 0.0001) {
+    final previous = x - interval;
+    return previous >= 0 ? previous : null;
+  }
+  return regularTick >= 0 ? regularTick : null;
+}
+
+class _ResolvedScoreTrendPoint {
+  const _ResolvedScoreTrendPoint({required this.source, required this.x});
+
+  final ScoreTrendPoint source;
+  final double x;
+}
+
+double _sessionLabelInterval(int pointCount) {
   if (pointCount <= 8) {
     return 1;
   }
@@ -597,6 +769,18 @@ double _xLabelInterval(int pointCount) {
     return 4;
   }
   return 8;
+}
+
+String _dayMonthLabel(DateTime dateTime) {
+  final day = dateTime.day.toString().padLeft(2, '0');
+  final month = dateTime.month.toString().padLeft(2, '0');
+  return '$day.$month';
+}
+
+String _monthYearLabel(DateTime dateTime) {
+  final month = dateTime.month.toString().padLeft(2, '0');
+  final year = (dateTime.year % 100).toString().padLeft(2, '0');
+  return '$month.$year';
 }
 
 class _ScoreTrendBounds {

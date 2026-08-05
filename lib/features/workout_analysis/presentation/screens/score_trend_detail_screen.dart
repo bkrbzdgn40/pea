@@ -11,6 +11,7 @@ import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
 import '../../application/workout_statistics.dart';
 import '../../domain/models/exercise_type.dart';
+import '../models/home_dashboard_data.dart';
 import '../providers/exercise_score_trend_provider.dart';
 import '../providers/user_sessions_snapshot_provider.dart';
 import '../widgets/score_trend_card.dart';
@@ -68,6 +69,11 @@ class _ScoreTrendDetailScreenState
             _selectedRange,
             now: now,
           );
+          final chartWindow = trendData.chartWindowForRange(
+            _selectedRange,
+            now: now,
+            source: filteredSamples,
+          );
 
           return SingleChildScrollView(
             child: Column(
@@ -98,6 +104,7 @@ class _ScoreTrendDetailScreenState
                     rangeContext: rangeContext,
                     trendData: trendData,
                     samples: filteredSamples,
+                    chartWindow: chartWindow!,
                   ),
                 ],
               ],
@@ -116,6 +123,7 @@ class _TrendDetailContent extends StatelessWidget {
     required this.rangeContext,
     required this.trendData,
     required this.samples,
+    required this.chartWindow,
   });
 
   final ExerciseType exercise;
@@ -123,6 +131,7 @@ class _TrendDetailContent extends StatelessWidget {
   final String rangeContext;
   final ExerciseScoreTrendData trendData;
   final List<WorkoutScoreSample> samples;
+  final ScoreTrendChartWindow chartWindow;
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +162,7 @@ class _TrendDetailContent extends StatelessWidget {
             return ScoreTrendCard(
               exerciseTitle: exerciseTitle,
               points: trendData.detailPoints(source: samples),
+              timeWindow: chartWindow,
               chartHeight: chartHeight,
               subtitle: localizations.formScoreTrendRangeSubtitle(
                 exerciseTitle,
