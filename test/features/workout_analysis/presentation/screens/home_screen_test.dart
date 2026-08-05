@@ -5,11 +5,14 @@ import 'package:pose_estimation_app/features/achievements/presentation/models/ac
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_score_trend_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 
 import '../../../../support/presentation_test_harness.dart';
@@ -81,6 +84,83 @@ void main() {
       );
     },
   );
+
+  testWidgets('shows grouped exercises as a single Other slice', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith(
+          (ref) => const HomeDashboardData(
+            totalAnalyses: 10,
+            averageScore: 84,
+            thisWeekCount: 2,
+            bestScore: 91,
+            scoreTrend: <ScoreTrendPoint>[],
+            exerciseDistribution: [
+              ExerciseDistributionItem(
+                label: 'Squat',
+                value: 40,
+                exerciseId: 'squat',
+              ),
+              ExerciseDistributionItem(
+                label: 'Plank',
+                value: 30,
+                exerciseId: 'plank',
+              ),
+              ExerciseDistributionItem(
+                label: 'Diğer',
+                value: 30,
+                groupedExerciseCount: 3,
+              ),
+            ],
+            source: HomeDashboardSource.real,
+          ),
+        ),
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        achievementsProvider.overrideWith(
+          (ref) => const AchievementsState(
+            source: AchievementsDataSource.real,
+            achievements: <Achievement>[],
+          ),
+        ),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
+        exerciseScoreTrendProvider(ExerciseType.plank).overrideWith(
+          (ref) async => ExerciseScoreTrendData(
+            exercise: ExerciseType.plank,
+            samples: [
+              WorkoutScoreSample(startedAt: DateTime(2026, 8, 1), score: 82),
+            ],
+            source: UserSessionsSnapshotSource.real,
+          ),
+        ),
+      ],
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('score-trend-card')), findsOneWidget);
+    final otherItem = find.byKey(const Key('exercise-distribution-item-other'));
+    expect(otherItem, findsOneWidget);
+    expect(find.text('Diğer (3)'), findsOneWidget);
+
+    await tester.ensureVisible(otherItem);
+    await tester.pump();
+    await tester.tap(otherItem);
+    await tester.pump();
+
+    expect(find.text('Diğer (3)'), findsNWidgets(2));
+    expect(find.byKey(const Key('score-trend-card')), findsNothing);
+    expect(find.text('Plank analizine başla'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('keeps the dashboard metric cards at equal height', (
     WidgetTester tester,

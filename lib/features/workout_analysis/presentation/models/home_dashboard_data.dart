@@ -66,8 +66,17 @@ class ScoreTrendPoint {
 }
 
 class ExerciseDistributionItem {
-  const ExerciseDistributionItem({required this.label, required this.value});
+  const ExerciseDistributionItem({
+    required this.label,
+    required this.value,
+    this.exerciseId,
+    this.groupedExerciseCount = 0,
+  });
 
   final String label;
   final double value;
+  final String? exerciseId;
+  final int groupedExerciseCount;
+
+  bool get isRemainder => groupedExerciseCount > 0;
 }

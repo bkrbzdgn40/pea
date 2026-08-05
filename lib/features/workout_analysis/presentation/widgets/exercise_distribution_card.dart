@@ -40,9 +40,20 @@ class _ExerciseDistributionCardState
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
-    final trendData = selectedExercise == null
+    final touchedItem =
+        _touchedIndex >= 0 && _touchedIndex < widget.items.length
+        ? widget.items[_touchedIndex]
+        : null;
+    final touchedExerciseId = touchedItem?.exerciseId;
+    final touchedExercise = touchedExerciseId == null
         ? null
-        : ref.watch(exerciseScoreTrendProvider(selectedExercise)).valueOrNull;
+        : ExerciseType.fromIdOrNull(touchedExerciseId);
+    final trendExercise = touchedItem?.isRemainder == true
+        ? null
+        : touchedExercise ?? selectedExercise;
+    final trendData = trendExercise == null
+        ? null
+        : ref.watch(exerciseScoreTrendProvider(trendExercise)).valueOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,10 +100,11 @@ class _ExerciseDistributionCardState
                             items: widget.items,
                             colors: _colors,
                             touchedIndex: _touchedIndex,
-                            localizedLabel: (item) => _localizedExerciseLabel(
-                              localizations,
-                              item.label,
-                            ),
+                            localizedLabel: (item) =>
+                                _localizedDistributionLabel(
+                                  localizations,
+                                  item,
+                                ),
                             onSelected: (index) {
                               setState(() {
                                 _touchedIndex = _touchedIndex == index
@@ -128,10 +140,10 @@ class _ExerciseDistributionCardState
             ],
           ),
         ),
-        if (selectedExercise != null && trendData?.hasRealData == true) ...[
+        if (trendExercise != null && trendData?.hasRealData == true) ...[
           const SizedBox(height: AppSpacing.sm),
           ScoreTrendCard(
-            exerciseTitle: localizations.exerciseTitle(selectedExercise.id),
+            exerciseTitle: localizations.exerciseTitle(trendExercise.id),
             points: trendData!.latestPoints(
               weekdayLabel: (dateTime) =>
                   localizations.weekdayShort(dateTime.weekday),
@@ -141,7 +153,7 @@ class _ExerciseDistributionCardState
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      ScoreTrendDetailScreen(exercise: selectedExercise),
+                      ScoreTrendDetailScreen(exercise: trendExercise),
                 ),
               );
             },
@@ -283,14 +295,14 @@ class _DistributionChart extends StatelessWidget {
     final centerValue = selectedItem?.value ?? total;
     final centerLabel = selectedItem == null
         ? localizations.session
-        : _localizedExerciseLabel(localizations, selectedItem.label);
+        : _localizedDistributionLabel(localizations, selectedItem);
 
     return Semantics(
       container: true,
       label: items
           .map(
             (item) =>
-                '${_localizedExerciseLabel(localizations, item.label)} ${item.value.round()}%',
+                '${_localizedDistributionLabel(localizations, item)} ${item.value.round()}%',
           )
           .join(', '),
       child: Container(
@@ -434,13 +446,27 @@ class _DistributionLegend extends StatelessWidget {
   }
 }
 
-String _localizedExerciseLabel(AppLocalizations localizations, String label) {
+String _localizedDistributionLabel(
+  AppLocalizations localizations,
+  ExerciseDistributionItem item,
+) {
+  if (item.isRemainder) {
+    return localizations.exerciseDistributionOtherCount(
+      item.groupedExerciseCount,
+    );
+  }
+
+  final exerciseId = item.exerciseId;
+  if (exerciseId != null) {
+    return localizations.exerciseTitle(exerciseId);
+  }
+
   for (final exercise in ExerciseType.values) {
-    if (exercise.title == label || exercise.id == label) {
+    if (exercise.title == item.label || exercise.id == item.label) {
       return localizations.exerciseTitle(exercise.id);
     }
   }
-  return label;
+  return item.label;
 }
 
 class _DistributionPlaceholder extends StatelessWidget {
@@ -510,6 +536,7 @@ class _LegendItem extends StatelessWidget {
     final colors = context.semanticColors;
 
     return Semantics(
+      key: Key('exercise-distribution-item-${item.exerciseId ?? 'other'}'),
       button: true,
       selected: selected,
       label: '$label, ${item.value.round()}%',

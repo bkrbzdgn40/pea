@@ -73,16 +73,95 @@ List<ExerciseDistributionItem> _buildExerciseDistribution(
   int totalSessionCount,
   AppLocalizations localizations,
 ) {
-  final items = exerciseSessionCounts.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+  if (exerciseSessionCounts.isEmpty || totalSessionCount <= 0) {
+    return const <ExerciseDistributionItem>[];
+  }
 
-  return [
-    for (final item in items.take(4))
-      ExerciseDistributionItem(
-        label: localizations.exerciseTitle(item.key),
-        value: item.value * 100 / totalSessionCount,
+  final sortedEntries = exerciseSessionCounts.entries.toList()
+    ..sort((left, right) {
+      final countComparison = right.value.compareTo(left.value);
+      return countComparison != 0
+          ? countComparison
+          : left.key.compareTo(right.key);
+    });
+  final visibleEntries = sortedEntries.take(4).toList(growable: false);
+  final hiddenEntries = sortedEntries.skip(4).toList(growable: false);
+  final groupedEntries = <_DistributionCount>[
+    for (final entry in visibleEntries)
+      _DistributionCount(
+        label: localizations.exerciseTitle(entry.key),
+        exerciseId: entry.key,
+        count: entry.value,
+      ),
+    if (hiddenEntries.isNotEmpty)
+      _DistributionCount(
+        label: localizations.exerciseDistributionOther,
+        count: hiddenEntries.fold<int>(
+          0,
+          (total, entry) => total + entry.value,
+        ),
+        groupedExerciseCount: hiddenEntries.length,
       ),
   ];
+  final percentages = _wholePercentages(
+    groupedEntries.map((item) => item.count).toList(growable: false),
+  );
+
+  return [
+    for (var index = 0; index < groupedEntries.length; index++)
+      ExerciseDistributionItem(
+        label: groupedEntries[index].label,
+        value: percentages[index].toDouble(),
+        exerciseId: groupedEntries[index].exerciseId,
+        groupedExerciseCount: groupedEntries[index].groupedExerciseCount,
+      ),
+  ];
+}
+
+List<int> _wholePercentages(List<int> counts) {
+  final total = counts.fold<int>(0, (sum, count) => sum + count);
+  if (counts.isEmpty || total <= 0) {
+    return const <int>[];
+  }
+
+  final rawPercentages = [for (final count in counts) count * 100 / total];
+  final percentages = [
+    for (final percentage in rawPercentages) percentage.floor(),
+  ];
+  var remaining = 100 - percentages.fold<int>(0, (sum, value) => sum + value);
+  final allocationOrder = List<int>.generate(counts.length, (index) => index)
+    ..sort((left, right) {
+      final leftRemainder = rawPercentages[left] - percentages[left];
+      final rightRemainder = rawPercentages[right] - percentages[right];
+      final remainderComparison = rightRemainder.compareTo(leftRemainder);
+      return remainderComparison != 0
+          ? remainderComparison
+          : left.compareTo(right);
+    });
+
+  for (final index in allocationOrder) {
+    if (remaining == 0) {
+      break;
+    }
+    percentages[index] += 1;
+    remaining -= 1;
+  }
+
+  return percentages;
+}
+
+class _DistributionCount {
+  const _DistributionCount({
+    required this.label,
+    required this.count,
+    this.exerciseId,
+    this.groupedExerciseCount = 0,
+  });
+
+  final String label;
+  final String? exerciseId;
+  final int count;
+  final int groupedExerciseCount;
 }
 
 WorkoutSession? _latestSession(List<WorkoutSession> sessions) {

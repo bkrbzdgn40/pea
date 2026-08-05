@@ -504,6 +504,9 @@ class AppLocalizations {
     tr: 'Kaydedilen oturumların hareket dağılımı burada toplanır.',
     en: 'The exercise distribution of saved sessions will appear here.',
   );
+  String get exerciseDistributionOther => pick(tr: 'Diğer', en: 'Other');
+  String exerciseDistributionOtherCount(int exerciseCount) =>
+      pick(tr: 'Diğer ($exerciseCount)', en: 'Other ($exerciseCount)');
   String get aiCoach => 'AI Coach';
   String get aiCoachComingSoonDescription => pick(
     tr: 'Form analizi, günlük öneriler ve antrenman ipuçları yakında burada olacak.',
