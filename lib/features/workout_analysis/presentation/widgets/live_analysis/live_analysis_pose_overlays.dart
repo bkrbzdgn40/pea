@@ -70,78 +70,89 @@ class LiveTrackingRecoveryOverlay extends ConsumerWidget {
       AppLocalizations.of(context),
     );
     return Positioned.fill(
-      child: IgnorePointer(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: AnimatedSwitcher(
-              duration: AppMotion.resolveDuration(
-                context,
-                AppMotionDurations.fast,
-              ),
-              child: Container(
-                key: ValueKey<LiveTrackingPhase>(phase),
-                constraints: const BoxConstraints(maxWidth: 420),
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.76),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: presentation.color.withValues(alpha: 0.72),
-                    width: 1.4,
-                  ),
-                  boxShadow: const <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black54,
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
+      child: BlockSemantics(
+        child: Semantics(
+          container: true,
+          liveRegion: true,
+          label: '${presentation.title}. ${presentation.message}',
+          child: AbsorbPointer(
+            child: ColoredBox(
+              key: const ValueKey<String>('live-tracking-critical-overlay'),
+              color: Colors.black.withValues(alpha: 0.72),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.resolveDuration(
+                      context,
+                      AppMotionDurations.fast,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Container(
-                      width: 50,
-                      height: 50,
+                    child: Container(
+                      key: ValueKey<LiveTrackingPhase>(phase),
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
                       decoration: BoxDecoration(
-                        color: presentation.color.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.76),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: presentation.color.withValues(alpha: 0.72),
+                          width: 1.4,
+                        ),
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Colors.black54,
+                            blurRadius: 24,
+                            offset: Offset(0, 10),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        presentation.icon,
-                        color: presentation.color,
-                        size: 28,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: presentation.color.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              presentation.icon,
+                              color: presentation.color,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 13),
+                          Text(
+                            presentation.title,
+                            key: const ValueKey<String>(
+                              'live-tracking-overlay-title',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            presentation.message,
+                            key: const ValueKey<String>(
+                              'live-tracking-overlay-message',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontSize: 15,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 13),
-                    Text(
-                      presentation.title,
-                      key: const ValueKey<String>(
-                        'live-tracking-overlay-title',
-                      ),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      presentation.message,
-                      key: const ValueKey<String>(
-                        'live-tracking-overlay-message',
-                      ),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontSize: 15,
-                        height: 1.35,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
