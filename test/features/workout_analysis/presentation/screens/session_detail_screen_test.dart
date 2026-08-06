@@ -9,18 +9,9 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/scree
 import '../../../../support/presentation_test_support.dart';
 import '../../../../support/workout_statistics_test_support.dart';
 
-Future<void> _openTechnicalDetails(WidgetTester tester) async {
-  final details = find.byKey(
-    const ValueKey<String>('session-detail-technical-details'),
-  );
-  await tester.ensureVisible(details);
-  await tester.tap(details);
-  await tester.pumpAndSettle();
-}
-
 void main() {
   testWidgets(
-    'renders formatted session detail content and loaded rep details',
+    'shows user-focused session results and hides raw technical metrics',
     (WidgetTester tester) async {
       final session = buildWorkoutSession(
         id: 'session-1',
@@ -41,12 +32,12 @@ void main() {
               exerciseType: 'push_up',
               analysisKind: 'rangeRep',
               validationStatus: 'valid',
-              validationReasons: <String>['insufficient rom'],
+              validationReasons: const <String>['insufficient rom'],
               score: 89.6,
+              primaryRom: 72.4,
+              tempoTotalMillis: 1800,
               minPrimaryMetric: 74.3,
               worstFormMetric: 81.2,
-              descentMillis: 450,
-              ascentMillis: 550,
               feedback: 'Daha kontrollu cikis',
               selectedSideLabel: 'left',
               measurementConfidence: MeasurementConfidenceBreakdown(
@@ -67,37 +58,58 @@ void main() {
         home: SessionDetailScreen(session: session),
         overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
       );
-      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Şınav'), findsOneWidget);
       expect(find.text('05.01.2024 09:30'), findsOneWidget);
       expect(find.textContaining('1:05'), findsWidgets);
-      expect(find.text('89.6'), findsOneWidget);
-      expect(find.text('Öne çıkan sonuç'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('session-detail-primary-result'),
+          ),
+          matching: find.text('89.6'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Sayılmış: 1'), findsOneWidget);
+      expect(find.text('Temiz: 0'), findsOneWidget);
+      expect(find.text('İncelenmeli: 1'), findsOneWidget);
+      expect(find.text('Hareket kalitesi'), findsOneWidget);
       expect(find.text('Sonraki odak'), findsOneWidget);
-      expect(find.text('Kısa tekrar zaman çizelgesi'), findsOneWidget);
-      expect(find.text('Deneme 1'), findsOneWidget);
-      expect(find.text('Geçerli'), findsWidgets);
-      expect(find.text('Tekrar Detayları'), findsNothing);
+      expect(find.text('Tekrar Detayları'), findsOneWidget);
+      expect(find.text('Tekrar 1'), findsOneWidget);
+      expect(find.text('Kalite'), findsOneWidget);
+      expect(find.text('Hareket açıklığı'), findsNothing);
+      expect(find.text('Tempo'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('session-rep-metrics-1')),
+          matching: find.text('89.6'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('72.4°'), findsNothing);
+      expect(find.text('1,8 sn'), findsOneWidget);
+      expect(find.text('İncelenmeli'), findsOneWidget);
+      expect(find.text('Sorun: Yetersiz hareket açıklığı'), findsOneWidget);
+      expect(find.text('Geri bildirim: Daha kontrollu cikis'), findsOneWidget);
+
+      expect(
+        find.byKey(const ValueKey<String>('session-detail-technical-details')),
+        findsNothing,
+      );
       expect(find.text('Form ve Hareket Aralığı Skoru'), findsNothing);
+      expect(find.text('Birincil Metrik'), findsNothing);
+      expect(find.text('En Kötü Form'), findsNothing);
       expect(find.text('Sol'), findsNothing);
       expect(find.text('Ölçüm güveni'), findsNothing);
       expect(find.text('%96'), findsNothing);
-
-      await _openTechnicalDetails(tester);
-
-      expect(find.text('Tekrar Detayları'), findsOneWidget);
-      expect(find.text('450 ms / 550 ms'), findsNothing);
-      expect(find.text('Form ve Hareket Aralığı Skoru'), findsOneWidget);
-      expect(find.text('Sol'), findsOneWidget);
-      expect(find.text('Ölçüm güveni'), findsWidgets);
-      expect(find.text('%96'), findsWidgets);
     },
   );
 
   testWidgets(
-    'formats biceps curl session detail titles through the canonical exercise string',
+    'formats biceps curl title through the canonical exercise string',
     (WidgetTester tester) async {
       final session = buildWorkoutSession(
         id: 'session-biceps',
@@ -119,7 +131,6 @@ void main() {
           ),
         ],
       );
-      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('Biseps Curl'), findsOneWidget);
@@ -127,7 +138,7 @@ void main() {
     },
   );
 
-  testWidgets('localizes stored feedback and report copy in English', (
+  testWidgets('localizes review feedback and summary copy in English', (
     WidgetTester tester,
   ) async {
     final session = buildWorkoutSession(
@@ -146,7 +157,7 @@ void main() {
             repIndex: 1,
             exerciseType: 'push_up',
             analysisKind: 'rangeRep',
-            validationStatus: 'valid',
+            validationStatus: 'lowConfidence',
             validationReasons: <String>[],
             score: 90,
             feedback: 'Başarılı!',
@@ -161,19 +172,17 @@ void main() {
       home: SessionDetailScreen(session: session),
       overrides: [sessionRepositoryProvider.overrideWithValue(repository)],
     );
-    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(find.text('Push-up'), findsOneWidget);
-    expect(find.textContaining('1 reps counted: 1 were valid'), findsOneWidget);
-    expect(find.textContaining('Feedback: Rep completed!'), findsNothing);
-
-    await _openTechnicalDetails(tester);
-
-    expect(find.textContaining('Feedback: Rep completed!'), findsOneWidget);
+    expect(
+      find.textContaining('1 rep counted · 0 clean · 1 needs review'),
+      findsOneWidget,
+    );
+    expect(find.text('Feedback: Rep completed!'), findsOneWidget);
   });
 
-  testWidgets('shows only the most important recommendation by default', (
+  testWidgets('shows only the most important recommendation', (
     WidgetTester tester,
   ) async {
     final baseSession = buildWorkoutSession(
@@ -224,24 +233,14 @@ void main() {
       ),
       findsNothing,
     );
-    expect(find.text('yetersiz hareket açıklığı'), findsNothing);
-
-    await _openTechnicalDetails(tester);
-
-    expect(
-      find.text(
-        'Tekrarlar arasında hareket açıklığını, gövde kontrolünü ve ritmi daha tutarlı korumaya çalış.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Yetersiz hareket açıklığı'), findsOneWidget);
+    expect(find.textContaining('Yetersiz hareket açıklığı'), findsWidgets);
   });
 
-  testWidgets('shows a short rep timeline and keeps full metrics collapsed', (
+  testWidgets('shows a compact detail row for every rep', (
     WidgetTester tester,
   ) async {
     final session = buildWorkoutSession(
-      id: 'session-short-timeline',
+      id: 'session-clean-overview',
       ownerId: 'owner-1',
       exerciseType: 'squat',
       startedAt: DateTime(2024, 1, 8, 10),
@@ -256,7 +255,6 @@ void main() {
         analysisKind: 'rangeRep',
         validationStatus: 'valid',
         score: 80 + index.toDouble(),
-        minPrimaryMetric: 70 + index.toDouble(),
       ),
     );
 
@@ -266,30 +264,119 @@ void main() {
       overrides: [
         sessionRepositoryProvider.overrideWithValue(
           TestSessionRepository(
-            sessionById: {'session-short-timeline': session},
-            repsBySessionId: {'session-short-timeline': reps},
+            sessionById: {'session-clean-overview': session},
+            repsBySessionId: {'session-clean-overview': reps},
           ),
         ),
       ],
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Deneme 1'), findsOneWidget);
-    expect(find.text('Deneme 5'), findsOneWidget);
-    expect(find.text('Deneme 6'), findsNothing);
-    expect(find.text('2 tekrar daha oturum ayrıntılarında'), findsOneWidget);
+    for (var index = 1; index <= 7; index++) {
+      expect(
+        find.byKey(ValueKey<String>('session-rep-detail-$index')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey<String>('session-rep-metrics-$index')),
+        findsOneWidget,
+      );
+    }
+    expect(find.text('Tüm sayılmış tekrarlar temiz tamamlandı.'), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('session-rep-technical-list')),
-      findsNothing,
-    );
-
-    await _openTechnicalDetails(tester);
-
-    expect(find.text('Deneme 6'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('session-rep-technical-list')),
+      find.byKey(const ValueKey<String>('session-rep-details')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('shows two compact metrics for every rep', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'session-review-only',
+      ownerId: 'owner-1',
+      exerciseType: 'squat',
+      startedAt: DateTime(2024, 1, 8, 10, 30),
+      totalReps: 3,
+      averageScore: 80,
+    );
+    const reps = <WorkoutRep>[
+      WorkoutRep(
+        repIndex: 1,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'valid',
+        score: 90,
+        primaryRom: 84,
+        tempoTotalMillis: 1900,
+      ),
+      WorkoutRep(
+        repIndex: 2,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'lowConfidence',
+        score: 75,
+        primaryRom: 61.5,
+        tempoTotalMillis: 2400,
+      ),
+      WorkoutRep(
+        repIndex: 3,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'valid',
+        score: 100,
+        primaryRom: 78,
+        tempoTotalMillis: 2100,
+      ),
+      WorkoutRep(
+        repIndex: 4,
+        exerciseType: 'squat',
+        analysisKind: 'rangeRep',
+        validationStatus: 'invalid',
+        validationReasons: <String>['incomplete phase'],
+        score: 60,
+        primaryRom: 35,
+        tempoTotalMillis: 900,
+      ),
+    ];
+
+    await pumpTestApp(
+      tester,
+      home: SessionDetailScreen(session: session),
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(
+          TestSessionRepository(
+            sessionById: {'session-review-only': session},
+            repsBySessionId: {'session-review-only': reps},
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    for (var index = 1; index <= 4; index++) {
+      expect(
+        find.byKey(ValueKey<String>('session-rep-detail-$index')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey<String>('session-rep-metrics-$index')),
+        findsOneWidget,
+      );
+    }
+    expect(find.text('84°'), findsNothing);
+    expect(find.text('1,9 sn'), findsOneWidget);
+    expect(find.text('61.5°'), findsNothing);
+    expect(find.text('2,4 sn'), findsOneWidget);
+    expect(find.text('100'), findsOneWidget);
+    expect(find.textContaining('/100'), findsNothing);
+    expect(find.text('Sayılmadı'), findsOneWidget);
+    expect(find.text('Sorun: Eksik faz tamamlanması'), findsOneWidget);
+    expect(
+      find.textContaining('1 deneme tamamlanmadığı için sayılmadı.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('uses hold results without repetition language', (
@@ -320,13 +407,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('0:18'), findsWidgets);
-    expect(find.text('En İyi Tutuş'), findsWidgets);
-    expect(find.text('Tutuş Özeti'), findsOneWidget);
-    expect(find.text('Toplam Tutuş'), findsWidgets);
-    expect(find.text('Form kesintisi'), findsOneWidget);
-    expect(find.text('Kısa tekrar zaman çizelgesi'), findsNothing);
+    expect(find.text('0:18'), findsOneWidget);
+    expect(find.text('En İyi Tutuş'), findsOneWidget);
+    expect(find.text('Toplam Tutuş: 0:42'), findsOneWidget);
+    expect(find.text('Form kesintisi: 2'), findsOneWidget);
     expect(find.text('Tekrar Detayları'), findsNothing);
+    expect(find.textContaining('Sayılmış'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -352,18 +438,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openTechnicalDetails(tester);
-
-    final deleteButton = find.byKey(
-      const ValueKey<String>('session-delete-button'),
-    );
-    await tester.scrollUntilVisible(
-      deleteButton,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(deleteButton);
-    await tester.pumpAndSettle();
+    await _openDeleteDialog(tester);
 
     expect(find.text('Oturum silinsin mi?'), findsOneWidget);
     await tester.tap(
@@ -393,18 +468,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openTechnicalDetails(tester);
-
-    final deleteButton = find.byKey(
-      const ValueKey<String>('session-delete-button'),
-    );
-    await tester.scrollUntilVisible(
-      deleteButton,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(deleteButton);
-    await tester.pumpAndSettle();
+    await _openDeleteDialog(tester);
     await tester.tap(
       find.byKey(const ValueKey<String>('session-delete-cancel')),
     );
@@ -435,18 +499,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openTechnicalDetails(tester);
-
-    final deleteButton = find.byKey(
-      const ValueKey<String>('session-delete-button'),
-    );
-    await tester.scrollUntilVisible(
-      deleteButton,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(deleteButton);
-    await tester.pumpAndSettle();
+    await _openDeleteDialog(tester);
     await tester.tap(
       find.byKey(const ValueKey<String>('session-delete-confirm')),
     );
@@ -459,7 +512,7 @@ void main() {
     expect(repository.deletedSessionIds, isEmpty);
   });
 
-  testWidgets('uses a two-panel report with a rep timeline on wide screens', (
+  testWidgets('uses a two-panel report with rep review on wide screens', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1000, 700));
@@ -507,16 +560,14 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('session-rep-timeline')),
+      find.byKey(const ValueKey<String>('session-rep-details')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('session-rep-technical-list')),
-      findsNothing,
+      find.byKey(const ValueKey<String>('session-rep-detail-2')),
+      findsOneWidget,
     );
-    expect(find.text('Deneme 1'), findsOneWidget);
-    expect(find.text('Deneme 2'), findsOneWidget);
-    expect(find.text('Düşük Güven'), findsWidgets);
+    expect(find.text('İncelenmeli'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -561,7 +612,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows persisted preparation and measurement evidence details', (
+  testWidgets('shows only actionable measurement warnings', (
     WidgetTester tester,
   ) async {
     final session = buildWorkoutSession(
@@ -589,10 +640,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey<String>('session-detail-measurement-evidence')),
-      findsNothing,
-    );
-    expect(
       find.byKey(const ValueKey<String>('session-detail-measurement-warning')),
       findsOneWidget,
     );
@@ -601,17 +648,18 @@ void main() {
     expect(find.text('Manuel geçildi'), findsNothing);
     expect(find.text('%74'), findsNothing);
     expect(find.text('6 ölçüm örneği'), findsNothing);
-
-    await _openTechnicalDetails(tester);
-
     expect(
       find.byKey(const ValueKey<String>('session-detail-measurement-evidence')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Ölçüm kalitesi'), findsOneWidget);
-    expect(find.text('Sınırlı'), findsWidgets);
-    expect(find.text('Manuel geçildi'), findsOneWidget);
-    expect(find.text('%74'), findsOneWidget);
-    expect(find.text('6 ölçüm örneği'), findsOneWidget);
   });
+}
+
+Future<void> _openDeleteDialog(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey<String>('session-actions-menu')));
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byKey(const ValueKey<String>('session-delete-menu-item')),
+  );
+  await tester.pumpAndSettle();
 }

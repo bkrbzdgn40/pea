@@ -43,6 +43,7 @@ void main() {
     expect(AppMotionDurations.fast, const Duration(milliseconds: 140));
     expect(AppMotionDurations.standard, const Duration(milliseconds: 240));
     expect(AppMotionDurations.emphasized, const Duration(milliseconds: 360));
+    expect(AppMotionDurations.deliberate, const Duration(milliseconds: 720));
     expect(AppFontWeights.semibold, FontWeight.w600);
     expect(AppFontWeights.heavy, FontWeight.w800);
     expect(AppTouchTargets.minimum, 48);

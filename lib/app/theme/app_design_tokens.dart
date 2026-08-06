@@ -86,6 +86,7 @@ class AppMotionDurations {
   static const Duration standard = Duration(milliseconds: 240);
   static const Duration emphasized = Duration(milliseconds: 360);
   static const Duration celebration = Duration(milliseconds: 560);
+  static const Duration deliberate = Duration(milliseconds: 720);
 }
 
 class AppMotionCurves {

@@ -12,7 +12,6 @@ import '../../../../app/theme/app_semantic_colors.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
-import '../formatters/measurement_confidence_presentation_formatter.dart';
 import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
@@ -147,17 +146,64 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
     final reps = _reps ?? const <WorkoutRep>[];
     final report = SessionReport.fromSession(session: _session, reps: reps);
+    final viewData = _SessionDetailViewData.fromReport(
+      report: report,
+      reps: reps,
+    );
 
     return AppScaffoldShell(
       title: localizations.sessionReport,
       showDrawer: false,
+      actions: <Widget>[
+        if (_isDeleting)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else
+          PopupMenuButton<String>(
+            key: const ValueKey<String>('session-actions-menu'),
+            tooltip: localizations.sessionActions,
+            onSelected: (value) {
+              if (value == 'delete') {
+                unawaited(_confirmAndDeleteSession());
+              }
+            },
+            itemBuilder: (_) => <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                key: const ValueKey<String>('session-delete-menu-item'),
+                value: 'delete',
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.delete_outline_rounded, color: colors.danger),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      localizations.deleteSession,
+                      style: TextStyle(color: colors.danger),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+      ],
       padding: EdgeInsets.zero,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final layout = AppLayout.of(context, constraints: constraints);
-          return _buildContent(layout: layout, report: report);
+          return _buildContent(
+            layout: layout,
+            report: report,
+            viewData: viewData,
+          );
         },
       ),
     );
@@ -166,9 +212,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   Widget _buildContent({
     required AppLayout layout,
     required SessionReport report,
+    required _SessionDetailViewData viewData,
   }) {
     final useWideLayout =
-        layout.viewportSize.width >= 760 && !layout.hasLargeText;
+        layout.viewportSize.width >= 760 &&
+        !layout.hasLargeText &&
+        !report.isHoldSession;
     final measurementWarning = _buildMeasurementWarning();
 
     if (!useWideLayout) {
@@ -178,15 +227,15 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ..._primaryContent(report),
+            ..._primaryContent(report, viewData),
             if (measurementWarning != null) ...[
               SizedBox(height: layout.panelGap),
               measurementWarning,
             ],
-            SizedBox(height: layout.panelGap),
-            _buildTimelineOverview(report),
-            SizedBox(height: layout.panelGap),
-            _buildTechnicalDetails(report),
+            if (!report.isHoldSession) ...[
+              SizedBox(height: layout.panelGap),
+              _buildRepReview(),
+            ],
           ],
         ),
       );
@@ -205,13 +254,11 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ..._primaryContent(report),
+                  ..._primaryContent(report, viewData),
                   if (measurementWarning != null) ...[
                     SizedBox(height: layout.panelGap),
                     measurementWarning,
                   ],
-                  SizedBox(height: layout.panelGap),
-                  _buildTechnicalDetails(report),
                 ],
               ),
             ),
@@ -221,7 +268,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             flex: 6,
             child: SingleChildScrollView(
               key: const ValueKey<String>('session-detail-reps-scroll'),
-              child: _buildTimelineOverview(report),
+              child: _buildRepReview(),
             ),
           ),
         ],
@@ -229,11 +276,18 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     );
   }
 
-  List<Widget> _primaryContent(SessionReport report) {
+  List<Widget> _primaryContent(
+    SessionReport report,
+    _SessionDetailViewData viewData,
+  ) {
     return <Widget>[
-      _SessionSummaryCard(session: _session, report: report),
+      _SessionSummaryCard(
+        session: _session,
+        report: report,
+        viewData: viewData,
+      ),
       const SizedBox(height: AppSpacing.sm),
-      _PrimaryResultCard(report: report),
+      _PrimaryResultCard(report: report, viewData: viewData),
       const SizedBox(height: AppSpacing.sm),
       _PrimaryRecommendationCard(report: report),
     ];
@@ -254,110 +308,13 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     );
   }
 
-  Widget _buildTimelineOverview(SessionReport report) {
-    return _SessionTimelineCard(
-      report: report,
-      reps: _reps,
-      isLoading: _isLoadingRepDetails,
-      hasLoadError: _repLoadFailed,
-      onRetry: _loadSessionDetails,
-    );
-  }
-
-  Widget _buildRepDetails() {
-    return _RepDetailsCard(
-      reps: _reps,
+  Widget _buildRepReview() {
+    return _SessionRepReviewCard(
       exerciseId: _session.exerciseType,
+      reps: _reps,
       isLoading: _isLoadingRepDetails,
       hasLoadError: _repLoadFailed,
       onRetry: _loadSessionDetails,
-    );
-  }
-
-  Widget _buildTechnicalDetails(SessionReport report) {
-    final localizations = AppLocalizations.of(context);
-    final colors = context.semanticColors;
-
-    return AppSurfaceCard(
-      padding: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      variant: AppSurfaceVariant.strong,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          key: const ValueKey<String>('session-detail-technical-details'),
-          tilePadding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            0,
-            AppSpacing.md,
-            AppSpacing.md,
-          ),
-          iconColor: colors.analysisAccent,
-          collapsedIconColor: colors.foregroundMuted,
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: colors.analysisAccent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(AppRadii.small),
-            ),
-            child: Icon(
-              Icons.tune_rounded,
-              color: colors.analysisAccent,
-              size: 21,
-            ),
-          ),
-          title: Text(
-            localizations.summaryTechnicalDetails,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colors.foreground,
-              fontWeight: AppFontWeights.heavy,
-            ),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xxs),
-            child: Text(
-              localizations.summaryTechnicalDetailsHint,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.foregroundMuted,
-                height: 1.35,
-              ),
-            ),
-          ),
-          children: [
-            _MeasurementEvidenceCard(session: _session, showWarning: false),
-            const SizedBox(height: AppSpacing.sm),
-            _OverviewCard(session: _session, report: report),
-            const SizedBox(height: AppSpacing.sm),
-            _ReportSummaryCard(report: report),
-            if (report.recommendations.length > 1) ...[
-              const SizedBox(height: AppSpacing.sm),
-              _RecommendationsCard(report: report, skipPrimary: true),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            _buildRepDetails(),
-            const SizedBox(height: AppSpacing.md),
-            _buildDeleteAction(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDeleteAction() {
-    final localizations = AppLocalizations.of(context);
-    return AppButton(
-      key: const ValueKey<String>('session-delete-button'),
-      label: _isDeleting ? localizations.deleting : localizations.deleteSession,
-      onPressed: _isDeleting ? null : _confirmAndDeleteSession,
-      icon: Icons.delete_outline_rounded,
-      variant: AppButtonVariant.danger,
-      isLoading: _isDeleting,
-      expand: true,
     );
   }
 
@@ -373,11 +330,57 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   }
 }
 
+class _SessionDetailViewData {
+  const _SessionDetailViewData({
+    required this.cleanCount,
+    required this.reviewCount,
+  });
+
+  factory _SessionDetailViewData.fromReport({
+    required SessionReport report,
+    required List<WorkoutRep> reps,
+  }) {
+    if (report.isHoldSession) {
+      return const _SessionDetailViewData(cleanCount: 0, reviewCount: 0);
+    }
+
+    if (reps.isEmpty) {
+      final reviewCount = report.lowConfidenceReps + report.unknownReps;
+      return _SessionDetailViewData(
+        cleanCount: _nonNegative(report.totalReps - reviewCount),
+        reviewCount: reviewCount,
+      );
+    }
+
+    final countedReps = reps
+        .where((rep) => !rep.isValidatedAsInvalid)
+        .toList(growable: false);
+    final countedReviewCount = countedReps.where(_repNeedsReview).length;
+    final summaryReviewCount = report.lowConfidenceReps + report.unknownReps;
+    final reviewCount = countedReviewCount > summaryReviewCount
+        ? countedReviewCount
+        : summaryReviewCount;
+
+    return _SessionDetailViewData(
+      cleanCount: _nonNegative(report.totalReps - reviewCount),
+      reviewCount: reviewCount,
+    );
+  }
+
+  final int cleanCount;
+  final int reviewCount;
+}
+
 class _SessionSummaryCard extends StatelessWidget {
-  const _SessionSummaryCard({required this.session, required this.report});
+  const _SessionSummaryCard({
+    required this.session,
+    required this.report,
+    required this.viewData,
+  });
 
   final WorkoutSession session;
   final SessionReport report;
+  final _SessionDetailViewData viewData;
 
   @override
   Widget build(BuildContext context) {
@@ -385,24 +388,37 @@ class _SessionSummaryCard extends StatelessWidget {
     final colors = context.semanticColors;
     final tone = sessionResultTone(session);
     final accent = tone.resolveColor(colors);
-    final chips = <MapEntry<String, String>>[
-      MapEntry(
-        localizations.analysis,
-        _analysisKindLabel(localizations, session.analysisKind),
-      ),
-      MapEntry(
-        localizations.duration,
-        WorkoutPresentationFormatter.duration(session.duration),
-      ),
-      MapEntry(
-        report.isHoldSession
-            ? localizations.totalHold
-            : localizations.totalReps,
-        report.isHoldSession
-            ? WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds)
-            : report.totalReps.toString(),
-      ),
-    ];
+    final chips = report.isHoldSession
+        ? <MapEntry<String, String>>[
+            MapEntry(
+              localizations.duration,
+              WorkoutPresentationFormatter.duration(session.duration),
+            ),
+            MapEntry(
+              localizations.totalHold,
+              WorkoutPresentationFormatter.holdDuration(
+                report.totalHoldSeconds,
+              ),
+            ),
+            if (report.formBreakCount > 0)
+              MapEntry(
+                localizations.formBreaks,
+                report.formBreakCount.toString(),
+              ),
+          ]
+        : <MapEntry<String, String>>[
+            MapEntry(localizations.countedReps, report.totalReps.toString()),
+            MapEntry(localizations.cleanReps, viewData.cleanCount.toString()),
+            if (viewData.reviewCount > 0)
+              MapEntry(
+                localizations.repsToReview,
+                viewData.reviewCount.toString(),
+              ),
+            MapEntry(
+              localizations.duration,
+              WorkoutPresentationFormatter.duration(session.duration),
+            ),
+          ];
 
     return AppSurfaceCard(
       key: const ValueKey<String>('session-detail-hero'),
@@ -476,9 +492,10 @@ class _SessionSummaryCard extends StatelessWidget {
 }
 
 class _PrimaryResultCard extends StatelessWidget {
-  const _PrimaryResultCard({required this.report});
+  const _PrimaryResultCard({required this.report, required this.viewData});
 
   final SessionReport report;
+  final _SessionDetailViewData viewData;
 
   @override
   Widget build(BuildContext context) {
@@ -494,8 +511,8 @@ class _PrimaryResultCard extends StatelessWidget {
     final label = isHold
         ? localizations.bestHold
         : hasScore
-        ? localizations.averageFormRangeScore
-        : localizations.totalReps;
+        ? localizations.movementQuality
+        : localizations.countedReps;
 
     return _SectionCard(
       key: const ValueKey<String>('session-detail-primary-result'),
@@ -522,7 +539,7 @@ class _PrimaryResultCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            localizedSessionReportSummary(localizations, report),
+            _localizedPrimarySummary(localizations, report, viewData),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: colors.foregroundMuted,
               height: 1.4,
@@ -558,216 +575,16 @@ class _PrimaryRecommendationCard extends StatelessWidget {
   }
 }
 
-class _MeasurementEvidenceCard extends StatelessWidget {
-  const _MeasurementEvidenceCard({
-    required this.session,
-    this.showWarning = true,
-  });
-
-  final WorkoutSession session;
-  final bool showWarning;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final confidence = SessionMeasurementEvidencePresenter.confidenceLabel(
-      session.averageMeasurementConfidence,
-    );
-    final metrics = <MapEntry<String, String>>[
-      MapEntry(
-        localizations.measurementQuality,
-        SessionMeasurementEvidencePresenter.qualityLabel(
-          localizations,
-          session.measurementQuality,
-        ),
-      ),
-      MapEntry(
-        localizations.preparationCheck,
-        SessionMeasurementEvidencePresenter.preparationLabel(
-          localizations,
-          session.preparationOutcome,
-        ),
-      ),
-      if (confidence != null)
-        MapEntry(localizations.averageMeasurementConfidence, confidence),
-      if (session.measurementSampleCount > 0)
-        MapEntry(
-          localizations.measurementEvidence,
-          localizations.measurementSampleCount(session.measurementSampleCount),
-        ),
-    ];
-
-    return _SectionCard(
-      key: const ValueKey<String>('session-detail-measurement-evidence'),
-      title: localizations.measurementEvidence,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showWarning &&
-              SessionMeasurementEvidencePresenter.shouldShowWarning(
-                session,
-              )) ...[
-            SessionMeasurementEvidenceNotice(
-              key: const ValueKey<String>('session-detail-measurement-warning'),
-              session: session,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const spacing = AppSpacing.xs;
-              final columnCount = constraints.maxWidth < 340 ? 1 : 2;
-              final tileWidth =
-                  (constraints.maxWidth - spacing * (columnCount - 1)) /
-                  columnCount;
-
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: [
-                  for (final metric in metrics)
-                    SizedBox(
-                      width: tileWidth,
-                      child: _MetricTile(
-                        label: metric.key,
-                        value: metric.value,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({required this.session, required this.report});
-
-  final WorkoutSession session;
-  final SessionReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final metrics = _overviewMetrics(
-      localizations: localizations,
-      session: session,
-      report: report,
-    );
-
-    return _SectionCard(
-      title: report.isHoldSession
-          ? localizations.holdSummary
-          : localizations.scoreView,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 10.0;
-          final columnCount = constraints.maxWidth < 340 ? 1 : 2;
-          final tileWidth =
-              (constraints.maxWidth - spacing * (columnCount - 1)) /
-              columnCount;
-
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: metrics
-                .map(
-                  (metric) => SizedBox(
-                    width: tileWidth,
-                    child: _MetricTile(label: metric.key, value: metric.value),
-                  ),
-                )
-                .toList(growable: false),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ReportSummaryCard extends StatelessWidget {
-  const _ReportSummaryCard({required this.report});
-
-  final SessionReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final issues = localizedSessionReportIssues(localizations, report);
-
-    return _SectionCard(
-      title: localizations.reportSummary,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            localizedSessionReportSummary(localizations, report),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-          if (issues.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: issues
-                  .map((issue) => _IssueChip(label: issue))
-                  .toList(growable: false),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RecommendationsCard extends StatelessWidget {
-  const _RecommendationsCard({required this.report, this.skipPrimary = false});
-
-  final SessionReport report;
-  final bool skipPrimary;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final allRecommendations = localizedSessionReportRecommendations(
-      localizations,
-      report,
-    );
-    final recommendations = skipPrimary
-        ? allRecommendations.skip(1).toList(growable: false)
-        : allRecommendations;
-
-    return _SectionCard(
-      title: localizations.recommendations,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: recommendations
-            .map((recommendation) => _RecommendationRow(text: recommendation))
-            .toList(growable: false),
-      ),
-    );
-  }
-}
-
-class _SessionTimelineCard extends StatelessWidget {
-  const _SessionTimelineCard({
-    required this.report,
+class _SessionRepReviewCard extends StatelessWidget {
+  const _SessionRepReviewCard({
+    required this.exerciseId,
     required this.reps,
     required this.isLoading,
     required this.hasLoadError,
     required this.onRetry,
   });
 
-  static const int _visibleRepLimit = 5;
-
-  final SessionReport report;
+  final String exerciseId;
   final List<WorkoutRep>? reps;
   final bool isLoading;
   final bool hasLoadError;
@@ -776,56 +593,12 @@ class _SessionTimelineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-
-    if (report.isHoldSession) {
-      final metrics = <MapEntry<String, String>>[
-        MapEntry(
-          localizations.totalHold,
-          WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds),
-        ),
-        MapEntry(
-          localizations.bestHold,
-          WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds),
-        ),
-        MapEntry(localizations.formBreaks, report.formBreakCount.toString()),
-      ];
-
-      return _SectionCard(
-        key: const ValueKey<String>('session-detail-short-timeline'),
-        title: localizations.holdSummary,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const spacing = AppSpacing.xs;
-            final columnCount = constraints.maxWidth < 340 ? 1 : 2;
-            final tileWidth =
-                (constraints.maxWidth - spacing * (columnCount - 1)) /
-                columnCount;
-
-            return Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: [
-                for (final metric in metrics)
-                  SizedBox(
-                    width: tileWidth,
-                    child: _MetricTile(label: metric.key, value: metric.value),
-                  ),
-              ],
-            );
-          },
-        ),
-      );
-    }
-
+    final colors = context.semanticColors;
     final hasReps = reps != null && reps!.isNotEmpty;
-    final visibleReps = hasReps
-        ? reps!.take(_visibleRepLimit).toList(growable: false)
-        : const <WorkoutRep>[];
-    final hiddenRepCount = hasReps ? reps!.length - visibleReps.length : 0;
 
     return _SectionCard(
-      key: const ValueKey<String>('session-detail-short-timeline'),
-      title: localizations.sessionTimeline,
+      key: const ValueKey<String>('session-detail-rep-review'),
+      title: localizations.repDetails,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -871,25 +644,15 @@ class _SessionTimelineCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
             ],
             ListView.separated(
-              key: const ValueKey<String>('session-rep-timeline'),
+              key: const ValueKey<String>('session-rep-details'),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: visibleReps.length,
-              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
+              itemCount: reps!.length,
+              separatorBuilder: (_, _) =>
+                  Divider(height: 1, indent: 40, color: colors.outlineSubtle),
               itemBuilder: (context, index) =>
-                  _CompactRepTimelineItem(rep: visibleReps[index]),
+                  _RepDetailCard(rep: reps![index], exerciseId: exerciseId),
             ),
-            if (hiddenRepCount > 0) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                localizations.moreRepsInSessionDetails(hiddenRepCount),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.semanticColors.foregroundMuted,
-                  height: 1.35,
-                ),
-              ),
-            ],
           ],
         ],
       ),
@@ -897,42 +660,56 @@ class _SessionTimelineCard extends StatelessWidget {
   }
 }
 
-class _CompactRepTimelineItem extends StatelessWidget {
-  const _CompactRepTimelineItem({required this.rep});
+class _RepDetailCard extends StatelessWidget {
+  const _RepDetailCard({required this.rep, required this.exerciseId});
 
   final WorkoutRep rep;
+  final String exerciseId;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
-    final tone = repStatusTone(rep);
+    final tone = _repDisplayTone(rep);
     final accent = tone.resolveColor(colors);
+    final needsReview = _repNeedsReview(rep);
+    final issue = needsReview
+        ? _primaryUserFacingIssue(localizations, rep)
+        : null;
+    final feedback =
+        !needsReview || rep.feedback == null || rep.feedback!.trim().isEmpty
+        ? null
+        : localizeStoredWorkoutFeedback(
+            feedback: rep.feedback!,
+            exerciseId: exerciseId,
+            localizations: localizations,
+          );
+    final title = rep.isValidatedAsInvalid
+        ? localizations.attemptNumber(rep.repIndex)
+        : localizations.repNumber(rep.repIndex);
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppRadii.small),
-        border: Border.all(color: colors.outlineSubtle),
-      ),
+    return Padding(
+      key: ValueKey<String>('session-rep-detail-${rep.repIndex}'),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: accent.withValues(alpha: AppOpacity.subtle),
-              border: Border.all(
-                color: accent.withValues(alpha: AppOpacity.strongBorder),
-              ),
+              color: needsReview
+                  ? accent.withValues(alpha: AppOpacity.subtle)
+                  : colors.surfaceMuted,
             ),
             child: Text(
               '${rep.repIndex}',
-              style: TextStyle(color: accent, fontWeight: AppFontWeights.heavy),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: needsReview ? accent : colors.foregroundMuted,
+                fontWeight: AppFontWeights.heavy,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -940,35 +717,66 @@ class _CompactRepTimelineItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  localizations.attemptNumber(rep.repIndex),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colors.foreground,
-                    fontWeight: AppFontWeights.heavy,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                Row(
                   children: [
-                    AppStatusChip(
-                      label: _repStatusLabel(localizations, rep),
-                      tone: tone,
-                      showIcon: true,
-                    ),
-                    if (rep.score != null)
-                      Text(
-                        '${localizations.score}: '
-                        '${WorkoutPresentationFormatter.compactScore(rep.score!)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.foregroundMuted,
-                          fontWeight: AppFontWeights.semibold,
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colors.foreground,
+                          fontWeight: AppFontWeights.bold,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: _RepStatusIndicator(
+                        label: _repDisplayStatusLabel(localizations, rep),
+                        tone: tone,
+                      ),
+                    ),
                   ],
                 ),
+                const SizedBox(height: AppSpacing.xs),
+                _RepMetricStrip(rep: rep),
+                if (issue != null || feedback != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.only(left: AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      border: Border(left: BorderSide(color: accent, width: 2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (issue != null)
+                          Text(
+                            localizations.repIssue(issue),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colors.foregroundMuted,
+                                  height: 1.35,
+                                  fontWeight: AppFontWeights.medium,
+                                ),
+                          ),
+                        if (feedback != null) ...[
+                          if (issue != null)
+                            const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            localizations.feedbackLabel(feedback),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colors.foregroundSubtle,
+                                  height: 1.35,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -978,256 +786,118 @@ class _CompactRepTimelineItem extends StatelessWidget {
   }
 }
 
-class _RepDetailsCard extends StatelessWidget {
-  const _RepDetailsCard({
-    required this.reps,
-    required this.exerciseId,
-    required this.isLoading,
-    required this.hasLoadError,
-    required this.onRetry,
-  });
+class _RepStatusIndicator extends StatelessWidget {
+  const _RepStatusIndicator({required this.label, required this.tone});
 
-  final List<WorkoutRep>? reps;
-  final String exerciseId;
-  final bool isLoading;
-  final bool hasLoadError;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final hasReps = reps != null && reps!.isNotEmpty;
-
-    return _SectionCard(
-      title: localizations.repDetails,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (!hasReps && hasLoadError)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppFeedbackBanner(
-                  message: localizations.repDetailsLoadFailed,
-                  tone: AppStatusTone.caution,
-                  icon: Icons.cloud_off_rounded,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: localizations.retry,
-                  onPressed: () => unawaited(onRetry()),
-                  icon: Icons.refresh_rounded,
-                  variant: AppButtonVariant.outline,
-                  expand: true,
-                ),
-              ],
-            )
-          else if (!hasReps)
-            AppFeedbackBanner(
-              message: localizations.noRepDetails,
-              tone: AppStatusTone.neutral,
-              icon: Icons.format_list_numbered_rounded,
-            )
-          else ...[
-            if (hasLoadError) ...[
-              AppFeedbackBanner(
-                message: localizations.showingCachedRepDetails,
-                tone: AppStatusTone.caution,
-                icon: Icons.offline_bolt_outlined,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            ListView.builder(
-              key: const ValueKey<String>('session-rep-technical-list'),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: reps!.length,
-              itemBuilder: (context, index) {
-                return _RepTimelineItem(
-                  rep: reps![index],
-                  exerciseId: exerciseId,
-                  isLast: index == reps!.length - 1,
-                );
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RepTimelineItem extends StatelessWidget {
-  const _RepTimelineItem({
-    required this.rep,
-    required this.exerciseId,
-    required this.isLast,
-  });
-
-  final WorkoutRep rep;
-  final String exerciseId;
-  final bool isLast;
+  final String label;
+  final AppStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.semanticColors;
-    final tone = repStatusTone(rep);
     final accent = tone.resolveColor(colors);
+    final icon = switch (tone) {
+      AppStatusTone.danger => Icons.close_rounded,
+      AppStatusTone.caution => Icons.priority_high_rounded,
+      _ => Icons.check_rounded,
+    };
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 36,
-            child: Column(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: accent.withValues(alpha: AppOpacity.subtle),
-                    border: Border.all(
-                      color: accent.withValues(alpha: AppOpacity.strongBorder),
-                    ),
-                  ),
-                  child: Text(
-                    '${rep.repIndex}',
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 11,
-                      fontWeight: AppFontWeights.heavy,
-                    ),
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: colors.outlineSubtle,
-                    ),
-                  ),
-              ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Icon(icon, size: 17, color: accent),
+        const SizedBox(width: AppSpacing.xxs),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: accent,
+              fontWeight: AppFontWeights.semibold,
             ),
           ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.sm),
-              child: _RepTile(rep: rep, exerciseId: exerciseId),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _RepTile extends StatelessWidget {
-  const _RepTile({required this.rep, required this.exerciseId});
+class _RepMetricStrip extends StatelessWidget {
+  const _RepMetricStrip({required this.rep});
 
   final WorkoutRep rep;
-  final String exerciseId;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final detailMetrics = <MapEntry<String, String>>[
-      MapEntry(localizations.status, _repStatusLabel(localizations, rep)),
-      MapEntry(localizations.formRangeScore, _formatOptionalScore(rep.score)),
-      MapEntry(
-        localizations.measurementConfidence,
-        MeasurementConfidencePresentationFormatter.percentage(
-          localizations,
-          rep.effectiveMeasurementConfidence?.combined,
-        ),
-      ),
-      MapEntry(
-        localizations.side,
-        _formatSideLabel(localizations, rep.selectedSideLabel),
-      ),
-      MapEntry(
-        localizations.primaryMetric,
-        _formatOptionalMetric(rep.minPrimaryMetric),
-      ),
-      MapEntry(
-        localizations.worstForm,
-        _formatOptionalMetric(rep.worstFormMetric),
-      ),
-    ];
+    final colors = context.semanticColors;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.black38,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-      ),
+    return Row(
+      key: ValueKey<String>('session-rep-metrics-${rep.repIndex}'),
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: _RepMetricCell(
+            label: localizations.repQuality,
+            value: _formatRepScore(rep),
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 34,
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          color: colors.outlineSubtle,
+        ),
+        Expanded(
+          child: _RepMetricCell(
+            label: localizations.repTempo,
+            value: _formatRepTempo(localizations, rep),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RepMetricCell extends StatelessWidget {
+  const _RepMetricCell({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
+    return Semantics(
+      label: '$label: $value',
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  localizations.attemptNumber(rep.repIndex),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              AppStatusChip(
-                label: _repStatusLabel(localizations, rep),
-                tone: repStatusTone(rep),
-                showIcon: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: detailMetrics
-                .map(
-                  (metric) =>
-                      _RepMetricPill(label: metric.key, value: metric.value),
-                )
-                .toList(growable: false),
-          ),
-          if (rep.primaryValidationReason != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              localizations.primaryIssue(
-                _formatIssueLabel(localizations, rep.primaryValidationReason!),
-              ),
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            softWrap: false,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+              height: 1.05,
             ),
-          ],
-          if (rep.feedback != null && rep.feedback!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              localizations.feedbackLabel(
-                localizeStoredWorkoutFeedback(
-                  feedback: rep.feedback!,
-                  exerciseId: exerciseId,
-                  localizations: localizations,
-                ),
-              ),
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colors.foregroundSubtle,
+              fontWeight: AppFontWeights.semibold,
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -1263,22 +933,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppMetricTile(
-      label: label,
-      value: value,
-      tone: AppStatusTone.accent,
-    );
-  }
-}
-
 class _SummaryChip extends StatelessWidget {
   const _SummaryChip({required this.label, required this.value});
 
@@ -1295,21 +949,6 @@ class _SummaryChip extends StatelessWidget {
   }
 }
 
-class _IssueChip extends StatelessWidget {
-  const _IssueChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppStatusChip(
-      label: label,
-      tone: AppStatusTone.danger,
-      icon: Icons.report_problem_outlined,
-    );
-  }
-}
-
 class _RecommendationRow extends StatelessWidget {
   const _RecommendationRow({required this.text});
 
@@ -1317,171 +956,134 @@ class _RecommendationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(
-              Icons.subdirectory_arrow_right_rounded,
-              color: AppColors.analysisAccent,
-              size: 18,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Icon(
+            Icons.subdirectory_arrow_right_rounded,
+            color: AppColors.analysisAccent,
+            size: 18,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RepMetricPill extends StatelessWidget {
-  const _RepMetricPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.semanticColors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineSubtle),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(color: colors.foregroundSubtle, fontSize: 11),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              color: colors.foreground,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-List<MapEntry<String, String>> _overviewMetrics({
-  required AppLocalizations localizations,
-  required WorkoutSession session,
-  required SessionReport report,
-}) {
-  if (report.isHoldSession) {
-    return <MapEntry<String, String>>[
-      MapEntry(
-        localizations.duration,
-        WorkoutPresentationFormatter.duration(session.duration),
-      ),
-      MapEntry(
-        localizations.totalHold,
-        WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds),
-      ),
-      MapEntry(
-        localizations.bestHold,
-        WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds),
-      ),
-      MapEntry(localizations.formBreaks, report.formBreakCount.toString()),
-    ];
-  }
-
-  final metrics = <MapEntry<String, String>>[
-    MapEntry(localizations.totalReps, report.totalReps.toString()),
-    MapEntry(localizations.valid, report.validReps.toString()),
-    if (report.lowConfidenceReps > 0)
-      MapEntry(
-        localizations.lowConfidence,
-        report.lowConfidenceReps.toString(),
-      ),
-    MapEntry(localizations.invalid, report.invalidReps.toString()),
-    if (report.unknownReps > 0)
-      MapEntry(localizations.uncertain, report.unknownReps.toString()),
-    MapEntry(
-      localizations.averageMeasurementConfidence,
-      MeasurementConfidencePresentationFormatter.percentage(
-        localizations,
-        MeasurementConfidencePresentationFormatter.averageKnown(
-          session.reps ?? const [],
         ),
-      ),
-    ),
-    MapEntry(
-      localizations.averageFormRangeScore,
-      report.hasScoreData
-          ? WorkoutPresentationFormatter.compactScore(report.averageScore)
-          : '--',
-    ),
-    MapEntry(
-      localizations.bestFormRangeScore,
-      report.hasScoreData
-          ? WorkoutPresentationFormatter.compactScore(report.bestScore)
-          : '--',
-    ),
-    MapEntry(
-      localizations.lowestFormRangeScore,
-      report.hasScoreData
-          ? WorkoutPresentationFormatter.compactScore(report.worstScore)
-          : '--',
-    ),
-    MapEntry(localizations.formWarnings, report.formWarningCount.toString()),
-  ];
-
-  if (report.formViolationCount > 0) {
-    metrics.add(
-      MapEntry(
-        localizations.formViolations,
-        report.formViolationCount.toString(),
-      ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
-  if (report.coverageDropCount > 0) {
-    metrics.add(
-      MapEntry(
-        localizations.visibilityLoss,
-        report.coverageDropCount.toString(),
-      ),
-    );
-  }
-  if (report.sideSwitchCount > 0) {
-    metrics.add(
-      MapEntry(localizations.sideChanges, report.sideSwitchCount.toString()),
-    );
-  }
-
-  return metrics;
 }
 
-String _repStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
-  return switch (rep.validationStatus) {
-    'valid' => localizations.valid,
-    'low confidence' || 'lowConfidence' => localizations.lowConfidence,
-    'invalid' => localizations.invalid,
-    _ => localizations.uncertain,
-  };
+bool _repNeedsReview(WorkoutRep rep) {
+  return !rep.isValidatedAsValid ||
+      _userFacingValidationReasons(rep).isNotEmpty ||
+      rep.hadFormViolation ||
+      rep.hadCoverageDrop ||
+      rep.switchedSideDuringRep;
+}
+
+List<String> _userFacingValidationReasons(WorkoutRep rep) {
+  return rep.validationReasons
+      .where((reason) => !_isQuarantinedTempoReason(reason))
+      .toList(growable: false);
+}
+
+bool _isQuarantinedTempoReason(String reason) {
+  return reason == 'excessive descent speed' ||
+      reason == 'excessiveDescentSpeed' ||
+      reason == 'excessive ascent speed' ||
+      reason == 'excessiveAscentSpeed' ||
+      reason == 'excessive rep speed' ||
+      reason == 'excessiveRepSpeed';
+}
+
+String? _primaryUserFacingIssue(
+  AppLocalizations localizations,
+  WorkoutRep rep,
+) {
+  final reasons = _userFacingValidationReasons(rep);
+  if (reasons.isNotEmpty) {
+    return _formatIssueLabel(localizations, reasons.first);
+  }
+  if (rep.hadCoverageDrop) {
+    return localizations.coverageLoss;
+  }
+  if (rep.switchedSideDuringRep) {
+    return localizations.sideSwitchDuringRep;
+  }
+  if (rep.hadFormViolation) {
+    return localizations.persistentFormBreak;
+  }
+  return null;
+}
+
+AppStatusTone _repDisplayTone(WorkoutRep rep) {
+  if (rep.isValidatedAsInvalid) {
+    return AppStatusTone.danger;
+  }
+  if (_repNeedsReview(rep)) {
+    return AppStatusTone.caution;
+  }
+  return AppStatusTone.success;
+}
+
+String _repDisplayStatusLabel(AppLocalizations localizations, WorkoutRep rep) {
+  if (rep.isValidatedAsInvalid) {
+    return localizations.notCounted;
+  }
+  if (_repNeedsReview(rep)) {
+    return localizations.repsToReview;
+  }
+  return localizations.cleanReps;
+}
+
+String _formatRepScore(WorkoutRep rep) {
+  final score = rep.score;
+  return score == null ? '—' : WorkoutPresentationFormatter.compactScore(score);
+}
+
+String _formatRepTempo(AppLocalizations localizations, WorkoutRep rep) {
+  final duration = rep.observedDuration;
+  if (duration == null || duration.inMilliseconds <= 0) {
+    return '—';
+  }
+
+  final seconds = duration.inMilliseconds / 1000;
+  var value = seconds.toStringAsFixed(
+    seconds == seconds.roundToDouble() ? 0 : 1,
+  );
+  if (localizations.isTurkish) {
+    value = value.replaceAll('.', ',');
+  }
+  return localizations.repTempoValue(value);
+}
+
+String _localizedPrimarySummary(
+  AppLocalizations localizations,
+  SessionReport report,
+  _SessionDetailViewData viewData,
+) {
+  if (report.isHoldSession || !report.hasRepDetails || report.totalReps <= 0) {
+    return localizedSessionReportSummary(localizations, report);
+  }
+
+  final issues = localizedSessionReportIssues(localizations, report);
+  return localizations.sessionReportRangeSummary(
+    totalReps: report.totalReps,
+    cleanReps: viewData.cleanCount,
+    reviewReps: viewData.reviewCount,
+    invalidReps: report.invalidReps,
+    topIssue: issues.isEmpty ? null : issues.first,
+  );
 }
 
 String _sessionResultLabel(
@@ -1497,47 +1099,10 @@ String _sessionResultLabel(
   };
 }
 
-String _analysisKindLabel(AppLocalizations localizations, String analysisKind) {
-  return switch (analysisKind) {
-    'hold' => 'Hold',
-    'rangeRep' => localizations.rangeRep,
-    _ => analysisKind,
-  };
-}
-
-String _formatOptionalScore(double? score) {
-  if (score == null) {
-    return '--';
-  }
-
-  return WorkoutPresentationFormatter.compactScore(score);
-}
-
-String _formatOptionalMetric(double? value) {
-  if (value == null) {
-    return '--';
-  }
-
-  return value.toStringAsFixed(1);
-}
-
-String _formatSideLabel(AppLocalizations localizations, String? value) {
-  return switch (value) {
-    'left' => localizations.left,
-    'right' => localizations.right,
-    null => '--',
-    _ => value,
-  };
-}
-
 String _formatIssueLabel(AppLocalizations localizations, String value) {
   switch (value) {
     case 'insufficient rom':
       return localizations.insufficientRangeOfMotion;
-    case 'excessive descent speed':
-    case 'excessive ascent speed':
-    case 'excessive rep speed':
-      return localizations.tempoMeasurementUnavailable;
     case 'persistent form break':
       return localizations.persistentFormBreak;
     case 'coverage loss':
@@ -1550,3 +1115,5 @@ String _formatIssueLabel(AppLocalizations localizations, String value) {
       return value;
   }
 }
+
+int _nonNegative(int value) => value < 0 ? 0 : value;

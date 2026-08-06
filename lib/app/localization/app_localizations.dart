@@ -1014,56 +1014,69 @@ class AppLocalizations {
   );
 
   // How to use
-  String get quickFlow => pick(tr: 'Kısa Akış', en: 'Quick Flow');
-  String get smallTips => pick(tr: 'Küçük İpuçları', en: 'Quick Tips');
-  String get howToUseIntroTitle => pick(
-    tr: 'Antrenmanını daha okunur hale getir',
-    en: 'Make your workout easier to understand',
-  );
-  String get howToUseIntroBody => pick(
-    tr: 'Bu uygulama, hareket formunu kameradan takip ederek tekrar, skor ve temel geri bildirim üretir. Oturum sonunda sonuçlarını kaydeder, böylece ilerlemeni sonradan inceleyebilirsin.',
-    en: 'This app tracks your movement form through the camera to produce rep counts, scores, and basic feedback. It saves your results at the end of the session so you can review your progress later.',
-  );
   String get chooseExerciseStep =>
-      pick(tr: 'Hareketi seç', en: 'Choose an exercise');
+      pick(tr: 'Egzersiz seç', en: 'Choose an exercise');
   String get chooseExerciseStepBody => pick(
-    tr: 'Analiz için hazır olan hareketle devam et.',
-    en: 'Continue with an exercise that is ready for analysis.',
+    tr: 'Canlı analiz için listeden başlamak istediğin hareketi seç.',
+    en: 'Pick the movement you want to start with from the exercise list.',
   );
-  String get positionCameraStep =>
-      pick(tr: 'Kamerayı konumla', en: 'Position the camera');
-  String get positionCameraStepBody => pick(
-    tr: 'Vücudun kadrajda net görünsün, telefon sabit kalsın.',
-    en: 'Keep your whole body clearly visible and the phone stable.',
+  String get placePhoneStep =>
+      pick(tr: 'Telefonu yerleştir', en: 'Place the phone');
+  String get placePhoneStepBody => pick(
+    tr: 'Telefonu sabit bir zemine koy ve tüm vücudu görecek açı ayarla.',
+    en: 'Place the phone on a stable surface and aim it so it can see your full body.',
+  );
+  String get enterFrameStep => pick(tr: 'Kadraja gir', en: 'Step into frame');
+  String get enterFrameStepBody => pick(
+    tr: 'Başından ayaklarına kadar kadrajda kal ve ışığın yeterli olduğundan emin ol.',
+    en: 'Stay in frame from head to toe and make sure the lighting is clear enough.',
+  );
+  String get finishPreparationStep =>
+      pick(tr: 'Hazırlığı tamamla', en: 'Finish preparation');
+  String get finishPreparationStepBody => pick(
+    tr: 'Hazırlık kontrolü seni hizalar; göstergeler hazır olduğunda devam et.',
+    en: 'The preparation check aligns you before the session; continue when the readiness indicators are green.',
   );
   String get startAnalysisStep =>
       pick(tr: 'Analizi başlat', en: 'Start the analysis');
   String get startAnalysisStepBody => pick(
-    tr: 'Hareketi kontrollü yap, anlık geri bildirimi takip et.',
-    en: 'Move with control and follow the live feedback.',
+    tr: 'Hareketi kontrollü yap ve canlı geri bildirimi takip et.',
+    en: 'Move with control and follow the live feedback while you exercise.',
   );
   String get reviewSummaryStep =>
-      pick(tr: 'Özetini incele', en: 'Review your summary');
+      pick(tr: 'Sonucu incele', en: 'Review the result');
   String get reviewSummaryStepBody => pick(
-    tr: 'Oturum sonunda skorunu ve tekrarlarını gözden geçir.',
-    en: 'Review your score and reps at the end of the session.',
+    tr: 'Oturum bitince özet ekranda temel sonucu ve bir sonraki odağını gör.',
+    en: 'At the end of the session, review the main result and your next focus in the summary.',
   );
-  String get tipFullBodyVisible => pick(
-    tr: 'Tüm vücudunu mümkün olduğunca kadrajda tut.',
-    en: 'Keep your whole body in frame whenever possible.',
+  String get howToUseStepHintExercise => pick(
+    tr: 'Hazır analiz akışına buradan girersin.',
+    en: 'This is where you enter the ready-to-analyze flow.',
   );
-  String get tipStableCamera => pick(
-    tr: 'Telefonu sabit bir yüzeye yerleştir.',
-    en: 'Place the phone on a stable surface.',
+  String get howToUseStepHintPhone => pick(
+    tr: 'Sabit zemin ve temiz açı ölçüm kalitesini artırır.',
+    en: 'A stable surface and clean angle improve measurement quality.',
   );
-  String get tipLighting => pick(
-    tr: 'Eklem noktalarının seçilebilmesi için yeterli ışık kullan.',
-    en: 'Use enough light for your joints to remain visible.',
+  String get howToUseStepHintFrame => pick(
+    tr: 'Kamera seni tam gördüğünde kadraj onayı kolaylaşır.',
+    en: 'Framing becomes easier when the camera can see you fully.',
   );
-  String get tipControlledMovement => pick(
-    tr: 'Tekrarları kontrollü yap; hızlı hareket ölçümü zorlaştırabilir.',
-    en: 'Perform reps with control; moving too quickly can reduce measurement quality.',
+  String get howToUseStepHintPreparation => pick(
+    tr: 'Hazırlık yüzeyi başlamadan önce son kontrolleri yapar.',
+    en: 'The preparation surface completes your final checks before analysis begins.',
   );
+  String get howToUseStepHintLive => pick(
+    tr: 'Canlı geri bildirim tekrar ve form bilgisini anında verir.',
+    en: 'Live feedback shows rep and form information right away.',
+  );
+  String get howToUseStepHintSummary => pick(
+    tr: 'Summary ekranı en önemli sonucu ve sonraki odağı özetler.',
+    en: 'The summary screen highlights the main result and your next focus.',
+  );
+  String get howToUseExpandStep =>
+      pick(tr: 'Detayları göster', en: 'Show details');
+  String get howToUseCollapseStep =>
+      pick(tr: 'Detayları gizle', en: 'Hide details');
 
   // Exercise selection / guide shell
   String get exerciseDiscoveryTitle =>
@@ -1660,6 +1673,30 @@ class AppLocalizations {
     en: 'Rep details could not be loaded. Please try again.',
   );
   String get analysis => pick(tr: 'Analiz', en: 'Analysis');
+  String get countedReps => pick(tr: 'Sayılmış', en: 'Counted');
+  String get cleanReps => pick(tr: 'Temiz', en: 'Clean');
+  String get repsToReview => pick(tr: 'İncelenmeli', en: 'Needs review');
+  String get notCounted => pick(tr: 'Sayılmadı', en: 'Not counted');
+  String get movementQuality =>
+      pick(tr: 'Hareket kalitesi', en: 'Movement quality');
+  String get repQuality => pick(tr: 'Kalite', en: 'Quality');
+  String get movementRange =>
+      pick(tr: 'Hareket açıklığı', en: 'Movement range');
+  String get repTempo => pick(tr: 'Tempo', en: 'Tempo');
+  String repTempoValue(String value) => pick(tr: '$value sn', en: '${value}s');
+  String get repReview => pick(tr: 'Tekrar inceleme', en: 'Rep review');
+  String get sessionActions =>
+      pick(tr: 'Oturum işlemleri', en: 'Session actions');
+  String get allCountedRepsClean => pick(
+    tr: 'Tüm sayılmış tekrarlar temiz tamamlandı.',
+    en: 'All counted reps were completed cleanly.',
+  );
+  String moreRepsNeedReview(int count) => pick(
+    tr: '$count tekrar daha incelenmeli.',
+    en: '$count more ${count == 1 ? 'rep needs' : 'reps need'} review.',
+  );
+  String repIssue(String issue) =>
+      pick(tr: 'Sorun: $issue', en: 'Issue: $issue');
   String get totalReps => pick(tr: 'Toplam Tekrar', en: 'Total Reps');
   String get averageScore => pick(tr: 'Ortalama Skor', en: 'Average Score');
   String get averageFormRangeScore => pick(
@@ -2406,54 +2443,48 @@ class AppLocalizations {
   );
   String sessionReportRangeSummary({
     required int totalReps,
-    required int validReps,
-    required int lowConfidenceReps,
+    required int cleanReps,
+    required int reviewReps,
     required int invalidReps,
-    required int unknownReps,
-    required double averageScore,
     String? topIssue,
   }) {
     if (isTurkish) {
-      final parts = <String>[
-        '$totalReps tekrar sayıldı: $validReps tanesi geçerli',
-      ];
-      if (lowConfidenceReps > 0) {
-        parts.add('$lowConfidenceReps tanesi düşük güvenli');
+      final buffer = StringBuffer(
+        '$totalReps tekrar sayıldı · $cleanReps temiz',
+      );
+      if (reviewReps > 0) {
+        buffer.write(' · $reviewReps incelenmeli');
       }
-      if (unknownReps > 0) {
-        parts.add('$unknownReps tanesi belirsiz');
-      }
+      buffer.write('.');
       if (invalidReps > 0) {
-        parts.add('$invalidReps geçersiz deneme sayaca eklenmedi');
+        buffer.write(' $invalidReps deneme tamamlanmadığı için sayılmadı.');
       }
-      final summary = '${parts.join(', ')}.';
       if (topIssue != null && topIssue.isNotEmpty) {
-        return '$summary En sık sorun: $topIssue.';
+        buffer.write(' En sık sorun: $topIssue.');
       }
-      if (averageScore > 0) {
-        return '$summary Ortalama skor ${averageScore.toStringAsFixed(0)}.';
-      }
-      return summary;
+      return buffer.toString();
     }
 
-    final parts = <String>['$totalReps reps counted: $validReps were valid'];
-    if (lowConfidenceReps > 0) {
-      parts.add('$lowConfidenceReps were low-confidence');
+    final buffer = StringBuffer(
+      '$totalReps ${totalReps == 1 ? 'rep' : 'reps'} counted · '
+      '$cleanReps clean',
+    );
+    if (reviewReps > 0) {
+      buffer.write(
+        ' · $reviewReps ${reviewReps == 1 ? 'needs' : 'need'} review',
+      );
     }
-    if (unknownReps > 0) {
-      parts.add('$unknownReps were uncertain');
-    }
+    buffer.write('.');
     if (invalidReps > 0) {
-      parts.add('$invalidReps invalid attempts were excluded from the count');
+      final attemptSubject = invalidReps == 1 ? 'attempt was' : 'attempts were';
+      buffer.write(
+        ' $invalidReps $attemptSubject not counted because completion criteria were not met.',
+      );
     }
-    final summary = '${parts.join(', ')}.';
     if (topIssue != null && topIssue.isNotEmpty) {
-      return '$summary Most common issue: $topIssue.';
+      buffer.write(' Most common issue: $topIssue.');
     }
-    if (averageScore > 0) {
-      return '$summary Average score ${averageScore.toStringAsFixed(0)}.';
-    }
-    return summary;
+    return buffer.toString();
   }
 
   String get holdSessionNoMeaningfulDuration => pick(

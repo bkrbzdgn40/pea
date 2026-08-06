@@ -33,11 +33,9 @@ String localizedSessionReportSummary(
   final localizedIssues = localizedSessionReportIssues(localizations, report);
   return localizations.sessionReportRangeSummary(
     totalReps: report.totalReps,
-    validReps: report.validReps,
-    lowConfidenceReps: report.lowConfidenceReps,
+    cleanReps: report.validReps,
+    reviewReps: report.lowConfidenceReps + report.unknownReps,
     invalidReps: report.invalidReps,
-    unknownReps: report.unknownReps,
-    averageScore: report.averageScore,
     topIssue: localizedIssues.isEmpty ? null : localizedIssues.first,
   );
 }
