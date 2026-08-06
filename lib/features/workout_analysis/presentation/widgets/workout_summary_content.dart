@@ -20,18 +20,22 @@ class WorkoutSummaryContent extends StatelessWidget {
     required this.layout,
     required this.session,
     required this.report,
-    required this.summaryValues,
+    required this.volumeValues,
+    required this.detailValues,
     required this.onRetry,
     required this.onOpenDetails,
+    required this.onReturnHistory,
     required this.onReturnHome,
   });
 
   final AppLayout layout;
   final WorkoutSession session;
   final SessionReport report;
-  final List<MapEntry<String, String>> summaryValues;
+  final List<MapEntry<String, String>> volumeValues;
+  final List<MapEntry<String, String>> detailValues;
   final VoidCallback onRetry;
   final VoidCallback onOpenDetails;
+  final VoidCallback onReturnHistory;
   final VoidCallback onReturnHome;
 
   @override
@@ -42,82 +46,73 @@ class WorkoutSummaryContent extends StatelessWidget {
     final showEvidenceWarning =
         SessionMeasurementEvidencePresenter.shouldShowWarning(session);
 
-    if (!useWideLayout) {
-      return SingleChildScrollView(
-        key: const ValueKey<String>('workout-summary-portrait-layout'),
-        padding: layout.pagePadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SummaryOutcomeCard(session: session, report: report),
-            if (showEvidenceWarning) ...[
-              SizedBox(height: layout.sectionGap),
-              SessionMeasurementEvidenceNotice(
-                key: const ValueKey<String>(
-                  'workout-summary-measurement-warning',
-                ),
-                session: session,
-              ),
-            ],
-            SizedBox(height: layout.sectionGap),
-            _SummaryInsights(session: session, report: report),
-            SizedBox(height: layout.panelGap),
-            _SummaryMetricsGrid(layout: layout, values: summaryValues),
-            SizedBox(height: layout.panelGap),
-            _SummaryActions(
-              layout: layout,
-              onRetry: onRetry,
-              onOpenDetails: onOpenDetails,
-              onReturnHome: onReturnHome,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      key: const ValueKey<String>('workout-summary-wide-layout'),
-      padding: layout.pagePadding,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 5,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SummaryOutcomeCard(session: session, report: report),
-                  if (showEvidenceWarning) ...[
-                    SizedBox(height: layout.sectionGap),
-                    SessionMeasurementEvidenceNotice(
-                      key: const ValueKey<String>(
-                        'workout-summary-measurement-warning',
-                      ),
-                      session: session,
-                    ),
-                  ],
-                  SizedBox(height: layout.sectionGap),
-                  _SummaryInsights(session: session, report: report),
-                  SizedBox(height: layout.panelGap),
-                  _SummaryActions(
-                    layout: layout,
-                    onRetry: onRetry,
-                    onOpenDetails: onOpenDetails,
-                    onReturnHome: onReturnHome,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(width: layout.panelGap),
-          Expanded(
-            flex: 6,
-            child: SingleChildScrollView(
-              child: _SummaryMetricsGrid(layout: layout, values: summaryValues),
-            ),
+    final decisionContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SummaryVolumeCard(values: volumeValues),
+        if (showEvidenceWarning) ...[
+          SizedBox(height: layout.sectionGap),
+          SessionMeasurementEvidenceNotice(
+            key: const ValueKey<String>('workout-summary-measurement-warning'),
+            session: session,
           ),
         ],
+        SizedBox(height: layout.sectionGap),
+        _SummaryDecisionCard(session: session, report: report),
+      ],
+    );
+
+    return SingleChildScrollView(
+      key: ValueKey<String>(
+        useWideLayout
+            ? 'workout-summary-wide-layout'
+            : 'workout-summary-portrait-layout',
+      ),
+      padding: layout.pagePadding,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1040),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (useWideLayout)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: _SummaryOutcomeCard(
+                        session: session,
+                        report: report,
+                      ),
+                    ),
+                    SizedBox(width: layout.panelGap),
+                    Expanded(flex: 5, child: decisionContent),
+                  ],
+                )
+              else ...[
+                _SummaryOutcomeCard(session: session, report: report),
+                SizedBox(height: layout.sectionGap),
+                decisionContent,
+              ],
+              SizedBox(height: layout.panelGap),
+              _SummaryPrimaryActions(
+                layout: layout,
+                onOpenDetails: onOpenDetails,
+                onReturnHistory: onReturnHistory,
+              ),
+              SizedBox(height: layout.sectionGap),
+              _SummarySecondaryDetails(
+                layout: layout,
+                session: session,
+                report: report,
+                values: detailValues,
+                onRetry: onRetry,
+                onReturnHome: onReturnHome,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -135,10 +130,20 @@ class _SummaryOutcomeCard extends StatelessWidget {
     final colors = context.semanticColors;
     final tone = sessionResultTone(session);
     final accent = tone.resolveColor(colors);
+    final hasBestHold = session.bestHoldSeconds > 0;
+    final holdValue = hasBestHold
+        ? session.bestHoldSeconds
+        : session.totalHoldSeconds;
     final primaryValue = session.isHoldSession
-        ? WorkoutPresentationFormatter.holdDuration(session.totalHoldSeconds)
-        : WorkoutPresentationFormatter.roundedScore(session.averageScore);
-    final validation = _summaryValidationCounts(session);
+        ? WorkoutPresentationFormatter.holdDuration(holdValue)
+        : report.hasScoreData
+        ? WorkoutPresentationFormatter.roundedScore(session.averageScore)
+        : '—';
+    final primaryLabel = session.isHoldSession
+        ? hasBestHold
+              ? localizations.workoutSummaryBestHold
+              : localizations.workoutSummaryTotalHold
+        : localizations.workoutSummaryAverageFormRangeScore;
 
     return AppSurfaceCard(
       key: const ValueKey<String>('workout-summary-outcome-card'),
@@ -197,7 +202,16 @@ class _SummaryOutcomeCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            primaryLabel,
+            key: const ValueKey<String>('workout-summary-primary-label'),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colors.foregroundMuted,
+              fontWeight: AppFontWeights.semibold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -236,7 +250,7 @@ class _SummaryOutcomeCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!session.isHoldSession) ...[
+              if (!session.isHoldSession && report.hasScoreData) ...[
                 const SizedBox(width: 5),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 4),
@@ -252,20 +266,399 @@ class _SummaryOutcomeCard extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            _summaryNarrative(localizations, report),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.foregroundMuted,
-              height: 1.45,
-            ),
-          ),
-          if (validation != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            _SummaryValidationOverview(counts: validation),
-          ],
         ],
       ),
+    );
+  }
+}
+
+class _SummaryVolumeCard extends StatelessWidget {
+  const _SummaryVolumeCard({required this.values});
+
+  final List<MapEntry<String, String>> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      key: const ValueKey<String>('workout-summary-volume'),
+      variant: AppSurfaceVariant.muted,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            localizations.summarySessionVolume,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stack = _layoutWidthRequiresStack(
+                context,
+                constraints.maxWidth,
+              );
+              final items = values
+                  .map(
+                    (entry) => _SummaryVolumeValue(
+                      label: entry.key,
+                      value: entry.value,
+                    ),
+                  )
+                  .toList(growable: false);
+
+              if (stack) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < items.length; index++) ...[
+                      if (index > 0) const SizedBox(height: AppSpacing.sm),
+                      items[index],
+                    ],
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    if (index > 0) const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: items[index]),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+bool _layoutWidthRequiresStack(BuildContext context, double width) {
+  return MediaQuery.textScalerOf(context).scale(1) >= 1.6 || width < 320;
+}
+
+class _SummaryVolumeValue extends StatelessWidget {
+  const _SummaryVolumeValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
+    return Semantics(
+      container: true,
+      label: '$label: $value',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.foregroundMuted,
+              fontWeight: AppFontWeights.semibold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+              height: 1.05,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryDecisionCard extends StatelessWidget {
+  const _SummaryDecisionCard({required this.session, required this.report});
+
+  final WorkoutSession session;
+  final SessionReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final focus = _summaryNextFocus(localizations, session, report);
+
+    return AppSurfaceCard(
+      key: const ValueKey<String>('workout-summary-focus'),
+      padding: const EdgeInsets.all(16),
+      borderColor: colors.caution.withValues(alpha: 0.32),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.caution.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              Icons.track_changes_rounded,
+              color: colors.caution,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  localizations.summaryNextFocus,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colors.caution,
+                    fontWeight: AppFontWeights.heavy,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  focus,
+                  key: const ValueKey<String>('workout-summary-focus-message'),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.foreground,
+                    height: 1.4,
+                    fontWeight: AppFontWeights.semibold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPrimaryActions extends StatelessWidget {
+  const _SummaryPrimaryActions({
+    required this.layout,
+    required this.onOpenDetails,
+    required this.onReturnHistory,
+  });
+
+  final AppLayout layout;
+  final VoidCallback onOpenDetails;
+  final VoidCallback onReturnHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final stack = layout.hasLargeText || layout.viewportSize.width < 520;
+    final historyButton = AppButton(
+      key: const ValueKey<String>('workout-summary-history-action'),
+      label: localizations.returnToHistory,
+      onPressed: onReturnHistory,
+      icon: Icons.history_rounded,
+      expand: true,
+    );
+    final detailsButton = AppButton(
+      key: const ValueKey<String>('workout-summary-details-action'),
+      label: localizations.viewDetails,
+      onPressed: onOpenDetails,
+      icon: Icons.insights_outlined,
+      variant: AppButtonVariant.outline,
+      expand: true,
+    );
+
+    if (stack) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          historyButton,
+          SizedBox(height: layout.sectionGap),
+          detailsButton,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: historyButton),
+        SizedBox(width: layout.sectionGap),
+        Expanded(child: detailsButton),
+      ],
+    );
+  }
+}
+
+class _SummarySecondaryDetails extends StatelessWidget {
+  const _SummarySecondaryDetails({
+    required this.layout,
+    required this.session,
+    required this.report,
+    required this.values,
+    required this.onRetry,
+    required this.onReturnHome,
+  });
+
+  final AppLayout layout;
+  final WorkoutSession session;
+  final SessionReport report;
+  final List<MapEntry<String, String>> values;
+  final VoidCallback onRetry;
+  final VoidCallback onReturnHome;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final validation = _summaryValidationCounts(session);
+    final issues = localizedSessionReportIssues(localizations, report);
+
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const ValueKey<String>('workout-summary-secondary-details'),
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xs,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          iconColor: colors.analysisAccent,
+          collapsedIconColor: colors.foregroundMuted,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.analysisAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              color: colors.analysisAccent,
+              size: 21,
+            ),
+          ),
+          title: Text(
+            localizations.summaryTechnicalDetails,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xxs),
+            child: Text(
+              localizations.summaryTechnicalDetailsHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.foregroundMuted,
+                height: 1.35,
+              ),
+            ),
+          ),
+          children: [
+            if (validation != null) ...[
+              _SummaryDetailHeading(title: localizations.summaryRepBreakdown),
+              _SummaryValidationOverview(counts: validation),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            if (issues.isNotEmpty) ...[
+              _SummaryDetailHeading(title: localizations.summaryDetailedIssues),
+              _SummaryIssueList(issues: issues),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            _SummaryMetricsGrid(layout: layout, values: values),
+            const SizedBox(height: AppSpacing.lg),
+            _SummarySecondaryActions(
+              layout: layout,
+              onRetry: onRetry,
+              onReturnHome: onReturnHome,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryDetailHeading extends StatelessWidget {
+  const _SummaryDetailHeading({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: colors.foreground,
+          fontWeight: AppFontWeights.heavy,
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryIssueList extends StatelessWidget {
+  const _SummaryIssueList({required this.issues});
+
+  final List<String> issues;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
+    return Column(
+      key: const ValueKey<String>('workout-summary-detailed-issues'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < issues.length; index++) ...[
+          if (index > 0) const SizedBox(height: AppSpacing.xs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 7),
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: colors.caution,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  issues[index],
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colors.foregroundMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -364,132 +757,6 @@ _SummaryValidationCounts? _summaryValidationCounts(WorkoutSession session) {
   );
 }
 
-class _SummaryInsights extends StatelessWidget {
-  const _SummaryInsights({required this.session, required this.report});
-
-  final WorkoutSession session;
-  final SessionReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final recommendations = localizedSessionReportRecommendations(
-      localizations,
-      report,
-    );
-    final useStableFallback =
-        !report.hasRepDetails &&
-        !session.isHoldSession &&
-        session.formWarningCount == 0 &&
-        session.averageScore >= 75;
-    final focus = recommendations.isEmpty || useStableFallback
-        ? localizations.summaryMaintainControl
-        : recommendations.first;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stack = constraints.maxWidth < 520;
-        final cards = <Widget>[
-          _SummaryInsightCard(
-            key: const ValueKey<String>('workout-summary-strength'),
-            icon: Icons.workspace_premium_outlined,
-            title: localizations.summaryHighlight,
-            message: _summaryHighlight(localizations, session),
-            accent: AppColors.accent,
-          ),
-          _SummaryInsightCard(
-            key: const ValueKey<String>('workout-summary-focus'),
-            icon: Icons.track_changes_rounded,
-            title: localizations.summaryNextFocus,
-            message: focus,
-            accent: Colors.amberAccent,
-          ),
-        ];
-
-        if (stack) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [cards.first, const SizedBox(height: 10), cards.last],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: cards.first),
-            const SizedBox(width: 10),
-            Expanded(child: cards.last),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SummaryInsightCard extends StatelessWidget {
-  const _SummaryInsightCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.accent,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(15),
-      radius: 15,
-      borderColor: accent.withValues(alpha: 0.28),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, color: accent, size: 20),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SummaryMetricsGrid extends StatelessWidget {
   const _SummaryMetricsGrid({required this.layout, required this.values});
 
@@ -504,15 +771,7 @@ class _SummaryMetricsGrid extends StatelessWidget {
       key: const ValueKey<String>('workout-summary-metrics'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          localizations.reportSummary,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 10),
+        _SummaryDetailHeading(title: localizations.reportSummary),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = layout.hasLargeText || constraints.maxWidth < 360
@@ -530,9 +789,10 @@ class _SummaryMetricsGrid extends StatelessWidget {
                 for (final entry in values)
                   SizedBox(
                     width: width,
-                    child: _SummaryValueCard(
+                    child: AppMetricTile(
                       label: entry.key,
                       value: entry.value,
+                      tone: AppStatusTone.accent,
                     ),
                   ),
               ],
@@ -544,67 +804,55 @@ class _SummaryMetricsGrid extends StatelessWidget {
   }
 }
 
-class _SummaryActions extends StatelessWidget {
-  const _SummaryActions({
+class _SummarySecondaryActions extends StatelessWidget {
+  const _SummarySecondaryActions({
     required this.layout,
     required this.onRetry,
-    required this.onOpenDetails,
     required this.onReturnHome,
   });
 
   final AppLayout layout;
   final VoidCallback onRetry;
-  final VoidCallback onOpenDetails;
   final VoidCallback onReturnHome;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-
-    return Column(
-      key: const ValueKey<String>('workout-summary-actions'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AppButton(
-          key: const ValueKey<String>('workout-summary-retry-action'),
-          label: localizations.repeatSameExercise,
-          onPressed: onRetry,
-          icon: Icons.replay_rounded,
-          expand: true,
-        ),
-        SizedBox(height: layout.sectionGap),
-        AppButton(
-          label: localizations.viewDetails,
-          onPressed: onOpenDetails,
-          icon: Icons.insights_outlined,
-          variant: AppButtonVariant.outline,
-          expand: true,
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        AppButton(
-          label: localizations.returnHome,
-          onPressed: onReturnHome,
-          icon: Icons.home_outlined,
-          variant: AppButtonVariant.ghost,
-          expand: true,
-        ),
-      ],
+    final stack = layout.hasLargeText || layout.viewportSize.width < 520;
+    final retryButton = AppButton(
+      key: const ValueKey<String>('workout-summary-retry-action'),
+      label: localizations.repeatSameExercise,
+      onPressed: onRetry,
+      icon: Icons.replay_rounded,
+      variant: AppButtonVariant.ghost,
+      expand: true,
     );
-  }
-}
+    final homeButton = AppButton(
+      key: const ValueKey<String>('workout-summary-home-action'),
+      label: localizations.returnHome,
+      onPressed: onReturnHome,
+      icon: Icons.home_outlined,
+      variant: AppButtonVariant.ghost,
+      expand: true,
+    );
 
-class _SummaryValueCard extends StatelessWidget {
-  const _SummaryValueCard({required this.label, required this.value});
+    if (stack) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          retryButton,
+          const SizedBox(height: AppSpacing.xxs),
+          homeButton,
+        ],
+      );
+    }
 
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppMetricTile(
-      label: label,
-      value: value,
-      tone: AppStatusTone.accent,
+    return Row(
+      children: [
+        Expanded(child: retryButton),
+        SizedBox(width: layout.sectionGap),
+        Expanded(child: homeButton),
+      ],
     );
   }
 }
@@ -622,36 +870,24 @@ String _summaryToneLabel(
   };
 }
 
-String _summaryHighlight(
+String _summaryNextFocus(
   AppLocalizations localizations,
   WorkoutSession session,
+  SessionReport report,
 ) {
-  if (session.isHoldSession) {
-    return localizations.summaryBestHoldHighlight(
-      WorkoutPresentationFormatter.holdDuration(session.bestHoldSeconds),
-    );
-  }
-
-  if (session.bestScore > 0) {
-    return localizations.summaryBestScoreHighlight(
-      WorkoutPresentationFormatter.roundedScore(session.bestScore),
-    );
-  }
-
-  return localizations.summaryRepHighlight(session.totalReps);
-}
-
-String _summaryNarrative(AppLocalizations localizations, SessionReport report) {
-  if (report.isHoldSession || report.hasRepDetails || report.totalReps <= 0) {
-    return localizedSessionReportSummary(localizations, report);
-  }
-
-  return localizations.sessionReportRangeSummary(
-    totalReps: report.totalReps,
-    validReps: report.validReps,
-    lowConfidenceReps: report.lowConfidenceReps,
-    invalidReps: report.invalidReps,
-    unknownReps: report.unknownReps,
-    averageScore: report.averageScore,
+  final recommendations = localizedSessionReportRecommendations(
+    localizations,
+    report,
   );
+  final useStableFallback =
+      !report.hasRepDetails &&
+      !session.isHoldSession &&
+      session.formWarningCount == 0 &&
+      session.averageScore >= 75;
+
+  if (recommendations.isEmpty || useStableFallback) {
+    return localizations.summaryMaintainControl;
+  }
+
+  return recommendations.first;
 }

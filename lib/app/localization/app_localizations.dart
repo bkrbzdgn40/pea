@@ -1920,6 +1920,20 @@ class AppLocalizations {
   String get summaryHighlight =>
       pick(tr: 'Öne çıkan sonuç', en: 'Session highlight');
   String get summaryNextFocus => pick(tr: 'Sonraki odak', en: 'Next focus');
+  String get summarySessionVolume =>
+      pick(tr: 'Oturum hacmi', en: 'Session volume');
+  String get summaryTechnicalDetails =>
+      pick(tr: 'Oturum ayrıntıları', en: 'Session details');
+  String get summaryTechnicalDetailsHint => pick(
+    tr: 'Tekrar dökümü, tempo, hareket açıklığı ve ölçüm verileri',
+    en: 'Rep breakdown, tempo, range of motion, and measurement data',
+  );
+  String get summaryRepBreakdown =>
+      pick(tr: 'Tekrar dökümü', en: 'Rep breakdown');
+  String get summaryDetailedIssues =>
+      pick(tr: 'Ayrıntılı sorunlar', en: 'Detailed issues');
+  String get returnToHistory =>
+      pick(tr: 'Geçmişe Dön', en: 'Return to History');
   String get summaryMaintainControl => pick(
     tr: 'Aynı kontrollü formu koruyarak ilerlemeye devam et.',
     en: 'Keep progressing while maintaining the same controlled form.',

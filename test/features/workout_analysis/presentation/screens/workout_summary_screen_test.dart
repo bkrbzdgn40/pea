@@ -4,6 +4,7 @@ import 'package:pose_estimation_app/features/achievements/presentation/models/ac
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/exercise_metric_registry.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_live_metrics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
@@ -16,6 +17,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_history_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/workout_summary_screen.dart';
 
 import '../../../../support/presentation_test_support.dart';
@@ -26,6 +28,23 @@ Finder _summaryMetricText(String text) {
     of: find.byKey(const ValueKey<String>('workout-summary-metrics')),
     matching: find.text(text),
   );
+}
+
+Finder _summaryVolumeText(String text) {
+  return find.descendant(
+    of: find.byKey(const ValueKey<String>('workout-summary-volume')),
+    matching: find.text(text),
+  );
+}
+
+Future<void> _expandSummaryDetails(WidgetTester tester) async {
+  final details = find.byKey(
+    const ValueKey<String>('workout-summary-secondary-details'),
+  );
+  await tester.ensureVisible(details);
+  await tester.pump();
+  await tester.tap(details);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -56,17 +75,24 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('workout-summary-strength')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.byKey(const ValueKey('workout-summary-focus')), findsOneWidget);
-    expect(_summaryMetricText('Toplam tekrar'), findsOneWidget);
-    expect(find.text('Ortalama form ve hareket aralığı skoru'), findsNothing);
+    expect(_summaryVolumeText('Toplam tekrar'), findsOneWidget);
+    expect(_summaryVolumeText('12'), findsOneWidget);
+    expect(_summaryVolumeText('1:05'), findsOneWidget);
+    expect(find.text('Ortalama form ve hareket aralığı skoru'), findsOneWidget);
+    expect(
+      _summaryMetricText('En iyi form ve hareket aralığı skoru'),
+      findsNothing,
+    );
+    expect(find.text('Geçmişe Dön'), findsOneWidget);
+    expect(find.text('Detayı Gör'), findsOneWidget);
 
     final primaryValue = tester.widget<Text>(
       find.byKey(const ValueKey<String>('workout-summary-primary-value')),
     );
     expect(primaryValue.data, '90');
-    expect(_summaryMetricText('1:05'), findsOneWidget);
   });
 
   testWidgets(
@@ -105,7 +131,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Biseps Curl özeti'), findsOneWidget);
-      expect(find.text('Toplam tekrar'), findsOneWidget);
+      expect(_summaryVolumeText('Toplam tekrar'), findsOneWidget);
     },
   );
 
@@ -135,6 +161,7 @@ void main() {
           exerciseType: 'squat',
           analysisKind: 'rangeRep',
           validationStatus: 'valid',
+          validationReasons: <String>['coverage loss'],
           score: 90,
         ),
         WorkoutRep(
@@ -142,6 +169,7 @@ void main() {
           exerciseType: 'squat',
           analysisKind: 'rangeRep',
           validationStatus: 'lowConfidence',
+          validationReasons: <String>['insufficient rom'],
           score: 80,
         ),
         WorkoutRep(
@@ -167,10 +195,25 @@ void main() {
     );
     await tester.pump();
 
-    expect(_summaryMetricText('Toplam tekrar'), findsOneWidget);
-    expect(_summaryMetricText('Düşük Güven'), findsOneWidget);
-    expect(_summaryMetricText('Geçersiz deneme'), findsOneWidget);
-    expect(_summaryMetricText('3'), findsOneWidget);
+    expect(_summaryVolumeText('Toplam tekrar'), findsOneWidget);
+    expect(find.text('Geçerli: 2'), findsNothing);
+    expect(find.text('Düşük Güven: 1'), findsNothing);
+    expect(find.text('Geçersiz: 1'), findsNothing);
+    expect(find.text('Görünürlük kaybı'), findsNothing);
+    expect(find.text('Yetersiz hareket açıklığı'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('workout-summary-focus-message')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Kamera açısını sabitle'), findsNothing);
+
+    await _expandSummaryDetails(tester);
+
+    expect(find.text('Geçerli: 2'), findsOneWidget);
+    expect(find.text('Düşük Güven: 1'), findsOneWidget);
+    expect(find.text('Geçersiz: 1'), findsOneWidget);
+    expect(find.text('Görünürlük kaybı'), findsOneWidget);
+    expect(find.text('Yetersiz hareket açıklığı'), findsOneWidget);
   });
 
   testWidgets('averages only known measurement confidence values', (
@@ -218,6 +261,10 @@ void main() {
       overrides: [completedSessionProvider.overrideWith((ref) => session)],
     );
     await tester.pump();
+
+    expect(_summaryMetricText('Ortalama ölçüm güveni'), findsNothing);
+
+    await _expandSummaryDetails(tester);
 
     expect(_summaryMetricText('Ortalama ölçüm güveni'), findsOneWidget);
     expect(_summaryMetricText('%80'), findsOneWidget);
@@ -267,6 +314,10 @@ void main() {
       ],
     );
     await tester.pump();
+
+    expect(_summaryMetricText('Ortalama ROM'), findsNothing);
+
+    await _expandSummaryDetails(tester);
 
     expect(_summaryMetricText('Ortalama ROM'), findsOneWidget);
     expect(_summaryMetricText('Ortalama tempo'), findsOneWidget);
@@ -339,6 +390,10 @@ void main() {
       );
       await tester.pump();
 
+      expect(_summaryMetricText('Ortalama ROM'), findsNothing);
+
+      await _expandSummaryDetails(tester);
+
       expect(_summaryMetricText('Ortalama ROM'), findsOneWidget);
       expect(_summaryMetricText('70.0°'), findsOneWidget);
       expect(find.text('1.3 sn'), findsNothing);
@@ -347,7 +402,7 @@ void main() {
     },
   );
 
-  testWidgets('uses a two-panel summary composition in landscape', (
+  testWidgets('keeps the decision summary responsive in landscape', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(844, 390));
@@ -449,6 +504,7 @@ void main() {
 
     await tester.tap(find.text('Open summary'));
     await tester.pumpAndSettle();
+    await _expandSummaryDetails(tester);
     final retryAction = find.byKey(
       const ValueKey<String>('workout-summary-retry-action'),
     );
@@ -496,6 +552,99 @@ void main() {
     expect(find.byType(SessionDetailScreen), findsOneWidget);
   });
 
+  testWidgets('history action opens the saved session list', (
+    WidgetTester tester,
+  ) async {
+    final session = buildWorkoutSession(
+      id: 'summary-history',
+      startedAt: DateTime(2024, 1, 5, 9, 30),
+      exerciseType: 'squat',
+      totalReps: 8,
+      averageScore: 88,
+      bestScore: 94,
+      durationSec: 50,
+    );
+    final repository = TestSessionRepository(
+      sessions: <WorkoutSession>[session],
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [
+        completedSessionProvider.overrideWith((ref) => session),
+        authRepositoryProvider.overrideWithValue(
+          const TestAuthRepository(currentUserId: 'owner-1'),
+        ),
+        sessionRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pump();
+
+    final historyAction = find.byKey(
+      const ValueKey<String>('workout-summary-history-action'),
+    );
+    await tester.ensureVisible(historyAction);
+    await tester.tap(historyAction);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionHistoryScreen), findsOneWidget);
+    expect(find.text('Squat'), findsOneWidget);
+  });
+
+  testWidgets('uses hold result and volume without rep language', (
+    WidgetTester tester,
+  ) async {
+    final startedAt = DateTime(2024, 1, 5, 9, 30);
+    final session = WorkoutSession(
+      id: 'summary-hold',
+      ownerId: 'owner-1',
+      exerciseType: 'plank',
+      analysisKind: 'hold',
+      startedAt: startedAt,
+      endedAt: startedAt.add(const Duration(minutes: 5)),
+      durationSec: 300,
+      totalReps: 0,
+      averageScore: 0,
+      bestScore: 0,
+      worstScore: 0,
+      validReps: 0,
+      invalidReps: 0,
+      formWarningCount: 0,
+      totalHoldSeconds: 42,
+      bestHoldSeconds: 18,
+      formBreakCount: 2,
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const WorkoutSummaryScreen(),
+      overrides: [completedSessionProvider.overrideWith((ref) => session)],
+    );
+    await tester.pump();
+
+    final primaryValue = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('workout-summary-primary-value')),
+    );
+    expect(primaryValue.data, '0:18');
+    expect(find.text('En iyi tutuş'), findsOneWidget);
+    expect(_summaryVolumeText('Toplam tutuş'), findsOneWidget);
+    expect(_summaryVolumeText('0:42'), findsOneWidget);
+    expect(_summaryVolumeText('5:00'), findsOneWidget);
+    expect(find.text('Toplam tekrar'), findsNothing);
+    expect(
+      find.textContaining('vücut çizgisini daha sabit tut'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Kısa ama temiz tekrarlarla'), findsNothing);
+    expect(_summaryMetricText('Form kesintisi'), findsNothing);
+
+    await _expandSummaryDetails(tester);
+
+    expect(_summaryMetricText('Form kesintisi'), findsOneWidget);
+    expect(_summaryMetricText('2'), findsOneWidget);
+  });
+
   testWidgets('keeps the explicit home navigation behavior', (
     WidgetTester tester,
   ) async {
@@ -531,6 +680,7 @@ void main() {
     );
     await tester.pump();
     await tester.pumpAndSettle();
+    await _expandSummaryDetails(tester);
 
     await tester.ensureVisible(find.text('Ana Sayfaya Dön'));
     await tester.tap(find.text('Ana Sayfaya Dön'));
@@ -539,7 +689,7 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('Antrenman Analizi'), findsOneWidget);
   });
-  testWidgets('keeps validation outcomes distinct in the result hero', (
+  testWidgets('keeps validation outcomes in the collapsed rep breakdown', (
     WidgetTester tester,
   ) async {
     final startedAt = DateTime(2024, 1, 9, 9);
@@ -602,16 +752,15 @@ void main() {
     );
     expect(
       find.descendant(of: hero, matching: find.text('Geçerli: 2')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(
-      find.descendant(of: hero, matching: find.text('Düşük Güven: 1')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: hero, matching: find.text('Geçersiz: 1')),
-      findsOneWidget,
-    );
+    expect(find.text('Geçerli: 2'), findsNothing);
+
+    await _expandSummaryDetails(tester);
+
+    expect(find.text('Geçerli: 2'), findsOneWidget);
+    expect(find.text('Düşük Güven: 1'), findsOneWidget);
+    expect(find.text('Geçersiz: 1'), findsOneWidget);
   });
   testWidgets('shows a concise warning only for limited measurement evidence', (
     WidgetTester tester,
@@ -643,6 +792,13 @@ void main() {
       find.textContaining('hedef ve başarım hesaplarına dahil edilmez'),
       findsOneWidget,
     );
+    expect(_summaryMetricText('Ölçüm kalitesi'), findsNothing);
+
+    await _expandSummaryDetails(tester);
+
+    expect(_summaryMetricText('Ölçüm kalitesi'), findsOneWidget);
+    expect(_summaryMetricText('Sınırlı'), findsOneWidget);
+    expect(_summaryMetricText('8 ölçüm örneği'), findsOneWidget);
   });
 }
 

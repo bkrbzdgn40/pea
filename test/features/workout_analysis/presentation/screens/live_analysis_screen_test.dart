@@ -1712,6 +1712,7 @@ void main() {
 
       final firstSessionId = harness.sessionRepository.savedSessions.single.id;
 
+      await _expandWorkoutSummaryDetails(tester);
       final retryAction = find.byKey(
         const ValueKey<String>('workout-summary-retry-action'),
       );
@@ -2097,6 +2098,16 @@ Future<void> _driveUntilPhase(
   throw TestFailure(
     'Expected phase $expectedPhase for primaryAngle $primaryAngle',
   );
+}
+
+Future<void> _expandWorkoutSummaryDetails(WidgetTester tester) async {
+  final details = find.byKey(
+    const ValueKey<String>('workout-summary-secondary-details'),
+  );
+  await tester.ensureVisible(details);
+  await tester.pump();
+  await tester.tap(details);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _requestSaveAndFinish(WidgetTester tester) async {

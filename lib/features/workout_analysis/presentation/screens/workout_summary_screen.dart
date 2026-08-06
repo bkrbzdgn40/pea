@@ -10,12 +10,14 @@ import '../../application/workout_live_metrics.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_session.dart';
 import '../formatters/measurement_confidence_presentation_formatter.dart';
+import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../providers/completed_session_metrics_provider.dart';
 import '../providers/completed_session_provider.dart';
 import '../widgets/workout_summary_content.dart';
 import 'home_screen.dart';
 import 'session_detail_screen.dart';
+import 'session_history_screen.dart';
 
 class WorkoutSummaryScreen extends ConsumerStatefulWidget {
   const WorkoutSummaryScreen({super.key});
@@ -28,6 +30,14 @@ class WorkoutSummaryScreen extends ConsumerStatefulWidget {
 class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
   void _retry() {
     Navigator.pop(context, true);
+  }
+
+  void _returnHistory() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const SessionHistoryScreen()),
+      (route) => false,
+    );
   }
 
   void _returnHome() {
@@ -71,7 +81,8 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
             session: session,
             reps: session.reps ?? const [],
           );
-          final summaryValues = _summaryValues(
+          final volumeValues = _volumeValues(localizations, session);
+          final detailValues = _detailValues(
             localizations,
             session,
             completedMetrics,
@@ -81,9 +92,11 @@ class _WorkoutSummaryScreenState extends ConsumerState<WorkoutSummaryScreen> {
             layout: layout,
             session: session,
             report: report,
-            summaryValues: summaryValues,
+            volumeValues: volumeValues,
+            detailValues: detailValues,
             onRetry: _retry,
             onOpenDetails: () => _openDetails(session),
+            onReturnHistory: _returnHistory,
             onReturnHome: _returnHome,
           );
         },
@@ -107,7 +120,36 @@ class _MissingSessionView extends StatelessWidget {
   }
 }
 
-List<MapEntry<String, String>> _summaryValues(
+List<MapEntry<String, String>> _volumeValues(
+  AppLocalizations localizations,
+  WorkoutSession session,
+) {
+  if (session.isHoldSession) {
+    return <MapEntry<String, String>>[
+      MapEntry(
+        localizations.workoutSummaryTotalHold,
+        WorkoutPresentationFormatter.holdDuration(session.totalHoldSeconds),
+      ),
+      MapEntry(
+        localizations.duration,
+        WorkoutPresentationFormatter.duration(session.duration),
+      ),
+    ];
+  }
+
+  return <MapEntry<String, String>>[
+    MapEntry(
+      localizations.workoutSummaryTotalReps,
+      session.totalReps.toString(),
+    ),
+    MapEntry(
+      localizations.duration,
+      WorkoutPresentationFormatter.duration(session.duration),
+    ),
+  ];
+}
+
+List<MapEntry<String, String>> _detailValues(
   AppLocalizations localizations,
   WorkoutSession session,
   WorkoutLiveMetricsSnapshot? liveMetrics,
@@ -115,22 +157,17 @@ List<MapEntry<String, String>> _summaryValues(
   final fallbackMetrics = const WorkoutSessionMetricSnapshotBuilder().build(
     session,
   );
+  final values = <MapEntry<String, String>>[
+    ..._measurementEvidenceValues(localizations, session),
+  ];
 
   if (session.isHoldSession) {
-    final values = <MapEntry<String, String>>[
-      MapEntry(
-        localizations.workoutSummaryTotalHold,
-        WorkoutPresentationFormatter.holdDuration(session.totalHoldSeconds),
-      ),
-      MapEntry(
-        localizations.workoutSummaryBestHold,
-        WorkoutPresentationFormatter.holdDuration(session.bestHoldSeconds),
-      ),
+    values.add(
       MapEntry(
         localizations.workoutSummaryFormBreaks,
         session.formBreakCount.toString(),
       ),
-    ];
+    );
 
     final stability = _resolvedMetricValue(
       liveMetrics,
@@ -142,60 +179,16 @@ List<MapEntry<String, String>> _summaryValues(
         MapEntry(localizations.stabilityScore, stability.toStringAsFixed(0)),
       );
     }
-
-    values.add(
-      MapEntry(
-        localizations.duration,
-        WorkoutPresentationFormatter.duration(session.duration),
-      ),
-    );
     return values;
   }
 
-  final hasValidationBreakdown =
-      session.validReps > 0 || session.invalidReps > 0;
-  final persistedLowConfidenceReps = session.reps
-      ?.where(
-        (rep) =>
-            rep.validationStatus == 'lowConfidence' ||
-            rep.validationStatus == 'low confidence',
-      )
-      .length;
-  final lowConfidenceReps =
-      persistedLowConfidenceReps ?? session.lowConfidenceReps;
-
-  final values = <MapEntry<String, String>>[
-    MapEntry(
-      localizations.workoutSummaryTotalReps,
-      session.totalReps.toString(),
-    ),
+  values.addAll(<MapEntry<String, String>>[
     MapEntry(
       localizations.workoutSummaryBestFormRangeScore,
       WorkoutPresentationFormatter.roundedScore(session.bestScore),
     ),
-    if (hasValidationBreakdown || lowConfidenceReps > 0) ...[
-      MapEntry(
-        localizations.workoutSummaryValidReps,
-        session.validReps.toString(),
-      ),
-      if (lowConfidenceReps > 0)
-        MapEntry(localizations.lowConfidence, lowConfidenceReps.toString()),
-      MapEntry(
-        localizations.workoutSummaryInvalidReps,
-        session.invalidReps.toString(),
-      ),
-    ],
     MapEntry(localizations.formWarning, session.formWarningCount.toString()),
-    MapEntry(
-      localizations.averageMeasurementConfidence,
-      MeasurementConfidencePresentationFormatter.percentage(
-        localizations,
-        MeasurementConfidencePresentationFormatter.averageKnown(
-          session.reps ?? const [],
-        ),
-      ),
-    ),
-  ];
+  ]);
 
   final averageRom = _resolvedMetricValue(
     liveMetrics,
@@ -284,13 +277,46 @@ List<MapEntry<String, String>> _summaryValues(
     );
   }
 
-  values.add(
-    MapEntry(
-      localizations.duration,
-      WorkoutPresentationFormatter.duration(session.duration),
-    ),
-  );
   return values;
+}
+
+List<MapEntry<String, String>> _measurementEvidenceValues(
+  AppLocalizations localizations,
+  WorkoutSession session,
+) {
+  final confidence =
+      SessionMeasurementEvidencePresenter.confidenceLabel(
+        session.averageMeasurementConfidence,
+      ) ??
+      MeasurementConfidencePresentationFormatter.percentage(
+        localizations,
+        MeasurementConfidencePresentationFormatter.averageKnown(
+          session.reps ?? const [],
+        ),
+      );
+
+  return <MapEntry<String, String>>[
+    MapEntry(
+      localizations.measurementQuality,
+      SessionMeasurementEvidencePresenter.qualityLabel(
+        localizations,
+        session.measurementQuality,
+      ),
+    ),
+    MapEntry(
+      localizations.preparationCheck,
+      SessionMeasurementEvidencePresenter.preparationLabel(
+        localizations,
+        session.preparationOutcome,
+      ),
+    ),
+    MapEntry(localizations.averageMeasurementConfidence, confidence),
+    if (session.measurementSampleCount > 0)
+      MapEntry(
+        localizations.measurementEvidence,
+        localizations.measurementSampleCount(session.measurementSampleCount),
+      ),
+  ];
 }
 
 T? _resolvedMetricValue<T extends Object>(
