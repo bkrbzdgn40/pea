@@ -8,7 +8,6 @@ import '../providers/live_range_rep_outcome_controller.dart';
 import '../providers/live_tracking_controller.dart';
 import '../providers/workout_controller.dart';
 import '../providers/workout_plan_session_provider.dart';
-import 'live_analysis/live_hud_technical_details.dart';
 import 'planned_workout_hud_models.dart';
 import 'planned_workout_hud_presenter.dart';
 import 'planned_workout_live_hud_view.dart';
@@ -24,9 +23,6 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
     required this.isFinishing,
     required this.onPause,
     required this.onFinish,
-    this.showDetails = false,
-    this.showFinishAction = false,
-    this.onToggleDetails,
     this.reserveLeadingDeveloperControl = false,
     this.sidePanel = false,
   });
@@ -36,9 +32,6 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
   final bool isFinishing;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final bool showDetails;
-  final bool showFinishAction;
-  final VoidCallback? onToggleDetails;
   final bool reserveLeadingDeveloperControl;
   final bool sidePanel;
 
@@ -163,12 +156,6 @@ class PlannedWorkoutLiveHud extends ConsumerWidget {
       isFinishing: isFinishing,
       onPause: onPause,
       onFinish: onFinish,
-      showDetails: showDetails,
-      showFinishAction: showFinishAction,
-      onToggleDetails: onToggleDetails,
-      technicalDetails: showDetails
-          ? LiveHudTechnicalDetails(compact: true, horizontal: !sidePanel)
-          : null,
       reserveLeadingDeveloperControl: reserveLeadingDeveloperControl,
       sidePanel: sidePanel,
     );

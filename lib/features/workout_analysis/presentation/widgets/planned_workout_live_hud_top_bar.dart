@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'live_analysis/live_hud_mode_control.dart';
 import 'planned_workout_hud_theme.dart';
 
 class PlannedWorkoutTopBar extends StatelessWidget {
@@ -11,11 +10,8 @@ class PlannedWorkoutTopBar extends StatelessWidget {
     required this.pauseLabel,
     required this.finishLabel,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
   });
 
   final bool compact;
@@ -23,11 +19,8 @@ class PlannedWorkoutTopBar extends StatelessWidget {
   final String pauseLabel;
   final String finishLabel;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -73,33 +66,16 @@ class PlannedWorkoutTopBar extends StatelessWidget {
           ),
           SizedBox(width: compact ? 6 : 10),
           Expanded(
-            flex: showFinishAction ? 6 : 3,
+            flex: 5,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  LiveHudModeControl(
-                    compact: compact,
-                    showDetails: showDetails,
-                    onPressed: onToggleDetails,
-                  ),
-                  if (showFinishAction) ...<Widget>[
-                    SizedBox(width: compact ? 6 : 8),
-                    Flexible(
-                      child: PlannedWorkoutActionButton(
-                        key: const ValueKey<String>(
-                          'planned-workout-finish-button',
-                        ),
-                        compact: compact,
-                        label: finishLabel,
-                        icon: Icons.stop_rounded,
-                        accentColor: Colors.white70,
-                        onPressed: isFinishing ? null : onFinish,
-                      ),
-                    ),
-                  ],
-                ],
+              child: PlannedWorkoutActionButton(
+                key: const ValueKey<String>('planned-workout-finish-button'),
+                compact: compact,
+                label: finishLabel,
+                icon: Icons.stop_rounded,
+                accentColor: Colors.white70,
+                onPressed: isFinishing ? null : onFinish,
               ),
             ),
           ),

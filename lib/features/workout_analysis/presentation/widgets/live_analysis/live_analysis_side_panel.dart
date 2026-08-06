@@ -5,6 +5,7 @@ import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
 import 'package:pose_estimation_app/app/theme/app_motion.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/engine_kind.dart';
+import 'package:pose_estimation_app/features/workout_analysis/application/workout_developer_ui_config.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
 
@@ -13,10 +14,8 @@ import 'live_analysis_feedback.dart';
 import 'live_analysis_formatters.dart';
 import 'live_analysis_theme.dart';
 import 'live_analysis_top_bar.dart';
-import 'live_hud_mode_control.dart';
-import 'live_hud_technical_details.dart';
 
-class LiveAnalysisSidePanel extends StatelessWidget {
+class LiveAnalysisSidePanel extends ConsumerWidget {
   const LiveAnalysisSidePanel({
     super.key,
     required this.isFinishing,
@@ -25,9 +24,6 @@ class LiveAnalysisSidePanel extends StatelessWidget {
     required this.onToggleCalibration,
     required this.showNonFinalSet,
     required this.onAdvance,
-    required this.showDetails,
-    required this.showFinishAction,
-    required this.onToggleDetails,
   });
 
   final bool isFinishing;
@@ -36,13 +32,20 @@ class LiveAnalysisSidePanel extends StatelessWidget {
   final VoidCallback? onToggleCalibration;
   final bool showNonFinalSet;
   final VoidCallback onAdvance;
-  final bool showDetails;
-  final bool showFinishAction;
-  final VoidCallback onToggleDetails;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
+    final liveMetrics = workoutDeveloperUiEnabled
+        ? ref.watch(workoutLiveMetricsProvider)
+        : null;
+    final hasCanonicalMetrics =
+        liveMetrics != null &&
+        (liveMetrics.angleDegrees != null ||
+            liveMetrics.tempo != null ||
+            liveMetrics.stabilityScore != null ||
+            liveMetrics.asymmetryScore != null);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final textScale = MediaQuery.textScalerOf(context).scale(1);
@@ -79,11 +82,8 @@ class LiveAnalysisSidePanel extends StatelessWidget {
                     pauseLabel: localizations.pauseWorkout,
                     finishLabel: localizations.finish,
                     isFinishing: isFinishing,
-                    showDetails: showDetails,
-                    showFinishAction: showFinishAction,
                     onPause: onPause,
                     onFinish: onFinish,
-                    onToggleDetails: onToggleDetails,
                   ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -92,10 +92,9 @@ class LiveAnalysisSidePanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          WorkoutFeedbackStatus(
+                          const WorkoutFeedbackStatus(
                             compact: true,
                             sidePanel: true,
-                            showMeasurementConfidence: showDetails,
                           ),
                           const SizedBox(height: 8),
                           GestureDetector(
@@ -104,7 +103,7 @@ class LiveAnalysisSidePanel extends StatelessWidget {
                             ),
                             behavior: HitTestBehavior.opaque,
                             onLongPress: onToggleCalibration,
-                            child: showDetails && useStackedLayout
+                            child: useStackedLayout
                                 ? const Column(
                                     key: ValueKey<String>(
                                       'live-hud-stacked-metrics',
@@ -125,36 +124,35 @@ class LiveAnalysisSidePanel extends StatelessWidget {
                                       ),
                                     ],
                                   )
-                                : SizedBox(
+                                : const SizedBox(
                                     height: 78,
                                     child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: <Widget>[
-                                        const Expanded(
+                                        Expanded(
                                           flex: 3,
                                           child: _PrimaryWorkoutMetricCard(
                                             compact: true,
                                           ),
                                         ),
-                                        if (showDetails) ...<Widget>[
-                                          const SizedBox(width: 8),
-                                          const Expanded(
-                                            flex: 2,
-                                            child: _SecondaryWorkoutMetricCard(
-                                              compact: true,
-                                            ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 2,
+                                          child: _SecondaryWorkoutMetricCard(
+                                            compact: true,
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     ),
                                   ),
                           ),
-                          if (showDetails) ...<Widget>[
+                          if (hasCanonicalMetrics) ...<Widget>[
                             const SizedBox(height: 8),
-                            const LiveHudTechnicalDetails(compact: true),
-                            const SizedBox(height: 8),
-                            const RangeRepSideTrackingIndicator(compact: true),
+                            LiveCanonicalMetricsBar(
+                              metrics: liveMetrics,
+                              compact: true,
+                            ),
                           ],
                           const SizedBox(height: 8),
                           WorkoutSetCompletedSection(
@@ -162,6 +160,8 @@ class LiveAnalysisSidePanel extends StatelessWidget {
                             showNonFinal: showNonFinalSet,
                             onAdvance: onAdvance,
                           ),
+                          const SizedBox(height: 6),
+                          const RangeRepSideTrackingIndicator(compact: true),
                         ],
                       ),
                     ),
@@ -182,22 +182,16 @@ class _LiveSidePanelToolbar extends StatelessWidget {
     required this.pauseLabel,
     required this.finishLabel,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
   });
 
   final bool stacked;
   final String pauseLabel;
   final String finishLabel;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +200,10 @@ class _LiveSidePanelToolbar extends StatelessWidget {
         key: const ValueKey<String>('live-hud-stacked-header'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const ActiveExerciseTitle(compact: true, maxLines: 2),
+          const SizedBox(
+            height: 42,
+            child: ActiveExerciseTitle(compact: true, maxLines: 2),
+          ),
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
@@ -221,84 +218,91 @@ class _LiveSidePanelToolbar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              LiveHudModeControl(
-                compact: true,
-                showDetails: showDetails,
-                onPressed: onToggleDetails,
-              ),
-              if (showFinishAction) ...<Widget>[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LiveHudActionButton(
-                    key: const ValueKey<String>('live-finish-button'),
-                    compact: true,
-                    label: finishLabel,
-                    icon: Icons.stop_rounded,
-                    accentColor: Colors.white70,
-                    onPressed: isFinishing ? null : onFinish,
-                  ),
+              Expanded(
+                child: LiveHudActionButton(
+                  key: const ValueKey<String>('live-finish-button'),
+                  compact: true,
+                  label: finishLabel,
+                  icon: Icons.stop_rounded,
+                  accentColor: Colors.white70,
+                  onPressed: isFinishing ? null : onFinish,
                 ),
-              ],
+              ),
             ],
           ),
         ],
       );
     }
 
-    return Row(
-      children: <Widget>[
-        Expanded(
-          flex: 4,
-          child: LiveHudActionButton(
-            key: const ValueKey<String>('live-pause-button'),
-            compact: true,
-            label: pauseLabel,
-            icon: Icons.pause_rounded,
-            accentColor: liveHudAccent,
-            onPressed: onPause,
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            flex: 4,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: LiveHudActionButton(
+                key: const ValueKey<String>('live-pause-button'),
+                compact: true,
+                label: pauseLabel,
+                icon: Icons.pause_rounded,
+                accentColor: liveHudAccent,
+                onPressed: onPause,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        const Expanded(flex: 3, child: ActiveExerciseTitle(compact: true)),
-        const SizedBox(width: 8),
-        LiveHudModeControl(
-          compact: true,
-          showDetails: showDetails,
-          onPressed: onToggleDetails,
-        ),
-        if (showFinishAction) ...<Widget>[
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          const Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: 40,
+              child: ActiveExerciseTitle(compact: true),
+            ),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             flex: 5,
-            child: LiveHudActionButton(
-              key: const ValueKey<String>('live-finish-button'),
-              compact: true,
-              label: finishLabel,
-              icon: Icons.stop_rounded,
-              accentColor: Colors.white70,
-              onPressed: isFinishing ? null : onFinish,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: LiveHudActionButton(
+                key: const ValueKey<String>('live-finish-button'),
+                compact: true,
+                label: finishLabel,
+                icon: Icons.stop_rounded,
+                accentColor: Colors.white70,
+                onPressed: isFinishing ? null : onFinish,
+              ),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class LandscapeWorkoutMetricsOverlay extends StatelessWidget {
+class LandscapeWorkoutMetricsOverlay extends ConsumerWidget {
   const LandscapeWorkoutMetricsOverlay({
     super.key,
     required this.topInset,
     required this.onToggleCalibration,
-    required this.showDetails,
   });
 
   final double topInset;
   final VoidCallback? onToggleCalibration;
-  final bool showDetails;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveMetrics = workoutDeveloperUiEnabled
+        ? ref.watch(workoutLiveMetricsProvider)
+        : null;
+    final hasCanonicalMetrics =
+        liveMetrics != null &&
+        (liveMetrics.angleDegrees != null ||
+            liveMetrics.tempo != null ||
+            liveMetrics.stabilityScore != null ||
+            liveMetrics.asymmetryScore != null);
+
     return Positioned(
       top: topInset + 58,
       left: 14,
@@ -307,33 +311,32 @@ class LandscapeWorkoutMetricsOverlay extends StatelessWidget {
         key: const ValueKey<String>('live-performance-header'),
         behavior: HitTestBehavior.opaque,
         onLongPress: onToggleCalibration,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            SizedBox(
-              height: 72,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  const Expanded(
-                    flex: 3,
-                    child: _PrimaryWorkoutMetricCard(compact: true),
-                  ),
-                  if (showDetails) ...<Widget>[
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      flex: 2,
-                      child: _SecondaryWorkoutMetricCard(compact: true),
-                    ),
-                  ],
-                ],
+        child: SizedBox(
+          height: 72,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Expanded(
+                flex: 3,
+                child: _PrimaryWorkoutMetricCard(compact: true),
               ),
-            ),
-            if (showDetails) ...<Widget>[
-              const SizedBox(height: 8),
-              const LiveHudTechnicalDetails(compact: true, horizontal: true),
+              const SizedBox(width: 8),
+              const Expanded(
+                flex: 2,
+                child: _SecondaryWorkoutMetricCard(compact: true),
+              ),
+              if (hasCanonicalMetrics) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
+                  child: LiveCanonicalMetricsBar(
+                    metrics: liveMetrics,
+                    compact: true,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -345,12 +348,10 @@ class PrimaryWorkoutMetricsOverlay extends StatelessWidget {
     super.key,
     required this.topInset,
     required this.onToggleCalibration,
-    required this.showDetails,
   });
 
   final double topInset;
   final VoidCallback? onToggleCalibration;
-  final bool showDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -362,30 +363,16 @@ class PrimaryWorkoutMetricsOverlay extends StatelessWidget {
         key: const ValueKey<String>('live-performance-header'),
         behavior: HitTestBehavior.opaque,
         onLongPress: onToggleCalibration,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            SizedBox(
-              height: 104,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  const Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
-                  if (showDetails) ...<Widget>[
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      flex: 2,
-                      child: _SecondaryWorkoutMetricCard(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (showDetails) ...<Widget>[
-              const SizedBox(height: 10),
-              const LiveHudTechnicalDetails(horizontal: true, compact: false),
+        child: const SizedBox(
+          height: 104,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: _PrimaryWorkoutMetricCard()),
+              SizedBox(width: 10),
+              Expanded(flex: 2, child: _SecondaryWorkoutMetricCard()),
             ],
-          ],
+          ),
         ),
       ),
     );

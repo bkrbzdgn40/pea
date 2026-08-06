@@ -17,19 +17,16 @@ import '../controllers/live_session_flow_controller.dart';
 import '../controllers/planned_workout_flow_controller.dart';
 import '../errors/workout_camera_error_presentation.dart';
 import '../models/live_pause_state.dart';
-import '../models/live_tracking_state.dart';
 import '../models/preparation_camera_geometry.dart';
 import '../models/setup_readiness_view_data.dart';
 import '../providers/active_analysis_exercise_provider.dart';
 import '../providers/camera_provider.dart';
 import '../providers/exercise_config_provider.dart';
 import '../providers/live_pause_controller.dart';
-import '../providers/live_tracking_controller.dart';
 import '../providers/preparation_camera_controller.dart';
 import '../providers/preparation_readiness_controller.dart';
 import '../providers/screen_awake_controller.dart';
 import '../providers/selected_exercise_provider.dart';
-import '../providers/workout_analysis_health_controller.dart';
 import '../providers/workout_controller.dart';
 import '../providers/workout_plan_session_provider.dart';
 import '../providers/workout_session_lifecycle_controller_provider.dart';
@@ -41,7 +38,6 @@ import '../widgets/live_analysis/live_analysis_pose_overlays.dart';
 import '../widgets/live_analysis/live_analysis_side_panel.dart';
 import '../widgets/live_analysis/live_analysis_stage_effects.dart';
 import '../widgets/live_analysis/live_analysis_top_bar.dart';
-import '../widgets/live_analysis/live_hud_visibility_policy.dart';
 import '../widgets/live_analysis/workout_analysis_failure_overlay.dart';
 import '../widgets/planned_workout_live_hud.dart';
 import '../widgets/workout_diagnostics_panel.dart';
@@ -62,7 +58,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     with WidgetsBindingObserver {
   bool _isNavigatingToPermission = false;
   bool _showCalibrationPanel = false;
-  bool _showDetailedHud = false;
   late final LiveCameraSessionController _cameraSessionController;
   late final LiveSessionFlowController _sessionFlowController;
   late final PlannedWorkoutFlowController _plannedWorkoutFlowController;
@@ -213,12 +208,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     );
   }
 
-  void _toggleHudDetails() {
-    if (mounted) {
-      setState(() => _showDetailedHud = !_showDetailedHud);
-    }
-  }
-
   void _notifyStateChanged() {
     if (mounted) {
       setState(() {});
@@ -364,17 +353,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
     final hasWorkoutPlan = ref.watch(
       workoutPlanSessionProvider.select((state) => state.hasPlan),
     );
-    final trackingPhase = ref.watch(
-      liveTrackingControllerProvider.select((state) => state.phase),
-    );
-    final analysisHealth = ref.watch(workoutAnalysisHealthControllerProvider);
-    final hudPolicy = LiveHudVisibilityPolicy(
-      mode: _showDetailedHud ? LiveHudMode.detailed : LiveHudMode.minimal,
-      isPaused: pauseState.isPaused,
-      hasCriticalWarning:
-          trackingPhase != LiveTrackingPhase.tracking ||
-          !analysisHealth.isHealthy,
-    );
     final mediaQuery = MediaQuery.of(context);
     final topInset = mediaQuery.padding.top;
     final viewportOrientation = mediaQuery.orientation;
@@ -439,7 +417,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   fit: StackFit.expand,
                   children: <Widget>[
                     CameraPreview(controller),
-                    const _LiveHudMetricsRetention(),
                     LiveCameraStageEffects(compact: layout.isLandscape),
                     if (pauseState.isActive)
                       WorkoutPoseOverlay(
@@ -453,15 +430,13 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         imageSize: imageSize,
                         isMirrored: isMirrored,
                       ),
+                    if (pauseState.isActive)
+                      const LiveTrackingRecoveryOverlay(),
                     if (pauseState.isPaused)
                       LivePauseOverlay(
                         readinessRequest: readinessRequest,
                         onResume: () => _requestResume(readinessRequest),
                         onCancelResume: _cancelResume,
-                        isFinishing: sessionLifecycle.isFinishing,
-                        onFinish: () => unawaited(
-                          _sessionFlowController.requestSessionExit(),
-                        ),
                       ),
                     if (workoutDeveloperUiEnabled && pauseState.isActive)
                       Positioned(
@@ -518,18 +493,12 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           Expanded(child: cameraStage),
                           SizedBox(
                             width: panelWidth,
-                            child: !hudPolicy.showActiveHud
-                                ? const ColoredBox(color: Colors.black)
-                                : hasWorkoutPlan
+                            child: hasWorkoutPlan
                                 ? PlannedWorkoutLiveHud(
                                     topInset: 0,
                                     compact: true,
                                     sidePanel: true,
                                     isFinishing: sessionLifecycle.isFinishing,
-                                    showDetails: hudPolicy.showDetailedContent,
-                                    showFinishAction:
-                                        hudPolicy.showFinishAction,
-                                    onToggleDetails: _toggleHudDetails,
                                     onPause: () =>
                                         _pauseAnalysis(readinessRequest),
                                     onFinish: () => unawaited(
@@ -539,10 +508,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                                   )
                                 : LiveAnalysisSidePanel(
                                     isFinishing: sessionLifecycle.isFinishing,
-                                    showDetails: hudPolicy.showDetailedContent,
-                                    showFinishAction:
-                                        hudPolicy.showFinishAction,
-                                    onToggleDetails: _toggleHudDetails,
                                     onPause: () =>
                                         _pauseAnalysis(readinessRequest),
                                     onFinish: () => unawaited(
@@ -564,7 +529,7 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           ),
                         ],
                       ),
-                      if (hudPolicy.showActiveHud && hasWorkoutPlan)
+                      if (pauseState.isActive && hasWorkoutPlan)
                         Positioned(
                           bottom: 12,
                           left: 12,
@@ -596,8 +561,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                               _plannedWorkoutFlowController.resumeSetNumber,
                         ),
                       if (pauseState.isActive)
-                        const LiveTrackingRecoveryOverlay(),
-                      if (pauseState.isActive)
                         const WorkoutAnalysisFailureOverlay(),
                     ],
                   );
@@ -607,30 +570,33 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                   fit: StackFit.expand,
                   children: <Widget>[
                     cameraStage,
-                    if (hudPolicy.showActiveHud && !hasWorkoutPlan)
+                    if (pauseState.isActive && !hasWorkoutPlan)
                       LiveWorkoutTopBarOverlay(
                         topInset: topInset,
                         compact: layout.isLandscape,
                         reserveLeadingDeveloperControl:
                             workoutDeveloperUiEnabled,
                         isFinishing: sessionLifecycle.isFinishing,
-                        showDetails: hudPolicy.showDetailedContent,
-                        showFinishAction: hudPolicy.showFinishAction,
-                        onToggleDetails: _toggleHudDetails,
                         onPause: () => _pauseAnalysis(readinessRequest),
                         onFinish: () => unawaited(
                           _sessionFlowController.requestSessionExit(),
                         ),
+                      )
+                    else if (!hasWorkoutPlan || pauseState.isPaused)
+                      FinishSessionButton(
+                        topInset: topInset,
+                        compact: layout.isLandscape,
+                        isFinishing: sessionLifecycle.isFinishing,
+                        onFinish: () => unawaited(
+                          _sessionFlowController.requestSessionExit(),
+                        ),
                       ),
-                    if (hudPolicy.showActiveHud && hasWorkoutPlan)
+                    if (pauseState.isActive && hasWorkoutPlan)
                       Positioned.fill(
                         child: PlannedWorkoutLiveHud(
                           topInset: topInset,
                           compact: layout.isLandscape,
                           isFinishing: sessionLifecycle.isFinishing,
-                          showDetails: hudPolicy.showDetailedContent,
-                          showFinishAction: hudPolicy.showFinishAction,
-                          onToggleDetails: _toggleHudDetails,
                           reserveLeadingDeveloperControl:
                               workoutDeveloperUiEnabled,
                           onPause: () => _pauseAnalysis(readinessRequest),
@@ -639,11 +605,10 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                           ),
                         ),
                       ),
-                    if (hudPolicy.showActiveHud && !hasWorkoutPlan)
+                    if (pauseState.isActive && !hasWorkoutPlan)
                       if (layout.isLandscape)
                         LandscapeWorkoutMetricsOverlay(
                           topInset: topInset,
-                          showDetails: hudPolicy.showTechnicalMetrics,
                           onToggleCalibration: workoutDeveloperUiEnabled
                               ? toggleCalibration
                               : null,
@@ -651,12 +616,15 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                       else
                         PrimaryWorkoutMetricsOverlay(
                           topInset: topInset,
-                          showDetails: hudPolicy.showTechnicalMetrics,
                           onToggleCalibration: workoutDeveloperUiEnabled
                               ? toggleCalibration
                               : null,
                         ),
-                    if (hudPolicy.showActiveHud && !hasWorkoutPlan)
+                    if (workoutDeveloperUiEnabled &&
+                        pauseState.isActive &&
+                        !layout.isLandscape)
+                      CanonicalMetricsOverlay(topInset: topInset),
+                    if (pauseState.isActive && !hasWorkoutPlan)
                       Positioned(
                         bottom: layout.isLandscape ? 12 : 40,
                         left: layout.isLandscape ? 12 : 20,
@@ -673,20 +641,17 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                                   _plannedWorkoutFlowController.retryAdvance(),
                                 ),
                               ),
-                              if (hudPolicy.showDetailedContent)
-                                RangeRepSideTrackingIndicator(
-                                  compact: layout.isLandscape,
-                                ),
+                              RangeRepSideTrackingIndicator(
+                                compact: layout.isLandscape,
+                              ),
                               WorkoutFeedbackStatus(
                                 compact: layout.isLandscape,
-                                showMeasurementConfidence:
-                                    hudPolicy.showDetailedContent,
                               ),
                             ],
                           ),
                         ),
                       ),
-                    if (hudPolicy.showActiveHud && hasWorkoutPlan)
+                    if (pauseState.isActive && hasWorkoutPlan)
                       Positioned(
                         bottom: layout.isLandscape ? 122 : 232,
                         left: layout.isLandscape ? 12 : 20,
@@ -716,8 +681,6 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
                         nextSetNumber:
                             _plannedWorkoutFlowController.resumeSetNumber,
                       ),
-                    if (pauseState.isActive)
-                      const LiveTrackingRecoveryOverlay(),
                     if (pauseState.isActive)
                       const WorkoutAnalysisFailureOverlay(),
                   ],
@@ -752,17 +715,5 @@ class _LiveAnalysisScreenState extends ConsumerState<LiveAnalysisScreen>
         ),
       ),
     );
-  }
-}
-
-class _LiveHudMetricsRetention extends ConsumerWidget {
-  const _LiveHudMetricsRetention();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Minimal HUD intentionally hides technical metrics, but the latest
-    // projection must remain available when the user opens the detailed HUD.
-    ref.watch(workoutLiveMetricsProvider);
-    return const SizedBox.shrink();
   }
 }
