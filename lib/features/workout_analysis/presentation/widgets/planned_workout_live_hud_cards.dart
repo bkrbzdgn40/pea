@@ -268,12 +268,10 @@ class PlannedWorkoutFeedbackCard extends StatelessWidget {
     super.key,
     required this.data,
     required this.compact,
-    this.showMeasurementConfidence = false,
   });
 
   final PlannedWorkoutLiveHudData data;
   final bool compact;
-  final bool showMeasurementConfidence;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +333,8 @@ class PlannedWorkoutFeedbackCard extends StatelessWidget {
                   key: const ValueKey<String>(
                     'planned-workout-feedback-message',
                   ),
+                  maxLines: compact ? 2 : 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: compact ? 12 : 14,
@@ -342,9 +342,8 @@ class PlannedWorkoutFeedbackCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (showMeasurementConfidence &&
-                    data.feedbackMeasurementConfidenceLabel !=
-                        null) ...<Widget>[
+                if (data.feedbackMeasurementConfidenceLabel !=
+                    null) ...<Widget>[
                   SizedBox(height: compact ? 3 : 5),
                   Text(
                     data.feedbackMeasurementConfidenceLabel!,

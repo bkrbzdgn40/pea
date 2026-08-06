@@ -6,7 +6,6 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/workout_plan_session_provider.dart';
 
 import 'live_analysis_theme.dart';
-import 'live_hud_mode_control.dart';
 
 class LiveWorkoutTopBarOverlay extends StatelessWidget {
   const LiveWorkoutTopBarOverlay({
@@ -15,22 +14,16 @@ class LiveWorkoutTopBarOverlay extends StatelessWidget {
     required this.compact,
     required this.reserveLeadingDeveloperControl,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
   });
 
   final double topInset;
   final bool compact;
   final bool reserveLeadingDeveloperControl;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +40,8 @@ class LiveWorkoutTopBarOverlay extends StatelessWidget {
       child: _LiveWorkoutTopBar(
         compact: compact,
         isFinishing: isFinishing,
-        showDetails: showDetails,
-        showFinishAction: showFinishAction,
         onPause: onPause,
         onFinish: onFinish,
-        onToggleDetails: onToggleDetails,
       ),
     );
   }
@@ -61,20 +51,14 @@ class _LiveWorkoutTopBar extends StatelessWidget {
   const _LiveWorkoutTopBar({
     required this.compact,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
   });
 
   final bool compact;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -102,31 +86,16 @@ class _LiveWorkoutTopBar extends StatelessWidget {
           const Expanded(flex: 3, child: ActiveExerciseTitle()),
           SizedBox(width: compact ? 6 : 10),
           Expanded(
-            flex: showFinishAction ? 6 : 3,
+            flex: 5,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  LiveHudModeControl(
-                    compact: compact,
-                    showDetails: showDetails,
-                    onPressed: onToggleDetails,
-                  ),
-                  if (showFinishAction) ...<Widget>[
-                    SizedBox(width: compact ? 6 : 8),
-                    Flexible(
-                      child: LiveHudActionButton(
-                        key: const ValueKey<String>('live-finish-button'),
-                        compact: compact,
-                        label: localizations.finish,
-                        icon: Icons.stop_rounded,
-                        accentColor: Colors.white70,
-                        onPressed: isFinishing ? null : onFinish,
-                      ),
-                    ),
-                  ],
-                ],
+              child: LiveHudActionButton(
+                key: const ValueKey<String>('live-finish-button'),
+                compact: compact,
+                label: localizations.finish,
+                icon: Icons.stop_rounded,
+                accentColor: Colors.white70,
+                onPressed: isFinishing ? null : onFinish,
               ),
             ),
           ),

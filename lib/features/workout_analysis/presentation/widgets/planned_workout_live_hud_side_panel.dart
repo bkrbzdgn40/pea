@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'live_analysis/live_hud_mode_control.dart';
 import 'planned_workout_hud_models.dart';
 import 'planned_workout_hud_theme.dart';
 import 'planned_workout_live_hud_cards.dart';
@@ -13,24 +12,16 @@ class PlannedWorkoutSidePanel extends StatelessWidget {
     required this.pauseLabel,
     required this.finishLabel,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
-    this.technicalDetails,
   });
 
   final PlannedWorkoutLiveHudData data;
   final String pauseLabel;
   final String finishLabel;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
-  final Widget? technicalDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +46,8 @@ class PlannedWorkoutSidePanel extends StatelessWidget {
                       pauseLabel: pauseLabel,
                       finishLabel: finishLabel,
                       isFinishing: isFinishing,
-                      showDetails: showDetails,
-                      showFinishAction: showFinishAction,
                       onPause: onPause,
                       onFinish: onFinish,
-                      onToggleDetails: onToggleDetails,
                     )
                   else
                     PlannedWorkoutTopBar(
@@ -68,11 +56,8 @@ class PlannedWorkoutSidePanel extends StatelessWidget {
                       pauseLabel: pauseLabel,
                       finishLabel: finishLabel,
                       isFinishing: isFinishing,
-                      showDetails: showDetails,
-                      showFinishAction: showFinishAction,
                       onPause: onPause,
                       onFinish: onFinish,
-                      onToggleDetails: onToggleDetails,
                     ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -83,31 +68,92 @@ class PlannedWorkoutSidePanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          if (data.hasFeedback)
+                          if (useStackedLayout)
+                            Column(
+                              key: const ValueKey<String>(
+                                'planned-workout-stacked-metrics',
+                              ),
+                              children: <Widget>[
+                                SizedBox(
+                                  height: 86,
+                                  child: PlannedWorkoutMetricCard(
+                                    key: const ValueKey<String>(
+                                      'planned-workout-primary-metric',
+                                    ),
+                                    compact: true,
+                                    label: data.primaryLabel,
+                                    value: data.primaryValue,
+                                    icon: data.primaryIcon,
+                                    tone: PlannedWorkoutHudTone.positive,
+                                    emphasize: true,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 86,
+                                  child: PlannedWorkoutMetricCard(
+                                    key: const ValueKey<String>(
+                                      'planned-workout-secondary-metric',
+                                    ),
+                                    compact: true,
+                                    label: data.secondaryLabel,
+                                    value: data.secondaryValue,
+                                    icon: Icons.star_rounded,
+                                    tone: data.secondaryTone,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            SizedBox(
+                              height: 78,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  Expanded(
+                                    flex: 3,
+                                    child: PlannedWorkoutMetricCard(
+                                      key: const ValueKey<String>(
+                                        'planned-workout-primary-metric',
+                                      ),
+                                      compact: true,
+                                      label: data.primaryLabel,
+                                      value: data.primaryValue,
+                                      icon: data.primaryIcon,
+                                      tone: PlannedWorkoutHudTone.positive,
+                                      emphasize: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    flex: 2,
+                                    child: PlannedWorkoutMetricCard(
+                                      key: const ValueKey<String>(
+                                        'planned-workout-secondary-metric',
+                                      ),
+                                      compact: true,
+                                      label: data.secondaryLabel,
+                                      value: data.secondaryValue,
+                                      icon: Icons.star_rounded,
+                                      tone: data.secondaryTone,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (data.hasFeedback) ...<Widget>[
+                            const SizedBox(height: 8),
                             PlannedWorkoutFeedbackCard(
                               data: data,
                               compact: true,
-                              showMeasurementConfidence: showDetails,
                             ),
-                          if (data.hasFeedback) const SizedBox(height: 8),
-                          _PlannedWorkoutSidePanelMetrics(
+                          ],
+                          const SizedBox(height: 8),
+                          PlannedWorkoutProgressCard(
                             data: data,
-                            showDetails: showDetails,
-                            stacked: useStackedLayout,
+                            compact: true,
+                            stackedHeader: useStackedLayout,
                           ),
-                          if (showDetails &&
-                              technicalDetails != null) ...<Widget>[
-                            const SizedBox(height: 8),
-                            technicalDetails!,
-                          ],
-                          if (showDetails) ...<Widget>[
-                            const SizedBox(height: 8),
-                            PlannedWorkoutProgressCard(
-                              data: data,
-                              compact: true,
-                              stackedHeader: useStackedLayout,
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -122,88 +168,6 @@ class PlannedWorkoutSidePanel extends StatelessWidget {
   }
 }
 
-class _PlannedWorkoutSidePanelMetrics extends StatelessWidget {
-  const _PlannedWorkoutSidePanelMetrics({
-    required this.data,
-    required this.showDetails,
-    required this.stacked,
-  });
-
-  final PlannedWorkoutLiveHudData data;
-  final bool showDetails;
-  final bool stacked;
-
-  @override
-  Widget build(BuildContext context) {
-    if (showDetails && stacked) {
-      return Column(
-        key: const ValueKey<String>('planned-workout-stacked-metrics'),
-        children: <Widget>[
-          SizedBox(
-            height: 86,
-            child: PlannedWorkoutMetricCard(
-              key: const ValueKey<String>('planned-workout-primary-metric'),
-              compact: true,
-              label: data.primaryLabel,
-              value: data.primaryValue,
-              icon: data.primaryIcon,
-              tone: PlannedWorkoutHudTone.positive,
-              emphasize: true,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 86,
-            child: PlannedWorkoutMetricCard(
-              key: const ValueKey<String>('planned-workout-secondary-metric'),
-              compact: true,
-              label: data.secondaryLabel,
-              value: data.secondaryValue,
-              icon: Icons.star_rounded,
-              tone: data.secondaryTone,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return SizedBox(
-      height: 78,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Expanded(
-            flex: 3,
-            child: PlannedWorkoutMetricCard(
-              key: const ValueKey<String>('planned-workout-primary-metric'),
-              compact: true,
-              label: data.primaryLabel,
-              value: data.primaryValue,
-              icon: data.primaryIcon,
-              tone: PlannedWorkoutHudTone.positive,
-              emphasize: true,
-            ),
-          ),
-          if (showDetails) ...<Widget>[
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: PlannedWorkoutMetricCard(
-                key: const ValueKey<String>('planned-workout-secondary-metric'),
-                compact: true,
-                label: data.secondaryLabel,
-                value: data.secondaryValue,
-                icon: Icons.star_rounded,
-                tone: data.secondaryTone,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class PlannedWorkoutSidePanelHeader extends StatelessWidget {
   const PlannedWorkoutSidePanelHeader({
     super.key,
@@ -211,22 +175,16 @@ class PlannedWorkoutSidePanelHeader extends StatelessWidget {
     required this.pauseLabel,
     required this.finishLabel,
     required this.isFinishing,
-    required this.showDetails,
-    required this.showFinishAction,
     required this.onPause,
     required this.onFinish,
-    required this.onToggleDetails,
   });
 
   final String exerciseTitle;
   final String pauseLabel;
   final String finishLabel;
   final bool isFinishing;
-  final bool showDetails;
-  final bool showFinishAction;
   final VoidCallback onPause;
   final VoidCallback onFinish;
-  final VoidCallback onToggleDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -240,6 +198,7 @@ class PlannedWorkoutSidePanelHeader extends StatelessWidget {
             exerciseTitle,
             key: const ValueKey<String>('planned-workout-exercise-title'),
             maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -264,24 +223,16 @@ class PlannedWorkoutSidePanelHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            LiveHudModeControl(
-              compact: true,
-              showDetails: showDetails,
-              onPressed: onToggleDetails,
-            ),
-            if (showFinishAction) ...<Widget>[
-              const SizedBox(width: 8),
-              Expanded(
-                child: PlannedWorkoutActionButton(
-                  key: const ValueKey<String>('planned-workout-finish-button'),
-                  compact: true,
-                  label: finishLabel,
-                  icon: Icons.stop_rounded,
-                  accentColor: Colors.white70,
-                  onPressed: isFinishing ? null : onFinish,
-                ),
+            Expanded(
+              child: PlannedWorkoutActionButton(
+                key: const ValueKey<String>('planned-workout-finish-button'),
+                compact: true,
+                label: finishLabel,
+                icon: Icons.stop_rounded,
+                accentColor: Colors.white70,
+                onPressed: isFinishing ? null : onFinish,
               ),
-            ],
+            ),
           ],
         ),
       ],
