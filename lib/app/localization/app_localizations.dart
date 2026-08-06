@@ -26,16 +26,71 @@ class AppLocalizations {
   String get workoutAnalysis =>
       pick(tr: 'Antrenman Analizi', en: 'Workout Analysis');
   String get settings => pick(tr: 'Ayarlar', en: 'Settings');
+  String get settingsAnalysisExperience =>
+      pick(tr: 'Analiz deneyimi', en: 'Analysis experience');
+  String get settingsAnalysisExperienceDescription => pick(
+    tr: 'Canlı analiz sırasında kullanılan temel yönlendirmeyi yönet.',
+    en: 'Manage the primary guidance used during live analysis.',
+  );
+  String get settingsFeedback => pick(tr: 'Geri bildirim', en: 'Feedback');
+  String get settingsFeedbackDescription => pick(
+    tr: 'Sesli uyarıların tekrar sıklığını belirle.',
+    en: 'Choose how often spoken guidance may repeat.',
+  );
+  String get settingsCameraDescription => pick(
+    tr: 'Analiz sırasında kullanılacak kamerayı seç.',
+    en: 'Choose the camera used during analysis.',
+  );
+  String get settingsLanguageAndAppearance =>
+      pick(tr: 'Dil ve görünüm', en: 'Language and appearance');
+  String get settingsLanguageAndAppearanceDescription => pick(
+    tr: 'Uygulamanın görüntülenen dilini yönet.',
+    en: 'Manage the language displayed by the app.',
+  );
+  String get settingsAdvancedAnalysis =>
+      pick(tr: 'Gelişmiş analiz ayarları', en: 'Advanced analysis settings');
+  String get settingsAdvancedAnalysisDescription => pick(
+    tr: 'Kamera işleme kalitesi gibi teknik tercihleri düzenle.',
+    en: 'Adjust technical preferences such as camera processing quality.',
+  );
+  String get settingsDataAndAccount =>
+      pick(tr: 'Veri ve hesap', en: 'Data and account');
+  String get settingsDataAndAccountDescription => pick(
+    tr: 'Kaydedilen analiz verilerinin nasıl saklandığını incele.',
+    en: 'Review how saved analysis data is stored.',
+  );
+  String get settingsDangerousActions =>
+      pick(tr: 'Tehlikeli işlemler', en: 'Dangerous actions');
+  String get settingsDangerousActionsDescription => pick(
+    tr: 'Bu işlemler kalıcıdır ve geri alınamaz.',
+    en: 'These actions are permanent and cannot be undone.',
+  );
+  String get settingsLoadFailedDescription => pick(
+    tr: 'Kayıtlı tercihler okunamadı. Yeniden deneyebilirsin.',
+    en: 'Saved preferences could not be read. You can try again.',
+  );
   String get language => pick(tr: 'Dil', en: 'Language');
   String get appLanguage => pick(tr: 'Uygulama dili', en: 'App language');
+  String get appLanguageDescription => pick(
+    tr: 'Ekran metinlerinde kullanılacak dili seç.',
+    en: 'Choose the language used for on-screen copy.',
+  );
   String get turkish => pick(tr: 'Türkçe', en: 'Turkish');
   String get english => pick(tr: 'İngilizce', en: 'English');
   String get camera => pick(tr: 'Kamera', en: 'Camera');
   String get cameraPreference =>
       pick(tr: 'Kamera tercihi', en: 'Camera preference');
+  String get cameraPreferenceDescription => pick(
+    tr: 'Hazırlık ve canlı analizde açılacak lensi belirler.',
+    en: 'Sets the lens opened for preparation and live analysis.',
+  );
   String get frontCamera => pick(tr: 'Ön kamera', en: 'Front camera');
   String get backCamera => pick(tr: 'Arka kamera', en: 'Back camera');
   String get imageQuality => pick(tr: 'Görüntü kalitesi', en: 'Image quality');
+  String get imageQualityDescription => pick(
+    tr: 'Kamera çözünürlüğü ile cihaz yükü arasındaki dengeyi belirler.',
+    en: 'Balances camera resolution with device processing load.',
+  );
   String get low => pick(tr: 'Düşük', en: 'Low');
   String get medium => pick(tr: 'Orta', en: 'Medium');
   String get high => pick(tr: 'Yüksek', en: 'High');
