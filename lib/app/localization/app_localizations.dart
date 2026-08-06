@@ -2004,6 +2004,17 @@ class AppLocalizations {
   String get tempoMetric => 'TEMPO';
   String get stabilityMetric => pick(tr: 'STABİLİTE', en: 'STABILITY');
   String get asymmetryMetric => pick(tr: 'ASİMETRİ', en: 'ASYMMETRY');
+  String get phaseMetric => pick(tr: 'FAZ', en: 'PHASE');
+  String get rangeOfMotionMetric =>
+      pick(tr: 'HAREKET AÇIKLIĞI', en: 'RANGE OF MOTION');
+  String get liveHudShowDetails =>
+      pick(tr: 'Ayrıntıları göster', en: 'Show details');
+  String get liveHudUseMinimalView =>
+      pick(tr: 'Minimal görünüme dön', en: 'Use minimal view');
+  String get liveHudTechnicalDetails =>
+      pick(tr: 'Canlı analiz ayrıntıları', en: 'Live analysis details');
+  String get liveHudPlanProgress =>
+      pick(tr: 'PLAN İLERLEMESİ', en: 'PLAN PROGRESS');
   String get automaticLegSelectionPrompt => pick(
     tr: 'Bir bacağını hareket ettir; takip edilen taraf otomatik seçilecek.',
     en: 'Move either leg; the tracked side will be selected automatically.',

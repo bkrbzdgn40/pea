@@ -281,6 +281,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await _showDetailedHud(tester);
 
     final primaryBefore = tester.widget(
       find.byKey(const ValueKey<String>('live-primary-metric-card')),
@@ -463,6 +464,20 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      expect(
+        find.byKey(const ValueKey<String>('live-secondary-metric-card')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-finish-button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('live-hud-technical-details')),
+        findsNothing,
+      );
+      await _showDetailedHud(tester);
+
       final performanceHeader = find.byKey(
         const ValueKey<String>('live-performance-header'),
       );
@@ -505,7 +520,7 @@ void main() {
         findsNothing,
       );
       expect(performanceHeader, findsOneWidget);
-      expect(tester.getSize(performanceHeader).height, 104);
+      expect(tester.getSize(performanceHeader).height, greaterThan(104));
       expect(
         find.byKey(const ValueKey<String>('live-active-exercise-name')),
         findsOneWidget,
@@ -549,6 +564,11 @@ void main() {
       );
       expect(feedbackText.style?.fontSize, 22);
       expect(feedbackText.style?.fontWeight, FontWeight.w800);
+      expect(feedbackText.overflow, isNull);
+      expect(
+        find.byKey(const ValueKey<String>('live-hud-technical-details')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -613,6 +633,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await _showDetailedHud(tester);
 
     expect(
       find.byKey(const ValueKey<String>('live-range-rep-side-indicator')),
@@ -685,6 +706,11 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('planned-workout-progress-card')),
+      findsNothing,
+    );
+    await _showDetailedHud(tester);
+    expect(
       find.byKey(const ValueKey<String>('planned-workout-primary-metric')),
       findsOneWidget,
     );
@@ -720,6 +746,7 @@ void main() {
       DeviceOrientation.landscapeLeft,
     );
     await tester.pump();
+    await _showDetailedHud(tester);
 
     final sidePanel = find.byKey(
       const ValueKey<String>('live-analysis-side-panel'),
@@ -893,6 +920,7 @@ void main() {
       findsNothing,
     );
     expect(find.textContaining('FPS'), findsNothing);
+    await _showDetailedHud(tester);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('live-secondary-metric-card')),
@@ -957,6 +985,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      await _showDetailedHud(tester);
 
       final scoreCard = find.byKey(
         const ValueKey<String>('live-secondary-metric-card'),
@@ -1056,7 +1085,11 @@ void main() {
       expect(find.text('Kadraja geri dön'), findsOneWidget);
       expect(find.textContaining('Sayım ve süre'), findsOneWidget);
       expect(find.text('Dizlerini düzelt'), findsNothing);
-      expect(find.text('4'), findsOneWidget);
+      expect(find.text('4'), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('live-tracking-critical-overlay')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey<String>('live-tracking-overlay-title')),
         findsOneWidget,
@@ -1095,7 +1128,14 @@ void main() {
     await tester.pump();
 
     expect(find.text('Antrenman duraklatıldı'), findsOneWidget);
-    expect(find.text('Bitir'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('live-pause-finish-button')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-hud-technical-details')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('live-resume-button')),
       findsOneWidget,
@@ -1415,7 +1455,7 @@ void main() {
         find.byKey(const ValueKey<String>('live-exit-dialog')),
         findsNothing,
       );
-      expect(find.text('Bitir'), findsOneWidget);
+      expect(find.text('Bitir'), findsNothing);
       expect(harness.sessionRepository.saveCallCount, 0);
       expect(harness.sessionRepository.savedSessions, isEmpty);
     },
@@ -1800,7 +1840,7 @@ void main() {
       expect(state.repCount, 1);
       expect(state.calibrationMetrics.lastRangeRepValidatedRepIndex, 1);
       expect(state.calibrationMetrics.lastRangeRepValidationStatus, 'valid');
-      expect(find.text('Bitir'), findsOneWidget);
+      expect(find.text('Bitir'), findsNothing);
 
       final snapshotSubscription = harness.container
           .listen<AsyncValue<UserSessionsSnapshot>>(
@@ -1866,7 +1906,7 @@ void main() {
       final state = harness.container.read(workoutControllerProvider);
       expect(state.isHolding, isTrue);
       expect(state.currentHoldSeconds, closeTo(5.0, 0.001));
-      expect(find.text('Bitir'), findsOneWidget);
+      expect(find.text('Bitir'), findsNothing);
 
       final snapshotSubscription = harness.container
           .listen<AsyncValue<UserSessionsSnapshot>>(
@@ -1931,7 +1971,7 @@ void main() {
       final state = harness.container.read(workoutControllerProvider);
       expect(state.repCount, 1);
       expect(state.rangeRepAnalysis, isNotNull);
-      expect(find.text('Bitir'), findsOneWidget);
+      expect(find.text('Bitir'), findsNothing);
 
       final initialPushCount = harness.navigationObserver.pushCount;
       await _requestSaveAndFinish(tester);
@@ -1977,7 +2017,7 @@ void main() {
       final state = harness.container.read(workoutControllerProvider);
       expect(state.repCount, 1);
       expect(state.rangeRepAnalysis, isNotNull);
-      expect(find.text('Bitir'), findsOneWidget);
+      expect(find.text('Bitir'), findsNothing);
 
       final initialPushCount = harness.navigationObserver.pushCount;
       await _requestSaveAndFinish(tester);
@@ -2028,12 +2068,23 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('live-canonical-metrics-bar')),
-      workoutDeveloperUiEnabled ? findsOneWidget : findsNothing,
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-hud-technical-details')),
+      findsNothing,
     );
     expect(
       headerGesture.onLongPress,
       workoutDeveloperUiEnabled ? isNotNull : isNull,
     );
+
+    await _showDetailedHud(tester);
+    expect(
+      find.byKey(const ValueKey<String>('live-hud-technical-details')),
+      findsOneWidget,
+    );
+    expect(find.text('90°'), findsOneWidget);
 
     if (!workoutDeveloperUiEnabled) {
       expect(find.text('primary/current'), findsNothing);
@@ -2100,7 +2151,11 @@ Future<void> _driveUntilPhase(
 }
 
 Future<void> _requestSaveAndFinish(WidgetTester tester) async {
-  await tester.tap(find.text('Bitir'));
+  final finishButton = find.byKey(const ValueKey<String>('live-finish-button'));
+  if (finishButton.evaluate().isEmpty) {
+    await _showDetailedHud(tester);
+  }
+  await tester.tap(finishButton);
   await tester.pump();
 
   expect(
@@ -2284,6 +2339,13 @@ class _LiveScreenHarness {
     routeResult.dispose();
     container.dispose();
   }
+}
+
+Future<void> _showDetailedHud(WidgetTester tester) async {
+  final toggle = find.byKey(const ValueKey<String>('live-hud-mode-toggle'));
+  expect(toggle, findsOneWidget);
+  await tester.tap(toggle);
+  await tester.pump();
 }
 
 Future<_LiveScreenHarness> _pumpLiveAnalysisScreen(
