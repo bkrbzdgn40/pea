@@ -467,11 +467,95 @@ class AppLocalizations {
     en: 'User session could not be prepared.',
   );
 
+  // Analytics
+  String get analytics => pick(tr: 'Analitik', en: 'Analytics');
+  String get analyticsHeaderTitle => pick(
+    tr: 'İlerlemeni ayrıntılı incele',
+    en: 'Explore your progress in detail',
+  );
+  String get analyticsHeaderSubtitle => pick(
+    tr: 'Egzersiz dağılımını ve seçili harekete ait form skoru trendini tek yerde gör.',
+    en: 'Review your exercise distribution and the selected exercise form-score trend in one place.',
+  );
+  String get analyticsLoadFailed => pick(
+    tr: 'Analitik verileri yüklenemedi. Yeniden deneyebilirsin.',
+    en: 'Analytics data could not be loaded. You can try again.',
+  );
+  String get analyticsEmptyTitle =>
+      pick(tr: 'Analitik için henüz veri yok', en: 'No analytics data yet');
+  String get analyticsEmptyMessage => pick(
+    tr: 'İlk kayıtlı analizinden sonra dağılım ve trendler burada oluşur.',
+    en: 'Distribution and trends will appear here after your first saved analysis.',
+  );
+
   // Home
+  String get homeStartAnalysis =>
+      pick(tr: 'Analize Başla', en: 'Start Analysis');
+  String homeStartSelectedExercise(String exerciseName) => pick(
+    tr: '$exerciseName ile hazırlığa geç',
+    en: 'Continue to preparation with $exerciseName',
+  );
+  String get homeStartChooseExercise => pick(
+    tr: 'Hareketini seçerek devam et',
+    en: 'Continue by choosing an exercise',
+  );
+  String get homeTodaySummary =>
+      pick(tr: 'Bugünkü Özet', en: "Today's Summary");
+  String get homeInsight => pick(tr: 'İçgörü', en: 'Insight');
+  String get homeInsightAchievementTitle =>
+      pick(tr: 'Yeni başarı', en: 'New achievement');
+  String get homeInsightDistributionTitle =>
+      pick(tr: 'En sık yaptığın hareket', en: 'Your most frequent exercise');
+  String homeInsightDistributionMessage(String exerciseName, int percent) =>
+      pick(
+        tr: 'Oturumlarının %$percent kadarı $exerciseName.',
+        en: '$exerciseName represents $percent% of your sessions.',
+      );
+  String get homeInsightWeeklyTitle =>
+      pick(tr: 'Bu haftaki ritmin', en: 'Your rhythm this week');
+  String homeInsightWeeklyMessage(int count) => pick(
+    tr: 'Bu hafta $count kayıtlı analiz tamamladın.',
+    en: 'You completed $count saved analyses this week.',
+  );
+  String get homeInsightStartTitle =>
+      pick(tr: 'İlk analizini tamamla', en: 'Complete your first analysis');
+  String get homeInsightStartMessage => pick(
+    tr: 'Bir hareket seçip formunu kaydettiğinde kişisel içgörülerin burada görünür.',
+    en: 'Your personal insights will appear here after you choose an exercise and save your form analysis.',
+  );
+  String get openAnalytics => pick(tr: 'Analitiği Aç', en: 'Open Analytics');
+  String get viewAchievements =>
+      pick(tr: 'Başarıları Gör', en: 'View Achievements');
+
   String get homeReadyPrompt => pick(
     tr: 'Bugünkü formunu takip etmeye hazır mısın?',
     en: 'Ready to track your form today?',
   );
+  String homeGreetingPromptForHour(int hour) {
+    if (hour >= 5 && hour < 12) {
+      return pick(
+        tr: 'Güne formunu kontrol ederek güçlü başla.',
+        en: 'Start the day strong by checking your form.',
+      );
+    }
+    if (hour >= 12 && hour < 17) {
+      return pick(
+        tr: 'Günün ritmini kısa bir analizle kontrol et.',
+        en: 'Check your rhythm with a quick analysis.',
+      );
+    }
+    if (hour >= 17 && hour < 22) {
+      return pick(
+        tr: 'Bugünün hareket kalitesini kaydet.',
+        en: "Record today's movement quality.",
+      );
+    }
+    return pick(
+      tr: 'Günü kapatmadan formuna kısa bir göz at.',
+      en: 'Take a quick look at your form before ending the day.',
+    );
+  }
+
   String greetingForHour(int hour) {
     if (hour >= 5 && hour < 12) {
       return pick(tr: 'Günaydın', en: 'Good morning');
@@ -1927,6 +2011,12 @@ class AppLocalizations {
   String get summaryTechnicalDetailsHint => pick(
     tr: 'Tekrar dökümü, tempo, hareket açıklığı ve ölçüm verileri',
     en: 'Rep breakdown, tempo, range of motion, and measurement data',
+  );
+  String get sessionTimeline =>
+      pick(tr: 'Kısa tekrar zaman çizelgesi', en: 'Short repetition timeline');
+  String moreRepsInSessionDetails(int count) => pick(
+    tr: '$count tekrar daha oturum ayrıntılarında',
+    en: '$count more ${count == 1 ? 'repetition is' : 'repetitions are'} available in session details',
   );
   String get summaryRepBreakdown =>
       pick(tr: 'Tekrar dökümü', en: 'Rep breakdown');

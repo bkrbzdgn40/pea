@@ -158,9 +158,21 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu).first);
     await tester.pumpAndSettle();
 
-    final marketTile = tester.widget<ListTile>(
-      find.widgetWithText(ListTile, 'Market'),
+    final marketTileFinder = find.widgetWithText(ListTile, 'Market');
+    final drawerScrollable = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byType(Scrollable),
     );
+
+    expect(drawerScrollable, findsOneWidget);
+    await tester.scrollUntilVisible(
+      marketTileFinder,
+      180,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
+
+    final marketTile = tester.widget<ListTile>(marketTileFinder);
     expect(marketTile.selected, isTrue);
   });
 

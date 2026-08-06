@@ -7,6 +7,7 @@ import 'package:pose_estimation_app/features/achievements/presentation/models/ac
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
+import 'package:pose_estimation_app/features/goals/presentation/screens/goals_screen.dart';
 import 'package:pose_estimation_app/features/market/presentation/screens/market_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
@@ -24,6 +25,9 @@ void main() {
       AppDestination.howToUse,
       AppDestination.exerciseSelection,
       AppDestination.sessionHistory,
+      AppDestination.analytics,
+      AppDestination.achievements,
+      AppDestination.goals,
       AppDestination.guide,
       AppDestination.market,
       AppDestination.settings,
@@ -40,6 +44,9 @@ void main() {
         'Nasıl Kullanılır',
         'Hareket Seç',
         'Geçmiş Oturumlar',
+        'Analitik',
+        'Başarılar',
+        'Hedefler',
         'Hareket Rehberi',
         'Market',
         'Ayarlar',
@@ -57,6 +64,9 @@ void main() {
         'How to Use',
         'Select Exercise',
         'Session History',
+        'Analytics',
+        'Achievements',
+        'Goals',
         'Exercise Guide',
         'Market',
         'Settings',
@@ -69,6 +79,9 @@ void main() {
         '/how-to-use',
         '/exercises',
         '/history',
+        '/analytics',
+        '/achievements',
+        '/goals',
         '/guide',
         '/market',
         '/settings',
@@ -81,6 +94,9 @@ void main() {
         Icons.help_outline_rounded,
         Icons.directions_run_rounded,
         Icons.history_rounded,
+        Icons.query_stats_rounded,
+        Icons.emoji_events_rounded,
+        Icons.flag_rounded,
         Icons.menu_book_rounded,
         Icons.storefront_rounded,
         Icons.settings_rounded,
@@ -229,6 +245,34 @@ void main() {
     expect(find.byType(ExerciseSelectionScreen), findsNothing);
   });
 
+  testWidgets('goals destination restores the goal management screen', (
+    WidgetTester tester,
+  ) async {
+    final observer = _RootNavigationObserver();
+
+    await pumpTestApp(
+      tester,
+      navigatorObservers: <NavigatorObserver>[observer],
+      locale: const Locale('tr'),
+      overrides: [
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+      ],
+      home: const _DrawerHost(currentPage: AppDestination.home),
+    );
+    await tester.pumpAndSettle();
+
+    await _selectDrawerDestination(tester, 'Hedefler');
+
+    expect(observer.lastNewRoute?.settings.name, '/goals');
+    expect(find.byType(GoalsScreen), findsOneWidget);
+    expect(find.text('Hedefini sen belirle'), findsOneWidget);
+  });
+
   testWidgets('market destination opens the local preview catalog', (
     WidgetTester tester,
   ) async {
@@ -325,8 +369,20 @@ Future<void> _selectDrawerDestination(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 
   final destinationFinder = find.widgetWithText(ListTile, label);
-  await tester.ensureVisible(destinationFinder);
+  final drawerScrollable = find.descendant(
+    of: find.byType(Drawer),
+    matching: find.byType(Scrollable),
+  );
+
+  expect(drawerScrollable, findsOneWidget);
+  await tester.scrollUntilVisible(
+    destinationFinder,
+    180,
+    scrollable: drawerScrollable,
+  );
   await tester.pumpAndSettle();
+
+  expect(destinationFinder, findsOneWidget);
   await tester.tap(destinationFinder);
   await tester.pumpAndSettle();
 }

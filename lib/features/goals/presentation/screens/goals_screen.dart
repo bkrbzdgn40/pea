@@ -26,7 +26,7 @@ class GoalsScreen extends ConsumerWidget {
 
     return AppScaffoldShell(
       title: localizations.goals,
-      showDrawer: false,
+      currentPage: AppDestination.goals,
       padding: EdgeInsets.zero,
       body: AsyncStateView<GoalsState>(
         value: goalsState,

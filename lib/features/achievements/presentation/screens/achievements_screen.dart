@@ -21,7 +21,7 @@ class AchievementsScreen extends ConsumerWidget {
 
     return AppScaffoldShell(
       title: localizations.achievements,
-      showDrawer: false,
+      currentPage: AppDestination.achievements,
       padding: EdgeInsets.zero,
       body: AsyncStateView<AchievementsState>(
         value: achievementsState,

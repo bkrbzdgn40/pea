@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/goals/application/repositories/workout_goal_repository.dart';
 import 'package:pose_estimation_app/features/goals/domain/models/user_workout_goal.dart';
@@ -35,6 +36,42 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Hedef önerileri'), findsOneWidget);
+  });
+
+  testWidgets('exposes Goals as the selected drawer destination', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const GoalsScreen(),
+      overrides: [
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.menu).first);
+    await tester.pumpAndSettle();
+
+    final drawerScrollable = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byType(Scrollable),
+    );
+    final goalsTile = find.widgetWithText(ListTile, 'Hedefler');
+    await tester.scrollUntilVisible(
+      goalsTile,
+      180,
+      scrollable: drawerScrollable,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppDrawer), findsOneWidget);
+    expect(tester.widget<ListTile>(goalsTile).selected, isTrue);
   });
 
   testWidgets('shows one active goal and keeps paused goals secondary', (

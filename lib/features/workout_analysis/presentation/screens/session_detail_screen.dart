@@ -169,6 +169,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
   }) {
     final useWideLayout =
         layout.viewportSize.width >= 760 && !layout.hasLargeText;
+    final measurementWarning = _buildMeasurementWarning();
 
     if (!useWideLayout) {
       return SingleChildScrollView(
@@ -178,10 +179,14 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ..._primaryContent(report),
+            if (measurementWarning != null) ...[
+              SizedBox(height: layout.panelGap),
+              measurementWarning,
+            ],
             SizedBox(height: layout.panelGap),
-            _buildRepDetails(),
+            _buildTimelineOverview(report),
             SizedBox(height: layout.panelGap),
-            _buildDeleteAction(),
+            _buildTechnicalDetails(report),
           ],
         ),
       );
@@ -201,8 +206,12 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ..._primaryContent(report),
+                  if (measurementWarning != null) ...[
+                    SizedBox(height: layout.panelGap),
+                    measurementWarning,
+                  ],
                   SizedBox(height: layout.panelGap),
-                  _buildDeleteAction(),
+                  _buildTechnicalDetails(report),
                 ],
               ),
             ),
@@ -212,7 +221,7 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
             flex: 6,
             child: SingleChildScrollView(
               key: const ValueKey<String>('session-detail-reps-scroll'),
-              child: _buildRepDetails(),
+              child: _buildTimelineOverview(report),
             ),
           ),
         ],
@@ -224,16 +233,35 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
     return <Widget>[
       _SessionSummaryCard(session: _session, report: report),
       const SizedBox(height: AppSpacing.sm),
-      _MeasurementEvidenceCard(session: _session),
+      _PrimaryResultCard(report: report),
       const SizedBox(height: AppSpacing.sm),
-      _OverviewCard(session: _session, report: report),
-      const SizedBox(height: AppSpacing.sm),
-      _ReportSummaryCard(report: report),
-      if (report.recommendations.isNotEmpty) ...[
-        const SizedBox(height: AppSpacing.sm),
-        _RecommendationsCard(report: report),
-      ],
+      _PrimaryRecommendationCard(report: report),
     ];
+  }
+
+  Widget? _buildMeasurementWarning() {
+    if (!SessionMeasurementEvidencePresenter.shouldShowWarning(_session)) {
+      return null;
+    }
+
+    return AppSurfaceCard(
+      key: const ValueKey<String>('session-detail-measurement-warning-card'),
+      variant: AppSurfaceVariant.strong,
+      child: SessionMeasurementEvidenceNotice(
+        key: const ValueKey<String>('session-detail-measurement-warning'),
+        session: _session,
+      ),
+    );
+  }
+
+  Widget _buildTimelineOverview(SessionReport report) {
+    return _SessionTimelineCard(
+      report: report,
+      reps: _reps,
+      isLoading: _isLoadingRepDetails,
+      hasLoadError: _repLoadFailed,
+      onRetry: _loadSessionDetails,
+    );
   }
 
   Widget _buildRepDetails() {
@@ -243,6 +271,80 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       isLoading: _isLoadingRepDetails,
       hasLoadError: _repLoadFailed,
       onRetry: _loadSessionDetails,
+    );
+  }
+
+  Widget _buildTechnicalDetails(SessionReport report) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      variant: AppSurfaceVariant.strong,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const ValueKey<String>('session-detail-technical-details'),
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xs,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          iconColor: colors.analysisAccent,
+          collapsedIconColor: colors.foregroundMuted,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colors.analysisAccent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              color: colors.analysisAccent,
+              size: 21,
+            ),
+          ),
+          title: Text(
+            localizations.summaryTechnicalDetails,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.heavy,
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xxs),
+            child: Text(
+              localizations.summaryTechnicalDetailsHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.foregroundMuted,
+                height: 1.35,
+              ),
+            ),
+          ),
+          children: [
+            _MeasurementEvidenceCard(session: _session, showWarning: false),
+            const SizedBox(height: AppSpacing.sm),
+            _OverviewCard(session: _session, report: report),
+            const SizedBox(height: AppSpacing.sm),
+            _ReportSummaryCard(report: report),
+            if (report.recommendations.length > 1) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _RecommendationsCard(report: report, skipPrimary: true),
+            ],
+            const SizedBox(height: AppSpacing.sm),
+            _buildRepDetails(),
+            const SizedBox(height: AppSpacing.md),
+            _buildDeleteAction(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -300,11 +402,6 @@ class _SessionSummaryCard extends StatelessWidget {
             ? WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds)
             : report.totalReps.toString(),
       ),
-      if (!report.isHoldSession && report.hasScoreData)
-        MapEntry(
-          localizations.averageFormRangeScore,
-          WorkoutPresentationFormatter.compactScore(report.averageScore),
-        ),
     ];
 
     return AppSurfaceCard(
@@ -378,10 +475,97 @@ class _SessionSummaryCard extends StatelessWidget {
   }
 }
 
+class _PrimaryResultCard extends StatelessWidget {
+  const _PrimaryResultCard({required this.report});
+
+  final SessionReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final isHold = report.isHoldSession;
+    final hasScore = !isHold && report.hasScoreData;
+    final value = isHold
+        ? WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds)
+        : hasScore
+        ? WorkoutPresentationFormatter.compactScore(report.averageScore)
+        : report.totalReps.toString();
+    final label = isHold
+        ? localizations.bestHold
+        : hasScore
+        ? localizations.averageFormRangeScore
+        : localizations.totalReps;
+
+    return _SectionCard(
+      key: const ValueKey<String>('session-detail-primary-result'),
+      title: localizations.summaryHighlight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: colors.analysisAccent,
+              fontSize: 34,
+              fontWeight: AppFontWeights.heavy,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colors.foregroundMuted,
+              fontWeight: AppFontWeights.heavy,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            localizedSessionReportSummary(localizations, report),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.foregroundMuted,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryRecommendationCard extends StatelessWidget {
+  const _PrimaryRecommendationCard({required this.report});
+
+  final SessionReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final recommendations = localizedSessionReportRecommendations(
+      localizations,
+      report,
+    );
+    final recommendation = recommendations.isEmpty
+        ? localizations.summaryMaintainControl
+        : recommendations.first;
+
+    return _SectionCard(
+      key: const ValueKey<String>('session-detail-primary-recommendation'),
+      title: localizations.summaryNextFocus,
+      child: _RecommendationRow(text: recommendation),
+    );
+  }
+}
+
 class _MeasurementEvidenceCard extends StatelessWidget {
-  const _MeasurementEvidenceCard({required this.session});
+  const _MeasurementEvidenceCard({
+    required this.session,
+    this.showWarning = true,
+  });
 
   final WorkoutSession session;
+  final bool showWarning;
 
   @override
   Widget build(BuildContext context) {
@@ -419,9 +603,10 @@ class _MeasurementEvidenceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (SessionMeasurementEvidencePresenter.shouldShowWarning(
-            session,
-          )) ...[
+          if (showWarning &&
+              SessionMeasurementEvidencePresenter.shouldShowWarning(
+                session,
+              )) ...[
             SessionMeasurementEvidenceNotice(
               key: const ValueKey<String>('session-detail-measurement-warning'),
               session: session,
@@ -543,17 +728,21 @@ class _ReportSummaryCard extends StatelessWidget {
 }
 
 class _RecommendationsCard extends StatelessWidget {
-  const _RecommendationsCard({required this.report});
+  const _RecommendationsCard({required this.report, this.skipPrimary = false});
 
   final SessionReport report;
+  final bool skipPrimary;
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final recommendations = localizedSessionReportRecommendations(
+    final allRecommendations = localizedSessionReportRecommendations(
       localizations,
       report,
     );
+    final recommendations = skipPrimary
+        ? allRecommendations.skip(1).toList(growable: false)
+        : allRecommendations;
 
     return _SectionCard(
       title: localizations.recommendations,
@@ -562,6 +751,228 @@ class _RecommendationsCard extends StatelessWidget {
         children: recommendations
             .map((recommendation) => _RecommendationRow(text: recommendation))
             .toList(growable: false),
+      ),
+    );
+  }
+}
+
+class _SessionTimelineCard extends StatelessWidget {
+  const _SessionTimelineCard({
+    required this.report,
+    required this.reps,
+    required this.isLoading,
+    required this.hasLoadError,
+    required this.onRetry,
+  });
+
+  static const int _visibleRepLimit = 5;
+
+  final SessionReport report;
+  final List<WorkoutRep>? reps;
+  final bool isLoading;
+  final bool hasLoadError;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+
+    if (report.isHoldSession) {
+      final metrics = <MapEntry<String, String>>[
+        MapEntry(
+          localizations.totalHold,
+          WorkoutPresentationFormatter.holdDuration(report.totalHoldSeconds),
+        ),
+        MapEntry(
+          localizations.bestHold,
+          WorkoutPresentationFormatter.holdDuration(report.bestHoldSeconds),
+        ),
+        MapEntry(localizations.formBreaks, report.formBreakCount.toString()),
+      ];
+
+      return _SectionCard(
+        key: const ValueKey<String>('session-detail-short-timeline'),
+        title: localizations.holdSummary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = AppSpacing.xs;
+            final columnCount = constraints.maxWidth < 340 ? 1 : 2;
+            final tileWidth =
+                (constraints.maxWidth - spacing * (columnCount - 1)) /
+                columnCount;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(
+                    width: tileWidth,
+                    child: _MetricTile(label: metric.key, value: metric.value),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+    }
+
+    final hasReps = reps != null && reps!.isNotEmpty;
+    final visibleReps = hasReps
+        ? reps!.take(_visibleRepLimit).toList(growable: false)
+        : const <WorkoutRep>[];
+    final hiddenRepCount = hasReps ? reps!.length - visibleReps.length : 0;
+
+    return _SectionCard(
+      key: const ValueKey<String>('session-detail-short-timeline'),
+      title: localizations.sessionTimeline,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (!hasReps && hasLoadError)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppFeedbackBanner(
+                  message: localizations.repDetailsLoadFailed,
+                  tone: AppStatusTone.caution,
+                  icon: Icons.cloud_off_rounded,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppButton(
+                  label: localizations.retry,
+                  onPressed: () => unawaited(onRetry()),
+                  icon: Icons.refresh_rounded,
+                  variant: AppButtonVariant.outline,
+                  expand: true,
+                ),
+              ],
+            )
+          else if (!hasReps)
+            AppFeedbackBanner(
+              message: localizations.noRepDetails,
+              tone: AppStatusTone.neutral,
+              icon: Icons.format_list_numbered_rounded,
+            )
+          else ...[
+            if (hasLoadError) ...[
+              AppFeedbackBanner(
+                message: localizations.showingCachedRepDetails,
+                tone: AppStatusTone.caution,
+                icon: Icons.offline_bolt_outlined,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            ListView.separated(
+              key: const ValueKey<String>('session-rep-timeline'),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: visibleReps.length,
+              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
+              itemBuilder: (context, index) =>
+                  _CompactRepTimelineItem(rep: visibleReps[index]),
+            ),
+            if (hiddenRepCount > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                localizations.moreRepsInSessionDetails(hiddenRepCount),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.semanticColors.foregroundMuted,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactRepTimelineItem extends StatelessWidget {
+  const _CompactRepTimelineItem({required this.rep});
+
+  final WorkoutRep rep;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+    final tone = repStatusTone(rep);
+    final accent = tone.resolveColor(colors);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppRadii.small),
+        border: Border.all(color: colors.outlineSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: AppOpacity.subtle),
+              border: Border.all(
+                color: accent.withValues(alpha: AppOpacity.strongBorder),
+              ),
+            ),
+            child: Text(
+              '${rep.repIndex}',
+              style: TextStyle(color: accent, fontWeight: AppFontWeights.heavy),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  localizations.attemptNumber(rep.repIndex),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colors.foreground,
+                    fontWeight: AppFontWeights.heavy,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    AppStatusChip(
+                      label: _repStatusLabel(localizations, rep),
+                      tone: tone,
+                      showIcon: true,
+                    ),
+                    if (rep.score != null)
+                      Text(
+                        '${localizations.score}: '
+                        '${WorkoutPresentationFormatter.compactScore(rep.score!)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.foregroundMuted,
+                          fontWeight: AppFontWeights.semibold,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -634,7 +1045,7 @@ class _RepDetailsCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
             ],
             ListView.builder(
-              key: const ValueKey<String>('session-rep-timeline'),
+              key: const ValueKey<String>('session-rep-technical-list'),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: reps!.length,

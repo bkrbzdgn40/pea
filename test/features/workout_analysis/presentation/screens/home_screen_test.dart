@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
-import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
-import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
-import 'package:pose_estimation_app/features/goals/domain/models/user_workout_goal.dart';
-import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
-import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
@@ -14,98 +8,49 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/provi
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/analytics_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/home_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/how_to_use_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/home_task_surface.dart';
 
-import '../../../../support/presentation_test_harness.dart';
 import '../../../../support/presentation_test_support.dart';
 
 void main() {
-  testWidgets(
-    'renders truthful universal metrics without global score surfaces',
-    (WidgetTester tester) async {
-      await pumpTestApp(
-        tester,
-        home: const HomeScreen(),
-        overrides: [
-          homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-          goalsProvider.overrideWith(
-            (ref) => GoalsState(
-              source: GoalsDataSource.real,
-              goals: const [
-                WorkoutGoal(
-                  id: 'weekly_analysis_count',
-                  title: 'Haftalik 5 analiz',
-                  targetValue: 5,
-                  currentValue: 3,
-                  unit: 'analiz',
-                  description: 'Bu hafta en az 5 canli analiz tamamla.',
-                  isCompleted: false,
-                ),
-              ],
-            ),
-          ),
-          achievementsProvider.overrideWith(
-            (ref) => AchievementsState(
-              source: AchievementsDataSource.real,
-              achievements: const [
-                Achievement(
-                  id: 'first_analysis',
-                  title: 'Ilk Analiz',
-                  description: 'Ilk canli analiz oturumunu tamamladin.',
-                  isUnlocked: true,
-                  progress: 1,
-                  requirementText: '1 analiz tamamla',
-                ),
-              ],
-            ),
-          ),
-          selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
-        ],
-      );
-      await tester.pump();
-
-      expect(find.text('Plank analizine başla'), findsOneWidget);
-      expect(find.text('Seçili hareket: Plank'), findsOneWidget);
-      expect(find.text('Toplam Analiz'), findsOneWidget);
-      expect(find.text('Bu Hafta'), findsOneWidget);
-      expect(find.text('Ortalama Skor'), findsNothing);
-      expect(find.text('En İyi Skor'), findsNothing);
-      expect(find.text('Skor Trendi'), findsNothing);
-      expect(find.text('Aktif Hedef'), findsOneWidget);
-      expect(find.text('Başarılar'), findsOneWidget);
-      expect(find.text('Planlı Antrenman'), findsOneWidget);
-      expect(find.text('Kamera Ölçümü'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('home-assessment-action')),
-          matching: find.byIcon(Icons.center_focus_strong_rounded),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('home-assessment-action')),
-          matching: find.byIcon(Icons.monitor_heart_rounded),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('exercise-distribution-card')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('exercise-distribution-chart-surface')),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('shows grouped exercises as a single Other slice', (
+  testWidgets('keeps Home focused on the three analysis actions', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(
       tester,
       home: const HomeScreen(),
+      overrides: [
+        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.text('Analize Başla'), findsOneWidget);
+    expect(find.text('Seçili hareket: Plank'), findsOneWidget);
+    expect(find.text('Planlı Antrenman'), findsOneWidget);
+    expect(find.text('Kamera Ölçümü'), findsOneWidget);
+    expect(find.text('Aktif Hedef'), findsNothing);
+    expect(find.text('Toplam Analiz'), findsNothing);
+    expect(find.text('Bu Hafta'), findsNothing);
+    expect(find.text('Son Oturum'), findsNothing);
+    expect(find.text('İçgörü'), findsNothing);
+    expect(find.text('Yeni başarı'), findsNothing);
+    expect(find.byKey(const ValueKey('home-insight-card')), findsNothing);
+    expect(find.byKey(const ValueKey('home-progress-panel')), findsNothing);
+    expect(find.byKey(const ValueKey('home-active-goal')), findsNothing);
+    expect(find.byKey(const Key('exercise-distribution-card')), findsNothing);
+  });
+
+  testWidgets('shows grouped exercises as a single Other slice in Analytics', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const AnalyticsScreen(),
       overrides: [
         homeDashboardProvider.overrideWith(
           (ref) => const HomeDashboardData(
@@ -132,18 +77,6 @@ void main() {
               ),
             ],
             source: HomeDashboardSource.real,
-          ),
-        ),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
           ),
         ),
         selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
@@ -173,50 +106,54 @@ void main() {
 
     expect(find.text('Diğer (3)'), findsNWidgets(2));
     expect(find.byKey(const Key('score-trend-card')), findsNothing);
-    expect(find.text('Plank analizine başla'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('keeps the dashboard metric cards at equal height', (
+  testWidgets('gives each time period a distinct greeting surface', (
     WidgetTester tester,
   ) async {
-    await pumpTestApp(
-      tester,
-      home: const HomeScreen(),
-      locale: const Locale('en'),
-      configuration: const PresentationTestConfiguration(
-        viewport: PresentationTestViewport.standardPortrait,
-      ),
-      overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
-          ),
-        ),
-      ],
-    );
-    await tester.pump();
+    final cases = <(int, String, String)>[
+      (8, 'home-greeting-morning', 'Günaydın'),
+      (13, 'home-greeting-afternoon', 'İyi öğlenler'),
+      (19, 'home-greeting-evening', 'İyi akşamlar'),
+      (23, 'home-greeting-night', 'İyi geceler'),
+    ];
 
-    final totalAnalysesSize = tester.getSize(
-      find.byKey(const ValueKey('home-total-analyses')),
-    );
-    final thisWeekSize = tester.getSize(
-      find.byKey(const ValueKey('home-this-week')),
-    );
+    for (final testCase in cases) {
+      await pumpTestApp(tester, home: HomeGreetingHeader(hour: testCase.$1));
+      await tester.pump();
 
-    expect(thisWeekSize.height, totalAnalysesSize.height);
-    expect(tester.takeException(), isNull);
+      expect(find.byKey(ValueKey(testCase.$2)), findsOneWidget);
+      expect(find.text(testCase.$3), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-greeting-symbol')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    }
   });
 
-  testWidgets('surfaces the latest saved session without global scoring', (
+  testWidgets('keeps the greeting entrance visible long enough to notice', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(tester, home: const HomeGreetingHeader(hour: 8));
+    await tester.pump();
+
+    final opacityFinder = find.byKey(
+      const ValueKey('home-greeting-symbol-opacity'),
+    );
+    expect(opacityFinder, findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    final halfwayOpacity = tester.widget<Opacity>(opacityFinder).opacity;
+    expect(halfwayOpacity, greaterThan(0.35));
+    expect(halfwayOpacity, lessThan(1));
+
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
+  });
+
+  testWidgets('keeps recent sessions and dashboard metrics off Home', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(
@@ -235,103 +172,15 @@ void main() {
             latestSession: _latestRangeSession(),
           ),
         ),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
-          ),
-        ),
       ],
     );
     await tester.pump();
 
-    expect(find.text('Son Oturum'), findsOneWidget);
-    expect(find.text('Squat'), findsOneWidget);
-    expect(find.text('Ort. Skor'), findsOneWidget);
+    expect(find.text('Son Oturum'), findsNothing);
+    expect(find.text('Oturumu Aç'), findsNothing);
+    expect(find.text('Toplam Analiz'), findsNothing);
+    expect(find.text('Bu Hafta'), findsNothing);
     expect(find.text('Ortalama Skor'), findsNothing);
-    expect(find.text('Oturumu Aç'), findsOneWidget);
-  });
-
-  testWidgets(
-    'does not present zero score as poor performance for hold-only history',
-    (WidgetTester tester) async {
-      await pumpTestApp(
-        tester,
-        home: const HomeScreen(),
-        overrides: [
-          homeDashboardProvider.overrideWith((ref) => _holdOnlyDashboardData()),
-          goalsProvider.overrideWith(
-            (ref) => const GoalsState(
-              source: GoalsDataSource.real,
-              goals: <WorkoutGoal>[],
-            ),
-          ),
-          achievementsProvider.overrideWith(
-            (ref) => const AchievementsState(
-              source: AchievementsDataSource.real,
-              achievements: <Achievement>[],
-            ),
-          ),
-          selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
-        ],
-      );
-      await tester.pump();
-
-      expect(find.text('Toplam Analiz'), findsOneWidget);
-      expect(find.text('Bu Hafta'), findsOneWidget);
-      expect(find.text('4'), findsAtLeastNWidgets(1));
-      expect(find.text('Ortalama Skor'), findsNothing);
-      expect(find.text('En İyi Skor'), findsNothing);
-      expect(find.text('Skor Trendi'), findsNothing);
-    },
-  );
-
-  testWidgets('keeps truthful empty-state copy without promising scores', (
-    WidgetTester tester,
-  ) async {
-    await pumpTestApp(
-      tester,
-      home: const HomeScreen(),
-      overrides: [
-        homeDashboardProvider.overrideWith(
-          (ref) =>
-              HomeDashboardData.fallback(source: HomeDashboardSource.empty),
-        ),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.empty,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.empty,
-            achievements: <Achievement>[],
-          ),
-        ),
-      ],
-    );
-    await tester.pump();
-
-    expect(
-      find.text(
-        'İlk analizini tamamladığında oturumların ve haftalık özetin burada görünür.',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'İlk analizini tamamladığında skorların, tekrarların ve haftalık özetin burada görünür.',
-      ),
-      findsNothing,
-    );
-    expect(find.text('Skor Trendi'), findsNothing);
   });
 
   testWidgets(
@@ -341,19 +190,6 @@ void main() {
         tester,
         home: const HomeScreen(),
         overrides: [
-          homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-          goalsProvider.overrideWith(
-            (ref) => const GoalsState(
-              source: GoalsDataSource.real,
-              goals: <WorkoutGoal>[],
-            ),
-          ),
-          achievementsProvider.overrideWith(
-            (ref) => const AchievementsState(
-              source: AchievementsDataSource.real,
-              achievements: <Achievement>[],
-            ),
-          ),
           selectedExerciseProvider.overrideWith((ref) => ExerciseType.plank),
         ],
       );
@@ -361,7 +197,11 @@ void main() {
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
 
-      expect(appBar.actions, isNull);
+      expect(appBar.actions, isNotEmpty);
+      expect(
+        find.byKey(const ValueKey('home-how-to-use-action')),
+        findsOneWidget,
+      );
       expect(find.text('Hareketi Değiştir'), findsNothing);
       expect(find.byKey(const ValueKey('home-primary-action')), findsOneWidget);
       expect(
@@ -375,52 +215,60 @@ void main() {
     },
   );
 
-  testWidgets('preserves the 12px action icon surface radius on HomeScreen', (
+  testWidgets('keeps the greeting focused without the analysis badge', (
     WidgetTester tester,
   ) async {
-    await pumpTestApp(
-      tester,
-      home: const HomeScreen(),
-      overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
-          ),
-        ),
-      ],
-    );
+    await pumpTestApp(tester, home: const HomeGreetingHeader(hour: 8));
     await tester.pump();
 
-    final playIconSurface = find.ancestor(
-      of: find.byIcon(Icons.play_arrow_rounded),
-      matching: find.byWidgetPredicate((widget) {
-        if (widget is! Container) {
-          return false;
-        }
-
-        final decoration = widget.decoration;
-        final constraints = widget.constraints;
-        return constraints?.minWidth == 44 &&
-            constraints?.maxWidth == 44 &&
-            constraints?.minHeight == 44 &&
-            constraints?.maxHeight == 44 &&
-            decoration is BoxDecoration &&
-            decoration.borderRadius == BorderRadius.circular(AppRadii.small);
-      }),
-    );
-
-    expect(playIconSurface, findsOneWidget);
+    expect(find.text('KAMERA TABANLI HAREKET ANALİZİ'), findsNothing);
+    expect(find.text('Günaydın'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-greeting-symbol')), findsOneWidget);
   });
 
-  testWidgets('uses a single-column task flow in portrait', (
+  testWidgets('opens How to Use from the restrained Home app bar action', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(tester, home: const HomeScreen());
+    await tester.pump();
+
+    final action = find.byKey(const ValueKey('home-how-to-use-action'));
+    expect(action, findsOneWidget);
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HowToUseScreen), findsOneWidget);
+    expect(find.text('Nasıl Kullanılır'), findsOneWidget);
+  });
+
+  testWidgets('renders the prominent start action and stylized quick flows', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(tester, home: const HomeScreen());
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('home-primary-action')), findsOneWidget);
+    expect(find.text('Analize Başla'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-planned-workout-action')),
+        matching: find.byIcon(Icons.fitness_center_rounded),
+      ),
+      findsAtLeastNWidgets(1),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-assessment-action')),
+        matching: find.byIcon(Icons.center_focus_strong_rounded),
+      ),
+      findsAtLeastNWidgets(1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uses a single-column action flow in portrait', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -430,19 +278,6 @@ void main() {
       tester,
       home: const HomeScreen(),
       overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
-          ),
-        ),
         selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
       ],
     );
@@ -451,16 +286,46 @@ void main() {
     expect(find.byKey(const ValueKey('home-portrait-layout')), findsOneWidget);
     expect(find.byKey(const ValueKey('home-wide-layout')), findsNothing);
 
+    final greetingTop = tester.getTopLeft(find.byType(HomeGreetingHeader));
     final taskTop = tester.getTopLeft(
       find.byKey(const ValueKey('home-task-panel')),
     );
-    final progressTop = tester.getTopLeft(
-      find.byKey(const ValueKey('home-progress-panel')),
-    );
-    expect(taskTop.dy, lessThan(progressTop.dy));
+    expect(greetingTop.dy, lessThan(taskTop.dy));
   });
 
-  testWidgets('uses task and progress panels side by side in landscape', (
+  testWidgets('fits compact quick flows without Home scrolling', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      overrides: [
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+      ],
+    );
+    await tester.pump();
+
+    final planned = find.byKey(const ValueKey('home-planned-workout-action'));
+    final assessment = find.byKey(const ValueKey('home-assessment-action'));
+
+    expect(tester.getSize(planned).height, lessThanOrEqualTo(68));
+    expect(tester.getSize(assessment).height, lessThanOrEqualTo(68));
+
+    final homeScrollView = find.byType(SingleChildScrollView);
+    final scrollable = find.descendant(
+      of: homeScrollView,
+      matching: find.byType(Scrollable),
+    );
+    final scrollableState = tester.state<ScrollableState>(scrollable);
+
+    expect(scrollableState.position.maxScrollExtent, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('centers the focused action panel in landscape', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(844, 390));
@@ -470,19 +335,6 @@ void main() {
       tester,
       home: const HomeScreen(),
       overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: <Achievement>[],
-          ),
-        ),
         selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
       ],
     );
@@ -490,15 +342,8 @@ void main() {
 
     expect(find.byKey(const ValueKey('home-wide-layout')), findsOneWidget);
     expect(find.byKey(const ValueKey('home-portrait-layout')), findsNothing);
-
-    final taskTopLeft = tester.getTopLeft(
-      find.byKey(const ValueKey('home-task-panel')),
-    );
-    final progressTopLeft = tester.getTopLeft(
-      find.byKey(const ValueKey('home-progress-panel')),
-    );
-    expect(taskTopLeft.dx, lessThan(progressTopLeft.dx));
-    expect((taskTopLeft.dy - progressTopLeft.dy).abs(), lessThan(1));
+    expect(find.byKey(const ValueKey('home-task-panel')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('keeps compact portrait usable with 200 percent text scaling', (
@@ -516,24 +361,6 @@ void main() {
         ),
         child: const HomeScreen(),
       ),
-      overrides: [
-        homeDashboardProvider.overrideWith(
-          (ref) =>
-              HomeDashboardData.fallback(source: HomeDashboardSource.empty),
-        ),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.empty,
-            goals: <WorkoutGoal>[],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.empty,
-            achievements: <Achievement>[],
-          ),
-        ),
-      ],
     );
     await tester.pump();
 
@@ -549,58 +376,7 @@ void main() {
     expect(plannedTop.dy, lessThan(assessmentTop.dy));
   });
 
-  testWidgets('shows only the active user-defined goal on Home', (
-    WidgetTester tester,
-  ) async {
-    await pumpTestApp(
-      tester,
-      home: const HomeScreen(),
-      overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => const GoalsState(
-            source: GoalsDataSource.real,
-            goals: [
-              WorkoutGoal(
-                id: 'weeklySessions',
-                title: '',
-                targetValue: 4,
-                currentValue: 2,
-                unit: '',
-                description: '',
-                isCompleted: false,
-                type: WorkoutGoalType.weeklySessions,
-                status: WorkoutGoalStatus.paused,
-              ),
-              WorkoutGoal(
-                id: 'weeklyReps',
-                title: '',
-                targetValue: 120,
-                currentValue: 60,
-                unit: '',
-                description: '',
-                isCompleted: false,
-                type: WorkoutGoalType.weeklyReps,
-              ),
-            ],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => const AchievementsState(
-            source: AchievementsDataSource.empty,
-            achievements: [],
-          ),
-        ),
-        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
-      ],
-    );
-    await tester.pump();
-
-    expect(find.text('Haftada 120 tekrar'), findsOneWidget);
-    expect(find.text('Haftada 4 analiz'), findsNothing);
-  });
-
-  testWidgets('translates the primary Home surface to English', (
+  testWidgets('translates the focused Home surface to English', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(
@@ -608,55 +384,20 @@ void main() {
       locale: const Locale('en'),
       home: const HomeScreen(),
       overrides: [
-        homeDashboardProvider.overrideWith((ref) => _mixedDashboardData()),
-        goalsProvider.overrideWith(
-          (ref) => GoalsState(
-            source: GoalsDataSource.real,
-            goals: const [
-              WorkoutGoal(
-                id: 'weekly_analysis_count',
-                title: 'Haftalık 5 analiz',
-                targetValue: 5,
-                currentValue: 3,
-                unit: 'analiz',
-                description: 'Bu hafta en az 5 canlı analiz tamamla.',
-                isCompleted: false,
-              ),
-            ],
-          ),
-        ),
-        achievementsProvider.overrideWith(
-          (ref) => AchievementsState(
-            source: AchievementsDataSource.real,
-            achievements: const [
-              Achievement(
-                id: 'first_analysis',
-                title: 'İlk Analiz',
-                description: 'İlk canlı analiz oturumunu tamamladın.',
-                isUnlocked: true,
-                progress: 1,
-                requirementText: '1 analiz tamamla',
-              ),
-            ],
-          ),
-        ),
         selectedExerciseProvider.overrideWith((ref) => ExerciseType.pushUp),
       ],
     );
     await tester.pump();
 
     expect(find.text('Workout Analysis'), findsOneWidget);
-    expect(find.text('Start Push-up analysis'), findsOneWidget);
+    expect(find.text('Start Analysis'), findsOneWidget);
     expect(find.text('Selected exercise: Push-up'), findsOneWidget);
-    expect(find.text('Exercise Guide'), findsNothing);
-    expect(find.text('Session History'), findsNothing);
     expect(find.text('Planned Workout'), findsOneWidget);
     expect(find.text('Camera Measurement'), findsOneWidget);
-    expect(find.text('Active Goal'), findsOneWidget);
-    expect(find.text('Achievements'), findsOneWidget);
-    expect(find.text('First Analysis'), findsOneWidget);
-    expect(find.text('1 analiz tamamla'), findsNothing);
-    expect(find.text('Complete 1 analysis'), findsOneWidget);
+    expect(find.text('Active Goal'), findsNothing);
+    expect(find.text('New achievement'), findsNothing);
+    expect(find.text('View Achievements'), findsNothing);
+    expect(find.text('Latest Session'), findsNothing);
   });
 }
 
@@ -675,21 +416,6 @@ HomeDashboardData _mixedDashboardData() {
       ExerciseDistributionItem(label: 'Plank', value: 25),
       ExerciseDistributionItem(label: 'Squat', value: 40),
       ExerciseDistributionItem(label: 'Push-up', value: 35),
-    ],
-    source: HomeDashboardSource.real,
-  );
-}
-
-HomeDashboardData _holdOnlyDashboardData() {
-  return const HomeDashboardData(
-    totalAnalyses: 4,
-    averageScore: 0,
-    thisWeekCount: 2,
-    bestScore: 0,
-    scoreTrend: <ScoreTrendPoint>[],
-    exerciseDistribution: [
-      ExerciseDistributionItem(label: 'Plank', value: 50),
-      ExerciseDistributionItem(label: 'Hollow Hold', value: 50),
     ],
     source: HomeDashboardSource.real,
   );
