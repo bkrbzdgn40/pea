@@ -11,6 +11,7 @@ import 'package:pose_estimation_app/features/workout_analysis/presentation/model
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/live_pause_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_camera_controller.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/preparation_readiness_controller.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/live_analysis/live_hud_technical_details.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/widgets/pose_painter.dart';
 
 class PausedPoseOverlay extends ConsumerWidget {
@@ -51,11 +52,15 @@ class LivePauseOverlay extends ConsumerWidget {
     required this.readinessRequest,
     required this.onResume,
     required this.onCancelResume,
+    required this.isFinishing,
+    required this.onFinish,
   });
 
   final SetupReadinessRequest readinessRequest;
   final VoidCallback onResume;
   final VoidCallback onCancelResume;
+  final bool isFinishing;
+  final VoidCallback onFinish;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,7 +93,7 @@ class LivePauseOverlay extends ConsumerWidget {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 96, 24, 36),
+              padding: const EdgeInsets.all(24),
               child: Container(
                 key: const ValueKey<String>('live-pause-overlay'),
                 constraints: const BoxConstraints(maxWidth: 430),
@@ -147,6 +152,15 @@ class LivePauseOverlay extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (pauseState.phase == LivePausePhase.paused) ...<Widget>[
+                      const SizedBox(height: 18),
+                      const LiveHudTechnicalDetails(
+                        compact: true,
+                        horizontal: true,
+                        includePrimaryMetrics: true,
+                        includePlanProgress: true,
+                      ),
+                    ],
                     if (pauseState.isCountingDown) ...<Widget>[
                       const SizedBox(height: 20),
                       AnimatedSwitcher(
@@ -181,14 +195,21 @@ class LivePauseOverlay extends ConsumerWidget {
                       ),
                     ],
                     const SizedBox(height: 22),
-                    if (pauseState.phase == LivePausePhase.paused)
+                    if (pauseState.phase == LivePausePhase.paused) ...<Widget>[
                       FilledButton.icon(
                         key: const ValueKey<String>('live-resume-button'),
                         onPressed: onResume,
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: Text(localizations.resumeWorkout),
-                      )
-                    else
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        key: const ValueKey<String>('live-pause-finish-button'),
+                        onPressed: isFinishing ? null : onFinish,
+                        icon: const Icon(Icons.stop_rounded),
+                        label: Text(localizations.endWorkout),
+                      ),
+                    ] else
                       OutlinedButton.icon(
                         key: const ValueKey<String>(
                           'live-cancel-resume-button',

@@ -163,25 +163,33 @@ class WorkoutFeedbackStatus extends StatelessWidget {
     super.key,
     required this.compact,
     this.sidePanel = false,
+    this.showMeasurementConfidence = false,
   });
 
   final bool compact;
   final bool sidePanel;
+  final bool showMeasurementConfidence;
 
   @override
   Widget build(BuildContext context) {
-    return _WorkoutFeedbackMessage(compact: compact, sidePanel: sidePanel);
+    return _WorkoutFeedbackMessage(
+      compact: compact,
+      sidePanel: sidePanel,
+      showMeasurementConfidence: showMeasurementConfidence,
+    );
   }
 }
 
 class _WorkoutFeedbackMessage extends ConsumerWidget {
   const _WorkoutFeedbackMessage({
     required this.compact,
+    required this.showMeasurementConfidence,
     this.sidePanel = false,
   });
 
   final bool compact;
   final bool sidePanel;
+  final bool showMeasurementConfidence;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -217,7 +225,8 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
       label: <String>[
         presentation.title,
         presentation.message,
-        if (presentation.measurementConfidenceLabel != null)
+        if (showMeasurementConfidence &&
+            presentation.measurementConfidenceLabel != null)
           presentation.measurementConfidenceLabel!,
       ].join('. '),
       excludeSemantics: true,
@@ -305,8 +314,9 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  if (presentation.measurementConfidenceLabel !=
-                      null) ...<Widget>[
+                  if (showMeasurementConfidence &&
+                      presentation.measurementConfidenceLabel !=
+                          null) ...<Widget>[
                     const SizedBox(height: 7),
                     Text(
                       presentation.measurementConfidenceLabel!,
@@ -377,8 +387,6 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                           child: Text(
                             presentation.message,
                             key: ValueKey<String>(presentation.message),
-                            maxLines: compact ? 2 : 3,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: compact ? 18 : 22,
@@ -387,8 +395,9 @@ class _WorkoutFeedbackMessage extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        if (presentation.measurementConfidenceLabel !=
-                            null) ...<Widget>[
+                        if (showMeasurementConfidence &&
+                            presentation.measurementConfidenceLabel !=
+                                null) ...<Widget>[
                           SizedBox(height: compact ? 3 : 5),
                           Text(
                             presentation.measurementConfidenceLabel!,
