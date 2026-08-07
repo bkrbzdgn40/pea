@@ -6,6 +6,7 @@ import 'package:pose_estimation_app/features/workout_analysis/application/workou
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_feedback_code.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_phase.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/hold_side.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/measurement_confidence_breakdown.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/range_rep_feedback_code.dart';
 
 void main() {
@@ -84,6 +85,10 @@ void main() {
       feedbackMessage: 'hold',
       cameraFps: 30,
       analysisFps: 10,
+      measurementConfidence: const MeasurementConfidenceBreakdown.legacyScalar(
+        0.94,
+      ),
+      isMeasurementFrameAccepted: true,
     );
 
     expect(initial.landmarks, isNull);
@@ -100,5 +105,7 @@ void main() {
     expect(published.feedbackMessage, 'hold');
     expect(published.cameraFps, 30);
     expect(published.analysisFps, 10);
+    expect(published.holdAnalysis!.isHoldMeasurementFrameAccepted, isTrue);
+    expect(published.holdAnalysis!.holdMeasurementConfidence?.combined, 0.94);
   });
 }

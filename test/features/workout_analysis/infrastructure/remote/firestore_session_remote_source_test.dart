@@ -43,6 +43,7 @@ void main() {
         expect(sessionSnapshot.data()!['measurementQuality'], 'moderate');
         expect(sessionSnapshot.data()!['averageMeasurementConfidence'], 0.84);
         expect(sessionSnapshot.data()!['measurementSampleCount'], 2);
+        expect(sessionSnapshot.data()!['timezoneOffsetMinutes'], 180);
         expect(repsSnapshot.docs, hasLength(2));
         expect(repsSnapshot.docs.first.id, 'rep_0001');
         expect(repsSnapshot.docs.last.id, 'rep_0002');
@@ -456,6 +457,73 @@ void main() {
       },
     );
 
+    test('listSessions filters by exercise in descending order', () async {
+      final base = _session().copyWith(reps: const <WorkoutRep>[]);
+      final olderSquat = base.copyWith(
+        id: 'session_squat_older',
+        startedAt: DateTime.utc(2026, 1, 1, 10),
+        endedAt: DateTime.utc(2026, 1, 1, 10, 10),
+      );
+      final plank = base.copyWith(
+        id: 'session_plank',
+        exerciseType: 'plank',
+        startedAt: DateTime.utc(2026, 1, 2, 10),
+        endedAt: DateTime.utc(2026, 1, 2, 10, 10),
+      );
+      final newerSquat = base.copyWith(
+        id: 'session_squat_newer',
+        startedAt: DateTime.utc(2026, 1, 3, 10),
+        endedAt: DateTime.utc(2026, 1, 3, 10, 10),
+      );
+
+      await remoteSource.saveSession(olderSquat);
+      await remoteSource.saveSession(plank);
+      await remoteSource.saveSession(newerSquat);
+
+      final sessions = await remoteSource.listSessions(
+        ownerId: base.ownerId,
+        exerciseType: 'squat',
+        limit: 2,
+      );
+
+      expect(sessions.map((session) => session.id), <String>[
+        'session_squat_newer',
+        'session_squat_older',
+      ]);
+    });
+
+    test(
+      'listSessions uses document id as a deterministic timestamp tie-breaker',
+      () async {
+        final base = _session().copyWith(reps: const <WorkoutRep>[]);
+        final sharedStartedAt = DateTime.utc(2026, 1, 3, 10);
+        final lowerId = base.copyWith(
+          id: 'session_squat_a',
+          startedAt: sharedStartedAt,
+          endedAt: DateTime.utc(2026, 1, 3, 10, 10),
+        );
+        final higherId = base.copyWith(
+          id: 'session_squat_z',
+          startedAt: sharedStartedAt,
+          endedAt: DateTime.utc(2026, 1, 3, 10, 10),
+        );
+
+        await remoteSource.saveSession(lowerId);
+        await remoteSource.saveSession(higherId);
+
+        final sessions = await remoteSource.listSessions(
+          ownerId: base.ownerId,
+          exerciseType: 'squat',
+          limit: 2,
+        );
+
+        expect(sessions.map((session) => session.id), <String>[
+          'session_squat_z',
+          'session_squat_a',
+        ]);
+      },
+    );
+
     test(
       'listSessionReps returns reps ordered by repIndex ascending',
       () async {
@@ -584,6 +652,7 @@ WorkoutSession _session() {
     measurementQuality: SessionMeasurementQuality.moderate,
     averageMeasurementConfidence: 0.84,
     measurementSampleCount: 2,
+    timezoneOffset: const Duration(hours: 3),
     reps: <WorkoutRep>[
       WorkoutRep(
         repIndex: 2,

@@ -12,8 +12,8 @@ extension WorkoutGoalTypeStorage on WorkoutGoalType {
   };
 
   WorkoutGoalPeriod get period => switch (this) {
-    WorkoutGoalType.weeklySessions || WorkoutGoalType.weeklyReps =>
-      WorkoutGoalPeriod.weekly,
+    WorkoutGoalType.weeklySessions ||
+    WorkoutGoalType.weeklyReps => WorkoutGoalPeriod.weekly,
     WorkoutGoalType.averageScore => WorkoutGoalPeriod.allTime,
   };
 

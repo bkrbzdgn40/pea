@@ -1,3 +1,4 @@
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/validated_rep_event.dart';
 import 'hold_coordinator.dart';
 import 'range_rep_coordinator.dart';
@@ -62,19 +63,27 @@ class WorkoutStateProjector {
     required String feedbackMessage,
     required double cameraFps,
     required double analysisFps,
+    MeasurementConfidenceBreakdown? measurementConfidence,
+    bool isMeasurementFrameAccepted = false,
   }) {
     return WorkoutState.hold(
       landmarks: snapshot.landmarks,
       feedbackMessage: feedbackMessage,
       cameraFps: cameraFps,
       analysisFps: analysisFps,
-      analysis: _holdAnalysis(snapshot),
+      analysis: _holdAnalysis(
+        snapshot,
+        measurementConfidence: measurementConfidence,
+        isMeasurementFrameAccepted: isMeasurementFrameAccepted,
+      ),
     );
   }
 
   HoldWorkoutAnalysisState _holdAnalysis(
-    HoldCoordinatorStateSnapshot snapshot,
-  ) {
+    HoldCoordinatorStateSnapshot snapshot, {
+    MeasurementConfidenceBreakdown? measurementConfidence,
+    bool isMeasurementFrameAccepted = false,
+  }) {
     return HoldWorkoutAnalysisState(
       isFormBad: snapshot.isFormBad,
       currentAngle: snapshot.currentAngle,
@@ -93,6 +102,8 @@ class WorkoutStateProjector {
       plankShoulderElbowOffset: snapshot.plankShoulderElbowOffset,
       hollowShoulderElevation: snapshot.hollowShoulderElevation,
       hollowHeelElevation: snapshot.hollowHeelElevation,
+      holdMeasurementConfidence: measurementConfidence,
+      isHoldMeasurementFrameAccepted: isMeasurementFrameAccepted,
     );
   }
 }

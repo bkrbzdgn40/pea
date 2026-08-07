@@ -28,6 +28,7 @@ void main() {
       expect(document['measurementQuality'], 'limited');
       expect(document['averageMeasurementConfidence'], 0.72);
       expect(document['measurementSampleCount'], 2);
+      expect(document['timezoneOffsetMinutes'], 180);
       expect(document['startedAt'], isA<Timestamp>());
       expect(document['endedAt'], isA<Timestamp>());
       expect(document.containsKey('reps'), isFalse);
@@ -75,6 +76,7 @@ void main() {
       expect(session.measurementQuality, SessionMeasurementQuality.unknown);
       expect(session.averageMeasurementConfidence, isNull);
       expect(session.measurementSampleCount, 0);
+      expect(session.timezoneOffset, isNull);
     });
 
     test('round-trips current measurement evidence fields', () {
@@ -90,6 +92,15 @@ void main() {
       expect(restored.measurementQuality, SessionMeasurementQuality.limited);
       expect(restored.averageMeasurementConfidence, 0.72);
       expect(restored.measurementSampleCount, 2);
+      expect(restored.timezoneOffset, const Duration(hours: 3));
+    });
+
+    test('rejects invalid timezone offsets before persistence', () {
+      final session = _sessionWithReps().copyWith(
+        timezoneOffset: const Duration(hours: 15),
+      );
+
+      expect(() => mapper.toDocument(session), throwsArgumentError);
     });
 
     test('preserves hollow_hold session identity without schema changes', () {
@@ -156,6 +167,7 @@ WorkoutSession _sessionWithReps() {
     measurementQuality: SessionMeasurementQuality.limited,
     averageMeasurementConfidence: 0.72,
     measurementSampleCount: 2,
+    timezoneOffset: const Duration(hours: 3),
     createdAt: DateTime.utc(2026, 1, 1, 12),
     updatedAt: DateTime.utc(2026, 1, 1, 12, 10),
     reps: const <WorkoutRep>[

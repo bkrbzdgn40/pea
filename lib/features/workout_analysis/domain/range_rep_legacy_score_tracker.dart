@@ -51,6 +51,7 @@ class RangeRepLegacyScoreTracker {
       actualSeconds: descentSeconds,
       idealSeconds: config.idealDescentSeconds,
       tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
+      toleranceRatio: config.tempoToleranceRatio,
     );
     final ascentSeconds =
         completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
@@ -58,6 +59,7 @@ class RangeRepLegacyScoreTracker {
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
       tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
+      toleranceRatio: config.tempoToleranceRatio,
     );
     final tempoScore = (descentScore + ascentScore) / 2;
     final depthScore = romScore;

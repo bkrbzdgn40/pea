@@ -8,6 +8,7 @@
   "thresholdPeak": 122.0,
   "idealDescentSeconds": 1.0,
   "idealAscentSeconds": 1.0,
+  "tempoToleranceRatio": 0.25,
   "formThreshold": 160.0,
   "targetMinAngle": 0.0,
   "targetMaxAngle": 125.0,

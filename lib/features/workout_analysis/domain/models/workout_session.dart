@@ -26,6 +26,7 @@ class WorkoutSession {
     this.measurementQuality = SessionMeasurementQuality.unknown,
     this.averageMeasurementConfidence,
     this.measurementSampleCount = 0,
+    this.timezoneOffset,
     this.reps,
     this.createdAt,
     this.updatedAt,
@@ -80,6 +81,12 @@ class WorkoutSession {
   final double? averageMeasurementConfidence;
   final int measurementSampleCount;
 
+  /// Local UTC offset captured when the session ended.
+  ///
+  /// Legacy sessions may not have this value. New sessions persist it so
+  /// calendar-based rewards remain stable if the device later changes zone.
+  final Duration? timezoneOffset;
+
   /// Optional rep-level details kept in the domain model.
   ///
   /// The current Firestore session document contract is summary-only and does
@@ -121,6 +128,7 @@ class WorkoutSession {
     SessionMeasurementQuality? measurementQuality,
     double? averageMeasurementConfidence,
     int? measurementSampleCount,
+    Duration? timezoneOffset,
     List<WorkoutRep>? reps,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -150,6 +158,7 @@ class WorkoutSession {
           averageMeasurementConfidence ?? this.averageMeasurementConfidence,
       measurementSampleCount:
           measurementSampleCount ?? this.measurementSampleCount,
+      timezoneOffset: timezoneOffset ?? this.timezoneOffset,
       reps: reps ?? this.reps,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -184,6 +193,7 @@ class WorkoutSession {
       'measurementQuality': measurementQuality.name,
       'averageMeasurementConfidence': averageMeasurementConfidence,
       'measurementSampleCount': measurementSampleCount,
+      'timezoneOffsetMinutes': timezoneOffset?.inMinutes,
       'reps': reps?.map((rep) => rep.toMap()).toList(growable: false),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -234,6 +244,10 @@ class WorkoutSession {
         map,
         'measurementSampleCount',
         0,
+      ),
+      timezoneOffset: _readNullableDurationMinutes(
+        map,
+        'timezoneOffsetMinutes',
       ),
       reps: _readNullableWorkoutReps(map, 'reps'),
       createdAt: _readNullableDateTime(map, 'createdAt'),
@@ -406,6 +420,17 @@ DateTime? _readNullableDateTime(Map<String, Object?> map, String key) {
   }
 
   throw FormatException('Expected nullable ISO-8601 date string for "$key".');
+}
+
+Duration? _readNullableDurationMinutes(Map<String, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is int && value >= -14 * 60 && value <= 14 * 60) {
+    return Duration(minutes: value);
+  }
+  throw FormatException('Expected timezone offset minutes for "$key".');
 }
 
 List<WorkoutRep>? _readNullableWorkoutReps(

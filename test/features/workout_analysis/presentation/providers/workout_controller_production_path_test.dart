@@ -1733,6 +1733,11 @@ void main() {
       closeTo(5.0, 0.001),
     );
     expect(state.holdAnalysis, isNotNull);
+    expect(state.holdAnalysis!.isHoldMeasurementFrameAccepted, isTrue);
+    expect(
+      state.holdAnalysis!.holdMeasurementConfidence?.combined,
+      greaterThan(0.8),
+    );
     expect(state.rangeRepAnalysis, isNull);
     expect(state.selectedHoldSide, HoldSide.left);
     expect(state.currentHoldSeconds, closeTo(5.0, 0.001));

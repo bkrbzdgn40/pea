@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/session_measurement_evidence.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_rep.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/session_repository_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_detail_screen.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/screens/session_history_screen.dart';
@@ -199,6 +200,88 @@ void main() {
     expect(find.text('1 oturum gösteriliyor'), findsOneWidget);
   });
 
+  testWidgets(
+    'keeps previous sessions and restores the filter when filtering fails',
+    (WidgetTester tester) async {
+      final squat = buildWorkoutSession(
+        id: 'session-squat',
+        ownerId: 'owner-1',
+        exerciseType: 'squat',
+        startedAt: DateTime(2024, 1, 6, 10),
+        totalReps: 10,
+        averageScore: 85,
+        durationSec: 60,
+      );
+      final pushUp = buildWorkoutSession(
+        id: 'session-push-up',
+        ownerId: 'owner-1',
+        exerciseType: 'push_up',
+        startedAt: DateTime(2024, 1, 5, 10),
+        totalReps: 8,
+        averageScore: 82,
+        durationSec: 55,
+      );
+      final repository = _FilterFailingSessionRepository(
+        sessions: [squat, pushUp],
+      );
+
+      await pumpTestApp(
+        tester,
+        home: const SessionHistoryScreen(),
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            const TestAuthRepository(currentUserId: 'owner-1'),
+          ),
+          sessionRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('session-history-exercise-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Squat').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('session-history-card-session-squat')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('session-history-card-session-push-up')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Squat seçimi yüklenemedi. Önceki sonuçlar gösteriliyor.'),
+        findsOneWidget,
+      );
+      expect(find.text('Tekrar Dene'), findsOneWidget);
+
+      final restoredFilter = tester.widget<DropdownButton<String>>(
+        find.byKey(const ValueKey('session-history-exercise-filter')),
+      );
+      expect(restoredFilter.value, '__all_exercises__');
+
+      repository.failSquatFilter = false;
+      await tester.tap(find.text('Tekrar Dene'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('session-history-card-session-squat')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('session-history-card-session-push-up')),
+        findsNothing,
+      );
+      final appliedFilter = tester.widget<DropdownButton<String>>(
+        find.byKey(const ValueKey('session-history-exercise-filter')),
+      );
+      expect(appliedFilter.value, 'squat');
+    },
+  );
+
   testWidgets('uses a landscape grid and shows score change', (
     WidgetTester tester,
   ) async {
@@ -338,4 +421,30 @@ void main() {
       semantics.dispose();
     }
   });
+}
+
+class _FilterFailingSessionRepository extends TestSessionRepository {
+  _FilterFailingSessionRepository({required super.sessions});
+
+  bool failSquatFilter = true;
+
+  @override
+  Future<List<WorkoutSession>> listSessions({
+    required String ownerId,
+    int limit = 20,
+    String? exerciseType,
+    WorkoutSession? startAfter,
+  }) {
+    if (failSquatFilter && exerciseType == 'squat') {
+      return Future<List<WorkoutSession>>.error(
+        StateError('filtered query failed'),
+      );
+    }
+    return super.listSessions(
+      ownerId: ownerId,
+      limit: limit,
+      exerciseType: exerciseType,
+      startAfter: startAfter,
+    );
+  }
 }

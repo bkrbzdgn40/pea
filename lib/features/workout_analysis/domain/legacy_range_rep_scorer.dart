@@ -69,8 +69,16 @@ class LegacyRangeRepScorer {
     required double actualSeconds,
     required double idealSeconds,
     required double tempoPenaltyPerSecond,
+    double toleranceRatio = 0.0,
   }) {
-    return (100 - (idealSeconds - actualSeconds).abs() * tempoPenaltyPerSecond)
+    final normalizedTolerance = toleranceRatio.clamp(0.0, 0.95).toDouble();
+    final toleratedDeviation = idealSeconds.abs() * normalizedTolerance;
+    final excessDeviation =
+        ((idealSeconds - actualSeconds).abs() - toleratedDeviation)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+
+    return (100 - excessDeviation * tempoPenaltyPerSecond)
         .clamp(0, 100)
         .toDouble();
   }

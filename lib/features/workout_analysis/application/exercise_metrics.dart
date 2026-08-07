@@ -157,6 +157,7 @@ class ExerciseMetrics {
   static const Object _holdSideUnset = Object();
   static const Object _bilateralRangeRepMetricsUnset = Object();
   static const Object _holdSignalOverrideUnset = Object();
+  static const Object _holdMeasurementConfidenceUnset = Object();
 
   ExerciseMetrics({
     required this.primaryAngle,
@@ -173,6 +174,7 @@ class ExerciseMetrics {
     double? armSupportAngle,
     double? legExtensionAngle,
     this.holdSide,
+    this.holdMeasurementConfidence,
   }) : holdSignalValues =
            holdSignalValues ??
            HoldSignalValues.legacy(
@@ -196,7 +198,8 @@ class ExerciseMetrics {
       ),
       bilateralRangeRepMetrics = null,
       holdSignalValues = const HoldSignalValues.empty(),
-      holdSide = null;
+      holdSide = null,
+      holdMeasurementConfidence = null;
 
   final double primaryAngle;
   final double formMetric;
@@ -209,6 +212,12 @@ class ExerciseMetrics {
   final RangeRepBilateralMetrics? bilateralRangeRepMetrics;
   final HoldSignalValues holdSignalValues;
   final HoldSide? holdSide;
+
+  /// Frame-scoped measurement confidence for accepted hold analysis input.
+  ///
+  /// This describes camera/measurement trust only. It deliberately excludes
+  /// posture correctness and hold technique.
+  final MeasurementConfidenceBreakdown? holdMeasurementConfidence;
 
   double? get bodyLineAngle => holdSignalValues.valueFor(HoldSignal.alignment);
 
@@ -249,6 +258,7 @@ class ExerciseMetrics {
     Object? armSupportAngle = _holdSignalOverrideUnset,
     Object? legExtensionAngle = _holdSignalOverrideUnset,
     Object? holdSide = _holdSideUnset,
+    Object? holdMeasurementConfidence = _holdMeasurementConfidenceUnset,
   }) {
     return ExerciseMetrics(
       primaryAngle: primaryAngle ?? this.primaryAngle,
@@ -276,6 +286,10 @@ class ExerciseMetrics {
       holdSide: holdSide == _holdSideUnset
           ? this.holdSide
           : holdSide as HoldSide?,
+      holdMeasurementConfidence:
+          holdMeasurementConfidence == _holdMeasurementConfidenceUnset
+          ? this.holdMeasurementConfidence
+          : holdMeasurementConfidence as MeasurementConfidenceBreakdown?,
     );
   }
 }

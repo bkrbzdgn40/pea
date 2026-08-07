@@ -374,13 +374,15 @@ class FirestoreSessionRemoteSource {
     WorkoutSession? startAfter,
   }) async {
     try {
-      Query<Map<String, dynamic>> query = _sessionsCollection(ownerId)
-          .orderBy('startedAt', descending: true)
-          .orderBy(FieldPath.documentId, descending: true);
+      Query<Map<String, dynamic>> query = _sessionsCollection(ownerId);
 
       if (exerciseType != null) {
         query = query.where('exerciseType', isEqualTo: exerciseType);
       }
+
+      query = query
+          .orderBy('startedAt', descending: true)
+          .orderBy(FieldPath.documentId, descending: true);
 
       if (startAfter != null) {
         query = query.startAfter(<Object>[
@@ -399,6 +401,21 @@ class FirestoreSessionRemoteSource {
         );
       }).toList();
     } on FirebaseException catch (error, stackTrace) {
+      if (kDebugMode) {
+        developer.log(
+          jsonEncode(<String, Object?>{
+            'ownerId': ownerId,
+            'exerciseType': exerciseType,
+            'limit': limit,
+            'startAfterSessionId': startAfter?.id,
+            'firebaseCode': error.code,
+            'firebaseMessage': error.message,
+          }),
+          name: 'workout.session.firestore.listFailed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
       throw FirestoreFailure(
         message: 'Workout sessions could not be listed.',
         cause: error,

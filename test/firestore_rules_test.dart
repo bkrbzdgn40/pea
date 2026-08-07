@@ -67,12 +67,59 @@ void main() {
       );
     });
 
+    test('current client can persist captured timezone offset', () async {
+      final data = _validSessionData(
+        ownerId: ownerClient.uid!,
+        id: 'session_a',
+      );
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(
+        response.statusCode,
+        inInclusiveRange(200, 299),
+        reason: response.body,
+      );
+    });
+
+    test('legacy client may omit captured timezone offset', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..remove('timezoneOffsetMinutes');
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(
+        response.statusCode,
+        inInclusiveRange(200, 299),
+        reason: response.body,
+      );
+    });
+
+    test('invalid timezone offset is rejected', () async {
+      final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
+        ..['timezoneOffsetMinutes'] = 841;
+
+      final response = await ownerClient.setDocument(
+        _sessionPath(ownerClient.uid!, 'session_a'),
+        data,
+      );
+
+      expect(response.statusCode, 403, reason: response.body);
+    });
+
     test('legacy client can still create a session during rollout', () async {
       final data = _validSessionData(ownerId: ownerClient.uid!, id: 'session_a')
         ..remove('preparationOutcome')
         ..remove('measurementQuality')
         ..remove('averageMeasurementConfidence')
-        ..remove('measurementSampleCount');
+        ..remove('measurementSampleCount')
+        ..remove('timezoneOffsetMinutes');
 
       final response = await ownerClient.setDocument(
         _sessionPath(ownerClient.uid!, 'session_a'),
@@ -784,6 +831,667 @@ void main() {
       );
     });
   });
+
+  group(
+    'Firestore challenge progress security rules',
+    skip: _emulatorSkipReason,
+    () {
+      late _RulesClient unauthenticatedClient;
+      late _RulesClient ownerClient;
+      late _RulesClient otherClient;
+
+      setUp(() async {
+        await _clearEmulators();
+        unauthenticatedClient = const _RulesClient();
+        ownerClient = await _RulesClient.signUp();
+        otherClient = await _RulesClient.signUp();
+      });
+
+      test('owner can write and read contribution and activity day', () async {
+        final ownerId = ownerClient.uid!;
+        final contributionResponse = await ownerClient.setDocument(
+          _progressContributionPath(ownerId, 'session_a'),
+          _validProgressContributionData(
+            ownerId: ownerId,
+            sessionId: 'session_a',
+          ),
+        );
+        final activityDayResponse = await ownerClient.setDocument(
+          _activityDayPath(ownerId, '2026-08-07'),
+          _validActivityDayData(ownerId: ownerId),
+        );
+
+        expect(
+          contributionResponse.statusCode,
+          inInclusiveRange(200, 299),
+          reason: contributionResponse.body,
+        );
+        expect(
+          activityDayResponse.statusCode,
+          inInclusiveRange(200, 299),
+          reason: activityDayResponse.body,
+        );
+        expect(
+          (await ownerClient.getDocument(
+            _progressContributionPath(ownerId, 'session_a'),
+          )).statusCode,
+          200,
+        );
+        expect(
+          (await ownerClient.getDocument(
+            _activityDayPath(ownerId, '2026-08-07'),
+          )).statusCode,
+          200,
+        );
+      });
+
+      test('other and unauthenticated users cannot read progress', () async {
+        final ownerId = ownerClient.uid!;
+        await ownerClient.setDocument(
+          _progressContributionPath(ownerId, 'session_a'),
+          _validProgressContributionData(
+            ownerId: ownerId,
+            sessionId: 'session_a',
+          ),
+        );
+
+        expect(
+          (await otherClient.getDocument(
+            _progressContributionPath(ownerId, 'session_a'),
+          )).statusCode,
+          403,
+        );
+        expect(
+          (await unauthenticatedClient.getDocument(
+            _progressContributionPath(ownerId, 'session_a'),
+          )).statusCode,
+          403,
+        );
+      });
+
+      test('contribution owner and document id must match the path', () async {
+        final ownerId = ownerClient.uid!;
+        final wrongOwner = await ownerClient.setDocument(
+          _progressContributionPath(ownerId, 'session_a'),
+          _validProgressContributionData(
+            ownerId: otherClient.uid!,
+            sessionId: 'session_a',
+          ),
+        );
+        final wrongId = await ownerClient.setDocument(
+          _progressContributionPath(ownerId, 'session_a'),
+          _validProgressContributionData(
+            ownerId: ownerId,
+            sessionId: 'session_b',
+          ),
+        );
+
+        expect(wrongOwner.statusCode, 403, reason: wrongOwner.body);
+        expect(wrongId.statusCode, 403, reason: wrongId.body);
+      });
+
+      test(
+        'rep contributions reject fractional values and hold exercises',
+        () async {
+          final ownerId = ownerClient.uid!;
+          final fractional = _validProgressContributionData(
+            ownerId: ownerId,
+            sessionId: 'session_a',
+          )..['value'] = 10.5;
+          final wrongMetric =
+              _validProgressContributionData(
+                  ownerId: ownerId,
+                  sessionId: 'session_b',
+                )
+                ..['exerciseType'] = 'plank'
+                ..['challengeId'] = 'plank_volume';
+
+          expect(
+            (await ownerClient.setDocument(
+              _progressContributionPath(ownerId, 'session_a'),
+              fractional,
+            )).statusCode,
+            403,
+          );
+          expect(
+            (await ownerClient.setDocument(
+              _progressContributionPath(ownerId, 'session_b'),
+              wrongMetric,
+            )).statusCode,
+            403,
+          );
+        },
+      );
+
+      test('activity day rejects malformed aggregates', () async {
+        final ownerId = ownerClient.uid!;
+        final negative = _validActivityDayData(ownerId: ownerId)
+          ..['validRepsByExercise'] = <String, Object?>{'push_up': -1};
+        final unknownExercise = _validActivityDayData(ownerId: ownerId)
+          ..['validRepsByExercise'] = <String, Object?>{'burpee': 10}
+          ..['exerciseTypes'] = <String>['burpee'];
+
+        expect(
+          (await ownerClient.setDocument(
+            _activityDayPath(ownerId, '2026-08-07'),
+            negative,
+          )).statusCode,
+          403,
+        );
+        expect(
+          (await ownerClient.setDocument(
+            _activityDayPath(ownerId, '2026-08-07'),
+            unknownExercise,
+          )).statusCode,
+          403,
+        );
+      });
+    },
+  );
+
+  group(
+    'Firestore achievement event security rules',
+    skip: _emulatorSkipReason,
+    () {
+      late _RulesClient unauthenticatedClient;
+      late _RulesClient ownerClient;
+      late _RulesClient otherClient;
+
+      setUp(() async {
+        await _clearEmulators();
+        unauthenticatedClient = const _RulesClient();
+        ownerClient = await _RulesClient.signUp();
+        otherClient = await _RulesClient.signUp();
+      });
+
+      test('owner can create and read deterministic guide event', () async {
+        final ownerId = ownerClient.uid!;
+        final eventId = 'guide-step:1';
+        final path = _achievementEventPath(ownerId, eventId);
+        final data = _validAchievementEventData(
+          ownerId: ownerId,
+          eventId: eventId,
+          type: 'guideStepOpened',
+          subjectId: '1',
+        );
+
+        final create = await ownerClient.setDocument(path, data);
+        final read = await ownerClient.getDocument(path);
+
+        expect(
+          create.statusCode,
+          inInclusiveRange(200, 299),
+          reason: create.body,
+        );
+        expect(read.statusCode, 200, reason: read.body);
+      });
+
+      test('other and unauthenticated users cannot access events', () async {
+        final ownerId = ownerClient.uid!;
+        final eventId = 'guide-step:1';
+        final path = _achievementEventPath(ownerId, eventId);
+        final data = _validAchievementEventData(
+          ownerId: ownerId,
+          eventId: eventId,
+          type: 'guideStepOpened',
+          subjectId: '1',
+        );
+        await ownerClient.setDocument(path, data);
+
+        expect((await otherClient.getDocument(path)).statusCode, 403);
+        expect((await unauthenticatedClient.getDocument(path)).statusCode, 403);
+        expect((await otherClient.setDocument(path, data)).statusCode, 403);
+      });
+
+      test(
+        'event id and type must match their deterministic subject',
+        () async {
+          final ownerId = ownerClient.uid!;
+          final wrongGuide = _validAchievementEventData(
+            ownerId: ownerId,
+            eventId: 'guide-step:1',
+            type: 'guideStepOpened',
+            subjectId: '2',
+          );
+          final wrongPlan = _validAchievementEventData(
+            ownerId: ownerId,
+            eventId: 'planned-workout:run-a',
+            type: 'controlledTempoSession',
+            subjectId: 'run-a',
+          );
+
+          expect(
+            (await ownerClient.setDocument(
+              _achievementEventPath(ownerId, 'guide-step:1'),
+              wrongGuide,
+            )).statusCode,
+            403,
+          );
+          expect(
+            (await ownerClient.setDocument(
+              _achievementEventPath(ownerId, 'planned-workout:run-a'),
+              wrongPlan,
+            )).statusCode,
+            403,
+          );
+        },
+      );
+
+      test('event timezone and local date shape are validated', () async {
+        final ownerId = ownerClient.uid!;
+        final eventId = 'controlled-tempo:session-a';
+        final badOffset = _validAchievementEventData(
+          ownerId: ownerId,
+          eventId: eventId,
+          type: 'controlledTempoSession',
+          subjectId: 'session-a',
+        )..['timezoneOffsetMinutes'] = -841;
+        final badDate = _validAchievementEventData(
+          ownerId: ownerId,
+          eventId: 'controlled-tempo:session-b',
+          type: 'controlledTempoSession',
+          subjectId: 'session-b',
+        )..['localDate'] = '07-08-2026';
+
+        expect(
+          (await ownerClient.setDocument(
+            _achievementEventPath(ownerId, eventId),
+            badOffset,
+          )).statusCode,
+          403,
+        );
+        expect(
+          (await ownerClient.setDocument(
+            _achievementEventPath(ownerId, 'controlled-tempo:session-b'),
+            badDate,
+          )).statusCode,
+          403,
+        );
+      });
+
+      test('achievement events are immutable once written', () async {
+        final ownerId = ownerClient.uid!;
+        final eventId = 'planned-workout:run-a';
+        final path = _achievementEventPath(ownerId, eventId);
+        final data = _validAchievementEventData(
+          ownerId: ownerId,
+          eventId: eventId,
+          type: 'plannedWorkoutCompleted',
+          subjectId: 'run-a',
+        );
+        expect(
+          (await ownerClient.setDocument(path, data)).statusCode,
+          inInclusiveRange(200, 299),
+        );
+
+        final changed = Map<String, Object?>.from(data)
+          ..['createdAt'] = DateTime.utc(2026, 8, 7, 9);
+        expect((await ownerClient.setDocument(path, changed)).statusCode, 403);
+        expect((await ownerClient.deleteDocument(path)).statusCode, 403);
+      });
+    },
+  );
+
+  group(
+    'Firestore reward ledger security rules',
+    skip: _emulatorSkipReason,
+    () {
+      late _RulesClient unauthenticatedClient;
+      late _RulesClient ownerClient;
+      late _RulesClient otherClient;
+
+      setUp(() async {
+        await _clearEmulators();
+        unauthenticatedClient = const _RulesClient();
+        ownerClient = await _RulesClient.signUp();
+        otherClient = await _RulesClient.signUp();
+      });
+
+      test(
+        'owner can create and read one deterministic medal reward',
+        () async {
+          final ownerId = ownerClient.uid!;
+          final rewardId = _dailyPushUpRewardId;
+          final create = await ownerClient.setDocument(
+            _rewardPath(ownerId, rewardId),
+            _validChallengeMedalRewardData(ownerId: ownerId),
+          );
+          final read = await ownerClient.getDocument(
+            _rewardPath(ownerId, rewardId),
+          );
+
+          expect(
+            create.statusCode,
+            inInclusiveRange(200, 299),
+            reason: create.body,
+          );
+          expect(read.statusCode, 200, reason: read.body);
+        },
+      );
+
+      test('other and unauthenticated users cannot access rewards', () async {
+        final ownerId = ownerClient.uid!;
+        final path = _rewardPath(ownerId, _dailyPushUpRewardId);
+        final data = _validChallengeMedalRewardData(ownerId: ownerId);
+        await ownerClient.setDocument(path, data);
+
+        expect((await otherClient.getDocument(path)).statusCode, 403);
+        expect((await unauthenticatedClient.getDocument(path)).statusCode, 403);
+        expect((await otherClient.setDocument(path, data)).statusCode, 403);
+        expect(
+          (await unauthenticatedClient.setDocument(path, data)).statusCode,
+          403,
+        );
+      });
+
+      test('reward owner, id, and backfill policy are enforced', () async {
+        final ownerId = ownerClient.uid!;
+        final wrongOwner = _validChallengeMedalRewardData(
+          ownerId: otherClient.uid!,
+        );
+        final wrongId = _validChallengeMedalRewardData(ownerId: ownerId)
+          ..['id'] = 'medal:push_up_volume:daily:2026-08-08';
+        final backfilled = _validChallengeMedalRewardData(ownerId: ownerId)
+          ..['isBackfilled'] = true;
+
+        expect(
+          (await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            wrongOwner,
+          )).statusCode,
+          403,
+        );
+        expect(
+          (await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            wrongId,
+          )).statusCode,
+          403,
+        );
+        expect(
+          (await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            backfilled,
+          )).statusCode,
+          403,
+        );
+      });
+
+      test('tier timestamps must exactly match the highest medal', () async {
+        final ownerId = ownerClient.uid!;
+        final malformed = _validChallengeMedalRewardData(ownerId: ownerId)
+          ..['highestTier'] = 'silver'
+          ..['progressValueAtHighestTier'] = 20;
+        final inconsistentProgress = _validChallengeMedalRewardData(
+          ownerId: ownerId,
+        )..['progressValueAtHighestTier'] = 5;
+
+        final response = await ownerClient.setDocument(
+          _rewardPath(ownerId, _dailyPushUpRewardId),
+          malformed,
+        );
+
+        expect(response.statusCode, 403, reason: response.body);
+        expect(
+          (await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            inconsistentProgress,
+          )).statusCode,
+          403,
+        );
+      });
+
+      test(
+        'a reward can only upgrade and keeps prior tier timestamps',
+        () async {
+          final ownerId = ownerClient.uid!;
+          final bronze = _validChallengeMedalRewardData(ownerId: ownerId);
+          expect(
+            (await ownerClient.setDocument(
+              _rewardPath(ownerId, _dailyPushUpRewardId),
+              bronze,
+            )).statusCode,
+            inInclusiveRange(200, 299),
+          );
+
+          final silverAt = DateTime.utc(2026, 8, 7, 10);
+          final silver = Map<String, Object?>.from(bronze)
+            ..['highestTier'] = 'silver'
+            ..['progressValueAtHighestTier'] = 20
+            ..['tierEarnedAt'] = <String, Object?>{
+              'bronze': DateTime.utc(2026, 8, 7, 8),
+              'silver': silverAt,
+            }
+            ..['highestTierEarnedAt'] = silverAt
+            ..['historyAt'] = silverAt
+            ..['qualifyingEventId'] = 'session_b'
+            ..['updatedAt'] = silverAt;
+          final upgraded = await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            silver,
+          );
+          expect(
+            upgraded.statusCode,
+            inInclusiveRange(200, 299),
+            reason: upgraded.body,
+          );
+
+          final sameTier = Map<String, Object?>.from(silver)
+            ..['updatedAt'] = silverAt.add(const Duration(minutes: 1));
+          expect(
+            (await ownerClient.setDocument(
+              _rewardPath(ownerId, _dailyPushUpRewardId),
+              sameTier,
+            )).statusCode,
+            403,
+          );
+
+          final changedBronzeTimestamp = Map<String, Object?>.from(silver)
+            ..['highestTier'] = 'gold'
+            ..['progressValueAtHighestTier'] = 30
+            ..['tierEarnedAt'] = <String, Object?>{
+              'bronze': DateTime.utc(2026, 8, 7, 9),
+              'silver': silverAt,
+              'gold': silverAt.add(const Duration(hours: 1)),
+            }
+            ..['highestTierEarnedAt'] = silverAt.add(const Duration(hours: 1))
+            ..['historyAt'] = silverAt.add(const Duration(hours: 1))
+            ..['updatedAt'] = silverAt.add(const Duration(hours: 1));
+          expect(
+            (await ownerClient.setDocument(
+              _rewardPath(ownerId, _dailyPushUpRewardId),
+              changedBronzeTimestamp,
+            )).statusCode,
+            403,
+          );
+
+          final goldAt = silverAt.add(const Duration(hours: 1));
+          final gold = Map<String, Object?>.from(silver)
+            ..['highestTier'] = 'gold'
+            ..['progressValueAtHighestTier'] = 30
+            ..['tierEarnedAt'] = <String, Object?>{
+              'bronze': DateTime.utc(2026, 8, 7, 8),
+              'silver': silverAt,
+              'gold': goldAt,
+            }
+            ..['highestTierEarnedAt'] = goldAt
+            ..['historyAt'] = goldAt
+            ..['qualifyingEventId'] = 'session_c'
+            ..['updatedAt'] = goldAt;
+          final goldUpgrade = await ownerClient.setDocument(
+            _rewardPath(ownerId, _dailyPushUpRewardId),
+            gold,
+          );
+          expect(
+            goldUpgrade.statusCode,
+            inInclusiveRange(200, 299),
+            reason: goldUpgrade.body,
+          );
+        },
+      );
+
+      test('owner can create an immutable achievement reward', () async {
+        final ownerId = ownerClient.uid!;
+        final rewardId = 'achievement:first_reliable_analysis';
+        final data = _validAchievementRewardData(ownerId: ownerId);
+
+        final create = await ownerClient.setDocument(
+          _rewardPath(ownerId, rewardId),
+          data,
+        );
+        expect(
+          create.statusCode,
+          inInclusiveRange(200, 299),
+          reason: create.body,
+        );
+
+        final changed = Map<String, Object?>.from(data)
+          ..['updatedAt'] = DateTime.utc(2026, 8, 7, 9);
+        expect(
+          (await ownerClient.setDocument(
+            _rewardPath(ownerId, rewardId),
+            changed,
+          )).statusCode,
+          403,
+        );
+      });
+
+      test(
+        'achievement backfill is restricted to the approved catalog subset',
+        () async {
+          final ownerId = ownerClient.uid!;
+          final allowed = _validAchievementRewardData(ownerId: ownerId)
+            ..['isBackfilled'] = true;
+          expect(
+            (await ownerClient.setDocument(
+              _rewardPath(ownerId, 'achievement:first_reliable_analysis'),
+              allowed,
+            )).statusCode,
+            inInclusiveRange(200, 299),
+          );
+
+          final denied = _validAchievementRewardData(
+            ownerId: ownerId,
+            achievementId: 'guide_completed',
+            qualifyingEventId: 'guide-complete',
+          )..['isBackfilled'] = true;
+          expect(
+            (await ownerClient.setDocument(
+              _rewardPath(ownerId, 'achievement:guide_completed'),
+              denied,
+            )).statusCode,
+            403,
+          );
+        },
+      );
+
+      test('earned rewards cannot be deleted by the client', () async {
+        final ownerId = ownerClient.uid!;
+        await ownerClient.setDocument(
+          _rewardPath(ownerId, _dailyPushUpRewardId),
+          _validChallengeMedalRewardData(ownerId: ownerId),
+        );
+
+        final response = await ownerClient.deleteDocument(
+          _rewardPath(ownerId, _dailyPushUpRewardId),
+        );
+
+        expect(response.statusCode, 403, reason: response.body);
+      });
+    },
+  );
+
+  group(
+    'Firestore reward full-flow release contract',
+    skip: _emulatorSkipReason,
+    () {
+      late _RulesClient ownerClient;
+
+      setUp(() async {
+        await _clearEmulators();
+        ownerClient = await _RulesClient.signUp();
+      });
+
+      test(
+        'trusted workout can persist session, progress, event, medal and achievement',
+        () async {
+          final ownerId = ownerClient.uid!;
+          const sessionId = 'session_release_flow';
+          final startedAt = DateTime.utc(2026, 8, 6, 20, 58);
+          final endedAt = DateTime.utc(2026, 8, 6, 21);
+          final sessionData = _validSessionData(ownerId: ownerId, id: sessionId)
+            ..['exerciseType'] = 'push_up'
+            ..['startedAt'] = startedAt
+            ..['endedAt'] = endedAt
+            ..['durationSeconds'] = 120
+            ..['totalReps'] = 12
+            ..['validReps'] = 12
+            ..['lowConfidenceReps'] = 0
+            ..['invalidReps'] = 0
+            ..['measurementQuality'] = 'high'
+            ..['averageMeasurementConfidence'] = 0.94
+            ..['measurementSampleCount'] = 12
+            ..['createdAt'] = startedAt
+            ..['updatedAt'] = endedAt;
+          final contribution = _validProgressContributionData(
+            ownerId: ownerId,
+            sessionId: sessionId,
+          );
+          final eventId = 'controlled-tempo:$sessionId';
+          final event = _validAchievementEventData(
+            ownerId: ownerId,
+            eventId: eventId,
+            type: 'controlledTempoSession',
+            subjectId: sessionId,
+          );
+          final medal = _validChallengeMedalRewardData(ownerId: ownerId)
+            ..['timezoneOffsetMinutes'] = 180
+            ..['progressValueAtHighestTier'] = 12
+            ..['qualifyingEventId'] = sessionId;
+          final achievement = _validAchievementRewardData(
+            ownerId: ownerId,
+            achievementId: 'controlled_tempo',
+            qualifyingEventId: eventId,
+          );
+
+          final writes = <({String path, Map<String, Object?> data})>[
+            (path: _sessionPath(ownerId, sessionId), data: sessionData),
+            (
+              path: _progressContributionPath(ownerId, sessionId),
+              data: contribution,
+            ),
+            (
+              path: _activityDayPath(ownerId, '2026-08-07'),
+              data: _validActivityDayData(ownerId: ownerId),
+            ),
+            (path: _achievementEventPath(ownerId, eventId), data: event),
+            (path: _rewardPath(ownerId, _dailyPushUpRewardId), data: medal),
+            (
+              path: _rewardPath(ownerId, 'achievement:controlled_tempo'),
+              data: achievement,
+            ),
+          ];
+
+          for (final write in writes) {
+            final response = await ownerClient.setDocument(
+              write.path,
+              write.data,
+            );
+            expect(
+              response.statusCode,
+              inInclusiveRange(200, 299),
+              reason: '${write.path}: ${response.body}',
+            );
+          }
+
+          for (final write in writes) {
+            final response = await ownerClient.getDocument(write.path);
+            expect(response.statusCode, 200, reason: write.path);
+          }
+        },
+      );
+    },
+  );
 }
 
 Future<void> _createSession(_RulesClient client) async {
@@ -863,6 +1571,136 @@ Map<String, Object?> _validGoalData({
   };
 }
 
+String _progressContributionPath(String ownerId, String sessionId) {
+  return 'users/$ownerId/progressContributions/$sessionId';
+}
+
+String _activityDayPath(String ownerId, String localDate) {
+  return 'users/$ownerId/activityDays/$localDate';
+}
+
+String _achievementEventPath(String ownerId, String eventId) {
+  return 'users/$ownerId/achievementEvents/$eventId';
+}
+
+Map<String, Object?> _validAchievementEventData({
+  required String ownerId,
+  required String eventId,
+  required String type,
+  required String subjectId,
+}) {
+  final occurredAt = DateTime.utc(2026, 8, 7, 8);
+  return <String, Object?>{
+    'id': eventId,
+    'ownerId': ownerId,
+    'type': type,
+    'subjectId': subjectId,
+    'occurredAt': occurredAt,
+    'localDate': '2026-08-07',
+    'timezoneOffsetMinutes': 180,
+    'createdAt': occurredAt.add(const Duration(minutes: 1)),
+  };
+}
+
+const String _dailyPushUpRewardId = 'medal:push_up_volume:daily:2026-08-07';
+
+String _rewardPath(String ownerId, String rewardId) {
+  return 'users/$ownerId/rewards/$rewardId';
+}
+
+Map<String, Object?> _validChallengeMedalRewardData({required String ownerId}) {
+  final earnedAt = DateTime.utc(2026, 8, 7, 8);
+  return <String, Object?>{
+    'schemaVersion': 1,
+    'id': _dailyPushUpRewardId,
+    'ownerId': ownerId,
+    'kind': 'challengeMedal',
+    'challengeId': 'push_up_volume',
+    'catalogVersion': 1,
+    'exerciseType': 'push_up',
+    'metric': 'validRepetitions',
+    'period': 'daily',
+    'periodKey': '2026-08-07',
+    'timezoneOffsetMinutes': 0,
+    'highestTier': 'bronze',
+    'progressValueAtHighestTier': 10,
+    'thresholdsAtAward': <String, Object?>{
+      'bronze': 10,
+      'silver': 20,
+      'gold': 30,
+    },
+    'tierEarnedAt': <String, Object?>{'bronze': earnedAt},
+    'firstEarnedAt': earnedAt,
+    'highestTierEarnedAt': earnedAt,
+    'historyAt': earnedAt,
+    'qualifyingEventId': 'session_a',
+    'isBackfilled': false,
+    'createdAt': earnedAt,
+    'updatedAt': earnedAt,
+  };
+}
+
+Map<String, Object?> _validAchievementRewardData({
+  required String ownerId,
+  String achievementId = 'first_reliable_analysis',
+  String qualifyingEventId = 'session_a',
+}) {
+  final unlockedAt = DateTime.utc(2026, 8, 7, 8);
+  return <String, Object?>{
+    'schemaVersion': 1,
+    'id': 'achievement:$achievementId',
+    'ownerId': ownerId,
+    'kind': 'achievement',
+    'achievementId': achievementId,
+    'definitionVersion': 1,
+    'unlockedAt': unlockedAt,
+    'historyAt': unlockedAt,
+    'qualifyingEventId': qualifyingEventId,
+    'isBackfilled': false,
+    'createdAt': unlockedAt,
+    'updatedAt': unlockedAt,
+  };
+}
+
+Map<String, Object?> _validProgressContributionData({
+  required String ownerId,
+  required String sessionId,
+}) {
+  final endedAt = DateTime.utc(2026, 8, 6, 21);
+  final createdAt = endedAt.add(const Duration(minutes: 1));
+  return <String, Object?>{
+    'id': sessionId,
+    'ownerId': ownerId,
+    'challengeId': 'push_up_volume',
+    'catalogVersion': 1,
+    'exerciseType': 'push_up',
+    'metric': 'validRepetitions',
+    'evidenceQuality': 'high',
+    'value': 12,
+    'endedAt': endedAt,
+    'timezoneOffsetMinutes': 180,
+    'localDate': '2026-08-07',
+    'createdAt': createdAt,
+    'updatedAt': createdAt,
+  };
+}
+
+Map<String, Object?> _validActivityDayData({required String ownerId}) {
+  final createdAt = DateTime.utc(2026, 8, 6, 21, 1);
+  return <String, Object?>{
+    'id': '2026-08-07',
+    'ownerId': ownerId,
+    'localDate': '2026-08-07',
+    'trustedSessionCount': 1,
+    'highReliabilitySessionCount': 1,
+    'validRepsByExercise': <String, Object?>{'push_up': 12},
+    'holdSecondsByExercise': <String, Object?>{},
+    'exerciseTypes': <String>['push_up'],
+    'createdAt': createdAt,
+    'updatedAt': createdAt,
+  };
+}
+
 String _sessionPath(String ownerId, String sessionId) {
   return 'users/$ownerId/sessions/$sessionId';
 }
@@ -900,6 +1738,7 @@ Map<String, Object?> _validSessionData({
     'measurementQuality': 'moderate',
     'averageMeasurementConfidence': 0.86,
     'measurementSampleCount': 11,
+    'timezoneOffsetMinutes': 180,
     'createdAt': now,
     'updatedAt': now.add(const Duration(minutes: 10)),
   };
@@ -936,6 +1775,7 @@ Map<String, Object?> _productionSessionData({
     'measurementQuality': 'high',
     'averageMeasurementConfidence': 0.94,
     'measurementSampleCount': 2,
+    'timezoneOffsetMinutes': 180,
     'createdAt': createdAt,
     'updatedAt': createdAt,
   };
@@ -1114,6 +1954,16 @@ class _RulesClient {
       ),
       idToken: idToken,
       body: <String, Object?>{'fields': _encodeFields(data)},
+    );
+  }
+
+  Future<_RestResponse> deleteDocument(String path) {
+    return _sendRequest(
+      method: 'DELETE',
+      uri: Uri.parse(
+        'http://$_firestoreHost/v1/projects/$_projectId/databases/(default)/documents/$path',
+      ),
+      idToken: idToken,
     );
   }
 }

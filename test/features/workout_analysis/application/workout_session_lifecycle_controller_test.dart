@@ -284,6 +284,40 @@ void main() {
     },
   );
   test(
+    'reward sync hook runs after persistence and cannot fail the session',
+    () async {
+      final repository = _FakeSessionRepository();
+      final syncedIds = <String>[];
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        onSessionPersisted: (session) async {
+          syncedIds.add(session.id);
+          throw StateError('reward sync failed');
+        },
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+      controller.startSession(exercise: ExerciseType.squat);
+      final state = _rangeRepState(
+        repCount: 1,
+        lastRepScore: 88,
+        validatedRepIndex: 1,
+        validationStatus: 'valid',
+      );
+      controller.collect(state);
+
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(finalState: state);
+
+      expect(result.isSuccess, isTrue);
+      expect(repository.savedSessions, hasLength(1));
+      expect(syncedIds, <String>[repository.savedSessions.single.id]);
+    },
+  );
+
+  test(
     'sit-up range-rep sessions persist the canonical exercise id and kind',
     () async {
       final clock = _MutableClock(DateTime.utc(2030, 1, 1, 12));
@@ -493,6 +527,166 @@ void main() {
       expect(snapshot.isFinishing, isTrue);
       controller.completeFinishFlow();
       expect(controller.currentStateSnapshot().isFinishing, isFalse);
+    },
+  );
+
+  test(
+    'hold finalization derives high evidence from stable accepted frames',
+    () async {
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        resolvePreparationOutcome: () => PreparationOutcome.passed,
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+
+      controller.startSession(exercise: ExerciseType.plank);
+      for (var second = 1; second <= 6; second++) {
+        controller.collect(
+          _holdState(
+            currentHoldSeconds: second.toDouble(),
+            bestHoldSeconds: second.toDouble(),
+            isHolding: true,
+            measurementConfidence: 0.95,
+            isMeasurementFrameAccepted: true,
+          ),
+        );
+      }
+
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(
+        finalState: _holdState(
+          currentHoldSeconds: 6,
+          bestHoldSeconds: 6,
+          isHolding: true,
+          measurementConfidence: 0.95,
+          isMeasurementFrameAccepted: true,
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        result.session!.measurementQuality,
+        SessionMeasurementQuality.high,
+      );
+      expect(result.session!.measurementSampleCount, 6);
+      expect(
+        result.session!.averageMeasurementConfidence,
+        closeTo(0.95, 0.0001),
+      );
+    },
+  );
+
+  test(
+    'hold finalization counts a genuinely newer final evidence frame',
+    () async {
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        resolvePreparationOutcome: () => PreparationOutcome.passed,
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+
+      controller.startSession(exercise: ExerciseType.plank);
+      for (var second = 1; second <= 5; second++) {
+        controller.collect(
+          _holdState(
+            currentHoldSeconds: second.toDouble(),
+            bestHoldSeconds: second.toDouble(),
+            isHolding: true,
+            measurementConfidence: 0.95,
+            isMeasurementFrameAccepted: true,
+          ),
+        );
+      }
+
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(
+        finalState: _holdState(
+          currentHoldSeconds: 6,
+          bestHoldSeconds: 6,
+          isHolding: true,
+          measurementConfidence: 0.95,
+          isMeasurementFrameAccepted: true,
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.session!.totalHoldSeconds, closeTo(6.0, 0.001));
+      expect(result.session!.measurementSampleCount, 6);
+      expect(
+        result.session!.measurementQuality,
+        SessionMeasurementQuality.high,
+      );
+    },
+  );
+
+  test(
+    'brief hold visibility interruption downgrades otherwise high evidence',
+    () async {
+      final repository = _FakeSessionRepository();
+      final controller = WorkoutSessionLifecycleController(
+        sessionRepository: repository,
+        resolveOwnerId: () => 'owner-1',
+        resolvePreparationOutcome: () => PreparationOutcome.passed,
+        invalidateUserSessionsSnapshot: () {},
+        publishCompletedSession: (_) {},
+        clock: () => DateTime.utc(2030, 1, 1, 12),
+      );
+
+      controller.startSession(exercise: ExerciseType.plank);
+      for (var second = 1; second <= 5; second++) {
+        controller.collect(
+          _holdState(
+            currentHoldSeconds: second.toDouble(),
+            bestHoldSeconds: second.toDouble(),
+            isHolding: true,
+            measurementConfidence: 0.95,
+            isMeasurementFrameAccepted: true,
+          ),
+        );
+      }
+      controller.collect(
+        _holdState(
+          currentHoldSeconds: 5,
+          bestHoldSeconds: 5,
+          isHolding: false,
+          isHoldVisibilitySuspended: true,
+        ),
+      );
+      controller.collect(
+        _holdState(
+          currentHoldSeconds: 6,
+          bestHoldSeconds: 6,
+          isHolding: true,
+          measurementConfidence: 0.95,
+          isMeasurementFrameAccepted: true,
+        ),
+      );
+
+      expect(controller.beginFinish(), isTrue);
+      final result = await controller.finishSession(
+        finalState: _holdState(
+          currentHoldSeconds: 6,
+          bestHoldSeconds: 6,
+          isHolding: true,
+          measurementConfidence: 0.95,
+          isMeasurementFrameAccepted: true,
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        result.session!.measurementQuality,
+        SessionMeasurementQuality.moderate,
+      );
+      expect(result.session!.measurementSampleCount, 6);
     },
   );
 
@@ -726,6 +920,7 @@ void main() {
       expect(session.measurementQuality, SessionMeasurementQuality.limited);
       expect(session.measurementSampleCount, 2);
       expect(session.averageMeasurementConfidence, closeTo(0.95, 0.0001));
+      expect(session.timezoneOffset, Duration.zero);
     },
   );
 
@@ -914,6 +1109,8 @@ WorkoutState _holdState({
   required bool isHolding,
   bool isHoldVisibilitySuspended = false,
   bool hadHoldFormBreak = false,
+  double? measurementConfidence,
+  bool isMeasurementFrameAccepted = false,
 }) {
   return WorkoutState.hold(
     analysis: HoldWorkoutAnalysisState(
@@ -922,6 +1119,10 @@ WorkoutState _holdState({
       isHolding: isHolding,
       isHoldVisibilitySuspended: isHoldVisibilitySuspended,
       hadHoldFormBreak: hadHoldFormBreak,
+      holdMeasurementConfidence: measurementConfidence == null
+          ? null
+          : MeasurementConfidenceBreakdown.legacyScalar(measurementConfidence),
+      isHoldMeasurementFrameAccepted: isMeasurementFrameAccepted,
     ),
   );
 }

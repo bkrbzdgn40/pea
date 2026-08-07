@@ -38,9 +38,12 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
   Duration? _lastForwardedHoldDuration;
   ExerciseType? _selectedExerciseBeforePlan;
   bool _restoreSelectedExerciseOnReset = false;
+  String? _activeRunId;
 
   @override
   WorkoutPlanSessionState build() => const WorkoutPlanSessionState();
+
+  String? get activeRunId => _activeRunId;
 
   WorkoutEngineSnapshot start(
     WorkoutPlan plan, {
@@ -50,6 +53,8 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     final engine = WorkoutEngine(plan: plan);
     _engine = engine;
     final snapshot = engine.start();
+    final startedAt = snapshot.startedAt ?? DateTime.now();
+    _activeRunId = 'plan_run_${startedAt.microsecondsSinceEpoch}';
     _seedObservationGate(snapshot);
     _selectedExerciseBeforePlan = selectedExerciseBeforePlan;
     _restoreSelectedExerciseOnReset = restoreSelectedExerciseOnReset;
@@ -238,6 +243,7 @@ class WorkoutPlanSessionController extends Notifier<WorkoutPlanSessionState> {
     _clearObservationGate();
     _selectedExerciseBeforePlan = null;
     _restoreSelectedExerciseOnReset = false;
+    _activeRunId = null;
     state = const WorkoutPlanSessionState();
     if (shouldRestoreSelection) {
       ref.read(selectedExerciseProvider.notifier).state = selectionBeforePlan;

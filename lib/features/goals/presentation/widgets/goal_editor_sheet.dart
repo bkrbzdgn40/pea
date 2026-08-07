@@ -52,7 +52,7 @@ class _GoalEditorSheetState extends State<GoalEditorSheet> {
     final colors = context.semanticColors;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
         AppSpacing.lg,
@@ -91,10 +91,32 @@ class _GoalEditorSheetState extends State<GoalEditorSheet> {
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
+          Text(
+            localizations.quickGoalValues,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colors.foregroundMuted,
+              fontWeight: AppFontWeights.semibold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: _presetValues(widget.template)
+                .map(
+                  (value) => ChoiceChip(
+                    label: Text(_formatValue(value)),
+                    selected: _controller.text == _formatValue(value),
+                    onSelected: (_) => _selectPreset(value),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const SizedBox(height: AppSpacing.md),
           TextField(
             key: const ValueKey<String>('goal-target-field'),
             controller: _controller,
-            autofocus: true,
+            autofocus: false,
             keyboardType: TextInputType.numberWithOptions(
               decimal: !widget.template.requiresWholeNumber,
             ),
@@ -112,6 +134,13 @@ class _GoalEditorSheetState extends State<GoalEditorSheet> {
               ),
               errorText: _errorText,
             ),
+            onChanged: (_) {
+              if (_errorText != null) {
+                setState(() => _errorText = null);
+              } else {
+                setState(() {});
+              }
+            },
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -126,6 +155,16 @@ class _GoalEditorSheetState extends State<GoalEditorSheet> {
         ],
       ),
     );
+  }
+
+  void _selectPreset(double value) {
+    setState(() {
+      _controller.text = _formatValue(value);
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+      _errorText = null;
+    });
   }
 
   void _submit() {
@@ -147,4 +186,12 @@ String _formatValue(double value) {
     return value.toInt().toString();
   }
   return value.toStringAsFixed(1);
+}
+
+List<double> _presetValues(WorkoutGoalTemplate template) {
+  return switch (template.type) {
+    WorkoutGoalType.weeklySessions => const <double>[3, 5, 7],
+    WorkoutGoalType.weeklyReps => const <double>[100, 200, 300],
+    WorkoutGoalType.averageScore => const <double>[80, 85, 90],
+  };
 }

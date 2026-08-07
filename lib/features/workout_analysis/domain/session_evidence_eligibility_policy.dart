@@ -44,8 +44,7 @@ class SessionEvidenceEligibilityPolicy {
   }
 
   bool _hasRangeRepScore(WorkoutSession session) {
-    return session.analysisKind == 'rangeRep' &&
-        session.averageScore > 0;
+    return session.analysisKind == 'rangeRep' && session.averageScore > 0;
   }
 
   bool _hasTrustedOrLegacyEvidence(WorkoutSession session) {

@@ -361,6 +361,10 @@ class ExerciseConfig {
 
   final double idealDescentSeconds;
   final double idealAscentSeconds;
+
+  /// Relative dead band around configured tempo targets.
+  /// A value of 0.25 means 25% natural timing variation is tolerated.
+  final double tempoToleranceRatio;
   final double formThreshold;
   final double targetMinAngle;
   final double? targetMaxAngle;
@@ -383,6 +387,7 @@ class ExerciseConfig {
     required this.thresholdPeak,
     this.idealDescentSeconds = 2.0,
     this.idealAscentSeconds = 1.0,
+    this.tempoToleranceRatio = 0.0,
     this.formThreshold = 45.0,
     this.targetMinAngle = 70.0,
     this.targetMaxAngle,
@@ -453,6 +458,7 @@ class ExerciseConfig {
         'idealAscentSeconds',
         fallback: 0.0,
       ),
+      tempoToleranceRatio: reader.optionalDouble('tempoToleranceRatio') ?? 0.0,
       formThreshold: reader.requiredDouble('formThreshold', fallback: 0.0),
       targetMinAngle: reader.requiredDouble('targetMinAngle', fallback: 0.0),
       targetMaxAngle: reader.optionalDouble('targetMaxAngle'),

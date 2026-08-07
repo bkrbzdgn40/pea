@@ -14,7 +14,12 @@ import '../providers/session_repository_provider.dart';
 import '../widgets/session_history_content.dart';
 import 'session_detail_screen.dart';
 
-enum _HistoryMessage { requiresAnalysis, loadFailed, loadMoreFailed }
+enum _HistoryMessage {
+  requiresAnalysis,
+  loadFailed,
+  filterLoadFailed,
+  loadMoreFailed,
+}
 
 class SessionHistoryScreen extends ConsumerStatefulWidget {
   const SessionHistoryScreen({super.key});
@@ -30,10 +35,12 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
   final List<WorkoutSession> _sessions = [];
   bool _isInitialLoading = true;
+  bool _isFiltering = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   _HistoryMessage? _errorMessage;
   _HistoryMessage? _emptyMessage;
+  String? _failedExerciseFilter;
   ProviderSubscription<String?>? _userIdSubscription;
   String? _loadedOwnerId;
   String? _loadingOwnerId;
@@ -79,18 +86,27 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         ref.read(currentUserIdProvider);
   }
 
-  Future<void> _loadInitialSessions({String? ownerIdOverride}) async {
+  Future<void> _loadInitialSessions({
+    String? ownerIdOverride,
+    bool preserveSessionsOnFailure = false,
+    String? rollbackExerciseFilter,
+  }) async {
     if (!mounted) return;
 
     final loadRequestId = ++_loadRequestId;
     final ownerId = ownerIdOverride ?? _resolveOwnerId();
+    final requestedExerciseFilter = _selectedExerciseFilter;
+    final requestedExerciseType = _selectedExerciseType;
+    final filterRefresh = preserveSessionsOnFailure && _sessions.isNotEmpty;
     _loadingOwnerId = ownerId;
 
     setState(() {
-      _isInitialLoading = true;
+      _isInitialLoading = !filterRefresh;
+      _isFiltering = filterRefresh;
       _isLoadingMore = false;
       _errorMessage = null;
       _emptyMessage = null;
+      _failedExerciseFilter = null;
     });
 
     if (ownerId == null) {
@@ -102,6 +118,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
+        _isFiltering = false;
         _emptyMessage = _HistoryMessage.requiresAnalysis;
       });
       return;
@@ -113,7 +130,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
           .listSessions(
             ownerId: ownerId,
             limit: _pageSize,
-            exerciseType: _selectedExerciseType,
+            exerciseType: requestedExerciseType,
           );
       if (!mounted || loadRequestId != _loadRequestId) return;
 
@@ -125,23 +142,38 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
           ..addAll(sessions);
         _hasMore = sessions.length == _pageSize;
         _isInitialLoading = false;
+        _isFiltering = false;
         _emptyMessage = null;
       });
     } catch (_) {
       if (!mounted || loadRequestId != _loadRequestId) return;
 
       _loadingOwnerId = null;
+      if (preserveSessionsOnFailure && rollbackExerciseFilter != null) {
+        setState(() {
+          _selectedExerciseFilter = rollbackExerciseFilter;
+          _isInitialLoading = false;
+          _isFiltering = false;
+          _errorMessage = _HistoryMessage.filterLoadFailed;
+          _failedExerciseFilter = requestedExerciseFilter;
+        });
+        return;
+      }
+
       setState(() {
         _sessions.clear();
         _hasMore = false;
         _isInitialLoading = false;
+        _isFiltering = false;
         _errorMessage = _HistoryMessage.loadFailed;
       });
     }
   }
 
   Future<void> _loadMoreSessions() async {
-    if (_isLoadingMore || !_hasMore || _sessions.isEmpty) return;
+    if (_isFiltering || _isLoadingMore || !_hasMore || _sessions.isEmpty) {
+      return;
+    }
 
     final ownerId = _resolveOwnerId();
     if (ownerId == null) return;
@@ -179,14 +211,26 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
 
   void _selectExerciseFilter(String value) {
     if (value == _selectedExerciseFilter) return;
+    final previousExerciseFilter = _selectedExerciseFilter;
     setState(() {
       _selectedExerciseFilter = value;
     });
-    unawaited(_loadInitialSessions());
+    unawaited(
+      _loadInitialSessions(
+        preserveSessionsOnFailure: _sessions.isNotEmpty,
+        rollbackExerciseFilter: previousExerciseFilter,
+      ),
+    );
   }
 
   void _clearExerciseFilter() {
     _selectExerciseFilter(_allExercisesFilter);
+  }
+
+  void _retryFailedExerciseFilter() {
+    final failedExerciseFilter = _failedExerciseFilter;
+    if (failedExerciseFilter == null) return;
+    _selectExerciseFilter(failedExerciseFilter);
   }
 
   Future<void> _openSession(WorkoutSession session) async {
@@ -252,12 +296,14 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       );
     }
 
+    final retryAction = _historyRetryAction();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SessionHistoryToolbar(
           layout: layout,
           sessionCount: _sessions.length,
+          isFiltering: _isFiltering,
           selectedExerciseFilter: _selectedExerciseFilter,
           allExercisesFilter: _allExercisesFilter,
           onExerciseSelected: _selectExerciseFilter,
@@ -273,9 +319,11 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
         if (_errorMessage != null) ...[
           const SizedBox(height: 12),
           AppFeedbackBanner(
-            message: _historyMessage(localizations, _errorMessage!),
+            message: _visibleHistoryMessage(localizations, _errorMessage!),
             tone: AppStatusTone.caution,
             icon: Icons.cloud_off_rounded,
+            actionLabel: retryAction == null ? null : localizations.retry,
+            onAction: retryAction,
           ),
         ],
         if (_hasMore) ...[
@@ -284,7 +332,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
             label: _isLoadingMore
                 ? localizations.loading
                 : localizations.loadMore,
-            onPressed: _isLoadingMore
+            onPressed: _isFiltering || _isLoadingMore
                 ? null
                 : () => unawaited(_loadMoreSessions()),
             icon: Icons.expand_more_rounded,
@@ -296,6 +344,31 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
       ],
     );
   }
+
+  VoidCallback? _historyRetryAction() {
+    return switch (_errorMessage) {
+      _HistoryMessage.filterLoadFailed => _retryFailedExerciseFilter,
+      _HistoryMessage.loadMoreFailed => () => unawaited(_loadMoreSessions()),
+      _ => null,
+    };
+  }
+
+  String _visibleHistoryMessage(
+    AppLocalizations localizations,
+    _HistoryMessage message,
+  ) {
+    if (message != _HistoryMessage.filterLoadFailed) {
+      return _historyMessage(localizations, message);
+    }
+
+    final failedExerciseFilter = _failedExerciseFilter;
+    final filterLabel =
+        failedExerciseFilter == null ||
+            failedExerciseFilter == _allExercisesFilter
+        ? localizations.allExercises
+        : localizations.exerciseTitle(failedExerciseFilter);
+    return localizations.historyFilterLoadFailed(filterLabel);
+  }
 }
 
 String _historyMessage(
@@ -305,6 +378,7 @@ String _historyMessage(
   return switch (message) {
     _HistoryMessage.requiresAnalysis => localizations.historyRequiresAnalysis,
     _HistoryMessage.loadFailed => localizations.historyLoadFailed,
+    _HistoryMessage.filterLoadFailed => localizations.historyLoadFailed,
     _HistoryMessage.loadMoreFailed => localizations.historyLoadMoreFailed,
   };
 }

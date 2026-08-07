@@ -21,6 +21,17 @@ class AppColors {
   static const Color caution = Colors.amberAccent;
   static const Color invalid = Colors.orangeAccent;
   static const Color danger = Colors.redAccent;
+
+  // Reward accents stay intentionally scoped to medals and achievement marks.
+  static const Color medalBronze = Color(0xFFC77A44);
+  static const Color medalSilver = Color(0xFFB8C2CC);
+  static const Color medalGold = Color(0xFFF2C94C);
+  static const Color achievementTrust = Color(0xFF61E6BE);
+  static const Color achievementExplore = Color(0xFF8B7CFF);
+  static const Color achievementRhythm = Color(0xFFFF9F43);
+  static const Color achievementPlan = Color(0xFFC084FC);
+  static const Color achievementReturn = Color(0xFF52D273);
+  static const Color achievementSecret = Color(0xFFF7D774);
 }
 
 class AppSpacing {

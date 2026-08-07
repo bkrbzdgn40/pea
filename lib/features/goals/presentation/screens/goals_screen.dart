@@ -9,10 +9,12 @@ import '../../../../app/presentation/widgets/app_section.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
 import '../../../../app/presentation/widgets/async_state_view.dart';
 import '../../../../app/theme/app_design_tokens.dart';
+import '../../../achievements/presentation/screens/achievements_screen.dart';
 import '../../domain/models/user_workout_goal.dart';
 import '../../domain/models/workout_goal_template.dart';
 import '../models/workout_goal.dart';
 import '../providers/goals_provider.dart';
+import '../widgets/challenge_goal_cards.dart';
 import '../widgets/goal_cards.dart';
 import '../widgets/goal_editor_sheet.dart';
 
@@ -74,100 +76,94 @@ class _GoalsContent extends ConsumerWidget {
     }
 
     final activeGoal = state.activeGoal;
-    final pausedGoals = state.pausedGoals;
+    final archivedGoals = state.pausedGoals;
     final configuredTypes = state.goals
         .map((goal) => goal.resolvedType)
         .whereType<WorkoutGoalType>()
         .toSet();
     final availableTemplates = state.templates
-        .where((template) => !configuredTypes.contains(template.type))
+        .where(
+          (template) =>
+              template.type != WorkoutGoalType.averageScore &&
+              !configuredTypes.contains(template.type),
+        )
         .toList(growable: false);
 
-    return ListView(
-      key: const PageStorageKey<String>('goals-content'),
-      padding: AppSpacing.pagePadding,
-      children: [
-        const GoalsHeaderCard(),
-        if (!state.progressAvailable && state.goals.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.md),
-          AppFeedbackBanner(
-            message: localizations.goalProgressUnavailable,
-            tone: AppStatusTone.caution,
-            icon: Icons.sync_problem_rounded,
-          ),
-        ],
-        const SizedBox(height: AppSpacing.xl),
-        AppSection(
-          title: localizations.activeGoal,
-          description: activeGoal == null
-              ? null
-              : localizations.activeGoalDescription,
-          child: activeGoal == null
-              ? AppEmptyView(
-                  key: const ValueKey<String>('no-active-goal'),
-                  title: localizations.noActiveGoalTitle,
-                  message: localizations.noActiveGoalMessage,
-                  icon: Icons.flag_outlined,
-                )
-              : ActiveGoalCard(
-                  goal: activeGoal,
-                  isSaving: management.isSaving,
-                  onEdit: () => _editGoal(context, ref, activeGoal),
-                  onPause: () => _pauseGoal(context, ref, activeGoal),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(goalsProvider);
+        ref.invalidate(challengeGoalsProvider);
+        try {
+          await ref.read(goalsProvider.future);
+        } catch (error) {
+          debugPrint('goals.refresh.personalFailed: $error');
+        }
+        try {
+          await ref.read(challengeGoalsProvider.future);
+        } catch (error) {
+          debugPrint('goals.refresh.medalsFailed: $error');
+        }
+      },
+      child: ListView(
+        key: const PageStorageKey<String>('goals-content'),
+        padding: AppSpacing.pagePadding,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          if (activeGoal == null)
+            AppSection(
+              title: localizations.activeGoal,
+              child: AppEmptyView(
+                key: const ValueKey<String>('no-active-goal'),
+                title: localizations.noActiveGoalTitle,
+                message: localizations.noActiveGoalMessage,
+                icon: Icons.flag_outlined,
+              ),
+            )
+          else
+            ActiveGoalCard(
+              goal: activeGoal,
+              isSaving: management.isSaving,
+              onEdit: () => _editGoal(context, ref, activeGoal),
+              onPause: () => _pauseGoal(context, ref, activeGoal),
+            ),
+          if (!state.progressAvailable && state.goals.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            AppFeedbackBanner(
+              message: localizations.goalProgressUnavailable,
+              tone: AppStatusTone.caution,
+              icon: Icons.sync_problem_rounded,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xxl),
+          const _ChallengeGoalsSection(),
+          if (availableTemplates.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxl),
+            AppSection(
+              title: localizations.recommendedGoals,
+              description: localizations.recommendedGoalsDescription,
+              child: GoalSuggestionsList(
+                templates: availableTemplates,
+                isSaving: management.isSaving,
+                onSelect: (template) => _startTemplate(
+                  context,
+                  ref,
+                  template,
+                  activeGoal: activeGoal,
                 ),
-        ),
-        if (availableTemplates.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xl),
-          AppSection(
-            title: localizations.suggestedGoals,
-            description: localizations.suggestedGoalsDescription,
-            child: Column(
-              children: [
-                for (
-                  var index = 0;
-                  index < availableTemplates.length;
-                  index++
-                ) ...[
-                  GoalTemplateCard(
-                    template: availableTemplates[index],
-                    isSaving: management.isSaving,
-                    onSelect: () => _startTemplate(
-                      context,
-                      ref,
-                      availableTemplates[index],
-                      activeGoal: activeGoal,
-                    ),
-                  ),
-                  if (index != availableTemplates.length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-              ],
+              ),
             ),
-          ),
-        ],
-        if (pausedGoals.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xl),
-          AppSection(
-            title: localizations.pausedGoals,
-            description: localizations.pausedGoalsDescription,
-            child: Column(
-              children: [
-                for (var index = 0; index < pausedGoals.length; index++) ...[
-                  PausedGoalCard(
-                    goal: pausedGoals[index],
-                    isSaving: management.isSaving,
-                    onResume: () =>
-                        _resumeGoal(context, ref, pausedGoals[index]),
-                  ),
-                  if (index != pausedGoals.length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-              ],
+          ],
+          if (archivedGoals.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxl),
+            ArchivedGoalsPanel(
+              goals: archivedGoals,
+              isSaving: management.isSaving,
+              onResume: (goal) => _resumeGoal(context, ref, goal),
             ),
-          ),
+          ],
+          const SizedBox(height: AppSpacing.xl),
         ],
-        const SizedBox(height: AppSpacing.xl),
-      ],
+      ),
     );
   }
 
@@ -279,6 +275,103 @@ class _GoalsContent extends ConsumerWidget {
           ),
         ),
       );
+  }
+}
+
+class _ChallengeGoalsSection extends ConsumerWidget {
+  const _ChallengeGoalsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = AppLocalizations.of(context);
+    final period = ref.watch(selectedChallengePeriodProvider);
+    final challengeState = ref.watch(challengeGoalsProvider);
+
+    return AppSection(
+      title: localizations.medalGoals,
+      description: localizations.medalGoalsDescription,
+      trailing: TextButton.icon(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AchievementsScreen(
+                initialView: AchievementsView.rewardHistory,
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.history_rounded, size: 18),
+        label: Text(localizations.rewardHistoryShort),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: ChallengePeriodSelector(
+              selected: period,
+              onChanged: (value) {
+                ref.read(selectedChallengePeriodProvider.notifier).state =
+                    value;
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          challengeState.when(
+            loading: () => const ChallengeGoalsLoadingCard(),
+            error: (error, stackTrace) => ChallengeGoalsErrorCard(
+              onRetry: () => ref.invalidate(challengeGoalsProvider),
+            ),
+            data: (state) {
+              final selectedExercise =
+                  ref.watch(selectedChallengeExerciseProvider) ??
+                  state.recommendedFocus.progress.definition.exerciseType;
+              final focused = state.viewFor(selectedExercise);
+              final nearby = state.nearbyProgresses(
+                excluding: focused.progress.definition.exerciseType,
+              );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  MedalChallengeCard(
+                    view: focused,
+                    onExerciseSelected: (exercise) {
+                      ref
+                              .read(selectedChallengeExerciseProvider.notifier)
+                              .state =
+                          exercise;
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Text(
+                    localizations.nearMedalGoals,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: AppFontWeights.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    localizations.nearMedalGoalsDescription,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  NearbyMedalGoalsList(
+                    items: nearby,
+                    onSelected: (exercise) {
+                      ref
+                              .read(selectedChallengeExerciseProvider.notifier)
+                              .state =
+                          exercise;
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 

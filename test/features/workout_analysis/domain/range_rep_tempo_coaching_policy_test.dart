@@ -32,6 +32,23 @@ void main() {
     expect(result.shouldIncludeInScore, isTrue);
   });
 
+  test('tolerance keeps near-boundary natural variation in target', () {
+    const tolerantPolicy = RangeRepTempoCoachingPolicy(
+      config: config,
+      toleranceRatio: 0.25,
+    );
+
+    final fastSide = tolerantPolicy.evaluate(
+      _measurement(eccentricMs: 500, concentricMs: 900, totalMs: 2200),
+    );
+    final slowSide = tolerantPolicy.evaluate(
+      _measurement(eccentricMs: 3200, concentricMs: 900, totalMs: 4300),
+    );
+
+    expect(fastSide.quality, RepTempoQuality.target);
+    expect(slowSide.quality, RepTempoQuality.target);
+  });
+
   test('classifies hard short phase as strong too fast', () {
     final result = policy.evaluate(
       _measurement(eccentricMs: 200, concentricMs: 900, totalMs: 1500),

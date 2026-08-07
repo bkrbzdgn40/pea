@@ -3,8 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/localization/app_localizations.dart';
 import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
 import 'package:pose_estimation_app/app/theme/app_design_tokens.dart';
+import 'package:pose_estimation_app/features/challenges/domain/challenge_catalog.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_period.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_period_window.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_progress.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/models/achievement.dart';
 import 'package:pose_estimation_app/features/achievements/presentation/providers/achievements_provider.dart';
+import 'package:pose_estimation_app/features/goals/presentation/models/challenge_goals_state.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/screens/goals_screen.dart';
@@ -261,6 +266,9 @@ void main() {
             goals: <WorkoutGoal>[],
           ),
         ),
+        challengeGoalsProvider.overrideWith(
+          (ref) async => _emptyChallengeGoalsState(),
+        ),
       ],
       home: const _DrawerHost(currentPage: AppDestination.home),
     );
@@ -270,7 +278,7 @@ void main() {
 
     expect(observer.lastNewRoute?.settings.name, '/goals');
     expect(find.byType(GoalsScreen), findsOneWidget);
-    expect(find.text('Hedefini sen belirle'), findsOneWidget);
+    expect(find.text('Aktif hedefin yok'), findsOneWidget);
   });
 
   testWidgets('market destination opens the local preview catalog', (
@@ -362,6 +370,29 @@ void main() {
     expect(find.text('Navigation Root'), findsOneWidget);
     expect(find.byType(GuideScreen), findsNothing);
   });
+}
+
+ChallengeGoalsState _emptyChallengeGoalsState() {
+  const period = ChallengePeriod.daily;
+  const catalog = ChallengeCatalog();
+  final window = ChallengePeriodWindow.forInstant(
+    period: period,
+    instant: DateTime.utc(2026, 8, 7, 12),
+    timezoneOffset: Duration.zero,
+  );
+  return ChallengeGoalsState(
+    period: period,
+    window: window,
+    progresses: catalog.definitions
+        .map(
+          (definition) => ChallengeProgress(
+            definition: definition,
+            period: period,
+            value: 0,
+          ),
+        )
+        .toList(growable: false),
+  );
 }
 
 Future<void> _selectDrawerDestination(WidgetTester tester, String label) async {

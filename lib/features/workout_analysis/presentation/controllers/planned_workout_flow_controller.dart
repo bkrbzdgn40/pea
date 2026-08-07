@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../rewards/presentation/providers/reward_runtime_providers.dart';
 import '../../application/feedback_delivery_controller.dart';
 import '../../application/workout_engine.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
@@ -250,6 +253,37 @@ class PlannedWorkoutFlowController {
     _startResumeCountdown();
   }
 
+  Future<void> _recordPlanCompletion({
+    required WorkoutEngineSnapshot snapshot,
+    required String? planRunId,
+  }) async {
+    final ownerId = _ref.read(currentUserIdProvider);
+    final completedAt = snapshot.completedAt;
+    if (ownerId == null || planRunId == null || completedAt == null) {
+      return;
+    }
+    try {
+      await _ref
+          .read(rewardRuntimeServiceProvider)
+          .recordPlannedWorkoutCompletion(
+            ownerId: ownerId,
+            planRunId: planRunId,
+            totalSets: snapshot.totalSets,
+            completedSets: snapshot.completedSets,
+            allSetSessionsPersisted: true,
+            completedAt: completedAt,
+            timezoneOffset: completedAt.timeZoneOffset,
+          );
+    } catch (error, stackTrace) {
+      developer.log(
+        'Planned workout completion reward sync failed.',
+        name: 'rewards.runtime.plan',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   void _resumePreparedStep() {
     if (!_isMounted() || !_isTransitionLocked) {
       return;
@@ -291,10 +325,12 @@ class PlannedWorkoutFlowController {
       _sessionLifecycle()?.completeFinishFlow();
     }
 
+    final planRunId = planController.activeRunId;
     final nextSnapshot = planController.advance(
       resumeState: _ref.read(workoutControllerProvider),
     );
     if (nextSnapshot.isWorkoutCompleted) {
+      await _recordPlanCompletion(snapshot: nextSnapshot, planRunId: planRunId);
       await _setScreenAwake(false);
       if (!_isMounted()) {
         return false;

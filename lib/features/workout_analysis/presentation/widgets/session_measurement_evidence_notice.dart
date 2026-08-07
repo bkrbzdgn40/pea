@@ -6,10 +6,7 @@ import '../../domain/models/workout_session.dart';
 import '../formatters/session_measurement_evidence_presenter.dart';
 
 class SessionMeasurementEvidenceNotice extends StatelessWidget {
-  const SessionMeasurementEvidenceNotice({
-    super.key,
-    required this.session,
-  });
+  const SessionMeasurementEvidenceNotice({super.key, required this.session});
 
   final WorkoutSession session;
 

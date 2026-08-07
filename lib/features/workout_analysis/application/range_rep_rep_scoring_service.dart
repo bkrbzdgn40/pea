@@ -117,6 +117,7 @@ class RangeRepRepScoringService {
       actualSeconds: descentSeconds,
       idealSeconds: config.idealDescentSeconds,
       tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
+      toleranceRatio: config.tempoToleranceRatio,
     );
     final ascentSeconds =
         completedRepCoreData.ascentDuration.inMilliseconds / 1000.0;
@@ -124,6 +125,7 @@ class RangeRepRepScoringService {
       actualSeconds: ascentSeconds,
       idealSeconds: config.idealAscentSeconds,
       tempoPenaltyPerSecond: config.tempoPenaltyPerSecond,
+      toleranceRatio: config.tempoToleranceRatio,
     );
     final totalRepDuration = completedRepCoreData.totalRepDuration;
     final totalRepSeconds = totalRepDuration == null

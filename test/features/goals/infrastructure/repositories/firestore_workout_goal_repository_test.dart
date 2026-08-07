@@ -36,32 +36,35 @@ void main() {
     expect(goals.where((goal) => goal.isActive), hasLength(1));
   });
 
-  test('editing the same type preserves createdAt and updates target', () async {
-    final firestore = FakeFirebaseFirestore();
-    final repository = FirestoreWorkoutGoalRepository(firestore);
-    final firstTime = DateTime.utc(2026, 8, 5, 8);
-    final secondTime = DateTime.utc(2026, 8, 6, 8);
+  test(
+    'editing the same type preserves createdAt and updates target',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final repository = FirestoreWorkoutGoalRepository(firestore);
+      final firstTime = DateTime.utc(2026, 8, 5, 8);
+      final secondTime = DateTime.utc(2026, 8, 6, 8);
 
-    await repository.activateGoal(
-      ownerId: 'user-1',
-      type: WorkoutGoalType.averageScore,
-      targetValue: 80,
-      now: firstTime,
-    );
-    await repository.activateGoal(
-      ownerId: 'user-1',
-      type: WorkoutGoalType.averageScore,
-      targetValue: 88,
-      now: secondTime,
-    );
+      await repository.activateGoal(
+        ownerId: 'user-1',
+        type: WorkoutGoalType.averageScore,
+        targetValue: 80,
+        now: firstTime,
+      );
+      await repository.activateGoal(
+        ownerId: 'user-1',
+        type: WorkoutGoalType.averageScore,
+        targetValue: 88,
+        now: secondTime,
+      );
 
-    final goal = (await repository.listGoals(ownerId: 'user-1')).single;
+      final goal = (await repository.listGoals(ownerId: 'user-1')).single;
 
-    expect(goal.targetValue, 88);
-    expect(goal.createdAt.toUtc(), firstTime);
-    expect(goal.updatedAt.toUtc(), secondTime);
-    expect(goal.status, WorkoutGoalStatus.active);
-  });
+      expect(goal.targetValue, 88);
+      expect(goal.createdAt.toUtc(), firstTime);
+      expect(goal.updatedAt.toUtc(), secondTime);
+      expect(goal.status, WorkoutGoalStatus.active);
+    },
+  );
 
   test('pauses an active goal without deleting it', () async {
     final firestore = FakeFirebaseFirestore();
@@ -111,5 +114,4 @@ void main() {
     expect(await repository.listGoals(ownerId: 'user-1'), isEmpty);
     expect(await repository.listGoals(ownerId: 'user-2'), hasLength(1));
   });
-
 }

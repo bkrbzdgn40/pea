@@ -9,63 +9,6 @@ import '../../domain/models/user_workout_goal.dart';
 import '../../domain/models/workout_goal_template.dart';
 import '../models/workout_goal.dart';
 
-class GoalsHeaderCard extends StatelessWidget {
-  const GoalsHeaderCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
-    final colors = context.semanticColors;
-
-    return AppSurfaceCard(
-      variant: AppSurfaceVariant.accent,
-      padding: AppSpacing.headerSurfacePadding,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colors.analysisAccent.withValues(alpha: AppOpacity.subtle),
-              borderRadius: BorderRadius.circular(AppRadii.compact),
-            ),
-            child: Icon(
-              Icons.flag_rounded,
-              color: colors.analysisAccent,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  localizations.goalsHeaderTitle,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colors.foreground,
-                    fontWeight: AppFontWeights.heavy,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  localizations.goalsHeaderSubtitle,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.foregroundMuted,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class ActiveGoalCard extends StatelessWidget {
   const ActiveGoalCard({
     super.key,
@@ -84,101 +27,211 @@ class ActiveGoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
-    final progressPercent = (goal.progress * 100).round();
+    final unit = localizations.userGoalUnit(goal.typeId, fallback: goal.unit);
+    final remaining = (goal.targetValue - goal.currentValue)
+        .clamp(0, double.infinity)
+        .toDouble();
 
-    return AppSurfaceCard(
+    return Container(
       key: const ValueKey<String>('active-goal-card'),
-      variant: AppSurfaceVariant.strong,
-      borderColor: goal.isCompleted ? colors.success : colors.outline,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            colors.analysisAccent.withValues(alpha: 0.20),
+            colors.surfaceStrong,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.large),
+        border: Border.all(
+          color: colors.analysisAccent.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Stack(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          PositionedDirectional(
+            top: -32,
+            end: -18,
+            child: IgnorePointer(
+              child: Container(
+                width: 118,
+                height: 118,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.analysisAccent.withValues(alpha: 0.07),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      localizations.userGoalTitle(
-                        goal.typeId,
-                        goal.targetValue,
-                        fallback: goal.title,
-                      ),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colors.foreground,
-                        fontWeight: AppFontWeights.heavy,
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: goal.isCompleted
+                            ? colors.success
+                            : colors.analysisAccent,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      localizations.userGoalDescription(
-                        goal.typeId,
-                        fallback: goal.description,
-                      ),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.foregroundMuted,
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        localizations.activeGoal,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.foregroundMuted,
+                          fontWeight: AppFontWeights.semibold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              if (goal.isCompleted)
-                Icon(Icons.check_circle_rounded, color: colors.success, size: 24),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  goal.progressAvailable
-                      ? '${_formatValue(goal.currentValue)} / ${_formatValue(goal.targetValue)} ${localizations.userGoalUnit(goal.typeId, fallback: goal.unit)}'
-                      : localizations.goalProgressUnavailableShort,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.foreground,
-                    fontWeight: AppFontWeights.bold,
-                  ),
-                ),
-              ),
-              if (goal.progressAvailable)
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '%$progressPercent',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.analysisAccent,
+                  localizations.userGoalTitle(
+                    goal.typeId,
+                    goal.targetValue,
+                    fallback: goal.title,
+                  ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colors.foreground,
                     fontWeight: AppFontWeights.heavy,
+                    height: 1.15,
                   ),
                 ),
-            ],
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: _formatValue(goal.currentValue),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: colors.foreground,
+                                  fontWeight: AppFontWeights.heavy,
+                                ),
+                          ),
+                          TextSpan(
+                            text: ' / ${_formatValue(goal.targetValue)} $unit',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: colors.foregroundMuted,
+                                  fontWeight: AppFontWeights.semibold,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (goal.progressAvailable)
+                      Text(
+                        goal.isCompleted
+                            ? localizations.goalCompleted
+                            : localizations.goalRemaining(
+                                _formatValue(remaining),
+                                unit,
+                              ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: goal.isCompleted
+                              ? colors.success
+                              : colors.foregroundMuted,
+                          fontWeight: AppFontWeights.semibold,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                  child: LinearProgressIndicator(
+                    value: goal.progressAvailable ? goal.progress : 0,
+                    minHeight: 8,
+                    backgroundColor: colors.outlineSubtle,
+                    color: goal.isCompleted
+                        ? colors.success
+                        : colors.analysisAccent,
+                  ),
+                ),
+                if (!goal.progressAvailable) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    localizations.goalProgressUnavailableShort,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.caution),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppButton(
+                      label: localizations.editGoal,
+                      icon: Icons.edit_outlined,
+                      variant: AppButtonVariant.outline,
+                      onPressed: isSaving ? null : onEdit,
+                    ),
+                    AppButton(
+                      label: localizations.pauseGoal,
+                      icon: Icons.pause_rounded,
+                      variant: AppButtonVariant.ghost,
+                      onPressed: isSaving ? null : onPause,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          LinearProgressIndicator(
-            value: goal.progressAvailable ? goal.progress : 0,
-            minHeight: 7,
-            backgroundColor: colors.outlineSubtle,
-            color: goal.isCompleted ? colors.success : colors.analysisAccent,
-            borderRadius: BorderRadius.circular(AppRadii.pill),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              AppButton(
-                label: localizations.editGoal,
-                icon: Icons.edit_outlined,
-                variant: AppButtonVariant.outline,
-                onPressed: isSaving ? null : onEdit,
-              ),
-              AppButton(
-                label: localizations.pauseGoal,
-                icon: Icons.pause_rounded,
-                variant: AppButtonVariant.ghost,
-                onPressed: isSaving ? null : onPause,
-              ),
-            ],
-          ),
+        ],
+      ),
+    );
+  }
+}
+
+class GoalSuggestionsList extends StatelessWidget {
+  const GoalSuggestionsList({
+    super.key,
+    required this.templates,
+    required this.isSaving,
+    required this.onSelect,
+  });
+
+  final List<WorkoutGoalTemplate> templates;
+  final bool isSaving;
+  final ValueChanged<WorkoutGoalTemplate> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      variant: AppSurfaceVariant.muted,
+      padding: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var index = 0; index < templates.length; index++) ...[
+            GoalTemplateCard(
+              template: templates[index],
+              isSaving: isSaving,
+              onSelect: () => onSelect(templates[index]),
+            ),
+            if (index != templates.length - 1)
+              Divider(height: 1, color: colors.outlineSubtle),
+          ],
         ],
       ),
     );
@@ -202,29 +255,30 @@ class GoalTemplateCard extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
 
-    return AppSurfaceCard(
+    return Material(
       key: ValueKey<String>('goal-template-${template.type.storageValue}'),
-      variant: AppSurfaceVariant.muted,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isSaving ? null : onSelect,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: colors.analysisAccent.withValues(
-                    alpha: AppOpacity.subtle,
-                  ),
+                  color: colors.analysisAccent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(AppRadii.small),
                 ),
                 child: Icon(
                   _goalIcon(template.type),
                   color: colors.analysisAccent,
-                  size: 22,
+                  size: 21,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -244,34 +298,115 @@ class GoalTemplateCard extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
-                      localizations.goalTargetCanChange,
+                      localizations.userGoalDescription(
+                        template.type.storageValue,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.foregroundMuted,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.add_circle_outline_rounded,
+                color: isSaving
+                    ? colors.foregroundSubtle
+                    : colors.analysisAccent,
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: AppButton(
-              label: localizations.startGoal,
-              variant: AppButtonVariant.ghost,
-              onPressed: isSaving ? null : onSelect,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class PausedGoalCard extends StatelessWidget {
-  const PausedGoalCard({
+class ArchivedGoalsPanel extends StatelessWidget {
+  const ArchivedGoalsPanel({
     super.key,
+    required this.goals,
+    required this.isSaving,
+    required this.onResume,
+  });
+
+  final List<WorkoutGoal> goals;
+  final bool isSaving;
+  final ValueChanged<WorkoutGoal> onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final colors = context.semanticColors;
+
+    return AppSurfaceCard(
+      key: const ValueKey<String>('archived-goals-panel'),
+      variant: AppSurfaceVariant.muted,
+      padding: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const PageStorageKey<String>('archived-goals-expansion-tile'),
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xxs,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          leading: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.foreground.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Icon(
+              Icons.inventory_2_outlined,
+              color: colors.foregroundMuted,
+              size: 20,
+            ),
+          ),
+          title: Text(
+            localizations.completedAndPausedGoals,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: colors.foreground,
+              fontWeight: AppFontWeights.bold,
+            ),
+          ),
+          subtitle: Text(
+            '${goals.length}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.foregroundMuted),
+          ),
+          children: [
+            Divider(height: 1, color: colors.outlineSubtle),
+            for (final goal in goals)
+              _ArchivedGoalRow(
+                goal: goal,
+                isSaving: isSaving,
+                onResume: () => onResume(goal),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ArchivedGoalRow extends StatelessWidget {
+  const _ArchivedGoalRow({
     required this.goal,
     required this.isSaving,
     required this.onResume,
@@ -285,44 +420,50 @@ class PausedGoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final colors = context.semanticColors;
+    final completed = goal.isCompleted;
 
-    return AppSurfaceCard(
+    return Padding(
       key: ValueKey<String>('paused-goal-${goal.typeId}'),
-      variant: AppSurfaceVariant.muted,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.pause_circle_outline_rounded,
-                color: colors.foregroundMuted,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
+          Icon(
+            completed
+                ? Icons.check_circle_outline_rounded
+                : Icons.pause_circle_outline_rounded,
+            color: completed ? colors.success : colors.foregroundMuted,
+            size: 21,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   localizations.userGoalTitle(
                     goal.typeId,
                     goal.targetValue,
                     fallback: goal.title,
                   ),
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colors.foreground,
                     fontWeight: AppFontWeights.semibold,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: AppButton(
-              label: localizations.resumeGoal,
-              variant: AppButtonVariant.ghost,
-              onPressed: isSaving ? null : onResume,
+                Text(
+                  completed
+                      ? localizations.completedGoalStatus
+                      : localizations.pausedGoalStatus,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: completed ? colors.success : colors.foregroundMuted,
+                  ),
+                ),
+              ],
             ),
+          ),
+          TextButton(
+            onPressed: isSaving ? null : onResume,
+            child: Text(localizations.resumeGoal),
           ),
         ],
       ),

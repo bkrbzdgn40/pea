@@ -10,6 +10,28 @@ import 'package:pose_estimation_app/features/workout_analysis/domain/models/rang
 
 void main() {
   group('ExerciseConfig.fromMap', () {
+    test('all repetition assets declare a 25% tempo tolerance', () {
+      final files = Directory('assets/config/exercises')
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.json'));
+
+      var repetitionConfigCount = 0;
+      for (final file in files) {
+        final map = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+        if (!map.containsKey('idealDescentSeconds') ||
+            !map.containsKey('idealAscentSeconds')) {
+          continue;
+        }
+
+        repetitionConfigCount += 1;
+        final config = ExerciseConfig.fromMap(map);
+        expect(config.tempoToleranceRatio, 0.25, reason: file.path);
+      }
+
+      expect(repetitionConfigCount, 30);
+    });
+
     test(
       'parses the squat asset config without changing range-rep semantics',
       () {

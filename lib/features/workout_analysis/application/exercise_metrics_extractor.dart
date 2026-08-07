@@ -59,6 +59,7 @@ class ExerciseMetricsExtractor {
           config,
           holdContract: _requireHoldContract(holdContract),
           holdSide: _requireHoldSide(holdSide),
+          poseQualityAssessment: poseQualityAssessment,
         );
       case EngineKind.alternatingRep:
         // Alternating-rep analysis is currently a sidecar of the range-rep
@@ -124,6 +125,7 @@ class ExerciseMetricsExtractor {
     ExerciseConfig config, {
     required HoldContract holdContract,
     required HoldSide holdSide,
+    required PoseQualityAssessment? poseQualityAssessment,
   }) {
     final holdSignalValues = _extractHoldSignalValues(
       pose,
@@ -149,6 +151,46 @@ class ExerciseMetricsExtractor {
       rightRangeRepMetrics: const RangeRepSideMetrics.unavailable(
         RangeRepSide.right,
       ),
+      holdMeasurementConfidence: _buildHoldMeasurementConfidence(
+        holdContract: holdContract,
+        holdSignalValues: holdSignalValues,
+        poseQualityAssessment: poseQualityAssessment,
+      ),
+    );
+  }
+
+  MeasurementConfidenceBreakdown? _buildHoldMeasurementConfidence({
+    required HoldContract holdContract,
+    required HoldSignalValues holdSignalValues,
+    required PoseQualityAssessment? poseQualityAssessment,
+  }) {
+    if (poseQualityAssessment == null || !poseQualityAssessment.isAccepted) {
+      return null;
+    }
+
+    final requiredSignals = holdContract.requiredSignals;
+    final availableSignalCount = requiredSignals
+        .where(holdSignalValues.hasValue)
+        .length;
+    final signalAvailability = requiredSignals.isEmpty
+        ? null
+        : availableSignalCount / requiredSignals.length;
+
+    return _measurementConfidencePolicy.evaluate(
+      landmarkLikelihood:
+          poseQualityAssessment.minimumRequiredLikelihood ??
+          poseQualityAssessment.meanRequiredLikelihood,
+      signalAvailability: signalAvailability,
+      geometryPlausibility: 1.0,
+      // Accepted hold frames have passed the shared stabilization gate.
+      // Session-level visibility interruptions are accounted for separately by
+      // HoldSessionMeasurementEvidencePolicy instead of being hidden here.
+      temporalContinuity: 1.0,
+      issues: <MeasurementConfidenceIssue>[
+        if (requiredSignals.isNotEmpty &&
+            availableSignalCount < requiredSignals.length)
+          MeasurementConfidenceIssue.missingRequiredSignal,
+      ],
     );
   }
 

@@ -89,6 +89,7 @@ class SessionHistoryToolbar extends StatelessWidget {
     super.key,
     required this.layout,
     required this.sessionCount,
+    required this.isFiltering,
     required this.selectedExerciseFilter,
     required this.allExercisesFilter,
     required this.onExerciseSelected,
@@ -96,6 +97,7 @@ class SessionHistoryToolbar extends StatelessWidget {
 
   final AppLayout layout;
   final int sessionCount;
+  final bool isFiltering;
   final String selectedExerciseFilter;
   final String allExercisesFilter;
   final ValueChanged<String> onExerciseSelected;
@@ -138,6 +140,7 @@ class SessionHistoryToolbar extends StatelessWidget {
           final filter = _HistoryExerciseFilter(
             selectedValue: selectedExerciseFilter,
             allExercisesFilter: allExercisesFilter,
+            isLoading: isFiltering,
             onChanged: onExerciseSelected,
           );
 
@@ -165,11 +168,13 @@ class _HistoryExerciseFilter extends StatelessWidget {
   const _HistoryExerciseFilter({
     required this.selectedValue,
     required this.allExercisesFilter,
+    required this.isLoading,
     required this.onChanged,
   });
 
   final String selectedValue;
   final String allExercisesFilter;
+  final bool isLoading;
   final ValueChanged<String> onChanged;
 
   @override
@@ -189,7 +194,12 @@ class _HistoryExerciseFilter extends StatelessWidget {
           value: selectedValue,
           isExpanded: true,
           dropdownColor: AppColors.primarySurface,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          icon: isLoading
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.keyboard_arrow_down_rounded),
           items: [
             DropdownMenuItem<String>(
               value: allExercisesFilter,
@@ -204,9 +214,11 @@ class _HistoryExerciseFilter extends StatelessWidget {
                 ),
               ),
           ],
-          onChanged: (value) {
-            if (value != null) onChanged(value);
-          },
+          onChanged: isLoading
+              ? null
+              : (value) {
+                  if (value != null) onChanged(value);
+                },
         ),
       ),
     );

@@ -5,29 +5,51 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "startedAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "sessions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "exerciseType",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "startedAt",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "rewards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
         },
         {
-          "fieldPath": "__name__",
+          "fieldPath": "historyAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "id",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "rewards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "period",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "historyAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "id",
           "order": "DESCENDING"
         }
       ]

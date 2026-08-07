@@ -20,6 +20,8 @@ class PoseAnalysisApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: 'PEA',
       theme: AppTheme.dark,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       locale: Locale(language.languageCode),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

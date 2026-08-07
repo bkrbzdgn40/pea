@@ -494,6 +494,31 @@ void main() {
     expect(container.read(selectedExerciseProvider), isNull);
   });
 
+  test('assigns one run id for the plan and clears it on reset', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(workoutPlanSessionProvider.notifier);
+
+    controller.start(
+      WorkoutPlan(
+        exercises: const [
+          WorkoutExerciseBlock(
+            exercise: ExerciseType.squat,
+            target: WorkoutTarget.repetitions(1),
+          ),
+        ],
+      ),
+    );
+
+    final runId = controller.activeRunId;
+    expect(runId, isNotNull);
+    expect(runId, startsWith('plan_run_'));
+
+    controller.reset();
+
+    expect(controller.activeRunId, isNull);
+  });
+
   test('reset clears the active workout plan', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);

@@ -1,14 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pose_estimation_app/app/presentation/widgets/app_drawer.dart';
 import 'package:pose_estimation_app/features/auth/presentation/providers/auth_providers.dart';
+import 'package:pose_estimation_app/features/challenges/domain/challenge_catalog.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_period.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_period_window.dart';
+import 'package:pose_estimation_app/features/challenges/domain/models/challenge_progress.dart';
 import 'package:pose_estimation_app/features/goals/application/repositories/workout_goal_repository.dart';
 import 'package:pose_estimation_app/features/goals/domain/models/user_workout_goal.dart';
+import 'package:pose_estimation_app/features/goals/presentation/models/challenge_goals_state.dart';
 import 'package:pose_estimation_app/features/goals/presentation/models/workout_goal.dart';
 import 'package:pose_estimation_app/features/goals/presentation/providers/goals_provider.dart';
 import 'package:pose_estimation_app/features/goals/presentation/screens/goals_screen.dart';
+import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 
 import '../../../../support/presentation_test_harness.dart';
@@ -23,7 +30,10 @@ void main() {
     await pumpTestApp(
       tester,
       home: const GoalsScreen(),
-      overrides: [goalsProvider.overrideWith((ref) => completer.future)],
+      overrides: [
+        goalsProvider.overrideWith((ref) => completer.future),
+        _challengeOverride(),
+      ],
     );
     await tester.pump();
 
@@ -34,8 +44,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Hedef önerileri'), findsOneWidget);
+    final verticalScrollable = _verticalScrollable();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('goal-template-weeklySessions')),
+      220,
+      scrollable: verticalScrollable,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Önerilen hedefler'), findsOneWidget);
   });
 
   testWidgets('exposes Goals as the selected drawer destination', (
@@ -51,6 +68,7 @@ void main() {
             goals: <WorkoutGoal>[],
           ),
         ),
+        _challengeOverride(),
       ],
     );
     await tester.pumpAndSettle();
@@ -74,7 +92,7 @@ void main() {
     expect(tester.widget<ListTile>(goalsTile).selected, isTrue);
   });
 
-  testWidgets('shows one active goal and keeps paused goals secondary', (
+  testWidgets('shows one active goal and keeps paused goals collapsed', (
     WidgetTester tester,
   ) async {
     await pumpTestApp(
@@ -109,27 +127,149 @@ void main() {
             ],
           ),
         ),
+        _challengeOverride(),
       ],
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('active-goal-card')), findsOneWidget);
     expect(find.text('Haftada 4 analiz'), findsOneWidget);
-    expect(find.text('Düzenle'), findsWidgets);
+    expect(find.text('Düzenle'), findsOneWidget);
     expect(find.text('Duraklat'), findsOneWidget);
 
-    final verticalScrollable = find.byWidgetPredicate(
-      (widget) =>
-          widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
+    final verticalScrollable = _verticalScrollable();
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('paused-goal-weeklyReps')),
-      180,
+      find.byKey(const ValueKey('archived-goals-panel')),
+      220,
       scrollable: verticalScrollable,
     );
+    await tester.tap(find.text('Tamamlanan ve duraklatılan hedefler'));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Duraklatılan hedefler'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('paused-goal-weeklyReps')),
+      findsOneWidget,
+    );
     expect(find.text('Haftada 150 tekrar'), findsOneWidget);
+  });
+
+  testWidgets('shows medal progress and nearby goals without a badge wall', (
+    WidgetTester tester,
+  ) async {
+    final challengeState = _challengeState(
+      period: ChallengePeriod.daily,
+      values: const <ExerciseType, double>{
+        ExerciseType.pushUp: 12,
+        ExerciseType.squat: 28,
+        ExerciseType.plank: 40,
+      },
+    );
+
+    await pumpTestApp(
+      tester,
+      home: const GoalsScreen(),
+      overrides: [
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        challengeGoalsProvider.overrideWith((ref) async => challengeState),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Madalya hedefleri'), findsOneWidget);
+    expect(find.byKey(const ValueKey('medal-challenge-card')), findsOneWidget);
+    expect(find.text('28 güvenilir tekrar'), findsOneWidget);
+    expect(find.text('Sana yakın hedefler'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('nearby-medal-goals-list')),
+      findsOneWidget,
+    );
+    expect(find.text('Kilitli başarımlar'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('challenge-exercise-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Şınav').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('12 güvenilir tekrar'), findsOneWidget);
+  });
+
+  testWidgets('switches medal periods without replacing the personal goal', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const GoalsScreen(),
+      overrides: [
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.real,
+            goals: [
+              WorkoutGoal(
+                id: 'weeklySessions',
+                title: '',
+                targetValue: 5,
+                currentValue: 2,
+                unit: '',
+                description: '',
+                isCompleted: false,
+                type: WorkoutGoalType.weeklySessions,
+              ),
+            ],
+          ),
+        ),
+        challengeGoalsProvider.overrideWith((ref) async {
+          final period = ref.watch(selectedChallengePeriodProvider);
+          return _challengeState(
+            period: period,
+            values: <ExerciseType, double>{
+              ExerciseType.pushUp: switch (period) {
+                ChallengePeriod.daily => 10,
+                ChallengePeriod.weekly => 70,
+                ChallengePeriod.monthly => 200,
+              },
+            },
+          );
+        }),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bugün'), findsOneWidget);
+    await tester.tap(find.text('Haftalık'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bu hafta'), findsOneWidget);
+    expect(find.text('Haftada 5 analiz'), findsOneWidget);
+  });
+
+  testWidgets('keeps medal progress failure local to its section', (
+    WidgetTester tester,
+  ) async {
+    await pumpTestApp(
+      tester,
+      home: const GoalsScreen(),
+      overrides: [
+        goalsProvider.overrideWith(
+          (ref) => const GoalsState(
+            source: GoalsDataSource.empty,
+            goals: <WorkoutGoal>[],
+          ),
+        ),
+        challengeGoalsProvider.overrideWith(
+          (ref) => Future<ChallengeGoalsState>.error(StateError('offline')),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('challenge-goals-error')), findsOneWidget);
+    expect(find.text('Önerilen hedefler'), findsOneWidget);
+    expect(find.byKey(const ValueKey('no-active-goal')), findsOneWidget);
   });
 
   testWidgets('lets the user choose a custom target from a suggestion', (
@@ -149,16 +289,22 @@ void main() {
             source: UserSessionsSnapshotSource.empty,
           ),
         ),
+        _challengeOverride(),
       ],
     );
     await tester.pumpAndSettle();
 
     final template = find.byKey(const ValueKey('goal-template-weeklySessions'));
-    await tester.tap(
-      find.descendant(of: template, matching: find.text('Başlat')),
+    final verticalScrollable = _verticalScrollable();
+    await tester.scrollUntilVisible(
+      template,
+      220,
+      scrollable: verticalScrollable,
     );
+    await tester.tap(template);
     await tester.pumpAndSettle();
 
+    expect(find.text('Hızlı seçim'), findsOneWidget);
     expect(find.byKey(const ValueKey('goal-target-field')), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('goal-target-field')),
@@ -169,6 +315,14 @@ void main() {
 
     expect(repository.goals.single.targetValue, 7);
     expect(repository.goals.single.status, WorkoutGoalStatus.active);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('active-goal-card')),
+      -220,
+      scrollable: verticalScrollable,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Haftada 7 analiz'), findsOneWidget);
   });
 
@@ -186,23 +340,25 @@ void main() {
         goalsProvider.overrideWith(
           (ref) => const GoalsState(source: GoalsDataSource.empty, goals: []),
         ),
+        _challengeOverride(),
       ],
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    final verticalScrollable = find.byWidgetPredicate(
-      (widget) =>
-          widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
+    final verticalScrollable = _verticalScrollable();
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('goal-template-averageScore')),
-      180,
+      find.byKey(const ValueKey('goal-template-weeklyReps')),
+      220,
       scrollable: verticalScrollable,
     );
 
     expect(
-      find.byKey(const ValueKey('goal-template-averageScore')),
+      find.byKey(const ValueKey('goal-template-weeklyReps')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('goal-template-averageScore')),
+      findsNothing,
     );
     expectNoPresentationExceptions(tester);
   });
@@ -217,14 +373,18 @@ void main() {
         goalsProvider.overrideWith(
           (ref) => const GoalsState(source: GoalsDataSource.empty, goals: []),
         ),
+        _challengeOverride(),
       ],
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final template = find.byKey(const ValueKey('goal-template-weeklySessions'));
-    await tester.tap(
-      find.descendant(of: template, matching: find.text('Başlat')),
+    await tester.scrollUntilVisible(
+      template,
+      220,
+      scrollable: _verticalScrollable(),
     );
+    await tester.tap(template);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('goal-target-field')),
@@ -238,6 +398,44 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+Override _challengeOverride() {
+  return challengeGoalsProvider.overrideWith(
+    (ref) async => _challengeState(period: ChallengePeriod.daily),
+  );
+}
+
+ChallengeGoalsState _challengeState({
+  required ChallengePeriod period,
+  Map<ExerciseType, double> values = const <ExerciseType, double>{},
+}) {
+  const catalog = ChallengeCatalog();
+  final window = ChallengePeriodWindow.forInstant(
+    period: period,
+    instant: DateTime.utc(2026, 8, 7, 12),
+    timezoneOffset: Duration.zero,
+  );
+  return ChallengeGoalsState(
+    period: period,
+    window: window,
+    progresses: catalog.definitions
+        .map(
+          (definition) => ChallengeProgress(
+            definition: definition,
+            period: period,
+            value: values[definition.exerciseType] ?? 0,
+          ),
+        )
+        .toList(growable: false),
+  );
+}
+
+Finder _verticalScrollable() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Scrollable && widget.axisDirection == AxisDirection.down,
+  );
 }
 
 class _MemoryGoalRepository implements WorkoutGoalRepository {
@@ -293,7 +491,9 @@ class _MemoryGoalRepository implements WorkoutGoalRepository {
     required WorkoutGoalType type,
     required DateTime now,
   }) async {
-    final index = goals.indexWhere((goal) => goal.type == type);
+    final index = goals.indexWhere(
+      (goal) => goal.ownerId == ownerId && goal.type == type,
+    );
     if (index == -1) return;
     goals[index] = goals[index].copyWith(
       status: WorkoutGoalStatus.paused,

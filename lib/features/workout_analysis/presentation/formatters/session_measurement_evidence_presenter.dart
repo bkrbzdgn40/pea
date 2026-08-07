@@ -15,9 +15,7 @@ enum SessionMeasurementEvidenceWarning {
 class SessionMeasurementEvidencePresenter {
   const SessionMeasurementEvidencePresenter._();
 
-  static SessionMeasurementEvidenceWarning warningFor(
-    WorkoutSession session,
-  ) {
+  static SessionMeasurementEvidenceWarning warningFor(WorkoutSession session) {
     if (session.preparationOutcome == PreparationOutcome.overridden) {
       return SessionMeasurementEvidenceWarning.preparationOverridden;
     }
@@ -88,8 +86,7 @@ class SessionMeasurementEvidencePresenter {
     return switch (warningFor(session)) {
       SessionMeasurementEvidenceWarning.preparationOverridden =>
         Icons.skip_next_rounded,
-      SessionMeasurementEvidenceWarning.limited =>
-        Icons.warning_amber_rounded,
+      SessionMeasurementEvidenceWarning.limited => Icons.warning_amber_rounded,
       SessionMeasurementEvidenceWarning.insufficient =>
         Icons.signal_cellular_connected_no_internet_0_bar_rounded,
       SessionMeasurementEvidenceWarning.none => Icons.info_outline_rounded,
@@ -120,8 +117,7 @@ class SessionMeasurementEvidencePresenter {
     return switch (outcome) {
       PreparationOutcome.passed => localizations.preparationPassed,
       PreparationOutcome.overridden => localizations.preparationOverridden,
-      PreparationOutcome.legacyUnknown =>
-        localizations.preparationUnavailable,
+      PreparationOutcome.legacyUnknown => localizations.preparationUnavailable,
     };
   }
 

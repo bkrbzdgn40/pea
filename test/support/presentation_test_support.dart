@@ -219,6 +219,8 @@ Future<void> pumpTestApp(
       overrides: overrides,
       child: MaterialApp(
         theme: AppTheme.dark,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.dark,
         builder: configuration == null
             ? null
             : (context, child) => PresentationTestMediaQuery(

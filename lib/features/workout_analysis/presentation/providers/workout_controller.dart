@@ -29,6 +29,7 @@ import '../../application/workout_live_metrics.dart';
 import '../../application/workout_frame_processor.dart';
 import '../../domain/hold_analysis_engine.dart';
 import '../../domain/models/exercise_config.dart';
+import '../../domain/models/measurement_confidence_breakdown.dart';
 import '../../domain/models/exercise_type.dart';
 import '../../domain/models/hold_contract.dart';
 import '../../domain/models/range_rep_contract.dart';
@@ -634,7 +635,14 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       isAcceptedPoseFrame: frameKind == WorkoutPoseFrameKind.accepted,
       didBecomeStableTracking: didBecomeStableTracking,
     );
-    _publishHoldState(result.stateSnapshot);
+    _publishHoldState(
+      result.stateSnapshot,
+      measurementConfidence: frameKind == WorkoutPoseFrameKind.accepted
+          ? metrics.holdMeasurementConfidence
+          : null,
+      isMeasurementFrameAccepted:
+          frameKind == WorkoutPoseFrameKind.accepted && metrics.hasPose,
+    );
     _applyHoldDiagnosticsUpdate(result.diagnosticsUpdate);
     _updateDiagnosticsFromState();
   }
@@ -747,6 +755,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
   void _publishHoldState(
     HoldCoordinatorStateSnapshot snapshot, {
     bool deliverFeedback = true,
+    MeasurementConfidenceBreakdown? measurementConfidence,
+    bool isMeasurementFrameAccepted = false,
   }) {
     final resolvedFeedback = _resolveHoldFeedback(snapshot);
     state = _stateProjector.hold(
@@ -754,6 +764,8 @@ class WorkoutController extends AutoDisposeNotifier<WorkoutState> {
       feedbackMessage: resolvedFeedback.message,
       cameraFps: _cameraFps,
       analysisFps: _analysisFps,
+      measurementConfidence: measurementConfidence,
+      isMeasurementFrameAccepted: isMeasurementFrameAccepted,
     );
     _publishHoldLiveMetricDisplay();
     if (deliverFeedback && !_suppressesExerciseFeedback) {

@@ -5,6 +5,7 @@ import 'exercise_catalog.dart';
 import 'engine_kind.dart';
 import 'hold_session_metrics_collector.dart';
 import 'workout_state.dart';
+import '../domain/hold_session_measurement_evidence_policy.dart';
 import '../domain/session_measurement_evidence_policy.dart';
 import '../domain/models/exercise_type.dart';
 import '../domain/models/range_rep_contract.dart';
@@ -107,21 +108,26 @@ class WorkoutSessionLifecycleController
     required String? Function() resolveOwnerId,
     required void Function() invalidateUserSessionsSnapshot,
     required void Function(WorkoutSession? session) publishCompletedSession,
+    Future<void> Function(WorkoutSession session)? onSessionPersisted,
     DateTime Function()? clock,
     PreparationOutcome Function()? resolvePreparationOutcome,
     SessionMeasurementEvidencePolicy measurementEvidencePolicy =
         const SessionMeasurementEvidencePolicy(),
+    HoldSessionMeasurementEvidencePolicy holdMeasurementEvidencePolicy =
+        const HoldSessionMeasurementEvidencePolicy(),
     HoldSessionMetricsCollector? holdSessionCollector,
     ExerciseCatalog exerciseCatalog = const ExerciseCatalog(),
   }) : _sessionRepository = sessionRepository,
        _resolveOwnerId = resolveOwnerId,
        _invalidateUserSessionsSnapshot = invalidateUserSessionsSnapshot,
        _publishCompletedSession = publishCompletedSession,
+       _onSessionPersisted = onSessionPersisted,
        _clock = clock ?? DateTime.now,
        _resolvePreparationOutcome =
            resolvePreparationOutcome ??
            (() => PreparationOutcome.legacyUnknown),
        _measurementEvidencePolicy = measurementEvidencePolicy,
+       _holdMeasurementEvidencePolicy = holdMeasurementEvidencePolicy,
        _holdSessionCollector =
            holdSessionCollector ?? HoldSessionMetricsCollector(),
        _exerciseCatalog = exerciseCatalog;
@@ -130,9 +136,11 @@ class WorkoutSessionLifecycleController
   final String? Function() _resolveOwnerId;
   final void Function() _invalidateUserSessionsSnapshot;
   final void Function(WorkoutSession? session) _publishCompletedSession;
+  final Future<void> Function(WorkoutSession session)? _onSessionPersisted;
   final DateTime Function() _clock;
   final PreparationOutcome Function() _resolvePreparationOutcome;
   final SessionMeasurementEvidencePolicy _measurementEvidencePolicy;
+  final HoldSessionMeasurementEvidencePolicy _holdMeasurementEvidencePolicy;
   final HoldSessionMetricsCollector _holdSessionCollector;
   final ExerciseCatalog _exerciseCatalog;
 
@@ -216,6 +224,10 @@ class WorkoutSessionLifecycleController
 
   @override
   void collect(WorkoutState next) {
+    _collectState(next, isFinalSnapshot: false);
+  }
+
+  void _collectState(WorkoutState next, {required bool isFinalSnapshot}) {
     final rangeRepAnalysis = next.rangeRepAnalysis;
     if (rangeRepAnalysis != null) {
       final validatedRepEvent = next.validatedRepEvent;
@@ -247,7 +259,11 @@ class WorkoutSessionLifecycleController
       }
     }
 
-    _holdSessionCollector.collect(next);
+    if (isFinalSnapshot) {
+      _holdSessionCollector.collectFinalSnapshot(next);
+    } else {
+      _holdSessionCollector.collect(next);
+    }
 
     _lastObservedRepCount = rangeRepAnalysis?.repCount ?? 0;
     _previousFormBad = rangeRepAnalysis?.isFormBad ?? false;
@@ -428,7 +444,7 @@ class WorkoutSessionLifecycleController
       );
     }
 
-    collect(finalState);
+    _collectState(finalState, isFinalSnapshot: true);
 
     final activeSessionExercise = _activeSessionExercise;
     if (activeSessionExercise == null) {
@@ -446,6 +462,19 @@ class WorkoutSessionLifecycleController
 
     try {
       await _sessionRepository.saveSession(session);
+      final onSessionPersisted = _onSessionPersisted;
+      if (onSessionPersisted != null) {
+        try {
+          await onSessionPersisted(session);
+        } catch (error, stackTrace) {
+          developer.log(
+            'Reward progress sync failed after session persistence.',
+            name: 'workout.session.rewardSync',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
       _invalidateUserSessionsSnapshot();
       _publishCompletedSession(session);
       _hasSavedSession = true;
@@ -610,8 +639,17 @@ class WorkoutSessionLifecycleController
           );
 
     final measurementEvidence = isHoldAnalysis
-        ? SessionMeasurementEvidence.unknown(
+        ? _holdMeasurementEvidencePolicy.evaluate(
             preparationOutcome: _preparationOutcome,
+            totalHoldSeconds: _holdSessionCollector.totalHoldSeconds,
+            averageMeasurementConfidence:
+                _holdSessionCollector.averageMeasurementConfidence,
+            measurementSampleCount:
+                _holdSessionCollector.measurementSampleCount,
+            observedHoldFrameCount:
+                _holdSessionCollector.observedHoldFrameCount,
+            visibilityInterruptedFrameCount:
+                _holdSessionCollector.visibilityInterruptedFrameCount,
           )
         : _measurementEvidencePolicy.evaluate(
             preparationOutcome: _preparationOutcome,
@@ -646,6 +684,7 @@ class WorkoutSessionLifecycleController
       averageMeasurementConfidence:
           measurementEvidence.averageMeasurementConfidence,
       measurementSampleCount: measurementEvidence.measurementSampleCount,
+      timezoneOffset: endedAt.timeZoneOffset,
       reps: persistedReps,
     );
   }

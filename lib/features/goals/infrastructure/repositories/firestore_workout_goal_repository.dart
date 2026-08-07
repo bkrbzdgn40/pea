@@ -22,10 +22,11 @@ class FirestoreWorkoutGoalRepository implements WorkoutGoalRepository {
   @override
   Future<List<UserWorkoutGoal>> listGoals({required String ownerId}) async {
     final snapshot = await _collection(ownerId).get();
-    final goals = snapshot.docs
-        .map((document) => _mapper.fromDocument(document.data()))
-        .toList(growable: false)
-      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    final goals =
+        snapshot.docs
+            .map((document) => _mapper.fromDocument(document.data()))
+            .toList(growable: false)
+          ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
     return goals;
   }
 

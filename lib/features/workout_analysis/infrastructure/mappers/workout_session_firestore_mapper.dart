@@ -34,6 +34,7 @@ class WorkoutSessionFirestoreMapper {
       'measurementQuality': session.measurementQuality.name,
       'averageMeasurementConfidence': session.averageMeasurementConfidence,
       'measurementSampleCount': session.measurementSampleCount,
+      'timezoneOffsetMinutes': _resolveTimezoneOffsetMinutes(session),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -69,9 +70,27 @@ class WorkoutSessionFirestoreMapper {
       'measurementQuality': data['measurementQuality'],
       'averageMeasurementConfidence': data['averageMeasurementConfidence'],
       'measurementSampleCount': data['measurementSampleCount'],
+      'timezoneOffsetMinutes': data['timezoneOffsetMinutes'],
       'createdAt': _toPlainDate(data['createdAt']),
       'updatedAt': _toPlainDate(data['updatedAt']),
     });
+  }
+
+  int? _resolveTimezoneOffsetMinutes(WorkoutSession session) {
+    final offset = session.timezoneOffset;
+    if (offset == null) {
+      return null;
+    }
+    if (offset.abs() > const Duration(hours: 14) ||
+        offset.inSeconds % Duration.secondsPerMinute != 0) {
+      throw ArgumentError.value(
+        offset,
+        'session.timezoneOffset',
+        'Timezone offset must be minute-aligned and within ±14 hours.',
+      );
+    }
+
+    return offset.inMinutes;
   }
 
   int _resolveValidRepCount(WorkoutSession session) {

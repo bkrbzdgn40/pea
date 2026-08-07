@@ -79,7 +79,6 @@ void main() {
     expect(() => mapper.fromDocument(data), throwsFormatException);
   });
 
-
   test('does not silently truncate a fractional weekly target', () {
     final goal = UserWorkoutGoal(
       id: 'weeklySessions',
@@ -94,5 +93,4 @@ void main() {
 
     expect(() => mapper.toDocument(goal), throwsArgumentError);
   });
-
 }

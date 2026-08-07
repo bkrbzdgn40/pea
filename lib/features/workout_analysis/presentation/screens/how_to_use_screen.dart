@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
@@ -8,16 +10,44 @@ import '../../../../app/presentation/widgets/app_surface_card.dart';
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_motion.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../rewards/presentation/providers/reward_runtime_providers.dart';
 
-class HowToUseScreen extends StatefulWidget {
+class HowToUseScreen extends ConsumerStatefulWidget {
   const HowToUseScreen({super.key});
 
   @override
-  State<HowToUseScreen> createState() => _HowToUseScreenState();
+  ConsumerState<HowToUseScreen> createState() => _HowToUseScreenState();
 }
 
-class _HowToUseScreenState extends State<HowToUseScreen> {
+class _HowToUseScreenState extends ConsumerState<HowToUseScreen> {
   final Set<String> _expandedStepIds = <String>{};
+
+  Future<void> _recordGuideStep(String stepId) async {
+    try {
+      final ownerId = ref.read(currentUserIdProvider);
+      if (ownerId == null) {
+        return;
+      }
+
+      final now = DateTime.now();
+      await ref
+          .read(rewardRuntimeServiceProvider)
+          .recordGuideStep(
+            ownerId: ownerId,
+            stepId: stepId,
+            occurredAt: now,
+            timezoneOffset: now.timeZoneOffset,
+          );
+    } catch (error, stackTrace) {
+      developer.log(
+        'Guide progress event could not be persisted.',
+        name: 'rewards.runtime.guide',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +134,7 @@ class _HowToUseScreenState extends State<HowToUseScreen> {
                   lockCollapsedHeight: layout.lockCollapsedHeight,
                   isExpanded: isExpanded,
                   onToggle: () {
+                    final willExpand = !isExpanded;
                     setState(() {
                       if (isExpanded) {
                         _expandedStepIds.remove(step.id);
@@ -111,6 +142,9 @@ class _HowToUseScreenState extends State<HowToUseScreen> {
                         _expandedStepIds.add(step.id);
                       }
                     });
+                    if (willExpand) {
+                      unawaited(_recordGuideStep(step.id));
+                    }
                   },
                   data: step,
                 ),

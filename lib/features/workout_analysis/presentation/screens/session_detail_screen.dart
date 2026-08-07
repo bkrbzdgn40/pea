@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,9 @@ import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
 import '../../../../app/presentation/widgets/app_ui_primitives.dart';
 import '../../../../app/theme/app_design_tokens.dart';
 import '../../../../app/theme/app_semantic_colors.dart';
+import '../../../achievements/presentation/providers/achievements_provider.dart';
+import '../../../goals/presentation/providers/goals_provider.dart';
+import '../../../rewards/presentation/providers/reward_runtime_providers.dart';
 import '../../domain/models/session_report.dart';
 import '../../domain/models/workout_rep.dart';
 import '../../domain/models/workout_session.dart';
@@ -16,6 +20,7 @@ import '../formatters/session_measurement_evidence_presenter.dart';
 import '../formatters/workout_presentation_formatter.dart';
 import '../mappers/session_report_ui_mapper.dart';
 import '../providers/session_repository_provider.dart';
+import '../providers/user_sessions_snapshot_provider.dart';
 import '../widgets/session_measurement_evidence_notice.dart';
 import '../widgets/session_result_visual.dart';
 
@@ -128,6 +133,24 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
       await ref
           .read(sessionRepositoryProvider)
           .deleteSession(ownerId: _session.ownerId, sessionId: _session.id);
+      try {
+        await ref
+            .read(rewardRuntimeServiceProvider)
+            .removeSessionProgress(
+              ownerId: _session.ownerId,
+              sessionId: _session.id,
+            );
+      } catch (error, stackTrace) {
+        developer.log(
+          'Session deleted but reward progress cleanup was deferred.',
+          name: 'rewards.runtime.delete',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      ref.invalidate(userSessionsSnapshotProvider);
+      ref.invalidate(challengeGoalsProvider);
+      ref.invalidate(achievementsProvider);
       if (!mounted) {
         return;
       }

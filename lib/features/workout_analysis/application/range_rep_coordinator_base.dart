@@ -199,6 +199,7 @@ class DefaultRangeRepCoordinator implements RangeRepCoordinator {
        _rangeRepValidationConfig = rangeRepValidationConfig,
        _tempoCoachingPolicy = RangeRepTempoCoachingPolicy(
          config: rangeRepValidationConfig.tempoCoachingConfig,
+         toleranceRatio: config.tempoToleranceRatio,
        ),
        _primaryMetricFilter = MovingAverageFilter(
          windowSize: rangeRepContract.primaryMetricSmoothingWindow,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_state_views.dart';
+import '../../../rewards/presentation/providers/reward_runtime_providers.dart';
 import '../../../workout_analysis/presentation/screens/home_screen.dart';
 import '../providers/auth_bootstrap_provider.dart';
 
@@ -28,6 +29,7 @@ class AuthBootstrapGate extends ConsumerWidget {
       ),
       data: (state) {
         if (state.isReady) {
+          ref.watch(rewardRuntimeBootstrapProvider);
           return const HomeScreen();
         }
 

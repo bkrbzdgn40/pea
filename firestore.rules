@@ -26,10 +26,6 @@ service cloud.firestore {
       return value == null || isScore(value);
     }
 
-    function isNullableInt(value) {
-      return value == null || value is int;
-    }
-
     function isNonNegativeInt(value) {
       return value is int && value >= 0;
     }
@@ -77,6 +73,11 @@ service cloud.firestore {
 
     function isNullableTimestamp(value) {
       return value == null || value is timestamp;
+    }
+
+    function isNullableTimezoneOffsetMinutes(value) {
+      return value == null ||
+        (value is int && value >= -840 && value <= 840);
     }
 
     function isNullableUnitInterval(value) {
@@ -196,6 +197,7 @@ service cloud.firestore {
         'measurementQuality',
         'averageMeasurementConfidence',
         'measurementSampleCount',
+        'timezoneOffsetMinutes',
         'createdAt',
         'updatedAt',
       ]) &&
@@ -251,7 +253,653 @@ service cloud.firestore {
         isNonNegativeNumber(request.resource.data.holdDurationSeconds) &&
         isNonNegativeNumber(request.resource.data.bestHoldSeconds) &&
         isNonNegativeInt(request.resource.data.holdFormBreakCount) &&
+        isNullableTimezoneOffsetMinutes(
+          request.resource.data.get('timezoneOffsetMinutes', null)
+        ) &&
         hasValidSessionMeasurementEvidence(request.resource.data);
+    }
+
+    function isRepChallengeExercise(value) {
+      return value == 'squat' ||
+        value == 'lunge' ||
+        value == 'push_up' ||
+        value == 'sit_up' ||
+        value == 'crunch' ||
+        value == 'reverse_crunch' ||
+        value == 'biceps_curl' ||
+        value == 'lying_leg_raise' ||
+        value == 'bent_knee_leg_raise' ||
+        value == 'standing_hamstring_curl' ||
+        value == 'standing_hip_abduction' ||
+        value == 'triceps_dip' ||
+        value == 'romanian_deadlift' ||
+        value == 'good_morning' ||
+        value == 'lateral_raise' ||
+        value == 'shoulder_press' ||
+        value == 'overhead_triceps_extension' ||
+        value == 'upright_row' ||
+        value == 'calf_raise' ||
+        value == 'front_raise' ||
+        value == 'glute_bridge' ||
+        value == 'jumping_jack' ||
+        value == 'standing_hip_extension' ||
+        value == 'standing_knee_raise' ||
+        value == 'standing_straight_leg_raise' ||
+        value == 'v_up' ||
+        value == 'frog_pump' ||
+        value == 'lying_triceps_extension' ||
+        value == 'floor_chest_press' ||
+        value == 'y_raise';
+    }
+
+    function isHoldChallengeExercise(value) {
+      return value == 'plank' ||
+        value == 'hollow_hold' ||
+        value == 'wall_sit' ||
+        value == 'side_plank';
+    }
+
+    function isChallengeExercise(value) {
+      return isRepChallengeExercise(value) || isHoldChallengeExercise(value);
+    }
+
+    function isChallengeMetric(value) {
+      return value == 'validRepetitions' ||
+        value == 'trustedHoldSeconds';
+    }
+
+    function isChallengeEvidenceQuality(value) {
+      return value == 'high' || value == 'moderate';
+    }
+
+    function isChallengePeriod(value) {
+      return value == 'daily' ||
+        value == 'weekly' ||
+        value == 'monthly';
+    }
+
+    function isMedalTier(value) {
+      return value == 'bronze' ||
+        value == 'silver' ||
+        value == 'gold';
+    }
+
+    function medalTierRank(value) {
+      return value == 'bronze' ? 1 :
+        value == 'silver' ? 2 :
+        value == 'gold' ? 3 : 0;
+    }
+
+    function isValidRewardThresholds(value) {
+      return value is map &&
+        value.keys().hasOnly(['bronze', 'silver', 'gold']) &&
+        value.keys().hasAll(['bronze', 'silver', 'gold']) &&
+        value.bronze is int &&
+        value.silver is int &&
+        value.gold is int &&
+        value.bronze > 0 &&
+        value.silver > value.bronze &&
+        value.gold > value.silver;
+    }
+
+    function rewardTierMatchesProgress(progress, thresholds, tier) {
+      return (tier == 'bronze' &&
+          progress >= thresholds.bronze &&
+          progress < thresholds.silver) ||
+        (tier == 'silver' &&
+          progress >= thresholds.silver &&
+          progress < thresholds.gold) ||
+        (tier == 'gold' && progress >= thresholds.gold);
+    }
+
+    function isChallengePeriodKey(period, value) {
+      return value is string &&
+        (
+          ((period == 'daily' || period == 'weekly') &&
+            value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')) ||
+          (period == 'monthly' &&
+            value.matches('^[0-9]{4}-[0-9]{2}$'))
+        );
+    }
+
+    function isValidTierEarnedAt(value, highestTier) {
+      return value is map &&
+        value.keys().hasOnly(['bronze', 'silver', 'gold']) &&
+        value.get('bronze', null) is timestamp &&
+        (
+          (highestTier == 'bronze' &&
+            !value.keys().hasAny(['silver', 'gold'])) ||
+          (highestTier == 'silver' &&
+            value.get('silver', null) is timestamp &&
+            !value.keys().hasAny(['gold']) &&
+            value.silver >= value.bronze) ||
+          (highestTier == 'gold' &&
+            value.get('silver', null) is timestamp &&
+            value.get('gold', null) is timestamp &&
+            value.silver >= value.bronze &&
+            value.gold >= value.silver)
+        );
+    }
+
+    function hasChallengeMedalRewardFields(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'id',
+        'ownerId',
+        'kind',
+        'challengeId',
+        'catalogVersion',
+        'exerciseType',
+        'metric',
+        'period',
+        'periodKey',
+        'timezoneOffsetMinutes',
+        'highestTier',
+        'progressValueAtHighestTier',
+        'thresholdsAtAward',
+        'tierEarnedAt',
+        'firstEarnedAt',
+        'highestTierEarnedAt',
+        'historyAt',
+        'qualifyingEventId',
+        'isBackfilled',
+        'createdAt',
+        'updatedAt',
+      ]) && data.keys().hasAll([
+        'schemaVersion',
+        'id',
+        'ownerId',
+        'kind',
+        'challengeId',
+        'catalogVersion',
+        'exerciseType',
+        'metric',
+        'period',
+        'periodKey',
+        'timezoneOffsetMinutes',
+        'highestTier',
+        'progressValueAtHighestTier',
+        'thresholdsAtAward',
+        'tierEarnedAt',
+        'firstEarnedAt',
+        'highestTierEarnedAt',
+        'historyAt',
+        'qualifyingEventId',
+        'isBackfilled',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidChallengeMedalRewardShape(data, userId, rewardId) {
+      return hasChallengeMedalRewardFields(data) &&
+        data.schemaVersion == 1 &&
+        data.id == rewardId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.kind == 'challengeMedal' &&
+        data.challengeId == data.exerciseType + '_volume' &&
+        data.catalogVersion is int &&
+        data.catalogVersion > 0 &&
+        isChallengeExercise(data.exerciseType) &&
+        isChallengeMetric(data.metric) &&
+        (
+          (data.metric == 'validRepetitions' &&
+            isRepChallengeExercise(data.exerciseType) &&
+            data.progressValueAtHighestTier is int &&
+            data.progressValueAtHighestTier > 0) ||
+          (data.metric == 'trustedHoldSeconds' &&
+            isHoldChallengeExercise(data.exerciseType) &&
+            data.progressValueAtHighestTier is number &&
+            data.progressValueAtHighestTier > 0)
+        ) &&
+        isValidRewardThresholds(data.thresholdsAtAward) &&
+        rewardTierMatchesProgress(
+          data.progressValueAtHighestTier,
+          data.thresholdsAtAward,
+          data.highestTier
+        ) &&
+        isChallengePeriod(data.period) &&
+        isChallengePeriodKey(data.period, data.periodKey) &&
+        rewardId == 'medal:' + data.challengeId + ':' +
+          data.period + ':' + data.periodKey &&
+        data.timezoneOffsetMinutes is int &&
+        data.timezoneOffsetMinutes >= -840 &&
+        data.timezoneOffsetMinutes <= 840 &&
+        isMedalTier(data.highestTier) &&
+        isValidTierEarnedAt(data.tierEarnedAt, data.highestTier) &&
+        data.firstEarnedAt == data.tierEarnedAt.bronze &&
+        data.highestTierEarnedAt ==
+          (data.highestTier == 'bronze'
+            ? data.tierEarnedAt.bronze
+            : data.highestTier == 'silver'
+              ? data.tierEarnedAt.silver
+              : data.tierEarnedAt.gold) &&
+        data.historyAt == data.highestTierEarnedAt &&
+        data.qualifyingEventId is string &&
+        data.qualifyingEventId.size() > 0 &&
+        !data.qualifyingEventId.matches('.*/.*') &&
+        data.isBackfilled == false &&
+        data.createdAt is timestamp &&
+        data.createdAt >= data.firstEarnedAt &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt &&
+        data.updatedAt >= data.highestTierEarnedAt;
+    }
+
+    function isValidChallengeMedalRewardUpgrade(
+      oldData,
+      newData,
+      userId,
+      rewardId
+    ) {
+      return hasValidChallengeMedalRewardShape(newData, userId, rewardId) &&
+        oldData.ownerId == request.auth.uid &&
+        newData.schemaVersion == oldData.schemaVersion &&
+        newData.id == oldData.id &&
+        newData.ownerId == oldData.ownerId &&
+        newData.kind == oldData.kind &&
+        newData.challengeId == oldData.challengeId &&
+        newData.catalogVersion == oldData.catalogVersion &&
+        newData.exerciseType == oldData.exerciseType &&
+        newData.metric == oldData.metric &&
+        newData.thresholdsAtAward == oldData.thresholdsAtAward &&
+        newData.period == oldData.period &&
+        newData.periodKey == oldData.periodKey &&
+        newData.timezoneOffsetMinutes == oldData.timezoneOffsetMinutes &&
+        newData.isBackfilled == oldData.isBackfilled &&
+        newData.createdAt == oldData.createdAt &&
+        newData.firstEarnedAt == oldData.firstEarnedAt &&
+        newData.tierEarnedAt.bronze == oldData.tierEarnedAt.bronze &&
+        medalTierRank(newData.highestTier) >
+          medalTierRank(oldData.highestTier) &&
+        newData.progressValueAtHighestTier >
+          oldData.progressValueAtHighestTier &&
+        (
+          oldData.highestTier == 'bronze' ||
+          newData.tierEarnedAt.silver == oldData.tierEarnedAt.silver
+        ) &&
+        (
+          oldData.highestTier != 'gold' ||
+          newData.tierEarnedAt.gold == oldData.tierEarnedAt.gold
+        ) &&
+        newData.updatedAt > oldData.updatedAt;
+    }
+
+    function isAchievementId(value) {
+      return value == 'first_reliable_analysis' ||
+        value == 'reliable_sessions_5' ||
+        value == 'exercise_explorer_3' ||
+        value == 'guide_completed' ||
+        value == 'controlled_tempo' ||
+        value == 'planned_workout_completed' ||
+        value == 'planned_workouts_5' ||
+        value == 'balanced_explorer' ||
+        value == 'return_after_14_days' ||
+        value == 'rhythm_30_days' ||
+        value == 'golden_week';
+    }
+
+    function achievementAllowsBackfill(value) {
+      return value == 'first_reliable_analysis' ||
+        value == 'reliable_sessions_5' ||
+        value == 'exercise_explorer_3' ||
+        value == 'balanced_explorer';
+    }
+
+    function hasAchievementRewardFields(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'id',
+        'ownerId',
+        'kind',
+        'achievementId',
+        'definitionVersion',
+        'unlockedAt',
+        'historyAt',
+        'qualifyingEventId',
+        'isBackfilled',
+        'createdAt',
+        'updatedAt',
+      ]) && data.keys().hasAll([
+        'schemaVersion',
+        'id',
+        'ownerId',
+        'kind',
+        'achievementId',
+        'definitionVersion',
+        'unlockedAt',
+        'historyAt',
+        'qualifyingEventId',
+        'isBackfilled',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidAchievementRewardShape(data, userId, rewardId) {
+      return hasAchievementRewardFields(data) &&
+        data.schemaVersion == 1 &&
+        data.id == rewardId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.kind == 'achievement' &&
+        isAchievementId(data.achievementId) &&
+        rewardId == 'achievement:' + data.achievementId &&
+        data.definitionVersion == 1 &&
+        data.unlockedAt is timestamp &&
+        data.historyAt == data.unlockedAt &&
+        data.qualifyingEventId is string &&
+        data.qualifyingEventId.size() > 0 &&
+        !data.qualifyingEventId.matches('.*/.*') &&
+        data.isBackfilled is bool &&
+        (!data.isBackfilled || achievementAllowsBackfill(data.achievementId)) &&
+        data.createdAt is timestamp &&
+        data.createdAt >= data.unlockedAt &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
+    }
+
+    function isAchievementEventType(value) {
+      return value == 'guideStepOpened' ||
+        value == 'plannedWorkoutCompleted' ||
+        value == 'controlledTempoSession';
+    }
+
+    function hasAchievementEventFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'type',
+        'subjectId',
+        'occurredAt',
+        'localDate',
+        'timezoneOffsetMinutes',
+        'createdAt',
+      ]) && data.keys().hasAll([
+        'id',
+        'ownerId',
+        'type',
+        'subjectId',
+        'occurredAt',
+        'localDate',
+        'timezoneOffsetMinutes',
+        'createdAt',
+      ]);
+    }
+
+    function hasValidAchievementEventShape(data, userId, eventId) {
+      return hasAchievementEventFields(data) &&
+        data.id == eventId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        isAchievementEventType(data.type) &&
+        data.subjectId is string &&
+        data.subjectId.size() > 0 &&
+        !data.subjectId.matches('.*/.*') &&
+        (
+          (data.type == 'guideStepOpened' &&
+            data.subjectId.matches('^[1-6]$') &&
+            eventId == 'guide-step:' + data.subjectId) ||
+          (data.type == 'plannedWorkoutCompleted' &&
+            eventId == 'planned-workout:' + data.subjectId) ||
+          (data.type == 'controlledTempoSession' &&
+            eventId == 'controlled-tempo:' + data.subjectId)
+        ) &&
+        data.occurredAt is timestamp &&
+        isLocalDateKey(data.localDate) &&
+        data.timezoneOffsetMinutes is int &&
+        data.timezoneOffsetMinutes >= -840 &&
+        data.timezoneOffsetMinutes <= 840 &&
+        data.createdAt is timestamp &&
+        data.createdAt >= data.occurredAt;
+    }
+
+    function isLocalDateKey(value) {
+      return value is string &&
+        value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function hasProgressContributionFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'challengeId',
+        'catalogVersion',
+        'exerciseType',
+        'metric',
+        'evidenceQuality',
+        'value',
+        'endedAt',
+        'timezoneOffsetMinutes',
+        'localDate',
+        'createdAt',
+        'updatedAt',
+      ]) && data.keys().hasAll([
+        'id',
+        'ownerId',
+        'challengeId',
+        'catalogVersion',
+        'exerciseType',
+        'metric',
+        'evidenceQuality',
+        'value',
+        'endedAt',
+        'timezoneOffsetMinutes',
+        'localDate',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidProgressContributionShape(data, userId, contributionId) {
+      return hasProgressContributionFields(data) &&
+        data.id == contributionId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.challengeId == data.exerciseType + '_volume' &&
+        data.catalogVersion is int &&
+        data.catalogVersion > 0 &&
+        isChallengeExercise(data.exerciseType) &&
+        isChallengeMetric(data.metric) &&
+        isChallengeEvidenceQuality(data.evidenceQuality) &&
+        (
+          (data.metric == 'validRepetitions' &&
+            isRepChallengeExercise(data.exerciseType) &&
+            data.value is int && data.value > 0) ||
+          (data.metric == 'trustedHoldSeconds' &&
+            isHoldChallengeExercise(data.exerciseType) &&
+            data.value is number && data.value > 0)
+        ) &&
+        data.endedAt is timestamp &&
+        data.timezoneOffsetMinutes is int &&
+        data.timezoneOffsetMinutes >= -840 &&
+        data.timezoneOffsetMinutes <= 840 &&
+        isLocalDateKey(data.localDate) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
+    }
+
+    function isValidRepAggregateMap(value) {
+      return value is map &&
+        value.keys().hasOnly([
+          'squat',
+          'lunge',
+          'push_up',
+          'sit_up',
+          'crunch',
+          'reverse_crunch',
+          'biceps_curl',
+          'lying_leg_raise',
+          'bent_knee_leg_raise',
+          'standing_hamstring_curl',
+          'standing_hip_abduction',
+          'triceps_dip',
+          'romanian_deadlift',
+          'good_morning',
+          'lateral_raise',
+          'shoulder_press',
+          'overhead_triceps_extension',
+          'upright_row',
+          'calf_raise',
+          'front_raise',
+          'glute_bridge',
+          'jumping_jack',
+          'standing_hip_extension',
+          'standing_knee_raise',
+          'standing_straight_leg_raise',
+          'v_up',
+          'frog_pump',
+          'lying_triceps_extension',
+          'floor_chest_press',
+          'y_raise',
+        ]) &&
+        isNullablePositiveInt(value.get('squat', null)) &&
+        isNullablePositiveInt(value.get('lunge', null)) &&
+        isNullablePositiveInt(value.get('push_up', null)) &&
+        isNullablePositiveInt(value.get('sit_up', null)) &&
+        isNullablePositiveInt(value.get('crunch', null)) &&
+        isNullablePositiveInt(value.get('reverse_crunch', null)) &&
+        isNullablePositiveInt(value.get('biceps_curl', null)) &&
+        isNullablePositiveInt(value.get('lying_leg_raise', null)) &&
+        isNullablePositiveInt(value.get('bent_knee_leg_raise', null)) &&
+        isNullablePositiveInt(value.get('standing_hamstring_curl', null)) &&
+        isNullablePositiveInt(value.get('standing_hip_abduction', null)) &&
+        isNullablePositiveInt(value.get('triceps_dip', null)) &&
+        isNullablePositiveInt(value.get('romanian_deadlift', null)) &&
+        isNullablePositiveInt(value.get('good_morning', null)) &&
+        isNullablePositiveInt(value.get('lateral_raise', null)) &&
+        isNullablePositiveInt(value.get('shoulder_press', null)) &&
+        isNullablePositiveInt(value.get('overhead_triceps_extension', null)) &&
+        isNullablePositiveInt(value.get('upright_row', null)) &&
+        isNullablePositiveInt(value.get('calf_raise', null)) &&
+        isNullablePositiveInt(value.get('front_raise', null)) &&
+        isNullablePositiveInt(value.get('glute_bridge', null)) &&
+        isNullablePositiveInt(value.get('jumping_jack', null)) &&
+        isNullablePositiveInt(value.get('standing_hip_extension', null)) &&
+        isNullablePositiveInt(value.get('standing_knee_raise', null)) &&
+        isNullablePositiveInt(value.get('standing_straight_leg_raise', null)) &&
+        isNullablePositiveInt(value.get('v_up', null)) &&
+        isNullablePositiveInt(value.get('frog_pump', null)) &&
+        isNullablePositiveInt(value.get('lying_triceps_extension', null)) &&
+        isNullablePositiveInt(value.get('floor_chest_press', null)) &&
+        isNullablePositiveInt(value.get('y_raise', null));
+    }
+
+    function isNullablePositiveInt(value) {
+      return value == null || (value is int && value > 0);
+    }
+
+    function isNullablePositiveNumber(value) {
+      return value == null || (value is number && value > 0);
+    }
+
+    function isValidHoldAggregateMap(value) {
+      return value is map &&
+        value.keys().hasOnly([
+          'plank',
+          'hollow_hold',
+          'wall_sit',
+          'side_plank',
+        ]) &&
+        isNullablePositiveNumber(value.get('plank', null)) &&
+        isNullablePositiveNumber(value.get('hollow_hold', null)) &&
+        isNullablePositiveNumber(value.get('wall_sit', null)) &&
+        isNullablePositiveNumber(value.get('side_plank', null));
+    }
+
+    function isValidChallengeExerciseList(value) {
+      return value is list && value.hasOnly([
+        'squat',
+        'plank',
+        'hollow_hold',
+        'lunge',
+        'push_up',
+        'sit_up',
+        'crunch',
+        'reverse_crunch',
+        'biceps_curl',
+        'lying_leg_raise',
+        'bent_knee_leg_raise',
+        'standing_hamstring_curl',
+        'standing_hip_abduction',
+        'triceps_dip',
+        'romanian_deadlift',
+        'good_morning',
+        'lateral_raise',
+        'shoulder_press',
+        'overhead_triceps_extension',
+        'upright_row',
+        'calf_raise',
+        'front_raise',
+        'glute_bridge',
+        'wall_sit',
+        'side_plank',
+        'jumping_jack',
+        'standing_hip_extension',
+        'standing_knee_raise',
+        'standing_straight_leg_raise',
+        'v_up',
+        'frog_pump',
+        'lying_triceps_extension',
+        'floor_chest_press',
+        'y_raise',
+      ]);
+    }
+
+    function hasActivityDayFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'localDate',
+        'trustedSessionCount',
+        'highReliabilitySessionCount',
+        'validRepsByExercise',
+        'holdSecondsByExercise',
+        'exerciseTypes',
+        'createdAt',
+        'updatedAt',
+      ]) && data.keys().hasAll([
+        'id',
+        'ownerId',
+        'localDate',
+        'trustedSessionCount',
+        'highReliabilitySessionCount',
+        'validRepsByExercise',
+        'holdSecondsByExercise',
+        'exerciseTypes',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidActivityDayShape(data, userId, localDate) {
+      return hasActivityDayFields(data) &&
+        data.id == localDate &&
+        data.localDate == localDate &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        isLocalDateKey(data.localDate) &&
+        data.trustedSessionCount is int &&
+        data.trustedSessionCount > 0 &&
+        data.highReliabilitySessionCount is int &&
+        data.highReliabilitySessionCount >= 0 &&
+        data.highReliabilitySessionCount <= data.trustedSessionCount &&
+        isValidRepAggregateMap(data.validRepsByExercise) &&
+        isValidHoldAggregateMap(data.holdSecondsByExercise) &&
+        data.validRepsByExercise.size() +
+          data.holdSecondsByExercise.size() > 0 &&
+        isValidChallengeExerciseList(data.exerciseTypes) &&
+        data.exerciseTypes.size() ==
+          data.validRepsByExercise.size() +
+          data.holdSecondsByExercise.size() &&
+        data.exerciseTypes.size() <= data.trustedSessionCount &&
+        data.exerciseTypes.hasAll(data.validRepsByExercise.keys()) &&
+        data.exerciseTypes.hasAll(data.holdSecondsByExercise.keys()) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
     }
 
     function isWorkoutGoalType(value) {
@@ -459,6 +1107,79 @@ service cloud.firestore {
           request.resource.data.updatedAt >= resource.data.updatedAt &&
           hasValidGoalShape(request.resource.data, userId, goalId);
         allow delete: if isOwner(userId);
+      }
+
+
+      match /progressContributions/{contributionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          hasValidProgressContributionShape(
+            request.resource.data,
+            userId,
+            contributionId
+          );
+        allow update: if isOwner(userId) &&
+          resource.data.ownerId == request.auth.uid &&
+          request.resource.data.ownerId == resource.data.ownerId &&
+          request.resource.data.id == resource.data.id &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          hasValidProgressContributionShape(
+            request.resource.data,
+            userId,
+            contributionId
+          );
+        allow delete: if isOwner(userId);
+      }
+
+      match /activityDays/{localDate} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          hasValidActivityDayShape(request.resource.data, userId, localDate);
+        allow update: if isOwner(userId) &&
+          resource.data.ownerId == request.auth.uid &&
+          request.resource.data.ownerId == resource.data.ownerId &&
+          request.resource.data.id == resource.data.id &&
+          request.resource.data.localDate == resource.data.localDate &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          hasValidActivityDayShape(request.resource.data, userId, localDate);
+        allow delete: if isOwner(userId);
+      }
+
+      match /achievementEvents/{eventId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          hasValidAchievementEventShape(
+            request.resource.data,
+            userId,
+            eventId
+          );
+        allow update, delete: if false;
+      }
+
+      match /rewards/{rewardId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          (
+            hasValidChallengeMedalRewardShape(
+              request.resource.data,
+              userId,
+              rewardId
+            ) ||
+            hasValidAchievementRewardShape(
+              request.resource.data,
+              userId,
+              rewardId
+            )
+          );
+        allow update: if isOwner(userId) &&
+          resource.data.kind == 'challengeMedal' &&
+          isValidChallengeMedalRewardUpgrade(
+            resource.data,
+            request.resource.data,
+            userId,
+            rewardId
+          );
+        allow delete: if false;
       }
 
       match /sessions/{sessionId} {

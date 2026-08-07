@@ -1075,6 +1075,35 @@ void main() {
         },
       );
 
+      test('accepted hold pose emits measurement-only frame confidence', () {
+        final metrics = extractor.extract(
+          _holdPose(),
+          _holdConfig(),
+          engineKind: EngineKind.hold,
+          holdContract: HoldContracts.plankFamily,
+          holdSide: HoldSide.left,
+          poseQualityAssessment: PoseQualityAssessment(
+            isAccepted: true,
+            minimumRequiredLikelihood: 0.90,
+            meanRequiredLikelihood: 0.95,
+            requiredLandmarkCount: 6,
+            acceptedLandmarkCount: 6,
+            acceptedHoldSides: const <HoldSide>{HoldSide.left},
+            preferredHoldSide: HoldSide.left,
+            qualityScore: 0.95,
+          ),
+        );
+
+        final confidence = metrics.holdMeasurementConfidence;
+        expect(confidence, isNotNull);
+        expect(confidence!.landmarkLikelihood, 0.90);
+        expect(confidence.signalAvailability, 1.0);
+        expect(confidence.geometryPlausibility, 1.0);
+        expect(confidence.temporalContinuity, 1.0);
+        expect(confidence.combined, closeTo(0.9574468, 0.000001));
+        expect(confidence.issues, isEmpty);
+      });
+
       test('hold extraction leaves range-rep side metrics unavailable', () {
         final metrics = extractor.extract(
           _holdPose(),

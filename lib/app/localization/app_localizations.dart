@@ -762,31 +762,81 @@ class AppLocalizations {
         );
   String achievementTitle(String id, {String? fallback}) {
     return switch (id) {
-      'first_analysis' => pick(tr: 'İlk Analiz', en: 'First Analysis'),
-      'score_90_plus' => pick(tr: '90+ Skor', en: '90+ Score'),
-      'hundred_reps' => pick(tr: '100 Tekrar', en: '100 Reps'),
-      'ten_sessions' => pick(tr: '10 Oturum', en: '10 Sessions'),
+      'first_reliable_analysis' => pick(
+        tr: 'Güvenilir Başlangıç',
+        en: 'Reliable Start',
+      ),
+      'reliable_sessions_5' => pick(tr: 'Sağlam Temel', en: 'Solid Foundation'),
+      'exercise_explorer_3' => pick(
+        tr: 'Hareket Kaşifi',
+        en: 'Movement Explorer',
+      ),
+      'guide_completed' => pick(tr: 'Hazır Başla', en: 'Ready to Start'),
+      'controlled_tempo' => pick(
+        tr: 'Kontrollü Ritim',
+        en: 'Controlled Rhythm',
+      ),
+      'planned_workout_completed' => pick(
+        tr: 'Plan Tamamlandı',
+        en: 'Plan Completed',
+      ),
+      'planned_workouts_5' => pick(tr: 'Planına Sadık', en: 'Plan Consistency'),
+      'balanced_explorer' => pick(tr: 'Dengeli Kaşif', en: 'Balanced Explorer'),
+      'return_after_14_days' => pick(tr: 'Geri Dönüş', en: 'Comeback'),
+      'rhythm_30_days' => pick(
+        tr: 'Otuz Günlük Ritim',
+        en: 'Thirty-Day Rhythm',
+      ),
+      'golden_week' => pick(tr: 'Altın Hafta', en: 'Golden Week'),
       _ => fallback ?? id,
     };
   }
 
   String achievementDescription(String id, {String? fallback}) {
     return switch (id) {
-      'first_analysis' => pick(
-        tr: 'İlk canlı analiz oturumunu tamamladın.',
-        en: 'Complete your first live analysis session.',
+      'first_reliable_analysis' => pick(
+        tr: 'İlk güvenilir hareket analizini tamamla.',
+        en: 'Complete your first reliable movement analysis.',
       ),
-      'score_90_plus' => pick(
-        tr: 'Yüksek form kalitesiyle güçlü bir oturum çıkar.',
-        en: 'Complete a strong session with high form quality.',
+      'reliable_sessions_5' => pick(
+        tr: 'Güvenilir analizlerle sağlam bir temel oluştur.',
+        en: 'Build a solid foundation with reliable analyses.',
       ),
-      'hundred_reps' => pick(
-        tr: 'Toplam tekrar hacmini istikrarlı şekilde artır.',
-        en: 'Build your total rep volume consistently.',
+      'exercise_explorer_3' => pick(
+        tr: 'Farklı hareketleri güvenilir analizlerle keşfet.',
+        en: 'Explore different movements with reliable analyses.',
       ),
-      'ten_sessions' => pick(
-        tr: 'Antrenman geçmişini büyüt ve ritmini koru.',
-        en: 'Build your workout history and keep your rhythm.',
+      'guide_completed' => pick(
+        tr: 'Analiz akışının bütün temel adımlarını incele.',
+        en: 'Review every essential step of the analysis flow.',
+      ),
+      'controlled_tempo' => pick(
+        tr: 'Tekrarlarını kontrollü ve ölçülebilir bir tempoda tamamla.',
+        en: 'Complete reps at a controlled, measurable tempo.',
+      ),
+      'planned_workout_completed' => pick(
+        tr: 'İlk planlı antrenmanını baştan sona tamamla.',
+        en: 'Complete your first planned workout from start to finish.',
+      ),
+      'planned_workouts_5' => pick(
+        tr: 'Planlı antrenmanlarını düzenli biçimde tamamla.',
+        en: 'Complete planned workouts consistently.',
+      ),
+      'balanced_explorer' => pick(
+        tr: 'Alt vücut, üst vücut ve core hareketlerini keşfet.',
+        en: 'Explore lower-body, upper-body, and core movements.',
+      ),
+      'return_after_14_days' => pick(
+        tr: 'Ara verdikten sonra güvenilir bir hareket günüyle geri dön.',
+        en: 'Return with a reliable activity day after a break.',
+      ),
+      'rhythm_30_days' => pick(
+        tr: 'Otuz nitelikli günü art arda tamamla.',
+        en: 'Complete thirty qualified days in a row.',
+      ),
+      'golden_week' => pick(
+        tr: 'Bir haftada üç farklı egzersizde madalya kazan.',
+        en: 'Earn weekly medals in three different exercises.',
       ),
       _ => fallback ?? id,
     };
@@ -794,25 +844,190 @@ class AppLocalizations {
 
   String achievementRequirement(String id, {String? fallback}) {
     return switch (id) {
-      'first_analysis' => pick(
-        tr: '1 analiz tamamla',
-        en: 'Complete 1 analysis',
+      'first_reliable_analysis' => pick(
+        tr: 'İlk güvenilir analizini tamamla',
+        en: 'Complete your first reliable analysis',
       ),
-      'score_90_plus' => pick(
-        tr: 'Bir oturumda 90+ en iyi skor al',
-        en: 'Reach a best score of 90+ in one session',
+      'reliable_sessions_5' => pick(
+        tr: '5 güvenilir oturum tamamla',
+        en: 'Complete 5 reliable sessions',
       ),
-      'hundred_reps' => pick(
-        tr: 'Toplam 100 tekrar tamamla',
-        en: 'Complete 100 total reps',
+      'exercise_explorer_3' => pick(
+        tr: '3 farklı egzersiz keşfet',
+        en: 'Explore 3 different exercises',
       ),
-      'ten_sessions' => pick(
-        tr: '10 analiz oturumu tamamla',
-        en: 'Complete 10 analysis sessions',
+      'guide_completed' => pick(
+        tr: 'Rehberdeki 6 adımı incele',
+        en: 'Review all 6 guide steps',
+      ),
+      'controlled_tempo' => pick(
+        tr: 'En az 5 tekrarı kontrollü tempoyla tamamla',
+        en: 'Complete at least 5 reps at a controlled tempo',
+      ),
+      'planned_workout_completed' => pick(
+        tr: 'İlk planlı antrenmanını tamamla',
+        en: 'Complete your first planned workout',
+      ),
+      'planned_workouts_5' => pick(
+        tr: '5 planlı antrenman tamamla',
+        en: 'Complete 5 planned workouts',
+      ),
+      'balanced_explorer' => pick(
+        tr: '3 temel vücut bölgesini keşfet',
+        en: 'Explore all 3 core body regions',
+      ),
+      'return_after_14_days' => pick(
+        tr: 'Ara verdikten sonra geri dön',
+        en: 'Return after a break',
+      ),
+      'rhythm_30_days' => pick(
+        tr: '30 nitelikli günü art arda tamamla',
+        en: 'Complete 30 qualified days in a row',
+      ),
+      'golden_week' => pick(
+        tr: 'Aynı hafta 3 farklı egzersizde madalya kazan',
+        en: 'Earn medals in 3 exercises in the same week',
       ),
       _ => fallback ?? id,
     };
   }
+
+  String get achievementsSignInTitle =>
+      pick(tr: 'Ödüller için oturum açmalısın', en: 'Sign in to use rewards');
+  String get achievementsSignInMessage => pick(
+    tr: 'Başarım ve madalya geçmişini hesabında kalıcı olarak saklamak için oturum aç.',
+    en: 'Sign in to keep achievement and medal history permanently on your account.',
+  );
+  String get achievementsOverviewTitle => pick(
+    tr: 'İlerlemenin kalıcı izleri',
+    en: 'A lasting record of your progress',
+  );
+  String get achievementsOverviewSubtitle => pick(
+    tr: 'Güvenilir analizler, keşifler ve tamamladığın planlar burada birikir.',
+    en: 'Reliable analyses, discoveries, and completed plans collect here.',
+  );
+  String rewardsOverviewCount(int achievements, int medals) => pick(
+    tr: '$achievements başarım · $medals madalya',
+    en: '$achievements achievements · $medals medals',
+  );
+  String get achievementsTab => pick(tr: 'Başarımlar', en: 'Achievements');
+  String get rewardHistoryTab => pick(tr: 'Ödül geçmişi', en: 'Reward history');
+  String get rewardHistoryShort => pick(tr: 'Geçmiş', en: 'History');
+  String earnedAchievementsTitle(int count) =>
+      pick(tr: 'Kazanılanlar · $count', en: 'Earned · $count');
+  String get earnedAchievementsDescription => pick(
+    tr: 'Son kazandığın başarım en üstte görünür.',
+    en: 'Your most recently earned achievement appears first.',
+  );
+  String get noEarnedAchievementsTitle => pick(
+    tr: 'Henüz kazanılmış başarım yok',
+    en: 'No earned achievements yet',
+  );
+  String get noEarnedAchievementsMessage => pick(
+    tr: 'İlk güvenilir analizinden sonra kazandığın başarımlar burada kalıcı olarak görünür.',
+    en: 'Achievements stay here permanently after your first reliable analysis.',
+  );
+  String get nextAchievementTitle =>
+      pick(tr: 'Sıradaki başarım', en: 'Next achievement');
+  String get nextAchievementDescription => pick(
+    tr: 'Şu anda ilerleyebileceğin tek anlamlı adım.',
+    en: 'One meaningful step you can progress toward now.',
+  );
+  String get allVisibleAchievementsCompleted => pick(
+    tr: 'Görünür başarımların tamamlandı. Özel başarımlar ilerledikçe kendini gösterecek.',
+    en: 'All visible achievements are complete. Special achievements reveal themselves as you progress.',
+  );
+  String get moreAchievementsHint => pick(
+    tr: 'Keşfedilecek başka başarımlar da var.',
+    en: 'There are more achievements to discover.',
+  );
+  String get secretAchievement =>
+      pick(tr: 'Özel başarım', en: 'Special achievement');
+  String get recentlyEarned =>
+      pick(tr: 'Yeni kazanıldı', en: 'Recently earned');
+  String get rewardHistoryDescription => pick(
+    tr: 'Madalya ve başarımların kazanıldığı tarihle birlikte tek akışta tutulur.',
+    en: 'Medals and achievements are kept in one timeline with their earned dates.',
+  );
+  String get allRewards => pick(tr: 'Tümü', en: 'All');
+  String get medalsOnly => pick(tr: 'Madalya', en: 'Medals');
+  String get achievementsOnly => pick(tr: 'Başarım', en: 'Achievements');
+  String get rewardHistoryEmptyTitle =>
+      pick(tr: 'Ödül geçmişin henüz boş', en: 'Your reward history is empty');
+  String get rewardHistoryEmptyMessage => pick(
+    tr: 'Kazanılan ilk madalya veya başarım burada tarih sırasıyla görünür.',
+    en: 'Your first earned medal or achievement will appear here chronologically.',
+  );
+  String get noRewardsForFilter => pick(
+    tr: 'Bu filtrede henüz ödül yok.',
+    en: 'There are no rewards in this filter yet.',
+  );
+  String get achievementRewardLabel => pick(tr: 'BAŞARIM', en: 'ACHIEVEMENT');
+  String achievementBadgeSemanticLabel(String title) =>
+      pick(tr: '$title başarım rozeti', en: '$title achievement badge');
+  String medalSemanticLabel(String medal) =>
+      pick(tr: '$medal madalya', en: '$medal medal');
+  String rewardWeekStarting(String date) =>
+      pick(tr: '$date haftası', en: 'Week of $date');
+  String get backfilledRewardLabel =>
+      pick(tr: 'Geçmişten doğrulandı', en: 'Verified from history');
+  String medalRewardTitle(String exercise, String period, String medal) =>
+      pick(tr: '$exercise · $period $medal', en: '$exercise · $period $medal');
+  String achievementRemaining(String id, int current, int target) {
+    final remaining = (target - current).clamp(0, target).toInt();
+    return switch (id) {
+      'first_reliable_analysis' => pick(
+        tr: 'İlk güvenilir analizini tamamla',
+        en: 'Complete your first reliable analysis',
+      ),
+      'reliable_sessions_5' => pick(
+        tr: '$remaining güvenilir oturum daha',
+        en: '$remaining more reliable sessions',
+      ),
+      'exercise_explorer_3' =>
+        remaining == 1
+            ? pick(tr: 'Bir farklı egzersiz daha', en: 'One more exercise')
+            : pick(
+                tr: '$remaining farklı egzersiz daha',
+                en: '$remaining more exercises',
+              ),
+      'guide_completed' => pick(
+        tr: 'Rehberde $remaining adım kaldı',
+        en: '$remaining guide steps remaining',
+      ),
+      'controlled_tempo' => pick(
+        tr: 'Kontrollü tempolu bir oturum tamamla',
+        en: 'Complete one controlled-tempo session',
+      ),
+      'planned_workout_completed' => pick(
+        tr: 'İlk planlı antrenmanını tamamla',
+        en: 'Complete your first planned workout',
+      ),
+      'planned_workouts_5' => pick(
+        tr: '$remaining planlı antrenman daha',
+        en: '$remaining more planned workouts',
+      ),
+      'balanced_explorer' =>
+        remaining == 1
+            ? pick(tr: 'Bir bölge daha keşfet', en: 'Explore one more region')
+            : pick(
+                tr: '$remaining bölge daha keşfet',
+                en: 'Explore $remaining more regions',
+              ),
+      'rhythm_30_days' => pick(
+        tr: '$remaining nitelikli gün daha',
+        en: '$remaining more qualified days',
+      ),
+      _ => achievementRequirement(id),
+    };
+  }
+
+  String rewardPeriodContext(String period) => switch (period) {
+    'daily' => dailyPeriod,
+    'weekly' => weeklyPeriod,
+    'monthly' => monthlyPeriod,
+    _ => period,
+  };
 
   // Goals
   String get goalsLoadFailed => pick(
@@ -891,6 +1106,65 @@ class AppLocalizations {
   String get goalProgressUnavailableShort =>
       pick(tr: 'İlerleme şu an alınamıyor', en: 'Progress unavailable');
 
+  String get goalCompleted =>
+      pick(tr: 'Hedef tamamlandı', en: 'Goal completed');
+  String goalRemaining(String value, String unit) =>
+      pick(tr: '$value $unit kaldı', en: '$value $unit remaining');
+  String get recommendedGoals =>
+      pick(tr: 'Önerilen hedefler', en: 'Recommended goals');
+  String get recommendedGoalsDescription => pick(
+    tr: 'Skor kovalamadan, düzenli antrenman hacmine odaklanan sade başlangıçlar.',
+    en: 'Simple starting points focused on consistent training volume, not chasing scores.',
+  );
+  String get completedAndPausedGoals => pick(
+    tr: 'Tamamlanan ve duraklatılan hedefler',
+    en: 'Completed and paused goals',
+  );
+  String get completedGoalStatus => pick(tr: 'Tamamlandı', en: 'Completed');
+  String get pausedGoalStatus => pick(tr: 'Duraklatıldı', en: 'Paused');
+  String get quickGoalValues => pick(tr: 'Hızlı seçim', en: 'Quick choices');
+  String get medalGoals => pick(tr: 'Madalya hedefleri', en: 'Medal goals');
+  String get medalGoalsDescription => pick(
+    tr: 'Güvenilir hareketlerin günlük, haftalık ve aylık madalya ilerlemene otomatik olarak yansır.',
+    en: 'Reliable activity automatically contributes to daily, weekly, and monthly medals.',
+  );
+  String get medalProgressLoadFailed => pick(
+    tr: 'Madalya ilerlemesi şu anda yüklenemedi.',
+    en: 'Medal progress could not be loaded right now.',
+  );
+  String get dailyPeriod => pick(tr: 'Günlük', en: 'Daily');
+  String get weeklyPeriod => pick(tr: 'Haftalık', en: 'Weekly');
+  String get monthlyPeriod => pick(tr: 'Aylık', en: 'Monthly');
+  String get todayPeriod => pick(tr: 'Bugün', en: 'Today');
+  String get thisWeekPeriod => pick(tr: 'Bu hafta', en: 'This week');
+  String get thisMonthPeriod => pick(tr: 'Bu ay', en: 'This month');
+  String get bronzeMedal => pick(tr: 'Bronz', en: 'Bronze');
+  String get silverMedal => pick(tr: 'Gümüş', en: 'Silver');
+  String get goldMedal => pick(tr: 'Altın', en: 'Gold');
+  String get medalNotEarned =>
+      pick(tr: 'Henüz madalya yok', en: 'No medal yet');
+  String get medalGoldCompleted => pick(
+    tr: 'Bu dönemin altın madalyası tamamlandı.',
+    en: 'The gold medal for this period is complete.',
+  );
+  String medalRemaining(String medal, String value, String unit) => pick(
+    tr: '$medal için $value $unit kaldı',
+    en: '$value $unit remaining for $medal',
+  );
+  String trustedRepProgress(String value) =>
+      pick(tr: '$value güvenilir tekrar', en: '$value reliable reps');
+  String trustedHoldProgress(String value) =>
+      pick(tr: '$value sn güvenilir tutuş', en: '$value s reliable hold');
+  String get nearMedalGoals =>
+      pick(tr: 'Sana yakın hedefler', en: 'Goals within reach');
+  String get nearMedalGoalsDescription => pick(
+    tr: 'Mevcut hareketlerinden bir sonraki madalyaya en yakın olanlar.',
+    en: 'Your current exercises that are closest to the next medal.',
+  );
+  String get noNearbyMedalGoals => pick(
+    tr: 'Güvenilir bir oturum tamamladığında sana en yakın madalya hedefleri burada görünecek.',
+    en: 'Complete a reliable session to see the medal goals closest to you.',
+  );
   String userGoalTitle(String typeId, double targetValue, {String? fallback}) {
     final target = _formatGoalNumber(targetValue);
     return switch (typeId) {
@@ -1615,6 +1889,10 @@ class AppLocalizations {
   String get historyLoadMoreFailed => pick(
     tr: 'Daha fazla oturum yüklenemedi. Lütfen tekrar dene.',
     en: 'More sessions could not be loaded. Please try again.',
+  );
+  String historyFilterLoadFailed(String filterLabel) => pick(
+    tr: '$filterLabel seçimi yüklenemedi. Önceki sonuçlar gösteriliyor.',
+    en: '$filterLabel could not be loaded. Previous results are still shown.',
   );
   String get historyUnavailable =>
       pick(tr: 'Geçmiş yüklenemedi', en: 'History unavailable');

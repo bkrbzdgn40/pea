@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../achievements/presentation/providers/achievements_provider.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../goals/presentation/providers/goals_provider.dart';
+import '../../../rewards/presentation/providers/reward_runtime_providers.dart';
 import '../../application/workout_session_lifecycle_controller.dart';
 import 'completed_session_provider.dart';
 import 'pending_preparation_outcome_provider.dart';
@@ -25,6 +28,13 @@ final workoutSessionLifecycleControllerProvider =
         },
         publishCompletedSession: (session) {
           ref.read(completedSessionProvider.notifier).state = session;
+        },
+        onSessionPersisted: (session) async {
+          await ref
+              .read(rewardRuntimeServiceProvider)
+              .syncPersistedSession(session: session);
+          ref.invalidate(challengeGoalsProvider);
+          ref.invalidate(achievementsProvider);
         },
       );
     });

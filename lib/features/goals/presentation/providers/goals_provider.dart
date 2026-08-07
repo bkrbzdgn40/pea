@@ -2,6 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/firebase/firebase_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../challenges/domain/challenge_catalog.dart';
+import '../../../challenges/domain/models/challenge_period.dart';
+import '../../../challenges/domain/models/challenge_period_window.dart';
+import '../../../challenges/domain/models/challenge_progress.dart';
+import '../../../challenges/presentation/providers/challenge_progress_providers.dart';
+import '../../../workout_analysis/domain/models/exercise_type.dart';
+import '../../../rewards/domain/challenge_period_progress_calculator.dart';
+import '../../../rewards/presentation/providers/reward_providers.dart';
 import '../../../workout_analysis/application/workout_statistics_calculator.dart';
 import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import '../../application/goal_progress_calculator.dart';
@@ -9,14 +17,84 @@ import '../../application/repositories/workout_goal_repository.dart';
 import '../../domain/models/user_workout_goal.dart';
 import '../../domain/models/workout_goal_template.dart';
 import '../../infrastructure/repositories/firestore_workout_goal_repository.dart';
+import '../models/challenge_goals_state.dart';
 import '../models/workout_goal.dart';
 
 final workoutGoalRepositoryProvider = Provider<WorkoutGoalRepository>((ref) {
   return FirestoreWorkoutGoalRepository(ref.watch(firebaseFirestoreProvider));
 });
 
+final selectedChallengePeriodProvider = StateProvider<ChallengePeriod>((ref) {
+  return ChallengePeriod.daily;
+});
+
+final selectedChallengeExerciseProvider = StateProvider<ExerciseType?>((ref) {
+  return null;
+});
+
 final goalsClockProvider = Provider<DateTime Function()>((ref) {
   return DateTime.now;
+});
+
+final challengeGoalsProvider = FutureProvider<ChallengeGoalsState>((ref) async {
+  final ownerId = ref.watch(currentUserIdProvider);
+  if (ownerId == null) {
+    throw const ChallengeGoalsUnavailableException.noUser();
+  }
+
+  final period = ref.watch(selectedChallengePeriodProvider);
+  final now = ref.watch(goalsClockProvider)();
+  final window = ChallengePeriodWindow.forInstant(
+    period: period,
+    instant: now,
+    timezoneOffset: now.timeZoneOffset,
+  );
+  final activityDays = await ref
+      .watch(challengeProgressRepositoryProvider)
+      .listActivityDays(
+        ownerId: ownerId,
+        startLocalDateInclusive: window.startLocalDateKey,
+        endLocalDateExclusive: window.endLocalDateExclusiveKey,
+      );
+  final rewardPage = await ref
+      .watch(rewardLedgerRepositoryProvider)
+      .listChallengeMedals(ownerId: ownerId, period: period, limit: 50);
+  const catalog = ChallengeCatalog();
+  const calculator = ChallengePeriodProgressCalculator();
+  final progresses = catalog.definitions
+      .map(
+        (definition) => ChallengeProgress(
+          definition: definition,
+          period: period,
+          value: calculator.calculate(
+            definition: definition,
+            window: window,
+            activityDays: activityDays,
+          ),
+        ),
+      )
+      .toList(growable: false);
+
+  final earnedMedals = <ExerciseType, PersistedMedalSnapshot>{};
+  for (final reward in rewardPage.items) {
+    if (reward.periodKey != window.key) {
+      continue;
+    }
+    final existing = earnedMedals[reward.exerciseType];
+    if (existing == null || reward.highestTier.rank > existing.tier.rank) {
+      earnedMedals[reward.exerciseType] = PersistedMedalSnapshot(
+        tier: reward.highestTier,
+        progressValue: reward.progressValueAtHighestTier,
+      );
+    }
+  }
+
+  return ChallengeGoalsState(
+    period: period,
+    window: window,
+    progresses: progresses,
+    earnedMedals: earnedMedals,
+  );
 });
 
 final goalsProvider = FutureProvider<GoalsState>((ref) async {
@@ -220,3 +298,14 @@ class GoalsState {
 }
 
 enum GoalsDataSource { real, noUser, empty, error }
+
+class ChallengeGoalsUnavailableException implements Exception {
+  const ChallengeGoalsUnavailableException._(this.reason);
+
+  const ChallengeGoalsUnavailableException.noUser() : this._('noUser');
+
+  final String reason;
+
+  @override
+  String toString() => 'ChallengeGoalsUnavailableException($reason)';
+}

@@ -35,6 +35,39 @@ void main() {
         );
       });
 
+      test('keeps durations inside the configured tolerance at 100', () {
+        expect(
+          scorer.calculateTempoScore(
+            actualSeconds: 0.8,
+            idealSeconds: 1,
+            tempoPenaltyPerSecond: 20,
+            toleranceRatio: 0.25,
+          ),
+          100,
+        );
+        expect(
+          scorer.calculateTempoScore(
+            actualSeconds: 1.25,
+            idealSeconds: 1,
+            tempoPenaltyPerSecond: 20,
+            toleranceRatio: 0.25,
+          ),
+          100,
+        );
+      });
+
+      test('penalizes only the deviation beyond the tolerance band', () {
+        expect(
+          scorer.calculateTempoScore(
+            actualSeconds: 0.5,
+            idealSeconds: 1,
+            tempoPenaltyPerSecond: 20,
+            toleranceRatio: 0.25,
+          ),
+          95,
+        );
+      });
+
       test('penalizes equal positive and negative deviations equally', () {
         final fasterScore = scorer.calculateTempoScore(
           actualSeconds: 0.5,

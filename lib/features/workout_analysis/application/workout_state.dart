@@ -8,6 +8,7 @@ import '../domain/models/hold_signal_validity.dart';
 import '../domain/models/hold_signal_values.dart';
 import '../domain/models/hold_side.dart';
 import '../domain/models/hold_technique_assessment.dart';
+import '../domain/models/measurement_confidence_breakdown.dart';
 import '../domain/models/session_calibration_baseline.dart';
 import '../domain/models/range_rep_technique_assessment.dart';
 import '../domain/models/rep_tempo_assessment.dart';
@@ -583,6 +584,7 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   static const Object _plankShoulderElbowOffsetUnset = Object();
   static const Object _hollowShoulderElevationUnset = Object();
   static const Object _hollowHeelElevationUnset = Object();
+  static const Object _holdMeasurementConfidenceUnset = Object();
 
   const HoldWorkoutAnalysisState({
     this.isFormBad = false,
@@ -602,6 +604,8 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     this.plankShoulderElbowOffset,
     this.hollowShoulderElevation,
     this.hollowHeelElevation,
+    this.holdMeasurementConfidence,
+    this.isHoldMeasurementFrameAccepted = false,
   });
 
   @override
@@ -625,6 +629,8 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
   final double? plankShoulderElbowOffset;
   final double? hollowShoulderElevation;
   final double? hollowHeelElevation;
+  final MeasurementConfidenceBreakdown? holdMeasurementConfidence;
+  final bool isHoldMeasurementFrameAccepted;
 
   @override
   EngineKind get analysisKind => EngineKind.hold;
@@ -647,6 +653,8 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
     Object? plankShoulderElbowOffset = _plankShoulderElbowOffsetUnset,
     Object? hollowShoulderElevation = _hollowShoulderElevationUnset,
     Object? hollowHeelElevation = _hollowHeelElevationUnset,
+    Object? holdMeasurementConfidence = _holdMeasurementConfidenceUnset,
+    bool? isHoldMeasurementFrameAccepted,
   }) {
     return HoldWorkoutAnalysisState(
       isFormBad: isFormBad ?? this.isFormBad,
@@ -684,6 +692,12 @@ class HoldWorkoutAnalysisState implements WorkoutAnalysisStatePayload {
       hollowHeelElevation: hollowHeelElevation == _hollowHeelElevationUnset
           ? this.hollowHeelElevation
           : hollowHeelElevation as double?,
+      holdMeasurementConfidence:
+          holdMeasurementConfidence == _holdMeasurementConfidenceUnset
+          ? this.holdMeasurementConfidence
+          : holdMeasurementConfidence as MeasurementConfidenceBreakdown?,
+      isHoldMeasurementFrameAccepted:
+          isHoldMeasurementFrameAccepted ?? this.isHoldMeasurementFrameAccepted,
     );
   }
 }

@@ -65,9 +65,15 @@ class RangeRepTempoCoachingConfig {
 
 /// Converts an eligible measurement into target, fast, or slow coaching.
 class RangeRepTempoCoachingPolicy {
-  const RangeRepTempoCoachingPolicy({required this.config});
+  const RangeRepTempoCoachingPolicy({
+    required this.config,
+    this.toleranceRatio = 0.0,
+  });
 
   final RangeRepTempoCoachingConfig config;
+
+  /// Expands fast/slow coaching boundaries without changing timing integrity.
+  final double toleranceRatio;
 
   RepTempoAssessment evaluate(TempoMeasurementAssessment measurement) {
     if (!config.enabled) {
@@ -146,47 +152,69 @@ class RangeRepTempoCoachingPolicy {
     required RepTempoReason tooFastReason,
     required RepTempoReason tooSlowReason,
   }) {
-    if (hardMinMillis != null && observedMillis < hardMinMillis) {
+    final normalizedTolerance = toleranceRatio.clamp(0.0, 0.95).toDouble();
+    final effectiveHardMin = _expandMinimum(hardMinMillis, normalizedTolerance);
+    final effectiveSoftMin = _expandMinimum(softMinMillis, normalizedTolerance);
+    final effectiveSoftMax = _expandMaximum(softMaxMillis, normalizedTolerance);
+    final effectiveHardMax = _expandMaximum(hardMaxMillis, normalizedTolerance);
+
+    if (effectiveHardMin != null && observedMillis < effectiveHardMin) {
       return <_TempoFinding>[
         _TempoFinding(
           quality: RepTempoQuality.tooFast,
           severity: RepTempoSeverity.strong,
           reason: tooFastReason,
-          relativeDeviation: _relativeShortfall(observedMillis, hardMinMillis),
+          relativeDeviation: _relativeShortfall(
+            observedMillis,
+            effectiveHardMin,
+          ),
         ),
       ];
     }
-    if (softMinMillis != null && observedMillis < softMinMillis) {
+    if (effectiveSoftMin != null && observedMillis < effectiveSoftMin) {
       return <_TempoFinding>[
         _TempoFinding(
           quality: RepTempoQuality.tooFast,
           severity: RepTempoSeverity.mild,
           reason: tooFastReason,
-          relativeDeviation: _relativeShortfall(observedMillis, softMinMillis),
+          relativeDeviation: _relativeShortfall(
+            observedMillis,
+            effectiveSoftMin,
+          ),
         ),
       ];
     }
-    if (hardMaxMillis != null && observedMillis > hardMaxMillis) {
+    if (effectiveHardMax != null && observedMillis > effectiveHardMax) {
       return <_TempoFinding>[
         _TempoFinding(
           quality: RepTempoQuality.tooSlow,
           severity: RepTempoSeverity.strong,
           reason: tooSlowReason,
-          relativeDeviation: _relativeExcess(observedMillis, hardMaxMillis),
+          relativeDeviation: _relativeExcess(observedMillis, effectiveHardMax),
         ),
       ];
     }
-    if (softMaxMillis != null && observedMillis > softMaxMillis) {
+    if (effectiveSoftMax != null && observedMillis > effectiveSoftMax) {
       return <_TempoFinding>[
         _TempoFinding(
           quality: RepTempoQuality.tooSlow,
           severity: RepTempoSeverity.mild,
           reason: tooSlowReason,
-          relativeDeviation: _relativeExcess(observedMillis, softMaxMillis),
+          relativeDeviation: _relativeExcess(observedMillis, effectiveSoftMax),
         ),
       ];
     }
     return const <_TempoFinding>[];
+  }
+
+  static int? _expandMinimum(int? boundary, double tolerance) {
+    if (boundary == null) return null;
+    return (boundary * (1.0 - tolerance)).round();
+  }
+
+  static int? _expandMaximum(int? boundary, double tolerance) {
+    if (boundary == null) return null;
+    return (boundary * (1.0 + tolerance)).round();
   }
 
   static int _compareFindings(_TempoFinding a, _TempoFinding b) {
