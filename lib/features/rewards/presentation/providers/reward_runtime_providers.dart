@@ -7,6 +7,7 @@ import '../../../achievements/presentation/providers/achievements_provider.dart'
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../challenges/presentation/providers/challenge_progress_providers.dart';
 import '../../../goals/presentation/providers/goals_provider.dart';
+import '../../../workout_analysis/presentation/providers/home_achievement_showcase_provider.dart';
 import '../../../workout_analysis/presentation/providers/session_repository_provider.dart';
 import '../../../workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
 import '../../application/services/reward_runtime_service.dart';
@@ -34,6 +35,7 @@ final rewardRuntimeBootstrapProvider = FutureProvider<void>((ref) async {
         .reconcileUser(ownerId: ownerId);
     ref.invalidate(challengeGoalsProvider);
     ref.invalidate(achievementsProvider);
+    ref.invalidate(homeAchievementShowcaseProvider);
     ref.invalidate(userSessionsSnapshotProvider);
   } catch (error, stackTrace) {
     developer.log(

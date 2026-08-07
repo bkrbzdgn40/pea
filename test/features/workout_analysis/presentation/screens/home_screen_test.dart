@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pose_estimation_app/features/rewards/domain/models/achievement_reward.dart';
 import 'package:pose_estimation_app/features/workout_analysis/application/workout_statistics.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/exercise_type.dart';
 import 'package:pose_estimation_app/features/workout_analysis/domain/models/workout_session.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/models/home_dashboard_data.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/exercise_score_trend_provider.dart';
+import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_achievement_showcase_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/home_dashboard_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/selected_exercise_provider.dart';
 import 'package:pose_estimation_app/features/workout_analysis/presentation/providers/user_sessions_snapshot_provider.dart';
@@ -376,6 +378,131 @@ void main() {
     expect(plannedTop.dy, lessThan(assessmentTop.dy));
   });
 
+  testWidgets('shows the three latest earned badges in the Home showcase', (
+    WidgetTester tester,
+  ) async {
+    final navigatorObserver = RecordingNavigatorObserver();
+    await pumpTestApp(
+      tester,
+      home: const HomeScreen(),
+      navigatorObservers: [navigatorObserver],
+      overrides: [
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+        homeAchievementShowcaseProvider.overrideWith(
+          (ref) async => HomeAchievementShowcaseData(
+            rewards: [
+              _achievementReward('golden_week', DateTime.utc(2026, 8, 7, 12)),
+              _achievementReward(
+                'controlled_tempo',
+                DateTime.utc(2026, 8, 6, 12),
+              ),
+              _achievementReward(
+                'exercise_explorer_3',
+                DateTime.utc(2026, 8, 5, 12),
+              ),
+              _achievementReward(
+                'first_reliable_analysis',
+                DateTime.utc(2026, 8, 4, 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final showcase = find.byKey(const ValueKey('home-achievement-showcase'));
+    expect(showcase, findsOneWidget);
+    expect(find.text('Başarım Vitrini'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-achievement-badge-golden_week')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-achievement-badge-controlled_tempo')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-achievement-badge-exercise_explorer_3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('home-achievement-badge-first_reliable_analysis'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Altın Hafta'), findsNothing);
+    expect(find.text('Kontrollü Ritim'), findsNothing);
+    expect(find.text('Hareket Kaşifi'), findsNothing);
+
+    await tester.ensureVisible(showcase);
+    await tester.pump();
+    final pushesBeforeTap = navigatorObserver.pushCount;
+    await tester.tap(showcase);
+    await tester.pump();
+
+    expect(navigatorObserver.pushCount, pushesBeforeTap + 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps the badge showcase usable at 200 percent text scaling', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpTestApp(
+      tester,
+      home: MediaQuery(
+        data: const MediaQueryData(
+          size: Size(320, 568),
+          textScaler: TextScaler.linear(2),
+        ),
+        child: const HomeScreen(),
+      ),
+      overrides: [
+        selectedExerciseProvider.overrideWith((ref) => ExerciseType.squat),
+        homeAchievementShowcaseProvider.overrideWith(
+          (ref) async => HomeAchievementShowcaseData(
+            rewards: [
+              _achievementReward(
+                'planned_workout_completed',
+                DateTime.utc(2026, 8, 7, 12),
+              ),
+              _achievementReward(
+                'exercise_explorer_3',
+                DateTime.utc(2026, 8, 6, 12),
+              ),
+              _achievementReward(
+                'first_reliable_analysis',
+                DateTime.utc(2026, 8, 5, 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final showcase = find.byKey(const ValueKey('home-achievement-showcase'));
+    final scrollable = find.descendant(
+      of: find.byType(SingleChildScrollView),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(showcase, 220, scrollable: scrollable);
+    await tester.pumpAndSettle();
+
+    expect(showcase, findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey('home-achievement-badge-planned_workout_completed'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('translates the focused Home surface to English', (
     WidgetTester tester,
   ) async {
@@ -399,6 +526,19 @@ void main() {
     expect(find.text('View Achievements'), findsNothing);
     expect(find.text('Latest Session'), findsNothing);
   });
+}
+
+AchievementReward _achievementReward(String id, DateTime unlockedAt) {
+  return AchievementReward(
+    ownerId: 'owner',
+    achievementId: id,
+    definitionVersion: 1,
+    unlockedAt: unlockedAt,
+    qualifyingEventId: 'event-$id',
+    isBackfilled: false,
+    createdAt: unlockedAt,
+    updatedAt: unlockedAt,
+  );
 }
 
 HomeDashboardData _mixedDashboardData() {

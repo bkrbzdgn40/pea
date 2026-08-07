@@ -633,6 +633,16 @@ class AppLocalizations {
     tr: 'Rozetlerin analizlerini tamamladıkça açılır.',
     en: 'Your badges unlock as you complete analyses.',
   );
+  String get homeAchievementShowcaseTitle =>
+      pick(tr: 'Başarım Vitrini', en: 'Achievement Showcase');
+  String get homeAchievementShowcaseSubtitle =>
+      pick(tr: 'Son kazandığın rozetler', en: 'Your latest earned badges');
+  String get homeAchievementShowcaseEmpty => pick(
+    tr: 'İlk başarımını kazandığında vitrinin burada oluşacak.',
+    en: 'Your showcase will appear here after your first achievement.',
+  );
+  String get homeAchievementShowcaseOpen =>
+      pick(tr: 'Başarımlar ekranını aç', en: 'Open achievements');
   String get exerciseDistribution =>
       pick(tr: 'Egzersiz Dağılımı', en: 'Exercise Distribution');
   String get exerciseDistributionSubtitle => pick(

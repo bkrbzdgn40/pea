@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/layout/app_layout.dart';
 import '../../../../app/localization/app_localizations.dart';
 import '../../../../app/presentation/widgets/app_scaffold_shell.dart';
+import '../../../achievements/presentation/screens/achievements_screen.dart';
+import '../providers/home_achievement_showcase_provider.dart';
 import '../providers/selected_exercise_provider.dart';
 import '../providers/workout_plan_session_provider.dart';
+import '../widgets/home_achievement_showcase.dart';
 import '../widgets/home_task_surface.dart';
 import 'assessment_selection_screen.dart';
 import 'camera_permission_screen.dart';
@@ -21,23 +26,30 @@ class HomeScreen extends ConsumerWidget {
     final localizations = AppLocalizations.of(context);
     final selectedExercise = ref.watch(selectedExerciseProvider);
 
+    void openAndRefreshShowcase(Widget screen) {
+      unawaited(
+        Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(builder: (_) => screen),
+        ).whenComplete(() {
+          if (context.mounted) {
+            ref.invalidate(homeAchievementShowcaseProvider);
+          }
+        }),
+      );
+    }
+
     void openExerciseSelection() {
       ref.read(workoutPlanSessionProvider.notifier).reset();
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ExerciseSelectionScreen()),
-      );
+      openAndRefreshShowcase(const ExerciseSelectionScreen());
     }
 
     void startAnalysis() {
       ref.read(workoutPlanSessionProvider.notifier).reset();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => selectedExercise != null
-              ? const CameraPermissionScreen()
-              : const ExerciseSelectionScreen(),
-        ),
+      openAndRefreshShowcase(
+        selectedExercise != null
+            ? const CameraPermissionScreen()
+            : const ExerciseSelectionScreen(),
       );
     }
 
@@ -46,12 +58,7 @@ class HomeScreen extends ConsumerWidget {
       currentPage: AppDestination.home,
       actions: [
         HomeHowToUseAction(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const HowToUseScreen()),
-            );
-          },
+          onPressed: () => openAndRefreshShowcase(const HowToUseScreen()),
         ),
       ],
       padding: EdgeInsets.zero,
@@ -80,27 +87,28 @@ class HomeScreen extends ConsumerWidget {
                     constraints: BoxConstraints(
                       maxWidth: useWideComposition ? 920 : double.infinity,
                     ),
-                    child: HomeTaskPanel(
-                      layout: layout,
-                      selectedExercise: selectedExercise,
-                      onStartAnalysis: startAnalysis,
-                      onSelectExercise: openExerciseSelection,
-                      onOpenWorkoutPlan: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const WorkoutPlanSetupScreen(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        HomeTaskPanel(
+                          layout: layout,
+                          selectedExercise: selectedExercise,
+                          onStartAnalysis: startAnalysis,
+                          onSelectExercise: openExerciseSelection,
+                          onOpenWorkoutPlan: () => openAndRefreshShowcase(
+                            const WorkoutPlanSetupScreen(),
                           ),
-                        );
-                      },
-                      onOpenAssessment: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AssessmentSelectionScreen(),
+                          onOpenAssessment: () => openAndRefreshShowcase(
+                            const AssessmentSelectionScreen(),
                           ),
-                        );
-                      },
+                        ),
+                        HomeAchievementShowcase(
+                          spacingBefore: layout.sectionGap,
+                          onOpenAchievements: () => openAndRefreshShowcase(
+                            const AchievementsScreen(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
