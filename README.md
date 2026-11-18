@@ -37,7 +37,7 @@ PEA; kamera görüntüsünden vücut eklemlerini gerçek zamanlı çıkarır, ha
 </table>
 </div>
 
-> Demo kayıtları, ekranda oynatılan bir egzersiz videosunun telefon kamerasına gösterilmesiyle alınmıştır. Amaç analiz akışını görsel olarak göstermektir; cihaz kabul kanıtı yerine geçmez (bkz. [Doğrulama](#-doğrulama-ve-güvenilirlik)).
+> Demo kayıtları, ekranda oynatılan egzersiz videolarının telefon kamerasına gösterilmesiyle alınmıştır. Videolardan biri [Pexels](https://www.pexels.com/license/) lisanslı bir stok videodur, diğeri Google Flow ile üretilmiş yapay zekâ videosudur. Amaç analiz akışını görsel olarak göstermektir; gerçek kullanıcı testi veya cihaz kabul kanıtı yerine geçmez (bkz. [Doğrulama](#-doğrulama-ve-güvenilirlik)).
 
 ## ✨ Öne çıkanlar
 
