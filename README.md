@@ -37,7 +37,7 @@ PEA; kamera görüntüsünden vücut eklemlerini gerçek zamanlı çıkarır, ha
 </table>
 </div>
 
-> Demo kayıtları, ekranda oynatılan egzersiz videolarının telefon kamerasına gösterilmesiyle alınmıştır. Videolardan biri [Pexels](https://www.pexels.com/license/) lisanslı bir stok videodur, diğeri Google Flow ile üretilmiş yapay zekâ videosudur. Amaç analiz akışını görsel olarak göstermektir; gerçek kullanıcı testi veya cihaz kabul kanıtı yerine geçmez (bkz. [Doğrulama](#-doğrulama-ve-güvenilirlik)).
+> Demo kayıtları, ekranda oynatılan egzersiz videolarının telefon kamerasına gösterilmesiyle alınmıştır. Squat demosundaki video, [Monstera Production](https://www.pexels.com/@gabby-k/) tarafından çekilen ve [Pexels Lisansı](https://www.pexels.com/license/) ile paylaşılan [“Woman doing squats in the gym”](https://www.pexels.com/video/woman-doing-squats-in-the-gym-6980032/) videosudur. Hollow Hold demosundaki video Google Flow ile üretilmiş yapay zekâ videosudur; görüntüdeki kişi gerçek değildir. Amaç analiz akışını görsel olarak göstermektir; gerçek kullanıcı testi veya cihaz kabul kanıtı yerine geçmez (bkz. [Doğrulama](#-doğrulama-ve-güvenilirlik)).
 
 ## ✨ Öne çıkanlar
 
